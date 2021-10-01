@@ -80,6 +80,73 @@ The matrix object is a scipy `csr_matrix`.
 Please refer to HiCMatrix for a reference implementation: https://github.com/deeptools/HiCMatrix/blob/master/hicmatrix/lib/h5.py
 
 
+To open a cool / h5 file with the HiCMatrix library, use the following code:
+
+.. code-block:: python
+
+   import hicmatrix.HiCMatrix as hm
+
+   hic_ma = hm.hiCMatrix("/path/to/matrix")
+
+   # csr_matrix
+   hic_ma.matrix
+
+   # the corresponding genomic regions as a list
+   hic_ma.cut_intervals
+
+
+To write a h5 use the following code. Please consider, once the datatype of a matrix is specified, for example by reading a h5 matrix or by first time writing a h5 matrix, it cannot be changed to a cool file anymore (except by manipulating the internal matrixFilehandler object). 
+
+.. code-block:: python
+
+   import hicmatrix.HiCMatrix as hm
+   from scipy.sparse import csr_matrix
+
+
+   # create a HiCMatrix object
+   hic_ma = hm.hiCMatrix()
+
+   # set important data structures
+
+   hic_ma.matrix = csr_matrix()
+   hic_ma.cut_intervals = list[(chr1, start1, end1, 1), (chr1, start2, end2, 1), ..., (chr1, startN, endN, 1)]
+
+   # to store a h5 matrix
+   hic_ma.save('/path/to/storage/matrix.h5')
+   # to store a cool matrix
+   hic_ma.save('/path/to/storage/matrix.cool')
+
+Alternatively, the matrixFileHandler object can be accessed directly:
+
+
+.. code-block:: python
+
+   from hicmatrix.lib import MatrixFileHandler
+
+
+   # Load a matrix via the MatrixFileHandler class
+
+   matrixFileHandlerInput = MatrixFileHandler(pFileType=args.inputFormat, pMatrixFile=matrix,
+                                                           pCorrectionFactorTable=args.correction_name,
+                                                           pCorrectionOperator=correction_operator,
+                                                           pChrnameList=chromosomes_to_load,
+                                                           pEnforceInteger=args.enforce_integer,
+                                                           pApplyCorrectionCoolerLoad=applyCorrectionCoolerLoad)
+
+   # Load data
+   _matrix, cut_intervals, nan_bins, \
+      distance_counts, correction_factors = matrixFileHandlerInput.load()
+
+   # create matrixFileHandler output object
+   matrixFileHandlerOutput = MatrixFileHandler(pFileType=args.outputFormat, pEnforceInteger=args.enforce_integer, pFileWasH5=format_was_h5, pHic2CoolVersion=hic2CoolVersion, pHiCInfo=cool_metadata)
+
+   # set the variables
+   matrixFileHandlerOutput.set_matrix_variables(_matrix, cut_intervals, nan_bins,
+                                                             correction_factors, distance_counts)
+
+   matrixFileHandlerOutput.save(args.outFileName, pSymmetric=True, pApplyCorrection=applyCorrection)
+
+
 
 Capture Hi-C HDF containers
 ---------------------------
@@ -114,11 +181,12 @@ chicViewpoint
        - gene name 2
            - ...
            - ...
-        . ---
+        - ...
     - chromosome 2
        - gene 1
           - ...
           - ...
+       - ...
     - ...
     - ...
     - genes
@@ -142,7 +210,7 @@ chicViewpoint
         - gene name 2
             - ...
             - ...
-         . ---
+        - ...
      - chromosome 2
         - gene 1
            - ...
@@ -185,7 +253,7 @@ Depending on the combination mode (single / dual) the structure is slightly diff
        - gene name 2
            - ...
            - ...
-        . ---
+        - ...
     - chromosome 2
        - gene 1
           - ...
@@ -206,7 +274,7 @@ Depending on the combination mode (single / dual) the structure is slightly diff
         - gene name 2
             - ...
             - ...
-         . ---
+         - ...
      - chromosome 2
         - gene 1
            - ...
@@ -218,12 +286,68 @@ Depending on the combination mode (single / dual) the structure is slightly diff
       - gene name 1 (link to matrix 2 / chromosome 1 / gene name 1
       - ...
 
-Significant interactions file:
+Combination mode 'dual' combines the target regions of one viewpoint region of two matrices.
+
+.. code-block:: bash
+
+   - combinationMode = 'dual' (String)
+   - fixateRange (int)
+   - mode_preselection (String)
+   - mode_preselection_value (float)
+   - peakInteractionsThreshold (float)
+   - pvalue (float)
+   - range (int, int)
+   - truncateZeroPvalues (Boolean)
+   - type='target' (String)
+   - matrix 1
+      - matrix 2
+         - chromosome 1
+            - gene name 1
+               - chromosome (String)
+               - end_list (array)
+               - reference_point_end (int)
+               - reference_point_start (int)
+               - start_list (array)
+            - gene name 2
+               - ...
+               - ...
+            - ...
+         - chromosome 2
+            - gene 1
+               - ...
+               - ...
+         - genes
+            - gene name 1 (link to matrix 1 / matrix 2 / chromosome 1 / gene name 1
+            - ...
+         - matrix 3
+            - chromosome 1
+               - gene name 1 
+                  - ...
+            - ...
+            - genes
+               - gene name 1 (link to matrix 1 / matrix 3 / chromosome 1 / gene name 1
+               - ...
+   - matrix 2
+      - matrix 3
+         - chromosome 1
+            - gene name 1
+               - ...
+            - ...
+         - ...
+      - ...
+         - genes
+            - gene name 1 (link to matrix 2 / matrix 3 / chromosome 1 / gene name 1
+            - ...
+   - ...
+
+
+
+Significant interactions file in the 'single' and 'dual' mode don't have a difference in their structure:
 
 
 .. code-block:: bash
 
-   - combinationMode (String)
+   - combinationMode  = 'single' (String) / 'dual' (String)
    - fixateRange (int)
    - mode_preselection (String)
    - mode_preselection_value (float)
@@ -290,5 +414,129 @@ Significant interactions file:
       - gene name 1 (link to matrix 2 / chromosome 1 / gene name 1
       - ...
 
-chicSignificantInteractions
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+chicAggregateStatistic
+~~~~~~~~~~~~~~~~~~~~~~
+
+
+.. code-block:: bash
+
+   - type='aggregate' (String)
+   - matrix_1_matrix_2 
+      - matrix 1
+         - chromosome 1
+            - gene name 1
+                  - chromosome (String)
+                  - end_list (array)
+                  - gene_name (String)
+                  - interaction_data_list (array)
+                  - raw_target_list (array)
+                  - relative_distance_list (array)
+                  - start_list (array)
+                  - sum_of_interactions (float)
+            - gene name 2
+           - ...
+           - ...
+         - genes
+            - gene name 1 (link to matrix_1_matrix_2 / matrix 1 / chromosome 1 / gene name 1
+            - ...
+      - matrix 2
+         - chromosome 1
+               - gene name 1
+                     - chromosome (String)
+                     - end_list (array)
+                     - gene_name (String)
+                     - interaction_data_list (array)
+                     - raw_target_list (array)
+                     - relative_distance_list (array)
+                     - start_list (array)
+                     - sum_of_interactions (float)
+               - gene name 2
+            - ...
+            - ...
+         - genes
+            - gene name 1 (link to matrix_1_matrix_2/ matrix 2 / chromosome 1 / gene name 1
+            - ...
+   - matrix_2_matrix_2
+      - matrix 2
+         - ...
+      - matrix 3
+         - ...
+
+
+
+chicDifferentialTest
+~~~~~~~~~~~~~~~~~~~~
+
+
+.. code-block:: bash
+
+   - type='differential' (String)
+   - alpha (float)
+   - test: fisher / chi2 (String)
+   - matrix_1
+      - matrix 2
+         - chromosome 1
+            - gene name 1
+                  - accepted
+                     - chromosome (String)
+                     - end_list (array)
+                     - gene (String)
+                     - interaction_data_list (array)
+                     - pvalue (array)
+                     - raw_target_list_1 (array)
+                     - raw_target_list_2 (array)
+                     - relative_distance_list (array)
+                     - start_list (array)
+                     - sum_of_interactions_1 (float)
+                     - sum_of_interactions_2 (float)
+                  - all
+                     - chromosome (String)
+                     - end_list (array)
+                     - gene (String)
+                     - interaction_data_list (array)
+                     - pvalue (array)
+                     - raw_target_list_1 (array)
+                     - raw_target_list_2 (array)
+                     - relative_distance_list (array)
+                     - start_list (array)
+                     - sum_of_interactions_1 (float)
+                     - sum_of_interactions_2 (float)
+                  - rejected 
+                     - chromosome (String)
+                     - end_list (array)
+                     - gene (String)
+                     - interaction_data_list (array)
+                     - pvalue (array)
+                     - raw_target_list_1 (array)
+                     - raw_target_list_2 (array)
+                     - relative_distance_list (array)
+                     - start_list (array)
+                     - sum_of_interactions_1 (float)
+                     - sum_of_interactions_2 (float)
+            - gene name 2
+                  - accepted
+                  - all
+                  - rejected
+            - ...
+         - genes
+            - gene name 1 (link to matrix_1 / matrix 2 / chromosome 1 / gene name 1
+            - ...
+      - matrix 3
+         - chromosome 1
+               - gene name 1
+                     - accepted
+                     - all
+                     - rejected
+               - gene name 2
+            - ...
+            - ...
+         - genes
+            - gene name 1 (link to matrix_1 / matrix 3 / chromosome 1 / gene name 1
+            - ...
+      - ...
+   - matrix 2
+      - matrix 3
+         - ...
+
