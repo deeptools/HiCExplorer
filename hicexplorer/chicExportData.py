@@ -60,7 +60,7 @@ chicExportData exports the data stored in the intermediate hdf5 files to text fi
                            help='Output file type can be set for all file types to txt; except \'interaction\' supports also bigwig'
                            ' (Default: %(default)s).',
                            default='txt',
-                           choices=['txt', 'bigwig']
+                           choices=['txt', 'bigwig', 'arcs']
                            )
     parserOpt.add_argument('--outputMode',
                            '-om',
@@ -101,13 +101,20 @@ chicExportData exports the data stored in the intermediate hdf5 files to text fi
                            required=False,
                            type=int,
                            nargs=2)
-    parserOpt.add_argument('--outputValueBigwig',
+    parserOpt.add_argument('--outputValueBigwigArcs',
                            '-ovb',
-                           help='Select which value the bigwig file should contain: \'relative-interactions\', \'p-value\', \'x-fold\', \'raw\''
+                           help='Select which value the bigwig / arcs file should contain: \'relative-interactions\', \'p-value\', \'x-fold\', \'raw\''
                            ' (Default: %(default)s).',
                            default='relative-interactions',
                            choices=['relative-interactions', 'p-value', 'x-fold', 'raw']
                            )
+    parserOpt.add_argument('--arcsRegion', '-ar',
+                           help='Only active for the outputFileType arcs. Enforce all outputs to be in the same region. WARNING: This manipulates the regions of the interactions!'
+                           ' Please activate this option only for very special purposes like plotting multiple genes in one plot via pyGenomeTracks which does not support multiple different regions.'
+                           'To use it, set to the desired region by defining a random reference point e.g. chr1:18000000-18001000 for a 1kb resolution' ,
+                           required=False,
+                           default=None,
+                           type=str)
     parserOpt.add_argument('--threads', '-t',
                            help='Number of threads (uses the python multiprocessing module)'
                            ' (Default: %(default)s).',
@@ -126,8 +133,18 @@ def exportData(pFileList, pArgs, pViewpointObject, pDecimalPlace, pChromosomeSiz
 
     file_list = []
     file_content_list = []
+    chromosome_arc = None
+    start_arc = None
+    end_arc = None
+    file_ending = '.txt' 
+    if pArgs.outputFileType == 'bigwig':
+        file_ending = '.bigwig' 
+    elif pArgs.outputFileType == 'arcs':
+        file_ending = '.arcs' 
+        if pArgs.arcsRegion is not None:
+            chromosome_arc, start_arc = pArgs.arcsRegion.split(':')
+            start_arc, end_arc = start_arc.split('-')
 
-    file_ending = '.txt' if pArgs.outputFileType == 'txt' else '.bigwig'
     try:
         if pFileType == 'interactions' or pFileType == 'significant':
             header_information = '# Chromosome\tStart\tEnd\tGene\tSum of interactions\tRelative position\tRelative Interactions\tp-value\tx-fold\tRaw\n'
@@ -149,18 +166,50 @@ def exportData(pFileList, pArgs, pViewpointObject, pDecimalPlace, pChromosomeSiz
                         file_content_string = header_information
                         for key in key_list:
                             file_content_string += '\t'.join('{:.{decimal_places}f}'.format(x, decimal_places=pDecimalPlace) if isinstance(x, np.float) else str(x) for x in data[1][key]) + '\n'
+                    elif pArgs.outputFileType == 'arcs':
+                        file_content_string = ''
+                        for key in key_list:
+                            # log.debug('key {}'.format(key))
+                            # log.debug('data[1] {}'.format(str(data[1][key])))
+                            # log.debug('data[2] {}'.format(str(data[2])))
+                            
+                            if pArgs.arcsRegion is not None:
+                                file_content_string += '\t'.join([str(chromosome_arc), str(start_arc), str(end_arc)])
+                                file_content_string += '\t'
+                                file_content_string += '\t'.join([str(chromosome_arc), str(int(start_arc) + int(data[1][key][5])), str(int(end_arc) + int(data[1][key][5]))])
+                                file_content_string += '\t'
+                            else:
+                                file_content_string += '\t'.join([str(data[1][key][0]), str(int(data[2][0])), str(int(data[2][1]))])
+                                file_content_string += '\t'
+                                file_content_string += '\t'.join([str(data[1][key][0]), str(int(data[1][key][1])), str(int(data[1][key][2]))])
+                                file_content_string += '\t'
+
+                            if pArgs.outputValueBigwigArcs == 'relative-interactions':
+                                file_content_string += '{:.{decimal_places}f}'.format(data[1][key][6], decimal_places=pDecimalPlace)
+                            elif pArgs.outputValueBigwigArcs == 'p-value':
+                                file_content_string += '{:.{decimal_places}f}'.format(data[1][key][7], decimal_places=pDecimalPlace)
+
+                            elif pArgs.outputValueBigwigArcs == 'x-fold':
+                                file_content_string += '{:.{decimal_places}f}'.format(data[1][key][8], decimal_places=pDecimalPlace)
+
+                            elif pArgs.outputValueBigwigArcs == 'raw':
+                                file_content_string += '{:.{decimal_places}f}'.format(data[1][key][9], decimal_places=pDecimalPlace)
+                            
+                            file_content_string += '\n'
+                            # log.debug('file_content_string {}'.format(file_content_string))
+                           
                     else:
                         for key in key_list:
                             chromosome_name.append(str(data[1][key][0]))
                             start.append(int(data[1][key][1]))
                             end.append(int(data[1][key][2]))
-                            if pArgs.outputValueBigwig == 'relative-interactions':
+                            if pArgs.outputValueBigwigArcs == 'relative-interactions':
                                 values.append(float(data[1][key][6]))
-                            elif pArgs.outputValueBigwig == 'p-value':
+                            elif pArgs.outputValueBigwigArcs == 'p-value':
                                 values.append(float(data[1][key][7]))
-                            elif pArgs.outputValueBigwig == 'x-fold':
+                            elif pArgs.outputValueBigwigArcs == 'x-fold':
                                 values.append(float(data[1][key][8]))
-                            elif pArgs.outputValueBigwig == 'raw':
+                            elif pArgs.outputValueBigwigArcs == 'raw':
                                 values.append(float(data[1][key][9]))
 
                             relative_distance[data[1][key][5]] = [str(data[1][key][0]), int(data[1][key][1]), int(data[1][key][2])]
@@ -180,7 +229,7 @@ def exportData(pFileList, pArgs, pViewpointObject, pDecimalPlace, pChromosomeSiz
                                     end_background.append(relative_distance[key][2])
                                     value_background.append(float(pBackgroundData[key][0]))
 
-                if pArgs.outputFileType == 'txt':
+                if pArgs.outputFileType == 'txt' or pArgs.outputFileType == 'arcs':
                     file_content_list.append(file_content_string)
                     file_name = '_'.join(sample) + '_' + pFileType + file_ending
                 else:
@@ -238,13 +287,37 @@ def exportData(pFileList, pArgs, pViewpointObject, pDecimalPlace, pChromosomeSiz
                 item_classification = ['accepted', 'all', 'rejected']
                 line_content = pViewpointObject.readDifferentialFile(pArgs.file, file)
                 for i, item in enumerate(line_content):
-                    file_content_string = header_information
+                    if pArgs.outputFileType == 'txt':
+                        file_content_string = header_information
 
-                    for line in item:
-                        file_content_string += '\t'.join('{:.{decimal_places}f}'.format(x, decimal_places=pDecimalPlace) if isinstance(x, np.float) else str(x) for x in line) + '\n'
-                    file_content_list.append(file_content_string)
-                    file_name = '_'.join(file) + '_' + item_classification[i] + '_' + pFileType + '.txt'
-                    file_list.append(file_name)
+                        for line in item:
+                            file_content_string += '\t'.join('{:.{decimal_places}f}'.format(x, decimal_places=pDecimalPlace) if isinstance(x, np.float) else str(x) for x in line) + '\n'
+                        file_content_list.append(file_content_string)
+                        file_name = '_'.join(file) + '_' + item_classification[i] + '_' + pFileType + '.txt'
+                        file_list.append(file_name)
+                    elif pArgs.outputFileType == 'arcs':
+                        file_content_string = ''
+                        for line in item:
+                            log.debug('line {}'.format(line))
+                            if pArgs.arcsRegion is not None:
+                                file_content_string += '\t'.join([str(chromosome_arc), str(start_arc), str(end_arc)])
+                                file_content_string += '\t'
+                                file_content_string += '\t'.join([str(chromosome_arc), str(int(start_arc) + int(line[4])), str(int(end_arc) + int(line[4]))])
+                                file_content_string += '\t'
+                                file_content_string += '1\n'
+                            else:
+                                resolution = int(line[2]) - int(line[1]) 
+                                file_content_string += '\t'.join([ str(line[0]), str( int(line[1]) - int(line[4])) , str( int(line[2]) - int(line[4]) ) ])
+                                file_content_string += '\t'
+                                file_content_string += '\t'.join([str(line[0]), str(int(line[1])), str(int(line[2]))])
+                                file_content_string += '\t'
+                                file_content_string += '1\n'
+
+                          
+                        file_content_list.append(file_content_string)
+                        file_name = '_'.join(file) + '_' + item_classification[i] + '_' + pFileType + '.arcs'
+                        file_list.append(file_name)
+
 
     except Exception as exp:
         pQueue.put('Fail: ' + str(exp) + traceback.format_exc())
@@ -500,7 +573,7 @@ def main(args=None):
     if len(thread_data) == 0:
         log.error('Contains not the requested data!')
         exit(1)
-    if args.outputFileType == 'txt':
+    if args.outputFileType == 'txt' or args.outputFileType == 'arcs':
         if args.outputMode == 'geneName':
             basepath = os.path.dirname(args.outFileName)
             for i, file_content_string in enumerate(thread_data):
