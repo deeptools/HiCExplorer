@@ -298,7 +298,7 @@ def exportData(pFileList, pArgs, pViewpointObject, pDecimalPlace, pChromosomeSiz
                     elif pArgs.outputFileType == 'arcs':
                         file_content_string = ''
                         for line in item:
-                            log.debug('line {}'.format(line))
+                            # log.debug('line {}'.format(line))
                             if pArgs.arcsRegion is not None:
                                 file_content_string += '\t'.join([str(chromosome_arc), str(start_arc), str(end_arc)])
                                 file_content_string += '\t'
