@@ -70,7 +70,7 @@ There are many easy ways to install HiCExplorer. Details can be found
 `here <https://hicexplorer.readthedocs.io/en/latest/content/installation.html>`_.
 
 
-**We strongly recommended to use conda to install HiCExplorer.**
+**We strongly recommended to use conda (or mamba) to install HiCExplorer.**
 
 
 Command line version
@@ -89,7 +89,7 @@ We highly recommend conda environments to separate software from each other. Wit
 
 ::
 
-   $ conda create --name hicexplorer hicexplorer=3.6 python=3.8 -c bioconda -c conda-forge
+   $ conda create --name hicexplorer hicexplorer=3.7.2 python=3.8 -c bioconda -c conda-forge
    $ conda activate hicexplorer
    
 To deactivate the environment use:
@@ -100,8 +100,20 @@ To deactivate the environment use:
    
 
 To learn more about conda and environments, please consider the following `documentation <https://docs.conda.io/projects/conda/en/latest/user-guide/getting-started.html#>`_.
-   
-   
+
+
+Mamba
+_____
+
+`Mamba <https://github.com/mamba-org/mamba>`_ is an alternative to conda and is conda compatible. It solves dependencies faster than conda, try it in case there are any issues or failures using conda to install HiCExplorer.
+
+::
+
+   $ conda install mamba -c conda-forge
+::
+
+   $ mamba create --name hicexplorer hicexplorer=3.7.2 python=3.8 -c bioconda -c conda-forge
+
 
 Install by cloning this repository
 __________________________________
