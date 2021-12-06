@@ -27,7 +27,7 @@ jobs:
       conda info -a
       mamba create -n hicexplorer --yes -c conda-forge -c bioconda python=$(python.version) --file requirements.txt
       source activate hicexplorer
-      mamba install --yes -c conda-forge -c bioconda pytest flake8 pytest-xdist pytest-forked
+      mamba install --yes -c conda-forge -c bioconda pytest flake8 pytest-xdist pytest-forked openssl=1.0
       mamba install --yes -c conda-forge -c bioconda nose
       mamba install --yes pathlib
       mamba install --yes -c defaults -c conda-forge -c bioconda configparser
@@ -77,7 +77,7 @@ jobs:
       conda info -a
       mamba create -n hicexplorer --yes -c conda-forge -c bioconda python=$(python.version) --file requirements.txt
       source activate hicexplorer
-      mamba install --yes -c conda-forge -c bioconda pytest flake8 pytest-xdist pytest-forked
+      mamba install --yes -c conda-forge -c bioconda pytest flake8 pytest-xdist pytest-forked openssl=1.0
       mamba install --yes -c conda-forge -c bioconda nose
       mamba install --yes pathlib
       mamba install --yes -c defaults -c conda-forge -c bioconda configparser
