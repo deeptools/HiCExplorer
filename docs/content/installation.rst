@@ -37,8 +37,8 @@ Requirements
 **Warning:** Python 2.7 support is discontinued. Moreover, the support for pip is discontinued too. 
 **Warning:** We strongly recommend to use the conda package manager and will no longer give support on all issues raising with pip.
 
-Command line installation using ``conda``
------------------------------------------
+Command line installation using ``conda`` / ``mamba``
+-----------------------------------------------------
 
 The fastet way to obtain **Python 3.6 or 3.7 together with numpy and scipy** is
 via the `Anaconda Scientific Python
@@ -50,7 +50,15 @@ follow the directions for its installation. All of the requirements for HiCExplo
 
     $ conda install hicexplorer -c bioconda -c conda-forge
 
-We strongly recommended to use conda to install HiCExplorer. 
+Mamba is an alternative to conda and conda-compatible. It resolves dependencies faster and might solve issues appearing with conda.
+
+.. code:: bash
+
+    $ conda install mamba -c conda-forge
+    $ mamba install hicexplorer -c bioconda -c conda-forge
+    
+    
+We strongly recommended to use conda / mamba to install HiCExplorer. 
 
 Command line installation using ``pip``
 -----------------------------------------
