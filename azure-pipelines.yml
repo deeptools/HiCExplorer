@@ -23,13 +23,14 @@ jobs:
     displayName: Add conda to PATH
   - bash: |
       conda config --set always_yes yes --set changeps1 no
+      conda install mamba -c conda-forge -y
       conda info -a
-      conda create -n hicexplorer --yes -c conda-forge -c bioconda python=$(python.version) --file requirements.txt
+      mamba create -n hicexplorer --yes -c conda-forge -c bioconda python=$(python.version) --file requirements.txt
       source activate hicexplorer
-      conda install --yes -c conda-forge -c bioconda pytest flake8 pytest-xdist pytest-forked
-      conda install --yes -c conda-forge -c bioconda nose
-      conda install --yes pathlib
-      conda install --yes -c defaults -c conda-forge -c bioconda configparser
+      mamba install --yes -c conda-forge -c bioconda pytest flake8 pytest-xdist pytest-forked
+      mamba install --yes -c conda-forge -c bioconda nose
+      mamba install --yes pathlib
+      mamba install --yes -c defaults -c conda-forge -c bioconda configparser
       python setup.py install
     displayName: installing dependencies
   - script: |
@@ -68,13 +69,14 @@ jobs:
     displayName: Add conda to PATH
   - bash: |
       conda config --set always_yes yes --set changeps1 no
+      conda install mamba -c conda-forge -y
       conda info -a
-      conda create -n hicexplorer --yes -c conda-forge -c bioconda python=$(python.version) --file requirements.txt
+      mamba create -n hicexplorer --yes -c conda-forge -c bioconda python=$(python.version) --file requirements.txt
       source activate hicexplorer
-      conda install --yes -c conda-forge -c bioconda pytest flake8 pytest-xdist pytest-forked
-      conda install --yes -c conda-forge -c bioconda nose
-      conda install --yes pathlib
-      conda install --yes -c defaults -c conda-forge -c bioconda configparser
+      mamba install --yes -c conda-forge -c bioconda pytest flake8 pytest-xdist pytest-forked
+      mamba install --yes -c conda-forge -c bioconda nose
+      mamba install --yes pathlib
+      mamba install --yes -c defaults -c conda-forge -c bioconda configparser
       python setup.py install
     displayName: installing dependencies
   - script: |
