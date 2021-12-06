@@ -19,17 +19,18 @@ before_install:
   - export PATH="$HOME/miniconda/bin:$PATH"
   - hash -r
   - conda config --set always_yes yes --set changeps1 no
-  - conda install conda=4.8 -q
+  - conda install conda=4.10 -q
+  - conda install mamba -c conda-forge -y
   # - conda update -q conda
   # Useful for debugging any issues with conda
   - conda info -a
 # Install packages
 install:
-  - conda install --yes -c conda-forge -c bioconda python=$TRAVIS_PYTHON_VERSION --file requirements.txt
-  - conda install --yes -c conda-forge -c bioconda pytest
-  - conda install --yes -c conda-forge -c bioconda nose
-  - conda install --yes pathlib
-  - conda install --yes -c defaults -c conda-forge -c bioconda configparser
+  - mamba install --yes -c conda-forge -c bioconda python=$TRAVIS_PYTHON_VERSION --file requirements.txt
+  - mamba install --yes -c conda-forge -c bioconda pytest
+  - mamba install --yes -c conda-forge -c bioconda nose
+  - mamba install --yes pathlib
+  - mamba install --yes -c defaults -c conda-forge -c bioconda configparser
   - python setup.py install
 # command to run tests
 
