@@ -143,6 +143,9 @@ def writeAggregateHDF(pOutFileName, pOutfileNamesList, pAcceptedScoresList, pArg
             matrixCombinationGroup = aggregateFileH5Object[matrix_combination_key]
 
         for key, data in zip(key_outer, data_outer):
+            log.debug('key {}'.format(key))
+            # log.debug('key {}'.format(key))
+
             if len(data) == 0:
                 continue
             else:
@@ -157,6 +160,9 @@ def writeAggregateHDF(pOutFileName, pOutfileNamesList, pAcceptedScoresList, pArg
             raw_target_list = []
 
             for key_accepted in data:
+                log.debug('key_accepted {}'.format(key_accepted) )
+                log.debug('data[key_accepted] {}'.format(data[key_accepted]) )
+
                 chromosome = data[key_accepted][0]
                 start_list.append(data[key_accepted][1])
                 end_list.append(data[key_accepted][2])
@@ -172,7 +178,7 @@ def writeAggregateHDF(pOutFileName, pOutfileNamesList, pAcceptedScoresList, pArg
             if key[1] not in matrixGroup:
                 chromosomeObject = matrixGroup.create_group(key[1])
             else:
-                chromosomeObject = matrixGroup[chromosome]
+                chromosomeObject = matrixGroup[key[1]]
 
             if 'genes' not in matrixGroup:
                 geneGroup = matrixGroup.create_group('genes')
