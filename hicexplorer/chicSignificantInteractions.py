@@ -504,7 +504,7 @@ def writeTargetHDF(pOutFileName, pTargetDataList, pTargetKeyList, pViewpointObj,
     targetFileH5Object.attrs['truncateZeroPvalues'] = pArgs.truncateZeroPvalues
     targetFileH5Object.attrs['fixateRange'] = pArgs.fixateRange
     targetFileH5Object.attrs['peakInteractionsThreshold'] = pArgs.peakInteractionsThreshold
-    keys_seen = {}
+    # keys_seen = {}
     for i, (key, data) in enumerate(zip(pTargetKeyList, pTargetDataList)):
         if len(data) == 0:
             continue
@@ -521,7 +521,7 @@ def writeTargetHDF(pOutFileName, pTargetDataList, pTargetKeyList, pViewpointObj,
 
         if key[0] not in targetFileH5Object:
             matrixGroup = targetFileH5Object.create_group(key[0])
-            keys_seen[key[0]] = set()
+            # keys_seen[key[0]] = set()
         else:
             matrixGroup = targetFileH5Object[key[0]]
 
@@ -530,7 +530,7 @@ def writeTargetHDF(pOutFileName, pTargetDataList, pTargetKeyList, pViewpointObj,
                 break
             if matrix_name not in matrixGroup:
                 matrixGroup = matrixGroup.create_group(matrix_name)
-                keys_seen[matrix_name] = set()
+                # keys_seen[matrix_name] = set()
             else:
                 matrixGroup = matrixGroup[matrix_name]
 
@@ -545,20 +545,22 @@ def writeTargetHDF(pOutFileName, pTargetDataList, pTargetKeyList, pViewpointObj,
 
         success = False
         counter = 0
-        while not success:
+        # while not success:
 
-            if counter != 0:
-                gene_name_key = key[-1] + '_' + str(counter)
-            else:
-                gene_name_key = key[-1]
-            if gene_name_key in keys_seen[key[0]]:
-                success = False
-            else:
-                keys_seen[key[0]].add(gene_name_key)
-                success = True
-            counter += 1
+        #     if counter != 0:
+        #         gene_name_key = key[-1] + '_' + str(counter)
+        #     else:
+        #         gene_name_key = key[-1]
+        #     if gene_name_key in keys_seen[key[0]]:
+        #         success = False
+        #     else:
+        #         keys_seen[key[0]].add(gene_name_key)
+        #         success = True
+        #     counter += 1
 
-        groupObject, groupName = pViewpointObj.createUniqueHDFGroup(chromosomeObject, gene_name_key)
+        # groupObject, groupName = pViewpointObj.createUniqueHDFGroup(chromosomeObject, gene_name_key)
+        groupObject, groupName = pViewpointObj.createUniqueHDFGroup(chromosomeObject, key[-1])
+
 
         groupObject["chromosome"] = chromosome
         groupObject.create_dataset("start_list", data=start_list)

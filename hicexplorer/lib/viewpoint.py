@@ -352,16 +352,21 @@ class Viewpoint():
 
         success = False
         counter = 0
+        # log.debug('createUniqueHDFGroup')
+        additional_group_name_raw = pAdditionalGroupName
         while not success:
             try:
                 if counter != 0:
-                    pAdditionalGroupName = pAdditionalGroupName + '_' + str(counter)
+                    pAdditionalGroupName = additional_group_name_raw + '_' + str(counter)
+                    file_name = pAdditionalGroupName
                 else:
                     file_name = pAdditionalGroupName
                 groupObject = pGroupObject.create_group(file_name)
                 success = True
             except ValueError:
                 counter += 1
+                log.debug('counter +1: {}'.format(counter))
+        # log.debug('createUniqueHDFGroup EXIT')
 
         return groupObject, file_name
 

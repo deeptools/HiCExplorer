@@ -136,7 +136,10 @@ def main(args=None):
             mask = np.isinf(hic_matrix.matrix.data)
             hic_matrix.matrix.data[mask] = 0
             # adjust_factor = sum_list[i] / sum_list[argmin]
+            log.debug('before normalization sum: {}'.format(hic_matrix.matrix.data.sum()))
             hic_matrix.matrix.data *= args.multiplicativeValue
+            log.debug('after normalization sum: {}'.format(hic_matrix.matrix.data.sum()))
+
             mask = np.isnan(hic_matrix.matrix.data)
 
             mask = np.isnan(hic_matrix.matrix.data)

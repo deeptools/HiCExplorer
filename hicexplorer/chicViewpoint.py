@@ -296,7 +296,6 @@ def main(args=None):
 
         matrixGroup = interactionFileH5Object.create_group(os.path.basename(matrix).split('.')[0])
         geneGroup = matrixGroup.create_group('genes')
-
         for i, interaction_data in enumerate(matrix_collection[matrix]):
             if interaction_data[1][0] not in matrixGroup:
                 chromosomeObject = matrixGroup.create_group(interaction_data[1][0])
