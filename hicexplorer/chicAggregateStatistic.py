@@ -143,10 +143,10 @@ def writeAggregateHDF(pOutFileName, pOutfileNamesList, pAcceptedScoresList, pArg
             matrixCombinationGroup = aggregateFileH5Object[matrix_combination_key]
 
         for key, data in zip(key_outer, data_outer):
-            log.debug('key {}'.format(key))
+            # log.debug('key {}'.format(key))
             # log.debug('key {}'.format(key))
 
-            if len(data) == 0:
+            if len(data[0]) == 0:
                 continue
             else:
                 counter += 1
@@ -159,17 +159,18 @@ def writeAggregateHDF(pOutFileName, pOutfileNamesList, pAcceptedScoresList, pArg
 
             raw_target_list = []
 
-            for key_accepted in data:
-                log.debug('key_accepted {}'.format(key_accepted) )
-                log.debug('data[key_accepted] {}'.format(data[key_accepted]) )
-
-                chromosome = data[key_accepted][0]
-                start_list.append(data[key_accepted][1])
-                end_list.append(data[key_accepted][2])
-                gene_name = data[key_accepted][3]
-                sum_of_interactions = data[key_accepted][4]
-                relative_distance_list.append(data[key_accepted][5])
-                raw_target_list.append(data[key_accepted][-1])
+            # log.debug('data {}'.format(data))
+            # exit()
+            for key_accepted in data[0]:
+                # log.debug('key_accepted {}'.format(key_accepted) )
+                # log.debug('data[0][key_accepted] {}'.format(data[0][key_accepted]) )
+                chromosome = data[0][key_accepted][0]
+                start_list.append(data[0][key_accepted][1])
+                end_list.append(data[0][key_accepted][2])
+                gene_name = data[0][key_accepted][3]
+                sum_of_interactions = data[0][key_accepted][4]
+                relative_distance_list.append(data[0][key_accepted][5])
+                raw_target_list.append(data[0][key_accepted][-1])
 
             if key[0] not in matrixCombinationGroup:
                 matrixGroup = matrixCombinationGroup.create_group(key[0])
@@ -193,6 +194,12 @@ def writeAggregateHDF(pOutFileName, pOutfileNamesList, pAcceptedScoresList, pArg
             groupObject["sum_of_interactions"] = sum_of_interactions
             groupObject.create_dataset("relative_distance_list", data=relative_distance_list, compression="gzip", compression_opts=9)
             groupObject.create_dataset("raw_target_list", data=raw_target_list, compression="gzip", compression_opts=9)
+            groupObject.create_dataset("reference_point_start", data=int(data[1][0]))
+            groupObject.create_dataset("reference_point_end", data=int(data[1][1]))
+
+
+            # groupObject["reference_point_start"] = data[1][0]
+            # groupObject["reference_point_end"] = data[1][1]
 
             geneGroup[key[-1]] = chromosomeObject[key[-1]]
 
@@ -218,7 +225,7 @@ def run_target_list_compilation(pInteractionFilesList, pTargetList, pArgs, pView
             accepted_scores_list_intern = []
             for sample in interactionFile:
 
-                interaction_data, interaction_file_data, _ = pViewpointObj.readInteractionFile(pArgs.interactionFile, sample)
+                interaction_data, interaction_file_data, reference_point = pViewpointObj.readInteractionFile(pArgs.interactionFile, sample)
                 if pOneTarget == True:
                     target_file = None
                 else:
@@ -227,7 +234,7 @@ def run_target_list_compilation(pInteractionFilesList, pTargetList, pArgs, pView
                 accepted_scores = filter_scores_target_list(interaction_file_data, pTargetList=target_file, pTargetIntervalTree=target_regions_intervaltree, pTargetFile=pArgs.targetFile)
 
                 outfile_names_list_intern.append(sample)
-                accepted_scores_list_intern.append(accepted_scores)
+                accepted_scores_list_intern.append([accepted_scores, reference_point])
             outfile_names_list.append(outfile_names_list_intern)
             accepted_scores_list.append(accepted_scores_list_intern)
 

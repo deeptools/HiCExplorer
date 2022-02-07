@@ -228,6 +228,8 @@ def writeResultHDF(pOutFileName, pAcceptedData, pRejectedData, pAllResultData, p
             if len(data_object) == 0:
                 continue
             chromosome = None
+            reference_point_start = None
+            reference_point_end = None
             start_list = []
             end_list = []
             sum_of_interactions_1 = None
@@ -239,9 +241,9 @@ def writeResultHDF(pOutFileName, pAcceptedData, pRejectedData, pAllResultData, p
             raw_target_list_1 = []
             raw_target_list_2 = []
 
+            # log.debug('data_object {}'.format(data_object))
             for data in data_object:
 
-                chromosome = data[0][0]
                 start_list.append(data[0][1])
                 end_list.append(data[0][2])
 
@@ -253,8 +255,15 @@ def writeResultHDF(pOutFileName, pAcceptedData, pRejectedData, pAllResultData, p
                 raw_target_list_1.append(data[3][1])
                 raw_target_list_2.append(data[4][1])
                 pvalue_list.append(data[2])
+            
+            chromosome = data_object[0][0][0]
+            reference_point_start = data_object[0][0][7]
+            reference_point_end = data_object[0][0][8]
 
             write_object["chromosome"] = str(chromosome)
+            write_object["reference_point_start"] = str(reference_point_start)
+            write_object["reference_point_end"] = str(reference_point_end)
+
             write_object.create_dataset("start_list", data=start_list, compression="gzip", compression_opts=9)
             write_object.create_dataset("end_list", data=end_list, compression="gzip", compression_opts=9)
             write_object["gene"] = str(gene_name)

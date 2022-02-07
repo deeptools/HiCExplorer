@@ -1039,6 +1039,12 @@ class Viewpoint():
         chromosome = aggregatedFileHDF5Object.get(internal_path + '/' + 'chromosome')[()].decode("utf-8")
 
         gene_name = aggregatedFileHDF5Object.get(internal_path + '/' + 'gene_name')[()].decode("utf-8")
+        reference_point_start = aggregatedFileHDF5Object.get(internal_path + '/' + 'reference_point_start')[()]
+        reference_point_end = aggregatedFileHDF5Object.get(internal_path + '/' + 'reference_point_end')[()]
+
+        # log.debug('reference_point_start {}'.format(reference_point_start))
+        # log.debug('reference_point_end {}'.format(reference_point_end))
+
 
         start_list = np.array(aggregatedFileHDF5Object[internal_path + '/' + 'start_list'][:])
         end_list = np.array(aggregatedFileHDF5Object[internal_path + '/' + 'end_list'][:])
@@ -1049,7 +1055,7 @@ class Viewpoint():
         line_content = []
         data = []
         for i in range(len(start_list)):
-            line_content.append([chromosome, start_list[i], end_list[i], gene_name, sum_of_interactions, relative_distance_list[i], raw_target_list[i]])
+            line_content.append([chromosome, start_list[i], end_list[i], gene_name, sum_of_interactions, relative_distance_list[i], raw_target_list[i], reference_point_start, reference_point_end])
             data.append([sum_of_interactions, raw_target_list[i]])
 
         return line_content, data
@@ -1065,6 +1071,12 @@ class Viewpoint():
             try:
                 item_object = differentialFileHDF5Object[internal_path + '/' + item]
                 chromosome = item_object.get('chromosome')[()].decode("utf-8")
+                reference_point_start = int(item_object.get('reference_point_start')[()])
+                reference_point_end = int(item_object.get('reference_point_end')[()])
+                
+                log.debug('reference_point_start {}'.format(int(reference_point_start)))
+                log.debug('reference_point_end {}'.format(int(reference_point_end)))
+
                 start_list = np.array(item_object['start_list'][:])
                 end_list = np.array(item_object['end_list'][:])
                 relative_distance_list = np.array(item_object['relative_distance_list'][:])
@@ -1078,12 +1090,14 @@ class Viewpoint():
 
                 chromosome = [chromosome] * len(start_list)
                 gene = [gene] * len(start_list)
+                reference_point_start_list = [reference_point_start]  * len(start_list)
+                reference_point_end_list = [reference_point_end]  * len(start_list)
                 sum_of_interactions_1 = [sum_of_interactions_1] * len(start_list)
                 sum_of_interactions_2 = [sum_of_interactions_2] * len(start_list)
-                output_list.append(zip(chromosome, start_list, end_list, gene, relative_distance_list, sum_of_interactions_1, raw_target_list_1, sum_of_interactions_2, raw_target_list_2, pvalue_list))
-
+                output_list.append(zip(chromosome, start_list, end_list, gene, relative_distance_list, sum_of_interactions_1, raw_target_list_1, sum_of_interactions_2, raw_target_list_2, pvalue_list, reference_point_start_list, reference_point_end_list))
+                # log.debug('new item {}'.format(list(output_list[-1])))
             except Exception as exp:
-                log.debug('exception {}'.format(str(exp)))
+                log.debug('readDifferentialFile exception {}'.format(str(exp)))
                 output_list.append([])
 
         return output_list

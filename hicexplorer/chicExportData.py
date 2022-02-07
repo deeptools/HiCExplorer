@@ -60,7 +60,7 @@ chicExportData exports the data stored in the intermediate hdf5 files to text fi
                            help='Output file type can be set for all file types to txt; except \'interaction\' supports also bigwig'
                            ' (Default: %(default)s).',
                            default='txt',
-                           choices=['txt', 'bigwig', 'arcs']
+                           choices=['txt', 'bigwig', 'arcs', 'long-range-text']
                            )
     parserOpt.add_argument('--outputMode',
                            '-om',
@@ -91,7 +91,19 @@ chicExportData exports the data stored in the intermediate hdf5 files to text fi
                            help='Path to the background model file. Required only for fileType=interactions and outputFileTypeBigwig.',
                            required=False)
     parserOpt.add_argument('--oneTargetFile', '-otf',
-                           help='Compile all target files to one. Applies only if --fileType is target',
+                           help='Compile all target files to one. Applies only if the file type is target',
+                           required=False,
+                           action='store_true')
+    parserOpt.add_argument('--oneSignificantFile', '-osf',
+                           help='Compile all significant files to one. Applies only if the file type is significant',
+                           required=False,
+                           action='store_true')
+    parserOpt.add_argument('--oneDifferentialFile', '-odf',
+                           help='Compile all rejected differential regions to one file.',
+                           required=False,
+                           action='store_true')
+    parserOpt.add_argument('--exportOnlySignificantOrRejected', '-eo',
+                           help='Export from significant or rejected files only these viewpoint which contains significant or differential regions.',
                            required=False,
                            action='store_true')
     parserOpt.add_argument('--range',
@@ -197,7 +209,15 @@ def exportData(pFileList, pArgs, pViewpointObject, pDecimalPlace, pChromosomeSiz
                             
                             file_content_string += '\n'
                             # log.debug('file_content_string {}'.format(file_content_string))
-                           
+                    elif pArgs.outputFileType == 'long-range-text':
+                        file_content_string = ''
+                        
+                        for key in key_list:
+                            file_content_string += '\t'.join([str(data[1][key][0]), str(int(data[2][0])), str(int(data[2][1]))])
+                            file_content_string += '\t'
+                            file_content_string += str(data[1][key][0]) + ':' + str(int(data[1][key][1])) + '-' +  str(int(data[1][key][2]))  + ',' + str(int(data[1][key][9]))
+                            file_content_string += '\n'
+                            
                     else:
                         for key in key_list:
                             chromosome_name.append(str(data[1][key][0]))
@@ -228,8 +248,11 @@ def exportData(pFileList, pArgs, pViewpointObject, pDecimalPlace, pChromosomeSiz
                                     start_background.append(relative_distance[key][1])
                                     end_background.append(relative_distance[key][2])
                                     value_background.append(float(pBackgroundData[key][0]))
-
-                if pArgs.outputFileType == 'txt' or pArgs.outputFileType == 'arcs':
+                # if pArgs.exportOnlySignificantOrRejected:
+                #     # contains only header and no significant regions
+                #     if len(file     _content_string) == 1:
+                #         continue
+                if pArgs.outputFileType == 'txt' or pArgs.outputFileType == 'arcs' or pArgs.outputFileType == 'long-range-text':
                     file_content_list.append(file_content_string)
                     file_name = '_'.join(sample) + '_' + pFileType + file_ending
                 else:
@@ -286,12 +309,41 @@ def exportData(pFileList, pArgs, pViewpointObject, pDecimalPlace, pChromosomeSiz
                 # accepted_list, all_list, rejected_list
                 item_classification = ['accepted', 'all', 'rejected']
                 line_content = pViewpointObject.readDifferentialFile(pArgs.file, file)
+
+                if pArgs.exportOnlySignificantOrRejected:
+                    # log.debug('line_content {}'.format(type(line_content[2])))
+                    
+                    if type(line_content[2]) is not zip:
+                        continue
                 for i, item in enumerate(line_content):
+                    log.debug('item {}'.format(list(item)))
+                    if pArgs.oneDifferentialFile:
+                        # if a single file containing all rejected region should be the output, skip 'accepted' and 'all' case 
+                        if item_classification[i] in ['accepted', 'all']:
+                            continue
                     if pArgs.outputFileType == 'txt':
-                        file_content_string = header_information
+                        file_content_string = ''
+                        # Add header only if not a single differential file should be created
+                        if not pArgs.oneDifferentialFile:
+                            file_content_string = header_information
+                        
 
                         for line in item:
-                            file_content_string += '\t'.join('{:.{decimal_places}f}'.format(x, decimal_places=pDecimalPlace) if isinstance(x, np.float) else str(x) for x in line) + '\n'
+                            file_content_string += '\t'.join('{:.{decimal_places}f}'.format(x, decimal_places=pDecimalPlace) if isinstance(x, np.float) else str(x) for x in line[:10]) + '\n'
+                        
+                        file_content_list.append(file_content_string)
+                        file_name = '_'.join(file) + '_' + item_classification[i] + '_' + pFileType + '.txt'
+                        file_list.append(file_name)
+                    
+                    elif pArgs.outputFileType == 'long-range-text':
+                        file_content_string = ''
+                        for line in item:
+                            log.debug('line {}'.format(line))
+                            file_content_string += '\t'.join([str(line[0]), str( int(line[10])) , str( int(line[11]) ) ])
+                            file_content_string += '\t'
+                            file_content_string += str(line[0]) + ':' + str(int(line[1])) + '-' +  str(int(line[2]))  + ',' + str(int(line[8]))
+                            file_content_string += '\n'
+                        
                         file_content_list.append(file_content_string)
                         file_name = '_'.join(file) + '_' + item_classification[i] + '_' + pFileType + '.txt'
                         file_list.append(file_name)
@@ -307,7 +359,7 @@ def exportData(pFileList, pArgs, pViewpointObject, pDecimalPlace, pChromosomeSiz
                                 file_content_string += '1\n'
                             else:
                                 resolution = int(line[2]) - int(line[1]) 
-                                file_content_string += '\t'.join([ str(line[0]), str( int(line[1]) - int(line[4])) , str( int(line[2]) - int(line[4]) ) ])
+                                file_content_string += '\t'.join([ str(line[0]), str( int(line[10])) , str( int(line[11]) ) ])
                                 file_content_string += '\t'
                                 file_content_string += '\t'.join([str(line[0]), str(int(line[1])), str(int(line[2]))])
                                 file_content_string += '\t'
@@ -573,7 +625,7 @@ def main(args=None):
     if len(thread_data) == 0:
         log.error('Contains not the requested data!')
         exit(1)
-    if args.outputFileType == 'txt' or args.outputFileType == 'arcs':
+    if args.outputFileType == 'txt' or args.outputFileType == 'arcs' or args.outputFileType == 'long-range-text':
         if args.outputMode == 'geneName':
             basepath = os.path.dirname(args.outFileName)
             for i, file_content_string in enumerate(thread_data):
@@ -582,8 +634,12 @@ def main(args=None):
         else:
             with tarfile.open(args.outFileName, "w:gz") as tar:
 
-                if args.oneTargetFile and fileType == 'target':
-                    tar_info = tarfile.TarInfo(name='targets.tsv')
+                if (args.oneTargetFile and fileType == 'target') or (args.oneSignificantFile and fileType == 'significant'):
+                    if fileType == 'target':
+                        file_name = 'targets.tsv'
+                    elif fileType == 'significant':
+                        file_name = 'significant.tsv'
+                    tar_info = tarfile.TarInfo(name=file_name)
                     tar_info.mtime = time.time()
                     file_content_string_all = ''
                     for i, file_content_string in enumerate(thread_data):
@@ -594,6 +650,7 @@ def main(args=None):
                     tar_info.size = len(file_content_string_all)
                     file = io.BytesIO(file_content_string_all)
                     tar.addfile(tarinfo=tar_info, fileobj=file)
+                
                 else:
                     for i, file_content_string in enumerate(thread_data):
 
