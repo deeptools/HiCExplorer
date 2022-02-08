@@ -316,7 +316,7 @@ def exportData(pFileList, pArgs, pViewpointObject, pDecimalPlace, pChromosomeSiz
                     if type(line_content[2]) is not zip:
                         continue
                 for i, item in enumerate(line_content):
-                    log.debug('item {}'.format(list(item)))
+                    # log.debug('item {}'.format(list(item)))
                     if pArgs.oneDifferentialFile:
                         # if a single file containing all rejected region should be the output, skip 'accepted' and 'all' case 
                         if item_classification[i] in ['accepted', 'all']:
@@ -336,13 +336,19 @@ def exportData(pFileList, pArgs, pViewpointObject, pDecimalPlace, pChromosomeSiz
                         file_list.append(file_name)
                     
                     elif pArgs.outputFileType == 'long-range-text':
+                        log.debug('line 339!')
                         file_content_string = ''
+                        # log.debug('item {}'.format(list(item)))
+
                         for line in item:
+                            log.debug('line 342!')
+
                             log.debug('line {}'.format(line))
                             file_content_string += '\t'.join([str(line[0]), str( int(line[10])) , str( int(line[11]) ) ])
                             file_content_string += '\t'
                             file_content_string += str(line[0]) + ':' + str(int(line[1])) + '-' +  str(int(line[2]))  + ',' + str(int(line[8]))
                             file_content_string += '\n'
+                        log.debug('line 349!')
                         
                         file_content_list.append(file_content_string)
                         file_name = '_'.join(file) + '_' + item_classification[i] + '_' + pFileType + '.txt'
