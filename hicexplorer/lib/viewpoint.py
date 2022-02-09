@@ -1074,8 +1074,8 @@ class Viewpoint():
                 reference_point_start = int(item_object.get('reference_point_start')[()])
                 reference_point_end = int(item_object.get('reference_point_end')[()])
                 
-                log.debug('reference_point_start {}'.format(int(reference_point_start)))
-                log.debug('reference_point_end {}'.format(int(reference_point_end)))
+                # log.debug('reference_point_start {}'.format(int(reference_point_start)))
+                # log.debug('reference_point_end {}'.format(int(reference_point_end)))
 
                 start_list = np.array(item_object['start_list'][:])
                 end_list = np.array(item_object['end_list'][:])
@@ -1097,7 +1097,7 @@ class Viewpoint():
                 output_list.append(zip(chromosome, start_list, end_list, gene, relative_distance_list, sum_of_interactions_1, raw_target_list_1, sum_of_interactions_2, raw_target_list_2, pvalue_list, reference_point_start_list, reference_point_end_list))
                 # log.debug('new item {}'.format(list(output_list[-1])))
             except Exception as exp:
-                log.debug('readDifferentialFile exception {}'.format(str(exp)))
+                # log.debug('readDifferentialFile exception {}'.format(str(exp)))
                 output_list.append([])
 
         return output_list

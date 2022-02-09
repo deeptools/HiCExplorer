@@ -336,19 +336,19 @@ def exportData(pFileList, pArgs, pViewpointObject, pDecimalPlace, pChromosomeSiz
                         file_list.append(file_name)
                     
                     elif pArgs.outputFileType == 'long-range-text':
-                        log.debug('line 339!')
+                        # log.debug('line 339!')
                         file_content_string = ''
                         # log.debug('item {}'.format(list(item)))
 
                         for line in item:
-                            log.debug('line 342!')
+                            # log.debug('line 342!')
 
-                            log.debug('line {}'.format(line))
+                            # log.debug('line {}'.format(line))
                             file_content_string += '\t'.join([str(line[0]), str( int(line[10])) , str( int(line[11]) ) ])
                             file_content_string += '\t'
                             file_content_string += str(line[0]) + ':' + str(int(line[1])) + '-' +  str(int(line[2]))  + ',' + str(int(line[8]))
                             file_content_string += '\n'
-                        log.debug('line 349!')
+                        # log.debug('line 349!')
                         
                         file_content_list.append(file_content_string)
                         file_name = '_'.join(file) + '_' + item_classification[i] + '_' + pFileType + '.txt'
@@ -640,11 +640,13 @@ def main(args=None):
         else:
             with tarfile.open(args.outFileName, "w:gz") as tar:
 
-                if (args.oneTargetFile and fileType == 'target') or (args.oneSignificantFile and fileType == 'significant'):
+                if (args.oneTargetFile and fileType == 'target') or (args.oneSignificantFile and fileType == 'significant') or (args.oneDifferentialFile and fileType == 'differential'):
                     if fileType == 'target':
                         file_name = 'targets.tsv'
                     elif fileType == 'significant':
                         file_name = 'significant.tsv'
+                    elif fileType == 'differential':
+                        file_name = 'differential.tsv'
                     tar_info = tarfile.TarInfo(name=file_name)
                     tar_info.mtime = time.time()
                     file_content_string_all = ''
