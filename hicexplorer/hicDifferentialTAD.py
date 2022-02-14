@@ -6,8 +6,12 @@ from multiprocessing import Process, Queue
 import time
 import traceback
 from copy import deepcopy
+from tempfile import NamedTemporaryFile, mkdtemp
+
 import logging
 log = logging.getLogger(__name__)
+
+from pygenometracks import plotTracks
 from hicmatrix import HiCMatrix as hm
 
 from hicexplorer.utilities import check_cooler
@@ -56,6 +60,11 @@ H0 is the assumption that two regions are identical, the rejected files contain 
                            ' (Default: %(default)s).',
                            choices=['all', 'one'],
                            default='one')
+    parserOpt.add_argument('--initFilePGT', '-i',
+                           type=str,
+                           help='Define a pyGenomeTracks ini file to plot the differential detected TADs.'
+                           ' (Default: %(default)s).',
+                           default=None)
     parserOpt.add_argument('--threads', '-t',
                            help='Number of threads to use, the parallelization is implemented per chromosome'
                            ' (Default: %(default)s).',
@@ -516,3 +525,58 @@ def main(args=None):
             stats_list = list(map(str, rejected_H0_s[i]))
             file.write('\t'.join(stats_list))
             file.write('\n')
+
+    with open(args.outFileNamePrefix + '_accepted_raw.bed', 'w') as file:
+        for i, row in enumerate(accepted_rows):
+            row_list = list(map(str, row))
+            file.write('\t'.join(row_list))
+            file.write('\n')
+    with open(args.outFileNamePrefix + '_rejected_raw.bed', 'w') as file:
+        for i, row in enumerate(rejected_rows):
+            row_list = list(map(str, row))
+            file.write('\t'.join(row_list))
+            file.write('\n')
+
+    
+    # plot differential regions wiht pygenometracks. 
+    # search in 10 MB region ranges if they contain a rejected region
+    log.debug('rejected_rows[:][:3] {}'.format(rejected_rows[:, :3]))
+    hicmatrix = hm.hiCMatrix()
+    plot_regions_intervaltree = hicmatrix.intervalListToIntervalTree(rejected_rows[:, :3])[0]
+    
+    log.debug('plot_regions_intervaltree {}'.format(plot_regions_intervaltree))
+
+    plot_interval_size = 10000000
+    start = 0
+    plot_file_format = "pdf"
+    # end = plot_interval_size
+    # per chromosome
+
+    pyGenomeTracksIniFile = NamedTemporaryFile(suffix='.ini', delete=False)
+    pyGenomeTracksIniFile.close()
+ 
+    tracks = args.initFilePGT
+    outfile_prefix = args.outFileNamePrefix
+
+    for chromosome in plot_regions_intervaltree:
+        end = 200000000
+        for i in range(start, end , plot_interval_size):
+            plot_region_set = plot_regions_intervaltree[chromosome].overlap(i, i +plot_interval_size)
+            plot_region_list = list(plot_region_set)
+            log.debug("plot_region_list {}".format(plot_region_list))
+            if len(plot_region_list) > 0:
+                # --tracks all_tads.ini --region chr6:45000000-70000000 -o differential_tad.pdf
+                args = '--tracks {} --region {}:{}-{} -o {}_differential_{}_{}_{}.pdf'.format(tracks, chromosome, plot_region_list[0][0], plot_region_list[-1][1], outfile_prefix, chromosome, plot_region_list[0][0], plot_region_list[-1][1], plot_file_format).split()
+                plotTracks.main(args)
+        # end = start + plot_interval_size
+            # log.debug("envelop {}".format(plot_regions_intervaltree[chromosome].envelop(i, i +plot_interval_size )))
+                # log.debug("overlap {}".format(plot_regions_intervaltree[chromosome].overlap(i, i +plot_interval_size)))
+
+        # start = end
+        
+        # if start in plot_regions_intervaltree[chromosome]
+        # first_plot_region = plot_regions_intervaltree[chromosome][0]
+        # last_plot_region = plot_regions_intervaltree[chromosome][-1]
+
+        # log.debug('first_plot_region {}'.format(first_plot_region))
+        # log.debug('last_plot_region {}'.format(last_plot_region))
