@@ -559,14 +559,20 @@ def main(args=None):
     outfile_prefix = args.outFileNamePrefix
 
     for chromosome in plot_regions_intervaltree:
-        end = 200000000
+        end = sorted(list(plot_regions_intervaltree[chromosome]))[-1][1]
         for i in range(start, end , plot_interval_size):
             plot_region_set = plot_regions_intervaltree[chromosome].overlap(i, i +plot_interval_size)
-            plot_region_list = list(plot_region_set)
+            plot_region_list = sorted(list(plot_region_set))
+            
+
             log.debug("plot_region_list {}".format(plot_region_list))
             if len(plot_region_list) > 0:
+                first_tad_size = plot_region_list[0][1] - plot_region_list[0][0]
+                last_tad_size = plot_region_list[-1][1] - plot_region_list[-1][0]
                 # --tracks all_tads.ini --region chr6:45000000-70000000 -o differential_tad.pdf
-                args = '--tracks {} --region {}:{}-{} -o {}_differential_{}_{}_{}.pdf'.format(tracks, chromosome, plot_region_list[0][0], plot_region_list[-1][1], outfile_prefix, chromosome, plot_region_list[0][0], plot_region_list[-1][1], plot_file_format).split()
+                start_point_plot = plot_region_list[0][0] - first_tad_size if plot_region_list[0][0] - first_tad_size < i else i 
+                end_point_plot = + plot_region_list[-1][1] + last_tad_size if plot_region_list[-1][1]  + last_tad_size > i+plot_interval_size else i + plot_interval_size
+                args = '--tracks {} --region {}:{}-{} -o {}_differential_{}_{}_{}.png'.format(tracks, chromosome, start_point_plot, end_point_plot, outfile_prefix, chromosome, plot_region_list[0][0], plot_region_list[-1][1], plot_file_format).split()
                 plotTracks.main(args)
         # end = start + plot_interval_size
             # log.debug("envelop {}".format(plot_regions_intervaltree[chromosome].envelop(i, i +plot_interval_size )))
