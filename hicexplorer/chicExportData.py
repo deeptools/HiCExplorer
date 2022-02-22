@@ -127,6 +127,13 @@ chicExportData exports the data stored in the intermediate hdf5 files to text fi
                            required=False,
                            default=None,
                            type=str)
+    parserOpt.add_argument('--minValue', '-mv',
+                           help='Number of interactions between two regions to be considered for export for arcs. In case for p-value only values smaller the given one are accepted.'
+                           ' (Default: %(default)s).',
+                           required=False,
+                           default=0.0,
+                           type=float
+                           )
     parserOpt.add_argument('--threads', '-t',
                            help='Number of threads (uses the python multiprocessing module)'
                            ' (Default: %(default)s).',
@@ -184,7 +191,23 @@ def exportData(pFileList, pArgs, pViewpointObject, pDecimalPlace, pChromosomeSiz
                             # log.debug('key {}'.format(key))
                             # log.debug('data[1] {}'.format(str(data[1][key])))
                             # log.debug('data[2] {}'.format(str(data[2])))
-                            
+
+                            # write out only values for interactions with more than pArgs.minValue counts / interactions / folds
+                            # for p-value it's the opposite; accept only small values
+                            value_id_for_minValue_check = 0
+                            if pArgs.outputValueBigwigArcs == 'relative-interactions':
+                                value_id_for_minValue_check = 6
+                            elif pArgs.outputValueBigwigArcs == 'p-value':
+                                value_id_for_minValue_check = 7
+                            elif pArgs.outputValueBigwigArcs == 'x-fold':
+                                value_id_for_minValue_check = 8
+                            elif pArgs.outputValueBigwigArcs == 'raw':
+                                value_id_for_minValue_check = 9
+                            if pArgs.outputValueBigwigArcs in ['relative-interactions', 'x-fold', 'raw'] and pArgs.minValue < data[1][key][value_id_for_minValue_check]: 
+                                continue
+                            elif pArgs.outputValueBigwigArcs in ['p-value'] and pArgs.minValue > data[1][key][value_id_for_minValue_check]: 
+                                continue
+
                             if pArgs.arcsRegion is not None:
                                 file_content_string += '\t'.join([str(chromosome_arc), str(start_arc), str(end_arc)])
                                 file_content_string += '\t'

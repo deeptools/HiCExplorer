@@ -36,7 +36,7 @@ def parse_arguments(args=None):
     parserOpt.add_argument('--operation',
                            help='Operation to apply to the matrices'
                            ' (Default: %(default)s).',
-                           choices=['diff', 'ratio', 'log2ratio'],
+                           choices=['diff', 'ratio', 'log2ratio', 'abs_diff'],
                            default='log2ratio')
 
     parserOpt.add_argument('--noNorm',
@@ -56,7 +56,7 @@ def parse_arguments(args=None):
 def main(args=None):
 
     args = parse_arguments().parse_args(args)
-    if args.operation not in ['diff', 'ratio', 'log2ratio']:
+    if args.operation not in ['diff', 'ratio', 'log2ratio', 'abs_diff']:
         exit("Operation not found. Please use 'diff', 'ratio' or 'log2ratio'.")
 
     hic1 = hm.hiCMatrix(args.matrices[0])
@@ -82,6 +82,9 @@ def main(args=None):
 
     if args.operation == 'diff':
         new_matrix = hic1.matrix - hic2.matrix
+    elif args.operation == 'abs_diff':
+        new_matrix = np.absolute(hic1.matrix - hic2.matrix)
+
     elif args.operation == 'ratio' or args.operation == 'log2ratio':
         hic2.matrix.data = float(1) / hic2.matrix.data
         new_matrix = hic1.matrix.multiply(hic2.matrix)
