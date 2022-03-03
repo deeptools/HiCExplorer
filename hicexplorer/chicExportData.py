@@ -11,6 +11,7 @@ import logging
 log = logging.getLogger(__name__)
 
 import numpy as np
+from pathlib import Path
 # import matplotlib
 # matplotlib.use('Agg')
 # import matplotlib.pyplot as plt
@@ -134,6 +135,20 @@ chicExportData exports the data stored in the intermediate hdf5 files to text fi
                            default=0.0,
                            type=float
                            )
+    parserOpt.add_argument('--minDistance', '-md',
+                           help='Minimum distance in kilobases between interactions to write it out.'
+                           ' (Default: %(default)s).',
+                           required=False,
+                           default=0,
+                           type=int
+                           )
+    parserOpt.add_argument('--minInteractions', '-mi',
+                           help='Minimum number of interaction locations in a viewpoint to write it out.'
+                           ' (Default: %(default)s).',
+                           required=False,
+                           default=0,
+                           type=int
+                           )
     parserOpt.add_argument('--threads', '-t',
                            help='Number of threads (uses the python multiprocessing module)'
                            ' (Default: %(default)s).',
@@ -180,6 +195,16 @@ def exportData(pFileList, pArgs, pViewpointObject, pDecimalPlace, pChromosomeSiz
                     data = pViewpointObject.readInteractionFile(pArgs.file, sample)
                     key_list = sorted(list(data[1].keys()))
 
+
+                    if pArgs.minDistance > 0:
+                        # if if str(chromosome_arc) == str(data[1][key][0]):
+                        if abs(int(data[2][0]) - int(data[1][key][1])) < pArgs.minDistance:
+                            continue
+                    if pArgs.minInteractions > 0:
+                        log.debug('data {}'.format(data[1]))
+                        exit()
+
+
                     if pArgs.outputFileType == 'txt':
 
                         file_content_string = header_information
@@ -207,6 +232,8 @@ def exportData(pFileList, pArgs, pViewpointObject, pDecimalPlace, pChromosomeSiz
                                 continue
                             elif pArgs.outputValueBigwigArcs in ['p-value'] and pArgs.minValue > data[1][key][value_id_for_minValue_check]: 
                                 continue
+                            
+                            
 
                             if pArgs.arcsRegion is not None:
                                 file_content_string += '\t'.join([str(chromosome_arc), str(start_arc), str(end_arc)])
@@ -338,12 +365,29 @@ def exportData(pFileList, pArgs, pViewpointObject, pDecimalPlace, pChromosomeSiz
                     
                     if type(line_content[2]) is not zip:
                         continue
+                # log.debug('len(line_content) {}'.format(len(line_content)))
+                
+                        # log.debug('item {}'.format(*zip(item)))
+                        # exit()
+                #  if item_classification[i] == 'rejected':
+                line_content = list(line_content)
+                for i in range(len(line_content)):
+                    line_content[i] = list(line_content[i])
+                if pArgs.minInteractions > 0:
+                    # log.debug("len(list(item)) {}".format(len(list(item))))
+                    if len(line_content[2]) < pArgs.minInteractions:
+                        continue
+                # log.debug('Run line_content loop')
                 for i, item in enumerate(line_content):
                     # log.debug('item {}'.format(list(item)))
                     if pArgs.oneDifferentialFile:
                         # if a single file containing all rejected region should be the output, skip 'accepted' and 'all' case 
                         if item_classification[i] in ['accepted', 'all']:
                             continue
+                    
+                   
+
+
                     if pArgs.outputFileType == 'txt':
                         file_content_string = ''
                         # Add header only if not a single differential file should be created
@@ -352,6 +396,10 @@ def exportData(pFileList, pArgs, pViewpointObject, pDecimalPlace, pChromosomeSiz
                         
 
                         for line in item:
+                            # if pArgs.minDistance > 0:
+                            #     # if if str(chromosome_arc) == str(data[1][key][0]):
+                            #     if abs(int(line[10]) - int(line[1])) < pArgs.minDistance:
+                            #         continue
                             file_content_string += '\t'.join('{:.{decimal_places}f}'.format(x, decimal_places=pDecimalPlace) if isinstance(x, np.float) else str(x) for x in line[:10]) + '\n'
                         
                         file_content_list.append(file_content_string)
@@ -365,7 +413,10 @@ def exportData(pFileList, pArgs, pViewpointObject, pDecimalPlace, pChromosomeSiz
 
                         for line in item:
                             # log.debug('line 342!')
-
+                            # if pArgs.minDistance > 0:
+                            #     # if if str(chromosome_arc) == str(data[1][key][0]):
+                            #     if abs(int(line[10]) - int(line[1])) < pArgs.minDistance:
+                            #         continue
                             # log.debug('line {}'.format(line))
                             file_content_string += '\t'.join([str(line[0]), str( int(line[10])) , str( int(line[11]) ) ])
                             file_content_string += '\t'
@@ -377,27 +428,64 @@ def exportData(pFileList, pArgs, pViewpointObject, pDecimalPlace, pChromosomeSiz
                         file_name = '_'.join(file) + '_' + item_classification[i] + '_' + pFileType + '.txt'
                         file_list.append(file_name)
                     elif pArgs.outputFileType == 'arcs':
+                        log.debug('Arcs!')
+
                         file_content_string = ''
                         for line in item:
+                            # if pArgs.minDistance > 0:
+                            #     # if if str(chromosome_arc) == str(data[1][key][0]):
+                            #     if abs(int(line[10]) - int(line[1])) < pArgs.minDistance:
+                            #         continue
                             # log.debug('line {}'.format(line))
+                            
+                            #write out only values for interactions with more than pArgs.minValue counts / interactions / folds
+                            # for p-value it's the opposite; accept only small values
+                            # value_id_for_minValue_check = 0
+                            # if pArgs.outputValueBigwigArcs == 'relative-interactions':
+                            #     value_id_for_minValue_check = 6
+                            # elif pArgs.outputValueBigwigArcs == 'p-value':
+                            #     value_id_for_minValue_check = 7
+                            # elif pArgs.outputValueBigwigArcs == 'x-fold':
+                            #     value_id_for_minValue_check = 8
+                            # elif pArgs.outputValueBigwigArcs == 'raw':
+                            #     value_id_for_minValue_check = 9
+                            # if pArgs.outputValueBigwigArcs in ['relative-interactions', 'x-fold', 'raw'] and pArgs.minValue < data[1][key][value_id_for_minValue_check]: 
+                            #     continue
+                            # elif pArgs.outputValueBigwigArcs in ['p-value'] and pArgs.minValue > data[1][key][value_id_for_minValue_check]: 
+                            #     continue
+                            
+                            if pArgs.outputValueBigwigArcs == 'p-value' and pArgs.minValue > float(line[9]):
+                                continue
+                            # elif pArgs.outputValueBigwigArcs == 'raw' and pArgs.minValue > float(line[9]):
+                            #     continue
                             if pArgs.arcsRegion is not None:
                                 file_content_string += '\t'.join([str(chromosome_arc), str(start_arc), str(end_arc)])
                                 file_content_string += '\t'
                                 file_content_string += '\t'.join([str(chromosome_arc), str(int(start_arc) + int(line[4])), str(int(end_arc) + int(line[4]))])
                                 file_content_string += '\t'
-                                file_content_string += '1\n'
+                                if pArgs.outputValueBigwigArcs == 'p-value':
+                                    file_content_string += '{}\n'.format(float(line[9]))
+                                else:
+                                    file_content_string += '1\n'
                             else:
                                 resolution = int(line[2]) - int(line[1]) 
                                 file_content_string += '\t'.join([ str(line[0]), str( int(line[10])) , str( int(line[11]) ) ])
                                 file_content_string += '\t'
                                 file_content_string += '\t'.join([str(line[0]), str(int(line[1])), str(int(line[2]))])
                                 file_content_string += '\t'
-                                file_content_string += '1\n'
+                                if pArgs.outputValueBigwigArcs == 'p-value':
+                                    file_content_string += '{}\n'.format(float(line[9]))
+                                else:
+                                    file_content_string += '1\n'
 
                           
                         file_content_list.append(file_content_string)
                         file_name = '_'.join(file) + '_' + item_classification[i] + '_' + pFileType + '.arcs'
                         file_list.append(file_name)
+
+        log.debug('file_content_list {}'.format(len(file_content_list)))
+        log.debug('file_list {}'.format(len(file_list)))
+        # log.debug('file_content_list {}'.format(file_content_list))
 
 
     except Exception as exp:
@@ -423,6 +511,19 @@ def main(args=None):
     if args.outputMode == 'geneName' and args.outputModeName is None:
         log.error('Output mode is \'geneName\'. Please specify a gene name via --outputModeName too!')
         exit(1)
+
+    if args.outputModeName is not None:
+        gene_name_outer = args.outputModeName
+        if os.path.isfile(args.outputModeName):
+            with open(args.outputModeName, 'r') as file:
+                file_ = True
+                gene_name_outer = []
+                while file_:
+                    file_ = file.readline().strip()
+                    if file_ != '':
+                        gene_name_outer.append(file_)
+                    
+       
 
     if args.outputFileType == 'bigwig':
         if fileType != 'interactions':
@@ -466,12 +567,15 @@ def main(args=None):
             for i, sample in enumerate(keys_file):
                 matrix_obj1 = fileHDF5Object[sample]['genes']
                 chromosomeList1 = sorted(list(matrix_obj1.keys()))
-                gene_name = args.outputModeName
-                counter = 1
-                while gene_name in chromosomeList1:
-                    fileList.append([[sample, 'genes', gene_name]])
-                    gene_name = args.outputModeName + '_' + str(counter)
-                    counter += 1
+                if isinstance(gene_name_outer, str):
+                    gene_name_outer = [gene_name_outer]
+                for gene_name in gene_name_outer:
+                    counter = 1
+                    gene_name_ = gene_name
+                    while gene_name_ in chromosomeList1:
+                        fileList.append([[sample, 'genes', gene_name_]])
+                        gene_name_ = gene_name + '_' + str(counter)
+                        counter += 1
     elif fileType == 'target':
         if fileHDF5Object.attrs['combinationMode'] == 'dual':
             if args.outputMode == 'all':
@@ -491,12 +595,25 @@ def main(args=None):
                     for inner_matrix in keys_inner_matrices:
                         inner_object = inner_matrix_object[inner_matrix]['genes']
                         keys_genes = list(inner_object.keys())
-                        gene_name = args.outputModeName
+                        
+                    if isinstance(gene_name_outer, str):
+                        gene_name_outer = [gene_name_outer]
+                    for gene_name in gene_name_outer:
                         counter = 1
-                        while gene_name in keys_genes:
-                            fileList.append([outer_matrix, inner_matrix, 'genes', gene_name])
-                            gene_name = args.outputModeName + '_' + str(counter)
+                        gene_name_ = gene_name
+                        while gene_name_ in keys_genes:
+                            fileList.append([outer_matrix, inner_matrix, 'genes', gene_name_])
+                            # fileList.append([[sample, 'genes', gene_name_]])
+                            gene_name_ = gene_name + '_' + str(counter)
                             counter += 1
+
+
+                        # gene_name = args.outputModeName
+                        # counter = 1
+                        # while gene_name in keys_genes:
+                        #     fileList.append([outer_matrix, inner_matrix, 'genes', gene_name])
+                        #     gene_name = args.outputModeName + '_' + str(counter)
+                        #     counter += 1
         elif fileHDF5Object.attrs['combinationMode'] == 'single':
 
             if args.outputMode == 'all':
@@ -508,12 +625,26 @@ def main(args=None):
             else:
                 for outer_matrix in keys_file:
                     keys_genes = list(fileHDF5Object[outer_matrix]['genes'].keys())
-                    gene_name = args.outputModeName
-                    counter = 1
-                    while gene_name in keys_genes:
-                        fileList.append([outer_matrix, 'genes', gene_name])
-                        gene_name = args.outputModeName + '_' + str(counter)
-                        counter += 1
+
+                    if isinstance(gene_name_outer, str):
+                        gene_name_outer = [gene_name_outer]
+                    for gene_name in gene_name_outer:
+                        counter = 1
+                        gene_name_ = gene_name
+                        while gene_name_ in keys_genes:
+
+                            fileList.append([outer_matrix, 'genes', gene_name_])
+
+                            # fileList.append([outer_matrix, inner_matrix, 'genes', gene_name_])
+                            # fileList.append([[sample, 'genes', gene_name_]])
+                            gene_name_ = gene_name + '_' + str(counter)
+                            counter += 1
+                    # gene_name = args.outputModeName
+                    # counter = 1
+                    # while gene_name in keys_genes:
+                    #     fileList.append([outer_matrix, 'genes', gene_name])
+                    #     gene_name = args.outputModeName + '_' + str(counter)
+                    #     counter += 1
 
     elif fileType == 'aggregate':
         if args.outputMode == 'all':
@@ -552,12 +683,27 @@ def main(args=None):
                 chromosomeList2 = sorted(list(matrix_obj2.keys()))
                 # chromosomeList1.remove('genes')
                 # chromosomeList2.remove('genes')
-                gene_name = args.outputModeName
-                counter = 1
-                while gene_name in chromosomeList1 and gene_name in chromosomeList2:
-                    fileList.append([[combinationOfMatrix, matrix1, 'genes', gene_name], [combinationOfMatrix, matrix2, 'genes', gene_name]])
-                    gene_name = args.outputModeName + '_' + str(counter)
-                    counter += 1
+
+                if isinstance(gene_name_outer, str):
+                    gene_name_outer = [gene_name_outer]
+                for gene_name in gene_name_outer:
+                    counter = 1
+                    gene_name_ = gene_name
+                    while gene_name_ in chromosomeList1 and gene_name in chromosomeList2:
+
+                        fileList.append([[combinationOfMatrix, matrix1, 'genes', gene_name_], [combinationOfMatrix, matrix2, 'genes', gene_name_]])
+                        # fileList.append([outer_matrix, inner_matrix, 'genes', gene_name_])
+                        # fileList.append([[sample, 'genes', gene_name_]])
+                        gene_name_ = gene_name + '_' + str(counter)
+                        counter += 1
+
+
+                # gene_name = args.outputModeName
+                # counter = 1
+                # while gene_name in chromosomeList1 and gene_name in chromosomeList2:
+                #     fileList.append([[combinationOfMatrix, matrix1, 'genes', gene_name], [combinationOfMatrix, matrix2, 'genes', gene_name]])
+                #     gene_name = args.outputModeName + '_' + str(counter)
+                #     counter += 1
 
     elif fileType == 'differential':
         if args.outputMode == 'all':
@@ -580,13 +726,26 @@ def main(args=None):
                 for inner_matrix in keys_inner_matrices:
                     inner_object = inner_matrix_object[inner_matrix]['genes']
                     chromosomeList = sorted(list(inner_object.keys()))
-                    gene_name = args.outputModeName
-                    counter = 1
-                    while gene_name in chromosomeList:
-                        fileList.append([outer_matrix, inner_matrix, 'genes', gene_name])
-                        # fileList.append([outer_matrix, inner_matrix, 'genes', gene_name])
-                        gene_name = args.outputModeName + '_' + str(counter)
-                        counter += 1
+
+                    if isinstance(gene_name_outer, str):
+                        gene_name_outer = [gene_name_outer]
+                    for gene_name in gene_name_outer:
+                        counter = 1
+                        gene_name_ = gene_name
+                        while gene_name_ in chromosomeList:
+                            fileList.append([outer_matrix, inner_matrix, 'genes', gene_name_])
+                            # fileList.append([outer_matrix, inner_matrix, 'genes', gene_name])
+                            gene_name = gene_name + '_' + str(counter)
+                            counter += 1
+
+
+                    # gene_name = args.outputModeName
+                    # counter = 1
+                    # while gene_name in chromosomeList:
+                    #     fileList.append([outer_matrix, inner_matrix, 'genes', gene_name])
+                    #     # fileList.append([outer_matrix, inner_matrix, 'genes', gene_name])
+                    #     gene_name = args.outputModeName + '_' + str(counter)
+                    #     counter += 1
 
     fileHDF5Object.close()
 
@@ -662,14 +821,15 @@ def main(args=None):
                     file.write(file_content_string)
         else:
             with tarfile.open(args.outFileName, "w:gz") as tar:
-
+                file_name = '.'.join((Path(args.outFileName).stem).split('.')[:-1])
+                log.debug('file_name {}'.format(file_name))
                 if (args.oneTargetFile and fileType == 'target') or (args.oneSignificantFile and fileType == 'significant') or (args.oneDifferentialFile and fileType == 'differential'):
-                    if fileType == 'target':
-                        file_name = 'targets.tsv'
-                    elif fileType == 'significant':
-                        file_name = 'significant.tsv'
-                    elif fileType == 'differential':
-                        file_name = 'differential.tsv'
+                    # if fileType == 'target':
+                    #     file_name = 'targets.tsv'
+                    # elif fileType == 'significant':
+                    #     file_name = 'significant.tsv'
+                    # elif fileType == 'differential':
+                    #     file_name = 'differential.tsv'
                     tar_info = tarfile.TarInfo(name=file_name)
                     tar_info.mtime = time.time()
                     file_content_string_all = ''

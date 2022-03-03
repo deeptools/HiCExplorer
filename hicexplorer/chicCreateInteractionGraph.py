@@ -4,6 +4,8 @@ import errno
 import os
 import math
 from multiprocessing import Process, Queue
+from scipy.sparse import coo_matrix, dia_matrix, lil_matrix
+
 import time
 import logging
 log = logging.getLogger(__name__)
@@ -84,6 +86,8 @@ def readPeaksChromatinFile(pPeakFile):
     
     data = []
     data_assoziation_status_dict = {}
+    peak_list = []
+    peak_types = []
     with open(pPeakFile, 'r') as file:
         for line in file.readlines():
             _line = line.strip().split('\t')
@@ -91,9 +95,12 @@ def readPeaksChromatinFile(pPeakFile):
             _data = [_line[0], int(_line[1]), int(_line[2]) ]
             data_assoziation_status_dict[_line[0] + ':' + _line[1] + '-' +  _line[2]] = data_for_interval
             data.append(_data)
+            peak_list.append(_line[4])
             if len(data) == 1:
                 # log.debug(data)
                 tmp_data = _data
+            if _line[3] not in peak_types:
+                peak_types.append(_line[3])
         hicmatrix = hm.hiCMatrix()
         data_intervaltree = hicmatrix.intervalListToIntervalTree(data)[0]
         # log.debug('tmp_data {}'.format(tmp_data))
@@ -102,7 +109,8 @@ def readPeaksChromatinFile(pPeakFile):
         # log.debug('data_intervaltree {}'.format(data_intervaltree))
 
         # log.debug('data_intervaltree {}'.format(data_intervaltree[tmp_data[0]].overlap(tmp_data[1], tmp_data[2])))
-    return data_intervaltree, data_assoziation_status_dict
+    log.debug('{}'.format(peak_types))
+    return data_intervaltree, data_assoziation_status_dict, peak_list, peak_types
 
 def computeGraph(pFileList, pPeakDataIntervalTree, pPeaksMetadataDict, pViewpointObject, pArgs, pQueue=None):
 
@@ -112,6 +120,8 @@ def computeGraph(pFileList, pPeakDataIntervalTree, pPeaksMetadataDict, pViewpoin
         images_array = []
         file_names = []
         for j, file in enumerate(pFileList):
+            # if j == 5:
+            #     break
             for i, sample in enumerate(file):
                 # log.debug('sample {}'.format(sample))
                 data = pViewpointObject.readInteractionFile(pArgs.significantFile, sample)
@@ -249,6 +259,67 @@ def computeGraph(pFileList, pPeakDataIntervalTree, pPeaksMetadataDict, pViewpoin
     return
     # return 
 
+def writeGraphHDF(pOutFileName, pReferencePointGraph, pPeakList, pPeakTypesList):
+    # hdf5 file design
+    # matrix_name / chr / gene name
+    #  - reference point: start end
+    #  - connection list start: start ids
+    #  - connection list end: end ids
+    #  - classification list
+    #  - interaction strength list
+    #  - peak name list
+    resultFileH5Object = h5py.File(pOutFileName, 'w')
+    resultFileH5Object.attrs['type'] = "graph"
+    resultFileH5Object.attrs['version'] = __version__
+
+    peak_dict = {}
+    reference_point_dict = {}
+    peak_type_dict = {}
+    for i, peak in enumerate(pPeakList):
+        peak_dict[peak] = i 
+    for i, graph in enumerate(pReferencePointGraph):
+        reference_point_dict[graph] = i
+    for i, peak_type in enumerate(pPeakTypesList):
+        peak_type_dict[peak_type] = i + 1
+    lil_matrix_interaction_data = lil_matrix((len(reference_point_dict), len(peak_dict)))
+    lil_matrix_state = lil_matrix((len(reference_point_dict), len(peak_dict)))
+
+    for i, graph in enumerate(pReferencePointGraph):
+        # log.debug("pReferencePointGraph {}".format(pReferencePointGraph[graph]))
+
+        graph_id = reference_point_dict[graph]
+
+        for peak in pReferencePointGraph[graph]:
+            # log.debug('peak_id {}'.format(peak))
+            
+            peak_id = peak_dict[peak[3][1]] 
+            # log.debug("pReferencePointGraph {}".format(graph))
+            # log.debug("pReferencePointGraph {}".format(pReferencePointGraph[graph]))
+            # log.debug('peak_id {}'.format(peak_id))
+            # log.debug('graph_id {}'.format(graph_id))
+            lil_matrix_interaction_data[graph_id, peak_id] = peak[2]
+            lil_matrix_state[graph_id, peak_id] = peak_type_dict[peak[3][0]]
+
+            # exit()
+    # log.debug('lil_matrix_data {}'.format(lil_matrix_data))
+    csr_matrix_interaction_data =  lil_matrix_interaction_data.tocsr()
+    csr_matrix_state =  lil_matrix_state.tocsr()
+
+    resultFileH5Object.create_dataset("csr_matrix_interaction_data", data=csr_matrix_interaction_data.data, compression="gzip", compression_opts=9)
+    resultFileH5Object.create_dataset("csr_matrix_interaction_indices", data=csr_matrix_interaction_data.indices, compression="gzip", compression_opts=9)
+    resultFileH5Object.create_dataset("csr_matrix_interaction_indptr", data=csr_matrix_interaction_data.indptr, compression="gzip", compression_opts=9)
+
+    resultFileH5Object.create_dataset("csr_matrix_state_data", data=csr_matrix_state.data, compression="gzip", compression_opts=9)
+    resultFileH5Object.create_dataset("csr_matrix_state_indices", data=csr_matrix_state.indices, compression="gzip", compression_opts=9)
+    resultFileH5Object.create_dataset("csr_matrix_state_indptr", data=csr_matrix_state.indptr, compression="gzip", compression_opts=9)
+
+
+    resultFileH5Object.create_dataset('peak_types_list', data=list(peak_type_dict.keys()), compression="gzip", compression_opts=9 )
+
+    resultFileH5Object.create_dataset('reference_point_list', data=list(reference_point_dict.keys()), compression="gzip", compression_opts=9 )
+    resultFileH5Object.create_dataset('peak_list', data=list(peak_dict.keys()), compression="gzip", compression_opts=9 )
+    resultFileH5Object.close()
+
 def main(args=None):
     args = parse_arguments().parse_args(args)
     viewpointObj = Viewpoint()
@@ -262,7 +333,9 @@ def main(args=None):
     if fileType != 'significant':
         log.error('Please use a significant interactions file created by chicSignificantInteractions. Exiting.')
         exit(1)
-    
+    if fileHDF5Object.attrs['combinationMode'] == 'dual':
+        log.error('Please use a significant interactions file created by chicSignificantInteractions with one matrix. Exiting.')
+        exit(1)
     # read hdf file
     keys_file = list(fileHDF5Object.keys())
     for i, sample in enumerate(keys_file):
@@ -277,7 +350,9 @@ def main(args=None):
     fileHDF5Object.close()
 
     # read chromatin peaks file 
-    peaks_chromatin_status_interval_tree, peaks_metadata_dict = readPeaksChromatinFile(args.peakFile)
+    peaks_chromatin_status_interval_tree, peaks_metadata_dict, peak_list, peak_types = readPeaksChromatinFile(args.peakFile)
+    # log.debug(peak_list)
+
     # images_array, file_name_list, reference_point_graph = computeGraph(fileList, peaks_chromatin_status_interval_tree, peaks_metadata_dict, viewpointObj, args)
 
     
@@ -342,7 +417,11 @@ def main(args=None):
 
     images_array = [item for sublist in images_array_thread for item in sublist]
     file_name_list = [item for sublist in file_name_list_thread for item in sublist]
-    reference_point_graph = [item for sublist in reference_point_graph_thread for item in sublist]
+    reference_point_graph = {}
+
+    # z = {**x, **y}
+    for sublist in reference_point_graph_thread:
+        reference_point_graph = {**reference_point_graph, **sublist}
 
     with tarfile.open(args.plotsFileName, "w:gz") as tar:
         for i, bufferObject in enumerate(images_array):
@@ -372,4 +451,11 @@ def main(args=None):
     #  - connection list start: start ids
     #  - connection list end: end ids
     #  - classification list
-    # - interaction strength list
+    #  - interaction strength list
+    #  - peak name list
+
+    # resultFileH5Object = h5py.File(pOutFileName, 'w')
+    # resultFileH5Object.attrs['type'] = "differential"
+    # resultFileH5Object.attrs['version'] = __version__
+
+    writeGraphHDF(args.outFileName, reference_point_graph, peak_list, peak_types)

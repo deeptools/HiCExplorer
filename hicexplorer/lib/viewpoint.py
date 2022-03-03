@@ -734,7 +734,7 @@ class Viewpoint():
 
     def plotViewpoint(self, pAxis, pData, pColor, pLabelName, pHighlightRegion=None, pHighlightSignificantRegion=None):
         data_plot_label = pAxis.plot(
-            range(len(pData)), pData, '-' + pColor, alpha=0.9, label=pLabelName, linewidth=1)
+            range(len(pData)), pData, '-' + pColor, alpha=0.5, label=pLabelName, linewidth=1)
         if pHighlightRegion:
             for region in pHighlightRegion:
                 pAxis.axvspan(region[0], region[1], color='red', alpha=0.3)

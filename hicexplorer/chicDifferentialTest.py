@@ -51,6 +51,10 @@ The file that is accepted for this test can be created with `chicAggregateStatis
                            ' (Default: %(default)s).',
                            choices=['fisher', 'chi2'],
                            default='fisher')
+    parserRequired.add_argument('--falseDiscoveryRate', '-fdr',
+                                help='Apply a FDR correction with given q-level. Q-level of 0 deactivates FDR.',
+                                type=float,
+                                default=0.0)
     parserOpt.add_argument('--threads', '-t',
                            help='Number of threads (uses the python multiprocessing module)'
                            ' (Default: %(default)s).',
@@ -139,6 +143,56 @@ def fisher_exact_test(pDataFile1, pDataFile2, pAlpha):
             accepted.append([i, 1.0])
     return test_result, accepted, rejected
 
+def chisquare_test_fdr(pDataFile1, pDataFile2, pAlpha):
+    # pair of accepted/unaccepted and pvalue
+    # True is rejection of H0
+    # False acceptance of H0
+    test_result = []
+   
+    # Find the critical value for alpha confidence level
+    critical_value = stats.chi2.ppf(q=1 - pAlpha, df=1)
+    zero_values_counter = 0
+    for i, (group1, group2) in enumerate(zip(pDataFile1, pDataFile2)):
+        try:
+            chi2, p_value, dof, ex = stats.chi2_contingency(
+                [group1, group2], correction=False)
+            # if chi2 >= critical_value:
+            test_result.append(p_value)
+            #     rejected.append([i, p_value])
+            # else:
+            #     test_result.append(p_value)
+            #     accepted.append([i, p_value])
+
+        except ValueError:
+            zero_values_counter += 1
+            test_result.append(i, 1.0)
+            # accepted.append([i, 1.0])
+
+    if zero_values_counter > 0:
+        log.info('{} samples were not tested because at least one condition contained no data in both groups.'.format(
+            zero_values_counter))
+    return test_result
+
+
+def fisher_exact_test_fdr(pDataFile1, pDataFile2, pAlpha):
+
+    test_result = []
+    # accepted = []
+    # rejected = []
+    for i, (group1, group2) in enumerate(zip(pDataFile1, pDataFile2)):
+        try:
+            odds, p_value = stats.fisher_exact(np.ceil([group1, group2]))
+            # if p_value <= pAlpha:
+                
+            test_result.append(p_value)
+                # rejected.append([i, p_value])
+            # else:
+                # test_result.append(p_value)
+                # accepted.append([i, p_value])
+        except ValueError:
+            test_result.append(1.0)
+            # accepted.append([i, 1.0])
+    return test_result
 
 def writeResult(pOutFileName, pData, pHeaderOld, pHeaderNew, pAlpha, pTest):
 
@@ -295,31 +349,47 @@ def run_statistical_tests(pInteractionFilesList, pArgs, pViewpointObject, pQueue
 
             if len(line_content1) == 0 or len(line_content2) == 0:
                 continue
-            if pArgs.statisticTest == 'chi2':
-                test_result, accepted, rejected = chisquare_test(
-                    data1, data2, pArgs.alpha)
-            elif pArgs.statisticTest == 'fisher':
-                test_result, accepted, rejected = fisher_exact_test(
-                    data1, data2, pArgs.alpha)
+            
+            if pArgs.falseDiscoveryRate > 0:
+                if pArgs.statisticTest == 'chi2':
+                    test_result = chisquare_test_fdr(
+                        data1, data2, pArgs.alpha)
+                elif pArgs.statisticTest == 'fisher':
+                    test_result = fisher_exact_test_fdr(
+                        data1, data2, pArgs.alpha)
+                write_out_lines = []
+                
+                for i, result in enumerate(test_result):
+                    write_out_lines.append(
+                        [line_content1[i], line_content2[i], result, data1[i], data2[i]])
+                all_results_list.append(write_out_lines)
+                
+            else:
+                if pArgs.statisticTest == 'chi2':
+                    test_result, accepted, rejected = chisquare_test(
+                        data1, data2, pArgs.alpha)
+                elif pArgs.statisticTest == 'fisher':
+                    test_result, accepted, rejected = fisher_exact_test(
+                        data1, data2, pArgs.alpha)
 
-            write_out_lines = []
-            for i, result in enumerate(test_result):
-                write_out_lines.append(
-                    [line_content1[i], line_content2[i], result, data1[i], data2[i]])
+                write_out_lines = []
+                for i, result in enumerate(test_result):
+                    write_out_lines.append(
+                        [line_content1[i], line_content2[i], result, data1[i], data2[i]])
 
-            write_out_lines_accepted = []
-            for result in accepted:
-                write_out_lines_accepted.append(
-                    [line_content1[result[0]], line_content2[result[0]], result[1], data1[result[0]], data2[result[0]]])
+                write_out_lines_accepted = []
+                for result in accepted:
+                    write_out_lines_accepted.append(
+                        [line_content1[result[0]], line_content2[result[0]], result[1], data1[result[0]], data2[result[0]]])
 
-            write_out_lines_rejected = []
-            for result in rejected:
-                write_out_lines_rejected.append(
-                    [line_content1[result[0]], line_content2[result[0]], result[1], data1[result[0]], data2[result[0]]])
+                write_out_lines_rejected = []
+                for result in rejected:
+                    write_out_lines_rejected.append(
+                        [line_content1[result[0]], line_content2[result[0]], result[1], data1[result[0]], data2[result[0]]])
 
-            accepted_list.append(write_out_lines_accepted)
-            rejected_list.append(write_out_lines_rejected)
-            all_results_list.append(write_out_lines)
+                accepted_list.append(write_out_lines_accepted)
+                rejected_list.append(write_out_lines_rejected)
+                all_results_list.append(write_out_lines)
 
     except Exception as exp:
         pQueue.put('Fail: ' + str(exp))
@@ -327,7 +397,11 @@ def run_statistical_tests(pInteractionFilesList, pArgs, pViewpointObject, pQueue
 
     if pQueue is None:
         return
-    pQueue.put([accepted_list, rejected_list, all_results_list])
+    if pArgs.falseDiscoveryRate > 0:
+        pQueue.put(all_results_list)
+
+    else:
+        pQueue.put([accepted_list, rejected_list, all_results_list])
     return
 
 
@@ -406,7 +480,10 @@ def main(args=None):
                     fail_flag = True
                     fail_message = background_data_thread[6:]
                 else:
-                    accepted_data[i], rejected_data[i], all_data[i] = background_data_thread
+                    if args.falseDiscoveryRate > 0:
+                        all_data[i] = background_data_thread
+                    else:
+                        accepted_data[i], rejected_data[i], all_data[i] = background_data_thread
                 queue[i] = None
                 process[i].join()
                 process[i].terminate()
@@ -421,8 +498,49 @@ def main(args=None):
         log.error(fail_message)
         exit(1)
 
-    accepted_data = [item for sublist in accepted_data for item in sublist]
-    rejected_data = [item for sublist in rejected_data for item in sublist]
+    if args.falseDiscoveryRate == 0:
+        accepted_data = [item for sublist in accepted_data for item in sublist]
+        rejected_data = [item for sublist in rejected_data for item in sublist]
     all_data = [item for sublist in all_data for item in sublist]
+
+    if args.falseDiscoveryRate > 0:
+
+        # log.debug('all_data {}'.format(all_data[:2]))
+        pvalues = []
+        for data in all_data:
+            for i in data:
+                # log.debug('i {}'.format(i))
+                pvalues.append(i[2])
+        # pvalues = [value for i enumerate(all_data) ]
+        pvalues = np.array([e if ~np.isnan(e) else 1 for e in pvalues])
+        pvalues_ = sorted(pvalues)
+        # log.debug('pvalues_ {}'.format(pvalues_))
+        largest_p_i = 0.0
+        for i, p in enumerate(pvalues_):
+            # log.debug('p {}'.format(p))
+            # log.debug('(args.falseDiscoveryRate * (i + 1) / len(pvalues_)) {}'.format((args.falseDiscoveryRate * (i + 1) / len(pvalues_))))
+
+            if p <= (args.falseDiscoveryRate * (i + 1) / len(pvalues_)):
+                if p >= largest_p_i:
+                    largest_p_i = p
+        pvalueFDR = largest_p_i
+        log.debug('pvalueFDR {}'.format(pvalueFDR))
+        # all_data_new = []
+        accepted_data = []
+        rejected_data = []
+
+        for data in all_data:
+            _accepted_data = []
+            _rejected_data = []
+            for i in data:
+                if i[2] <= pvalueFDR:
+                    _rejected_data.append(i)
+                else:
+                    _accepted_data.append(i)
+            accepted_data.append(_accepted_data)
+            rejected_data.append(_rejected_data)
+            # pvalues.append(data[2])
+
+
 
     writeResultHDF(args.outFileName, accepted_data, rejected_data, all_data, aggregatedList, args.alpha, args.statisticTest)

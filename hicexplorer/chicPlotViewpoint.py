@@ -329,7 +329,16 @@ def main(args=None):
     if args.differentialTestResult and args.combinationMode != 'dual':
         log.warning('Cannot use differential data, only possible for two samples in one plot.')
         exit(1)
-
+    if args.combinationName is not None and os.path.isfile(args.combinationName):
+                with open(args.combinationName, 'r') as file:
+                    file_ = True
+                    gene_name_outer = []
+                    while file_:
+                        file_ = file.readline().strip()
+                        if file_ != '':
+                            gene_name_outer.append(file_)
+    elif args.combinationName is not None:
+        gene_name_outer = [args.combinationName]
     if args.combinationMode == 'dual':
         if len(keys_interactionFile) > 1:
             for i, sample in enumerate(keys_interactionFile):
@@ -347,7 +356,11 @@ def main(args=None):
                         geneList2 = sorted(list(matrix_obj2[chromosome2].keys()))
 
                         for gene1, gene2 in zip(geneList1, geneList2):
-                            interactionFileList.append([[sample, chromosome1, gene1], [sample2, chromosome2, gene2]])
+                            if args.combinationName is not None:
+                                if gene1 in gene_name_outer and gene2 in gene_name_outer:
+                                    interactionFileList.append([[sample, chromosome1, gene1], [sample2, chromosome2, gene2]])
+                            else:
+                                interactionFileList.append([[sample, chromosome1, gene1], [sample2, chromosome2, gene2]])
 
             if args.differentialTestResult:
 
@@ -398,21 +411,28 @@ def main(args=None):
     elif args.combinationMode == 'oneGene':
         if len(keys_interactionFile) > 0:
             matrix_obj1 = interactionFileHDF5Object[keys_interactionFile[0]]
-            all_detected = False
             counter = 0
             gene_list = []
-            while not all_detected:
-                if counter == 0:
-                    check_gene_name = args.combinationName
-                else:
-                    check_gene_name = args.combinationName + '_' + str(counter)
+            # if args.combinationName is not None:
+            #     gene_name_outer = args.outputModeName
+            
+            # if isinstance(gene_name_outer, str):
+            #     gene_name_outer = [gene_name_outer]
+            for combinationName in gene_name_outer:
+                all_detected = False
+                counter = 0
+                while not all_detected:
+                    if counter == 0:
+                        check_gene_name = combinationName
+                    else:
+                        check_gene_name = combinationName + '_' + str(counter)
 
-                if check_gene_name in matrix_obj1['genes']:
-                    gene_list.append(check_gene_name)
-                else:
-                    all_detected = True
+                    if check_gene_name in matrix_obj1['genes']:
+                        gene_list.append(check_gene_name)
+                    else:
+                        all_detected = True
 
-                counter += 1
+                    counter += 1
 
             for gene in gene_list:
                 gene_list = []
