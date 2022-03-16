@@ -95,12 +95,16 @@ chicExportData exports the data stored in the intermediate hdf5 files to text fi
                            help='Compile all target files to one. Applies only if the file type is target',
                            required=False,
                            action='store_true')
-    parserOpt.add_argument('--oneSignificantFile', '-osf',
-                           help='Compile all significant files to one. Applies only if the file type is significant',
-                           required=False,
-                           action='store_true')
-    parserOpt.add_argument('--oneDifferentialFile', '-odf',
-                           help='Compile all rejected differential regions to one file.',
+    # parserOpt.add_argument('--oneSignificantFile', '-osf',
+    #                        help='Compile all significant files to one. Applies only if the file type is significant',
+    #                        required=False,
+    #                        action='store_true')
+    # parserOpt.add_argument('--oneDifferentialFile', '-odf',
+    #                        help='Compile all rejected differential regions to one file.',
+    #                        required=False,
+    #                        action='store_true')
+    parserOpt.add_argument('--oneFile', '-odf',
+                           help='Compile all regions to one file.',
                            required=False,
                            action='store_true')
     parserOpt.add_argument('--exportOnlySignificantOrRejected', '-eo',
@@ -206,8 +210,9 @@ def exportData(pFileList, pArgs, pViewpointObject, pDecimalPlace, pChromosomeSiz
 
 
                     if pArgs.outputFileType == 'txt':
-
-                        file_content_string = header_information
+                        file_content_string = ''
+                        if not pArgs.oneFile:
+                            file_content_string += header_information
                         for key in key_list:
                             file_content_string += '\t'.join('{:.{decimal_places}f}'.format(x, decimal_places=pDecimalPlace) if isinstance(x, np.float) else str(x) for x in data[1][key]) + '\n'
                     elif pArgs.outputFileType == 'arcs':
@@ -380,7 +385,7 @@ def exportData(pFileList, pArgs, pViewpointObject, pDecimalPlace, pChromosomeSiz
                 # log.debug('Run line_content loop')
                 for i, item in enumerate(line_content):
                     # log.debug('item {}'.format(list(item)))
-                    if pArgs.oneDifferentialFile:
+                    if pArgs.oneFile:
                         # if a single file containing all rejected region should be the output, skip 'accepted' and 'all' case 
                         if item_classification[i] in ['accepted', 'all']:
                             continue
@@ -391,7 +396,7 @@ def exportData(pFileList, pArgs, pViewpointObject, pDecimalPlace, pChromosomeSiz
                     if pArgs.outputFileType == 'txt':
                         file_content_string = ''
                         # Add header only if not a single differential file should be created
-                        if not pArgs.oneDifferentialFile:
+                        if not pArgs.oneFile:
                             file_content_string = header_information
                         
 
@@ -814,7 +819,7 @@ def main(args=None):
         log.error('Contains not the requested data!')
         exit(1)
     if args.outputFileType == 'txt' or args.outputFileType == 'arcs' or args.outputFileType == 'long-range-text':
-        if args.outputMode == 'geneName':
+        if args.outputMode == 'geneName' and len (fileList) == 1:
             basepath = os.path.dirname(args.outFileName)
             for i, file_content_string in enumerate(thread_data):
                 with open(basepath + '/' + file_name_list[i], "w") as file:
@@ -823,7 +828,7 @@ def main(args=None):
             with tarfile.open(args.outFileName, "w:gz") as tar:
                 file_name = '.'.join((Path(args.outFileName).stem).split('.')[:-1])
                 log.debug('file_name {}'.format(file_name))
-                if (args.oneTargetFile and fileType == 'target') or (args.oneSignificantFile and fileType == 'significant') or (args.oneDifferentialFile and fileType == 'differential'):
+                if args.oneFile:
                     # if fileType == 'target':
                     #     file_name = 'targets.tsv'
                     # elif fileType == 'significant':

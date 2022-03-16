@@ -113,6 +113,8 @@ def readGraphFile(pGraphFile):
     peak_type_dict_inverse = {}
 
     for i, peak in enumerate(peak_list):
+        # if peak == 'peak_1204':
+        #     log.debug('peak_1204: {}'.format(i))
         peak_dict[i] = peak
         peak_dict_inverse[peak] = i
     for i, graph in enumerate(reference_point_list):
@@ -122,6 +124,10 @@ def readGraphFile(pGraphFile):
         peak_type_dict[i + 1] = peak_type
         peak_type_dict_inverse [peak_type] = i + 1
     
+    log.debug('csr_matrix_state[i, j]: {}'.format(csr_matrix_state[1, 1074]))
+    log.debug('peak_dict[j]: {}'.format(peak_dict[1074]))
+
+    log.debug('shape: {}'.format(csr_matrix_state.shape))
 
     peak_type_dict[0] = 'None'
     peak_type_dict_inverse['None'] = 0
@@ -144,74 +150,126 @@ def readGraphFile(pGraphFile):
 def equalizeGraphs(pGraphOne, pGraphTwo, pReferencePointDictOne, pReferencePointDictTwo):
 
     reference_point_seen = set()
-    graph_one = None
-    graph_two = None
+    graph_one = []
+    graph_two = []
     graph_one_reference_id_relation_inverse = {}
     graph_two_reference_id_relation_inverse = {}
 
+    reference_point_data = {}
+
     counter = 0
-    for reference_point in pReferencePointDictOne:
+
+    for x, reference_point in enumerate(pReferencePointDictOne):
+        if x < 10:
+            log.debug('reference_point {}'.format(reference_point))
         if reference_point in pReferencePointDictTwo:
             id_one = pReferencePointDictOne[reference_point]
             id_two = pReferencePointDictTwo[reference_point]
-            if graph_one is None:
-                graph_one = pGraphOne.getrow(id_one)
-            else:
-                graph_one = sp.vstack([graph_one, pGraphOne.getrow(id_one)])
-            graph_one_reference_id_relation_inverse[reference_point] = counter
-            if graph_two is None:
-                graph_two = pGraphOne.getrow(id_one)
-            else:
-                graph_two = sp.vstack([graph_two, pGraphTwo.getrow(id_two)])
-            graph_two_reference_id_relation_inverse[reference_point] = counter
+            reference_point_data[reference_point] = [pGraphOne.getrow(id_one), pGraphTwo.getrow(id_two)]
+            # log.debug('np sum 1: {}'.format(np.sum(pGraphOne.getrow(id_one))))
+            # log.debug('np sum 2: {}'.format(np.sum(pGraphTwo.getrow(id_two))))
 
-            counter += 1
-            
+            # log.debug('foo!!!! fooo fooooo')
         else:
             id_one = pReferencePointDictOne[reference_point]
-            # id_two = pReferencePointDictTwo[reference_point]
-            if graph_one is None:
-                graph_one = pGraphOne.getrow(id_one)
-            else:
-                graph_one = sp.vstack([graph_one, pGraphOne.getrow(id_one)])
-            graph_one_reference_id_relation_inverse[reference_point] = counter
-            if graph_two is None:
-                graph_two = csr_matrix(pGraphOne.getrow(id_one).shape)
-            else:
-                graph_two = sp.vstack([graph_two, csr_matrix(pGraphOne.getrow(id_one).shape)])
-            graph_two_reference_id_relation_inverse[reference_point] = counter
-
-            counter += 1
-        reference_point_seen.add(reference_point)
-    for reference_point in pReferencePointDictTwo:
-        if reference_point in reference_point_seen:
+            reference_point_data[reference_point] = [pGraphOne.getrow(id_one), pGraphOne.getrow(id_one)]
+        # reference_point_seen.update(reference_point)
+    
+    for x, reference_point in enumerate(pReferencePointDictTwo):
+        if x < 10:
+            log.debug('reference_point {}'.format(reference_point))
+        # if reference_point in reference_point_seen:
+        #     continue
+        if reference_point in reference_point_data:
             continue
-        else:
-            id_two= pReferencePointDictTwo[reference_point]
-            # id_two = pReferencePointDictTwo[reference_point]
-            if graph_two is None:
-                graph_two = pGraphTwo.getrow(id_two)
-            else:
-                graph_two = sp.vstack([graph_two, pGraphTwo.getrow(id_two)])
-            graph_two_reference_id_relation_inverse[reference_point] = counter
+        id_two = pReferencePointDictTwo[reference_point]
+        reference_point_data[reference_point] = [pGraphTwo.getrow(id_two), pGraphTwo.getrow(id_two)]
+        
+    for i, reference_point in enumerate(reference_point_data):
+        graph_one.append(reference_point_data[reference_point][0])
+        graph_two.append(reference_point_data[reference_point][1])
+        if np.sum(reference_point_data[reference_point][0].data) != np.sum(reference_point_data[reference_point][1].data):
+            log.debug('reference_point_data[reference_point][0]: {}'.format(np.sum(reference_point_data[reference_point][0].data)))
+            log.debug('reference_point_data[reference_point][1]: {}'.format(np.sum(reference_point_data[reference_point][1].data)))
 
-            if graph_one is None:
-                graph_one = csr_matrix(pGraphTwo.getrow(id_two).shape)
-            else:
-                graph_one = sp.vstack([graph_one, csr_matrix(pGraphTwo.getrow(id_two).shape)])
-            graph_one_reference_id_relation_inverse[reference_point] = counter
+        graph_one_reference_id_relation_inverse[reference_point] = i
+        graph_two_reference_id_relation_inverse[reference_point] = i
 
-            counter += 1
-        reference_point_seen.add(reference_point)
+    log.debug('graph_one {}'.format(graph_one[:10]))
+    graph_one = sp.vstack(graph_one)
+    graph_two = sp.vstack(graph_two)
+    log.debug('graph_one sum {}'.format(np.sum(graph_one)))
+    log.debug('graph_two sum {}'.format(np.sum(graph_two)))
+
+    log.debug('graph_one {}'.format(graph_one.shape))
+    log.debug('graph_two {}'.format(graph_two.shape))
+
+    # for reference_point in pReferencePointDictOne:
+    #     if reference_point in pReferencePointDictTwo:
+    #         id_one = pReferencePointDictOne[reference_point]
+    #         id_two = pReferencePointDictTwo[reference_point]
+    #         if graph_one is None:
+    #             graph_one = pGraphOne.getrow(id_one)
+    #         else:
+    #             graph_one = sp.vstack([graph_one, pGraphOne.getrow(id_one)])
+    #         graph_one_reference_id_relation_inverse[reference_point] = counter
+    #         if graph_two is None:
+    #             graph_two = pGraphTwo.getrow(id_two)
+    #         else:
+    #             graph_two = sp.vstack([graph_two, pGraphTwo.getrow(id_two)])
+    #         graph_two_reference_id_relation_inverse[reference_point] = counter
+
+    #         counter += 1
+            
+    #     else:
+    #         id_one = pReferencePointDictOne[reference_point]
+    #         # id_two = pReferencePointDictTwo[reference_point]
+    #         if graph_one is None:
+    #             graph_one = pGraphOne.getrow(id_one)
+    #         else:
+    #             graph_one = sp.vstack([graph_one, pGraphOne.getrow(id_one)])
+    #         graph_one_reference_id_relation_inverse[reference_point] = counter
+    #         if graph_two is None:
+    #             graph_two = csr_matrix(pGraphOne.getrow(id_one).shape)
+    #         else:
+    #             graph_two = sp.vstack([graph_two, csr_matrix(pGraphOne.getrow(id_one).shape)])
+    #         graph_two_reference_id_relation_inverse[reference_point] = counter
+
+    #         counter += 1
+    #     reference_point_seen.add(reference_point)
+    # for reference_point in pReferencePointDictTwo:
+    #     if reference_point in reference_point_seen:
+    #         continue
+    #     else:
+    #         id_two= pReferencePointDictTwo[reference_point]
+    #         # id_two = pReferencePointDictTwo[reference_point]
+    #         if graph_two is None:
+    #             graph_two = pGraphTwo.getrow(id_two)
+    #         else:
+    #             graph_two = sp.vstack([graph_two, pGraphTwo.getrow(id_two)])
+    #         graph_two_reference_id_relation_inverse[reference_point] = counter
+
+    #         if graph_one is None:
+    #             graph_one = csr_matrix(pGraphTwo.getrow(id_two).shape)
+    #         else:
+    #             graph_one = sp.vstack([graph_one, csr_matrix(pGraphTwo.getrow(id_two).shape)])
+    #         graph_one_reference_id_relation_inverse[reference_point] = counter
+
+    #         counter += 1
+    #     reference_point_seen.add(reference_point)
 
     graph_one_reference_id_relation = {}
     graph_two_reference_id_relation = {}
 
     for i, relation in enumerate(graph_one_reference_id_relation_inverse):
         graph_one_reference_id_relation[i] = relation
+        # if i < 10:
+        #     log.debug('i {}; graph_one_reference_id_relation[i] {}'.format(i, graph_one_reference_id_relation[i]))
     
     for i, relation in enumerate(graph_two_reference_id_relation_inverse):
         graph_two_reference_id_relation[i] = relation
+        # if i < 10:
+        #     log.debug('i {}; graph_two_reference_id_relation[i] {}'.format(i, graph_two_reference_id_relation[i]))
     return graph_one, graph_two, graph_one_reference_id_relation, graph_two_reference_id_relation, graph_one_reference_id_relation_inverse, graph_two_reference_id_relation_inverse
         
 
@@ -246,22 +304,47 @@ def main(args=None):
     # substract status matrices from each other
     # if the status was the same, the element is now 0
     # if it changed, the element is != 0
+
+    log.debug('grpah1: {}'.format(np.sum(csr_matrix_state_one)))
+    log.debug('grpah2: {}'.format(np.sum(csr_matrix_state_two)))
+    log.debug('data 1 : {}'.format(csr_matrix_state_one.data[:10]))
+    log.debug('data 2 : {}'.format(csr_matrix_state_two.data[:10]))
+
     change_state_matrix = csr_matrix_state_one - csr_matrix_state_two
     change_state_matrix.eliminate_zeros()
 
     row, features = change_state_matrix.nonzero()
-
+    log.debug('len(row) {}'.format(len(row)))
     reference_point_status_change = {}
     for i, row_ in enumerate(row):
-
+        # log.debug('row_ {}'.format(row_))
+        # log.debug('features {}'.format(features[i]))
         status_old = csr_matrix_state_one[row_, features[i]]
         status_new = csr_matrix_state_two[row_, features[i]]
 
         # try:
         if row_ in reference_point_status_change:
+            # log.debug('peak_dict_one[features[i]] {}'.format(peak_dict_one[features[i]]))
+            if peak_dict_one[features[i]] == b'peak_1210':
+                log.debug('reference_point_dict_one[row_] {}'.format(reference_point_dict_one[row_]))
+                log.debug('reference_point_dict_two[row_] {}'.format(reference_point_dict_two[row_]))
+
+                log.debug('features[i] {}'.format(features[i]))
+                log.debug('i {}'.format(i))
+                log.debug('peak_dict_one[features[i]] {}'.format(peak_dict_one[features[i]]))
+                log.debug('peak_dict_two[features[i]] {}'.format(peak_dict_two[features[i]]))
+
+                log.debug('status_old {}'.format(status_old))
+                log.debug('peak_type_dict_one[status_old] {}'.format(peak_type_dict_one[status_old]))
+                log.debug('status_new {}'.format(status_new))
+                log.debug('peak_type_dict_two[status_new] {}'.format(peak_type_dict_two[status_new]))
+                log.debug('reference_point_status_change[row_] {}'.format(reference_point_status_change[row_]))
             reference_point_status_change[row_].append([peak_dict_one[features[i]],peak_type_dict_one[status_old], peak_type_dict_two[status_new]])
         else:
             reference_point_status_change[row_] = [[peak_dict_one[features[i]], peak_type_dict_one[status_old], peak_type_dict_two[status_new]]]
+       
+        # if i > 1:
+        #     break
         # except:
         #     log.debug("row_ {}".format(row_))
         #     log.debug('features[i] {}'.format(features[i]))

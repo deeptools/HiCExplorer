@@ -10,6 +10,10 @@ log = logging.getLogger(__name__)
 
 import pybedtools
 import numpy as np
+import pandas as pd
+import pyranges as pr
+import fit_nbinom
+
 
 import hicmatrix.HiCMatrix as hm
 from hicexplorer import utilities
@@ -101,6 +105,17 @@ p-value is computed based on the sum of interactions for this neighborhood. Only
                            default=500000,
                            type=int
                            )
+    parserOpt.add_argument('--localBackground', '-lb',
+                           help='Compute per viewpoint an additional local background based on continuous negative binomial distributions',
+                           required=False,
+                           action='store_true')
+    parserOpt.add_argument('--localPValue', '-lpv',
+                           help='The p-value threshold for the local background'
+                           ' (Default: %(default)s).',
+                           required=False,
+                           default=0.05,
+                           type=float
+                           )
     parserOpt.add_argument('--peakInteractionsThreshold', '-pit',
                            type=int,
                            default=5,
@@ -134,6 +149,9 @@ def compute_interaction_file(pInteractionFilesList, pArgs, pViewpointObj, pBackg
                 data = pViewpointObj.readInteractionFile(pFilePath, sample)
                 sample_prefix.append(sample[0])
                 compute_new_p_values_bool = False
+                localBackground = False
+                if pArgs.localBackground:
+                    localBackground = compute_distribution_for_viewpoint(data[0])
                 if pArgs.xFoldBackground is not None:
                     accepted_scores, merged_lines_dict = merge_neighbors_x_fold(
                         pArgs.xFoldBackground, data, pViewpointObj, pResolution=pResolution)
@@ -146,10 +164,10 @@ def compute_interaction_file(pInteractionFilesList, pArgs, pViewpointObj, pBackg
                 # compute new p-values and filter by them
                 if compute_new_p_values_bool:
                     accepted_scores, target_lines = compute_new_p_values(
-                        accepted_scores, pBackground, pArgs.pValue, merged_lines_dict, pArgs.peakInteractionsThreshold)
+                        accepted_scores, pBackground, pArgs.pValue, merged_lines_dict, pArgs.peakInteractionsThreshold, localBackground, pArgs.localPValue)
                 else:
                     accepted_scores, target_lines = filter_by_pvalue(
-                        data[0], pArgs.pValue, data[1], pArgs.peakInteractionsThreshold)
+                        data[0], pArgs.pValue, data[1], pArgs.peakInteractionsThreshold, localBackground, pArgs.localPValue)
 
                 # filter by new p-value
                 if len(accepted_scores) == 0:
@@ -181,29 +199,61 @@ def compute_interaction_file(pInteractionFilesList, pArgs, pViewpointObj, pBackg
     return
 
 
-def filter_by_pvalue(pData, pPValue, pMergedLinesDict, pPeakInteractionsThreshold):
+def filter_by_pvalue(pData, pPValue, pMergedLinesDict, pPeakInteractionsThreshold, pLocalBackground, pPValueLocal):
     accepted = {}
     accepted_lines = []
     if isinstance(pPValue, float):
         for key in pData:
             if pData[key][-3] <= pPValue:
                 if float(pData[key][-1]) >= pPeakInteractionsThreshold:
-                    accepted[key] = pMergedLinesDict[key]
-                    target_content = pMergedLinesDict[key][:3]
-                    accepted_lines.append(target_content)
+                    if pLocalBackground:
+                        p_value_local = 1 - cnb.cdf(float(pData[key][-1]), float(pLocalBackground['size']), float(pLocalBackground['prob']))
+                        if p_value_local <= pPValueLocal:
+                            log.debug('passed local background')
+
+                            accepted[key] = pMergedLinesDict[key]
+                            target_content = pMergedLinesDict[key][:3]
+                            accepted_lines.append(target_content)
+                    else:
+                        accepted[key] = pMergedLinesDict[key]
+                        target_content = pMergedLinesDict[key][:3]
+                        accepted_lines.append(target_content)
     elif isinstance(pPValue, dict):
         for key in pData:
 
             if pData[key][-3] <= pPValue[key]:
                 if float(pData[key][-1]) >= pPeakInteractionsThreshold:
-                    accepted[key] = pMergedLinesDict[key]
-                    target_content = pMergedLinesDict[key][:3]
-                    accepted_lines.append(target_content)
+                    if pLocalBackground:
+                        p_value_local = 1 - cnb.cdf(float(pData[key][-1]), float(pLocalBackground['size']), float(pLocalBackground['prob']))
+                        if p_value_local <= pPValueLocal:
+                            log.debug('passed local background')
+
+                            accepted[key] = pMergedLinesDict[key]
+                            target_content = pMergedLinesDict[key][:3]
+                            accepted_lines.append(target_content)
+                    else:
+                        accepted[key] = pMergedLinesDict[key]
+                        target_content = pMergedLinesDict[key][:3]
+                        accepted_lines.append(target_content)
 
     return accepted, accepted_lines
 
+def compute_distribution_for_viewpoint(pData):
+    data_of_distribution = []
+    for key in pData:
+        # log.debug('pData[key] {}'.format(pData[key]))
+        # exit()
+        data_of_distribution.append(float(pData[key][-1]))
+    data_of_distribution = np.array(data_of_distribution)
+    # log.debug('data_of_distribution: {}'.format(data_of_distribution))
+    # log.debug('max data_of_distribution: {}'.format(max(data_of_distribution)))
 
-def compute_new_p_values(pData, pBackgroundModel, pPValue, pMergedLinesDict, pPeakInteractionsThreshold):
+    # exit()
+    nbinom_parameters = fit_nbinom.fit(data_of_distribution)
+    # log.debug('nbinom_parameters {}'.format(nbinom_parameters))
+    return nbinom_parameters
+
+def compute_new_p_values(pData, pBackgroundModel, pPValue, pMergedLinesDict, pPeakInteractionsThreshold, pLocalBackground, pPValueLocal):
     accepted = {}
     accepted_lines = []
     if isinstance(pPValue, float):
@@ -213,11 +263,21 @@ def compute_new_p_values(pData, pBackgroundModel, pPValue, pMergedLinesDict, pPe
                 pData[key][-3] = 1 - cnb.cdf(float(pData[key][-1]), float(pBackgroundModel[key][0]), float(pBackgroundModel[key][1]))
                 if pData[key][-3] <= pPValue:
                     if float(pData[key][-1]) >= pPeakInteractionsThreshold:
-                        accepted[key] = pData[key]
-                        target_content = pMergedLinesDict[key][0][:3]
+                        if pLocalBackground:
+                            p_value_local = 1 - cnb.cdf(float(pData[key][-1]), float(pLocalBackground['size']), float(pLocalBackground['prob']))
+                            if p_value_local <= pPValueLocal:
+                                # log.debug('passed local background')
+                                accepted[key] = pData[key]
+                                target_content = pMergedLinesDict[key][0][:3]
 
-                        target_content[2] = pMergedLinesDict[key][-1][2]
-                        accepted_lines.append(target_content)
+                                target_content[2] = pMergedLinesDict[key][-1][2]
+                                accepted_lines.append(target_content)
+                        else:
+                            accepted[key] = pData[key]
+                            target_content = pMergedLinesDict[key][0][:3]
+
+                            target_content[2] = pMergedLinesDict[key][-1][2]
+                            accepted_lines.append(target_content)
             else:
                 log.debug('key not in background {}'.format(key))
     elif isinstance(pPValue, dict):
@@ -227,10 +287,20 @@ def compute_new_p_values(pData, pBackgroundModel, pPValue, pMergedLinesDict, pPe
 
                 if pData[key][-3] <= pPValue[key]:
                     if float(pData[key][-1]) >= pPeakInteractionsThreshold:
-                        accepted[key] = pData[key]
-                        target_content = pMergedLinesDict[key][0][:3]
-                        target_content[2] = pMergedLinesDict[key][-1][2]
-                        accepted_lines.append(target_content)
+                        if pLocalBackground:
+                            p_value_local = 1 - cnb.cdf(float(pData[key][-1]), float(pLocalBackground['size']), float(pLocalBackground['prob']))
+                            if p_value_local <= pPValueLocal:
+                                # log.debug('passed local background')
+
+                                accepted[key] = pData[key]
+                                target_content = pMergedLinesDict[key][0][:3]
+                                target_content[2] = pMergedLinesDict[key][-1][2]
+                                accepted_lines.append(target_content)
+                        else:
+                            accepted[key] = pData[key]
+                            target_content = pMergedLinesDict[key][0][:3]
+                            target_content[2] = pMergedLinesDict[key][-1][2]
+                            accepted_lines.append(target_content)
             else:
                 log.debug('key not in background {}'.format(key))
     return accepted, accepted_lines
@@ -510,14 +580,20 @@ def writeTargetHDF(pOutFileName, pTargetDataList, pTargetKeyList, pViewpointObj,
             continue
 
         chromosome = None
-        start_list = []
-        end_list = []
-        a = pybedtools.BedTool(data)
-        data_sorted_merged = a.sort().merge(d=pResolution)
-        for datum in data_sorted_merged:
-            chromosome = datum[0]
-            start_list.append(datum[1])
-            end_list.append(datum[2])
+        # start_list = []
+        # end_list = []
+        targets_pr = pr.PyRanges(pd.DataFrame(data, columns=['Chromosome', 'Start', 'End']))
+        targets_pr = targets_pr.sort().merge(slack=pResolution)
+        chromosome = targets_pr.df["Chromosome"][0]
+        start_list = list(targets_pr.df['Start'].to_numpy())
+        end_list = list(targets_pr.df['End'].to_numpy())
+
+        # a = pybedtools.BedTool(data)
+        # data_sorted_merged = a.sort().merge(d=pResolution)
+        # for datum in data_sorted_merged:
+        #     chromosome = datum[0]
+        #     start_list.append(datum[1])
+        #     end_list.append(datum[2])
 
         if key[0] not in targetFileH5Object:
             matrixGroup = targetFileH5Object.create_group(key[0])

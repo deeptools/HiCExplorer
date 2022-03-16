@@ -138,7 +138,7 @@ setup(
              'bin/hicAverageRegions', 'bin/hicPlotAverageRegions', 'bin/hicDetectLoops', 'bin/hicValidateLocations', 'bin/hicMergeLoops',
              'bin/hicCompartmentalization', 'bin/hicQuickQC', 'bin/hicPlotSVL', 'bin/hicCreateThresholdFile', 'bin/hicHyperoptDetectLoops',
              'bin/hicHyperoptDetectLoopsHiCCUPS', 'bin/hicMergeDomains', 'bin/hicDifferentialTAD', 'bin/chicExportData', 'bin/hicInterIntraTAD',
-             'bin/hicTADClassifier', 'bin/hicTrainTADClassifier', 'bin/chicCreateInteractionGraph', 'bin/chicChangeInteractionGraph'
+             'bin/hicTADClassifier', 'bin/hicTrainTADClassifier', 'bin/chicCreateInteractionGraph', 'bin/chicChangeInteractionGraph', 'bin/chicInteractionGraphSimilarities'
              ],
     include_package_data=True,
     package_dir={'hicexplorer': 'hicexplorer'},

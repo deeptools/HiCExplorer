@@ -88,6 +88,7 @@ def readPeaksChromatinFile(pPeakFile):
     data_assoziation_status_dict = {}
     peak_list = []
     peak_types = []
+
     with open(pPeakFile, 'r') as file:
         for line in file.readlines():
             _line = line.strip().split('\t')
@@ -96,9 +97,9 @@ def readPeaksChromatinFile(pPeakFile):
             data_assoziation_status_dict[_line[0] + ':' + _line[1] + '-' +  _line[2]] = data_for_interval
             data.append(_data)
             peak_list.append(_line[4])
-            if len(data) == 1:
-                # log.debug(data)
-                tmp_data = _data
+            # if len(data) == 1:
+            #     # log.debug(data)
+            #     tmp_data = _data
             if _line[3] not in peak_types:
                 peak_types.append(_line[3])
         hicmatrix = hm.hiCMatrix()
@@ -109,7 +110,9 @@ def readPeaksChromatinFile(pPeakFile):
         # log.debug('data_intervaltree {}'.format(data_intervaltree))
 
         # log.debug('data_intervaltree {}'.format(data_intervaltree[tmp_data[0]].overlap(tmp_data[1], tmp_data[2])))
+    peak_types = sorted(peak_types)
     log.debug('{}'.format(peak_types))
+
     return data_intervaltree, data_assoziation_status_dict, peak_list, peak_types
 
 def computeGraph(pFileList, pPeakDataIntervalTree, pPeaksMetadataDict, pViewpointObject, pArgs, pQueue=None):
@@ -134,7 +137,13 @@ def computeGraph(pFileList, pPeakDataIntervalTree, pPeaksMetadataDict, pViewpoin
                     end = int(data[1][key][2])
 
                     if chromosome in pPeakDataIntervalTree:
+                        # log.debug('pPeakDataIntervalTree[chromosome] {}'.format(len(pPeakDataIntervalTree[chromosome])))
+                        # log.debug('chromosome {}'.format(chromosome))
+                         
+                        # log.debug('pPeakDataIntervalTree[chromosome] {}'.format(pPeakDataIntervalTree[chromosome]))
+                    
                         peakData = pPeakDataIntervalTree[chromosome].overlap(start, end)
+                        
                     else:
                         continue
                     if len(peakData) == 0:
@@ -148,12 +157,12 @@ def computeGraph(pFileList, pPeakDataIntervalTree, pPeaksMetadataDict, pViewpoin
                                 log.warning('Something went wrong. A peak has no metadata!')
                             categories.add(pPeaksMetadataDict[peak_key][0])
                 # log.debug('collect_connections {}'.format(collect_connections))
-                sample_key = '_'.join(sample)
+                sample_key = '_'.join(sample[-2:])
                 reference_point_graph[sample_key] = collect_connections
             # if j > 10:
             #     break
             # break;
-        # log.debug('{} graphs are computed, plotting now'.format(len(reference_point_graph)))
+        log.debug('{} graphs are computed, plotting now'.format(len(reference_point_graph)))
         color_map = 'Set1'
         colors = list(set(sorted(process_cmap(color_map))))
         categories.add('RP')
@@ -169,12 +178,14 @@ def computeGraph(pFileList, pPeakDataIntervalTree, pPeaksMetadataDict, pViewpoin
 
             # log.debug('reference_point_graph[graph] {}'.format(reference_point_graph[graph]))
             G = nx.Graph()
-            sample_id = graph.split("_")[3]
+            sample_id = graph.split("_")[1]
             node_list_color = {}
             node_list_color['RP'] = [sample_id]
             edge_weights = []
             # node_list_color_category = {}
             # node_list_color_category['RP'] = 0
+            # if len(reference_point_graph[graph]) == 0:
+            #     log.debug(' {} empty'.format(graph))
             for node in reference_point_graph[graph]:
                 G.add_weighted_edges_from([(sample_id, node[3][1] , node[2])])
                 G.nodes[node[3][1]]['title'] = node[3][1]
@@ -255,6 +266,7 @@ def computeGraph(pFileList, pPeakDataIntervalTree, pPeaksMetadataDict, pViewpoin
         return
     if pQueue is None:
         return
+    log.debug('len(images_array) {}; len(file_names) {}; len(reference_point_graph) {}'.format(len(images_array), len(file_names), len(reference_point_graph)))
     pQueue.put([images_array, file_names, reference_point_graph])
     return
     # return 
@@ -377,10 +389,12 @@ def main(args=None):
             fileListPerThread = fileList[i * filesPerThread:(i + 1) * filesPerThread]
         else:
             fileListPerThread = fileList[i * filesPerThread:]
+        
+        log.debug('Files per thread: {}'.format(len(fileListPerThread)))
         queue[i] = Queue()
 # pFileList, pPeakDataIntervalTree, pPeaksMetadataDict, pViewpointObject, pArgs, pQueue
         process[i] = Process(target=computeGraph, kwargs=dict(
-                                pFileList=fileList, 
+                                pFileList=fileListPerThread, 
                                 pPeakDataIntervalTree=peaks_chromatin_status_interval_tree,
                                 pPeaksMetadataDict=peaks_metadata_dict, 
                                 pViewpointObject=viewpointObj,
@@ -419,9 +433,15 @@ def main(args=None):
     file_name_list = [item for sublist in file_name_list_thread for item in sublist]
     reference_point_graph = {}
 
+
+
     # z = {**x, **y}
     for sublist in reference_point_graph_thread:
         reference_point_graph = {**reference_point_graph, **sublist}
+
+    log.debug('Images array {}'.format(len(images_array)))
+    log.debug('file_name_list {}'.format(len(file_name_list)))
+    log.debug('reference_point_graph {}'.format(len(reference_point_graph)))
 
     with tarfile.open(args.plotsFileName, "w:gz") as tar:
         for i, bufferObject in enumerate(images_array):
