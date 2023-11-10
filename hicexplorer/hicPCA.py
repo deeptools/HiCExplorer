@@ -362,7 +362,7 @@ def main(args=None):
             with open(outfile, 'w') as fh:
                 for i, value in enumerate(vecs_list):
                     if len(value) == len(args.whichEigenvectors):
-                        if isinstance(value[idx], np.complex):
+                        if isinstance(value[idx], np.complex128):
                             value[idx] = value[idx].real
                         fh.write("{}\t{}\t{}\t{:.12f}\n".format(toString(chrom_list[i]), start_list[i], end_list[i], value[idx]))
 
@@ -396,16 +396,21 @@ def main(args=None):
             for i, value in enumerate(vecs_list):
                 # it can happen that some 'value' is having less dimensions than it should
                 if len(value) == len(args.whichEigenvectors):
-                    if isinstance(value[idx], np.complex):
+                    if isinstance(value[idx], np.complex128):
                         value[idx] = value[idx].real
                     values.append(value[idx])
                     _chrom_list.append(toString(chrom_list[i]))
                     _start_list.append(start_list[i])
                     _end_list.append(end_list[i])
 
-            # write entries
-            bw.addEntries(_chrom_list, _start_list, ends=_end_list,
-                          values=values)
+            if len(values) > 0:
+                # write entries
+                # try:
+                bw.addEntries(_chrom_list, _start_list, ends=_end_list,
+                            values=values)
+                # except Exception as exp:
+                #     breakpoint()
+
             bw.close()
     else:
         log.error("Output format not known: {}".format(args.format))

@@ -515,7 +515,7 @@ def compute_clusters(updated_info, k, method="kmeans", how='full', max_deviation
             # shape = (num_submatrices, submatrix.shape[0] * submatrix.shape[1]
             # In other words, each submatrix is converted into a row of the matrix
             submat_vectors.append(submatrix.reshape((1, shape[0] * shape[1])))
-    matrix = np.vstack(submat_vectors)
+    matrix = np.asarray(np.vstack(submat_vectors))
     if how == 'diagonal':
         assert matrix.shape == (len(updated_info["submatrices"]), shape[0])
     elif how == 'center':

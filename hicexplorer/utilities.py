@@ -263,11 +263,11 @@ def expected_interactions_in_distance(pLength_chromosome, pChromosome_count, pSu
         expected_interactions[distance_] += pSubmatrix.data[i]
 
     count_times_i = np.arange(float(len(expected_interactions)))
-    pChromosome_count = np.int(pChromosome_count)
-    pLength_chromosome = np.int(pLength_chromosome)
+    pChromosome_count = np.int32(pChromosome_count)
+    pLength_chromosome = np.int32(pLength_chromosome)
     count_times_i *= pChromosome_count
     count_times_i -= pLength_chromosome
-    count_times_i *= np.int(-1)
+    count_times_i *= np.int32(-1)
 
     expected_interactions /= count_times_i
     # log.debug('exp_obs_matrix_lieberman {}'.format(expected_interactions))

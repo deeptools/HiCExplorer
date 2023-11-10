@@ -537,7 +537,7 @@ class Viewpoint():
         Adds -pWindowsSize/2 and +pWindowsSize/2 around pData[i] and averages pData[i] by pWindowSize to
         smooth the interaction values.
         '''
-        window_size = np.int(np.floor(pWindowSize / 2))
+        window_size = np.int32(np.floor(pWindowSize / 2))
         window_size_upstream = window_size
         if pWindowSize % 2 == 0:
             window_size_upstream -= 1

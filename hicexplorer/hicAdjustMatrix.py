@@ -4,7 +4,7 @@ warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 import argparse
 from hicmatrix import HiCMatrix as hm
 from hicexplorer._version import __version__
-from hicmatrix.HiCMatrix import check_cooler
+from hicexplorer.utilities import check_cooler
 import numpy as np
 import cooler
 import logging

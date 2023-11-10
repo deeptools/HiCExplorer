@@ -64,20 +64,37 @@ def save_html(filename, unmap_table, discard_table, distance_table, orientation_
     html_content = html.read()
     # the html code has a placeholder for the html table
     html_content = html_content.replace("%%TABLE_UNMAP%%", unmap_table.style
-                                        .format(lambda x: '{:,}'.format(x) if x > 1 else '{:.2%}'.format(x)).render())
+                                        .format(lambda x: '{:,}'.format(x) if x > 1 else '{:.2%}'.format(x)).to_html(classes='df'))
     html_content = html_content.replace("%%TABLE_DISCARDED%%", discard_table.style
-                                        .format(lambda x: '{:,}'.format(x) if x > 1 else '{:.2%}'.format(x)).render())
+                                        .format(lambda x: '{:,}'.format(x) if x > 1 else '{:.2%}'.format(x)).to_html(classes='df'))
     html_content = html_content.replace("%%TABLE_DISTANCE%%", distance_table.style
-                                        .format(lambda x: '{:,}'.format(x) if x > 1 else '{:.2%}'.format(x)).render())
+                                        .format(lambda x: '{:,}'.format(x) if x > 1 else '{:.2%}'.format(x)).to_html(classes='df'))
     html_content = html_content.replace("%%TABLE_ORIENTATION%%", orientation_table.style
-                                        .format(lambda x: '{:,}'.format(x) if x > 1 else '{:.2%}'.format(x)).render())
+                                        .format(lambda x: '{:,}'.format(x) if x > 1 else '{:.2%}'.format(x)).to_html(classes='df'))
 
     all_table = all_table.drop(['Min rest. site distance', 'Max library insert size'], axis=1)
 
-    html_content = html_content.replace("%%TABLE%%", all_table.style.render())
+    html_content = html_content.replace("%%TABLE%%", all_table.style.to_html(classes='df'))
     with open(filename, 'w') as fh:
         fh.write(html_content)
     html.close()
+
+
+def render_style(style):
+  """Renders a pandas Styler object to HTML.
+
+  Args:
+    style: A pandas Styler object.
+
+  Returns:
+    A string containing the rendered HTML.
+  """
+
+  # Get the CSS for the Styler object.
+  css = style.to_html_styles()
+
+  # Get the HTML for the Styler object.
+  html = style.to_html()
 
 
 def make_sure_path_exists(path):

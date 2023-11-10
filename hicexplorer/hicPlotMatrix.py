@@ -241,8 +241,16 @@ def plotHeatmap(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=None,
         start_pos2 = start_pos
 
     xmesh, ymesh = np.meshgrid(start_pos, start_pos2)
+
+    # patch for newer matplotlib versions where vmin and vmax is for norm not allowed anymore
+    vmin = None
+    vmax = None
+    if pNorm is None:
+        vmin = args.vMin
+        vmax = args.vMax
+
     img3 = axHeat2.pcolormesh(
-        xmesh.T, ymesh.T, ma, vmin=args.vMin, vmax=args.vMax, cmap=cmap, norm=pNorm)
+        xmesh.T, ymesh.T, ma, vmin=vmin, vmax=vmax, cmap=cmap, norm=pNorm)
     img3.set_rasterized(True)
 
     if args.region:
@@ -519,10 +527,10 @@ def plotPerChr(hic_matrix, cmap, args, pBigwig, pResolution):
                 np.isinf(matrix).any()))
         if args.log1p:
             matrix += 1
-            norm = LogNorm()
+            norm = LogNorm(vmin=args.vMin, vmax=args.vMax)
 
         elif args.log:
-            norm = LogNorm()
+            norm = LogNorm(vmin=args.vMin, vmax=args.vMax)
 
         chr_bin_boundary = OrderedDict()
         chr_bin_boundary[chrname] = hic_matrix.get_chromosome_sizes()[chrname]
@@ -785,9 +793,9 @@ def main(args=None):
             np.isinf(matrix).any()))
         if args.log1p:
             matrix += 1
-            norm = LogNorm()
+            norm = LogNorm(vmin=args.vMin, vmax=args.vMax)
         elif args.log:
-            norm = LogNorm()
+            norm = LogNorm(vmin=args.vMin, vmax=args.vMax)
 
         fig_height = 7
         fig_width = 8
