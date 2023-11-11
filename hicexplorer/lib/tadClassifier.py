@@ -38,7 +38,7 @@ from sklearn.ensemble import AdaBoostClassifier
 from sklearn.metrics import roc_auc_score
 from sklearn.metrics import roc_curve, auc
 
-from cleanlab.classification import LearningWithNoisyLabels
+from cleanlab.classification import CleanLearning
 from imblearn.under_sampling import *
 
 # PCA
@@ -467,7 +467,7 @@ class TADClassifier:
                 estimators = self.classifier.get_params(
                 )['n_estimators'] + self.estimators_per_step
                 self.classifier.set_params(n_estimators=estimators)
-                self.classifier = LearningWithNoisyLabels(
+                self.classifier = CleanLearning(
                     clf=self.classifier, n_jobs=self.threads)
 
         def single_run(self, positions, X, y, test_size_n=0.2):
@@ -585,7 +585,9 @@ class TADClassifier:
             # resample method: KMEANs
             if(method == 'undersample_cluster_centroids'):
                 log.debug('resampling with: ' + method)
-                cc = ClusterCentroids(random_state=42, n_jobs=threads)
+                # Uses k-means of sklearn in the background which sets
+                # the number of cores via system environment variable OMP_NUM_THREADS
+                cc = ClusterCentroids(random_state=42)
                 return cc.fit_resample(X, y)
 
             # resample method: random

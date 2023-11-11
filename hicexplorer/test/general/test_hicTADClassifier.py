@@ -156,7 +156,7 @@ def test_hicTADClassifier():
             '-n',
             'range',
             '--saved_classifier',
-            ROOT + 'trained_model.bin.BIN',
+            ROOT + 'trained_model.BIN',
             '--threads',
             '4'
             ]
@@ -198,7 +198,7 @@ def test_hicTADClassifier_two_matrices():
             '-n',
             'range',
             '--saved_classifier',
-            ROOT + 'trained_model.bin.BIN',
+            ROOT + 'trained_model.BIN',
             '--unselect_border_cases',
             # 'True',
             '--threads',
@@ -227,6 +227,8 @@ def test_hicTADClassifier_load_model_obs_exp():
             outfile.name,
             '-n',
             'obs_exp',
+            '--saved_classifier',
+            ROOT + 'trained_model_obs_exp.BIN',
             '--threads',
             '4'
             ]
