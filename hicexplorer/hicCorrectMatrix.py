@@ -665,7 +665,7 @@ def main(args=None):
         if args.sequencedCountCutoff and 0 < args.sequencedCountCutoff < 1:
             chrom, _, _, coverage = zip(*ma.cut_intervals)
 
-            assert type(coverage[0]) == np.float64
+            assert type(coverage[0]) is np.float64
 
             failed_bins = np.flatnonzero(
                 np.array(coverage) < args.sequencedCountCutoff)
@@ -703,7 +703,7 @@ def main(args=None):
                 correction_factors.append(_corr_factors)
             else:
                 # Set the kr matrix along with its correction factors vector
-                assert(args.correctionMethod == 'KR')
+                assert (args.correctionMethod == 'KR')
                 log.debug("Loading a float sparse matrix for KR balancing")
                 kr = kr_balancing(chr_submatrix.shape[0],
                                   chr_submatrix.shape[1],
@@ -729,7 +729,7 @@ def main(args=None):
                 ma.matrix, args)
             ma.setMatrixValues(corrected_matrix)
         else:
-            assert(args.correctionMethod == 'KR')
+            assert (args.correctionMethod == 'KR')
             log.debug("Loading a float sparse matrix for KR balancing")
             kr = kr_balancing(ma.matrix.shape[0], ma.matrix.shape[1],
                               ma.matrix.count_nonzero(), ma.matrix.indptr.astype(np.int64, copy=False),

@@ -16,6 +16,7 @@ sam_R2 = ROOT + "small_test_R2_unsorted.bam"
 dpnii_file = ROOT + "DpnII.bed"
 delta = 80000
 
+
 def are_files_equal(file1, file2, delta=1):
     equal = True
     if delta:

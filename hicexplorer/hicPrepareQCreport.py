@@ -21,7 +21,7 @@ def parse_arguments():
                                                  'hicBuildMatrix log files within an HTML output',
                                      add_help=False,
                                      usage='%(prog)s --logfiles matrix1_QCfolder/QC.log matrix2_QCfolder/QC.log '
-                                           '--labels "sample 1" "sample 2" --outputFolder QC_all_samples)')
+                                           '--labels "sample 1" "sample 2" --outputFolder QC_all_samples')
 
     parserRequired = parser.add_argument_group('Required arguments')
     # define the arguments
@@ -78,23 +78,6 @@ def save_html(filename, unmap_table, discard_table, distance_table, orientation_
     with open(filename, 'w') as fh:
         fh.write(html_content)
     html.close()
-
-
-def render_style(style):
-  """Renders a pandas Styler object to HTML.
-
-  Args:
-    style: A pandas Styler object.
-
-  Returns:
-    A string containing the rendered HTML.
-  """
-
-  # Get the CSS for the Styler object.
-  css = style.to_html_styles()
-
-  # Get the HTML for the Styler object.
-  html = style.to_html()
 
 
 def make_sure_path_exists(path):

@@ -99,7 +99,7 @@ def count_interactions(obs_exp, pc1, quantiles_number, offset):
     number_of_bins = np.zeros((quantiles_number, quantiles_number))
     if offset:
         for dist in offset:
-            assert(dist >= 0)
+            assert (dist >= 0)
             indices = np.arange(0, obs_exp.matrix.shape[0] - dist)
             obs_exp.matrix[indices, indices + dist] = np.nan
             obs_exp.matrix[indices + dist, indices] = np.nan

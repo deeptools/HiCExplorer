@@ -21,29 +21,31 @@ jobs:
   - bash: |
       echo "##vso[task.prependpath]$CONDA/bin"
       hash -r
+      conda install mamba
+      hash -r
     displayName: Add conda to PATH
   - bash: |
       conda config --set always_yes yes --set changeps1 no
       conda info -a
-      conda create -n hicexplorer --yes -c conda-forge -c bioconda python=$(python.version) --file requirements.txt
-      source activate hicexplorer
-      conda install --yes -c conda-forge -c bioconda pytest flake8 pytest-xdist pytest-forked
-      conda install --yes -c conda-forge -c bioconda nose
-      conda install --yes pathlib
-      conda install --yes -c defaults -c conda-forge -c bioconda configparser
+      mamba create -n hicexplorer --yes -c conda-forge -c bioconda python=$(python.version) --file requirements.txt
+      mamba activate hicexplorer
+      mamba install --yes -c conda-forge -c bioconda pytest flake8 pytest-xdist pytest-forked
+      mamba install --yes -c conda-forge -c bioconda nose
+      mamba install --yes pathlib
+      mamba install --yes -c defaults -c conda-forge -c bioconda configparser
       pip install .
     displayName: installing dependencies
   - script: |
-      source activate hicexplorer
+      mamba activate hicexplorer
       flake8 . --exclude=.venv,.build,planemo_test_env,build --ignore=E501,F401,F403,E402,F999,F405,E712,W504
     displayName: linting
   - script: |
-      source activate hicexplorer
+      mamba activate hicexplorer
       py.test hicexplorer/test/test_pytest_collected_items.py --doctest-modules --capture=sys
       py.test hicexplorer --doctest-modules --ignore=hicexplorer/test/
     displayName: doc_test_and_number_of_cases
   - script: |
-      source activate hicexplorer
+      mamba activate hicexplorer
       py.test hicexplorer/test/general/ --doctest-modules --capture=sys -n 4  --ignore=hicexplorer/test/general/test_hicTADClassifier.py --ignore=hicexplorer/test/general/test_hicTrainTADClassifier.py
       py.test hicexplorer/test/general/test_hicTADClassifier.py
       py.test hicexplorer/test/general/test_hicTrainTADClassifier.py
@@ -66,29 +68,31 @@ jobs:
   - bash: |
       echo "##vso[task.prependpath]$CONDA/bin"
       hash -r
+      conda install mamba
+      hash -r
     displayName: Add conda to PATH
   - bash: |
       conda config --set always_yes yes --set changeps1 no
       conda info -a
-      conda create -n hicexplorer --yes -c conda-forge -c bioconda python=$(python.version) --file requirements.txt
-      source activate hicexplorer
-      conda install --yes -c conda-forge -c bioconda pytest flake8 pytest-xdist pytest-forked
-      conda install --yes -c conda-forge -c bioconda nose
-      conda install --yes pathlib
-      conda install --yes -c defaults -c conda-forge -c bioconda configparser
+      mamba create -n hicexplorer --yes -c conda-forge -c bioconda python=$(python.version) --file requirements.txt
+      mamba activate hicexplorer
+      mamba install --yes -c conda-forge -c bioconda pytest flake8 pytest-xdist pytest-forked
+      mamba install --yes -c conda-forge -c bioconda nose
+      mamba install --yes pathlib
+      mamba install --yes -c defaults -c conda-forge -c bioconda configparser
       pip install .
     displayName: installing dependencies
   - script: |
-      source activate hicexplorer
+      mamba activate hicexplorer
       flake8 . --exclude=.venv,.build,planemo_test_env,build --ignore=E501,F401,F403,E402,F999,F405,E712,W504
     displayName: linting
   - script: |
-      source activate hicexplorer
+      mamba activate hicexplorer
       py.test hicexplorer/test/test_pytest_collected_items.py --doctest-modules --capture=sys
       py.test hicexplorer --doctest-modules --ignore=hicexplorer/test/
     displayName: doc_test_and_number_of_cases
   - script: |
-      source activate hicexplorer
+      mamba activate hicexplorer
       py.test hicexplorer/test/general/ --doctest-modules --capture=sys -n 4  --ignore=hicexplorer/test/general/test_hicTADClassifier.py --ignore=hicexplorer/test/general/test_hicTrainTADClassifier.py
       py.test hicexplorer/test/general/test_hicTADClassifier.py
       py.test hicexplorer/test/general/test_hicTrainTADClassifier.py

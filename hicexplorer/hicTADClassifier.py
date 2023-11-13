@@ -9,7 +9,7 @@ from hicexplorer._version import __version__
 
 def parse_arguments(args=None):
     """
-    get command line arguments
+        get command line arguments
     """
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawDescriptionHelpFormatter,

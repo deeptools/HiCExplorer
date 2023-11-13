@@ -229,7 +229,7 @@ def correlateEigenvectorWithHistonMarkTrack(pEigenvector, bwTrack, chromosome,
                     vector[pos_indices] = np.negative(vector[pos_indices])
                     vector[neg_indices] = np.negative(vector[neg_indices])
             else:
-                assert(pHistonMarkType == 'inactive')
+                assert (pHistonMarkType == 'inactive')
                 if (pos_mean > neg_mean) and (neg_mean != 0) and (pos_mean != 0):
                     # flip the sign
                     vector[pos_indices] = -1 * vector[pos_indices]
@@ -318,7 +318,7 @@ def main(args=None):
                 eigenvectors_correlate = np.hstack((eigenvectors_correlate, eigs[:, int(id) - 1:int(id)]))
 
         if args.extraTrack and (args.extraTrack.endswith('.bw') or args.extraTrack.endswith('.bigwig')):
-            assert(len(end) == len(start))
+            assert (len(end) == len(start))
             correlateEigenvectorWithHistonMarkTrack(eigenvectors_correlate.transpose(),
                                                     bwTrack, chrname, start,
                                                     end, args.extraTrack,
@@ -357,7 +357,7 @@ def main(args=None):
     if args.format == 'bedgraph':
         for idx, outfile in enumerate(args.outputFileName):
 
-            assert(len(vecs_list) == len(chrom_list))
+            assert (len(vecs_list) == len(chrom_list))
 
             with open(outfile, 'w') as fh:
                 for i, value in enumerate(vecs_list):
@@ -383,7 +383,7 @@ def main(args=None):
             log.debug("bigwig: len(vecs_list) {}".format(len(vecs_list)))
             log.debug("bigwig: len(chrom_list) {}".format(len(chrom_list)))
 
-            assert(len(vecs_list) == len(chrom_list))
+            assert (len(vecs_list) == len(chrom_list))
             _chrom_list = []
             _start_list = []
             _end_list = []
@@ -403,10 +403,8 @@ def main(args=None):
                     _start_list.append(start_list[i])
                     _end_list.append(end_list[i])
 
-            
             bw.addEntries(_chrom_list, _start_list, ends=_end_list,
-                    values=values)
-    
+                          values=values)
 
             bw.close()
     else:
