@@ -21,12 +21,12 @@ jobs:
   - bash: |
       echo "##vso[task.prependpath]$CONDA/bin"
       hash -r
-      conda install mamba
-      hash -r
     displayName: Add conda to PATH
   - bash: |
       conda config --set always_yes yes --set changeps1 no
-      conda info -a
+      conda install mamba
+      hash -r
+      mamba info -a
       mamba create -n hicexplorer --yes -c conda-forge -c bioconda python=$(python.version) --file requirements.txt
       mamba activate hicexplorer
       mamba install --yes -c conda-forge -c bioconda pytest flake8 pytest-xdist pytest-forked
@@ -68,12 +68,12 @@ jobs:
   - bash: |
       echo "##vso[task.prependpath]$CONDA/bin"
       hash -r
-      conda install mamba
-      hash -r
     displayName: Add conda to PATH
   - bash: |
       conda config --set always_yes yes --set changeps1 no
-      conda info -a
+      conda install mamba
+      hash -r
+      mamba info -a
       mamba create -n hicexplorer --yes -c conda-forge -c bioconda python=$(python.version) --file requirements.txt
       mamba activate hicexplorer
       mamba install --yes -c conda-forge -c bioconda pytest flake8 pytest-xdist pytest-forked
