@@ -24,7 +24,7 @@ jobs:
     displayName: Add conda to PATH
   - bash: |
       conda config --set always_yes yes --set changeps1 no
-      conda install mamba
+      conda install mamba --yes -c conda-forge
       hash -r
       mamba info -a
       mamba create -n hicexplorer --yes -c conda-forge -c bioconda python=$(python.version) --file requirements.txt
@@ -71,7 +71,7 @@ jobs:
     displayName: Add conda to PATH
   - bash: |
       conda config --set always_yes yes --set changeps1 no
-      conda install mamba
+      conda install mamba --yes -c conda-forge
       hash -r
       mamba info -a
       mamba create -n hicexplorer --yes -c conda-forge -c bioconda python=$(python.version) --file requirements.txt
