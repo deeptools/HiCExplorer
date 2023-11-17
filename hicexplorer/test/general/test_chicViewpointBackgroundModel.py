@@ -32,8 +32,8 @@ def are_files_equal(file1, file2, delta=1, skip=0, eps=0.1):
                 line1_list = np.array(line1.split('\t'))
                 line2_list = np.array(line2.split('\t'))
 
-                line1_list = line1_list.astype(np.float)
-                line2_list = line2_list.astype(np.float)
+                line1_list = line1_list.astype(np.float64)
+                line2_list = line2_list.astype(np.float64)
 
                 for value1, value2 in zip(line1_list, line2_list):
                     if np.abs(value1 - value2) < eps:

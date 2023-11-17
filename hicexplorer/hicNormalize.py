@@ -84,7 +84,7 @@ def main(args=None):
             min_max_difference = np.float64(max_value - min_value)
 
             hic_matrix.matrix.data -= min_value
-            hic_matrix.matrix.data /= min_max_difference
+            hic_matrix.matrix.data = np.divide(hic_matrix.matrix.data, min_max_difference)
 
             mask = np.isnan(hic_matrix.matrix.data)
             hic_matrix.matrix.data[mask] = 0
@@ -110,7 +110,7 @@ def main(args=None):
                 mask = np.isinf(hic_matrix.matrix.data)
                 hic_matrix.matrix.data[mask] = 0
                 adjust_factor = sum_list[i] / sum_list[argmin]
-                hic_matrix.matrix.data /= adjust_factor
+                hic_matrix.matrix.data = np.divide(hic_matrix.matrix.data, adjust_factor)
                 mask = np.isnan(hic_matrix.matrix.data)
 
             mask = np.isnan(hic_matrix.matrix.data)

@@ -75,7 +75,7 @@ def iterativeCorrection(matrix, v=None, M=50, tolerance=1e-5, verbose=False):
 
     # scale the total bias such that the sum is 1.0
     corr = total_bias[total_bias != 0].mean()
-    total_bias /= corr
+    total_bias = np.divide(total_bias, corr)
     W.data = W.data * corr * corr
     if np.any(W.data > 1e10):
         log.error("*Error* matrix correction produced extremely large values. "

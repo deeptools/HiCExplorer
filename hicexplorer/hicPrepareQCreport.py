@@ -21,7 +21,7 @@ def parse_arguments():
                                                  'hicBuildMatrix log files within an HTML output',
                                      add_help=False,
                                      usage='%(prog)s --logfiles matrix1_QCfolder/QC.log matrix2_QCfolder/QC.log '
-                                           '--labels "sample 1" "sample 2" --outputFolder QC_all_samples)')
+                                           '--labels "sample 1" "sample 2" --outputFolder QC_all_samples')
 
     parserRequired = parser.add_argument_group('Required arguments')
     # define the arguments
@@ -64,17 +64,17 @@ def save_html(filename, unmap_table, discard_table, distance_table, orientation_
     html_content = html.read()
     # the html code has a placeholder for the html table
     html_content = html_content.replace("%%TABLE_UNMAP%%", unmap_table.style
-                                        .format(lambda x: '{:,}'.format(x) if x > 1 else '{:.2%}'.format(x)).render())
+                                        .format(lambda x: '{:,}'.format(x) if x > 1 else '{:.2%}'.format(x)).to_html(classes='df'))
     html_content = html_content.replace("%%TABLE_DISCARDED%%", discard_table.style
-                                        .format(lambda x: '{:,}'.format(x) if x > 1 else '{:.2%}'.format(x)).render())
+                                        .format(lambda x: '{:,}'.format(x) if x > 1 else '{:.2%}'.format(x)).to_html(classes='df'))
     html_content = html_content.replace("%%TABLE_DISTANCE%%", distance_table.style
-                                        .format(lambda x: '{:,}'.format(x) if x > 1 else '{:.2%}'.format(x)).render())
+                                        .format(lambda x: '{:,}'.format(x) if x > 1 else '{:.2%}'.format(x)).to_html(classes='df'))
     html_content = html_content.replace("%%TABLE_ORIENTATION%%", orientation_table.style
-                                        .format(lambda x: '{:,}'.format(x) if x > 1 else '{:.2%}'.format(x)).render())
+                                        .format(lambda x: '{:,}'.format(x) if x > 1 else '{:.2%}'.format(x)).to_html(classes='df'))
 
     all_table = all_table.drop(['Min rest. site distance', 'Max library insert size'], axis=1)
 
-    html_content = html_content.replace("%%TABLE%%", all_table.style.render())
+    html_content = html_content.replace("%%TABLE%%", all_table.style.to_html(classes='df'))
     with open(filename, 'w') as fh:
         fh.write(html_content)
     html.close()

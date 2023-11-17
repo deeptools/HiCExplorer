@@ -148,7 +148,8 @@ def exportData(pFileList, pArgs, pViewpointObject, pDecimalPlace, pChromosomeSiz
 
                         file_content_string = header_information
                         for key in key_list:
-                            file_content_string += '\t'.join('{:.{decimal_places}f}'.format(x, decimal_places=pDecimalPlace) if isinstance(x, np.float) else str(x) for x in data[1][key]) + '\n'
+                            file_content_string += '\t'.join('{:.{decimal_places}f}'.format(x, decimal_places=pDecimalPlace) if isinstance(x, float) else str(x) for x in data[1][key]) + '\n'
+                        # breakpoint()
                     else:
                         for key in key_list:
                             chromosome_name.append(str(data[1][key][0]))
@@ -224,7 +225,9 @@ def exportData(pFileList, pArgs, pViewpointObject, pDecimalPlace, pChromosomeSiz
                     line_content, data = pViewpointObject.readAggregatedFileHDF(pArgs.file, sample)
                     file_content_string = header_information
                     for line in line_content:
-                        file_content_string += '\t'.join('{:.{decimal_places}f}'.format(x, decimal_places=pDecimalPlace) if isinstance(x, np.float) else str(x) for x in line) + '\n'
+                        file_content_string += '\t'.join('{:.{decimal_places}f}'.format(x, decimal_places=pDecimalPlace) if isinstance(x, float) else str(x) for x in line) + '\n'
+                    # breakpoint()
+
                     file_content_list.append(file_content_string)
 
                     file_name = '_'.join(sample) + '_' + pFileType + '.txt'
@@ -241,7 +244,9 @@ def exportData(pFileList, pArgs, pViewpointObject, pDecimalPlace, pChromosomeSiz
                     file_content_string = header_information
 
                     for line in item:
-                        file_content_string += '\t'.join('{:.{decimal_places}f}'.format(x, decimal_places=pDecimalPlace) if isinstance(x, np.float) else str(x) for x in line) + '\n'
+                        file_content_string += '\t'.join('{:.{decimal_places}f}'.format(x, decimal_places=pDecimalPlace) if isinstance(x, float) else str(x) for x in line) + '\n'
+                    # breakpoint()
+
                     file_content_list.append(file_content_string)
                     file_name = '_'.join(file) + '_' + item_classification[i] + '_' + pFileType + '.txt'
                     file_list.append(file_name)

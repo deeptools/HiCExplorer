@@ -38,7 +38,7 @@ from sklearn.ensemble import AdaBoostClassifier
 from sklearn.metrics import roc_auc_score
 from sklearn.metrics import roc_curve, auc
 
-from cleanlab.classification import LearningWithNoisyLabels
+from cleanlab.classification import CleanLearning
 from imblearn.under_sampling import *
 
 # PCA
@@ -66,7 +66,7 @@ class TADClassifier:
                 domain_file)
 
             # read protein file and intersect if necessary
-            if(protein_file is not None):
+            if (protein_file is not None):
                 # if pAddRemoveChrPrexix:
 
                 self.protein_df = TADClassifier.MP_Domain_Data.readProtein(
@@ -95,7 +95,7 @@ class TADClassifier:
                 # protein_df[0] = 'chr' + protein_df[0].astype(str)
                 protein_df[0] = protein_df[0].str.lstrip('chr')
             log.debug('protein_df {}'.format(protein_df))
-            if(protein_df.size < 1):
+            if (protein_df.size < 1):
                 raise ValueError('empty protein file passed')
 
             # use bedtools sorting and apply proper column names
@@ -115,7 +115,7 @@ class TADClassifier:
             domains_by_hicfindtads = domains_by_hicfindtads.sort_values(
                 by=["Chrom", "Start"])
 
-            if(domains_by_hicfindtads.size < 1):
+            if (domains_by_hicfindtads.size < 1):
                 raise ValueError('empty domain file passed')
 
             return domains_by_hicfindtads
@@ -275,7 +275,7 @@ class TADClassifier:
         def get_resolution(self):
             """resolution of matrix"""
 
-            if(self.resolution is None):
+            if (self.resolution is None):
                 self.resolution = self.hic_matrix.getBinSize()
 
             return self.resolution
@@ -305,7 +305,7 @@ class TADClassifier:
             if features is None:
                 return None
             # experimental: use gradient matrix too
-            if(use_gradient):
+            if (use_gradient):
                 x_gradient, y_gradient = self.build_gradient_features(distance)
                 features = np.concatenate(
                     (features, x_gradient, y_gradient), axis=1)
@@ -453,7 +453,7 @@ class TADClassifier:
             self.distance = distance
             self.is_default_classifier = alternative_classifier is None
 
-            if(alternative_classifier is None):
+            if (alternative_classifier is None):
                 self.classifier = BaggingClassifier(
                     base_estimator=AdaBoostClassifier(),
                     n_estimators=0,
@@ -467,7 +467,7 @@ class TADClassifier:
                 estimators = self.classifier.get_params(
                 )['n_estimators'] + self.estimators_per_step
                 self.classifier.set_params(n_estimators=estimators)
-                self.classifier = LearningWithNoisyLabels(
+                self.classifier = CleanLearning(
                     clf=self.classifier, n_jobs=self.threads)
 
         def single_run(self, positions, X, y, test_size_n=0.2):
@@ -492,7 +492,7 @@ class TADClassifier:
             # train model
             # if input contains only one class, an exception is thrown
             log.debug('fitting')
-            if(np.unique(y).shape[0] >= 2):
+            if (np.unique(y).shape[0] >= 2):
                 self.classifier.fit(X, y)
 
             else:
@@ -513,12 +513,12 @@ class TADClassifier:
             X = TADClassifier.MP_Classifier.impute(X, self.impute_value)
 
             # enact oversample imbalance strategy
-            if(resample):
+            if (resample):
                 X, y = TADClassifier.MP_Classifier.resample(
                     X, y, self.resampling_method, self.alternative_resampling_method, threads=self.threads)
 
             # introduce additional estimators to accomodate for new dataset
-            if(self.use_cleanlab):
+            if (self.use_cleanlab):
                 estimators = self.classifier.clf.get_params(
                 )['n_estimators'] + self.estimators_per_step
                 self.classifier.clf.set_params(n_estimators=estimators)
@@ -557,7 +557,7 @@ class TADClassifier:
 
             # test model
             log.debug('predicting')
-            if(not y_test[y_test == False].shape[0] <= 0 and not y_test[y_test == True].shape[0] <= 0):
+            if (not y_test[y_test == False].shape[0] <= 0 and not y_test[y_test == True].shape[0] <= 0):
                 y_pred = self.classifier.predict(X)
                 return positions, X, y_test, y_pred
             else:
@@ -583,19 +583,21 @@ class TADClassifier:
             '''enact resample method chosen with method'''
 
             # resample method: KMEANs
-            if(method == 'undersample_cluster_centroids'):
+            if (method == 'undersample_cluster_centroids'):
                 log.debug('resampling with: ' + method)
-                cc = ClusterCentroids(random_state=42, n_jobs=threads)
+                # Uses k-means of sklearn in the background which sets
+                # the number of cores via system environment variable OMP_NUM_THREADS
+                cc = ClusterCentroids(random_state=42)
                 return cc.fit_resample(X, y)
 
             # resample method: random
-            elif(method == 'undersample_random'):
+            elif (method == 'undersample_random'):
                 log.debug('resampling with: ' + method)
                 rus = RandomUnderSampler(random_state=42)
                 return rus.fit_resample(X, y)
 
             # use users method
-            elif(method == 'passed_method' and passed_method is not None):
+            elif (method == 'passed_method' and passed_method is not None):
                 log.debug('resampling with: ' + method)
                 return passed_method.fit_resample(X, y)
 
@@ -631,7 +633,7 @@ class TADClassifier:
             log.debug(classification)
             log.debug(conf)
 
-            if(out_file):
+            if (out_file):
 
                 f = open(out_file, "w")
                 f.writelines(acc)
@@ -642,7 +644,7 @@ class TADClassifier:
         def get_feature_importance(self, out_file):
             '''print feature importances'''
 
-            if(self.is_default_classifier and not self.use_cleanlab):
+            if (self.is_default_classifier and not self.use_cleanlab):
                 # only use on Bagging Classifier
                 feature_importances = np.mean(
                     [est.feature_importances_ for est in self.classifier.estimators_], axis=0)
@@ -654,7 +656,7 @@ class TADClassifier:
                 off = 0
                 barlist[off].set_color('red')
 
-                while(d > 0):
+                while (d > 0):
                     off = d + off
                     barlist[off].set_color('red')
                     d = d - 1
@@ -664,7 +666,7 @@ class TADClassifier:
         def get_roc(self, X_test, y_test, out_file):
             '''get receiver operating characteristic'''
 
-            if(self.is_default_classifier and not self.use_cleanlab):
+            if (self.is_default_classifier and not self.use_cleanlab):
                 # from
                 # https://scikit-learn.org/stable/auto_examples/model_selection/plot_roc.html
                 fpr = dict()
@@ -724,8 +726,8 @@ class TADClassifier:
         self.concatenate_before_resample = concatenate_before_resample
         self.addRemoveChrPrexix = pAddRemoveChrPrexix
 
-        if(mode == 'predict' or mode == 'train_existing' or mode == 'predict_test'):
-            if(saved_classifier is not None):
+        if (mode == 'predict' or mode == 'train_existing' or mode == 'predict_test'):
+            if (saved_classifier is not None):
                 try:
                     self.classifier = pickle.load(open(saved_classifier, 'rb'))
                 except Exception as exp:
@@ -735,7 +737,7 @@ class TADClassifier:
             else:
                 model_location = site.getsitepackages()[0] + '/hicexplorer/trained_models/'
 
-                if(normalization_method == 'obs_exp'):
+                if (normalization_method == 'obs_exp'):
                     if resolution == 10000:
                         model_location += '10kb_model_cleanlab_proteins_obs_exp.BIN'
                     elif resolution == 25000:
@@ -768,16 +770,16 @@ class TADClassifier:
                 except Exception as exp:
                     log.error('Tried to load ML model but failed! {}'.format(str(exp)))
                     exit(1)
-        if(mode == 'train_new' or mode == 'train_test'):
-            if(alternative_classifier is not None and not isinstance(alternative_classifier, sklearn.base.BaseEstimator)):
+        if (mode == 'train_new' or mode == 'train_test'):
+            if (alternative_classifier is not None and not isinstance(alternative_classifier, sklearn.base.BaseEstimator)):
                 raise ValueError('the passed classifier is not valid')
 
-            if(not resampling_method == 'passed_method' and alternative_resampling_method is not None):
+            if (not resampling_method == 'passed_method' and alternative_resampling_method is not None):
                 warnings.warn(
                     'default resampling method chosen, but custom method passed; using passed method')
                 resampling_method = 'passed_method'
 
-            if(alternative_resampling_method is not None and not isinstance(alternative_resampling_method, imblearn.base.BaseCleaningSampler)):
+            if (alternative_resampling_method is not None and not isinstance(alternative_resampling_method, imblearn.base.BaseCleaningSampler)):
                 raise ValueError('the passed resampling method is not valid')
 
             self.classifier = TADClassifier.MP_Classifier(
@@ -821,14 +823,14 @@ class TADClassifier:
             return matrix, None, features, is_boundary
         positions = matrix.positions
 
-        if(not self.classifier.resolution == matrix.get_resolution()):
+        if (not self.classifier.resolution == matrix.get_resolution()):
             warnings.warn(
                 'training matrix with resolution {} on classifier with resolution {}'.format(
                     self.classifier.resolution,
                     matrix.get_resolution()))
 
         # get rid of cases at the border of matrix
-        if(self.unselect_border_cases):
+        if (self.unselect_border_cases):
             features = TADClassifier.MP_Matrix.unselect_border_cases(
                 features, self.classifier.distance)
             positions = TADClassifier.MP_Matrix.unselect_border_cases(
@@ -854,7 +856,7 @@ class TADClassifier:
         positions = matrix.positions
 
         # get rid of cases at the border of matrix
-        if(self.unselect_border_cases):
+        if (self.unselect_border_cases):
             features = TADClassifier.MP_Matrix.unselect_border_cases(
                 features, self.classifier.distance)
             positions = TADClassifier.MP_Matrix.unselect_border_cases(
@@ -871,7 +873,7 @@ class TADClassifier:
 
         out_file_s = self.out_file.split('.')
 
-        if(out_file_s[-1] == 'txt'):
+        if (out_file_s[-1] == 'txt'):
             out_file = self.out_file
         else:
             out_file = self.out_file + '.txt'
@@ -910,7 +912,7 @@ class TADClassifier:
                 matrix.hic_matrix = None
                 matrix = None
 
-                if(conc_features is None):
+                if (conc_features is None):
                     conc_features = features
                     conc_is_boundary = is_boundary
 
@@ -920,7 +922,7 @@ class TADClassifier:
                     conc_is_boundary = np.concatenate(
                         (conc_is_boundary, is_boundary), axis=0)
 
-                if(i == nm_conc_features):
+                if (i == nm_conc_features):
                     resampled_X, resampled_y = self.incremental_resample(
                         resampled_X, resampled_y, conc_features, conc_is_boundary)
                     i = 0
@@ -968,7 +970,7 @@ class TADClassifier:
                 matrix.hic_matrix = None
                 matrix = None
 
-                if(conc_features is None):
+                if (conc_features is None):
                     conc_features = features
                     conc_is_boundary = is_boundary
 
@@ -978,7 +980,7 @@ class TADClassifier:
                     conc_is_boundary = np.concatenate(
                         (conc_is_boundary, is_boundary), axis=0)
 
-                if(i == nm_conc_features):
+                if (i == nm_conc_features):
                     try:
                         self.classifier.incremental_fit(
                             conc_features, conc_is_boundary, resample=True)
@@ -1033,7 +1035,7 @@ class TADClassifier:
                     positions, features, y_test, y_pred = self.classifier.predict_test(
                         positions, features, y_test=is_boundary)
 
-                    if(conc_test_boundary is None):
+                    if (conc_test_boundary is None):
                         conc_test_boundary = y_test
                         conc_is_boundary = y_pred
                         conc_positions = positions
@@ -1079,7 +1081,7 @@ class TADClassifier:
         '''resample without fitting'''
 
         try:
-            if(X is None):
+            if (X is None):
                 X, y = TADClassifier.MP_Classifier.resample(
                     X_i, y_i, method=self.classifier.resampling_method, passed_method=self.classifier.alternative_resampling_method, threads=self.classifier.threads)
 
@@ -1101,7 +1103,7 @@ class TADClassifier:
 
         out_file_s = out_file.split('.')
 
-        if(not out_file_s[-1] == 'BIN'):
+        if (not out_file_s[-1] == 'BIN'):
             out_file = out_file + '.BIN'
 
         pickle.dump(self.classifier, open(out_file, 'wb'))
@@ -1109,25 +1111,25 @@ class TADClassifier:
     def run_hicTrainClassifier(self, matrix_list, domain_list, protein_list, pChromosomes):
         '''run hicTrainClassifier with specified mode on file'''
 
-        if(isinstance(matrix_list, str)):
+        if (isinstance(matrix_list, str)):
             matrix_list = [matrix_list]
 
-        if(isinstance(domain_list, str)):
+        if (isinstance(domain_list, str)):
             domain_list = [domain_list]
 
-        if(len(domain_list) == 1):
+        if (len(domain_list) == 1):
             domain_list = domain_list * len(matrix_list)
 
-        if(protein_list is None):
+        if (protein_list is None):
             protein_list = [None] * len(matrix_list)
 
-        elif(isinstance(protein_list, str)):
+        elif (isinstance(protein_list, str)):
             protein_list = [protein_list]
 
-        if(len(protein_list) == 1):
+        if (len(protein_list) == 1):
             protein_list = protein_list * len(matrix_list)
 
-        if(not (len(matrix_list) == len(domain_list) and len(protein_list) == len(domain_list))):
+        if (not (len(matrix_list) == len(domain_list) and len(protein_list) == len(domain_list))):
             raise ValueError(
                 'please pass domain (,optional protein) and matrix lists of same length or pass a single domain (and optional protein) file')
 
@@ -1139,25 +1141,25 @@ class TADClassifier:
                 cooler_obj = cooler.Cooler(matrix)
                 chromosome_list.append(cooler_obj.chromnames)
 
-        if(self.mode == 'train_new' or self.mode == 'train_existing'):
+        if (self.mode == 'train_new' or self.mode == 'train_existing'):
 
-            if(self.concatenate_before_resample):
+            if (self.concatenate_before_resample):
                 self.multi_train_concatenate_before_resample(
                     matrix_list, domain_list, protein_list, pChromosome=chromosome_list)
 
             else:
                 self.multi_train(matrix_list, domain_list, protein_list, pChromosome=chromosome_list)
 
-        elif(self.mode == 'train_test'):
+        elif (self.mode == 'train_test'):
             self.train_test(matrix_list, domain_list, protein_list, pChromosome=chromosome_list)
 
-        elif(self.mode == 'predict_test'):
+        elif (self.mode == 'predict_test'):
             self.multi_test_predict(matrix_list, domain_list, protein_list, pChromosome=chromosome_list)
 
     def run_hicTADClassifier(self, matrix_list, pChromosomes):
         '''predict a dataset'''
 
-        if(isinstance(matrix_list, str)):
+        if (isinstance(matrix_list, str)):
             matrix_list = [matrix_list]
 
         chromosome_list = []
@@ -1263,7 +1265,7 @@ class TADClassifier:
         # print('domain_df 1 {}'.format(domain_df))
 
         def rgb_helper(i):
-            if(i == 0):
+            if (i == 0):
                 return '31,120,180'
             else:
                 return '51,160,44'

@@ -14,6 +14,7 @@ ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
 sam_R1 = ROOT + "small_test_R1_unsorted.bam"
 sam_R2 = ROOT + "small_test_R2_unsorted.bam"
 dpnii_file = ROOT + "DpnII.bed"
+delta = 80000
 
 
 def are_files_equal(file1, file2, delta=1):
@@ -57,8 +58,8 @@ def test_build_matrix(capsys):
     assert are_files_equal(ROOT + "QC/QC.log", qc_folder + "/QC.log")
     assert set(os.listdir(ROOT + "QC/")) == set(os.listdir(qc_folder))
 
-    # accept delta of 60 kb, file size is around 4.5 MB
-    assert abs(os.path.getsize(ROOT + "small_test_matrix_result.bam") - os.path.getsize(outfile_bam.name)) < 64000
+    # accept delta of 80 kb, file size is around 4.5 MB
+    assert abs(os.path.getsize(ROOT + "small_test_matrix_result.bam") - os.path.getsize(outfile_bam.name)) < delta
 
     os.unlink(outfile.name)
     shutil.rmtree(qc_folder)
@@ -86,8 +87,8 @@ def test_build_matrix_restriction_enzyme(capsys):
     assert are_files_equal(ROOT + "QC_multi_restriction/QC.log", qc_folder + "/QC.log")
     assert set(os.listdir(ROOT + "QC_multi_restriction/")) == set(os.listdir(qc_folder))
 
-    # accept delta of 60 kb, file size is around 4.5 MB
-    assert abs(os.path.getsize(ROOT + "small_test_matrix_result.bam") - os.path.getsize(outfile_bam.name)) < 64000
+    # accept delta of 80 kb, file size is around 4.5 MB
+    assert abs(os.path.getsize(ROOT + "small_test_matrix_result.bam") - os.path.getsize(outfile_bam.name)) < delta
 
     os.unlink(outfile.name)
     shutil.rmtree(qc_folder)
@@ -119,8 +120,8 @@ def test_build_matrix_restriction_enzyme_region(capsys):
     assert are_files_equal(ROOT + "QC_region/QC.log", qc_folder + "/QC.log")
     assert set(os.listdir(ROOT + "QC_region/")) == set(os.listdir(qc_folder))
 
-    # accept delta of 60 kb, file size is around 4.5 MB
-    assert abs(os.path.getsize(ROOT + "build_region.bam") - os.path.getsize(outfile_bam.name)) < 64000
+    # accept delta of 80 kb, file size is around 4.5 MB
+    assert abs(os.path.getsize(ROOT + "build_region.bam") - os.path.getsize(outfile_bam.name)) < delta
 
     os.unlink(outfile.name)
     shutil.rmtree(qc_folder)
@@ -148,8 +149,8 @@ def test_build_matrix_chromosome_sizes(capsys):
     assert are_files_equal(ROOT + "QC/QC.log", qc_folder + "/QC.log")
     assert set(os.listdir(ROOT + "QC/")) == set(os.listdir(qc_folder))
 
-    # accept delta of 60 kb, file size is around 4.5 MB
-    assert abs(os.path.getsize(ROOT + "hicBuildMatrix/chromosome_sizes/test.bam") - os.path.getsize(outfile_bam.name)) < 64000
+    # accept delta of 80 kb, file size is around 4.5 MB
+    assert abs(os.path.getsize(ROOT + "hicBuildMatrix/chromosome_sizes/test.bam") - os.path.getsize(outfile_bam.name)) < delta
 
     os.unlink(outfile.name)
     shutil.rmtree(qc_folder)

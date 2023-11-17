@@ -30,7 +30,7 @@ def are_files_equal(file1, file2):
                 split_y = y.split('\t')
                 if split_x[0] == split_y[0] and split_x[1] == split_y[1] and split_x[2] == split_y[2]:
                     # to ignore rounding errors after 2th digit
-                    if 0 <= abs(abs(float(split_x[3].strip())) - abs(float(split_y[3].strip()))) <= 0.01:
+                    if 0 <= abs(abs(np.complex128(split_x[3].strip()).real) - abs(np.complex128(split_y[3].strip()).real)) <= 0.01:
                         continue
                     else:
                         log.debug('split_x {} split_y {}'.format(split_x, split_y))

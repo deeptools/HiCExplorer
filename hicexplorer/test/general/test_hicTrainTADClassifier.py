@@ -101,5 +101,4 @@ def test_hicTrainClassifier_train_test():
     compute(hicTrainTADClassifier.main, args, 5)
     f = open(test_folder + 'predict_test_results.txt', "r")
     assert f.readline().split()[0] == 'accuracy'
-
-#     shutil.rmtree(test_folder)
+    # shutil.rmtree(test_folder)

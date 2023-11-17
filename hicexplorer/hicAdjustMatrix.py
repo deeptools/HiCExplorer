@@ -4,7 +4,7 @@ warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 import argparse
 from hicmatrix import HiCMatrix as hm
 from hicexplorer._version import __version__
-from hicmatrix.HiCMatrix import check_cooler
+from hicexplorer.utilities import check_cooler
 import numpy as np
 import cooler
 import logging
@@ -132,6 +132,7 @@ def adjustMatrix(pArgs):
         if len(genomic_regions) == 0:
             log.error('No valid chromosome given. Available: {}'.format(chromosomes_list))
             exit(1)
+
         matrix_indices_regions = []
         for region in genomic_regions:
             log.debug('region {}'.format(region))

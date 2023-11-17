@@ -9,7 +9,7 @@ import cooler
 from hicmatrix import HiCMatrix as hm
 from hicexplorer._version import __version__
 from hicexplorer.utilities import toString
-from hicmatrix.HiCMatrix import check_cooler
+from hicexplorer.utilities import check_cooler
 import logging
 log = logging.getLogger(__name__)
 

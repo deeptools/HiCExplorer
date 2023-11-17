@@ -8,7 +8,7 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
-import matplotlib.cm as cm
+from matplotlib import colormaps as cm
 from mpl_toolkits.mplot3d import Axes3D
 
 # from scipy.cluster.vq import vq, kmeans
@@ -515,7 +515,7 @@ def compute_clusters(updated_info, k, method="kmeans", how='full', max_deviation
             # shape = (num_submatrices, submatrix.shape[0] * submatrix.shape[1]
             # In other words, each submatrix is converted into a row of the matrix
             submat_vectors.append(submatrix.reshape((1, shape[0] * shape[1])))
-    matrix = np.vstack(submat_vectors)
+    matrix = np.asarray(np.vstack(submat_vectors))
     if how == 'diagonal':
         assert matrix.shape == (len(updated_info["submatrices"]), shape[0])
     elif how == 'center':
@@ -600,7 +600,7 @@ def cluster_matrices(agg_info, k, method='kmeans', how='full', perChr=False, max
                 updated_info[chrom1] = {"coords": full_coords, "centers": agg_info["agg_center_values"][chrom1][chrom2],
                                         "submatrices": agg_info["agg_matrix"][chrom1][chrom2],
                                         "clustered_dict": [], "diagonal": agg_info["agg_diagonals"][chrom1][chrom2]}
-                assert(chrom1 == chrom2)
+                assert (chrom1 == chrom2)
                 log.info("Length of entry on chr {}: {}".format(chrom1, len(agg_info["agg_matrix"][chrom1][chrom2])))
                 if len(agg_info["agg_matrix"][chrom1][chrom2]) < k:
                     log.info("number of the submatrices on chromosome {} is less than {}. Clustering is skipped.".format(chrom1, k))
@@ -660,7 +660,7 @@ def plot_aggregated_contacts(clustered_info, num_clusters, M_half, args):
     log.debug("vmax: {}, vmin: {}".format(vmax, vmin))
     chrom_avg = OrderedDict()
     for idx, (chrom1, v1) in enumerate(clustered_info.items()):
-        assert(v1 != {})
+        assert (v1 != {})
         if chrom1 not in chrom_avg.keys():
             chrom_avg[chrom1] = []
 
@@ -925,7 +925,7 @@ def main(args=None):
         exit("No susbmatrix found to be aggregated.")
 
     if args.kmeans is not None:
-        assert(args.kmeans > 1)
+        assert (args.kmeans > 1)
         if args.perChr == True:
             clustered_info = cluster_matrices(agg_info,
                                               k=args.kmeans, method='kmeans', how=args.howToCluster,
@@ -938,7 +938,7 @@ def main(args=None):
                                               keep_outlier=args.keep_outlier)
         num_clusters = args.kmeans
     elif args.hclust is not None:
-        assert(args.hclust > 1)
+        assert (args.hclust > 1)
         log.info("Performing hierarchical clustering."
                  "Please note that it might be very slow for large datasets.\n")
         if args.perChr == True:

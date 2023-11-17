@@ -2,6 +2,14 @@ News and Developments
 =====================
 
 
+Release 3.7.3
+-------------
+**17 November 2023**
+
+- Maintenance update for HiCExplorer to keep up to date with APIs of dependencies
+- Add additional of the polarization ratio to the output of hicCompartmentalization. Thanks @contessoto.
+
+
 Release 3.7.2
 -------------
 **1 October 2021**

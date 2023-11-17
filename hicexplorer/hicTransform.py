@@ -92,6 +92,8 @@ def parse_arguments(args=None):
 
 def _obs_exp_lieberman(pSubmatrix, pLengthChromosome, pChromosomeCount):
 
+    if len(pSubmatrix.data) == 0:
+        return pSubmatrix
     obs_exp_matrix_ = obs_exp_matrix_lieberman(pSubmatrix, pLengthChromosome, pChromosomeCount)
     obs_exp_matrix_ = convertNansToZeros(csr_matrix(obs_exp_matrix_))
     obs_exp_matrix_ = convertInfsToZeros(csr_matrix(obs_exp_matrix_))
@@ -101,6 +103,8 @@ def _obs_exp_lieberman(pSubmatrix, pLengthChromosome, pChromosomeCount):
 
 
 def _pearson(pSubmatrix):
+    if len(pSubmatrix.data) == 0:
+        return pSubmatrix
     pearson_correlation_matrix = np.corrcoef(pSubmatrix)
     pearson_correlation_matrix = convertNansToZeros(csr_matrix(pearson_correlation_matrix))
     pearson_correlation_matrix = convertInfsToZeros(csr_matrix(pearson_correlation_matrix))
@@ -111,6 +115,8 @@ def _pearson(pSubmatrix):
 
 def _obs_exp(pSubmatrix):
 
+    if len(pSubmatrix.data) == 0:
+        return pSubmatrix
     obs_exp_matrix_ = obs_exp_matrix(pSubmatrix)
     obs_exp_matrix_ = convertNansToZeros(csr_matrix(obs_exp_matrix_))
     obs_exp_matrix_ = convertInfsToZeros(csr_matrix(obs_exp_matrix_))
@@ -122,7 +128,8 @@ def _obs_exp(pSubmatrix):
 
 
 def _obs_exp_non_zero(pSubmatrix, ligation_factor):
-
+    if len(pSubmatrix.data) == 0:
+        return pSubmatrix
     obs_exp_matrix_ = obs_exp_matrix_non_zero(pSubmatrix, ligation_factor)
     obs_exp_matrix_ = convertNansToZeros(csr_matrix(obs_exp_matrix_))
     obs_exp_matrix_ = convertInfsToZeros(csr_matrix(obs_exp_matrix_))

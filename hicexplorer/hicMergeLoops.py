@@ -156,7 +156,7 @@ def main(args=None):
         if dataframe is None:
             dataframe = readFile(file)
         else:
-            dataframe = dataframe.append(readFile(file), ignore_index=True)
+            dataframe = pd.concat([dataframe, readFile(file)])
 
     dataframe_bedtool = BedTool.from_dataframe(dataframe)
     dataframe = dataframe_bedtool.sort().to_dataframe(
