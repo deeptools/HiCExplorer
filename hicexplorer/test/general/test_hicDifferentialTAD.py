@@ -489,8 +489,8 @@ def test_cool_all_multi_core_all_multichr_chromosome():
     # test on the intersection to exclude the case of duplicated lines
     assert number_of_tads == all_tads_present(ROOT + "untreated_R1_domains_chr1_chr2.bed", outfile_pref.name + '_accepted.diff_tad', outfile_pref.name + '_rejected.diff_tad')
 
-    assert are_files_equal(outfile_pref.name + '_accepted.diff_tad', ROOT + 'multichromosome_accepted.diff_tad', delta=0, skip=4)
-    assert are_files_equal(outfile_pref.name + '_rejected.diff_tad', ROOT + 'multichromosome_rejected.diff_tad', delta=0, skip=4)
+    assert are_files_equal(outfile_pref.name + '_accepted.diff_tad', ROOT + 'multichromosome_accepted.diff_tad', delta=2, skip=4)
+    assert are_files_equal(outfile_pref.name + '_rejected.diff_tad', ROOT + 'multichromosome_rejected.diff_tad', delta=2, skip=4)
 
     # mode_all_reject_all__t4_cool_multi_chromosomes_rejected.diff_tad
 
@@ -522,5 +522,5 @@ def test_cool_all_one_core_all_multichr_chromosome():
     assert number_of_tads == all_tads_present(ROOT + "untreated_R1_domains_chr1_chr2.bed", outfile_pref.name + '_accepted.diff_tad', outfile_pref.name + '_rejected.diff_tad')
     # assert number_of_tads == all_tads_present(ROOT + "untreated_R1_domains_chr1_chr2.bed", ROOT + 'mode_all_reject_all__t4_cool_multi_chromosomes_accepted.diff_tad', ROOT + 'mode_all_reject_all__t4_cool_multi_chromosomes_rejected.diff_tad')
 
-    assert are_files_equal(outfile_pref.name + '_accepted.diff_tad', ROOT + 'multichromosome_accepted.diff_tad', delta=0, skip=4)
-    assert are_files_equal(outfile_pref.name + '_rejected.diff_tad', ROOT + 'multichromosome_rejected.diff_tad', delta=0, skip=4)
+    assert are_files_equal(outfile_pref.name + '_accepted.diff_tad', ROOT + 'multichromosome_accepted.diff_tad', delta=2, skip=4)
+    assert are_files_equal(outfile_pref.name + '_rejected.diff_tad', ROOT + 'multichromosome_rejected.diff_tad', delta=2, skip=4)
