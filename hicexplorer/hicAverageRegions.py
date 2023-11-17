@@ -198,9 +198,11 @@ def main(args=None):
         elif orientation == '-':
             summed_matrix[_start:_end, _start:_end] += hic_ma.matrix[start:end, start:end].T
     summed_matrix /= count_matrix
+
     summed_matrix = coo_matrix(summed_matrix)
 
-    data = summed_matrix.toarray()[np.nonzero(summed_matrix)]
+    data = summed_matrix.data
+
     row = np.nonzero(summed_matrix)[0]
     col = np.nonzero(summed_matrix)[1]
     summed_matrix = csr_matrix((data, (row, col)), shape=(dimensions_new_matrix, dimensions_new_matrix))

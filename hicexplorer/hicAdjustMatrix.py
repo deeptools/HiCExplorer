@@ -132,6 +132,7 @@ def adjustMatrix(pArgs):
         if len(genomic_regions) == 0:
             log.error('No valid chromosome given. Available: {}'.format(chromosomes_list))
             exit(1)
+
         matrix_indices_regions = []
         for region in genomic_regions:
             log.debug('region {}'.format(region))

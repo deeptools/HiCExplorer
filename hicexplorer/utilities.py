@@ -269,7 +269,7 @@ def expected_interactions_in_distance(pLength_chromosome, pChromosome_count, pSu
     count_times_i -= pLength_chromosome
     count_times_i *= np.int32(-1)
 
-    expected_interactions /= count_times_i
+    expected_interactions = np.divide(expected_interactions, count_times_i)
     # log.debug('exp_obs_matrix_lieberman {}'.format(expected_interactions))
 
     return expected_interactions
@@ -289,7 +289,7 @@ def expected_interactions_non_zero(pSubmatrix):
     for i, distance_ in enumerate(distance):
         expected_interactions[distance_] += pSubmatrix.data[i]
         occurences[distance_] += 1
-    expected_interactions /= occurences
+    expected_interactions = np.divide(expected_interactions, occurences)
 
     mask = np.isnan(expected_interactions)
     expected_interactions[mask] = 0
@@ -389,7 +389,7 @@ def expected_interactions(pSubmatrix, pThreads=None):
     # for i, distance_ in enumerate(distance):
     #     expected_interactions[distance_] += pSubmatrix.data[i]
         # occurences[distance_] += 1
-    expected_interactions /= occurrences
+    expected_interactions = np.divide(expected_interactions, occurrences)
 
     mask = np.isnan(expected_interactions)
     expected_interactions[mask] = 0
@@ -463,7 +463,7 @@ def obs_exp_matrix_lieberman(pSubmatrix, pLength_chromosome, pChromosome_count):
 
         expected = expected_interactions_in_distance_[distance]
         pSubmatrix.data = pSubmatrix.data.astype(np.float32)
-        pSubmatrix.data /= expected
+        pSubmatrix.data = np.divide(pSubmatrix.data, expected)
         pSubmatrix.data = convertInfsToZeros_ArrayFloat(pSubmatrix.data).astype(data_type)
     return pSubmatrix
 
@@ -498,7 +498,7 @@ def obs_exp_matrix_non_zero(pSubmatrix, ligation_factor=False, pInplace=True, pT
         if ligation_factor:
             expected *= row_sums[row[i]] * row_sums[col[i]] / total_interactions
 
-        submatrix.data[i] /= expected
+        submatrix.data[i] = np.divide(submatrix.data[i], expected)
 
     if pToEpsilon:
         epsilon = 0.000000001
@@ -545,11 +545,11 @@ def obs_exp_matrix(pSubmatrix, pInplace=True, pToEpsilon=False, pThreads=None, p
         expected = expected_interactions_in_distance_[distance]
         if pInplace:
             pSubmatrix.data = pSubmatrix.data.astype(np.float32)
-            pSubmatrix.data /= expected
+            pSubmatrix.data = np.divide(pSubmatrix.data, expected)
             pSubmatrix.data = convertInfsToZeros_ArrayFloat(pSubmatrix.data, pToEpsilon).astype(data_type)
         else:
             pSubmatrix_copy.data = pSubmatrix_copy.data.astype(np.float32)
-            pSubmatrix_copy.data /= expected
+            pSubmatrix_copy.data = np.divide(pSubmatrix_copy.data, expected)
             pSubmatrix_copy.data = convertInfsToZeros_ArrayFloat(pSubmatrix_copy.data, pToEpsilon).astype(data_type)
         del expected
 

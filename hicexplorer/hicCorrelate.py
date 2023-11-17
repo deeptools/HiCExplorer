@@ -16,6 +16,7 @@ from hicexplorer.utilities import check_cooler
 # for plotting
 from matplotlib import use as mplt_use
 import matplotlib as mpl
+from matplotlib import colormaps as cm
 
 mplt_use('Agg')
 
@@ -165,7 +166,7 @@ def plot_correlation(corr_matrix, labels, plot_filename, vmax=None,
                            link_color_func=lambda k: 'black')
     axdendro.set_xticks([])
     axdendro.set_yticks([])
-    cmap = plt.get_cmap(colormap)
+    cmap = cm.get_cmap(colormap)
 
     # this line simply makes a new cmap, based on the original
     # colormap that goes from 0.0 to 0.9

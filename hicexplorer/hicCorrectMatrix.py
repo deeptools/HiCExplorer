@@ -368,7 +368,7 @@ class MAD(object):
         diff = np.sum((points - self.median), axis=-1)
 
         self.med_abs_deviation = np.median(np.abs(diff))
-        self.modified_z_score = self.mad_b_value * diff / self.med_abs_deviation
+        self.modified_z_score = np.multiply(self.mad_b_value, np.divide(diff, self.med_abs_deviation))
 
     def get_motified_zscores(self):
 

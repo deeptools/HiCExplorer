@@ -8,7 +8,7 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
-import matplotlib.cm as cm
+from matplotlib import colormaps as cm
 from mpl_toolkits.mplot3d import Axes3D
 
 # from scipy.cluster.vq import vq, kmeans

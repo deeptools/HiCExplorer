@@ -2,7 +2,7 @@ import logging
 from collections import OrderedDict
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import matplotlib.gridspec as gridspec
-import matplotlib.cm as cm
+from matplotlib import colormaps as cm
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
 import matplotlib
