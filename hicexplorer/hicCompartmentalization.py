@@ -220,4 +220,4 @@ def main(args=None):
         np.savez(args.outputMatrix, [matrix for matrix in output_matrices])
     plot_polarization_ratio(
         polarization_ratio, args.outputFileName, labels, args.quantile)
-    np.savetxt(args.outputFileName+'_'+'dat',polarization_ratio)
+    np.savetxt(args.outputFileName + '_' + 'dat', polarization_ratio)
