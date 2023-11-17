@@ -5,7 +5,7 @@ import traceback
 
 def compute(pFunction, pParameters, pTries):
     exception_string = ''
-    pTries = 5
+    pTries = 1
     for i in range(pTries):
         try:
             pFunction(pParameters)

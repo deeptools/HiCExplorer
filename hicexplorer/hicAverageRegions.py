@@ -7,7 +7,7 @@ from hicexplorer._version import __version__
 import logging
 log = logging.getLogger(__name__)
 import numpy as np
-from scipy.sparse import csr_matrix, save_npz, lil_matrix
+from scipy.sparse import csr_matrix, save_npz, lil_matrix, coo_matrix
 
 
 def parse_arguments(args=None):
@@ -196,11 +196,11 @@ def main(args=None):
         if orientation is None or orientation == '+':
             summed_matrix[_start:_end, _start:_end] += hic_ma.matrix[start:end, start:end]
         elif orientation == '-':
-
             summed_matrix[_start:_end, _start:_end] += hic_ma.matrix[start:end, start:end].T
     summed_matrix /= count_matrix
-    summed_matrix = np.array(summed_matrix)
-    data = summed_matrix[np.nonzero(summed_matrix)]
+    summed_matrix = coo_matrix(summed_matrix)
+
+    data = summed_matrix.toarray()[np.nonzero(summed_matrix)]
     row = np.nonzero(summed_matrix)[0]
     col = np.nonzero(summed_matrix)[1]
     summed_matrix = csr_matrix((data, (row, col)), shape=(dimensions_new_matrix, dimensions_new_matrix))

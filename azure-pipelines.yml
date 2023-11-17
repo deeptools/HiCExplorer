@@ -47,9 +47,12 @@ jobs:
   - script: |
       source activate hicexplorer
       py.test hicexplorer/test/general/ --doctest-modules --capture=sys -n 4  --ignore=hicexplorer/test/general/test_hicTADClassifier.py --ignore=hicexplorer/test/general/test_hicTrainTADClassifier.py
+    displayName: pytest
+  - script: |
+      source activate hicexplorer
       py.test hicexplorer/test/general/test_hicTADClassifier.py
       py.test hicexplorer/test/general/test_hicTrainTADClassifier.py
-    displayName: pytest
+    displayName: pytest_tad_classifier
 
 - job: 'OSX'
   timeoutInMinutes: 0
@@ -92,6 +95,9 @@ jobs:
   - script: |
       source activate hicexplorer
       py.test hicexplorer/test/general/ --doctest-modules --capture=sys -n 4  --ignore=hicexplorer/test/general/test_hicTADClassifier.py --ignore=hicexplorer/test/general/test_hicTrainTADClassifier.py
+    displayName: pytest
+  - script: |
+      source activate hicexplorer
       py.test hicexplorer/test/general/test_hicTADClassifier.py
       py.test hicexplorer/test/general/test_hicTrainTADClassifier.py
-    displayName: pytest
+    displayName: pytest_tad_classifier

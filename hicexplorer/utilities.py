@@ -363,7 +363,7 @@ def expected_interactions(pSubmatrix, pThreads=None):
             for i in range(pThreads):
                 if queue[i] is not None and not queue[i].empty():
                     expected_interactions_thread_ = queue[i].get()
-                    if 'Fail: ' in expected_interactions_thread_:
+                    if isinstance(expected_interactions_thread_, str) and 'Fail: ' in expected_interactions_thread_:
                         fail_flag = True
                         fail_message = expected_interactions_thread_
                     else:

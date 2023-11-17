@@ -331,7 +331,7 @@ def compute_long_range_contacts(pHiCMatrix, pObsExpMatrix, pWindowSize,
         for i in range(pThreads):
             if queue[i] is not None and not queue[i].empty():
                 mask_threads = queue[i].get()
-                if 'Fail: ' in mask_threads:
+                if isinstance(mask_threads, str) and 'Fail: ' in mask_threads:
                     fail_flag = True
                     fail_message = mask_threads
                 else:
@@ -368,7 +368,7 @@ def compute_long_range_contacts(pHiCMatrix, pObsExpMatrix, pWindowSize,
     candidates, _ = neighborhood_merge(
         candidates, pWindowSize, pObsExpMatrix, pThreads)
 
-    if 'Fail: ' in candidates:
+    if isinstance(candidates, str) and 'Fail: ' in candidates:
         return candidates, None
     if len(candidates) == 0:
         return None, None
@@ -476,7 +476,7 @@ def neighborhood_merge(pCandidates, pWindowSize, pInteractionCountMatrix, pThrea
         for i in range(pThreads):
             if queue[i] is not None and not queue[i].empty():
                 new_candidate_list_threads[i] = queue[i].get()
-                if 'Fail: ' in new_candidate_list_threads[i]:
+                if isinstance(new_candidate_list_threads[i], str) and 'Fail: ' in new_candidate_list_threads[i]:
                     fail_flag = True
                     fail_message = new_candidate_list_threads[i]
                 queue[i] = None
@@ -718,7 +718,7 @@ def candidate_region_test(pHiCMatrix, pCandidates, pWindowSize, pPValue,
         for i in range(pThreads):
             if queue[i] is not None and not queue[i].empty():
                 result_thread = queue[i].get()
-                if 'Fail: ' in result_thread:
+                if isinstance(result_thread, str) and 'Fail: ' in result_thread:
                     fail_flag = True
                     fail_message = result_thread
                 else:
@@ -914,10 +914,10 @@ def compute_loops(pHiCMatrix, pRegion, pArgs, pIsCooler, pQueue=None):
             else:
                 pQueue.put([None])
                 return
-        elif 'Fail: ' in candidates and pQueue is not None:
+        elif isinstance(candidates, str) and 'Fail: ' in candidates and pQueue is not None:
             pQueue.put(candidates)
             return
-        elif 'Fail: ' in candidates and pQueue is None:
+        elif isinstance(candidates, str) and 'Fail: ' in candidates and pQueue is None:
             return candidates
         mapped_loops = cluster_to_genome_position_mapping(
             pHiCMatrix, candidates, pValueList, pArgs.maxLoopDistance)
@@ -1024,7 +1024,7 @@ def main(args=None):
             if loops is None:
                 log.error('No loops could be detected. Please change your input parameters, use a matrix with a better read coverage or contact the develops on https://github.com/deeptools/HiCExplorer/issues')
                 exit(1)
-            if 'Fail: ' in loops:
+            if isinstance(loops, str) and 'Fail: ' in loops:
                 log.error(loops[6:])
                 exit(1)
             if loops is not None:
@@ -1059,7 +1059,7 @@ def main(args=None):
                         all_data_processed = True
                 elif queue[i] is not None and not queue[i].empty():
                     result = queue[i].get()
-                    if result is not None and 'Fail: ' in result:
+                    if result is not None and isinstance(result, str) and 'Fail: ' in result:
                         fail_flag = True
                         fail_message = result
                     if result[0] is not None:
