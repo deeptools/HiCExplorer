@@ -37,6 +37,9 @@ The  `scHiCExplorer <https://github.com/joachimwolff/schicexplorer>`_.
 Citation:
 ^^^^^^^^^
 
+Joachim Wolff, Rolf Backofen, Björn Grüning.
+**Loop detection using Hi-C data with HiCExplorer**, GigaScience, Volume 11, 2022, giac061, https://doi.org/10.1093/gigascience/giac061
+
 Joachim Wolff, Leily Rabbani, Ralf Gilsbach, Gautier Richard, Thomas Manke, Rolf Backofen, Björn A Grüning.
 **Galaxy HiCExplorer 3: a web server for reproducible Hi-C, capture Hi-C and single-cell Hi-C data analysis, quality control and visualization, Nucleic Acids Research**, Nucleic Acids Research, Volume 48, Issue W1, 02 July 2020, Pages W177–W184, https://doi.org/10.1093/nar/gkaa220
 
