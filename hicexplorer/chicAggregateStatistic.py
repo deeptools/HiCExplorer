@@ -63,38 +63,40 @@ target file for all viewpoints is accepted.
     return parser
 
 
-def filter_scores_target_list(pScoresDictionary, pTargetList=None, pTargetPosDict=None, pTargetFile=None):
-    isBED = True
+def filter_scores_target_list(pScoresDictionary, pTargetFType, pTargetPosDict, pTargetList=None, pTargetIntervalTree=None, pTargetFile=None):
+
     accepted_scores = {}
     same_target_dict = {}
     target_regions_intervaltree = None
+    #newly added
+    if pTargetFType == 'hdf5':
+        # read hdf content for this specific combination
+        targetFileHDF5Object = h5py.File(pTargetFile, 'r')
+        target_object = targetFileHDF5Object['/'.join(pTargetList)]
+        chromosome = target_object.get('chromosome')[()].decode("utf-8")
+        start_list = list(target_object['start_list'][:])
+        end_list = list(target_object['end_list'][:])
+        targetFileHDF5Object.close()
+    elif pTargetFType == 'bed4':
+        chromosome = pTargetPosDict[pTargetList[-1]]['chromosome']
+        start_list = pTargetPosDict[pTargetList[-1]]['start_list']
+        end_list = pTargetPosDict[pTargetList[-1]]['end_list']
+    elif pTargetFType == 'bed3':
+         target_regions_intervaltree = pTargetIntervalTree
+    else:
+        log.error('No target list given.')
+        raise Exception('No target list given.')
 
     if pTargetList is not None:
-        if pTargetPosDict is not None:
-            chromosome = pTargetPosDict[pTargetList[-1]]['chromosome']
-            start_list = pTargetPosDict[pTargetList[-1]]['start_list']
-            end_list = pTargetPosDict[pTargetList[-1]]['end_list']
-        else:
-            # read hdf content for this specific combination
-            targetFileHDF5Object = h5py.File(pTargetFile, 'r')
-            target_object = targetFileHDF5Object['/'.join(pTargetList)]
-            chromosome = target_object.get('chromosome')[()].decode("utf-8")
-            start_list = list(target_object['start_list'][:])
-            end_list = list(target_object['end_list'][:])
-            targetFileHDF5Object.close()
-
         chromosome = [chromosome] * len(start_list)
-        target_regions = list(zip(chromosome, start_list, end_list))
 
+        target_regions = list(zip(chromosome, start_list, end_list))
         if len(target_regions) == 0:
             return accepted_scores
 
         hicmatrix = hm.hiCMatrix()
         target_regions_intervaltree = hicmatrix.intervalListToIntervalTree(target_regions)[0]
-    else:
-        log.error('No target list given.')
-        raise Exception('No target list given.')
-    
+
     for key in pScoresDictionary:
         chromosome = pScoresDictionary[key][0]
         start = int(pScoresDictionary[key][1])
@@ -196,46 +198,32 @@ def writeAggregateHDF(pOutFileName, pOutfileNamesList, pAcceptedScoresList, pArg
     aggregateFileH5Object.close()
 
 
-def run_target_list_compilation(pInteractionFilesList, pTargetList, pArgs, pViewpointObj, pQueue=None, pOneTarget=False):
+def run_target_list_compilation(pInteractionFilesList, pTargetList, pTargetFType, pTargetPosDict, pArgs, pViewpointObj, pQueue=None, pOneTarget=False):
     outfile_names_list = []
     accepted_scores_list = []
     target_regions_intervaltree = None
-    targetPosDict = {}
     try:
-        if not h5py.is_hdf5(pArgs.targetFile):
-            targetPosDict = {}
-            outer_matrix = 'c_adj_norm'
-            inner_matrix = 't_adj_norm'
-            with open(pArgs.targetFile, 'r') as file:
-                for line in file.readlines():
-                    if line.startswith('#'):
-                        continue
-                    _line = line.strip().split('\t')
-                    if len(line) == 0:
-                        continue
-                    try:
-                        chrom, start, end = _line[:4]
-                    except ValueError:
-                        _line = line.strip().split()
-                        chrom, start, end, gene = _line[:4]
-                    if gene not in targetPosDict:
-                        targetPosDict[gene] = {}
-                        targetPosDict[gene]['chromosome'] = {}
-                        targetPosDict[gene]['start_list'] = []
-                        targetPosDict[gene]['end_list'] = []
-                    targetPosDict[gene]['chromosome'] = chrom
-                    targetPosDict[gene]['start_list'].append(start)
-                    targetPosDict[gene]['end_list'].append(end)
-        else:
-            targetPosDict = None
+        if pTargetFType == 'bed3':
+            try:
+                target_regions = utilities.readBed(pTargetList)
+            except Exception as exp:
+                pQueue.put('Fail: ' + str(exp) + traceback.format_exc())
+                return
+            hicmatrix = hm.hiCMatrix()
+            target_regions_intervaltree = hicmatrix.intervalListToIntervalTree(target_regions)[0]
 
         for i, interactionFile in enumerate(pInteractionFilesList):
             outfile_names_list_intern = []
             accepted_scores_list_intern = []
             for sample in interactionFile:
                 interaction_data, interaction_file_data, _ = pViewpointObj.readInteractionFile(pArgs.interactionFile, sample)
-                target_file = pTargetList[i]
-                accepted_scores = filter_scores_target_list(interaction_file_data, pTargetList=target_file, pTargetPosDict=targetPosDict, pTargetFile=pArgs.targetFile)
+                if pOneTarget == True:
+                    target_file = None
+                else:
+                    target_file = pTargetList[i]
+
+                accepted_scores = filter_scores_target_list(interaction_file_data, pTargetFType, pTargetPosDict, pTargetList=target_file, pTargetIntervalTree=target_regions_intervaltree, pTargetFile=pArgs.targetFile)
+
                 outfile_names_list_intern.append(sample)
                 accepted_scores_list_intern.append(accepted_scores)
             outfile_names_list.append(outfile_names_list_intern)
@@ -254,7 +242,7 @@ def run_target_list_compilation(pInteractionFilesList, pTargetList, pArgs, pView
     return
 
 
-def call_multi_core(pInteractionFilesList, pTargetFileList, pFunctionName, pArgs, pViewpointObj):
+def call_multi_core(pInteractionFilesList, pTargetFileList, pTargetFType, pTargetPosDict, pFunctionName, pArgs, pViewpointObj):
     if len(pInteractionFilesList) < pArgs.threads:
         pArgs.threads = len(pInteractionFilesList)
     outfile_names_list = [None] * pArgs.threads
@@ -288,6 +276,8 @@ def call_multi_core(pInteractionFilesList, pTargetFileList, pFunctionName, pArgs
         process[i] = Process(target=pFunctionName, kwargs=dict(
             pInteractionFilesList=interactionFileListThread,
             pTargetList=targetFileListThread,
+            pTargetFType=pTargetFType,
+            pTargetPosDict=pTargetPosDict,
             pArgs=pArgs,
             pViewpointObj=pViewpointObj,
             pQueue=queue[i],
@@ -325,30 +315,6 @@ def call_multi_core(pInteractionFilesList, pTargetFileList, pFunctionName, pArgs
     return outfile_names_list, accepted_scores_list
 
 
-def readTargetBed(targetList):
-    present_genes = {}
-    targetDict = {}        
-    outer_matrix = 'c_adj_norm'
-    inner_matrix = 't_adj_norm'
-    present_genes[outer_matrix] = {}
-    present_genes[outer_matrix][inner_matrix] = []
-    with open(targetList, 'r') as file:
-        for line in file.readlines():
-            if line.startswith('#'):
-                continue
-            _line = line.strip().split('\t')
-            if len(line) == 0:
-                continue
-            try:
-                chrom, start, end = _line[:4]
-            except ValueError:
-                _line = line.strip().split()
-                chrom, start, end, gene = _line[:4]
-            if gene not in present_genes[outer_matrix][inner_matrix]:
-                present_genes[outer_matrix][inner_matrix].append(gene)
-            targetDict[gene] = [outer_matrix, inner_matrix, 'genes', gene]
-    return present_genes, targetDict
-
 def main(args=None):
     args = parse_arguments().parse_args(args)
     viewpointObj = Viewpoint()
@@ -358,43 +324,68 @@ def main(args=None):
 
     targetList = []
     present_genes = {}
+    target_ftype = ''
+    targetPosDict = None
     # read hdf file
     interactionFileHDF5Object = h5py.File(args.interactionFile, 'r')
     keys_interactionFile = list(interactionFileHDF5Object.keys())
 
     if h5py.is_hdf5(args.targetFile):
         targetDict, present_genes = viewpointObj.readTargetHDFFile(args.targetFile)
+        target_ftype = 'hdf5'
 
     else:
-        present_genes, targetDict = readTargetBed(args.targetFile)
+        with open(args.targetFile) as file:
+            for line in file.readlines():
+                if line.startswith('#'):
+                    continue
+                _line = line.strip().split('\t')
+                break
+        if len(_line) == 4:
+            log.info('Targets BED contains 4 columns, aggregating on column 4')
+            target_ftype = 'bed4'
+            present_genes, targetDict, targetPosDict = utilities.readTargetBed(args.targetFile)
+        elif len(_line) == 3:
+            targetList = [args.targetFile]
+            target_ftype = 'bed3'
+        else:
+            log.error('BED of targets list must have 3 or 4 columns')    
 
-    for i, sample in enumerate(keys_interactionFile):
-        for sample2 in keys_interactionFile[i + 1:]:
+    if len(keys_interactionFile) > 1:
 
-            matrix_obj1 = interactionFileHDF5Object[sample]
-            matrix_obj2 = interactionFileHDF5Object[sample2]
+        for i, sample in enumerate(keys_interactionFile):
+            for sample2 in keys_interactionFile[i + 1:]:
 
-            chromosomeList1 = sorted(list(matrix_obj1.keys()))
-            chromosomeList2 = sorted(list(matrix_obj2.keys()))
-            chromosomeList1.remove('genes')
-            chromosomeList2.remove('genes')
-            for chromosome1, chromosome2 in zip(chromosomeList1, chromosomeList2):
-                geneList1 = sorted(list(matrix_obj1[chromosome1].keys()))
-                geneList2 = sorted(list(matrix_obj2[chromosome2].keys()))
+                matrix_obj1 = interactionFileHDF5Object[sample]
+                matrix_obj2 = interactionFileHDF5Object[sample2]
 
-                for gene1, gene2 in zip(geneList1, geneList2):
-                    if gene1 in present_genes[sample][sample2]:
-                        interactionDict[gene1] = [[sample, chromosome1, gene1], [sample2, chromosome2, gene2]]
+                chromosomeList1 = sorted(list(matrix_obj1.keys()))
+                chromosomeList2 = sorted(list(matrix_obj2.keys()))
+                chromosomeList1.remove('genes')
+                chromosomeList2.remove('genes')
+                for chromosome1, chromosome2 in zip(chromosomeList1, chromosomeList2):
+                    geneList1 = sorted(list(matrix_obj1[chromosome1].keys()))
+                    geneList2 = sorted(list(matrix_obj2[chromosome2].keys()))
+
+                    for gene1, gene2 in zip(geneList1, geneList2):
+                        if target_ftype != 'bed3':
+                            if gene1 in present_genes[sample][sample2]:
+                                interactionDict[gene1] = [[sample, chromosome1, gene1], [sample2, chromosome2, gene2]]
+                        else:
+                            interactionList.append([[sample, chromosome1, gene1], [sample2, chromosome2, gene2]])
+    else:
+        log.error('To aggregate and prepare the data for the differential test, at least two matrices need to be stored, but only one is present.')
 
     interactionFileHDF5Object.close()
 
-    key_outer_matrix = present_genes.keys()
+    if target_ftype != 'bed3':
+        key_outer_matrix = present_genes.keys()
+        for keys_outer in key_outer_matrix:
+            keys_inner_matrix = present_genes[keys_outer].keys()
+            for keys_inner in keys_inner_matrix:
+                for gene in present_genes[keys_outer][keys_inner]:
+                    interactionList.append(interactionDict[gene])
+                    targetList.append(targetDict[gene])
 
-    for keys_outer in key_outer_matrix:
-        keys_inner_matrix = present_genes[keys_outer].keys()
-        for keys_inner in keys_inner_matrix:
-            for gene in present_genes[keys_outer][keys_inner]:
-                interactionList.append(interactionDict[gene])
-                targetList.append(targetDict[gene])
-    outfile_names_list, accepted_scores_list = call_multi_core(interactionList, targetList, run_target_list_compilation, args, viewpointObj)
+    outfile_names_list, accepted_scores_list = call_multi_core(interactionList, targetList, target_ftype, targetPosDict, run_target_list_compilation, args, viewpointObj)
     writeAggregateHDF(args.outFileName, outfile_names_list, accepted_scores_list, args)
