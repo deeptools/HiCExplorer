@@ -68,7 +68,7 @@ def filter_scores_target_list(pScoresDictionary, pTargetFType, pTargetPosDict, p
     accepted_scores = {}
     same_target_dict = {}
     target_regions_intervaltree = None
-    #newly added
+    # newly added
     if pTargetFType == 'hdf5':
         # read hdf content for this specific combination
         targetFileHDF5Object = h5py.File(pTargetFile, 'r')
@@ -82,7 +82,7 @@ def filter_scores_target_list(pScoresDictionary, pTargetFType, pTargetPosDict, p
         start_list = pTargetPosDict[pTargetList[-1]]['start_list']
         end_list = pTargetPosDict[pTargetList[-1]]['end_list']
     elif pTargetFType == 'bed3':
-         target_regions_intervaltree = pTargetIntervalTree
+        target_regions_intervaltree = pTargetIntervalTree
     else:
         log.error('No target list given.')
         raise Exception('No target list given.')
@@ -349,7 +349,7 @@ def main(args=None):
             targetList = [args.targetFile]
             target_ftype = 'bed3'
         else:
-            log.error('BED of targets list must have 3 or 4 columns')    
+            log.error('BED of targets list must have 3 or 4 columns')
 
     if len(keys_interactionFile) > 1:
 

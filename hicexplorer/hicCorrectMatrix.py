@@ -677,8 +677,7 @@ def main(args=None):
         ma.maskBins(outlier_regions)
         total_filtered_out = set(outlier_regions)
         print(outlier_regions, "Bins that are MAD outliers ({:.2f}%) "
-                            "out of {}".format(pct_outlier, ma.matrix.shape[0]))
-      
+              "out of {}".format(pct_outlier, ma.matrix.shape[0]))
 
         if args.sequencedCountCutoff and 0 < args.sequencedCountCutoff < 1:
             chrom, _, _, coverage = zip(*ma.cut_intervals)
