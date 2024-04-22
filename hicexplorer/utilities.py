@@ -37,8 +37,11 @@ def readBed(pBedFile):
 
 def readTargetBed(pBedFile):
     present_genes = {}
-    targetDict = {}        
+    targetDict = {}
     targetPosDict = {}
+    # The keys are hardcoded here. Usually, for hdf input file, read as h5py.File().keys()
+    # These keys should match the views.hdf
+    # TODO: need to find a encode these in the BED file
     outer_matrix = 'c_adj_norm'
     inner_matrix = 't_adj_norm'
     present_genes[outer_matrix] = {}
@@ -66,7 +69,7 @@ def readTargetBed(pBedFile):
                 targetPosDict[gene]['end_list'] = []
             targetPosDict[gene]['chromosome'] = chrom
             targetPosDict[gene]['start_list'].append(start)
-            targetPosDict[gene]['end_list'].append(end)            
+            targetPosDict[gene]['end_list'].append(end)
     return present_genes, targetDict, targetPosDict
 
 

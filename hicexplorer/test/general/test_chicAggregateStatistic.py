@@ -113,41 +113,81 @@ def test_regular_mode_threads():
     aggregateFileH5Object.close()
 
 
-def test_target_list():
+def test_target_list_bed3():
     outfile_aggregate = NamedTemporaryFile(suffix='.hdf5', delete=False)
     outfile_aggregate.close()
     args = "--interactionFile {} --targetFile {} --outFileName {} \
-            -t {}".format(ROOT + 'chicViewpoint/two_matrices.hdf5',
-                          ROOT + 'chicAggregateStatistic/target_list.bed',
+            -t {}".format(ROOT + 'chicViewpoint/two_matrices_custom_keys.hdf5',
+                          ROOT + 'chicAggregateStatistic/target_list_3col.bed',
                           outfile_aggregate.name, 10).split()
     chicAggregateStatistic.main(args)
 
     aggregateFileH5Object = h5py.File(outfile_aggregate.name, 'r')
-    assert 'FL-E13-5_chr1_MB-E10-5_chr1' in aggregateFileH5Object
-    assert 'FL-E13-5_chr1' in aggregateFileH5Object['FL-E13-5_chr1_MB-E10-5_chr1']
-    assert 'MB-E10-5_chr1' in aggregateFileH5Object['FL-E13-5_chr1_MB-E10-5_chr1']
+    assert 'c_adj_norm_t_adj_norm' in aggregateFileH5Object
+    assert 'c_adj_norm' in aggregateFileH5Object['c_adj_norm_t_adj_norm']
+    assert 't_adj_norm' in aggregateFileH5Object['c_adj_norm_t_adj_norm']
 
-    assert 'genes' in aggregateFileH5Object['FL-E13-5_chr1_MB-E10-5_chr1']['FL-E13-5_chr1']
-    assert 'genes' in aggregateFileH5Object['FL-E13-5_chr1_MB-E10-5_chr1']['MB-E10-5_chr1']
+    assert 'genes' in aggregateFileH5Object['c_adj_norm_t_adj_norm']['c_adj_norm']
+    assert 'genes' in aggregateFileH5Object['c_adj_norm_t_adj_norm']['t_adj_norm']
     assert len(aggregateFileH5Object) == 1
     assert aggregateFileH5Object.attrs['type'] == 'aggregate'
 
-    for chromosome in aggregateFileH5Object['FL-E13-5_chr1_MB-E10-5_chr1']['FL-E13-5_chr1']:
+    for chromosome in aggregateFileH5Object['c_adj_norm_t_adj_norm']['c_adj_norm']:
 
-        assert len(aggregateFileH5Object['FL-E13-5_chr1_MB-E10-5_chr1']['FL-E13-5_chr1'][chromosome]) == 3
+        assert len(aggregateFileH5Object['c_adj_norm_t_adj_norm']['c_adj_norm'][chromosome]) == 3
 
-        for gene in aggregateFileH5Object['FL-E13-5_chr1_MB-E10-5_chr1']['FL-E13-5_chr1'][chromosome]:
-            assert len(aggregateFileH5Object['FL-E13-5_chr1_MB-E10-5_chr1']['FL-E13-5_chr1'][chromosome][gene]) == 7
-            for data in aggregateFileH5Object['FL-E13-5_chr1_MB-E10-5_chr1']['FL-E13-5_chr1'][chromosome][gene]:
+        for gene in aggregateFileH5Object['c_adj_norm_t_adj_norm']['c_adj_norm'][chromosome]:
+            assert len(aggregateFileH5Object['c_adj_norm_t_adj_norm']['c_adj_norm'][chromosome][gene]) == 7
+            for data in aggregateFileH5Object['c_adj_norm_t_adj_norm']['c_adj_norm'][chromosome][gene]:
                 assert data in ['chromosome', 'end_list', 'gene_name', 'raw_target_list', 'relative_distance_list', 'start_list', 'sum_of_interactions']
 
-    for chromosome in aggregateFileH5Object['FL-E13-5_chr1_MB-E10-5_chr1']['MB-E10-5_chr1']:
+    for chromosome in aggregateFileH5Object['c_adj_norm_t_adj_norm']['t_adj_norm']:
 
-        assert len(aggregateFileH5Object['FL-E13-5_chr1_MB-E10-5_chr1']['MB-E10-5_chr1'][chromosome]) == 3
+        assert len(aggregateFileH5Object['c_adj_norm_t_adj_norm']['t_adj_norm'][chromosome]) == 3
 
-        for gene in aggregateFileH5Object['FL-E13-5_chr1_MB-E10-5_chr1']['MB-E10-5_chr1'][chromosome]:
-            assert len(aggregateFileH5Object['FL-E13-5_chr1_MB-E10-5_chr1']['MB-E10-5_chr1'][chromosome][gene]) == 7
-            for data in aggregateFileH5Object['FL-E13-5_chr1_MB-E10-5_chr1']['MB-E10-5_chr1'][chromosome][gene]:
+        for gene in aggregateFileH5Object['c_adj_norm_t_adj_norm']['t_adj_norm'][chromosome]:
+            assert len(aggregateFileH5Object['c_adj_norm_t_adj_norm']['t_adj_norm'][chromosome][gene]) == 7
+            for data in aggregateFileH5Object['c_adj_norm_t_adj_norm']['t_adj_norm'][chromosome][gene]:
+                assert data in ['chromosome', 'end_list', 'gene_name', 'raw_target_list', 'relative_distance_list', 'start_list', 'sum_of_interactions']
+
+    aggregateFileH5Object.close()
+
+
+def test_target_list_bed4():
+    outfile_aggregate = NamedTemporaryFile(suffix='.hdf5', delete=False)
+    outfile_aggregate.close()
+    args = "--interactionFile {} --targetFile {} --outFileName {} \
+            -t {}".format(ROOT + 'chicViewpoint/two_matrices_custom_keys.hdf5',
+                          ROOT + 'chicAggregateStatistic/target_list_4col.bed',
+                          outfile_aggregate.name, 10).split()
+    chicAggregateStatistic.main(args)
+
+    aggregateFileH5Object = h5py.File(outfile_aggregate.name, 'r')
+    assert 'c_adj_norm_t_adj_norm' in aggregateFileH5Object
+    assert 'c_adj_norm' in aggregateFileH5Object['c_adj_norm_t_adj_norm']
+    assert 't_adj_norm' in aggregateFileH5Object['c_adj_norm_t_adj_norm']
+
+    assert 'genes' in aggregateFileH5Object['c_adj_norm_t_adj_norm']['c_adj_norm']
+    assert 'genes' in aggregateFileH5Object['c_adj_norm_t_adj_norm']['t_adj_norm']
+    assert len(aggregateFileH5Object) == 1
+    assert aggregateFileH5Object.attrs['type'] == 'aggregate'
+
+    for chromosome in aggregateFileH5Object['c_adj_norm_t_adj_norm']['c_adj_norm']:
+
+        assert len(aggregateFileH5Object['c_adj_norm_t_adj_norm']['c_adj_norm'][chromosome]) == 3
+
+        for gene in aggregateFileH5Object['c_adj_norm_t_adj_norm']['c_adj_norm'][chromosome]:
+            assert len(aggregateFileH5Object['c_adj_norm_t_adj_norm']['c_adj_norm'][chromosome][gene]) == 7
+            for data in aggregateFileH5Object['c_adj_norm_t_adj_norm']['c_adj_norm'][chromosome][gene]:
+                assert data in ['chromosome', 'end_list', 'gene_name', 'raw_target_list', 'relative_distance_list', 'start_list', 'sum_of_interactions']
+
+    for chromosome in aggregateFileH5Object['c_adj_norm_t_adj_norm']['t_adj_norm']:
+
+        assert len(aggregateFileH5Object['c_adj_norm_t_adj_norm']['t_adj_norm'][chromosome]) == 3
+
+        for gene in aggregateFileH5Object['c_adj_norm_t_adj_norm']['t_adj_norm'][chromosome]:
+            assert len(aggregateFileH5Object['c_adj_norm_t_adj_norm']['t_adj_norm'][chromosome][gene]) == 7
+            for data in aggregateFileH5Object['c_adj_norm_t_adj_norm']['t_adj_norm'][chromosome][gene]:
                 assert data in ['chromosome', 'end_list', 'gene_name', 'raw_target_list', 'relative_distance_list', 'start_list', 'sum_of_interactions']
 
     aggregateFileH5Object.close()
