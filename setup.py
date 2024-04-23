@@ -116,7 +116,7 @@ install_requires_py = ["numpy >= 1.19",
                        "tqdm >= 4.66",
                        "hyperopt >= 0.2.7",
                        "graphviz >= 0.20",
-                       "scikit-learn >= 1.3.1",
+                       "scikit-learn == 1.3.2",
                        "imbalanced-learn >= 0.11",
                        "cleanlab >= 2.5"
                        ]
