@@ -551,7 +551,7 @@ def filter_by_zscore(hic_ma, lower_threshold, upper_threshold, perchr=False):
     to avoid introducing bias due to different chromosome numbers
 
     """
-    print("filtering by z-score")
+    log.info("filtering by z-score")
     to_remove = []
     if perchr:
         for chrname in list(hic_ma.interval_trees):
@@ -662,22 +662,15 @@ def main(args=None):
                             restore_masked_bins=False)
 
         assert matrix_shape == ma.matrix.shape
-        for idx in outlier_regions:
-            print(idx, ma.cut_intervals[idx])
 
         if args.filteredBed:
             with open(args.filteredBed, 'w') as f:
                 for outlier_region in set(outlier_regions):
                     interval = ma.cut_intervals[outlier_region]
-                    f.write('{}\t{}\t{}\t.\t{}\t.\n'.format(interval[0],
-                                                            str(interval[1]),
-                                                            str(interval[2]),
-                                                            interval[3]))
+                    f.write('\t'.join(str(x) for x in interval) + '\n')
         # mask filtered regions
         ma.maskBins(outlier_regions)
         total_filtered_out = set(outlier_regions)
-        print(outlier_regions, "Bins that are MAD outliers ({:.2f}%) "
-              "out of {}".format(pct_outlier, ma.matrix.shape[0]))
 
         if args.sequencedCountCutoff and 0 < args.sequencedCountCutoff < 1:
             chrom, _, _, coverage = zip(*ma.cut_intervals)
