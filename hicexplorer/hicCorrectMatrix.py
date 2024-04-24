@@ -667,7 +667,7 @@ def main(args=None):
             with open(args.filteredBed, 'w') as f:
                 for outlier_region in set(outlier_regions):
                     interval = ma.cut_intervals[outlier_region]
-                    f.write('\t'.join(str(x) for x in interval) + '\n')
+                    f.write(f"{interval[0]}\t{interval[1]}\t{interval[2]}\t.\t{interval[3]}\t.\n")
         # mask filtered regions
         ma.maskBins(outlier_regions)
         total_filtered_out = set(outlier_regions)
