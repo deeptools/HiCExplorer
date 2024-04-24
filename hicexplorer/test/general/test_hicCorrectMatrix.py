@@ -17,15 +17,13 @@ ROOT = os.path.join(os.path.dirname(
 
 
 def are_files_equal(file1, file2, pDifference=1):
-    equal = True
     with open(file1) as textfile1, open(file2) as textfile2:
         for x, y in zip(textfile1, textfile2):
             if x != y:
                 count = sum(1 for a, b in zip(x, y) if a != b)
                 if count > pDifference:
-                    equal = False
-                    break
-    return equal
+                    return False
+    return True
 
 
 def test_correct_matrix_ICE():

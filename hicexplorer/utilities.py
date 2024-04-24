@@ -56,6 +56,7 @@ def readTargetBed(pBedFile):
             try:
                 chrom, start, end = _line[:4]
             except ValueError:
+                # in case the BED is space seprated instead of tabs, split it by whitespaces
                 _line = line.strip().split()
                 chrom, start, end, gene = _line[:4]
             if gene not in present_genes[outer_matrix][inner_matrix]:
