@@ -35,6 +35,45 @@ def readBed(pBedFile):
     return viewpoints
 
 
+def readTargetBed(pBedFile):
+    present_genes = {}
+    targetDict = {}
+    targetPosDict = {}
+    # The keys are hardcoded here. Usually, for hdf input file, read as h5py.File().keys()
+    # These keys should match the views.hdf
+    # TODO: need to find a encode these in the BED file
+    outer_matrix = 'c_adj_norm'
+    inner_matrix = 't_adj_norm'
+    present_genes[outer_matrix] = {}
+    present_genes[outer_matrix][inner_matrix] = []
+    with open(pBedFile, 'r') as file:
+        for line in file.readlines():
+            if line.startswith('#'):
+                continue
+            _line = line.strip().split('\t')
+            if len(line) == 0:
+                continue
+            try:
+                chrom, start, end = _line[:4]
+            except ValueError:
+                # in case the BED is space seprated instead of tabs, split it by whitespaces
+                _line = line.strip().split()
+                chrom, start, end, gene = _line[:4]
+            if gene not in present_genes[outer_matrix][inner_matrix]:
+                present_genes[outer_matrix][inner_matrix].append(gene)
+            targetDict[gene] = [outer_matrix, inner_matrix, 'genes', gene]
+
+            if gene not in targetPosDict:
+                targetPosDict[gene] = {}
+                targetPosDict[gene]['chromosome'] = {}
+                targetPosDict[gene]['start_list'] = []
+                targetPosDict[gene]['end_list'] = []
+            targetPosDict[gene]['chromosome'] = chrom
+            targetPosDict[gene]['start_list'].append(start)
+            targetPosDict[gene]['end_list'].append(end)
+    return present_genes, targetDict, targetPosDict
+
+
 def writableFile(string):
     try:
         open(string, 'w').close()

@@ -16,14 +16,27 @@ ROOT = os.path.join(os.path.dirname(
     os.path.dirname(os.path.abspath(__file__))), "test_data/")
 
 
+def are_files_equal(file1, file2, pDifference=1):
+    with open(file1) as textfile1, open(file2) as textfile2:
+        for x, y in zip(textfile1, textfile2):
+            if x != y:
+                count = sum(1 for a, b in zip(x, y) if a != b)
+                if count > pDifference:
+                    return False
+    return True
+
+
 def test_correct_matrix_ICE():
     outfile = NamedTemporaryFile(suffix='.ICE.h5', delete=False)
     outfile.close()
 
+    outfile_filtered = NamedTemporaryFile(suffix='.bed', delete=True)
+
     args = "correct --matrix {} --correctionMethod ICE --chromosomes "\
-           "chrUextra chr3LHet --iterNum 500  --outFileName {} "\
+           "chrUextra chr3LHet --iterNum 500 --outFileName {} --filteredBed {} "\
            "--filterThreshold -1.5 5.0".format(ROOT + "small_test_matrix.h5",
-                                               outfile.name).split()
+                                               outfile.name,
+                                               outfile_filtered.name).split()
     # hicCorrectMatrix.main(args)
     compute(hicCorrectMatrix.main, args, 5)
     test = hm.hiCMatrix(
@@ -31,6 +44,7 @@ def test_correct_matrix_ICE():
     new = hm.hiCMatrix(outfile.name)
     nt.assert_equal(test.matrix.data, new.matrix.data)
     nt.assert_equal(test.cut_intervals, new.cut_intervals)
+    assert are_files_equal(outfile_filtered.name, ROOT + 'hicCorrectMatrix/filtered.bed')
 
     os.unlink(outfile.name)
 

@@ -235,6 +235,9 @@ def correct_subparser():
                            'of chromosomes and/or translocations.',
                            action='store_true')
 
+    parserOpt.add_argument('--filteredBed',
+                           help='Print bins filtered our by  --filterThreshold to this file')
+
     parserOpt.add_argument('--verbose',
                            help='Print processing status.',
                            action='store_true')
@@ -548,6 +551,7 @@ def filter_by_zscore(hic_ma, lower_threshold, upper_threshold, perchr=False):
     to avoid introducing bias due to different chromosome numbers
 
     """
+    log.info("filtering by z-score")
     to_remove = []
     if perchr:
         for chrname in list(hic_ma.interval_trees):
@@ -575,6 +579,7 @@ def filter_by_zscore(hic_ma, lower_threshold, upper_threshold, perchr=False):
                          "\n".format(chrname, lower_threshold, upper_threshold))
 
             to_remove.extend(problematic)
+
     else:
         row_sum = np.asarray(hic_ma.matrix.sum(axis=1)).flatten()
         # subtract from row sum, the diagonal
@@ -584,7 +589,6 @@ def filter_by_zscore(hic_ma, lower_threshold, upper_threshold, perchr=False):
         mad = MAD(row_sum)
         to_remove = np.flatnonzero(mad.is_outlier(
             lower_threshold, upper_threshold))
-
     return sorted(to_remove)
 
 
@@ -658,6 +662,12 @@ def main(args=None):
                             restore_masked_bins=False)
 
         assert matrix_shape == ma.matrix.shape
+
+        if args.filteredBed:
+            with open(args.filteredBed, 'w') as f:
+                for outlier_region in set(outlier_regions):
+                    interval = ma.cut_intervals[outlier_region]
+                    f.write(f"{interval[0]}\t{interval[1]}\t{interval[2]}\t.\t{interval[3]}\t.\n")
         # mask filtered regions
         ma.maskBins(outlier_regions)
         total_filtered_out = set(outlier_regions)
