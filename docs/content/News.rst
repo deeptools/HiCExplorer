@@ -1,6 +1,22 @@
 News and Developments
 =====================
 
+Release 3.7.5
+-------------
+**June 2024**
+
+- Update the version file.
+
+Release 3.7.4
+-------------
+**24 April 2024**
+
+- Allow chicAggregateStatistic.py to to extract the aggregated data from the views.hdf based on differential.hdf or differential_target.bed. Now the BED may have the target name in the 4th column. In that case, the aggregation is done per target.
+- Allow hicCorrectMatrix.py to write filtered out regions to a BED file
+
+Thanks @pavanvidem
+
+Warning: In this version the version file has not been modified so the tools gives 3.7.3 as version.
 
 Release 3.7.3
 -------------
