@@ -50,39 +50,7 @@ def parse_arguments(args=None):
                                 'Hi-C libraries.',
                                 metavar='FOLDER',
                                 required=True)
-    parserRequired.add_argument('--restrictionCutFile', '-rs',
-                                help='BED file(s) with all restriction cut sites '
-                                '(output of "hicFindRestSite" command). '
-                                'Should only contain the restriction sites of the same genome which has been used '
-                                'to generate the input sam files. Using regions of a different genome version can '
-                                'generate false results! To use more than one restriction enzyme, generate '
-                                'a restrictionCutFile for each enzyne and list them space seperated.',
-                                type=argparse.FileType('r'),
-                                metavar='BED file',
-                                nargs='+',
-                                required=True)
-    parserRequired.add_argument('--restrictionSequence', '-seq',
-                                help='Sequence of the restriction site, if multiple are used, '
-                                'please list them space seperated. If a dangling sequence '
-                                'is listed at the same time, please preserve the same order.',
-                                type=str,
-                                nargs='+',
-                                required=True)
 
-    parserRequired.add_argument('--danglingSequence',
-                                help='Sequence left by the restriction enzyme after cutting, if multiple are used, please list them space '
-                                'seperated and preserve the order. Each restriction enzyme '
-                                'recognizes a different DNA sequence and, after cutting, they leave behind a specific '
-                                '"sticky" end or dangling end sequence.  For example, for HindIII the restriction site '
-                                'is AAGCTT and the dangling end is AGCT. For DpnII, the restriction site and dangling '
-                                'end sequence are the same: GATC. This information is easily found on the description '
-                                'of the restriction enzyme. The dangling sequence is used to classify and report reads '
-                                'whose 5\' end starts with such sequence as dangling-end reads. A significant portion '
-                                'of dangling-end reads in a sample are indicative of a problem with the re-ligation '
-                                'step of the protocol.',
-                                type=str,
-                                nargs='+',
-                                required=True)
 
     parserOpt = parser.add_argument_group('Optional arguments')
 
@@ -106,21 +74,10 @@ def parse_arguments(args=None):
                            'Optionally for mcool file format: Define multiple resolutions which are all a multiple of the first value. '
                            ' Example: --binSize 10000 20000 50000 will create a mcool file formate containing the three defined resolutions.',
                            type=int,
-                           nargs='+')
+                           nargs='+',
+                           required=True)
 
-    parserOpt.add_argument('--minDistance',
-                           help='Minimum distance between restriction sites. '
-                           'Restriction sites that are closer than this '
-                           'distance are merged into one. This option only '
-                           'applies if --restrictionCutFile is given'
-                           ' (Default: %(default)s).',
-                           type=int,
-                           default=300,
-                           required=False)
 
-    parserOpt.add_argument('--maxDistance',
-                           help='This parameter is now obsolete. Use --maxLibraryInsertSize instead',
-                           type=int)
 
     parserOpt.add_argument('--maxLibraryInsertSize',
                            help='The maximum library insert size defines different cut offs based on the maximum expected '
@@ -146,15 +103,7 @@ def parse_arguments(args=None):
                            required=False,
                            type=genomicRegion
                            )
-    parserOpt.add_argument('--keepSelfLigation',
-                           help='If set, inward facing reads less than 1000 bp apart and having a restriction'
-                           'site in between are removed. Although this reads do not contribute to '
-                           'any distant contact, they are useful to account for bias in the data'
-                           ' (for the moment is always True).',
-                           #    help=argparse.SUPPRESS,
-                           #    default=True
-                           action='store_true'
-                           )
+
 
     parserOpt.add_argument('--keepSelfCircles',
                            help='If set, outward facing reads without any restriction fragment (self circles) are kept. '
@@ -262,12 +211,12 @@ def main(args=None):
 
     args = parse_arguments().parse_args(args)
    
-    createMatrix(pOutFileName=args.outFileName, pMaxDistance=args.maxDistance, pMaxLibraryInsertSize=args.maxLibraryInsertSize, pQCfolder=args.QCfolder,
-                    pThreads=args.threads, pDanglingSequence=args.danglingSequence, pRestrictionSequence=args.restrictionSequence, pSamFiles=args.samFiles,
-                    pDoTestRun=args.doTestRun, pOutBam=args.outBam, pChromosomeSizes=args.chromosomeSizes, pRestrictionCutFile=args.restrictionCutFile,
-                    pRegion=args.region, pBinSize=args.binSize, pInputBufferSize=args.inputBufferSize, pMinDistance=args.minDistance,
+    createMatrix(pOutFileName=args.outFileName, pMaxDistance=None, pMaxLibraryInsertSize=args.maxLibraryInsertSize, pQCfolder=args.QCfolder,
+                    pThreads=args.threads, pDanglingSequence=None, pRestrictionSequence=None, pSamFiles=args.samFiles,
+                    pDoTestRun=args.doTestRun, pOutBam=args.outBam, pChromosomeSizes=args.chromosomeSizes, pRestrictionCutFile=None,
+                    pRegion=args.region, pBinSize=args.binSize, pInputBufferSize=args.inputBufferSize, pMinDistance=None,
                     pDoTestRunLines=args.doTestRunLines, pSkipDuplicationCheck=args.skipDuplicationCheck, pMinMappingQuality=args.minMappingQuality, 
-                    pKeepSelfCircles=args.keepSelfCircles, pKeepSelfLigation=args.keepSelfLigation, pGenomeAssembly=args.genomeAssembly)
+                    pKeepSelfCircles=args.keepSelfCircles, pKeepSelfLigation=None, pGenomeAssembly=args.genomeAssembly)
 
 
 class Tester(object):
