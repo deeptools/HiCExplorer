@@ -72,7 +72,12 @@ def save_html(filename, unmap_table, discard_table, distance_table, orientation_
     html_content = html_content.replace("%%TABLE_ORIENTATION%%", orientation_table.style
                                         .format(lambda x: '{:,}'.format(x) if x > 1 else '{:.2%}'.format(x)).to_html(classes='df'))
 
-    all_table = all_table.drop(['Min rest. site distance', 'Max library insert size'], axis=1)
+    if 'Min rest. site distance' in all_table.columns:
+        all_table = all_table.drop(['Min rest. site distance'], axis=1)
+
+    if 'Max library insert size' in all_table.columns:
+        all_table = all_table.drop(['Max library insert size'], axis=1)
+    # all_table = all_table.drop(['Min rest. site distance', 'Max library insert size'], axis=1)
 
     html_content = html_content.replace("%%TABLE%%", all_table.style.to_html(classes='df'))
     with open(filename, 'w') as fh:
@@ -268,6 +273,8 @@ def main(args=None):
         in_log_part = False
         log.debug('Processing {}\n'.format(fh.name))
         for line in fh.readlines():
+            log.debug('line {}'.format(line))
+            line = line.strip()
             if line.startswith("File"):
                 in_log_part = True
             if in_log_part is True:

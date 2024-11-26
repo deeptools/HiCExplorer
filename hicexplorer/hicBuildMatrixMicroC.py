@@ -51,7 +51,6 @@ def parse_arguments(args=None):
                                 metavar='FOLDER',
                                 required=True)
 
-
     parserOpt = parser.add_argument_group('Optional arguments')
 
     parserOpt.add_argument('--outBam', '-b',
@@ -77,8 +76,6 @@ def parse_arguments(args=None):
                            nargs='+',
                            required=True)
 
-
-
     parserOpt.add_argument('--maxLibraryInsertSize',
                            help='The maximum library insert size defines different cut offs based on the maximum expected '
                            'library size. *This is not the average fragment size* but the higher end of the '
@@ -103,7 +100,6 @@ def parse_arguments(args=None):
                            required=False,
                            type=genomicRegion
                            )
-
 
     parserOpt.add_argument('--keepSelfCircles',
                            help='If set, outward facing reads without any restriction fragment (self circles) are kept. '
@@ -210,13 +206,13 @@ def main(args=None):
     """
 
     args = parse_arguments().parse_args(args)
-   
+
     createMatrix(pOutFileName=args.outFileName, pMaxDistance=None, pMaxLibraryInsertSize=args.maxLibraryInsertSize, pQCfolder=args.QCfolder,
-                    pThreads=args.threads, pDanglingSequence=None, pRestrictionSequence=None, pSamFiles=args.samFiles,
-                    pDoTestRun=args.doTestRun, pOutBam=args.outBam, pChromosomeSizes=args.chromosomeSizes, pRestrictionCutFile=None,
-                    pRegion=args.region, pBinSize=args.binSize, pInputBufferSize=args.inputBufferSize, pMinDistance=None,
-                    pDoTestRunLines=args.doTestRunLines, pSkipDuplicationCheck=args.skipDuplicationCheck, pMinMappingQuality=args.minMappingQuality, 
-                    pKeepSelfCircles=args.keepSelfCircles, pKeepSelfLigation=None, pGenomeAssembly=args.genomeAssembly)
+                 pThreads=args.threads, pDanglingSequence=None, pRestrictionSequence=None, pSamFiles=args.samFiles,
+                 pDoTestRun=args.doTestRun, pOutBam=args.outBam, pChromosomeSizes=args.chromosomeSizes, pRestrictionCutFile=None,
+                 pRegion=args.region, pBinSize=args.binSize, pInputBufferSize=args.inputBufferSize, pMinDistance=None,
+                 pDoTestRunLines=args.doTestRunLines, pSkipDuplicationCheck=args.skipDuplicationCheck, pMinMappingQuality=args.minMappingQuality,
+                 pKeepSelfCircles=args.keepSelfCircles, pKeepSelfLigation=None, pGenomeAssembly=args.genomeAssembly)
 
 
 class Tester(object):

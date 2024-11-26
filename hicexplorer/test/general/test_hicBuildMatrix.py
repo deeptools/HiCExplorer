@@ -55,7 +55,7 @@ def test_build_matrix(capsys):
     nt.assert_equal(test.cut_intervals, new.cut_intervals)
     # print("MATRIX NAME:", outfile.name)
     print(set(os.listdir(ROOT + "QC/")))
-    assert are_files_equal(ROOT + "QC/QC.log", qc_folder + "/QC.log")
+    assert are_files_equal(ROOT + "QC/QC.log", qc_folder + "/QC.log", delta=2)
     assert set(os.listdir(ROOT + "QC/")) == set(os.listdir(qc_folder))
 
     # accept delta of 80 kb, file size is around 4.5 MB

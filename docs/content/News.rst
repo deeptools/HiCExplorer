@@ -1,6 +1,14 @@
 News and Developments
 =====================
 
+Release 3.7.6
+-------------
+**27 November 2024**
+
+- Add a new hicBuildMatrixMicroC script to build matrices from Micro-C data. It is the same as hicBuildMatrix but without the enforcement of the restriction cut site file, restriction sequence and dangling end since this is not necessary for Micro-C data.
+- Update to include support for Python 3.11 and 3.12
+
+
 Release 3.7.5
 -------------
 **June 2024**

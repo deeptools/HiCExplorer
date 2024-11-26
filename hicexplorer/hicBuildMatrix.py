@@ -261,21 +261,10 @@ def main(args=None):
     """
 
     args = parse_arguments().parse_args(args)
-   
+
     createMatrix(pOutFileName=args.outFileName, pMaxDistance=args.maxDistance, pMaxLibraryInsertSize=args.maxLibraryInsertSize, pQCfolder=args.QCfolder,
-                    pThreads=args.threads, pDanglingSequence=args.danglingSequence, pRestrictionSequence=args.restrictionSequence, pSamFiles=args.samFiles,
-                    pDoTestRun=args.doTestRun, pOutBam=args.outBam, pChromosomeSizes=args.chromosomeSizes, pRestrictionCutFile=args.restrictionCutFile,
-                    pRegion=args.region, pBinSize=args.binSize, pInputBufferSize=args.inputBufferSize, pMinDistance=args.minDistance,
-                    pDoTestRunLines=args.doTestRunLines, pSkipDuplicationCheck=args.skipDuplicationCheck, pMinMappingQuality=args.minMappingQuality, 
-                    pKeepSelfCircles=args.keepSelfCircles, pKeepSelfLigation=args.keepSelfLigation, pGenomeAssembly=args.genomeAssembly)
-
-
-class Tester(object):
-    def __init__(self):
-        hic_test_data_dir = os.environ.get('HIC_TEST_DATA_DIR', False)
-        if hic_test_data_dir:
-            self.root = hic_test_data_dir
-        else:
-            self.root = os.path.dirname(
-                os.path.abspath(__file__)) + "/test/test_data/"
-        self.bam_file_1 = os.path.join(self.root, "hic.bam")
+                 pThreads=args.threads, pDanglingSequence=args.danglingSequence, pRestrictionSequence=args.restrictionSequence, pSamFiles=args.samFiles,
+                 pDoTestRun=args.doTestRun, pOutBam=args.outBam, pChromosomeSizes=args.chromosomeSizes, pRestrictionCutFile=args.restrictionCutFile,
+                 pRegion=args.region, pBinSize=args.binSize, pInputBufferSize=args.inputBufferSize, pMinDistance=args.minDistance,
+                 pDoTestRunLines=args.doTestRunLines, pSkipDuplicationCheck=args.skipDuplicationCheck, pMinMappingQuality=args.minMappingQuality,
+                 pKeepSelfCircles=args.keepSelfCircles, pKeepSelfLigation=args.keepSelfLigation, pGenomeAssembly=args.genomeAssembly)

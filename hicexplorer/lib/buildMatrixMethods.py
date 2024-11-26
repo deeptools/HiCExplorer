@@ -7,6 +7,7 @@ from scipy.sparse import coo_matrix, dia_matrix
 import time
 from os import unlink
 import os
+from pathlib import Path
 from io import StringIO
 import traceback
 import warnings
@@ -36,6 +37,7 @@ from hicmatrix.lib import MatrixFileHandler
 from hicexplorer import hicMergeMatrixBins
 import logging
 log = logging.getLogger(__name__)
+
 
 class C_Interval(Structure):
     """Struct to map a Interval form intervaltree as a multiprocessing.sharedctype"""
@@ -84,6 +86,7 @@ class ReadPositionMatrix(object):
         else:
             self.pos_matrix.add(id_string)
             return False
+
 
 def intervalListToIntervalTree(interval_list):
     r"""
@@ -554,7 +557,6 @@ def readBamFiles(pFileOneIterator, pFileTwoIterator, pNumberOfItemsPerBuffer, pS
     return buffer_mate1, buffer_mate2, False, duplicated_pairs, one_mate_unmapped, one_mate_not_unique, one_mate_low_quality, iter_num - len(buffer_mate1)
 
 
-
 def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
                  pKeepSelfCircles, pRestrictionSequence, pKeepSelfLigation, pMatrixSize,
                  pRfPositions, pRefId2name,
@@ -866,13 +868,14 @@ def process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality,
         return
     return
 
+
 def createMatrix(pOutFileName, pMaxDistance, pMaxLibraryInsertSize, pQCfolder,
                  pThreads, pDanglingSequence, pRestrictionSequence, pSamFiles,
                  pDoTestRun, pOutBam, pChromosomeSizes, pRestrictionCutFile,
                  pRegion, pBinSize, pInputBufferSize,
-                 pDoTestRunLines, pSkipDuplicationCheck, pMinMappingQuality, 
+                 pDoTestRunLines, pSkipDuplicationCheck, pMinMappingQuality,
                  pKeepSelfCircles, pKeepSelfLigation, pMinDistance, pGenomeAssembly):
-     # pOutFileName.name = pOutFileName.name.strip()
+    # pOutFileName.name = pOutFileName.name.strip()
     # log.debug('pOutFileName.name: {}'.format(pOutFileName.name.endswith('.h5')))
     if not pOutFileName.name.endswith('.h5') and not pOutFileName.name.endswith('.cool'):
         if '.mcool' not in pOutFileName.name:
@@ -1262,19 +1265,19 @@ def createMatrix(pOutFileName, pMaxDistance, pMaxLibraryInsertSize, pQCfolder,
 
     if pMinDistance:
         intermediate_qc_log.write("""
-            File\t{}\t\t
-            Sequenced reads\t{}\t\t
-            Min rest. site distance\t{}\t\t
-            Max library insert size\t{}\t\t
+File\t{}\t\t
+Sequenced reads\t{}\t\t
+Min rest. site distance\t{}\t\t
+Max library insert size\t{}\t\t
 
-            """.format(pOutFileName.name, iter_num, pMinDistance, pMaxLibraryInsertSize))
+""".format(pOutFileName.name, iter_num, pMinDistance, pMaxLibraryInsertSize))
     else:
         intermediate_qc_log.write("""
-            File\t{}\t\t
-            Sequenced reads\t{}\t\t
-            Max library insert size\t{}\t\t
+File\t{}\t\t
+Sequenced reads\t{}\t\t
+Max library insert size\t{}\t\t
 
-            """.format(pOutFileName.name, iter_num, pMaxLibraryInsertSize))
+""".format(pOutFileName.name, iter_num, pMaxLibraryInsertSize))
 
     intermediate_qc_log.write(
         "#\tcount\t(percentage w.r.t. total sequenced reads)\n")
@@ -1307,20 +1310,20 @@ def createMatrix(pOutFileName, pMaxDistance, pMaxLibraryInsertSize, pQCfolder,
             # dangling_sequences[pRestrictionSequence[i]]['pat_forw']
             intermediate_qc_log.write("dangling end {} (restriction sequence {})\t{}\t({:.2f})\n".
                                       format(dangling_sequences[key]['pat_forw'], key, dangling_end[key], 100 * float(dangling_end[key]) / mappable_unique_high_quality_pairs))
-    else:
-        intermediate_qc_log.write("dangling end\t{}\t({:.2f})\n".
-                                  format(0, 100 * float(0) / mappable_unique_high_quality_pairs))
+    # else:
+    #     intermediate_qc_log.write("dangling end\t{}\t({:.2f})\n".
+    #                               format(0, 100 * float(0) / mappable_unique_high_quality_pairs))
     if pRestrictionCutFile is not None:
         intermediate_qc_log.write("self ligation{}\t{}\t({:.2f})\n".
-                              format(msg, self_ligation, 100 * float(self_ligation) / mappable_unique_high_quality_pairs))
+                                  format(msg, self_ligation, 100 * float(self_ligation) / mappable_unique_high_quality_pairs))
 
         intermediate_qc_log.write("One mate not close to rest site\t{}\t({:.2f})\n".
-                              format(mate_not_close_to_rf, 100 * float(mate_not_close_to_rf) / mappable_unique_high_quality_pairs))
-        intermediate_qc_log.write("self circle\t{}\t({:.2f})\n".
-                              format(self_circle, 100 * float(self_circle) / mappable_unique_high_quality_pairs))
-        
+                                  format(mate_not_close_to_rf, 100 * float(mate_not_close_to_rf) / mappable_unique_high_quality_pairs))
     intermediate_qc_log.write("same fragment\t{}\t({:.2f})\n".
                               format(same_fragment, 100 * float(same_fragment) / mappable_unique_high_quality_pairs))
+    if pRestrictionCutFile is not None:
+        intermediate_qc_log.write("self circle\t{}\t({:.2f})\n".
+                                  format(self_circle, 100 * float(self_circle) / mappable_unique_high_quality_pairs))
 
     intermediate_qc_log.write("duplicated pairs\t{}\t({:.2f})\n".
                               format(duplicated_pairs, 100 * float(duplicated_pairs) / mappable_unique_high_quality_pairs))
@@ -1403,3 +1406,14 @@ def createMatrix(pOutFileName, pMaxDistance, pMaxLibraryInsertSize, pQCfolder,
     else:
         if not pDoTestRun:
             hic_ma.save(pOutFileName.name, pHiCInfo=hic_metadata)
+
+
+class Tester(object):
+    def __init__(self):
+        hic_test_data_dir = os.environ.get('HIC_TEST_DATA_DIR', False)
+        if hic_test_data_dir:
+            self.root = hic_test_data_dir
+        else:
+            self.root = os.path.dirname(os.path.dirname(
+                os.path.abspath(__file__))) + "/test/test_data/"
+        self.bam_file_1 = os.path.join(self.root, "hic.bam")
