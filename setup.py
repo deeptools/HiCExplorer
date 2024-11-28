@@ -128,7 +128,7 @@ setup(
     author='Joachim Wolff, Leily Rabbani, Bjoern Gruening, Vivek Bhardwaj, Fidel Ramírez',
     author_email='deeptools@googlegroups.com',
     packages=find_packages(),
-    scripts=['bin/hicFindRestSite', 'bin/hicAggregateContacts', 'bin/hicBuildMatrix', 'bin/hicCorrectMatrix',
+    scripts=['bin/hicFindRestSite', 'bin/hicAggregateContacts', 'bin/hicBuildMatrix', 'bin/hicBuildMatrixMicroC', 'bin/hicCorrectMatrix',
              'bin/hicCorrelate', 'bin/hicFindTADs', 'bin/hicMergeMatrixBins', 'bin/hicPlotMatrix', 'bin/hicPlotDistVsCounts',
              'bin/hicPlotTADs', 'bin/hicSumMatrices', 'bin/hicInfo', 'bin/hicexplorer',
              'bin/hicQC', 'bin/hicCompareMatrices', 'bin/hicPCA', 'bin/hicTransform', 'bin/hicPlotViewpoint',

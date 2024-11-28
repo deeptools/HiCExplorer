@@ -1,0 +1,2 @@
+File	inter chromosomal	inter chromosomal %	Intra short range (< 20kb)	Intra short range (< 20kb) %	Intra long range (>= 20kb)	Intra long range (>= 20kb) %
+/tmp/tmphfn27ves.h5	5955	0.15956164089922564	8853	0.23721229334690924	22513	0.6032260657538652

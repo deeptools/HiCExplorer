@@ -5,6 +5,7 @@ import os.path
 import numpy as np
 import pandas as pd
 import argparse
+import sys
 
 from hicmatrix import HiCMatrix
 from hicexplorer._version import __version__
@@ -138,41 +139,6 @@ def compute_distance_mean(hicmat, maxdepth=None, perchr=False, custom_cut_interv
                and values are ordered dictionary where keys are distances and values are a
                2-tuple with the mean and the number of bins considered.
 
-    >>> from scipy.sparse import csr_matrix
-    >>> cut_intervals = [('a', 0, 10, 1), ('a', 10, 20, 1),
-    ... ('a', 20, 30, 1), ('a', 30, 40, 1),
-    ... ('b', 20, 30, 1), ('b', 30, 40, 1), ('b', 40, 50, 1)]
-    >>> hic = HiCMatrix.hiCMatrix()
-    >>> hic.nan_bins = []
-    >>> matrix = np.array([
-    ... [ 1,  8,  5,  3,  0,  0,  0],
-    ... [ 0,  4, 15,  5,  1,  0,  0],
-    ... [ 0,  0,  0,  7,  2,  0,  1],
-    ... [ 0,  0,  0,  0,  1,  0,  2],
-    ... [ 0,  0,  0,  0, 10,  0, 20],
-    ... [ 0,  0,  0,  0,  0,  0,  0],
-    ... [ 0,  0,  0,  0,  0,  0,  6]])
-
-    >>> hic.matrix = csr_matrix(matrix)
-    >>> hic.setMatrix(hic.matrix, cut_intervals)
-    >>> compute_distance_mean(hic)
-    {'all': OrderedDict([(0, (3.0, 7)), (10, (6.0, 5)), (20, (10.0, 3)), (30, (3.0, 1))])}
-    >>> compute_distance_mean(hic, perchr=True)
-    {'a': OrderedDict([(0, (1.25, 4)), (10, (10.0, 3)), (20, (5.0, 2)), (30, (3.0, 1))]), 'b': OrderedDict([(0, (5.333333333333333, 3)), (10, (0.0, 2)), (20, (20.0, 1))])}
-    >>> custom_cut = [('tad1', 0, 10, 1), ('tad1', 10, 20, 1), ('tad2', 0, 10, 1),
-    ... ('tad2', 10, 20, 1), ('tad3', 0, 10, 1), ('tad3', 10, 20, 1), ('tad3', 20, 30, 1)]
-    >>> compute_distance_mean(hic, custom_cut_intervals=custom_cut)
-    {'all': OrderedDict([(0, (3.0, 7)), (10, (3.75, 4)), (20, (20.0, 1))])}
-    >>> compute_distance_mean(hic, perchr=True, custom_cut_intervals=custom_cut)
-    {'a': OrderedDict([(0, (1.25, 4)), (10, (7.5, 2))]), 'b': OrderedDict([(0, (5.333333333333333, 3)), (10, (0.0, 2)), (20, (20.0, 1))])}
-    >>> custom_cut = [('_ignore_0', 0, 10, 1), ('0', 0, 10, 1),
-    ... ('0', 10, 20, 1), ('_ignore_3', 0, 10, 1),
-    ... ('1', 0, 10, 1), ('1', 10, 20, 1), ('1', 20, 30, 1)]
-    >>> compute_distance_mean(hic, custom_cut_intervals=custom_cut)
-    {'all': OrderedDict([(0, (4.0, 5)), (10, (5.0, 3)), (20, (20.0, 1))])}
-
-    # >>> compute_distance_mean(hic, custom_cut_intervals=custom_cut, perchr=True)
-    # {'a': OrderedDict([(0, (2.0, 2)), (10, (15.0, 1))]), 'b': OrderedDict([(0, (5.333333333333333, 3)), (10, (0.0, 2)), (20, (20.0, 1))])}
     """
 
     binsize = hicmat.getBinSize()
@@ -515,3 +481,74 @@ def main(args=None):
     plt.tight_layout()
     plt.savefig(args.plotFile.name, bbox_inches='tight', bbox_extra_artists=(lgd,))
     plt.close(fig)
+
+
+if sys.version_info >= (3, 12):
+    compute_distance_mean.__doc__ += """
+    >>> from scipy.sparse import csr_matrix
+    >>> cut_intervals = [('a', 0, 10, 1), ('a', 10, 20, 1),
+    ... ('a', 20, 30, 1), ('a', 30, 40, 1),
+    ... ('b', 20, 30, 1), ('b', 30, 40, 1), ('b', 40, 50, 1)]
+    >>> hic = HiCMatrix.hiCMatrix()
+    >>> hic.nan_bins = []
+    >>> matrix = np.array([
+    ... [ 1,  8,  5,  3,  0,  0,  0],
+    ... [ 0,  4, 15,  5,  1,  0,  0],
+    ... [ 0,  0,  0,  7,  2,  0,  1],
+    ... [ 0,  0,  0,  0,  1,  0,  2],
+    ... [ 0,  0,  0,  0, 10,  0, 20],
+    ... [ 0,  0,  0,  0,  0,  0,  0],
+    ... [ 0,  0,  0,  0,  0,  0,  6]])
+
+    >>> hic.matrix = csr_matrix(matrix)
+    >>> hic.setMatrix(hic.matrix, cut_intervals)
+    >>> compute_distance_mean(hic)
+    {'all': OrderedDict({0: (3.0, 7), 10: (6.0, 5), 20: (10.0, 3), 30: (3.0, 1)})}
+    >>> compute_distance_mean(hic, perchr=True)
+    {'a': OrderedDict({0: (1.25, 4), 10: (10.0, 3), 20: (5.0, 2), 30: (3.0, 1)}), 'b': OrderedDict({0: (5.333333333333333, 3), 10: (0.0, 2), 20: (20.0, 1)})}
+    >>> custom_cut = [('tad1', 0, 10, 1), ('tad1', 10, 20, 1), ('tad2', 0, 10, 1),
+    ... ('tad2', 10, 20, 1), ('tad3', 0, 10, 1), ('tad3', 10, 20, 1), ('tad3', 20, 30, 1)]
+    >>> compute_distance_mean(hic, custom_cut_intervals=custom_cut)
+    {'all': OrderedDict({0: (3.0, 7), 10: (3.75, 4), 20: (20.0, 1)})}
+    >>> compute_distance_mean(hic, perchr=True, custom_cut_intervals=custom_cut)
+    {'a': OrderedDict({0: (1.25, 4), 10: (7.5, 2)}), 'b': OrderedDict({0: (5.333333333333333, 3), 10: (0.0, 2), 20: (20.0, 1)})}
+    >>> custom_cut = [('_ignore_0', 0, 10, 1), ('0', 0, 10, 1),
+    ... ('0', 10, 20, 1), ('_ignore_3', 0, 10, 1),
+    ... ('1', 0, 10, 1), ('1', 10, 20, 1), ('1', 20, 30, 1)]
+    >>> compute_distance_mean(hic, custom_cut_intervals=custom_cut)
+    {'all': OrderedDict({0: (4.0, 5), 10: (5.0, 3), 20: (20.0, 1)})}
+    """
+else:
+    compute_distance_mean.__doc__ += """
+    >>> from scipy.sparse import csr_matrix
+    >>> cut_intervals = [('a', 0, 10, 1), ('a', 10, 20, 1),
+    ... ('a', 20, 30, 1), ('a', 30, 40, 1),
+    ... ('b', 20, 30, 1), ('b', 30, 40, 1), ('b', 40, 50, 1)]
+    >>> hic = HiCMatrix.hiCMatrix()
+    >>> hic.nan_bins = []
+    >>> matrix = np.array([
+    ... [ 1,  8,  5,  3,  0,  0,  0],
+    ... [ 0,  4, 15,  5,  1,  0,  0],
+    ... [ 0,  0,  0,  7,  2,  0,  1],
+    ... [ 0,  0,  0,  0,  1,  0,  2],
+    ... [ 0,  0,  0,  0, 10,  0, 20],
+    ... [ 0,  0,  0,  0,  0,  0,  0],
+    ... [ 0,  0,  0,  0,  0,  0,  6]])
+    >>> hic.matrix = csr_matrix(matrix)
+    >>> hic.setMatrix(hic.matrix, cut_intervals)
+    >>> compute_distance_mean(hic)
+    {'all': OrderedDict([(0, (3.0, 7)), (10, (6.0, 5)), (20, (10.0, 3)), (30, (3.0, 1))])}
+    >>> compute_distance_mean(hic, perchr=True)
+    {'a': OrderedDict([(0, (1.25, 4)), (10, (10.0, 3)), (20, (5.0, 2)), (30, (3.0, 1))]), 'b': OrderedDict([(0, (5.333333333333333, 3)), (10, (0.0, 2)), (20, (20.0, 1))])}
+    >>> custom_cut = [('tad1', 0, 10, 1), ('tad1', 10, 20, 1), ('tad2', 0, 10, 1),
+    ... ('tad2', 10, 20, 1), ('tad3', 0, 10, 1), ('tad3', 10, 20, 1), ('tad3', 20, 30, 1)]
+    >>> compute_distance_mean(hic, custom_cut_intervals=custom_cut)
+    {'all': OrderedDict([(0, (3.0, 7)), (10, (3.75, 4)), (20, (20.0, 1))])}
+    >>> compute_distance_mean(hic, perchr=True, custom_cut_intervals=custom_cut)
+    {'a': OrderedDict([(0, (1.25, 4)), (10, (7.5, 2))]), 'b': OrderedDict([(0, (5.333333333333333, 3)), (10, (0.0, 2)), (20, (20.0, 1))])}
+    >>> custom_cut = [('_ignore_0', 0, 10, 1), ('0', 0, 10, 1),
+    ... ('0', 10, 20, 1), ('_ignore_3', 0, 10, 1),
+    ... ('1', 0, 10, 1), ('1', 10, 20, 1), ('1', 20, 30, 1)]
+    >>> compute_distance_mean(hic, custom_cut_intervals=custom_cut)
+    {'all': OrderedDict([(0, (4.0, 5)), (10, (5.0, 3)), (20, (20.0, 1))])}
+    """

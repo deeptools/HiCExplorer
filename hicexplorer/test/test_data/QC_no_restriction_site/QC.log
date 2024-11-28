@@ -1,0 +1,24 @@
+
+File	/tmp/tmpjoshwi_n.h5		
+Sequenced reads	99983		
+Max library insert size	1000		
+
+#	count	(percentage w.r.t. total sequenced reads)
+Pairs mappable, unique and high quality	52726	(52.73)
+Hi-C contacts	37321	(37.33)
+One mate unmapped	8777	(8.78)
+One mate not unique	3603	(3.60)
+Low mapping quality	34877	(34.88)
+
+#	count	(percentage w.r.t. mappable, unique and high quality pairs)
+same fragment	15393	(29.19)
+duplicated pairs	12	(0.02)
+
+#	count	(percentage w.r.t. total valid pairs used)
+inter chromosomal	5955	(15.96)
+Intra short range (< 20kb)	8853	(23.72)
+Intra long range (>= 20kb)	22513	(60.32)
+Read pair type: inward pairs	7145	(19.14)
+Read pair type: outward pairs	9731	(26.07)
+Read pair type: left pairs	7156	(19.17)
+Read pair type: right pairs	7334	(19.65)

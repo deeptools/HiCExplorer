@@ -16,8 +16,8 @@
 HiCExplorer
 ===========
 
-Set of programs to process, analyze and visualize Hi-C and cHi-C data
----------------------------------------------------------------------
+Set of programs to process, analyze and visualize Hi-C, Micro-C and cHi-C data
+------------------------------------------------------------------------------
 
 Sequencing techniques that probe the 3D organization of the genome generate large amounts of data whose processing,
 analysis and visualization is challenging. Here, we present HiCExplorer, a set of tools for the analysis and
@@ -26,7 +26,7 @@ of contacts, TAD detection, A/B compartments, merging, reordering or chromosomes
 `cooler <https://github.com/mirnylab/cooler>`_ and detection of long-range contacts. Moreover, it allows the visualization of
 multiple contact matrices along with other types of data like genes, compartments, ChIP-seq coverage tracks (and in general
 any type of genomic scores), long range contacts and the visualization of viewpoints.
-
+With version 3.7.6 we introduce the support for Micro-C data for the build of matrices.
 
 Single-cell Hi-C data
 ---------------------

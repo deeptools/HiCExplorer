@@ -8,6 +8,7 @@ Tools for Hi-C data pre-processing
 
     tools/hicFindRestSite
     tools/hicBuildMatrix
+    tools/hicBuildMatrixMicroC
     tools/hicSumMatrices
     tools/hicMergeMatrixBins
     tools/hicCorrectMatrix
@@ -97,6 +98,8 @@ For single-cell Hi-C data analysis please use `scHiCExplorer <https://schicexplo
 |:ref:`hicFindRestSite`                | preprocessing    | 1 genome FASTA file               | bed file with restriction site coordinates  | Identifies the genomic locations of restriction sites                             |
 +--------------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
 |:ref:`hicBuildMatrix`                 | preprocessing    | 2 BAM/SAM files                   | hicMatrix object                            | Creates a Hi-C matrix using the aligned BAM files of the Hi-C sequencing reads    |
++--------------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
+|:ref:`hicBuildMatrixMicroC`           | preprocessing    | 2 BAM/SAM files                   | hicMatrix object                            | Creates a Hi-C matrix using the aligned BAM files of the Hi-C sequencing reads    |
 +--------------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
 |:ref:`hicCorrectMatrix`               | preprocessing    | hicMatrix object                  | normalized hicMatrix object                 | Uses iterative correction or Knight-Ruiz to remove biases from a Hi-C matrix      |
 +--------------------------------------+------------------+-----------------------------------+---------------------------------------------+-----------------------------------------------------------------------------------+
