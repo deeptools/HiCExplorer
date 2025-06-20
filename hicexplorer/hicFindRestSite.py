@@ -47,6 +47,10 @@ def parse_arguments(args=None):
                                 required=True)
 
     parserOpt = parser.add_argument_group('Optional arguments')
+    parserOpt.add_argument('--overlappingMode', '-om',
+                           action='store_true',
+                           help='If set, allows for overlapping matches. For example, pattern="ATA" and sequence="ATATA" '
+                           'will match ATA at positions 0-3 and 2-5. If not set, only the first ATA at 0-3 is reported.')
 
     parserOpt.add_argument("--help", "-h", action="help", help="show this help message and exit")
     parserOpt.add_argument('--version', action='version',
@@ -54,8 +58,8 @@ def parse_arguments(args=None):
     return parser
 
 
-def find_pattern(pPattern, fasta_file, out_file):
-    r"""
+def find_pattern(pPattern, fasta_file, out_file, overlappingMode=False):
+    """
     Finds the occurrences of the match in the fasta file
     and saves a bed file.
 
@@ -107,19 +111,35 @@ def find_pattern(pPattern, fasta_file, out_file):
 
         encoding = guess_type(fasta_file_name)[1]  # uses file extension
         _open = partial(gzip.open, mode='rt') if encoding == 'gzip' else open
-
+        
         with _open(fasta_file_name) as f:
             for record in SeqIO.parse(f, 'fasta'):
-                # find all the occurrences of pattern
-                for match in re.finditer(pattern, str(record.seq), re.IGNORECASE):
-                    _ = temp.write('{}\t{}\t{}\t.\t0\t+\n'.format(record.name,
-                                                                  match.start(),
-                                                                  match.end()))
-                if rev_compl != pattern:
-                    # search for the reverse complement only if the pattern is not palindromic
-                    for match in re.finditer(rev_compl, str(record.seq), re.IGNORECASE):
-                        _ = temp.write('{}\t{}\t{}\t.\t0\t-\n'.format(record.name, match.start(),
-                                                                      match.end()))
+
+                if overlappingMode:
+                    # find all the occurrences of pattern
+                    # using lookahead assertion to allow overlapping matches
+                    for match in re.finditer(f'(?=({pattern}))', str(record.seq), re.IGNORECASE):
+                        _ = temp.write('{}\t{}\t{}\t.\t0\t+\n'.format(record.name,
+                                                                    match.start(),
+                                                                    match.end()))
+                    if rev_compl != pattern:
+                        # search for the reverse complement only if the pattern is not palindromic
+                        for match in re.finditer(f'(?=({rev_compl}))', str(record.seq), re.IGNORECASE):
+                            _ = temp.write('{}\t{}\t{}\t.\t0\t-\n'.format(record.name, match.start(),
+                                                                        match.end()))
+
+                else:
+                    # find all the occurrences of pattern
+                    # using regular expression and doe not find overlapping matches
+                    for match in re.finditer(pattern, str(record.seq), re.IGNORECASE):
+                        _ = temp.write('{}\t{}\t{}\t.\t0\t+\n'.format(record.name,
+                                                                    match.start(),
+                                                                    match.end()))
+                    if rev_compl != pattern:
+                        # search for the reverse complement only if the pattern is not palindromic
+                        for match in re.finditer(rev_compl, str(record.seq), re.IGNORECASE):
+                            _ = temp.write('{}\t{}\t{}\t.\t0\t-\n'.format(record.name, match.start(),
+                                                                        match.end()))
 
     log.info("Sorting file ...")
     tmpfile_name = temp.name
@@ -139,4 +159,4 @@ def find_pattern(pPattern, fasta_file, out_file):
 
 def main(args=None):
     args = parse_arguments().parse_args(args)
-    find_pattern(args.searchPattern, args.fasta, args.outFile)
+    find_pattern(args.searchPattern, args.fasta, args.outFile, args.overlappingMode)
