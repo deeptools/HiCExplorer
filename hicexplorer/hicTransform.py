@@ -8,7 +8,7 @@ import numpy as np
 
 from hicmatrix import HiCMatrix as hm
 from hicexplorer._version import __version__
-from hicexplorer.utilities import obs_exp_matrix_lieberman, obs_exp_matrix_non_zero, obs_exp_matrix, compute_zscore
+from hicexplorer.utilities import obs_exp_matrix_lieberman, obs_exp_matrix_non_zero, obs_exp_matrix, compute_zscore, compute_zscore_numpy
 from hicexplorer.utilities import convertNansToZeros, convertInfsToZeros
 
 
@@ -272,7 +272,7 @@ def main(args=None):
                 submatrix = hic_ma.matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]]
                 submatrix.astype(float)
                 log.debug('Processing z-score...')
-                trasf_matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = compute_zscore(submatrix, pDepth=depth, pThreads=args.threads)
+                trasf_matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = compute_zscore_numpy(submatrix, pDepth=depth)
         else:
             submatrix = compute_zscore(hic_ma.matrix, pDepth=None, pThreads=args.threads)
             trasf_matrix = csr_matrix(submatrix)

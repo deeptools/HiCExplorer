@@ -484,6 +484,24 @@ def compute_zscore(pSubmatrix, pDepth, pThreads):
 
     return pSubmatrix
 
+def compute_zscore_numpy(pSubmatrix, pDepth):
+    instance, features = pSubmatrix.nonzero()
+    distances = np.absolute(instance - features)
+    if pDepth is None:
+        pDepth = pSubmatrix.shape[0] - 1
+    for i in range(pDepth + 1):
+        mask = distances == i
+        if np.sum(mask) > 0:
+            mean = np.mean(pSubmatrix.data[mask])
+            std = np.std(pSubmatrix.data[mask])
+            if std == 0:
+                std = 1
+            pSubmatrix.data[mask] = (pSubmatrix.data[mask] - mean) / std
+    if pDepth < pSubmatrix.shape[0]:
+        mask = distances > pDepth
+        pSubmatrix.data[mask] = 0
+    pSubmatrix.eliminate_zeros()
+    return pSubmatrix
 
 def obs_exp_matrix_lieberman(pSubmatrix, pLength_chromosome, pChromosome_count):
     """
