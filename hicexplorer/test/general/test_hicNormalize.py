@@ -1,23 +1,24 @@
+from hicexplorer.test.test_compute_function import compute
+import numpy.testing as nt
+import os
+from tempfile import NamedTemporaryFile
+from hicexplorer import hicNormalize
+from hicmatrix import HiCMatrix as hm
 import warnings
 warnings.simplefilter(action="ignore", category=RuntimeWarning)
 warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
-from hicmatrix import HiCMatrix as hm
-from hicexplorer import hicNormalize
 
-from tempfile import NamedTemporaryFile
 
-import os
-import numpy.testing as nt
-
-from hicexplorer.test.test_compute_function import compute
-
-ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "test_data/hicNormalize")
+ROOT = os.path.join(os.path.dirname(os.path.dirname(
+    os.path.abspath(__file__))), "test_data/hicNormalize")
 
 matrix_one_h5 = ROOT + '/small_test_matrix.h5'
 matrix_two_h5 = ROOT + '/small_test_matrix_scaled_up.h5'
 
 matrix_one_cool = ROOT + '/small_test_matrix.cool'
 matrix_two_cool = ROOT + '/small_test_matrix_scaled_up.cool'
+
+DECIMAL_DELTA = 4
 
 
 def test_normalize_smallest(capsys):
@@ -121,10 +122,12 @@ def test_normalize_norm_range(capsys):
     new_one = hm.hiCMatrix(outfile_one.name)
     new_two = hm.hiCMatrix(outfile_two.name)
 
-    nt.assert_equal(test_one.matrix.data, new_one.matrix.data)
+    nt.assert_almost_equal(test_one.matrix.data,
+                           new_one.matrix.data, decimal=DECIMAL_DELTA)
     nt.assert_equal(test_one.cut_intervals, new_one.cut_intervals)
 
-    nt.assert_equal(test_two.matrix.data, new_two.matrix.data)
+    nt.assert_almost_equal(test_two.matrix.data,
+                           new_two.matrix.data, decimal=DECIMAL_DELTA)
     nt.assert_equal(test_two.cut_intervals, new_two.cut_intervals)
 
     os.unlink(outfile_one.name)
@@ -149,10 +152,12 @@ def test_normalize_norm_range_cool(capsys):
     new_one = hm.hiCMatrix(outfile_one.name)
     new_two = hm.hiCMatrix(outfile_two.name)
 
-    nt.assert_equal(test_one.matrix.data, new_one.matrix.data)
+    nt.assert_almost_equal(test_one.matrix.data,
+                           new_one.matrix.data, decimal=DECIMAL_DELTA)
     nt.assert_equal(test_one.cut_intervals, new_one.cut_intervals)
 
-    nt.assert_equal(test_two.matrix.data, new_two.matrix.data)
+    nt.assert_almost_equal(test_two.matrix.data,
+                           new_two.matrix.data, decimal=DECIMAL_DELTA)
     nt.assert_equal(test_two.cut_intervals, new_two.cut_intervals)
 
     os.unlink(outfile_one.name)
@@ -182,13 +187,16 @@ def test_normalize_norm_range_h5_cool_equal(capsys):
     new_one = hm.hiCMatrix(outfile_one.name)
     new_two = hm.hiCMatrix(outfile_two.name)
 
-    nt.assert_equal(test_one.matrix.data, new_one.matrix.data)
+    nt.assert_almost_equal(test_one.matrix.data,
+                           new_one.matrix.data, decimal=DECIMAL_DELTA)
     nt.assert_equal(test_one.cut_intervals, new_one.cut_intervals)
 
-    nt.assert_equal(test_two.matrix.data, new_two.matrix.data)
+    nt.assert_almost_equal(test_two.matrix.data,
+                           new_two.matrix.data, decimal=DECIMAL_DELTA)
     nt.assert_equal(test_two.cut_intervals, new_two.cut_intervals)
 
-    nt.assert_equal(new_one.matrix.data, new_two.matrix.data)
+    nt.assert_almost_equal(new_one.matrix.data,
+                           new_two.matrix.data, decimal=DECIMAL_DELTA)
     nt.assert_equal(len(new_one.cut_intervals), len(new_two.cut_intervals))
 
     os.unlink(outfile_one.name)

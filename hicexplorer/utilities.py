@@ -1,18 +1,18 @@
+import logging
+import traceback
+from multiprocessing import Process, Queue
+import time
+from copy import deepcopy
+import cooler
+from unidecode import unidecode
+from matplotlib import use as mplt_use
+import argparse
+import numpy as np
+import sys
 import warnings
 warnings.simplefilter(action="ignore", category=RuntimeWarning)
 warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
-import sys
-import numpy as np
-import argparse
-from matplotlib import use as mplt_use
 mplt_use('Agg')
-from unidecode import unidecode
-import cooler
-from copy import deepcopy
-import time
-from multiprocessing import Process, Queue
-import traceback
-import logging
 log = logging.getLogger(__name__)
 
 
@@ -221,7 +221,8 @@ def genomicRegion(string):
     if sys.version_info[0] == 2:
         region = region.translate(None, ",;|!{}()").replace("-", ":")
     if sys.version_info[0] == 3:
-        region = region.translate(str.maketrans('', '', ",;|!{}()")).replace("-", ":")
+        region = region.translate(str.maketrans(
+            '', '', ",;|!{}()")).replace("-", ":")
     if len(region) == 0:
         raise argparse.ArgumentTypeError(
             "{} is not a valid region".format(string))
@@ -379,10 +380,13 @@ def expected_interactions(pSubmatrix, pThreads=None):
         for i in range(pThreads):
 
             if i < pThreads - 1:
-                min_distance_thread = min_distance + (i * distances_per_threads)
-                max_distance_thread = min_distance + ((i + 1) * distances_per_threads)
+                min_distance_thread = min_distance + \
+                    (i * distances_per_threads)
+                max_distance_thread = min_distance + \
+                    ((i + 1) * distances_per_threads)
             else:
-                min_distance_thread = min_distance + (i * distances_per_threads)
+                min_distance_thread = min_distance + \
+                    (i * distances_per_threads)
                 max_distance_thread = max_distance + 1
             queue[i] = Queue()
             process[i] = Process(target=expected_interactions_thread, kwargs=dict(
@@ -461,7 +465,8 @@ def compute_zscore(pSubmatrix, pDepth, pThreads):
     # depth is to be expected in matrix units
     # indice == distance
 
-    expected_interactions_array = expected_interactions(pSubmatrix, pThreads=pThreads)
+    expected_interactions_array = expected_interactions(
+        pSubmatrix, pThreads=pThreads)
     occurrences = np.arange(pSubmatrix.shape[0] + 1, 1, -1)
     row, col = pSubmatrix.nonzero()
     distance = np.absolute(row - col)
@@ -479,10 +484,13 @@ def compute_zscore(pSubmatrix, pDepth, pThreads):
         x_minus_mu[mask] -= expected_interactions_array[distance_index]
         sum_for_sigma = np.sum(np.square(x_minus_mu[mask]))
 
-        sum_for_sigma += np.square((0 - expected_interactions_array[distance_index]) * (occurrences[distance_index] - np.sum(mask)))
-        pSubmatrix.data[mask] = x_minus_mu[mask] / np.sqrt(sum_for_sigma / occurrences[distance_index])
+        sum_for_sigma += np.square((0 - expected_interactions_array[distance_index]) * (
+            occurrences[distance_index] - np.sum(mask)))
+        pSubmatrix.data[mask] = x_minus_mu[mask] / \
+            np.sqrt(sum_for_sigma / occurrences[distance_index])
 
     return pSubmatrix
+
 
 def compute_zscore_numpy(pSubmatrix, pDepth):
     instance, features = pSubmatrix.nonzero()
@@ -503,6 +511,7 @@ def compute_zscore_numpy(pSubmatrix, pDepth):
     pSubmatrix.eliminate_zeros()
     return pSubmatrix
 
+
 def obs_exp_matrix_lieberman(pSubmatrix, pLength_chromosome, pChromosome_count):
     """
         Creates normalized contact matrix M* by
@@ -511,7 +520,8 @@ def obs_exp_matrix_lieberman(pSubmatrix, pLength_chromosome, pChromosome_count):
         that genomic distance. Method: Lieberman-Aiden 2009
     """
 
-    expected_interactions_in_distance_ = expected_interactions_in_distance(pLength_chromosome, pChromosome_count, pSubmatrix)
+    expected_interactions_in_distance_ = expected_interactions_in_distance(
+        pLength_chromosome, pChromosome_count, pSubmatrix)
     row, col = pSubmatrix.nonzero()
     distance = np.ceil(np.absolute(row - col) / 2).astype(np.int32)
 
@@ -521,7 +531,8 @@ def obs_exp_matrix_lieberman(pSubmatrix, pLength_chromosome, pChromosome_count):
         expected = expected_interactions_in_distance_[distance]
         pSubmatrix.data = pSubmatrix.data.astype(np.float32)
         pSubmatrix.data = np.divide(pSubmatrix.data, expected)
-        pSubmatrix.data = convertInfsToZeros_ArrayFloat(pSubmatrix.data).astype(data_type)
+        pSubmatrix.data = convertInfsToZeros_ArrayFloat(
+            pSubmatrix.data).astype(data_type)
     return pSubmatrix
 
 
@@ -541,7 +552,8 @@ def obs_exp_matrix_non_zero(pSubmatrix, ligation_factor=False, pInplace=True, pT
         submatrix = pSubmatrix
     else:
         submatrix = deepcopy(pSubmatrix)
-    expected_interactions_in_distance = expected_interactions_non_zero(submatrix)
+    expected_interactions_in_distance = expected_interactions_non_zero(
+        submatrix)
 
     row_sums = np.array(submatrix.sum(axis=1).T).flatten()
     total_interactions = submatrix.sum()
@@ -551,9 +563,11 @@ def obs_exp_matrix_non_zero(pSubmatrix, ligation_factor=False, pInplace=True, pT
     submatrix.data = submatrix.data.astype(np.float32)
 
     for i in range(len(row)):
-        expected = expected_interactions_in_distance[np.absolute(row[i] - col[i])]
+        expected = expected_interactions_in_distance[np.absolute(
+            row[i] - col[i])]
         if ligation_factor:
-            expected *= row_sums[row[i]] * row_sums[col[i]] / total_interactions
+            expected *= row_sums[row[i]] * \
+                row_sums[col[i]] / total_interactions
 
         submatrix.data[i] = np.divide(submatrix.data[i], expected)
 
@@ -586,7 +600,8 @@ def obs_exp_matrix(pSubmatrix, pInplace=True, pToEpsilon=False, pThreads=None, p
         pSubmatrix.data[mask] = 0
         pSubmatrix.eliminate_zeros()
 
-    expected_interactions_in_distance_ = expected_interactions(pSubmatrix, pThreads)
+    expected_interactions_in_distance_ = expected_interactions(
+        pSubmatrix, pThreads)
     if expected_interactions_in_distance_ is None:
         return None
     # log.info('time exp: {}'.format(time.time() - time_start))
@@ -603,11 +618,13 @@ def obs_exp_matrix(pSubmatrix, pInplace=True, pToEpsilon=False, pThreads=None, p
         if pInplace:
             pSubmatrix.data = pSubmatrix.data.astype(np.float32)
             pSubmatrix.data = np.divide(pSubmatrix.data, expected)
-            pSubmatrix.data = convertInfsToZeros_ArrayFloat(pSubmatrix.data, pToEpsilon).astype(data_type)
+            pSubmatrix.data = convertInfsToZeros_ArrayFloat(
+                pSubmatrix.data, pToEpsilon).astype(data_type)
         else:
             pSubmatrix_copy.data = pSubmatrix_copy.data.astype(np.float32)
             pSubmatrix_copy.data = np.divide(pSubmatrix_copy.data, expected)
-            pSubmatrix_copy.data = convertInfsToZeros_ArrayFloat(pSubmatrix_copy.data, pToEpsilon).astype(data_type)
+            pSubmatrix_copy.data = convertInfsToZeros_ArrayFloat(
+                pSubmatrix_copy.data, pToEpsilon).astype(data_type)
         del expected
 
     del expected_interactions_in_distance_

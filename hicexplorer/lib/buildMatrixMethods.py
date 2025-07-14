@@ -1368,12 +1368,12 @@ Max library insert size\t{}\t\t
 
     hic_metadata = {}
     hic_metadata['statistics'] = intermediate_qc_log.getvalue()
-    hic_metadata['matrix-generated-by'] = np.string_(
+    hic_metadata['matrix-generated-by'] = np.bytes_(
         'HiCExplorer-' + __version__)
-    hic_metadata['matrix-generated-by-url'] = np.string_(
+    hic_metadata['matrix-generated-by-url'] = np.bytes_(
         'https://github.com/deeptools/HiCExplorer')
     if pGenomeAssembly:
-        hic_metadata['genome-assembly'] = np.string_(pGenomeAssembly)
+        hic_metadata['genome-assembly'] = np.bytes_(pGenomeAssembly)
 
     intermediate_qc_log.close()
     if pOutFileName.name.endswith('.mcool') and pBinSize is not None and len(pBinSize) > 2:

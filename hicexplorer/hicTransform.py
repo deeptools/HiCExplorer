@@ -91,8 +91,6 @@ def parse_arguments(args=None):
                            'If not set, the number of threads is set to the number of available CPUs.',
                            type=int,
                            default=None)
-    
-
     parserOpt.add_argument("--help", "-h", action="help", help="Show this help message and exit.")
 
     parserOpt.add_argument('--version', action='version',

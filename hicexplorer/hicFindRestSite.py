@@ -1,19 +1,19 @@
+import logging
+from hicexplorer._version import __version__
+from Bio.Seq import Seq
+from Bio import SeqIO
+from functools import partial
+from mimetypes import guess_type
+import gzip
+import subprocess
+from tempfile import NamedTemporaryFile
+import re
+import argparse
 import warnings
 warnings.simplefilter(action="ignore", category=RuntimeWarning)
 warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
-import argparse
-import re
-from tempfile import NamedTemporaryFile
-import subprocess
 
-import gzip
-from mimetypes import guess_type
-from functools import partial
-from Bio import SeqIO
-from Bio.Seq import Seq
-from hicexplorer._version import __version__
 
-import logging
 log = logging.getLogger(__name__)
 
 
@@ -52,7 +52,8 @@ def parse_arguments(args=None):
                            help='If set, allows for overlapping matches. For example, pattern="ATA" and sequence="ATATA" '
                            'will match ATA at positions 0-3 and 2-5. If not set, only the first ATA at 0-3 is reported.')
 
-    parserOpt.add_argument("--help", "-h", action="help", help="show this help message and exit")
+    parserOpt.add_argument("--help", "-h", action="help",
+                           help="show this help message and exit")
     parserOpt.add_argument('--version', action='version',
                            version='%(prog)s {}'.format(__version__))
     return parser
@@ -77,7 +78,7 @@ def find_pattern(pPattern, fasta_file, out_file, overlappingMode=False):
 
                        Csp6I
                Csp6I   |    Csp6I Csp6I
-               \       \    \     \
+               \\       \\    \\     \\
           CTACGGTACGAACGTACGGTACGcgtaCGNAGTCATG
                    10        20        30
           ----:----|----:----|----:----|----:--
@@ -111,7 +112,7 @@ def find_pattern(pPattern, fasta_file, out_file, overlappingMode=False):
 
         encoding = guess_type(fasta_file_name)[1]  # uses file extension
         _open = partial(gzip.open, mode='rt') if encoding == 'gzip' else open
-        
+
         with _open(fasta_file_name) as f:
             for record in SeqIO.parse(f, 'fasta'):
 
@@ -120,26 +121,25 @@ def find_pattern(pPattern, fasta_file, out_file, overlappingMode=False):
                     # using lookahead assertion to allow overlapping matches
                     for match in re.finditer(f'(?=({pattern}))', str(record.seq), re.IGNORECASE):
                         _ = temp.write('{}\t{}\t{}\t.\t0\t+\n'.format(record.name,
-                                                                    match.start(),
-                                                                    match.end()))
+                                                                      match.start(),
+                                                                      match.end()))
                     if rev_compl != pattern:
                         # search for the reverse complement only if the pattern is not palindromic
                         for match in re.finditer(f'(?=({rev_compl}))', str(record.seq), re.IGNORECASE):
                             _ = temp.write('{}\t{}\t{}\t.\t0\t-\n'.format(record.name, match.start(),
-                                                                        match.end()))
-
+                                                                          match.end()))
                 else:
                     # find all the occurrences of pattern
                     # using regular expression and doe not find overlapping matches
                     for match in re.finditer(pattern, str(record.seq), re.IGNORECASE):
                         _ = temp.write('{}\t{}\t{}\t.\t0\t+\n'.format(record.name,
-                                                                    match.start(),
-                                                                    match.end()))
+                                                                      match.start(),
+                                                                      match.end()))
                     if rev_compl != pattern:
                         # search for the reverse complement only if the pattern is not palindromic
                         for match in re.finditer(rev_compl, str(record.seq), re.IGNORECASE):
                             _ = temp.write('{}\t{}\t{}\t.\t0\t-\n'.format(record.name, match.start(),
-                                                                        match.end()))
+                                                                          match.end()))
 
     log.info("Sorting file ...")
     tmpfile_name = temp.name
@@ -148,7 +148,8 @@ def find_pattern(pPattern, fasta_file, out_file, overlappingMode=False):
     # sort bed file using system tools
     cmd = 'sort -k1,1 -k2,2n -u {}'.format(tmpfile_name)
     # LC_ALL=C is to set the appropriate collation order
-    proc = subprocess.Popen(cmd.split(" "), stdout=subprocess.PIPE, env={'LC_ALL': ' C'}, universal_newlines=True)
+    proc = subprocess.Popen(cmd.split(" "), stdout=subprocess.PIPE, env={
+                            'LC_ALL': ' C'}, universal_newlines=True)
     stdout, _ = proc.communicate()
 
     out_file.write(stdout)
@@ -159,4 +160,5 @@ def find_pattern(pPattern, fasta_file, out_file, overlappingMode=False):
 
 def main(args=None):
     args = parse_arguments().parse_args(args)
-    find_pattern(args.searchPattern, args.fasta, args.outFile, args.overlappingMode)
+    find_pattern(args.searchPattern, args.fasta,
+                 args.outFile, args.overlappingMode)
