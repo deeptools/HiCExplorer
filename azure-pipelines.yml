@@ -152,20 +152,30 @@ jobs:
     displayName: 'Install Miniconda (ARM)'
 
   - bash: |
-      set -e
-      # Accept Conda ToS for CI
+      set -e # Exit script if any command fails
       conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main
       conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r
       conda config --set always_yes yes --set changeps1 no
-      # Create environment
-      conda create -n hicexplorer -c conda-forge -c bioconda python=$PYTHON_VERSION --file requirements.txt
-      # Install additional dependencies
-      conda install -n hicexplorer -c conda-forge -c bioconda pytest flake8 pytest-xdist pytest-forked nose pathlib configparser
-      # Pip install package
+      
+      # Create the environment from the requirements file
+      conda create -n hicexplorer -c conda-forge -c bioconda \
+        python=$(python.version) \
+        --file requirements.txt
+      
+      # Install other dependencies directly into the new environment
+      conda install -n hicexplorer -c conda-forge -c bioconda \
+        pytest \
+        flake8 \
+        pytest-xdist \
+        pytest-forked \
+        nose \
+        pathlib \
+        configparser
+
+      # Run pip install using the python from within the environment
       conda run -n hicexplorer pip install . --no-deps
     displayName: 'Install Dependencies'
-    env:
-      PYTHON_VERSION: ${{ matrix.python.version }}
+
 
   - bash: |
       conda run -n hicexplorer flake8 . --exclude=.venv,.build,planemo_test_env,build --ignore=E501,F401,F403,E402,F999,F405,E712,W504
