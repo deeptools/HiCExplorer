@@ -28,7 +28,7 @@ jobs:
       mamba info -a
       mamba create -n hicexplorer --yes -c conda-forge -c bioconda python=$(python.version) --file requirements.txt
       eval "$(conda shell.bash hook)"
-      conda activate hicexplorer
+      source activate hicexplorer
       mamba install --yes -c conda-forge -c bioconda pytest flake8 pytest-xdist pytest-forked
       mamba install --yes -c conda-forge -c bioconda nose
       mamba install --yes pathlib
@@ -37,23 +37,23 @@ jobs:
     displayName: installing dependencies
   - script: |
       eval "$(conda shell.bash hook)"
-      conda activate hicexplorer
+      source activate hicexplorer
       flake8 . --exclude=.venv,.build,planemo_test_env,build --ignore=E501,F401,F403,E402,F999,F405,E712,W504
     displayName: linting
   - script: |
       eval "$(conda shell.bash hook)"
-      conda activate hicexplorer
+      source activate hicexplorer
       py.test hicexplorer/test/test_pytest_collected_items.py --doctest-modules --capture=sys
       py.test hicexplorer --doctest-modules --ignore=hicexplorer/test/
     displayName: doc_test_and_number_of_cases
   - script: |
       eval "$(conda shell.bash hook)"
-      conda activate hicexplorer
+      source activate hicexplorer
       py.test hicexplorer/test/general/ --doctest-modules --capture=sys -n 4  --ignore=hicexplorer/test/general/test_hicTADClassifier.py --ignore=hicexplorer/test/general/test_hicTrainTADClassifier.py
     displayName: pytest
   - script: |
       eval "$(conda shell.bash hook)"
-      conda activate hicexplorer
+      source activate hicexplorer
       py.test hicexplorer/test/general/test_hicTADClassifier.py
       py.test hicexplorer/test/general/test_hicTrainTADClassifier.py
     displayName: pytest_tad_classifier
