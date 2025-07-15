@@ -23,13 +23,12 @@ jobs:
   - bash: |
       set -e # Exit script if any command fails
       conda config --set always_yes yes --set changeps1 no
-      conda install mamba -c conda-forge
 
       # Create the environment
-      mamba create -n hicexplorer -c conda-forge -c bioconda python=$(python.version) --file requirements.txt
+      conda create -n hicexplorer -c conda-forge -c bioconda python=$(python.version) --file requirements.txt
       
       # Install other dependencies directly into the inactive environment
-      mamba install -n hicexplorer -c conda-forge -c bioconda \
+      conda install -n hicexplorer -c conda-forge -c bioconda \
         pytest \
         flake8 \
         pytest-xdist \
@@ -74,6 +73,7 @@ jobs:
         python.version: '3.12'
 
   steps:
+  # This step is essential and must come first.
   - bash: |
       echo "##vso[task.prependpath]$CONDA/bin"
     displayName: 'Add Conda to PATH'
@@ -82,10 +82,12 @@ jobs:
       set -e # Exit script if any command fails
       conda config --set always_yes yes --set changeps1 no
       
-      # Create the environment
-      conda create -n hicexplorer -c conda-forge -c bioconda python=$(python.version) --file requirements.txt
-
-      # Install other dependencies directly into the inactive environment
+      # Create the environment from the requirements file
+      conda create -n hicexplorer -c conda-forge -c bioconda \
+        python=$(python.version) \
+        --file requirements.txt
+      
+      # Install other dependencies directly into the new environment
       conda install -n hicexplorer -c conda-forge -c bioconda \
         pytest \
         flake8 \
