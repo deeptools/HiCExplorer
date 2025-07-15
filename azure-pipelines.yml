@@ -2,7 +2,7 @@ pr:
   autoCancel: true
 
 jobs:
-- job: 'Linux'
+- job: Linux
   displayName: 'Linux Conda Build & Test'
   timeoutInMinutes: 0
   pool:
@@ -21,8 +21,10 @@ jobs:
     displayName: 'Create & activate conda env'
     inputs:
       environmentName: 'hicexplorer'
-      channels: 'conda-forge bioconda'
-      packageSpecs: 'python=${{ matrix.python.version }}'
+      channels: |
+        conda-forge
+        bioconda
+      packageSpecs: 'python=$(python.version)'
       createOptions: '--file requirements.txt'
       cleanEnvironment: true
 
@@ -40,7 +42,7 @@ jobs:
       conda run -n hicexplorer flake8 . \
         --exclude=.venv,.build,planemo_test_env,build \
         --ignore=E501,F401,F403,E402,F999,F405,E712,W504
-    displayName: 'Linting'
+    displayName: Linting
 
   - bash: |
       set -e
@@ -53,7 +55,7 @@ jobs:
       conda run -n hicexplorer pytest hicexplorer/test/general/ --doctest-modules --capture=sys -n 4 \
         --ignore=hicexplorer/test/general/test_hicTADClassifier.py \
         --ignore=hicexplorer/test/general/test_hicTrainTADClassifier.py
-    displayName: 'Pytest'
+    displayName: Pytest
 
   - bash: |
       set -e
@@ -61,7 +63,7 @@ jobs:
       conda run -n hicexplorer pytest hicexplorer/test/general/test_hicTrainTADClassifier.py
     displayName: 'Pytest TAD Classifier'
 
-- job: 'OSX'
+- job: OSX
   displayName: 'macOS Conda Build & Test'
   timeoutInMinutes: 0
   pool:
@@ -80,8 +82,10 @@ jobs:
     displayName: 'Create & activate conda env'
     inputs:
       environmentName: 'hicexplorer'
-      channels: 'conda-forge bioconda'
-      packageSpecs: 'python=${{ matrix.python.version }}'
+      channels: |
+        conda-forge
+        bioconda
+      packageSpecs: 'python=$(python.version)'
       createOptions: '--file requirements.txt'
       cleanEnvironment: true
 
@@ -99,7 +103,7 @@ jobs:
       conda run -n hicexplorer flake8 . \
         --exclude=.venv,.build,planemo_test_env,build \
         --ignore=E501,F401,F403,E402,F999,F405,E712,W504
-    displayName: 'Linting'
+    displayName: Linting
 
   - bash: |
       set -e
@@ -112,7 +116,7 @@ jobs:
       conda run -n hicexplorer pytest hicexplorer/test/general/ --doctest-modules --capture=sys -n 4 \
         --ignore=hicexplorer/test/general/test_hicTADClassifier.py \
         --ignore=hicexplorer/test/general/test_hicTrainTADClassifier.py
-    displayName: 'Pytest'
+    displayName: Pytest
 
   - bash: |
       set -e
