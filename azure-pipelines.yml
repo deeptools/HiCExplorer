@@ -60,8 +60,6 @@ jobs:
       conda run -n hicexplorer py.test hicexplorer/test/general/test_hicTrainTADClassifier.py
     displayName: 'Pytest TAD Classifier'
 
----
-
 - job: 'OSX'
   timeoutInMinutes: 0
   pool:
