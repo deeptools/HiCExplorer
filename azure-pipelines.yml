@@ -79,8 +79,11 @@ jobs:
   steps:
   # This step is essential and must come first.
   - bash: |
-      echo "##vso[task.prependpath]$CONDA/bin"
-    displayName: 'Add Conda to PATH'
+      set -e
+      curl -fsSL https://repo.anaconda.com/miniconda/Miniconda3-latest-MacOSX-x86_64.sh -o miniconda.sh
+      bash miniconda.sh -b -p $HOME/miniconda3
+      echo "##vso[task.prependpath]$HOME/miniconda3/bin"
+    displayName: 'Install Miniconda'
     
   - bash: |
       set -e # Exit script if any command fails
