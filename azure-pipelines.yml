@@ -63,6 +63,8 @@ jobs:
   timeoutInMinutes: 0
   pool:
     vmImage: 'macOS-latest'
+  variables:
+    CONDA: /Users/runner/miniconda3
   strategy:
     matrix:
       Python310:
