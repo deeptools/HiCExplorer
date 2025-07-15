@@ -8,7 +8,7 @@ import numpy as np
 
 from hicmatrix import HiCMatrix as hm
 from hicexplorer._version import __version__
-from hicexplorer.utilities import obs_exp_matrix_lieberman, obs_exp_matrix_non_zero, obs_exp_matrix
+from hicexplorer.utilities import obs_exp_matrix_lieberman, obs_exp_matrix_non_zero, obs_exp_matrix, compute_zscore, compute_zscore_numpy
 from hicexplorer.utilities import convertNansToZeros, convertInfsToZeros
 
 
@@ -60,7 +60,7 @@ def parse_arguments(args=None):
                            'input matrix: Cov_i,j = E[M_i, M_j] - my_i * my_j '
                            'where M is the input matrix and my the mean'
                            ' (Default: %(default)s).',
-                           choices=['obs_exp', 'obs_exp_lieberman', 'obs_exp_non_zero', 'pearson', 'covariance'],
+                           choices=['obs_exp', 'obs_exp_lieberman', 'obs_exp_non_zero', 'pearson', 'covariance', 'z_score'],
                            default='obs_exp')
 
     parserOpt.add_argument('--ligation_factor',
@@ -81,7 +81,16 @@ def parse_arguments(args=None):
                            'inter-chromosomal interactions are ignored. Option '
                            'not valid for obs_exp_lieberman.',
                            action='store_true')
-
+    parserOpt.add_argument('--depth', '-d',
+                           help='Depth of the matrix to use for the z_score method. '
+                           'If not set, the depth is set to the number of bins in the matrix.',
+                           type=int,
+                           default=None)
+    parserOpt.add_argument('--threads', '-t',
+                           help='Number of threads to use for the computation. Applies only to z_score method. '
+                           'If not set, the number of threads is set to the number of available CPUs.',
+                           type=int,
+                           default=None)
     parserOpt.add_argument("--help", "-h", action="help", help="Show this help message and exit.")
 
     parserOpt.add_argument('--version', action='version',
@@ -248,7 +257,23 @@ def main(args=None):
         else:
             corrmatrix = np.cov(hic_ma.matrix.todense())
             trasf_matrix = csr_matrix(corrmatrix)
-
+    elif args.method == 'z_score':
+        depth = args.depth
+        if args.depth is not None:
+            depth /= hic_ma.getBinSize()
+            depth = int(depth)
+            log.debug('Using depth: {}, args.depth {}, binSize: {}'.format(depth, args.depth, hic_ma.getBinSize()))
+        if args.perChromosome:
+            for chrname in hic_ma.getChrNames():
+                log.debug('Processing chromosome {}'.format(chrname))
+                chr_range = hic_ma.getChrBinRange(chrname)
+                submatrix = hic_ma.matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]]
+                submatrix.astype(float)
+                log.debug('Processing z-score...')
+                trasf_matrix[chr_range[0]:chr_range[1], chr_range[0]:chr_range[1]] = compute_zscore_numpy(submatrix, pDepth=depth)
+        else:
+            submatrix = compute_zscore(hic_ma.matrix, pDepth=None, pThreads=args.threads)
+            trasf_matrix = csr_matrix(submatrix)
     # log.debug('trasf_matrix {}'.format(trasf_matrix))
 
     if args.perChromosome:

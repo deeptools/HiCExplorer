@@ -1,22 +1,22 @@
 #!/usr/bin/env python
+from past.builtins import map
+from past.builtins import zip
+from hicexplorer.utilities import toString, toBytes, check_chrom_str_bytes
+from hicexplorer._version import __version__
+import multiprocessing
+import numpy as np
+from scipy import sparse
+from hicexplorer.utilities import enlarge_bins
+from hicmatrix import HiCMatrix as hm
+from collections import OrderedDict
+import json
+import argparse
+import logging
+import os.path
 import warnings
 warnings.simplefilter(action="ignore", category=RuntimeWarning)
 warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
-import os.path
-import logging
-import argparse
-import json
-from collections import OrderedDict
-from hicmatrix import HiCMatrix as hm
-from hicexplorer.utilities import enlarge_bins
-from scipy import sparse
-import numpy as np
-import multiprocessing
-from hicexplorer._version import __version__
-from hicexplorer.utilities import toString, toBytes, check_chrom_str_bytes
 
-from past.builtins import zip
-from past.builtins import map
 
 log = logging.getLogger(__name__)
 
@@ -162,7 +162,8 @@ of information at certain bins, and depending on the parameters used with this t
                            type=int,
                            default=1)
 
-    parserOpt.add_argument('--help', '-h', action='help', help='show this help message and exit.')
+    parserOpt.add_argument('--help', '-h', action='help',
+                           help='show this help message and exit.')
 
     parserOpt.add_argument('--version', action='version',
                            version='%(prog)s {}'.format(__version__))
@@ -215,7 +216,8 @@ def get_idx_of_bins_at_given_distance(hic_matrix, idx, window_len):
     chrom, cut_start, cut_end, _ = hic_matrix.getBinPos(idx)
 
     left_start = max(0, cut_start - window_len)
-    left_idx = hic_matrix.getRegionBinRange(chrom, left_start, left_start + 1)[0]
+    left_idx = hic_matrix.getRegionBinRange(
+        chrom, left_start, left_start + 1)[0]
     # chr_end_pos = hic_matrix.get_chromosome_sizes()[chrom]
     # if ?ring(chrom)
     chromosome_size = hic_matrix.get_chromosome_sizes()
@@ -241,7 +243,8 @@ def get_cut_weight(hic_matrix, cut, window_len, return_mean=False):
         return None
 
     try:
-        left_idx, right_idx = get_idx_of_bins_at_given_distance(hic_matrix, cut, window_len)
+        left_idx, right_idx = get_idx_of_bins_at_given_distance(
+            hic_matrix, cut, window_len)
     except TypeError:
         # log.warn("Problem with cut: {}, window length: {}".format(cut, window_len))
         return None
@@ -265,7 +268,8 @@ def get_triangle(hic_matrix, cut, window_len, return_mean=False):
     if cut < 0 or cut > hic_matrix.matrix.shape[0]:
         return None
 
-    left_idx, right_idx = get_idx_of_bins_at_given_distance(hic_matrix, cut, window_len)
+    left_idx, right_idx = get_idx_of_bins_at_given_distance(
+        hic_matrix, cut, window_len)
 
     def remove_lower_triangle(matrix):
         """
@@ -273,8 +277,10 @@ def get_triangle(hic_matrix, cut, window_len, return_mean=False):
         """
         return matrix[np.triu_indices_from(matrix)].A1
 
-    edges_left = remove_lower_triangle(hic_matrix.matrix[left_idx:cut, :][:, left_idx:cut].todense())
-    edges_right = remove_lower_triangle(hic_matrix.matrix[cut:right_idx, :][:, cut:right_idx].todense())
+    edges_left = remove_lower_triangle(
+        hic_matrix.matrix[left_idx:cut, :][:, left_idx:cut].todense())
+    edges_right = remove_lower_triangle(
+        hic_matrix.matrix[cut:right_idx, :][:, cut:right_idx].todense())
 #    if cut > 1000:
 #        import ipdb;ipdb.set_trace()
     return np.concatenate([edges_left, edges_right])
@@ -321,10 +327,11 @@ def compute_matrix(bins_list, min_win_size=8, max_win_size=50, step_len=2):
                 matrix in *bedgraph matrix* format
     :return: (chrom, start, end, matrix)
     """
-    global hic_ma
+    # global hic_ma
     positions_array = []
     cond_matrix = []
-    incremental_step = get_incremental_step_size(min_win_size, max_win_size, step_len)
+    incremental_step = get_incremental_step_size(
+        min_win_size, max_win_size, step_len)
     # if type(next(iter(self.interval_trees))) is np.bytes_:
     #     chrname = toBytes(chrname)
     # else:
@@ -334,7 +341,8 @@ def compute_matrix(bins_list, min_win_size=8, max_win_size=50, step_len=2):
         chrom, chr_start, chr_end, _ = hic_ma.cut_intervals[cut]
         # get conductance
         # for multiple window lengths at a time
-        mult_matrix = [get_cut_weight(hic_ma, cut, depth, return_mean=True) for depth in incremental_step]
+        mult_matrix = [get_cut_weight(
+            hic_ma, cut, depth, return_mean=True) for depth in incremental_step]
         if any(x is None or np.isnan(x) for x in mult_matrix):
             # skip problematic cases
             continue
@@ -401,7 +409,8 @@ class HicFindTads(object):
             valid_chromosomes = []
             invalid_chromosomes = []
             log.debug('args.chromosomeOrder: {}'.format(pChromosomes))
-            log.debug("ma.chrBinBoundaries {}".format(self.hic_ma.chrBinBoundaries))
+            log.debug("ma.chrBinBoundaries {}".format(
+                self.hic_ma.chrBinBoundaries))
 
             pChromosomes = toBytes(pChromosomes)
             for chrom in toString(pChromosomes):
@@ -433,7 +442,8 @@ class HicFindTads(object):
             else:
                 self.max_depth = self.binsize * 10
         elif self.max_depth < self.binsize * 5:
-            log.error("Please specify a --maxDepth that is at least 5 times larger than the matrix bin size")
+            log.error(
+                "Please specify a --maxDepth that is at least 5 times larger than the matrix bin size")
             exit(1)
 
         if self.min_depth is None:
@@ -444,7 +454,8 @@ class HicFindTads(object):
             else:
                 self.min_depth = self.binsize * 5
         elif self.min_depth < self.binsize * 3:
-            log.error("Please specify a --minDepth that is at least 3 times larger than the matrix bin size")
+            log.error(
+                "Please specify a --minDepth that is at least 3 times larger than the matrix bin size")
             exit(1)
 
         if self.step is None:
@@ -454,7 +465,8 @@ class HicFindTads(object):
                 self.step = self.binsize * 2
 
         elif self.step < self.binsize:
-            log.error("Please specify a --step that is at least the size of the matrix bin size")
+            log.error(
+                "Please specify a --step that is at least the size of the matrix bin size")
             exit(1)
 
         # print parameters used
@@ -498,7 +510,8 @@ class HicFindTads(object):
             x_axis = np.arange(len(y_axis))
 
         if len(y_axis) != len(x_axis):
-            raise ValueError('Input vectors y_axis and x_axis must have same length')
+            raise ValueError(
+                'Input vectors y_axis and x_axis must have same length')
 
         # store data length for later use
 
@@ -507,18 +520,20 @@ class HicFindTads(object):
 
         # maximum and minimum candidates are temporarily stored in
         # min_x and min_y respectively
-        min_y, max_y = np.Inf, -np.Inf
+        min_y, max_y = np.inf, -np.inf
         max_pos, min_pos = None, None
         search_for = None
         # Only detect peak if there is 'lookahead' amount of points after it
         prev_chrom = None
         for index, (x, y) in enumerate(zip(x_axis[:-lookahead], y_axis[:-lookahead])):
-            assert -np.inf < y < np.inf, "Error, infinity value detected for value at position {}".format(index)
+            assert - \
+                np.inf < y < np.inf, "Error, infinity value detected for value at position {}".format(
+                    index)
             if prev_chrom is None:
                 prev_chrom = chrom[index]
             if prev_chrom != chrom[index]:
                 # reset variables at the start of a chromosome
-                min_y, max_y = np.Inf, -np.Inf
+                min_y, max_y = np.inf, -np.inf
                 max_pos, min_pos = None, None
                 search_for = None
 
@@ -532,7 +547,7 @@ class HicFindTads(object):
                 min_pos = x
 
             # look for max
-            if y < max_y - delta and max_y != np.Inf and search_for != 'min':
+            if y < max_y - delta and max_y != np.inf and search_for != 'min':
                 # Maximum peak candidate found
                 # look ahead in signal to ensure that this is a peak and not jitter
                 if y_axis[index:index + lookahead].max() < max_y:
@@ -546,7 +561,7 @@ class HicFindTads(object):
                     continue
 
             # look for min
-            if y > min_y + delta and min_y != -np.Inf and search_for != 'max':
+            if y > min_y + delta and min_y != -np.inf and search_for != 'max':
                 # Minimum peak candidate found
                 # look ahead in signal to ensure that this is a peak and not jitter
                 if y_axis[index:index + lookahead].min() > min_y:
@@ -594,7 +609,8 @@ class HicFindTads(object):
         unique_chroms, chr_start_idx = np.unique(chrom, return_index=True)
         chr_start_idx = np.concatenate([chr_start_idx, [len(chrom) - 1]])
         chr_start_idx = np.sort(chr_start_idx)
-        chrom_ranges = [(chr_start_idx[x], chr_start_idx[x + 1]) for x in range(len(chr_start_idx) - 1)]
+        chrom_ranges = [(chr_start_idx[x], chr_start_idx[x + 1])
+                        for x in range(len(chr_start_idx) - 1)]
 
         delta_to_mean = {}
         for min_idx in min_idx_list:
@@ -611,7 +627,8 @@ class HicFindTads(object):
             else:
                 local_tad_score = np.concatenate([matrix_avg[min_idx - window_len:min_idx + 3],
                                                   matrix_avg[min_idx + 4: min_idx + window_len]])
-                delta_to_mean[min_idx] = local_tad_score.mean() - matrix_avg[min_idx]
+                delta_to_mean[min_idx] = local_tad_score.mean() - \
+                    matrix_avg[min_idx]
 
         return delta_to_mean
 
@@ -626,14 +643,16 @@ class HicFindTads(object):
         tad_score_matrix_avg = tad_score_matrix.mean(axis=1)
 
         # compute local minima for the matrix average
-        _max, _min = HicFindTads.peakdetect(tad_score_matrix_avg, lookahead=lookahead, chrom=chrom)
+        _max, _min = HicFindTads.peakdetect(
+            tad_score_matrix_avg, lookahead=lookahead, chrom=chrom)
         if _min:
             min_idx, _ = zip(*_min)
         else:
             min_idx = []
 
         # get the delta for each boundary
-        delta_to_mean = HicFindTads.delta_wrt_window(min_idx, tad_score_matrix_avg, chrom)
+        delta_to_mean = HicFindTads.delta_wrt_window(
+            min_idx, tad_score_matrix_avg, chrom)
 
         return min_idx, delta_to_mean
 
@@ -740,7 +759,8 @@ class HicFindTads(object):
             clusters = [{x} for x in range(len(domains))]
 
             # initialize the cluster_x with the genomic position of domain centers
-            cluster_x = [int(d_start + float(d_end - d_start) / 2) for d_start, d_end in domains]
+            cluster_x = [int(d_start + float(d_end - d_start) / 2)
+                         for d_start, d_end in domains]
             # number of domains should be equal to the number of values minus 1
             assert len(domains) == len(value_per_chr[chrom_idx]) - 1, "error"
 
@@ -753,7 +773,8 @@ class HicFindTads(object):
             values id after removing flanks
                        0               1                2
              """
-            values = value_per_chr[chrom_idx][1:-1]  # remove flanking values that do not join TADs
+            values = value_per_chr[chrom_idx][1:-
+                                              1]  # remove flanking values that do not join TADs
 
             # from highest to lowest merge neighboring domains
             order = np.argsort(values)[::-1]
@@ -761,18 +782,22 @@ class HicFindTads(object):
                 if len(clust_cutoff) and idx + 1 < len(order) and \
                         values[order_idx] >= clust_cutoff[0] > values[order[idx + 1]]:
                     clust_cutoff = clust_cutoff[1:]  # remove first element
-                    return_clusters[chrom_name].append(cluster_to_regions(clusters, chrom_name))
+                    return_clusters[chrom_name].append(
+                        cluster_to_regions(clusters, chrom_name))
                 # merge domains order_idx - 1 and order_idx
                 left = find_in_clusters(clusters, order_idx)
                 right = find_in_clusters(clusters, order_idx + 1)
                 z_value[chrom_name].append((left, right, values[order_idx],
-                                            len(clusters[left]) + len(clusters[right]),
+                                            len(clusters[left]) +
+                                            len(clusters[right]),
                                             cluster_x[left], cluster_x[right]))
 
                 # set as new cluster position the center between the two merged
                 # clusters
-                gen_dist = int(float(abs(cluster_x[left] - cluster_x[right])) / 2)
-                cluster_x.append(min(cluster_x[left], cluster_x[right]) + gen_dist)
+                gen_dist = int(
+                    float(abs(cluster_x[left] - cluster_x[right])) / 2)
+                cluster_x.append(
+                    min(cluster_x[left], cluster_x[right]) + gen_dist)
 
                 clusters.append(clusters[left].union(clusters[right]))
                 clusters[left] = set()
@@ -865,11 +890,14 @@ class HicFindTads(object):
         with open(outfile, 'w') as f:
             f.write("#" + params_str + "\n")
             for idx in range(len(self.bedgraph_matrix['chrom'])):
-                matrix_values = "\t".join(np.char.mod('%f', self.bedgraph_matrix['matrix'][idx, :]))
+                matrix_values = "\t".join(np.char.mod(
+                    '%f', self.bedgraph_matrix['matrix'][idx, :]))
 
                 f.write("{}\t{}\t{}\t{}\n".format(toString(self.bedgraph_matrix['chrom'][idx]),
-                                                  toString(self.bedgraph_matrix['chr_start'][idx]),
-                                                  toString(self.bedgraph_matrix['chr_end'][idx]),
+                                                  toString(
+                                                      self.bedgraph_matrix['chr_start'][idx]),
+                                                  toString(
+                                                      self.bedgraph_matrix['chr_end'][idx]),
                                                   toString(matrix_values)))
 
     def save_clusters(clusters, file_prefix):
@@ -917,7 +945,8 @@ class HicFindTads(object):
             chr_end_idx -= 1
 
         # put all indices together and sort
-        min_idx = np.sort(np.concatenate([chr_start_idx, chr_end_idx, min_idx]))
+        min_idx = np.sort(np.concatenate(
+            [chr_start_idx, chr_end_idx, min_idx]))
 
         mean_mat_all = matrix.mean(axis=1)
 
@@ -944,7 +973,8 @@ class HicFindTads(object):
             log.info("Bonferroni correction. Number of boundaries for delta {} and pval {}: {}".format(self.delta, self.threshold_comparisons,
                                                                                                        len(filtered_min_idx)))
         else:
-            log.info("No multiple testing correction. Number of boundaries for delta {}: {}, used threshold: {}".format(self.delta, len(filtered_min_idx), self.threshold_comparisons))
+            log.info("No multiple testing correction. Number of boundaries for delta {}: {}, used threshold: {}".format(
+                self.delta, len(filtered_min_idx), self.threshold_comparisons))
 
         count = 1
         with open(prefix + '_boundaries.bed', 'w') as file_boundary_bin, open(prefix + '_domains.bed', 'w') as file_domains, open(prefix + '_boundaries.gff', 'w') as gff:
@@ -958,9 +988,11 @@ class HicFindTads(object):
                     delta_of_min[min_bin_id] = np.nan
 
                 # 1. save boundaries at 1bp position
-                right_bin_center = chr_start[min_bin_id] + int((chr_end[min_bin_id] - chr_start[min_bin_id]) / 2)
+                right_bin_center = chr_start[min_bin_id] + \
+                    int((chr_end[min_bin_id] - chr_start[min_bin_id]) / 2)
 
-                left_bin_center = chr_start[min_bin_id - 1] + int((chr_end[min_bin_id - 1] - chr_start[min_bin_id - 1]) / 2)
+                left_bin_center = chr_start[min_bin_id - 1] + int(
+                    (chr_end[min_bin_id - 1] - chr_start[min_bin_id - 1]) / 2)
 
                 if chrom[min_bin_id] != chrom[min_bin_id - 1]:
                     continue
@@ -1006,8 +1038,10 @@ class HicFindTads(object):
         # save track with mean values in bedgraph format
         with open(prefix + '_score.bedgraph', 'w') as tad_score:
             for idx in range(1, len(chrom)):
-                right_bin_center = chr_start[idx] + int((chr_end[idx] - chr_start[idx]) / 2)
-                left_bin_center = chr_start[idx - 1] + int((chr_end[idx - 1] - chr_start[idx - 1]) / 2)
+                right_bin_center = chr_start[idx] + \
+                    int((chr_end[idx] - chr_start[idx]) / 2)
+                left_bin_center = chr_start[idx - 1] + \
+                    int((chr_end[idx - 1] - chr_start[idx - 1]) / 2)
                 if right_bin_center <= left_bin_center:
                     # this condition happens at chromosome borders
                     continue
@@ -1033,7 +1067,8 @@ class HicFindTads(object):
         if self.use_zscore:
             # use zscore matrix
             log.info("Computing z-score matrix...\n")
-            self.hic_ma.convert_to_zscore_matrix(maxdepth=self.max_depth * 2.5, perchr=perchr)
+            self.hic_ma.convert_to_zscore_matrix(
+                maxdepth=self.max_depth * 2.5, perchr=perchr)
 
         # extend remaining bins to remove gaps in
         # the matrix
@@ -1041,7 +1076,8 @@ class HicFindTads(object):
 
         # rebuilt bin positions if necessary
         if new_intervals != orig_intervals:
-            self.hic_ma.interval_trees, self.hic_ma.chrBinBoundaries = self.hic_ma.intervalListToIntervalTree(new_intervals)
+            self.hic_ma.interval_trees, self.hic_ma.chrBinBoundaries = self.hic_ma.intervalListToIntervalTree(
+                new_intervals)
             self.hic_ma.cut_intervals = new_intervals
             self.hic_ma.orig_cut_intervals = new_intervals
             self.hic_ma.orig_bin_ids = list(range(len(new_intervals)))
@@ -1061,10 +1097,12 @@ class HicFindTads(object):
         max_depth_in_bins = int(self.max_depth / self.binsize)
         step_in_bins = int(self.step / self.binsize)
         if step_in_bins == 0:
-            log.error("Please select a step size larger than {}".format(self.binsize))
+            log.error(
+                "Please select a step size larger than {}".format(self.binsize))
             exit(1)
 
-        incremental_step = get_incremental_step_size(self.min_depth, self.max_depth, self.step)
+        incremental_step = get_incremental_step_size(
+            self.min_depth, self.max_depth, self.step)
 
         log.info("computing spectrum for window sizes between {} ({} bp)"
                  "and {} ({} bp) at the following window sizes {} {}\n".format(min_depth_in_bins,
@@ -1098,10 +1136,12 @@ class HicFindTads(object):
         global hic_ma
         hic_ma = self.hic_ma
         for chrom in list(self.hic_ma.chrBinBoundaries):
-            bins_to_consider.extend(list(range(*self.hic_ma.chrBinBoundaries[chrom])))
+            bins_to_consider.extend(
+                list(range(*self.hic_ma.chrBinBoundaries[chrom])))
 
         for idx_array in np.array_split(bins_to_consider, self.num_processors):
-            TASKS.append((idx_array, self.min_depth, self.max_depth, self.step))
+            TASKS.append((idx_array, self.min_depth,
+                         self.max_depth, self.step))
 
         if self.num_processors > 1:
             pool = multiprocessing.Pool(self.num_processors)
@@ -1189,7 +1229,8 @@ class HicFindTads(object):
         new_min_idx = []
         for idx in min_idx:
 
-            matrix_idx = self.hic_ma.getRegionBinRange(chrom[idx], chr_start[idx], chr_end[idx])
+            matrix_idx = self.hic_ma.getRegionBinRange(
+                chrom[idx], chr_start[idx], chr_end[idx])
             if matrix_idx is None:
                 continue
             else:
@@ -1197,8 +1238,10 @@ class HicFindTads(object):
 
             new_min_idx += [idx]
             min_chr, min_start, min_end, _ = self.hic_ma.getBinPos(matrix_idx)
-            assert toString(chrom[idx]) == toString(min_chr) and chr_start[idx] == min_start and chr_end[idx] == min_end
-            left_idx, right_idx = get_idx_of_bins_at_given_distance(self.hic_ma, matrix_idx, window_len)
+            assert toString(chrom[idx]) == toString(
+                min_chr) and chr_start[idx] == min_start and chr_end[idx] == min_end
+            left_idx, right_idx = get_idx_of_bins_at_given_distance(
+                self.hic_ma, matrix_idx, window_len)
 
             left = get_cut_weight(self.hic_ma, left_idx, window_len)
             right = get_cut_weight(self.hic_ma, right_idx, window_len)
@@ -1242,7 +1285,8 @@ class HicFindTads(object):
         elif self.correct_for_multiple_testing == 'bonferroni':
             # bonferroni correction
             pvalues = np.array(pvalues) * len(pvalues)
-            to_one_index_values = np.array([e > 1 if ~np.isnan(e) else False for e in pvalues])
+            to_one_index_values = np.array(
+                [e > 1 if ~np.isnan(e) else False for e in pvalues])
             if len(to_one_index_values) > 0:
                 pvalues[to_one_index_values] = 1
 
@@ -1251,7 +1295,8 @@ class HicFindTads(object):
     def find_boundaries(self):
 
         # perform some checks
-        avg_bin_size = np.median(self.bedgraph_matrix['chr_end'] - self.bedgraph_matrix['chr_start'])
+        avg_bin_size = np.median(
+            self.bedgraph_matrix['chr_end'] - self.bedgraph_matrix['chr_start'])
 
         # compute lookahead (in number of bins)
         if self.min_boundary_distance is None:
@@ -1259,7 +1304,8 @@ class HicFindTads(object):
 
         lookahead = int(self.min_boundary_distance / avg_bin_size)
         if lookahead < 1:
-            raise ValueError("minBoundaryDistance must be '1' or above in value")
+            raise ValueError(
+                "minBoundaryDistance must be '1' or above in value")
 
         min_idx, delta = HicFindTads.find_consensus_minima(self.bedgraph_matrix['matrix'], lookahead=lookahead,
                                                            chrom=self.bedgraph_matrix['chrom'])
@@ -1287,7 +1333,8 @@ class HicFindTads(object):
                 log.error("\n*ERROR*\nNo boundaries were found. {}".format(msg))
                 exit(1)
             else:
-                log.info("Only {} boundaries found. {}".format(len(min_idx), msg))
+                log.info("Only {} boundaries found. {}".format(
+                    len(min_idx), msg))
 
         self.boundaries = {'min_idx': min_idx,
                            'delta': delta,
@@ -1319,8 +1366,10 @@ def main(args=None):
     matrix_ending = args.matrix.split('.')[-1]
     if matrix_ending not in ['cool', 'h5']:
         if 'mcool::' not in matrix_ending:
-            log.error("Could not determine file ending. Please use either .h5, .cool or .mcool::/path/to/matrix.")
-            log.error("used input: {}, ending {}".format(args.matrix, matrix_ending))
+            log.error(
+                "Could not determine file ending. Please use either .h5, .cool or .mcool::/path/to/matrix.")
+            log.error("used input: {}, ending {}".format(
+                args.matrix, matrix_ending))
 
             exit(1)
     tad_score_file = args.outPrefix + "_tad_score.bm"
@@ -1338,7 +1387,8 @@ def main(args=None):
             log.error("The given TAD_sep_score_prefix does not contain a valid z-score matrix. Please check.\n"
                       "Could not find file {}".format(zscore_matrix_file))
             exit(1)
-        log.info("\nUsing existing TAD-separation score file: {}\n".format(tad_score_file))
+        log.info(
+            "\nUsing existing TAD-separation score file: {}\n".format(tad_score_file))
         ft.set_matrix(zscore_matrix_file, args.chromosomes)
         ft.load_bedgraph_matrix(tad_score_file, args.chromosomes)
 
@@ -1348,7 +1398,8 @@ def main(args=None):
         ft.hic_ma.save(args.outPrefix + "_zscore_matrix." + matrix_ending)
         ft.save_bedgraph_matrix(tad_score_file)
     else:
-        log.info("\nFound existing TAD-separation score file: {}\n".format(tad_score_file))
+        log.info(
+            "\nFound existing TAD-separation score file: {}\n".format(tad_score_file))
         log.info("This file will be used\n")
         ft.set_matrix(zscore_matrix_file, args.chromosomes)
         # ft.hic_ma = hm.hiCMatrix(zscore_matrix_file)
