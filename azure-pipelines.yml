@@ -22,6 +22,8 @@ jobs:
 
   - bash: |
       set -e # Exit script if any command fails
+      conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main
+      conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r
       conda config --set always_yes yes --set changeps1 no
 
       # Create the environment
