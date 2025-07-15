@@ -10,39 +10,35 @@ jobs:
   strategy:
     matrix:
       Python310:
-        python.version: '3.10'
+        pythonVersion: '3.10'
       Python311:
-        python.version: '3.11'
+        pythonVersion: '3.11'
       Python312:
-        python.version: '3.12'
+        pythonVersion: '3.12'
 
   steps:
-  - task: CondaEnvironment@0
-    displayName: 'Create & activate conda env'
+  - task: Bash@3
+    displayName: 'Install Miniconda'
     inputs:
-      environmentName: 'hicexplorer'
-      channels: |
-        conda-forge
-        bioconda
-      packageSpecs: 'python=$(python.version)'
-      createOptions: '--file requirements.txt'
-      cleanEnvironment: true
+      targetType: 'inline'
+      script: |
+        set -e
+        curl -fsSL https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -o miniconda.sh
+        bash miniconda.sh -b -p $HOME/miniconda3
+        echo "##vso[task.prependpath]$HOME/miniconda3/bin"
 
   - bash: |
       set -e
-      # Install additional test and lint dependencies
-      conda install -n hicexplorer -c conda-forge -c bioconda \
-        pytest flake8 pytest-xdist pytest-forked nose pathlib configparser
-      # Install the package itself
+      conda config --set always_yes yes --set changeps1 no
+      conda create -n hicexplorer -c conda-forge -c bioconda python=${{ matrix.pythonVersion }} --file requirements.txt
+      conda install -n hicexplorer -c conda-forge -c bioconda pytest flake8 pytest-xdist pytest-forked nose pathlib configparser
       conda run -n hicexplorer pip install . --no-deps
-    displayName: 'Install Dependencies'
+    displayName: 'Create & Populate Conda Env'
 
   - bash: |
       set -e
-      conda run -n hicexplorer flake8 . \
-        --exclude=.venv,.build,planemo_test_env,build \
-        --ignore=E501,F401,F403,E402,F999,F405,E712,W504
-    displayName: Linting
+      conda run -n hicexplorer flake8 . --exclude=.venv,.build,planemo_test_env,build --ignore=E501,F401,F403,E402,F999,F405,E712,W504
+    displayName: 'Linting'
 
   - bash: |
       set -e
@@ -55,7 +51,7 @@ jobs:
       conda run -n hicexplorer pytest hicexplorer/test/general/ --doctest-modules --capture=sys -n 4 \
         --ignore=hicexplorer/test/general/test_hicTADClassifier.py \
         --ignore=hicexplorer/test/general/test_hicTrainTADClassifier.py
-    displayName: Pytest
+    displayName: 'Pytest'
 
   - bash: |
       set -e
@@ -71,39 +67,35 @@ jobs:
   strategy:
     matrix:
       Python310:
-        python.version: '3.10'
+        pythonVersion: '3.10'
       Python311:
-        python.version: '3.11'
+        pythonVersion: '3.11'
       Python312:
-        python.version: '3.12'
+        pythonVersion: '3.12'
 
   steps:
-  - task: CondaEnvironment@0
-    displayName: 'Create & activate conda env'
+  - task: Bash@3
+    displayName: 'Install Miniconda'
     inputs:
-      environmentName: 'hicexplorer'
-      channels: |
-        conda-forge
-        bioconda
-      packageSpecs: 'python=$(python.version)'
-      createOptions: '--file requirements.txt'
-      cleanEnvironment: true
+      targetType: 'inline'
+      script: |
+        set -e
+        curl -fsSL https://repo.anaconda.com/miniconda/Miniconda3-latest-MacOSX-x86_64.sh -o miniconda.sh
+        bash miniconda.sh -b -p $HOME/miniconda3
+        echo "##vso[task.prependpath]$HOME/miniconda3/bin"
 
   - bash: |
       set -e
-      # Install additional test and lint dependencies
-      conda install -n hicexplorer -c conda-forge -c bioconda \
-        pytest flake8 pytest-xdist pytest-forked nose pathlib configparser
-      # Install the package itself
+      conda config --set always_yes yes --set changeps1 no
+      conda create -n hicexplorer -c conda-forge -c bioconda python=${{ matrix.pythonVersion }} --file requirements.txt
+      conda install -n hicexplorer -c conda-forge -c bioconda pytest flake8 pytest-xdist pytest-forked nose pathlib configparser
       conda run -n hicexplorer pip install . --no-deps
-    displayName: 'Install Dependencies'
+    displayName: 'Create & Populate Conda Env'
 
   - bash: |
       set -e
-      conda run -n hicexplorer flake8 . \
-        --exclude=.venv,.build,planemo_test_env,build \
-        --ignore=E501,F401,F403,E402,F999,F405,E712,W504
-    displayName: Linting
+      conda run -n hicexplorer flake8 . --exclude=.venv,.build,planemo_test_env,build --ignore=E501,F401,F403,E402,F999,F405,E712,W504
+    displayName: 'Linting'
 
   - bash: |
       set -e
@@ -116,7 +108,7 @@ jobs:
       conda run -n hicexplorer pytest hicexplorer/test/general/ --doctest-modules --capture=sys -n 4 \
         --ignore=hicexplorer/test/general/test_hicTADClassifier.py \
         --ignore=hicexplorer/test/general/test_hicTrainTADClassifier.py
-    displayName: Pytest
+    displayName: 'Pytest'
 
   - bash: |
       set -e
