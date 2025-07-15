@@ -60,7 +60,7 @@ def parse_arguments(args=None):
 
 
 def find_pattern(pPattern, fasta_file, out_file, overlappingMode=False):
-    """
+    r"""
     Finds the occurrences of the match in the fasta file
     and saves a bed file.
 
@@ -78,7 +78,7 @@ def find_pattern(pPattern, fasta_file, out_file, overlappingMode=False):
 
                        Csp6I
                Csp6I   |    Csp6I Csp6I
-               \\       \\    \\     \\
+               \       \    \     \
           CTACGGTACGAACGTACGGTACGcgtaCGNAGTCATG
                    10        20        30
           ----:----|----:----|----:----|----:--

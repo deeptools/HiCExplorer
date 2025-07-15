@@ -503,20 +503,20 @@ if sys.version_info >= (3, 12):
     >>> hic.matrix = csr_matrix(matrix)
     >>> hic.setMatrix(hic.matrix, cut_intervals)
     >>> compute_distance_mean(hic)
-    {'all': OrderedDict({0: (3.0, 7), 10: (6.0, 5), 20: (10.0, 3), 30: (3.0, 1)})}
+    {'all': OrderedDict({0: (np.float64(3.0), np.int64(7)), 10: (np.float64(6.0), np.int64(5)), 20: (np.float64(10.0), np.int64(3)), 30: (np.float64(3.0), np.int64(1))})}
     >>> compute_distance_mean(hic, perchr=True)
-    {'a': OrderedDict({0: (1.25, 4), 10: (10.0, 3), 20: (5.0, 2), 30: (3.0, 1)}), 'b': OrderedDict({0: (5.333333333333333, 3), 10: (0.0, 2), 20: (20.0, 1)})}
+    {'a': OrderedDict({0: (np.float64(1.25), np.int64(4)), 10: (np.float64(10.0), np.int64(3)), 20: (np.float64(5.0), np.int64(2)), 30: (np.float64(3.0), np.int64(1))}), 'b': OrderedDict({0: (np.float64(5.333333333333333), np.int64(3)), 10: (np.float64(0.0), np.int64(2)), 20: (np.float64(20.0), np.int64(1))})}
     >>> custom_cut = [('tad1', 0, 10, 1), ('tad1', 10, 20, 1), ('tad2', 0, 10, 1),
     ... ('tad2', 10, 20, 1), ('tad3', 0, 10, 1), ('tad3', 10, 20, 1), ('tad3', 20, 30, 1)]
     >>> compute_distance_mean(hic, custom_cut_intervals=custom_cut)
-    {'all': OrderedDict({0: (3.0, 7), 10: (3.75, 4), 20: (20.0, 1)})}
+    {'all': OrderedDict({0: (np.float64(3.0), np.int64(7)), 10: (np.float64(3.75), np.int64(4)), 20: (np.float64(20.0), np.int64(1))})}
     >>> compute_distance_mean(hic, perchr=True, custom_cut_intervals=custom_cut)
-    {'a': OrderedDict({0: (1.25, 4), 10: (7.5, 2)}), 'b': OrderedDict({0: (5.333333333333333, 3), 10: (0.0, 2), 20: (20.0, 1)})}
+    {'a': OrderedDict({0: (np.float64(1.25), np.int64(4)), 10: (np.float64(7.5), np.int64(2))}), 'b': OrderedDict({0: (np.float64(5.333333333333333), np.int64(3)), 10: (np.float64(0.0), np.int64(2)), 20: (np.float64(20.0), np.int64(1))})}
     >>> custom_cut = [('_ignore_0', 0, 10, 1), ('0', 0, 10, 1),
     ... ('0', 10, 20, 1), ('_ignore_3', 0, 10, 1),
     ... ('1', 0, 10, 1), ('1', 10, 20, 1), ('1', 20, 30, 1)]
     >>> compute_distance_mean(hic, custom_cut_intervals=custom_cut)
-    {'all': OrderedDict({0: (4.0, 5), 10: (5.0, 3), 20: (20.0, 1)})}
+    {'all': OrderedDict({0: (np.float64(4.0), np.int64(5)), 10: (np.float64(5.0), np.int64(3)), 20: (np.float64(20.0), np.int64(1))})}
     """
 else:
     compute_distance_mean.__doc__ += """
@@ -537,18 +537,18 @@ else:
     >>> hic.matrix = csr_matrix(matrix)
     >>> hic.setMatrix(hic.matrix, cut_intervals)
     >>> compute_distance_mean(hic)
-    {'all': OrderedDict([(0, (3.0, 7)), (10, (6.0, 5)), (20, (10.0, 3)), (30, (3.0, 1))])}
+    {'all': OrderedDict([(0, (np.float64(3.0), np.int64(7))), (10, (np.float64(6.0), np.int64(5))), (20, (np.float64(10.0), np.int64(3))), (30, (np.float64(3.0), np.int64(1)))])}
     >>> compute_distance_mean(hic, perchr=True)
-    {'a': OrderedDict([(0, (1.25, 4)), (10, (10.0, 3)), (20, (5.0, 2)), (30, (3.0, 1))]), 'b': OrderedDict([(0, (5.333333333333333, 3)), (10, (0.0, 2)), (20, (20.0, 1))])}
+    {'a': OrderedDict([(0, (np.float64(1.25), np.int64(4))), (10, (np.float64(10.0), np.int64(3))), (20, (np.float64(5.0), np.int64(2))), (30, (np.float64(3.0), np.int64(1)))]), 'b': OrderedDict([(0, (np.float64(5.333333333333333), np.int64(3))), (10, (np.float64(0.0), np.int64(2))), (20, (np.float64(20.0), np.int64(1)))])}
     >>> custom_cut = [('tad1', 0, 10, 1), ('tad1', 10, 20, 1), ('tad2', 0, 10, 1),
     ... ('tad2', 10, 20, 1), ('tad3', 0, 10, 1), ('tad3', 10, 20, 1), ('tad3', 20, 30, 1)]
     >>> compute_distance_mean(hic, custom_cut_intervals=custom_cut)
-    {'all': OrderedDict([(0, (3.0, 7)), (10, (3.75, 4)), (20, (20.0, 1))])}
+    {'all': OrderedDict([(0, (np.float64(3.0), np.int64(7))), (10, (np.float64(3.75), np.int64(4))), (20, (np.float64(20.0), np.int64(1)))])}
     >>> compute_distance_mean(hic, perchr=True, custom_cut_intervals=custom_cut)
-    {'a': OrderedDict([(0, (1.25, 4)), (10, (7.5, 2))]), 'b': OrderedDict([(0, (5.333333333333333, 3)), (10, (0.0, 2)), (20, (20.0, 1))])}
+    {'a': OrderedDict([(0, (np.float64(1.25), np.int64(4))), (10, (np.float64(7.5), np.int64(2)))]), 'b': OrderedDict([(0, (np.float64(5.333333333333333), np.int64(3))), (10, (np.float64(0.0), np.int64(2))), (20, (np.float64(20.0), np.int64(1)))])}
     >>> custom_cut = [('_ignore_0', 0, 10, 1), ('0', 0, 10, 1),
     ... ('0', 10, 20, 1), ('_ignore_3', 0, 10, 1),
     ... ('1', 0, 10, 1), ('1', 10, 20, 1), ('1', 20, 30, 1)]
     >>> compute_distance_mean(hic, custom_cut_intervals=custom_cut)
-    {'all': OrderedDict([(0, (4.0, 5)), (10, (5.0, 3)), (20, (20.0, 1))])}
+    {'all': OrderedDict([(0, (np.float64(4.0), np.int64(5))), (10, (np.float64(5.0), np.int64(3))), (20, (np.float64(20.0), np.int64(1)))])}
     """

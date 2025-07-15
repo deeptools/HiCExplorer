@@ -211,7 +211,7 @@ def get_rf_bins(rf_cut_intervals, min_distance=200, max_distance=800):
     >>> rf_cut_interval.extend([('chr2', 20, 30), ('chr2', 40, 50),
     ... ('chr2', 70, 80)])
     >>> get_rf_bins(rf_cut_interval, min_distance=10, max_distance=20)
-    [('chr1', 0, 40), ('chr1', 40, 90), ('chr2', 0, 60), ('chr2', 60, 100)]
+    [('chr1', 0, np.int64(40)), ('chr1', np.int64(40), np.int64(90)), ('chr2', 0, np.int64(60)), ('chr2', np.int64(60), np.int64(100))]
     """
     log.info("Minimum distance considered between "
              "restriction sites is {}\nMax "
