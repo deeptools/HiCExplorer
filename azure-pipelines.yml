@@ -2,8 +2,7 @@ pr:
   autoCancel: true
 
 jobs:
-- job: Linux
-  displayName: 'Linux Conda Build & Test'
+- job: 'Linux'
   timeoutInMinutes: 0
   pool:
     vmImage: 'ubuntu-latest'
@@ -22,108 +21,102 @@ jobs:
     displayName: 'Add Conda to PATH'
 
   - bash: |
-      set -e
+      set -e # Exit script if any command fails
       conda config --set always_yes yes --set changeps1 no
+
+      # Create the environment
       conda create -n hicexplorer -c conda-forge -c bioconda python=$(python.version) --file requirements.txt
-      conda install -n hicexplorer -c conda-forge -c bioconda pytest flake8 pytest-xdist pytest-forked nose pathlib configparser
+      
+      # Install other dependencies directly into the inactive environment
+      conda install -n hicexplorer -c conda-forge -c bioconda \
+        pytest \
+        flake8 \
+        pytest-xdist \
+        pytest-forked \
+        nose \
+        pathlib \
+        configparser
+        
+      # Run pip install using the python from within the environment
       conda run -n hicexplorer pip install . --no-deps
     displayName: 'Install Dependencies'
 
   - bash: |
-      set -e
       conda run -n hicexplorer flake8 . --exclude=.venv,.build,planemo_test_env,build --ignore=E501,F401,F403,E402,F999,F405,E712,W504
     displayName: 'Linting'
 
   - bash: |
-      set -e
-      conda run -n hicexplorer pytest hicexplorer/test/test_pytest_collected_items.py --doctest-modules --capture=sys
-      conda run -n hicexplorer pytest hicexplorer --doctest-modules --ignore=hicexplorer/test/
+      conda run -n hicexplorer py.test hicexplorer/test/test_pytest_collected_items.py --doctest-modules --capture=sys
+      conda run -n hicexplorer py.test hicexplorer --doctest-modules --ignore=hicexplorer/test/
     displayName: 'Doc Test and Number of Cases'
 
   - bash: |
-      set -e
-      conda run -n hicexplorer pytest hicexplorer/test/general/ --doctest-modules --capture=sys -n 4 --ignore=hicexplorer/test/general/test_hicTADClassifier.py --ignore=hicexplorer/test/general/test_hicTrainTADClassifier.py
+      conda run -n hicexplorer py.test hicexplorer/test/general/ --doctest-modules --capture=sys -n 4 --ignore=hicexplorer/test/general/test_hicTADClassifier.py --ignore=hicexplorer/test/general/test_hicTrainTADClassifier.py
     displayName: 'Pytest'
 
   - bash: |
-      set -e
-      conda run -n hicexplorer pytest hicexplorer/test/general/test_hicTADClassifier.py
-      conda run -n hicexplorer pytest hicexplorer/test/general/test_hicTrainTADClassifier.py
+      conda run -n hicexplorer py.test hicexplorer/test/general/test_hicTADClassifier.py
+      conda run -n hicexplorer py.test hicexplorer/test/general/test_hicTrainTADClassifier.py
     displayName: 'Pytest TAD Classifier'
 
-- job: OSX
-  displayName: 'macOS Conda Build & Test'
+- job: 'OSX'
   timeoutInMinutes: 0
   pool:
     vmImage: 'macOS-latest'
+  variables:
+    CONDA: /Users/runner/miniconda3
   strategy:
     matrix:
       Python310:
-        pythonVersion: '3.10'
+        python.version: '3.10'
       Python311:
-        pythonVersion: '3.11'
+        python.version: '3.11'
       Python312:
-        pythonVersion: '3.12'
+        python.version: '3.12'
 
   steps:
-  - task: Bash@3
-    displayName: 'Install Miniconda'
-    inputs:
-      targetType: 'inline'
-      script: |
-        set -e
-        curl -fsSL https://repo.anaconda.com/miniconda/Miniconda3-latest-MacOSX-x86_64.sh -o miniconda.sh
-        bash miniconda.sh -b -p $HOME/miniconda3
-        echo "##vso[task.prependpath]$HOME/miniconda3/bin"
+  # This step is essential and must come first.
+  - bash: |
+      echo "##vso[task.prependpath]$CONDA/bin"
+    displayName: 'Add Conda to PATH'
+    
+  - bash: |
+      set -e # Exit script if any command fails
+      conda config --set always_yes yes --set changeps1 no
+      
+      # Create the environment from the requirements file
+      conda create -n hicexplorer -c conda-forge -c bioconda \
+        python=$(python.version) \
+        --file requirements.txt
+      
+      # Install other dependencies directly into the new environment
+      conda install -n hicexplorer -c conda-forge -c bioconda \
+        pytest \
+        flake8 \
+        pytest-xdist \
+        pytest-forked \
+        nose \
+        pathlib \
+        configparser
 
-  - task: Bash@3
-    displayName: 'Create & Populate Conda Env'
-    inputs:
-      targetType: 'inline'
-      script: |
-        set -e
-        conda config --set always_yes yes --set changeps1 no
-        # Create environment with Python version from matrix
-        conda create -n hicexplorer -c conda-forge -c bioconda \
-          python=${{ matrix.pythonVersion }} --file requirements.txt
-        conda install -n hicexplorer -c conda-forge -c bioconda \
-          pytest flake8 pytest-xdist pytest-forked nose pathlib configparser
-        conda run -n hicexplorer pip install . --no-deps
+      # Run pip install using the python from within the environment
+      conda run -n hicexplorer pip install . --no-deps
+    displayName: 'Install Dependencies'
 
-  - task: Bash@3
+  - bash: |
+      conda run -n hicexplorer flake8 . --exclude=.venv,.build,planemo_test_env,build --ignore=E501,F401,F403,E402,F999,F405,E712,W504
     displayName: 'Linting'
-    inputs:
-      targetType: 'inline'
-      script: |
-        set -e
-        conda run -n hicexplorer flake8 . \
-          --exclude=.venv,.build,planemo_test_env,build \
-          --ignore=E501,F401,F403,E402,F999,F405,E712,W504
 
-  - task: Bash@3
+  - bash: |
+      conda run -n hicexplorer py.test hicexplorer/test/test_pytest_collected_items.py --doctest-modules --capture=sys
+      conda run -n hicexplorer py.test hicexplorer --doctest-modules --ignore=hicexplorer/test/
     displayName: 'Doc Test and Number of Cases'
-    inputs:
-      targetType: 'inline'
-      script: |
-        set -e
-        conda run -n hicexplorer pytest hicexplorer/test/test_pytest_collected_items.py --doctest-modules --capture=sys
-        conda run -n hicexplorer pytest hicexplorer --doctest-modules --ignore=hicexplorer/test/
 
-  - task: Bash@3
+  - bash: |
+      conda run -n hicexplorer py.test hicexplorer/test/general/ --doctest-modules --capture=sys -n 4 --ignore=hicexplorer/test/general/test_hicTADClassifier.py --ignore=hicexplorer/test/general/test_hicTrainTADClassifier.py
     displayName: 'Pytest'
-    inputs:
-      targetType: 'inline'
-      script: |
-        set -e
-        conda run -n hicexplorer pytest hicexplorer/test/general/ --doctest-modules --capture=sys -n 4 \
-          --ignore=hicexplorer/test/general/test_hicTADClassifier.py \
-          --ignore=hicexplorer/test/general/test_hicTrainTADClassifier.py
 
-  - task: Bash@3
+  - bash: |
+      conda run -n hicexplorer py.test hicexplorer/test/general/test_hicTADClassifier.py
+      conda run -n hicexplorer py.test hicexplorer/test/general/test_hicTrainTADClassifier.py
     displayName: 'Pytest TAD Classifier'
-    inputs:
-      targetType: 'inline'
-      script: |
-        set -e
-        conda run -n hicexplorer pytest hicexplorer/test/general/test_hicTADClassifier.py
-        conda run -n hicexplorer pytest hicexplorer/test/general/test_hicTrainTADClassifier.py
