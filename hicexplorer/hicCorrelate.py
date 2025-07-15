@@ -121,7 +121,10 @@ def parse_arguments(args=None):
                            help='File name to save the resulting scatter plot. Supported file formats are given by matplotlib, usually these are:  png, pdf, ps, eps and svg. ',
                            default='scatter.png',
                            required=True)
-
+    parserOpt.add_argument('--outFileNameCorrelation', '-oc',
+                           help='File name to save the resulting correlation matrix. '
+                           'The file is a numpy array in .npy format.',
+                           default='correlation.npy')
     parserOpt.add_argument('--chromosomes',
                            help='List of chromosomes to be included in the '
                            'correlation.',
@@ -448,3 +451,6 @@ def main(args=None):
                      args.zMin,
                      args.colorMap,
                      pPlotNumbers=args.plotNumbers)
+    if args.outFileNameCorrelation:
+        log.debug("saving correlation matrix {}".format(args.outFileNameCorrelation))
+        np.save(args.outFileNameCorrelation, results)

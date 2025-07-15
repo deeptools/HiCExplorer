@@ -211,7 +211,7 @@ def get_rf_bins(rf_cut_intervals, min_distance=200, max_distance=800):
     >>> rf_cut_interval.extend([('chr2', 20, 30), ('chr2', 40, 50),
     ... ('chr2', 70, 80)])
     >>> get_rf_bins(rf_cut_interval, min_distance=10, max_distance=20)
-    [('chr1', 0, 40), ('chr1', 40, 90), ('chr2', 0, 60), ('chr2', 60, 100)]
+    [('chr1', 0, np.int64(40)), ('chr1', np.int64(40), np.int64(90)), ('chr2', 0, np.int64(60)), ('chr2', np.int64(60), np.int64(100))]
     """
     log.info("Minimum distance considered between "
              "restriction sites is {}\nMax "
@@ -1368,12 +1368,12 @@ Max library insert size\t{}\t\t
 
     hic_metadata = {}
     hic_metadata['statistics'] = intermediate_qc_log.getvalue()
-    hic_metadata['matrix-generated-by'] = np.string_(
+    hic_metadata['matrix-generated-by'] = np.bytes_(
         'HiCExplorer-' + __version__)
-    hic_metadata['matrix-generated-by-url'] = np.string_(
+    hic_metadata['matrix-generated-by-url'] = np.bytes_(
         'https://github.com/deeptools/HiCExplorer')
     if pGenomeAssembly:
-        hic_metadata['genome-assembly'] = np.string_(pGenomeAssembly)
+        hic_metadata['genome-assembly'] = np.bytes_(pGenomeAssembly)
 
     intermediate_qc_log.close()
     if pOutFileName.name.endswith('.mcool') and pBinSize is not None and len(pBinSize) > 2:

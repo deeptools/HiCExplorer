@@ -47,6 +47,23 @@ def test_hicTrainClassifier_train_test():
     f = open(test_folder + 'train_test.txt', "r")
     assert f.readline().split()[0] == 'accuracy'
 
+    args = ['--mode',
+            'train_new',
+            '--domain_file',
+            ROOT + 'unittest_domains.bed',
+            '--matrices',
+            ROOT + 'gm12878_chr1.cool',
+            '--out_file',
+            test_folder + 'unittest_classifier_new_obs_exp',
+            '-n',
+            'obs_exp',
+            '-r',
+            '10000',
+            '--estimators_per_step',
+            '10']
+    # '--chrPrefixProtein', 'remove']
+    # hicTrainTADClassifier.main(args)
+    compute(hicTrainTADClassifier.main, args, 5)
 # def test_hicTrainClassifier_train_new():
     args = ['--mode',
             'train_new',

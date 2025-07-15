@@ -329,7 +329,7 @@ class TADClassifier:
                 # log.debug('start {} end {}'.format(start, end))
                 triangle = np.triu(numpy_matrix[start:end, start:end].todense(), k=0)
                 triangle = triangle.astype(float)
-                triangle[np.tril_indices(triangle.shape[0], -1)] = np.NINF
+                triangle[np.tril_indices(triangle.shape[0], -1)] = -np.inf
                 mask = triangle != float('-inf')
                 flattened_triangle = np.ndarray.flatten(triangle[mask])
                 return flattened_triangle
@@ -455,7 +455,7 @@ class TADClassifier:
 
             if (alternative_classifier is None):
                 self.classifier = BaggingClassifier(
-                    base_estimator=AdaBoostClassifier(),
+                    estimator=AdaBoostClassifier(),
                     n_estimators=0,
                     warm_start=True,
                     n_jobs=threads)
