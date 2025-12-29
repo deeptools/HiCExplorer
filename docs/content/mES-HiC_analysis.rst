@@ -51,7 +51,7 @@ As a source we use the mm10 genome from `UCSC <http://hgdownload-test.cse.ucsc.e
 .. code:: bash
 
     mkdir genome_mm10
-    wget http://hgdownload-test.cse.ucsc.edu/goldenPath/mm10/bigZips/chromFa.tar.gz -O genome_mm10/chromFa.tar.gz
+    wget https://hgdownload.gi.ucsc.edu/goldenPath/mm10/bigZips/chromFa.tar.gz -O genome_mm10/chromFa.tar.gz
     tar -xvzf genome_mm10/chromFa.tar.gz
     cat genome_mm10/*.fa > genome_mm10/mm10.fa
 
