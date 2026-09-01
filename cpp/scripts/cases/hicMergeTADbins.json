@@ -1,0 +1,39 @@
+[
+  {
+    "id": "hicMergeTADbins.h5.Li_et_al_2015",
+    "tool": "hicMergeTADbins",
+    "tier": 2,
+    "args": ["-m", "{data}/Li_et_al_2015.h5", "--domains", "{data}/domains.bed",
+             "-o", "{out}/merged.h5"],
+    "outputs": [{"path": "{out}/merged.h5", "format": "h5", "class": "E2"}],
+    "notes": "The designated input: 11,104 restriction fragment bins of chromosome X, float64 counts, against the 498 domains of domains.bed. 500 merged bins, 13,547 symmetric non zeros. reduce_matrix with diagonal=True, and the merged matrix does not conserve the total count: the symmetric sum falls from 30,482,969.637651745 to 23,695,524.863065504 because R + R.T - diag(R) subtracts the within-TAD block sum rather than the original main diagonal. The upper triangle is conserved at 17,548,966.536917932. Value exact, so the np.bincount accumulation order is reproduced rather than approximated."
+  },
+  {
+    "id": "hicMergeTADbins.cool.Li_et_al_2015",
+    "tool": "hicMergeTADbins",
+    "tier": 2,
+    "args": ["-m", "{data}/Li_et_al_2015.cool", "--domains", "{data}/domains.bed",
+             "-o", "{out}/merged.cool"],
+    "outputs": [{"path": "{out}/merged.cool", "format": "cool", "class": "E1"}],
+    "notes": "The same merge through the cool reader and the cool writer, which are separate code paths from the h5 ones. The cool loader derives no NaN bins here and the merged matrix has none either."
+  },
+  {
+    "id": "hicMergeTADbins.h5.output_name_ending_in_cool",
+    "tool": "hicMergeTADbins",
+    "tier": 2,
+    "args": ["-m", "{data}/Li_et_al_2015.h5", "--domains", "{data}/domains.bed",
+             "-o", "{out}/merged.cool"],
+    "outputs": [{"path": "{out}/merged.cool.h5", "format": "h5", "class": "E2"}],
+    "notes": "hiCMatrix.save reuses the handler built during the load, so an h5 input is written as h5 whatever the output name says and the h5 writer appends its own suffix. The file that appears is merged.cool.h5. Reproduced, not fixed."
+  },
+  {
+    "id": "hicMergeTADbins.domains_outside_the_matrix",
+    "tool": "hicMergeTADbins",
+    "tier": 2,
+    "args": ["-m", "{data}/Li_cut.h5", "--domains", "{data}/domains.bed",
+             "-o", "{out}/merged.h5"],
+    "outputs": [],
+    "expect_exit": 1,
+    "notes": "Li_cut.h5 holds 306 bins of chromosome X starting at 2,998,265, so the very first domain of domains.bed (X:73,624-98,011) is outside it. getRegionBinRange returns None and hicMergeTADbins.py:129 unpacks it without a check, ending the run with a bare TypeError. The port exits 1 as the Python traceback does, but names the domain and the line instead of crashing silently. Deliberate deviation, recorded in STATUS.md."
+  }
+]

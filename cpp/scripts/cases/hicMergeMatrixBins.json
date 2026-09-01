@@ -1,0 +1,123 @@
+[
+  {
+    "id": "hicMergeMatrixBins.h5.numBins5.small_test_matrix",
+    "tool": "hicMergeMatrixBins",
+    "tier": 1,
+    "args": ["-m", "{data}/small_test_matrix.h5", "-o", "{out}/merged.h5",
+             "--numBins", "5"],
+    "outputs": [{"path": "{out}/merged.h5", "format": "h5", "class": "E2"}],
+    "notes": "The one case the pre-existing Python test covered, against the stored reference hicMergeMatrixBins/result.h5. 33,754 bins over 15 chromosomes with 14,845 NaN bins, so remove_nans_if_needed does real work before the merge."
+  },
+  {
+    "id": "hicMergeMatrixBins.h5.numBins4",
+    "tool": "hicMergeMatrixBins",
+    "tier": 1,
+    "args": ["-m", "{data}/small_test_matrix_50kb_res.h5", "-o", "{out}/merged.h5",
+             "--numBins", "4"],
+    "outputs": [{"path": "{out}/merged.h5", "format": "h5", "class": "E2"}],
+    "notes": "2,655 NaN free bins into 665 merged ones. Four trailing groups of one bin each, on chr2RHet, chr3RHet, chr4 and chrX, fall below the numBins/2 threshold of hicMergeMatrixBins.py:248 and are dropped with their counts. The merged intervals are built from the NaN free bin list, so the second chr2RHet interval is 250 kb wide rather than 200 kb."
+  },
+  {
+    "id": "hicMergeMatrixBins.h5.numBins20.drops_two_chromosomes",
+    "tool": "hicMergeMatrixBins",
+    "tier": 1,
+    "args": ["-m", "{data}/small_test_matrix_50kb_res.h5", "-o", "{out}/merged.h5",
+             "--numBins", "20"],
+    "outputs": [{"path": "{out}/merged.h5", "format": "h5", "class": "E2"}],
+    "notes": "The pinned defect of hicMergeMatrixBins.py:248. chr2LHet (8 bins) and chrXHet (5 bins) fall below numBins/2 and vanish from the output entirely, without an error, together with four trailing part groups: 33 of the 2,655 NaN free bins. The total count drops from 59,360 at --numBins 4 to 52,061. Reproduced, not fixed."
+  },
+  {
+    "id": "hicMergeMatrixBins.h5.numBins1",
+    "tool": "hicMergeMatrixBins",
+    "tier": 1,
+    "args": ["-m", "{data}/small_test_matrix_50kb_res.h5", "-o", "{out}/merged.h5",
+             "--numBins", "1"],
+    "outputs": [{"path": "{out}/merged.h5", "format": "h5", "class": "E2"}],
+    "notes": "One group per bin, so reduce_matrix short circuits at reduceMatrix.py:154-155 and hands the input straight back, neither triangle selected nor symmetrised. The only effect of the run is that the 139 NaN bins are dropped. This is the case that exposed a bug in the port's own merge_bins, which recomputed nan_bins with a loop that assumed a fully materialised matrix; see the report."
+  },
+  {
+    "id": "hicMergeMatrixBins.cool.numBins4",
+    "tool": "hicMergeMatrixBins",
+    "tier": 1,
+    "args": ["-m", "{data}/small_test_matrix_50kb_res.cool", "-o", "{out}/merged.cool",
+             "--numBins", "4"],
+    "outputs": [{"path": "{out}/merged.cool", "format": "cool", "class": "E1"}],
+    "notes": "The same merge through the cool reader and writer. The cool file holds 3,383 bins and its NaN bins are derived from the empty rows rather than read, 664 of them, so the merge runs on a 2,719 bin matrix and produces a different bin table from the h5 case."
+  },
+  {
+    "id": "hicMergeMatrixBins.h5.numBins10.Li_et_al_2015",
+    "tool": "hicMergeMatrixBins",
+    "tier": 1,
+    "args": ["-m", "{data}/Li_et_al_2015.h5", "-o", "{out}/merged.h5",
+             "--numBins", "10"],
+    "outputs": [{"path": "{out}/merged.h5", "format": "h5", "class": "E2"}],
+    "notes": "float64 counts over 11,104 restriction fragment bins, so the block sums are genuine floating point reductions rather than integer ones, and they are still value exact: np.bincount accumulates one cell at a time in the order the entries appear, which the port reproduces."
+  },
+  {
+    "id": "hicMergeMatrixBins.cool.numBins10.GSM_chr1_chr2",
+    "tool": "hicMergeMatrixBins",
+    "tier": 1,
+    "args": ["-m",
+             "{data}/hicDifferentialTAD/GSM2644945_Untreated-R1.100000_chr1_chr2.cool",
+             "-o", "{out}/merged.cool", "--numBins", "10"],
+    "outputs": [{"path": "{out}/merged.cool", "format": "cool", "class": "E1"}],
+    "large": true,
+    "notes": "The memory case for the merge path: 3,790 bins, 4,208,340 stored pixels, two chromosomes. Also the case in which the chromosome change rule and the numBins/2 rule interact, because neither chromosome is a multiple of 10 bins long."
+  },
+  {
+    "id": "hicMergeMatrixBins.h5.runningWindow3",
+    "tool": "hicMergeMatrixBins",
+    "tier": 1,
+    "args": ["-m", "{data}/small_test_matrix_50kb_res.h5", "-o", "{out}/merged.h5",
+             "--numBins", "3", "--runningWindow"],
+    "outputs": [{"path": "{out}/merged.h5", "format": "h5", "class": "E2"}],
+    "notes": "--runningWindow was never exercised by the pre-existing Python test. The resolution and the bin table are unchanged, only the values: 2,655 bins, 273,674 symmetric non zeros against 23,929 stored in the input. The window is applied to raw bin indices and therefore crosses chromosome borders, which is pinned in the characterization test and reproduced here."
+  },
+  {
+    "id": "hicMergeMatrixBins.h5.runningWindow5",
+    "tool": "hicMergeMatrixBins",
+    "tier": 1,
+    "args": ["-m", "{data}/small_test_matrix_50kb_res.h5", "-o", "{out}/merged.h5",
+             "--numBins", "5", "--runningWindow"],
+    "outputs": [{"path": "{out}/merged.h5", "format": "h5", "class": "E2"}],
+    "notes": "A 25 cell window, 616,057 symmetric non zeros. int64 counts, so the accumulation order inside a cell does not matter and the result is value exact."
+  },
+  {
+    "id": "hicMergeMatrixBins.h5.runningWindow1",
+    "tool": "hicMergeMatrixBins",
+    "tier": 1,
+    "args": ["-m", "{data}/small_test_matrix_50kb_res.h5", "-o", "{out}/merged.h5",
+             "--numBins", "1", "--runningWindow"],
+    "outputs": [{"path": "{out}/merged.h5", "format": "h5", "class": "E2"}],
+    "notes": "running_window_merge returns at hicMergeMatrixBins.py:136 before the window is applied, so the only effect is that remove_nans_if_needed drops the 139 NaN bins. nan_bins is not recomputed and the output carries none."
+  },
+  {
+    "id": "hicMergeMatrixBins.cool.runningWindow3",
+    "tool": "hicMergeMatrixBins",
+    "tier": 1,
+    "args": ["-m", "{data}/small_test_matrix_50kb_res.cool", "-o", "{out}/merged.cool",
+             "--numBins", "3", "--runningWindow"],
+    "outputs": [{"path": "{out}/merged.cool", "format": "cool", "class": "E1"}],
+    "notes": "The running window through the cool writer, on the 2,719 bin NaN free matrix the cool loader leaves."
+  },
+  {
+    "id": "hicMergeMatrixBins.h5.runningWindow3.Li_et_al_2015",
+    "tool": "hicMergeMatrixBins",
+    "tier": 1,
+    "args": ["-m", "{data}/Li_et_al_2015.h5", "-o", "{out}/merged.h5",
+             "--numBins", "3", "--runningWindow"],
+    "outputs": [{"path": "{out}/merged.h5", "format": "h5", "class": "ED"}],
+    "large": true,
+    "notes": "ED rather than E2, and this is the only case of the three tools that is not value exact. The sparsity pattern is identical, 2,517,975 stored values, and 818,579 of them differ in the last bit: the largest relative difference measured is 1.8e-19 and the largest absolute one 5e-13 on values around 2.8e3. The cause is the order in which the duplicate contributions to one cell are summed. The Python builds a coo of every shifted entry, converts it to csr, and scipy's csr_sort_indices sorts each row with a plain std::sort whose comparator looks only at the column, so the order inside a group of duplicates is whatever libstdc++'s introsort leaves. That is an implementation detail of the scipy build, not a defined order, and reproducing it would mean reimplementing a specific std::sort. The port sums in generation order, which is deterministic. Far inside the ED gate of PLAN.md 5.0; the integer running window cases above are value exact because integer addition is associative."
+  },
+  {
+    "id": "hicMergeMatrixBins.runningWindow_rejects_an_even_numBins",
+    "tool": "hicMergeMatrixBins",
+    "tier": 1,
+    "args": ["-m", "{data}/small_test_matrix_50kb_res.h5", "-o", "{out}/merged.h5",
+             "--numBins", "4", "--runningWindow"],
+    "outputs": [],
+    "expect_exit": 1,
+    "notes": "running_window_merge asserts num_bins % 2 == 1 at hicMergeMatrixBins.py:139. The AssertionError ends the run with status 1 and no output file, and the port reproduces the status with a message rather than a traceback."
+  }
+]

@@ -10,6 +10,7 @@
 #include <unordered_map>
 #include <utility>
 
+#include "hicx/adjust_ops.hpp"
 #include "hicx/numpy_compat.hpp"
 
 namespace hicx {
@@ -294,6 +295,46 @@ CoolLoadResult read_cool(const std::string& uri, const CoolLoadOptions& options)
         }
     }
     matrix.eliminate_zeros();
+
+    if (options.chrom_name.has_value()) {
+        // cooler_file.matrix(...).fetch(chrom) and bins().fetch(chrom). The
+        // bins of a chromosome are contiguous, so the selection is monotone
+        // and the upper triangle survives it. Restricting after the whole
+        // pixel table has been read costs one extra pass over a matrix that is
+        // already resident; a hyperslab read off indexes/bin1_offset would
+        // avoid reading the other chromosomes at all and is the obvious next
+        // step for this path.
+        std::int64_t first = -1;
+        std::int64_t last = -1;
+        for (std::size_t bin = 0; bin < result.data.cut_intervals.size(); ++bin) {
+            if (result.data.cut_intervals[bin].chrom != *options.chrom_name) {
+                continue;
+            }
+            if (first < 0) {
+                first = static_cast<std::int64_t>(bin);
+            }
+            last = static_cast<std::int64_t>(bin) + 1;
+        }
+        if (first < 0) {
+            first = 0;
+            last = 0;
+        }
+        std::vector<std::int64_t> selection;
+        selection.reserve(static_cast<std::size_t>(last - first));
+        for (std::int64_t bin = first; bin < last; ++bin) {
+            selection.push_back(bin);
+        }
+        matrix = select_bins(matrix, selection);
+        result.data.cut_intervals.assign(
+            result.data.cut_intervals.begin() + static_cast<std::ptrdiff_t>(first),
+            result.data.cut_intervals.begin() + static_cast<std::ptrdiff_t>(last));
+        if (result.data.correction_factors.has_value()) {
+            const std::vector<double>& factors = *result.data.correction_factors;
+            result.data.correction_factors = std::vector<double>(
+                factors.begin() + static_cast<std::ptrdiff_t>(first),
+                factors.begin() + static_cast<std::ptrdiff_t>(last));
+        }
+    }
 
     const std::int64_t shape = std::min(matrix.rows(), matrix.cols());
     std::vector<char> used_as_column(static_cast<std::size_t>(shape), 0);

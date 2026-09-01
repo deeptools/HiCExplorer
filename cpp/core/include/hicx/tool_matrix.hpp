@@ -24,6 +24,7 @@
 #ifndef HICX_TOOL_MATRIX_HPP
 #define HICX_TOOL_MATRIX_HPP
 
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -36,7 +37,12 @@ namespace hicx {
 
 class ToolMatrix {
   public:
-    static ToolMatrix load(const std::string& path);
+    // hm.hiCMatrix(path). `chromosome`, when given, is hiCMatrix's
+    // pChrnameList with a single entry and only reaches the cool loader, which
+    // is the only format that implements it; an h5 path ignores it exactly as
+    // hicmatrix does.
+    static ToolMatrix load(const std::string& path,
+                           const std::optional<std::string>& chromosome = std::nullopt);
 
     // hiCMatrix.save(pMatrixName), whose defaults are pSymmetric=True and
     // pApplyCorrection=False. Returns false when the file name ends in neither
@@ -58,6 +64,9 @@ class ToolMatrix {
         const noexcept {
         return boundaries_;
     }
+    // Every hiCMatrix mutator ends with a rebuild of the interval trees and of
+    // chrBinBoundaries. A tool that changes the bin table calls this instead.
+    void refresh_boundaries();
 
   private:
     MatrixData data_;

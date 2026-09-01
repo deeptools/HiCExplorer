@@ -17,6 +17,7 @@ configure_file(include/hicx/version.hpp.in
                "${CMAKE_CURRENT_BINARY_DIR}/generated/hicx/version.hpp" @ONLY)
 
 add_library(hicx4core
+    src/adjust_ops.cpp
     src/bins.cpp
     src/cool_file.cpp
     src/h5_file.cpp

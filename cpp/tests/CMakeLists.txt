@@ -23,6 +23,7 @@ add_executable(hicx_tests
     test_json_lite.cpp
     test_readers.cpp
     test_reduce_matrix.cpp
+    test_adjust_ops.cpp
     test_text_formats.cpp
     test_writers.cpp)
 

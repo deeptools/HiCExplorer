@@ -94,6 +94,11 @@ class CsrMatrix {
     [[nodiscard]] std::int64_t cols() const noexcept { return cols_; }
 
     [[nodiscard]] Symmetry symmetry() const noexcept { return symmetry_; }
+    // Declares what the stored entries mean. Only an operation that knows it
+    // preserves the triangle may use this: a selection whose index list is
+    // strictly increasing is order preserving, so it maps triu onto triu
+    // (hicx::select_bins). Everything else must go through materialize_full.
+    void set_symmetry(Symmetry symmetry) noexcept { symmetry_ = symmetry; }
 
     // Entries physically held in memory.
     [[nodiscard]] std::size_t stored_nnz() const noexcept { return data_.size(); }

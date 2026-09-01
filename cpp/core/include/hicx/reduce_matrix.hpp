@@ -63,6 +63,33 @@ struct BinMergePlan {
 [[nodiscard]] BinMergePlan plan_bin_merge(const std::vector<CutInterval>& intervals,
                                           std::int64_t num_bins);
 
+// The grouping hicMergeTADbins.merge_tad_bins builds: cut a new bin at every
+// domain boundary bin id and at every chromosome change, and keep every group
+// however short it is. That last point is the difference from plan_bin_merge,
+// which drops a trailing group of fewer than num_bins/2 bins; a TAD is a TAD
+// whatever its size. `boundaries` is the sorted set of bin ids
+// get_boundary_bin_id returns, and the count that gates the cut is reset at
+// every group, so a boundary at the first bin of a group is ignored.
+[[nodiscard]] BinMergePlan plan_tad_merge(const std::vector<CutInterval>& intervals,
+                                          const std::vector<std::int64_t>& boundaries);
+
+// hicMergeMatrixBins.running_window_merge from the point where
+// remove_nans_if_needed has already run and the trivial num_bins == 1 case has
+// been handled by the caller.
+//
+// Every entry of the upper triangle is added into every cell of the
+// num_bins x num_bins window centred on it, positions outside the matrix are
+// dropped, the accumulated result is folded back to the upper triangle and
+// mirrored as R + R.T - diag(R). The resolution and the bin table do not
+// change, only the values.
+//
+// Two properties are reproduced rather than fixed:
+//   * the window is applied to raw bin indices and therefore ignores
+//     chromosome borders, so the last bins of one chromosome pick up counts
+//     from the first bins of the next
+//   * num_bins must be odd, which the Python asserts
+[[nodiscard]] CsrMatrix running_window(const CsrMatrix& matrix, std::int64_t num_bins);
+
 // hicMergeMatrixBins.merge_bins from the point where remove_nans_if_needed has
 // already run. Returns the merged matrix, the merged bin table and the nan
 // bins the Python recomputes as the all zero columns of the result. Correction

@@ -16,7 +16,8 @@ bool ends_with(const std::string& text, const std::string& suffix) {
 
 }  // namespace
 
-ToolMatrix ToolMatrix::load(const std::string& path) {
+ToolMatrix ToolMatrix::load(const std::string& path,
+                            const std::optional<std::string>& chromosome) {
     ToolMatrix result;
 
     // hicmatrix.HiCMatrix.__init__:47-51 picks the format from the file name
@@ -25,7 +26,9 @@ ToolMatrix ToolMatrix::load(const std::string& path) {
         result.data_ = read_hicexplorer_h5(path);
         result.input_is_h5_ = true;
     } else {
-        CoolLoadResult loaded = read_cool(path);
+        CoolLoadOptions load_options;
+        load_options.chrom_name = chromosome;
+        CoolLoadResult loaded = read_cool(path, load_options);
         result.data_ = std::move(loaded.data);
         result.cool_options_.correction_operator = loaded.correction_operator;
         result.cool_options_.hic2cool_version = loaded.hic2cool_version;
@@ -46,6 +49,10 @@ ToolMatrix ToolMatrix::load(const std::string& path) {
 
     result.boundaries_ = chrom_bin_boundaries(result.data_.cut_intervals);
     return result;
+}
+
+void ToolMatrix::refresh_boundaries() {
+    boundaries_ = chrom_bin_boundaries(data_.cut_intervals);
 }
 
 bool ToolMatrix::save(const std::string& path) {

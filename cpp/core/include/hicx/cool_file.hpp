@@ -96,6 +96,15 @@ struct CoolLoadOptions {
     // (cool.py:195-207), so the hic2cool and hicmatrix versions are not read
     // out of 'generated-by' either.
     std::optional<char> correction_operator;
+    // Cool.chrnameList holding exactly one name (cool.py:120-131, :156-161):
+    // only that chromosome's bins, pixels and weights are loaded, and the NaN
+    // bin heuristic runs on that block alone rather than on the whole matrix.
+    // hicAdjustMatrix takes this path for a single --chromosomes with
+    // --action keep on a cool input (hicAdjustMatrix.py:73-76), and it is
+    // observable: the block has more empty rows on its own than it has inside
+    // the whole matrix, so the NaN bin list is not the same one a whole file
+    // load followed by a selection would produce.
+    std::optional<std::string> chrom_name;
 };
 
 struct CoolLoadResult {

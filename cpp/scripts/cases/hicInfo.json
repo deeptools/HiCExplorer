@@ -7,6 +7,7 @@
     "outputs": [
       {"path": "{out}/stdout.txt", "format": "text", "class": "E0"}
     ],
+    "memory": {"alpha": 0.0, "beta": 0.0},
     "notes": "cool metadata path, bin-type variable so bin-size is null"
   },
   {
@@ -49,6 +50,7 @@
     "outputs": [
       {"path": "{out}/stdout.txt", "format": "text", "class": "E0"}
     ],
+    "memory": {"alpha": 0.0, "beta": 0.0},
     "notes": "79 MB cooler, 61.8 M pixels, metadata only"
   },
   {
@@ -70,6 +72,7 @@
     "outputs": [
       {"path": "{out}/stdout.txt", "format": "text", "class": "E0"}
     ],
+    "memory": {"alpha": 0.0, "beta": 0.0},
     "notes": "100 kb fixed bins, storage-mode symmetric-upper"
   },
   {
@@ -100,6 +103,7 @@
     "outputs": [
       {"path": "{out}/stdout.txt", "format": "text", "class": "E0"}
     ],
+    "memory": {"alpha": 0.0, "beta": 0.0},
     "notes": "second 100 kb replicate"
   },
   {
@@ -131,6 +135,7 @@
     "outputs": [
       {"path": "{out}/stdout.txt", "format": "text", "class": "E0"}
     ],
+    "memory": {"alpha": 0.0, "beta": 0.0},
     "notes": "two chromosomes, exercises chrBinBoundaries ordering"
   },
   {
@@ -163,6 +168,7 @@
     "outputs": [
       {"path": "{out}/stdout.txt", "format": "text", "class": "E0"}
     ],
+    "memory": {"alpha": 0.0, "beta": 0.0},
     "notes": "cooler with a weight column, 15 chromosomes"
   },
   {
@@ -183,6 +189,7 @@
     "outputs": [
       {"path": "{out}/stdout.txt", "format": "text", "class": "E0"}
     ],
+    "memory": {"alpha": 0.0, "beta": 0.0},
     "notes": "hic2cool file with KR, VC and VC_SQRT bin columns, 25 chromosomes"
   },
   {
@@ -213,6 +220,7 @@
     "outputs": [
       {"path": "{out}/stdout.txt", "format": "text", "class": "E0"}
     ],
+    "memory": {"alpha": 0.0, "beta": 0.0},
     "notes": "mcool with an explicit group, the resolutions are named /0 to /4"
   },
   {
@@ -233,6 +241,7 @@
     "outputs": [
       {"path": "{out}/stdout.txt", "format": "text", "class": "E0"}
     ],
+    "memory": {"alpha": 0.0, "beta": 0.0},
     "notes": "argparse help text at 80 columns"
   },
   {
@@ -243,6 +252,7 @@
     "outputs": [
       {"path": "{out}/stdout.txt", "format": "text", "class": "E0"}
     ],
+    "memory": {"alpha": 0.0, "beta": 0.0},
     "notes": "version string, must match hicexplorer/_version.py"
   },
   {
@@ -255,6 +265,7 @@
       {"path": "{out}/stdout.txt", "format": "text", "class": "E0"},
       {"path": "{out}/stderr.txt", "format": "text", "class": "E0"}
     ],
+    "memory": {"alpha": 0.0, "beta": 0.0},
     "notes": "argparse usage error, exit code 2"
   }
 ]

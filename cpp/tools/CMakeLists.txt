@@ -2,9 +2,12 @@
 # name must match a <name>.cpp in this directory and the Python tool it ports.
 
 set(HICX_TOOLS
+    hicAdjustMatrix
     hicCompareMatrices
     hicConvertFormat
     hicInfo
+    hicMergeMatrixBins
+    hicMergeTADbins
     hicSumMatrices)
 
 foreach(tool IN LISTS HICX_TOOLS)
