@@ -3,6 +3,10 @@
 Owner: supervising agent. Companion ledger: `cpp/STATUS.md`. Environment facts:
 `cpp/AGENTS_CONTRACT.md`. Date of this revision: 2026-09-01.
 
+v4 has three goals of equal standing: **numerical equivalence** with the Python
+reference, **reduced peak memory**, and speed. Memory is not a side effect of
+the rewrite; it is budgeted per tool and enforced by the harness (section 4).
+
 ## 1. What is being ported
 
 The Python reference in this worktree is HiCExplorer 3.7.7-dev: 46 tool modules
@@ -61,7 +65,9 @@ Struct-of-arrays because every consumer works column-wise (`zip(*cut_intervals)`
 appears in `hicMergeTADbins.py:56`, `hicPCA.py:307`, `hicCorrectMatrix.py`, and
 throughout `hicmatrix`), and because chrom names as an id vector makes the
 str/bytes coercion problem (`utilities.py:641 check_chrom_str_bytes`) disappear:
-one interning table, one comparison.
+one interning table, one comparison. It also removes a per-bin `std::string`,
+which on the 313,762-bin `GSM1436265` matrix is the difference between 10 MB of
+string headers and 1.2 MB of ids.
 
 `chrom_names` must preserve **file order**, not sorted order. `hicSumMatrices.py:52`
 compares `hic.chrBinBoundaries != hic_to_append.chrBinBoundaries` and aborts when
@@ -75,7 +81,8 @@ Python builds, per chromosome, an `intervaltree.IntervalTree` of
 are half-open **point** lookups (`tree[pos:pos+1]`, sorted, `[0].data`;
 `HiCMatrix.py:261-262`). No general interval-overlap query is ever used.
 
-Therefore an interval tree is the wrong data structure for the port. Bins within a
+Therefore an interval tree is the wrong data structure for the port, in time and
+in memory: `intervaltree` allocates a Python object per bin. Bins within a
 chromosome are contiguous and sorted, so:
 
 ```cpp
@@ -87,8 +94,8 @@ struct BinIndex {
 ```
 
 `bin_at` is `std::upper_bound(start.begin()+lo, start.begin()+hi, pos) - 1`,
-then a check that `pos < end[bin]`. O(log n) instead of O(log n) with allocation,
-and it removes the intervaltree dependency entirely. Two behaviours must be kept:
+then a check that `pos < end[bin]`. O(log n) with no allocation, and it removes
+the intervaltree dependency entirely. Two behaviours must be kept:
 
 - A chromosome that appears twice non-contiguously silently overwrites its tree
   and boundary entry in Python (`HiCMatrix.py:986-1020`). The C++ builder must
@@ -106,12 +113,17 @@ and **upper-triangular on disk**. `fillLowerTriangle`
 (`HiCMatrix.py:106-120`) symmetrizes on load with `m + triu(m,1).T`, and every
 writer re-imposes `triu(k=0)` (`cool.py:289`, `h5.py:118`, `ginteractions.py:21`).
 
+The C++ port keeps the **upper triangle in storage** and exposes symmetric
+access, which halves the resident matrix for every tool that does not genuinely
+need both triangles (section 4.4 rule 2).
+
 ```cpp
 template <class T>
-struct CsrMatrix {          // canonical: full symmetric, sorted indices, no explicit zeros
+struct CsrMatrix {          // sorted indices, no explicit zeros
   int64_t n = 0;            // square
+  bool    upper_only = true;// storage holds triu(k=0); access is symmetric
   std::vector<int64_t> indptr;   // n+1
-  std::vector<int32_t> indices;  // widen to int64 when n > INT32_MAX
+  std::vector<int32_t> indices;  // widened to int64 only when n > INT32_MAX
   std::vector<T>       data;
 };
 using CsrI32 = CsrMatrix<int32_t>;
@@ -121,7 +133,9 @@ using CsrF64 = CsrMatrix<double>;
 Rules the port must honour, because they are observable:
 
 1. **Duplicate pixel accumulation.** `csr_matrix((data,(i,j)))` sums duplicates
-   (`cool.py:95`, `hicpro.py:34`). The COO-to-CSR builder must sum, not overwrite.
+   (`cool.py:95`, `hicpro.py:34`). The builder must sum, not overwrite, and must
+   do so by sorting in place on a packed 64-bit `(row,col)` key and coalescing
+   forward, never through a triplet vector or a map (section 4.4 rule 4).
 2. **`eliminate_zeros()` before every write** (`cool.py:265`, `h5.py:121`). An
    explicit stored zero changes `nnz`, and `nnz` is printed by `hicInfo` and
    stored in the cool `nnz` attribute. Keep an explicit `eliminate_zeros()` and
@@ -174,6 +188,10 @@ detection in Python is **purely by filename suffix** (`HiCMatrix.py:49-52`:
 consequence that `f.mcool::/resolutions/10000` and `f.scool::/cells/x` go
 through the cool reader unchanged.
 
+Every reader decodes HDF5 chunks straight into the destination CSR arrays,
+preallocated from the `nnz` attribute; every writer emits chunk by chunk
+(section 4.4 rules 1 and 7).
+
 | format | read | write | notes |
 |---|---|---|---|
 | cool | yes | yes | HDF5, cooler schema v3 |
@@ -185,7 +203,7 @@ through the cool reader unchanged.
 | hicpro | yes | yes | 1-based triplet `.matrix` + `.bed` |
 | 2D-text | yes | no | read in `hicConvertFormat.py:155-163` only |
 | hic | via hic2cool | no | Juicer binary, section 3.6 |
-| npz | yes | yes | not a matrix format in the hicmatrix sense: `scipy.sparse.save_npz`/`load_npz` written by `hicAverageRegions.py:209` and read by `hicPlotAverageRegions.py:15`. It is a ZIP container holding `.npy` arrays (`format`, `shape`, `data`, `indices`, `indptr` for CSR). Implement a minimal `.npy`/`.npz` reader and writer in `core/src/io/npz.cpp`: stored (uncompressed) ZIP entries, `.npy` v1.0 header with a Python dict literal. This is small and self-contained, and it is the only way `hicAverageRegions` output stays readable by the existing Python plotting tool |
+| npz | yes | yes | not a matrix format in the hicmatrix sense: `scipy.sparse.save_npz`/`load_npz` written by `hicAverageRegions.py:209` and read by `hicPlotAverageRegions.py:15`. It is a ZIP container holding `.npy` arrays (`format`, `shape`, `data`, `indices`, `indptr` for CSR). Implement a minimal `.npy`/`.npz` reader and writer in `core/src/io/npz.cpp`: stored (uncompressed) ZIP entries, `.npy` v1.0 header with a Python dict literal. Small, self-contained, and the only way `hicAverageRegions` output stays readable by the existing Python plotting tool |
 
 #### cool
 
@@ -282,7 +300,7 @@ a third-party writer.
 
 | level | meaning | applies to |
 |---|---|---|
-| **L1 byte-identical** | `cmp` of the two files succeeds | homer, ginteractions, hicpro, all bedgraph/bed/tsv/txt outputs, `hicInfo` text |
+| **L1 byte-identical** | `cmp` of the two files succeeds | homer, ginteractions, hicpro, npz, all bedgraph/bed/tsv/txt outputs, `hicInfo` text |
 | **L2 HDF5-logically-identical** | same set of objects; same dtypes, shapes, fill values, chunk shapes and filter pipelines; every dataset decodes to bit-identical bytes; same attributes modulo the four normalised provenance fields | cool, mcool, scool |
 | **L3 HDF5-value-identical** | same objects, same dtypes and shapes; every dataset decodes to bit-identical values; chunk shape and filter parameters may differ | h5 |
 
@@ -325,8 +343,8 @@ Kernels that appear in more than one tool and therefore belong in `core`:
 | obs/exp (three variants) | `utilities.py:488 lieberman`, `:510 non_zero`, `:554 obs_exp_matrix` | per-diagonal means |
 | expected interactions | `utilities.py:293,317,341,356` | threaded in Python |
 | z-score matrix | `utilities.py:460`, `HiCMatrix.py:346-562` | per-diagonal mean and std |
-| Pearson / covariance of a dense per-chromosome matrix | `hicPCA.py:296,301` (`np.corrcoef`, `np.cov`), `hicTransform.py` | the memory blowup, section 4.2 |
-| dense eigendecomposition | `hicPCA.py:305` `scipy.linalg.eig` | section 5.4 |
+| Pearson / covariance of a dense per-chromosome matrix | `hicPCA.py:296,301` (`np.corrcoef`, `np.cov`), `hicTransform.py` | the memory blowup, section 4.3 |
+| dense eigendecomposition | `hicPCA.py:305` `scipy.linalg.eig` | sections 3.4, 5.4 |
 | `reduce_matrix` (bin merging) | `hicexplorer/reduceMatrix.py` | used by `hicMergeMatrixBins`, `hicMergeTADbins`, `hicBuildMatrix` |
 | negative-binomial pdf/cdf | `hicexplorer/lib/cnb.py:14,23` | `gammaln`, `betainc` |
 | negative-binomial MLE fit | `fit_nbinom` 1.2 | L-BFGS-B on the NB log-likelihood, section 3.5 |
@@ -356,7 +374,7 @@ regression unit test in `cpp/tests` and a note in `STATUS.md`.
    `reorderMatrix` do.
 4. **`hicPCA` uses `scipy.linalg.eig`, not `eigh`** (`hicPCA.py:305`), on a
    symmetric covariance matrix, and then takes columns `[k-1:k]` without sorting
-   by eigenvalue. See section 5.4.
+   by eigenvalue. See sections 5.4 and 5.8.
 5. **`hicMergeTADbins` clears `correction_factors` before saving**
    (`hicMergeTADbins.py:84`), by design.
 6. **cool `weight` NaN becomes 1.0 on write** (`convertNansToOnes`).
@@ -372,6 +390,8 @@ regression unit test in `cpp/tests` and a note in `STATUS.md`.
    `NaN bins`, because those keys are absent from `cooler_file.info`; the h5
    path prints those four and omits the cool-only ones. Any C++ `hicInfo` that
    "fixes" this by reporting one consistent number fails E0 on half the corpus.
+8. **`--perchr` KR emits different correction factors for `.h5` and `.cool`
+   output.** See section 3.3, point 1 of the call-site notes.
 
 ## 3. Dependency decisions
 
@@ -391,9 +411,11 @@ Use the **C API** (`hdf5.h`) behind a thin internal RAII wrapper in
    attributes, resizable datasets with explicit `maxshape`, and a
    **user-defined filter** (blosc, id 32001) registered via `H5Zregister`.
    All of that is plain C.
-2. `libhdf5_cpp` is a thin wrapper that throws `H5::Exception`, which mixes
+2. Chunk-level control is the basis of the streaming-IO memory rules
+   (section 4.4 rules 1, 7 and 9); `H5Pset_chunk_cache`, partial hyperslab reads
+   and appends to a resizable dataset are all C-API calls.
+3. `libhdf5_cpp` is a thin wrapper that throws `H5::Exception`, which mixes
    badly with the error model everything else in the port will use.
-3. Linking only `libhdf5` keeps the dependency surface minimal.
 
 HighFive was considered and rejected: it would be a `FetchContent` dependency
 that still requires dropping to the C API for the enum, the vlen strings and the
@@ -408,25 +430,27 @@ and to write `.h5` that PyTables can read.
 
 Do **not** build the matrix type on `Eigen::SparseMatrix`. Reasons:
 
-1. The hot kernels are not linear algebra. ICE is row/column scaling of a COO
-   triple; obs/exp is a per-diagonal reduction; `reduce_matrix` is a grouped
-   sum. All are trivially expressed on the CSR arrays directly, all are
+1. The hot kernels are not linear algebra. ICE is row/column scaling of the
+   stored triple; obs/exp is a per-diagonal reduction; `reduce_matrix` is a
+   grouped sum. All are trivially expressed on the CSR arrays directly, all are
    memory-bound, and all need to reproduce numpy's exact reduction order
    (section 5.2). Wrapping them in Eigen expressions makes the reduction order
    opaque, which is exactly the property that must stay explicit.
 2. The file layer needs the raw `indptr`/`indices`/`data` arrays anyway, since
    h5 stores them verbatim. An `Eigen::SparseMatrix` would have to be
-   round-tripped to those arrays at every boundary.
-3. The one place a real sparse solver would help does not exist: no tool solves
+   round-tripped to those arrays at every boundary, which is a full copy each
+   way. The krbalancing memory analysis in section 4.3 is a direct demonstration
+   of what that costs.
+3. `Eigen::SparseMatrix<double, ColMajor, int64_t>` spends 16 bytes per nonzero
+   against 12 for `CsrF64` with int32 indices, a 33 % penalty that applies to
+   every matrix in the process.
+4. The one place a real sparse solver would help does not exist: no tool solves
    a sparse system.
 
-Eigen **is** used in two places, both mandated by external code:
-`krbalancing` (section 3.3) and any dense LAPACK-adjacent work in `hicPCA`
-(section 3.4), where Eigen is the least painful way to hold a dense
-column-major block. `Eigen::SparseMatrix<double,0,long>` types appear only at
-the krbalancing boundary.
+Eigen **is** used for dense blocks in `hicPCA` and `hicTransform`, where it is
+the least painful way to hold a column-major panel and hand it to LAPACK.
 
-### 3.3 KR balancing: vendor the krbalancing C++ source
+### 3.3 KR balancing
 
 `krbalancing` 0.0.5 is **already C++**. `nm -DC` on the installed
 `krbalancing.cpython-312-x86_64-linux-gnu.so` shows
@@ -437,57 +461,127 @@ Eigen::Ref<Matrix<double,-1,1>>)`, `computeKR`, `inner_loop`, `outer_loop`,
 `get_normalisation_vector(bool&)`, over `Eigen::SparseMatrix<double,0,long>`.
 It is a pybind11 shell over an Eigen implementation.
 
-**Decision: vendor the upstream C++ source (deeptools/Knight-Ruiz-Matrix-balancing-algorithm)
-into `cpp/core/src/math/krbalancing/` and call it directly, dropping pybind11.**
-This is the single highest-leverage decision in the plan: it makes KR
-bit-identical by construction rather than by tolerance, and removes the only
-compute kernel that would otherwise have to be reverse-engineered from a binary.
-The call site to reproduce is `hicCorrectMatrix.py:718-731` (per chromosome) and
-`:744-752` (whole matrix); note the interface takes CSR `indptr`/`indices` as
-`int64` and `data` as `float64`, and that `get_normalisation_vector(True)` is used
-for the whole-matrix path while `get_normalisation_vector(False)` is used per
-chromosome (`hicCorrectMatrix.py:730` vs `:753`).
+**Decision: reimplement the algorithm in `cpp/core/src/math/kr/`, using the
+upstream source (deeptools/Knight-Ruiz-Matrix-balancing-algorithm, 363 lines,
+fetched and read at `scratchpad/krb/src/krbalancing.{hpp,cpp}`, confirmed to be
+the 0.0.5 that matches the installed `krbalancing-0.0.5-py312h28adbb1_9`) as the
+specification of the iteration, but not vendoring it verbatim.**
 
-Fallback if the source cannot be fetched through the proxy: reimplement
-Knight-Ruiz from the paper and accept L3 float tolerance for KR only,
-recorded in `STATUS.md`.
+An earlier revision of this plan said vendoring it would make KR "bit-identical
+by construction". **That was wrong**, for two independent reasons found by
+reading the source and by measurement:
+
+- The upstream code downcasts the float64 input to **float32** on ingestion
+  (`krbalancing.cpp:12` `typedef Eigen::Triplet<float> T;`, `:27`
+  `float(input_values(j_start))`) and then stores it into a float64 sparse
+  matrix. HiCExplorer's KR balances a float32-rounded matrix today.
+- `rescale_norm_vector` accumulates `original_sum` and `norm_vector_sum` as
+  **`float`** (`krbalancing.cpp:228-229`) over every stored value, inside an
+  `omp parallel for` whose body is wrapped in `omp critical` (`:233-250`). The
+  critical section serialises the additions but does **not** fix their order, so
+  a float32 sum of tens of millions of terms accumulates in a
+  thread-scheduling-dependent order. **The result is that HiCExplorer's KR is not
+  reproducible run to run.**
+
+Measured, on this machine, against the reference oracle:
+
+| input | runs | normalisation factors observed |
+|---|---|---|
+| `Li_et_al_2015.h5`, 11,104 bins, 1.66 M stored nonzeros | 6 | 0.0190883, 0.0190885, 0.0190887, 0.0190889, 0.0190894, 0.0190899 |
+| `hicTADClassifier/gm12878_chr1.cool`, 24,926 bins, 61.8 M stored nonzeros | 3 | 0.00660838, 0.00663618, 0.00666417 |
+
+Comparing the five `Li` output matrices pairwise: the sparsity pattern is stable
+across runs, but the **maximum pairwise relative difference is 1.503e-04 on the
+matrix values and 7.513e-05 on the correction factors**, and the matrix sum
+ranges over 18,525,884.7 to 18,528,668.8. On the 20x larger `gm12878_chr1`
+matrix the normalisation factor alone spans **8.4e-03 relative**, close to one
+percent, which is what a float32 accumulator over 61.8 M terms in an arbitrary
+order produces.
+
+So there is no bit-identical target to hit. This drives the equivalence class
+for KR (section 5.7) and makes KR the one place where the port ships two modes
+(section 5.8).
+
+Two further defects in the upstream source that the port must decide about:
+
+- The whole body of the loop in `compute_normalised_matrix` (`:212-221`) is also
+  inside `omp critical`, but that loop only does
+  `it.valueRef() = it.value() * x.coeff(row) * x.coeff(col)`, a pure elementwise
+  in-place update with no shared state. The critical section there is pure
+  serialisation with no correctness role, and `num_threads` is a hardcoded
+  global of 10 (`krbalancing.hpp:29`) that no caller can change.
+- `outer_loop` calls `exit(0)` after 300 outer iterations
+  (`krbalancing.cpp:115-119`), after printing the entire `x` vector to stdout
+  (it also prints it at 100 and 200). A library that terminates the host process
+  with a **success** status on non-convergence: HiCExplorer exits 0 and writes no
+  output file. The port raises an error instead; this is a deliberate deviation,
+  recorded in `STATUS.md`, and it is worth reporting upstream.
+
+The call site to reproduce is `hicCorrectMatrix.py:715-732` (per chromosome) and
+`:743-755` (whole matrix). Note three things about it:
+
+1. `get_normalisation_vector(True)` is used for the whole matrix (`:753`) but
+   `get_normalisation_vector(False)` per chromosome (`:731`). Since
+   `rescale_norm_vector()` is only triggered by `get_normalised_matrix(True)`,
+   and that is only called when the output name ends in `.h5` (`:726`),
+   **`--perchr` KR emits rescaled correction factors for `.h5` output and
+   unrescaled ones for `.cool` output.** The same command with a different output
+   extension produces correction factors differing by the per-chromosome
+   normalisation factor. This is a defect, it is observable, and compat mode
+   must reproduce it. It is also on a code path the Python suite never runs.
+2. `chr_submatrix.count_nonzero()` is passed as `input_nnz` (`:719`) while the
+   constructor's loop is driven by `indptr`, so if the CSR holds any explicit
+   zeros the `triplets.reserve(input_nnz)` under-reserves and the vector
+   reallocates, transiently doubling its footprint.
+3. `.indices.astype(np.int64, copy=False)` (`:722`) and
+   `.data.astype(np.float64, copy=False)` (`:724`) both **do** copy, because the
+   dtypes differ from the CSR's int32 and (for a raw cool) int32. `copy=False`
+   only permits avoiding a copy, it does not achieve one. On the 123.6 M-nonzero
+   matrix of section 4.3 those two lines cost 989 MB each.
+
+The float32 downcast deserves one nuance: raw Hi-C bin counts are integers well
+below 2^24, so `float(x)` is exact for them and the downcast is inert on the
+normal input. It only changes results when KR is applied to an already-float
+matrix, which the corpus does contain (`Li_et_al_2015.h5` holds float64 values
+from 0.170 to 1914.015). The float32 *accumulator*, by contrast, bites on every
+input and is what produces the nondeterminism measured above.
 
 ### 3.4 Dense eigendecomposition and BLAS
 
 Link OpenBLAS from `$HICX_DEPS` (`libopenblasp-r0.3.28.so`, which is what numpy
-and scipy in that env are built against) and call LAPACK `dgeev` directly for
-`hicPCA`, and `dsyevr`/`dpotrf` nowhere (nothing needs them). Using the *same*
+and scipy in that env are built against) and call LAPACK directly:
+`dgeev` for `hicPCA` compatibility mode, `dsyevr` with `range='I'` for its
+corrected mode, `dsyrk` for the Pearson and covariance kernels. Using the *same*
 OpenBLAS build as the oracle is what makes the eigenvector column order and
-signs match (section 5.4). Do not use Eigen's own `EigenSolver`: it is a
-different algorithm and will not reproduce LAPACK's output ordering.
+signs match in compatibility mode (section 5.4). Do not use Eigen's own
+`EigenSolver`: it is a different algorithm and will not reproduce LAPACK's output
+ordering.
 
 ### 3.5 The remaining Python-only dependencies
 
 | Python dependency | used by | C++ decision |
 |---|---|---|
-| `pysam` | `lib/buildMatrixMethods.py` only | **htslib 1.21 directly.** `pysam` is a Cython wrapper over the same library. Read BAM with `sam_open`/`sam_hdr_read`/`bam_read1`, use `bam_aux_get` for `SA`/`NM`, and the `bam1_core_t` flags. Mate-pair iteration in `readBamFiles` (`buildMatrixMethods.py:458`) assumes name-sorted paired BAMs read in lockstep, which maps directly. |
-| `krbalancing` | `hicCorrectMatrix` | vendor the C++ source, section 3.3 |
-| `pyBigWig` | `hicPCA` (read `--extraTrack`, write `.bw`), `hicPlotMatrix` (read), `chicExportData` (write) | **vendor libBigWig** (the C library pyBigWig wraps; `FetchContent` from GitHub, MIT). Writing bigWig by hand is not worth it: the zoom-level and R-tree index construction is fiddly and libBigWig is the exact code the oracle runs. |
-| `pybedtools` | `hicMergeLoops` (`BedTool.merge`), `hicValidateLocations`, `chicSignificantInteractions:515`, `lib/tadClassifier.py` | **reimplement.** Only `BedTool(...)`, `.sort()`, `.merge()` and `.intersect()` on small in-memory interval sets are used. That is 200 lines of sort-and-sweep and avoids a `bedtools` binary dependency at runtime. Sort order must match bedtools' lexicographic chrom sort, which is *not* the matrix chrom order; this is the likeliest source of ordering diffs and gets a dedicated unit test. |
-| `fit_nbinom` | `hicDetectLoops:161`, `chicViewpointBackgroundModel:234` | **reimplement.** It is 60 lines: the NB log-likelihood with `gammaln`, its analytic gradient with `psi`, and `scipy.optimize.fmin_l_bfgs_b` from an initial `(r, p)`. Port the likelihood and gradient verbatim, and vendor a L-BFGS-B implementation (the original Nocedal Fortran translation, or `LBFGSpp` via FetchContent). Different L-BFGS-B stopping behaviour is the main risk; this is why `hicDetectLoops` and `chicViewpointBackgroundModel` get loose tolerances (section 5.5). |
-| `scipy.special` (`gammaln`, `psi`, `betainc`) | `lib/cnb.py`, `fit_nbinom` | **vendor Cephes.** scipy's `gammaln`, `psi` and `betainc` are Cephes routines; using the same Cephes source gives bit-identical results, whereas `std::lgamma` does not agree with Cephes in the last ulp. This matters because `cnb.cdf` feeds p-value thresholds that get compared against fixed cutoffs. |
-| `scipy.stats.ranksums` | `hicDetectLoops`, `hicFindTADs`, `hicDifferentialTAD` | reimplement: rank transform with tie averaging, normal approximation, `erfc`-based two-sided p-value. Deterministic and easy to match exactly. |
-| `scipy.stats.anderson_ksamp` | `hicDetectLoops` | reimplement the Scholz-Stephens k-sample statistic and scipy's interpolation table for the p-value. Table values must be copied from scipy's source. |
-| `scipy.stats.fisher_exact`, `scipy.stats.chi2_contingency`, `scipy.stats.chi2.ppf` | `chicDifferentialTest.py:91-130` | reimplement. Fisher on a 2x2 table is the hypergeometric tail sum; `chi2_contingency` is the Pearson statistic with Yates correction plus the chi2 survival function; `chi2.ppf` is the inverse regularised lower incomplete gamma. All three go through Cephes `igam`/`igamc`/`igami`, so vendoring Cephes covers them |
-| `scipy.stats.pearsonr`, `scipy.stats.spearmanr` | `hicPCA.py:6`, `hicCorrelate.py` | reimplement; Spearman needs the same tie-averaged ranking as `ranksums` |
+| `pysam` | `lib/buildMatrixMethods.py` only | **htslib 1.21 directly.** `pysam` is a Cython wrapper over the same library. Read BAM with `sam_open`/`sam_hdr_read`/`bam_read1`, use `bam_aux_get` for `SA`/`NM`, and the `bam1_core_t` flags. Mate-pair iteration in `readBamFiles` (`buildMatrixMethods.py:458`) assumes name-sorted paired BAMs read in lockstep, which maps directly, and lets the port stream rather than buffer whole mate blocks |
+| `krbalancing` | `hicCorrectMatrix` | reimplement from the upstream source, section 3.3 |
+| `pyBigWig` | `hicPCA` (read `--extraTrack`, write `.bw`), `hicPlotMatrix` (read), `chicExportData` (write) | **vendor libBigWig** (the C library pyBigWig wraps; `FetchContent` from GitHub, MIT). Writing bigWig by hand is not worth it: the zoom-level and R-tree index construction is fiddly and libBigWig is the exact code the oracle runs |
+| `pybedtools` | `hicMergeLoops` (`BedTool.merge`), `hicValidateLocations`, `chicSignificantInteractions:515`, `lib/tadClassifier.py` | **reimplement.** Only `BedTool(...)`, `.sort()`, `.merge()` and `.intersect()` on small in-memory interval sets are used. That is 200 lines of sort-and-sweep and avoids a `bedtools` binary dependency at runtime. Sort order must match bedtools' lexicographic chrom sort, which is *not* the matrix chrom order; this is the likeliest source of ordering diffs and gets a dedicated unit test |
+| `fit_nbinom` | `hicDetectLoops:161`, `chicViewpointBackgroundModel:234` | **reimplement.** It is 60 lines: the NB log-likelihood with `gammaln`, its analytic gradient with `psi`, and `scipy.optimize.fmin_l_bfgs_b` from an initial `(r, p)`. Port the likelihood and gradient verbatim, and vendor a L-BFGS-B implementation (the original Nocedal Fortran translation, or `LBFGSpp` via FetchContent). Different L-BFGS-B stopping behaviour is the main risk; this is why `hicDetectLoops` and `chicViewpointBackgroundModel` get loose tolerances (section 5.3) |
+| `scipy.special` (`gammaln`, `psi`, `betainc`) | `lib/cnb.py`, `fit_nbinom` | **vendor Cephes.** scipy's `gammaln`, `psi` and `betainc` are Cephes routines; using the same Cephes source gives bit-identical results, whereas `std::lgamma` does not agree with Cephes in the last ulp. This matters because `cnb.cdf` feeds p-value thresholds that get compared against fixed cutoffs |
+| `scipy.stats.ranksums` | `hicDetectLoops`, `hicFindTADs`, `hicDifferentialTAD` | reimplement: rank transform with tie averaging, normal approximation, `erfc`-based two-sided p-value. Deterministic and easy to match exactly |
+| `scipy.stats.anderson_ksamp` | `hicDetectLoops` | reimplement the Scholz-Stephens k-sample statistic and scipy's interpolation table for the p-value. Table values must be copied from scipy's source |
+| `scipy.stats.fisher_exact`, `chi2_contingency`, `chi2.ppf` | `chicDifferentialTest.py:91-130` | reimplement. Fisher on a 2x2 table is the hypergeometric tail sum; `chi2_contingency` is the Pearson statistic with Yates correction plus the chi2 survival function; `chi2.ppf` is the inverse regularised lower incomplete gamma. All three go through Cephes `igam`/`igamc`/`igami`, so vendoring Cephes covers them |
+| `scipy.stats.pearsonr`, `spearmanr` | `hicPCA.py:6`, `hicCorrelate.py` | reimplement; Spearman needs the same tie-averaged ranking as `ranksums` |
 | `scipy.cluster.hierarchy.linkage`, `dendrogram` | `hicCorrelate.py:151,164` (`method='complete'`), `hicMergeDomains.py` | reimplement complete-linkage agglomerative clustering and the dendrogram leaf ordering. The leaf order determines the row order of `hicCorrelate`'s heatmap, so it is observable in the image, not just internal |
-| `sklearn.cluster` (`KMeans`, hierarchical, spectral) | `hicAggregateContacts.py:16,553` | `KMeans(n_clusters=k, random_state=0)` is sklearn's k-means++ with a fixed seed, 10 restarts, Elkan or Lloyd depending on data. Reproducing it exactly means reproducing sklearn's RNG stream (`check_random_state(0)` -> numpy `RandomState` Mersenne Twister) and its k-means++ candidate selection. **Decision: reimplement k-means++ against numpy's `RandomState(0)` stream**, which is portable (MT19937 is fully specified) and is the only sklearn algorithm the port needs. Hierarchical and spectral clustering in the same tool fall back to the `scipy.cluster.hierarchy` reimplementation and to a dense eigendecomposition |
+| `sklearn.cluster` (`KMeans`, hierarchical, spectral) | `hicAggregateContacts.py:16,553` | `KMeans(n_clusters=k, random_state=0)` is sklearn's k-means++ with a fixed seed. Reproducing it exactly means reproducing sklearn's RNG stream (`check_random_state(0)` -> numpy `RandomState` MT19937) and its k-means++ candidate selection. **Decision: reimplement k-means++ against numpy's `RandomState(0)` stream**, which is portable because MT19937 is fully specified, and is the only sklearn algorithm the port needs. Hierarchical and spectral clustering in the same tool fall back to the `scipy.cluster.hierarchy` reimplementation and to a dense eigendecomposition |
 | `scipy.ndimage.rotate` | `hicPlotAverageRegions.py:15` | spline-interpolated affine rotation; part of the plotting shell (tier 7), so it stays in Python |
 | `graphviz.Digraph` | `hicMergeDomains.py` (`create_tree`:267) | emit the DOT source directly (it is a text format) and shell out to `dot` only when a rendered image is requested. `python-graphviz` itself does exactly that |
 | `Bio.SeqIO`, `Bio.Seq` | `hicFindRestSite.py`, `buildMatrixMethods.py:27` | reimplement: a streaming FASTA reader (plain and gzip) and reverse-complement with IUPAC codes. `hicFindRestSite` also shells out to the external `sort` binary (`hicFindRestSite.py:115,121`); the C++ version sorts in memory, which changes nothing observable as long as the comparison key matches GNU `sort`'s default byte order under `LC_ALL=C` |
 | `unidecode` | `utilities.py:702 remove_non_ascii` | only used for QC report text; a 30-line ASCII-fold table covers the cases that occur |
-| `scipy.signal` | none found | not a dependency |
-| `matplotlib`, `pygenometracks` | 8 plotting tools plus the plot step of `hicAggregateContacts`, `hicPlotSVL` and `hicCorrectMatrix --diagnostic_plot`; also `utilities.py:7-8` calls `matplotlib.use('Agg')` at package import, so the backend is fixed for every tool | tier 7 of section 6 |
-| `imblearn`, `cleanlab`, most of `sklearn` | `lib/tadClassifier.py` | tier 8 of section 6. `sklearn.cluster` in `hicAggregateContacts` is separate and is reimplemented, see the row above |
-| `hyperopt` | `hicHyperoptDetectLoops`, `hicHyperoptDetectLoopsHiCCUPS` | tier 8 of section 6 |
-| `Bio.Seq` | `buildMatrixMethods.py:27` (reverse complement of restriction sequences) | 20 lines, reimplement |
-| `intervaltree` | `hicmatrix`, `buildMatrixMethods.py:25` | replaced by `BinIndex` (section 2.2); `buildMatrixMethods` needs a real interval tree for restriction fragments, use a sorted-vector + binary search since fragments are non-overlapping |
+| `intervaltree` | `hicmatrix`, `buildMatrixMethods.py:25` | replaced by `BinIndex` (section 2.2); `buildMatrixMethods` needs a real interval lookup for restriction fragments, use a sorted vector plus binary search since fragments are non-overlapping |
 | `pandas` | many tools, mostly for TSV/bedgraph IO and cooler frames | no dependency; the port writes those files directly. Where pandas' float formatting is observable (`to_csv` default `repr`-shortest), the writer must use shortest-round-trip formatting (`std::to_chars`), section 5.6 |
+| `matplotlib`, `pygenometracks` | 8 plotting tools plus the plot step of `hicAggregateContacts`, `hicPlotSVL` and `hicCorrectMatrix --diagnostic_plot`; also `utilities.py:7-8` calls `matplotlib.use('Agg')` at package import, so the backend is fixed for every tool | tier 7 of section 6 |
+| `imblearn`, `cleanlab`, most of `sklearn` | `lib/tadClassifier.py` | tier 8 of section 6 |
+| `hyperopt` | `hicHyperoptDetectLoops`, `hicHyperoptDetectLoopsHiCCUPS` | tier 8 of section 6 |
 | `hic2cool` | `hicConvertFormat` (`hic` input) | section 3.6 |
 
 ### 3.6 `.hic` input
@@ -504,34 +598,43 @@ compression with zlib) and reading it is a few hundred lines. Do not shell out t
 Python. Until it is ported, `hicConvertFormat` reports "hic input not yet
 supported" and `STATUS.md` records the gap; it must not silently succeed.
 
-## 4. Threading and memory
+## 4. Threading and memory (memory is a v4 goal, not a side effect)
+
+Reduced peak memory is a first-class objective of v4, alongside equivalence and
+speed, and it is enforced rather than hoped for: every tool carries a numeric
+budget in `STATUS.md`, and the equivalence harness fails a tool whose C++ peak
+RSS exceeds it (sections 4.5, 8.3, 9.4). The Python reference routinely spends
+five to twelve times the size of the data it operates on, and in two places that
+is the difference between a run that fits on a workstation and one that does not.
 
 32 cores are available. The Python code parallelises with `multiprocessing`
-(`Process` + `Queue`, and `multiprocessing.sharedctypes.RawArray`), which forces
-serialisation of results and, for `hicDetectLoops` and `hicBuildMatrix`, copies
-of large arrays per worker.
+(`Process` + `Queue`, `multiprocessing.sharedctypes.RawArray`, and a `Pool` in
+`hicFindTADs.py:1107`), which forces serialisation of results and, for
+`hicDetectLoops` and `hicBuildMatrix`, a copy of large arrays per worker.
 
 ### 4.1 Threading model
 
-- **One process, `std::jthread` + a small fixed thread pool** in
-  `core/include/hicx/parallel.hpp`. No OpenMP: the env's `libgomp` is already
-  loaded by krbalancing, and mixing an OpenMP runtime with an explicit pool
-  invites oversubscription. Where krbalancing's own OpenMP loops run, set
-  `omp_set_num_threads` from the tool's `--threads` value.
+- **One process, `std::jthread` plus a small fixed thread pool** in
+  `core/include/hicx/parallel.hpp`. No OpenMP as the primary mechanism: mixing an
+  OpenMP runtime with an explicit pool invites oversubscription. This is also a
+  memory decision: threads share the one matrix, whereas the Python's forked
+  workers each accumulate their own dirty pages (section 4.4 rule 8).
 - **Determinism is a hard requirement.** Every parallel reduction must produce
   the same result for any thread count. The rule: partition by a *fixed* index
   range (chromosome, diagonal, bin1 chunk), reduce within a partition
   sequentially, and combine partitions in index order. Never accumulate into a
   shared float. This is checkable and is checked: the harness runs every
   threaded tool at `--threads 1` and `--threads 16` and requires byte-identical
-  output (contract rule: the falcoAmadeus precedent, `-tN == -t1`).
-- Per-tool `--threads` defaults must match the Python defaults exactly, since
-  some Python tools change *results* with thread count (a bug the port should
-  not inherit; where it exists, record it).
+  output (contract rule, the falcoAmadeus precedent: `-tN == -t1`).
+  The KR measurement in section 3.3 is what this rule exists to prevent: the
+  Python reference violates it and is not reproducible against itself.
+- Per-tool `--threads` defaults must match the Python defaults exactly.
 
-### 4.2 Memory
+### 4.2 Measured baselines
 
-The known blowups, measured on this machine against the reference env:
+All measured on this machine against the reference oracle
+(`PYTHONPATH=$PWD $SP/hicx-venv/bin/python bin/<tool>`), peak RSS from
+`/usr/bin/time -f "%e %M"`.
 
 | run | wall | peak RSS |
 |---|---|---|
@@ -541,38 +644,216 @@ The known blowups, measured on this machine against the reference env:
 | `hicTransform --method obs_exp Li_et_al_2015.h5` | 1.32 s | 305 MB |
 | `hicCorrectMatrix correct --correctionMethod KR` Li | 1.31 s | 486 MB |
 | `hicCorrectMatrix correct --correctionMethod ICE` Li | 13.59 s | 396 MB |
-| `hicTransform --method pearson Li_et_al_2015.h5` | 26.45 s | **5.15 GB** |
+| `hicTransform --method pearson Li_et_al_2015.h5` | 26.45 s | **5,150 MB** |
+| `hicCorrectMatrix correct --correctionMethod KR` gm12878_chr1.cool -> .cool | 91.6 s | **9,280 MB** |
+| `hicCorrectMatrix correct --correctionMethod KR` gm12878_chr1.cool -> .h5 | 106.0 s | **9,199 MB** |
+| `hicCorrectMatrix correct --correctionMethod ICE` gm12878_chr1.cool -> .cool | 711.2 s | **9,064 MB** |
+| `hicPCA --whichEigenvectors 1 2` mm9_reduced_chr1.cool (9,760 bins, 722 KB input) | 471.2 s | **4,070 MB** |
 
-`Li_et_al_2015.h5` is 11,104 bins on one chromosome with 3,313,107 nonzeros
-(2.7 % dense). The pearson path allocates the dense per-chromosome matrix
-(11,104^2 x 8 B = 987 MB), then `np.corrcoef` of it, then a `lil_matrix`
-accumulator, then a CSR copy: five to six live copies, and it writes a 370 MB
-`.h5`. Scaled to `test_data/hicTADClassifier/gm12878_chr1.cool` (24,926 bins,
-61.8 M nonzeros) the same path needs about 5 GB per dense copy, so over 25 GB.
-That is the memory bug to fix, and it is fixable without changing results:
+Working-set sizes of the inputs, for reference:
 
-1. Hold the dense per-chromosome block **once**, column-major, in a single
-   `std::vector<double>`, and compute Pearson in place (centre columns, scale by
-   the column norms, then one `dsyrk`). One dense copy instead of five.
-2. Stream the result straight into the output CSR: for a Pearson matrix the
-   result is dense, so build `indptr`/`indices` analytically and fill `data`
-   row by row rather than going through a LIL accumulator.
-3. Never call `todense()` on a whole-genome matrix. Every `todense()` in the
-   Python source is per chromosome; keep it that way and assert it.
+| matrix | bins | stored (upper-triangle) nonzeros | symmetric nonzeros | CSR working set `W` (float64 values, int32 indices) |
+|---|---|---|---|---|
+| `Li_et_al_2015.h5` | 11,104 | 1,661,678 | 3,313,107 | 19.9 MB stored / 39.8 MB symmetric |
+| `hicPCA/mm9_reduced_chr1.cool` | 9,760 | 470,730 | - | 5.6 MB |
+| `hicTADClassifier/gm12878_chr1.cool` | 24,926 | 61,804,782 | 123,587,194 | **741.9 MB** stored / 1,483 MB symmetric |
 
-Note that fixing this changes the reduction order relative to `np.corrcoef`, so
-the Pearson and covariance outputs move from bit-identical to float-tolerant.
-That is an accepted, recorded trade (section 5.3).
+Note the shape of the KR and ICE rows: 9.2 and 9.1 GB for a matrix whose stored
+form is 742 MB. Both correction methods cost roughly 12x their data.
 
-Other memory rules:
+### 4.3 Where the Python memory goes
 
-- Read cool pixels in chunks, as the Python does (`nbins//32` bin1-chunks,
-  `cool.py:65-105`), into arrays preallocated to the `nnz` attribute. Never
-  materialise a pandas-like frame.
-- `mmap` is not used for HDF5; rely on the HDF5 chunk cache, sized explicitly
-  with `H5Pset_chunk_cache` to at least a chunk row.
-- The tool binaries must report peak RSS on `--verbose` so the perf harness
-  does not have to guess.
+Two blowups dominate, and both are fully accounted for.
+
+**KR on `gm12878_chr1.cool`: 9,199 MB against a 742 MB working set, a factor of
+12.4.** The accounting, from `hicCorrectMatrix.py:743-755` and
+`krbalancing.cpp:10-49`:
+
+| allocation | site | size |
+|---|---|---|
+| CSR from cool, int32 counts + int32 indices | `cool.py` load | 988 MB |
+| `.data.astype(np.float64)` (the source is int32, so `copy=False` cannot help) | `hicCorrectMatrix.py:747` | 989 MB |
+| `.indices.astype(np.int64)` | `hicCorrectMatrix.py:746` | 989 MB |
+| `std::vector<Eigen::Triplet<float>>`, 12 B per entry | `krbalancing.cpp:13-14,26` | 1,483 MB |
+| `A.reserve(input_nnz)` on `SparseMatrix<double,ColMajor,int64_t>`, 16 B per entry | `krbalancing.cpp:11` | 1,978 MB |
+| `setFromTriplets`' internal transposed intermediate | `krbalancing.cpp:32` | 1,978 MB |
+| the temporary from `A = A + I` | `krbalancing.cpp:47` | 1,978 MB |
+| interpreter, HDF5, buffers | | ~300 MB |
+
+Not all peak simultaneously, but enough of them do. Two details make it worse
+than it looks: `triplets.clear()` at `krbalancing.cpp:35` does **not** release the
+vector's capacity, so the 1,483 MB is still resident during the `A = A + I` copy
+at `:47`; and the whole staging is pure waste, because the caller already holds
+the matrix in CSR, the matrix is symmetric so CSR equals CSC, and the constructor
+could take an `Eigen::Map` over the caller's arrays and allocate nothing at all.
+
+A separable point about the same source: the working vectors `x`, `v`, `p`, `Z`,
+`rho_km1`, `rho_km2` are declared `SparseMatrixCol`, that is n-by-1 sparse
+matrices, although they are dense from the first iteration
+(`x = e.sparseView()` where `e` is all ones). At 16 bytes per element against 8
+that is real but small: six vectors over 24,926 bins is 2.4 MB against 1.2 MB.
+The cost is **time**, not memory: `x.coeff(row, 0)` in the hot loop of
+`compute_normalised_matrix` is a binary search per access, executed twice per
+stored nonzero, and `A * (x.cwiseProduct(p))` in the inner loop is a general
+sparse-times-sparse product where a sparse-times-dense matvec would do. The port
+holds these as `std::vector<double>` for both reasons, but the memory saving is
+not the argument.
+
+**`hicTransform --method pearson` on `Li_et_al_2015.h5`: 5,150 MB against a
+19.9 MB working set, a factor of 259.** The per-chromosome path densifies
+(11,104^2 x 8 B = 987 MB), then `np.corrcoef` of that, then a `lil_matrix`
+accumulator, then a CSR copy: five to six live copies of a 987 MB block. Scaled
+to `gm12878_chr1.cool` the dense block alone is 4.97 GB, so the same path needs
+over 25 GB.
+
+Smaller but systematic contributors elsewhere:
+
+- `corrected_matrix = lil_matrix(ma.matrix.shape)` at `hicCorrectMatrix.py:700`
+  is allocated unconditionally. Empty it costs only two object arrays of `nbins`
+  pointers, and on the whole-matrix path it is discarded unfilled, so it does not
+  show up in the measurements above. On the `--perchr` path with `.h5` output it
+  **is** filled, and LIL costs roughly 60 bytes per nonzero against 12 in CSR.
+  That path is untested by the Python suite (`STATUS.md`), which is presumably
+  why nobody has hit it.
+- `chr_submatrix = ma.matrix[a:b, a:b]` (`hicCorrectMatrix.py:707`) copies each
+  chromosome block out of the whole-genome CSR while the whole-genome CSR stays
+  live.
+- Every `multiprocessing.Process` worker in `hicDetectLoops` and
+  `hicBuildMatrix` gets a copy-on-write fork of the parent and then writes to its
+  share, so the resident set multiplies by the number of workers.
+
+### 4.4 Cross-cutting memory rules
+
+These apply to every tool, not only the two above. They are design constraints on
+`libhicx4`, checked by code review and by the harness budget (4.5).
+
+1. **Zero-copy ingestion.** The file layer decodes HDF5 chunks directly into the
+   destination `CsrMatrix`'s `indptr`/`indices`/`data` vectors, preallocated from
+   the `nnz` attribute. No triplet vector, no COO staging, no intermediate frame,
+   no `astype`-style dtype copy: the reader converts while decoding, in one pass.
+   Where an on-disk dtype differs from the in-memory one (int32 counts to
+   float64), the conversion happens chunk by chunk into the final buffer.
+2. **Upper-triangle storage is the default representation.** `Matrix` holds the
+   upper triangle and a symmetry flag, and every kernel that needs a full row
+   uses a symmetric access helper rather than materialising the mirror. This
+   halves the resident matrix everywhere. `fillLowerTriangle` semantics
+   (`HiCMatrix.py:106-120`) are preserved at the API level, not in storage.
+   Tools that genuinely need both triangles materialised, and must declare it:
+   `hicAdjustMatrix` (`reorderBins` permutes rows and columns independently),
+   `hicTransform --method pearson|covariance` and `hicPCA` (both densify per
+   chromosome anyway), `hicFindTADs` (its sliding-window cut weights read
+   arbitrary off-diagonal blocks), `hicDetectLoops` (neighbourhood windows
+   straddle the diagonal), and `hicAggregateContacts` (submatrix extraction
+   around arbitrary bed pairs). Everything else stays triangular.
+3. **Index width from the bin count.** `indices` is `int32` while
+   `nbins <= INT32_MAX` and `int64` above it, decided once at load. Never
+   promote to `int64` to satisfy a callee's signature; that single habit costs
+   989 MB in the KR path.
+4. **No intermediate staging structures anywhere.** No triplet vectors, no
+   LIL-equivalent, no `std::map`-keyed accumulator. Where duplicate pixels must
+   be summed (section 2.3 rule 1), sort in place on a packed 64-bit
+   `(row, col)` key and coalesce forward.
+5. **Streaming per chromosome.** Any tool whose Python form loops over
+   chromosomes processes one chromosome's submatrix at a time and releases it
+   before the next, rather than slicing every block out of a live whole-genome
+   matrix. Where the whole-genome matrix is only a source of blocks, read the
+   blocks from the file directly using `/indexes/bin1_offset` and never hold the
+   whole thing.
+6. **In-place transformation where the operation allows it.** Elementwise
+   scaling, obs/exp division, correction-factor application and normalisation all
+   rewrite `data` in place. Reserve a second buffer only when the sparsity
+   pattern changes.
+7. **Streaming output.** HDF5 datasets are written chunk by chunk as the result
+   is produced. A dense result (Pearson, covariance) is emitted row by row into a
+   resizable dataset instead of being assembled in memory first. This is what
+   makes rule 2's exemption for the pearson path affordable: the input dense
+   block is unavoidable, the output copy is not.
+8. **Threads share, they do not fork.** Section 4.1's single-process pool means
+   the matrix exists once, not once per worker.
+9. **Explicit HDF5 chunk cache.** `H5Pset_chunk_cache` sized to one chunk row and
+   no more, so the cache is a bounded, budgeted cost rather than a default that
+   scales with the file.
+
+Rule 7 supersedes what an earlier revision of this plan said about the pearson
+path: the fix is not only "one dense copy instead of five" but "one dense input
+block, zero dense output copies". The consequence for equivalence is unchanged:
+the reduction order moves relative to `np.corrcoef`, so
+`hicTransform --method pearson|covariance` and `hicPCA --pearsonMatrix` are E3,
+not E2 (section 5.3). Note that none of rules 1 to 9 changes a single arithmetic
+result on its own; they are representation changes. The memory workstream is
+therefore **not** gated on the dual-mode question of section 5.8, and can land
+first.
+
+### 4.5 The budget, and how it is enforced
+
+Every tool has a peak-RSS budget expressed as a formula, evaluated against the
+input, and recorded per tool in `STATUS.md` together with its value on the
+designated large validation input. The harness fails a tool whose C++ peak RSS
+exceeds its budget (section 8.3, criterion 4).
+
+```
+W      = nnz_stored * (sizeof(value) + sizeof(index)) + (nbins+1) * 8
+D      = max_chromosome_bins^2 * 8          # largest dense per-chromosome block
+C      = 64 MB                              # process, HDF5, buffers, output staging
+budget = alpha * W + beta * D + C
+```
+
+`W` uses the **stored** (upper-triangle) nonzero count and `sizeof(index) = 4`
+while `nbins <= INT32_MAX`, because that is what rules 2 and 3 make achievable.
+`C = 64 MB` is a C++ process with HDF5 loaded and a 32 MB chunk cache; the
+Python equivalent is 130 to 270 MB of interpreter and imports before any data is
+touched, which is itself a large part of the win on the small tools.
+
+| tool group | alpha | beta | rationale |
+|---|---|---|---|
+| `hicInfo` on cool with metadata | 0 | 0 | reads attributes only, never loads the matrix |
+| `hicInfo` on h5, `hicQuickQC` | 1.05 | 0 | one matrix, read and reduce |
+| `hicConvertFormat`, `hicNormalize`, `hicAdjustMatrix`, `hicMergeMatrixBins`, `hicMergeTADbins`, `hicAverageRegions` | 1.3 | 0 | one matrix plus a reshaped output that cannot always be built in place |
+| `hicSumMatrices`, `hicCompareMatrices` | 2.2 | 0 | two matrices live, result written into the first |
+| `hicCorrectMatrix` ICE and KR | 1.2 | 0 | in-place scaling, dense n-vectors are negligible |
+| `hicTransform` obs_exp, norm | 1.2 | 0 | per-diagonal reduction, in place |
+| `hicTransform` pearson, covariance | 1.1 | 1.15 | one dense block plus a dsyrk workspace, streamed output |
+| `hicPCA` compat mode (`dgeev`) | 1.1 | 3.2 | dgeev workspace plus scipy's complex eigenvector matrix |
+| `hicPCA` corrected mode (`dsyevr`, requested vectors only) | 1.1 | 1.15 | |
+| `hicFindTADs`, `hicDetectLoops`, `hicAggregateContacts` | 2.2 | 0 | full symmetric materialisation (rule 2 exemption) plus per-thread scratch |
+| `hicBuildMatrix`, `hicBuildMatrixMicroC` | n/a | n/a | budget is `2 * nnz_out * 12 + threads * 64 MB + C`; the matrix does not exist on input |
+| cHi-C tier 6 tools | 1.3 | 0 | viewpoint extraction touches narrow row ranges |
+| everything else | 1.3 | 0 | |
+
+Targets on the designated large inputs, against the measurements in 4.2:
+
+| tool and input | Python peak | budget | reduction |
+|---|---|---|---|
+| `hicCorrectMatrix --correctionMethod KR`, gm12878_chr1.cool | 9,199 MB | 1.2 x 741.9 + 64 = **954 MB** | **9.6x** |
+| `hicCorrectMatrix --correctionMethod ICE`, gm12878_chr1.cool | 9,064 MB | **954 MB** | **9.5x** |
+| `hicTransform --method pearson`, Li_et_al_2015.h5 | 5,150 MB | 1.1 x 19.9 + 1.15 x 987 + 64 = **1,221 MB** | **4.2x** |
+| `hicTransform --method pearson`, gm12878_chr1.cool | > 25,000 MB (est.) | 1.1 x 741.9 + 1.15 x 4,971 + 64 = **6,596 MB** | > 3.8x |
+| `hicPCA` compat mode (`dgeev`), mm9_reduced_chr1.cool | 4,070 MB | 1.1 x 5.6 + 3.2 x 762 + 64 = **2,509 MB** | **1.6x** |
+| `hicPCA` corrected mode (`dsyevr`), mm9_reduced_chr1.cool | 4,070 MB | 1.1 x 5.6 + 1.15 x 762 + 64 = **946 MB** | **4.3x** |
+| `hicInfo`, Li_et_al_2015.h5 | 264 MB | 1.05 x 19.9 + 64 = **85 MB** | **3.1x** |
+| `hicInfo`, Li_et_al_2015.cool | 139 MB | **64 MB** | **2.2x** |
+| `hicConvertFormat` h5 -> cool, Li | 390 MB | 1.3 x 19.9 + 64 = **90 MB** | **4.3x** |
+| `hicTransform --method obs_exp`, Li | 305 MB | 1.2 x 19.9 + 64 = **88 MB** | **3.5x** |
+
+The KR floor deserves its own line, because it is the case that prompted the
+requirement. The upper triangle of `gm12878_chr1.cool` as float64 values with
+int32 indices is 741.9 MB, the ten working n-vectors are 2 MB, and the balanced
+output is produced by scaling `data` in place. Everything above roughly 0.95 GB
+is avoidable, so the 9,199 MB the Python spends is about 9.6 times the floor
+rather than an intrinsic cost of the algorithm.
+
+`hicPCA` also has a time problem that the port should fix in the same breath:
+`scipy.linalg.eig` is the general non-symmetric solver (`hicPCA.py:305`), it
+computes **all** 9,760 eigenvectors when `--whichEigenvectors` asks for 2, and it
+takes **471 s and 4,070 MB on a 722 KB input file**: a factor of 727 over the
+5.6 MB working set, and the worst memory-to-data ratio anywhere in the corpus.
+Most of that is the dense covariance block (762 MB), `dgeev`'s copy of it, and
+scipy's complex128 eigenvector matrix (9,760^2 x 16 B = 1,524 MB) holding all
+9,760 vectors when two were asked for. `dsyevr` with `range='I'` on the same
+symmetric matrix returns the requested two in a small fraction of the time and a
+quarter of the memory. That fix changes results, so it is gated behind a mode
+flag (section 5.8); compatibility mode still saves 1.6x by avoiding the
+intermediate copies.
 
 ## 5. Numeric equivalence and tolerance policy
 
@@ -586,23 +867,38 @@ and enforced by the harness. There is no per-run tolerance tuning.
 | **E0 exact** | byte-identical output file | `cmp` |
 | **E1 structural** | HDF5 objects, dtypes, shapes, chunking, filters equal; every dataset decodes to bit-identical bytes; attributes equal after normalising `creation-date`, `generated-by`, `generated-by-cooler-lib`, `tool-url` | cool comparator |
 | **E2 value-exact** | same sparsity pattern; every stored value bit-identical (`memcmp` of the decoded arrays); integer fields exactly equal | h5 and text comparators |
-| **E3 tight float** | same sparsity pattern exactly; `max |a-b| / max(1, |b|) <= 1e-12` over all nonzeros; integer and string fields exactly equal | numeric comparator |
-| **E4 loose float** | same sparsity pattern to within 0.1 % of nonzeros; `max |a-b| / max(1e-6, |b|) <= 1e-6` over the common support; Pearson correlation of the two value vectors `>= 1 - 1e-9` | numeric comparator |
+| **E3 tight float** | same sparsity pattern exactly; `max abs(a-b) / max(1, abs(b)) <= 1e-12` over all nonzeros; integer and string fields exactly equal | numeric comparator |
+| **E4 loose float** | same sparsity pattern to within 0.1 % of nonzeros; `max abs(a-b) / max(1e-6, abs(b)) <= 1e-6` over the common support; Pearson correlation of the two value vectors `>= 1 - 1e-9` | numeric comparator |
 | **E5 set agreement** | for tools whose output is a set of called regions: Jaccard index of the called intervals `>= 0.99`, and every disagreeing call has a score within 1 % of its threshold | interval comparator |
 | **E6 visual** | image comparison, RMS difference over the pixel array `<= 5` on a 0-255 scale, same dimensions | image comparator |
+| **EN within oracle noise** | the Python reference is **not reproducible against itself**; the tolerance is measured, not chosen. See 5.7 | noise-envelope comparator |
 | **E7 not equivalent** | deliberate deviation, documented | `STATUS.md` note, no automated check |
 
 ### 5.2 Why float classes exist at all
 
 IEEE 754 addition is not associative, so a sum's value depends on the order of
-accumulation. numpy does not sum naively: `np.add.reduce` over a contiguous
-float64 array uses **pairwise summation** with an 8-way unrolled inner block
-(`numpy/_core/src/umath/loops_utils.h`), which gives an error bound of
-O(log n) eps rather than O(n) eps. A naive C++ `for` loop gives a different,
-usually worse, result. Concretely, for the sum of 3.3 M float64 values in
-`Li_et_al_2015.h5` (`hicInfo` prints `17548966.536917936`), naive left-to-right
-summation and numpy pairwise summation differ in roughly the last 3-4 decimal
-digits.
+accumulation. numpy does not sum naively, and the exact scheme has now been
+reproduced and verified bit-for-bit against numpy over 161 array sizes
+(`core/src/numpy_compat.cpp`, `tests/test_numpy_compat.cpp`). It has three
+layers, all of which matter:
+
+1. `np.add.reduce` processes the array through the ufunc **buffer**, whose
+   default size is 8192 elements, and accumulates the per-buffer results
+   **sequentially**.
+2. Within a buffer, the float64 loop in
+   `numpy/core/src/umath/loops_arithm_fp.dispatch.c.src` uses **pairwise
+   summation**: eight accumulators inside blocks of `PW_BLOCKSIZE = 128`
+   elements, splitting recursively above that. The error bound is O(log n) eps
+   rather than O(n) eps.
+3. A **float32** matrix sums in float32 all the way through `matrix.sum()` and
+   is only promoted afterwards, so the accumulation has to happen in single
+   precision to reproduce the printed value.
+
+A naive C++ `for` loop gives a different, usually worse, result. Concretely, for
+the sum of 3.3 M float64 values in `Li_et_al_2015.h5` (`hicInfo` prints
+`17548966.536917936`), naive left-to-right summation and numpy's scheme differ
+in roughly the last 3-4 decimal digits. Reproducing all three layers is what made
+`hicInfo` byte-identical on all 184 cool and h5 matrices in the corpus.
 
 Consequences that shape the policy:
 
@@ -623,8 +919,12 @@ Consequences that shape the policy:
 
 So the policy is: **implement numpy-pairwise reduction and vendor Cephes,
 and then most tools become E2 rather than E3.** The float classes are for the
-places where an algorithmic change is deliberately made (section 4.2) or where
+places where an algorithmic change is deliberately made (section 4.4) or where
 an iterative solver's stopping point differs.
+
+Note that the upper-triangle storage decision (4.4 rule 2) is *not* one of those
+places, as long as the symmetric access helper visits elements in the same order
+the full CSR would. It must, and there is a unit test for it.
 
 ### 5.3 Assignment rationale, by kind of tool
 
@@ -641,24 +941,25 @@ an iterative solver's stopping point differs.
   expression and must be reproduced literally.
 - **ICE correction** (`hicCorrectMatrix --correctionMethod ICE`): **E3.** The
   loop at `iterativeCorrection.py:40-71` is 50 elementwise passes with a
-  convergence test on `max|s-1| < 1e-5`. The per-pass marginal `W.sum(axis=1)` is
-  a sparse row reduction whose order the port can match exactly (CSR row order),
-  so in principle E2; but the loop is chaotic in the sense that a single-ulp
-  difference in a marginal can change the iteration count near the tolerance
-  boundary, which changes the result by up to one full pass. E3 with a
+  convergence test on `max abs(s-1) < 1e-5`. The per-pass marginal
+  `W.sum(axis=1)` is a `coo_matvec` against a vector of ones, which accumulates
+  in COO storage order; the COO comes from `.tocoo()` on a CSR, so that order is
+  exactly CSR row-major order and the port reproduces it without a compat mode.
+  In principle that makes ICE E2; but the loop is chaotic in the sense that a
+  single-ulp difference in a marginal can change the iteration count near the
+  tolerance boundary, which changes the result by up to one full pass. E3 with a
   `1e-12` relative bound is the honest class. The harness additionally asserts
   that the **iteration count is equal**, which is the real check.
-- **KR correction**: **E2**, because the same C++ source runs (section 3.3).
-  If the vendoring fallback is used instead, drop to E3.
+- **KR correction**: **EN**, section 5.7.
 - **obs/exp, z-score, normalisation, `hicNormalize`**: **E2.** Per-diagonal
   means are reductions over a few thousand values at most; implement them with
   the pairwise reducer and they are exact.
 - **Pearson and covariance matrices** (`hicTransform --method pearson|covariance`,
-  `hicPCA --pearsonMatrix`): **E3.** The memory rewrite in 4.2 changes the
+  `hicPCA --pearsonMatrix`): **E3.** The memory rewrite in 4.4 changes the
   reduction order of the centring and the inner products. `1e-12` relative is
   achievable for correlations in `[-1,1]`; anything looser would hide a real
   error.
-- **`hicPCA` eigenvectors**: **E3 on |value|, plus an explicit sign and order
+- **`hicPCA` eigenvectors**: **E3 on abs(value), plus an explicit sign and order
   check.** See 5.4.
 - **TAD calling, loop calling, differential tests** (`hicFindTADs`,
   `hicDetectLoops`, `hicDifferentialTAD`, `hicMergeDomains`,
@@ -677,14 +978,14 @@ an iterative solver's stopping point differs.
 - **Plot data files** (the `.tab`/`.bedgraph`/`.txt` a plotting tool writes
   alongside its image): **E0 or E3** depending on whether they carry floats; the
   image itself is **E6**.
-- **ML tools**: **E7.** Section 6.7.
+- **ML tools**: **E7.** Tier 8 of section 6.
 
 ### 5.4 The `hicPCA` eigenvector problem
 
 `hicPCA.py:305` calls `scipy.linalg.eig(corrmatrix)`, the **general
 non-symmetric** solver (LAPACK `dgeev`), on a symmetric covariance matrix. It
 does not sort the result. `--whichEigenvectors 1 2` then takes columns 0 and 1
-of whatever order `dgeev` returned (`hicPCA.py:314-322`). Two consequences:
+of whatever order `dgeev` returned (`hicPCA.py:314-322`). Three consequences:
 
 1. The **column order** is LAPACK's, which depends on the LAPACK implementation
    and its blocking. Reproducing it requires calling the same `dgeev` from the
@@ -693,12 +994,16 @@ of whatever order `dgeev` returned (`hicPCA.py:314-322`). Two consequences:
    flipping the sign to correlate positively with a gene-density or histone
    track when `--extraTrack` is given (`hicPCA.py:139-193`), but with no
    `--extraTrack` the sign is whatever LAPACK produced.
+3. It is also the reason `hicPCA` is slow and memory-hungry: `dgeev` on an
+   n-by-n matrix computes all n eigenpairs and returns them complex, when two
+   real ones were asked for. Section 4.5.
 
-The equivalence rule for `hicPCA` is therefore: compare `|eigenvector|`
-elementwise at E3; separately assert that the sign pattern is either identical
-or globally flipped per chromosome; and when `--extraTrack` is supplied, require
-identical signs, since the flip is then deterministic. Any other outcome is a
-failure, not a tolerance.
+The equivalence rule for `hicPCA` compatibility mode is therefore: compare
+`abs(eigenvector)` elementwise at E3; separately assert that the sign pattern is
+either identical or globally flipped per chromosome; and when `--extraTrack` is
+supplied, require identical signs, since the flip is then deterministic. Any
+other outcome is a failure, not a tolerance. The corrected mode is E7 against
+Python and is validated against the compatibility mode instead (section 5.8).
 
 ### 5.5 How tolerance is measured, exactly
 
@@ -707,16 +1012,16 @@ For a matrix pair `(A_cpp, B_py)`:
 1. **Sparsity pattern**: the sets of `(i,j)` with a stored entry must be equal
    for E2 and E3. For E4 the symmetric difference must be at most 0.1 % of
    `max(nnz_A, nnz_B)`, and the excess entries must all satisfy
-   `|value| <= 1e-9`.
+   `abs(value) <= 1e-9`.
 2. **Max relative error**: over the common support,
-   `max_ij |a_ij - b_ij| / max(atol_floor, |b_ij|)`, with `atol_floor = 1`
+   `max_ij abs(a_ij - b_ij) / max(atol_floor, abs(b_ij))`, with `atol_floor = 1`
    for E3 and `1e-6` for E4. Using a floor rather than a pure relative error
    avoids the meaningless blow-up on values near zero.
 3. **Correlation floor** (E4 only): Pearson correlation of the two value
    vectors over the common support, computed in float64 with the pairwise
    reducer.
 4. **Integer and string fields**: always exactly equal, in every class except
-   E7.
+   EN and E7.
 
 For text outputs the comparator parses each line into typed fields using a
 per-format schema (bed, bedgraph, bedpe, tsv-with-header) and applies the same
@@ -735,6 +1040,82 @@ Python code uses an explicit format (`'{:.12f}'` in
 `lib/viewpoint.py:285 writeInteractionFile`, `'{:,}'` thousands separators in
 `hicInfo.py:147,163`), reproduce the format string semantics instead.
 
+### 5.7 Class EN: comparing against a nondeterministic oracle
+
+`hicCorrectMatrix --correctionMethod KR` is the one tool whose Python reference
+does not agree with itself (section 3.3). Fixing a tolerance by judgement would
+be arbitrary; the tolerance is therefore **measured from the oracle**:
+
+1. The harness runs the Python tool `N = 5` times on the same input, in the same
+   environment, with everything else held fixed.
+2. It computes `S`, the maximum pairwise relative difference among those five
+   outputs, field by field, using the section 5.5 machinery.
+3. It requires the sparsity pattern of the C++ output to equal the sparsity
+   pattern shared by all five Python runs, exactly. (Measured: it is stable.)
+4. It requires the C++ output to lie within `max(2 * S, 1e-12)` relative of the
+   **median** Python run, elementwise.
+5. It requires the C++ output to be **deterministic**: five C++ runs, and the
+   `--threads 1` versus `--threads 16` runs, must be byte-identical. The C++
+   port is held to a standard the reference does not meet, deliberately.
+6. `S` is recorded in the report, per input, so that a change in the oracle's
+   noise level is visible rather than silently absorbed.
+
+Observed values of `S` for KR, for calibration: 1.5e-04 on matrix values and
+7.5e-05 on correction factors for `Li_et_al_2015.h5`; the normalisation factor
+alone spans 8.4e-03 on `gm12878_chr1.cool`. A fixed tolerance chosen before
+these measurements would have been wrong by two orders of magnitude in one
+direction or the other, which is the argument for measuring it.
+
+If a future krbalancing release makes KR deterministic, EN collapses to E3 for
+that tool and the class is retired. Nothing else in the corpus currently needs
+it; the harness supports it generically so that it can be applied if another
+tool turns out to be nondeterministic under the `N`-run check, which every tool
+gets as part of criterion 3 in section 8.3.
+
+### 5.8 Dual-mode: where a fix would change results
+
+Rules 1 to 9 of section 4.4 are representation changes and alter no arithmetic,
+so the memory workstream needs no mode switch. Two *accuracy and algorithm*
+fixes do change results, and those are shipped as explicit modes rather than
+being either forced on users or quietly dropped.
+
+**The pattern.** A tool with such a fix gets a `--compatMode {v3,v4}` flag,
+defaulting to `v3`. `v3` reproduces the Python reference including its defects
+and is what the equivalence harness exercises. `v4` applies the fix. Both modes
+are implemented over the same memory-efficient data structures, so choosing `v3`
+costs nothing in memory. The difference between the two modes is **measured on
+the real validation inputs and quantified in `STATUS.md`**, per tool, so that a
+user switching modes knows the size of the change.
+
+**Where it applies.**
+
+| tool | `v3` (default) | `v4` | expected difference |
+|---|---|---|---|
+| `hicCorrectMatrix --correctionMethod KR` | float32 downcast of input values on ingestion (`krbalancing.cpp:27`); float32 accumulators in `rescale_norm_vector` (`:228-229`), summed in a **fixed** order (ascending outer index, then ascending inner index) so the result is deterministic while staying inside the oracle's noise envelope; `--perchr` reproduces the `.h5`-versus-`.cool` correction-factor discrepancy | float64 throughout; pairwise accumulation for the two rescale sums; `--perchr` rescales consistently regardless of output extension | to be measured; expected of the order of the oracle's own `S` (1e-4 to 1e-2 relative depending on matrix size), which is precisely why `v4` is worth having |
+| `hicPCA` | `dgeev` on the covariance matrix, all eigenpairs, unsorted, columns taken by index | `dsyevr` with `range='I'` returning only the requested eigenvectors, sorted by descending eigenvalue, sign fixed by a deterministic convention (largest-magnitude component positive) unless `--extraTrack` decides it | eigenvector selection may differ when `dgeev`'s arbitrary order does not match eigenvalue order; to be measured and reported per chromosome on `mm9_reduced_chr1.cool` |
+
+**Where it deliberately does not apply**, so that the flag does not proliferate:
+
+- The pearson and covariance reduction-order change (4.4 rule 7) is covered by
+  class E3. No flag.
+- ICE marginals: the CSR row-order reduction reproduces `coo_matvec` exactly
+  (section 5.3). No flag.
+- `--enforce_integer` rounding: `np.rint` and `std::nearbyint` under
+  `FE_TONEAREST` are both round-half-to-even. No flag.
+- The `hiCMatrix` load-time field swap and the other quirks of section 2.7 are
+  reproduced unconditionally in both modes. They are format semantics, not
+  accuracy defects, and a `v4` that wrote `correction_factors` into the correct
+  node would produce files the Python reads wrongly.
+- krbalancing's `exit(0)` after 300 outer iterations
+  (`krbalancing.cpp:115-119`) is **not** reproduced in either mode. Both modes
+  raise an error and exit non-zero. Terminating the process with a success status
+  and no output is not behaviour worth preserving, and no correct pipeline can
+  depend on it. Recorded as a deviation in `STATUS.md`.
+
+Every mode pair is validated three ways: `v3` against Python at the tool's
+declared class; `v4` against `v3` with the difference quantified and recorded;
+and both modes against themselves for determinism.
+
 ## 6. Porting order
 
 Nine tiers. Tier 0 is the library; tiers 1 to 8 are the 46 tools, each appearing
@@ -748,21 +1129,27 @@ so that their unresolved questions never block anything.**
 
 `libhicx4`: `CutIntervals`, `BinIndex`, `CsrMatrix`, `Matrix`, the format
 readers and writers (cool, mcool, scool-write, h5, homer, ginteractions,
-hicpro, 2D-text), the pairwise reducer, Cephes, the BED/narrowPeak reader,
-`reduce_matrix`, and the CLI/argparse compatibility layer.
+hicpro, 2D-text, npz), the pairwise reducer, Cephes, the BED/narrowPeak reader,
+`reduce_matrix`, and the CLI/argparse compatibility layer. The memory rules of
+section 4.4 are properties of this tier: if zero-copy ingestion, triangular
+storage and streaming output are not in place here, no later tier can meet its
+budget.
 
 The **argparse compatibility layer** is not optional. Every tool's help text,
 argument names, short options, `choices`, defaults, `nargs`, `metavar` and
 error messages are part of the interface and are asserted by the Python tests
 (and by any Galaxy wrapper). Build one `hicx::ArgParser` that reproduces
 argparse's grouping (`Required arguments` / `Optional arguments`), its
-`--help` rendering, its `%(prog)s {version}` version action and its error text.
-Doing this once in tier 0 costs a day and saves 46 hand-written parsers.
+`--help` rendering, its `%(prog)s {version}` version action, its prefix matching
+(`test_hicPlotMatrix.py:444` passes `--log1` and relies on it resolving to
+`--log1p`) and its error text. Doing this once in tier 0 costs a day and saves
+46 hand-written parsers.
 
 Exit criteria for tier 0: round-trip every matrix in `test_data/` through
 C++ read and C++ write in every format the Python supports, and have the Python
-loader produce identical in-memory state; and pass the C++ unit tests for the
-quirks in section 2.7.
+loader produce identical in-memory state; pass the C++ unit tests for the
+quirks in section 2.7; and demonstrate on `gm12878_chr1.cool` that loading the
+matrix and writing it back costs no more than `1.3 * W + C`.
 
 ### Tier 1 - file layer exercisers (6 tools)
 
@@ -787,22 +1174,22 @@ the bedtools replacement before any tool that depends on them.
 `hicFindRestSite` (142), `hicMergeLoops` (173), `hicValidateLocations` (284),
 `hicCreateThresholdFile` (54), `hicMergeTADbins` (147), `hicAverageRegions` (209),
 `hicNormalize` (153). Classes: E0 for the pure-text ones, E1/E2 for
-`hicMergeTADbins` and `hicNormalize` which write matrices.
+`hicMergeTADbins`, `hicAverageRegions` and `hicNormalize` which write matrices.
 
 ### Tier 3 - float matrix math (6 tools)
 
 `hicTransform` (260, E2 for obs_exp/norm, E3 for pearson/covariance),
-`hicCorrectMatrix` (779, E3 for ICE / E2 for KR),
-`hicPCA` (412, E3 plus the sign rule),
+`hicCorrectMatrix` (779, E3 for ICE / EN for KR),
+`hicPCA` (412, E3 plus the sign rule, dual-mode),
 `hicCompartmentalization` (223, E3),
 `hicInterIntraTAD` (514, E3),
 `hicPlotSVL` (261, statistics at E3, plot deferred to tier 6).
 
-Rationale: this is where the numeric policy is proven. `hicTransform` first
-because `hicPCA`, `hicDetectLoops` and `hicFindTADs` all reuse its obs/exp and
-Pearson kernels; `hicCorrectMatrix` second because it is the most-used tool in
-the suite and because KR being bit-identical (section 3.3) is a strong early
-signal.
+Rationale: this is where the numeric policy and the memory budget are both
+proven. `hicTransform` first because `hicPCA`, `hicDetectLoops` and
+`hicFindTADs` all reuse its obs/exp and Pearson kernels, and because the pearson
+path is the second-largest memory win in the plan; `hicCorrectMatrix` second
+because it is the most-used tool in the suite and holds the largest memory win.
 
 ### Tier 4 - alignment and matrix construction (3 tools + the `.hic` reader)
 
@@ -815,18 +1202,23 @@ is the largest single unit of work in the port (BAM pair iteration, supplementar
 alignment resolution, dangling-end and self-circle classification, restriction
 fragment binning, the QC table). Its output matrix is integer, so **E1/E2**, and
 its QC tables are **E0**. `hicQuickQC` shares the same read classification code
-and is essentially a free follow-on.
+and is essentially a free follow-on. This tier is also where the
+threads-share-not-fork rule pays: the Python spawns workers that each hold a
+share of the pixel buffers.
 
 ### Tier 5 - TAD, loop and differential calling (5 tools)
 
 `hicFindTADs` (1,368), `hicDetectLoops` (1,093), `hicDifferentialTAD` (518),
 `hicMergeDomains` (428), `hicAggregateContacts` (976, data path only; its plot
-goes to tier 6).
+follows the tier 7 rule).
 
 Rationale: the heaviest algorithms, all depending on tier 3 kernels. Classes E5
 for the call sets and E3 for the continuous intermediates (section 5.3).
 `hicFindTADs` additionally writes a z-score matrix and a `.bm` bedgraph matrix,
 both **E3**, and those are the real regression detectors; the domain BED is E5.
+All three of these tools take the rule 2 exemption and materialise both
+triangles, so their budgets are the loosest in the plan and should be revisited
+once they are working.
 
 ### Tier 6 - cHi-C suite (7 tools)
 
@@ -868,7 +1260,8 @@ The four options, and the recommendation per tool:
   `QC_table.txt`/`distance_table.txt` for `hicPrepareQCreport`), and a small
   Python script does only the drawing, using the *same* matplotlib calls as
   today. Cost: a Python runtime dependency for plotting only. Benefit: the
-  images stay bit-comparable to the current masters.
+  images stay bit-comparable to the current masters, and the memory-heavy step
+  (extracting and transforming the region) moves into the budgeted C++ core.
 - **(b) C++ SVG/PNG backend.** Feasible for the simple line plots
   (`hicPlotViewpoint`, `hicPlotAverageRegions`, `hicPlotDistVsCounts`), not for
   the heatmaps with colorbars and genomic axes, and not at all for
@@ -880,17 +1273,16 @@ Recommendation, per tool:
 
 | tool | recommendation | reason |
 |---|---|---|
-| `hicPlotMatrix` | (a) shell | heatmap + colorbar + optional bigWig track + `--perChromosome` layout; the compute (region extraction, log transform, obs/exp) moves to C++, the draw stays matplotlib |
-| `hicPlotTADs` | (a) shell, unchanged | it is already a 9-line delegation to `pygenometracks.plotTracks`; there is nothing to port. Keep it as a Python script that calls pyGenomeTracks |
-| `hicPlotViewpoint` | (a) shell, with (b) as a later option | simple line plot; C++ emits the data, matplotlib draws. A native SVG backend is a reasonable v4.1 follow-up |
-| `hicPlotAverageRegions` | (a) shell | small imshow |
+| `hicPlotMatrix` | (a) shell | heatmap + colorbar + optional bigWig track + `--perChromosome` layout; the compute (region extraction, log transform, obs/exp) moves to C++, the draw stays matplotlib. Six of its tests are gated behind a 120 GB memory `skipif`, which the C++ compute path should make unnecessary |
+| `hicPlotTADs` | (a) shell, unchanged | already a 9-line delegation to `pygenometracks.plotTracks`; there is nothing to port |
+| `hicPlotViewpoint` | (a) shell, with (b) as a later option | simple line plot; C++ emits the data, matplotlib draws |
+| `hicPlotAverageRegions` | (a) shell | small imshow; reads the `.npz` the C++ `hicAverageRegions` writes |
 | `hicPlotDistVsCounts` | (a) shell | the interesting part (distance-vs-count reduction, per-chromosome fits) is compute and moves to C++ |
-| `hicCorrelate` | (a) shell | the correlation matrix is C++ at E3; the heatmap and scatter stay matplotlib |
-| `hicPrepareQCreport` / `hicQC` | (a) shell | it is pandas table aggregation plus five bar charts and a Jinja2 HTML template; port the table aggregation to C++ at E0 and keep the rendering in Python |
+| `hicCorrelate` | (a) shell | the correlation matrix and the complete-linkage clustering are C++ at E3; the heatmap and scatter stay matplotlib |
+| `hicPrepareQCreport` / `hicQC` | (a) shell | pandas table aggregation plus five bar charts and a Jinja2 HTML template; port the table aggregation to C++ at E0 and keep the rendering in Python |
 | `chicPlotViewpoint` | (a) shell | as `hicPlotViewpoint` |
-| `hicAggregateContacts` | split: data path C++ (tier 5, E3 on the `.tab`), plot (a) shell | the clustering (`sklearn.cluster` k-means and hierarchical, `hicAggregateContacts.py:16`) also has to move; see tier 8 note |
 
-So: **(a) for all nine.** The v4 deliverable is a C++ core plus a thin,
+So: **(a) for all eight.** The v4 deliverable is a C++ core plus a thin,
 explicitly-declared Python plotting shell, and `STATUS.md` records every one of
 these as "not a pure C++ port" so that no one later mistakes them for done.
 The equivalence class for the images stays **E6** against the existing masters
@@ -911,8 +1303,8 @@ The situation is different for each:
   equivalent of that training stack and no serialisation format in common.
   **Recommendation: keep as Python (option (a)), with feature extraction moved
   into the C++ core and exposed through a small binding.** The features are
-  matrix rows and obs/exp windows, which is exactly what the core computes.
-  Class **E7**.
+  matrix rows and obs/exp windows, which is exactly what the core computes, and
+  moving them is also the memory win for this tool. Class **E7**.
 - **`hicTADClassifier`**: inference from an existing pickled model. ONNX Runtime
   was the obvious candidate and it does not work: `skl2onnx` has no converter
   for `imblearn.ensemble.EasyEnsembleClassifier` or for `cleanlab`'s
@@ -985,7 +1377,8 @@ two files at the test root:
   `skipif(HIGH_MEMORY=120 GB > memory)`, the `hicHyperoptDetectLoopsHiCCUPS`
   case behind `skipif(nvcc)` and `skipif(not isfile('juicer.jar'))`, and the
   `hicAggregateContacts` and `hicPlotMatrix` cases behind 2 GB and 4 GB memory
-  gates.
+  gates. Those memory gates exist because of the blowups of section 4.3, so the
+  memory workstream also buys back test coverage.
 - **Roughly 170 items can actually fail on a regression.**
 
 Assertion defects found, each of which makes a nominally-covered tool
@@ -996,8 +1389,8 @@ effectively uncovered:
 | `test_compute_function.py:7` | `pTries = 1` overwrites the caller's retry count, so every `compute(main, args, 5)` runs once. Harmless, but the retry the suite thinks it has does not exist |
 | `test_hicMergeDomains.py:70,84-85,106-107` | every `are_files_equal(...)` call is missing `assert`; the result is discarded. `hicMergeDomains` is "did not crash" only |
 | `test_hicInterIntraTAD.py:55` | same, `are_files_equal` without `assert` |
-| `test_hicHyperoptDetectLoopsHiCCUPS.py:64` | `are_files_equal` result discarded, the call has no `assert` (the comparator itself at `:29` is sound) |
-| `test_hicCorrectMatrix.py:84` | the KR/cool check is a range test `3e9 < sum//2 < 3688003604`; the elementwise comparison is commented out at :85-86 |
+| `test_hicHyperoptDetectLoopsHiCCUPS.py:29,64` | `are_files_equal` is `return True`, and it is called without `assert` |
+| `test_hicCorrectMatrix.py:84` | the KR/cool check is a range test `3e9 < sum//2 < 3688003604`; the elementwise comparison is commented out at :85-86. Given the measured nondeterminism of KR (section 3.3) a range test may in fact be the only thing that could have passed reliably |
 | `test_hicCorrectMatrix.py:106` | `nt.assert_allclose(rtol=1.0)`, a 100 % relative tolerance |
 | `test_hicCorrelate.py` | both tests correlate one file with itself, so a correlation of 1.0 is structurally guaranteed regardless of the implementation |
 | `test_hicPlotSVL.py:66-67` | the image comparison is commented out |
@@ -1034,7 +1427,8 @@ CLI options never exercised by any test, per tool, are enumerated in
 `STATUS.md`. The worst offenders: `hicTrainTADClassifier` (14 of 24 options
 untested), `hicPlotMatrix` (12 of 33), `hicBuildMatrixMicroC` (10 of 16),
 `chicPlotViewpoint` (9), `hicCorrectMatrix` (7, including `--perchr`, which is
-a distinct code path in both ICE and KR).
+a distinct code path in both ICE and KR and which carries the defect of
+section 2.7 quirk 8).
 
 ### 7.1 What this means for the port
 
@@ -1051,21 +1445,26 @@ a distinct code path in both ICE and KR).
    Each test file currently defines its own `are_files_equal` with a different
    delta (10 distinct definitions across the suite); the characterization tests
    must import one shared implementation.
-3. **The existing masters are the reference, but they are not trusted until
+3. **A characterization test for a nondeterministic tool must record the noise,
+   not a value.** For KR specifically, the characterization test runs the Python
+   five times and records the envelope `S` (section 5.7), not a single output.
+   Pinning one run's output would produce a test that fails against its own
+   reference implementation.
+4. **The existing masters are the reference, but they are not trusted until
    regenerated.** Because every image assertion is xfail-ed, the PNG masters may
    not match what today's matplotlib produces. Before tier 7 starts, run every
    image test with the xfail removed and record which masters are stale;
    regenerate them from the current Python and commit them with a note, or the
    C++ port will be validated against images no one has verified in years.
-4. **`number_of_tests.txt` will go up.** Adding characterization tests raises the
+5. **`number_of_tests.txt` will go up.** Adding characterization tests raises the
    collected count; `test_pytest_collected_items.py` is a `>=` ratchet, so this
    is benign, but the file will show up in every diff. Consider pinning it once
    at the end of the characterization work rather than letting each run rewrite
    it.
 
 A full coverage run (`pytest hicexplorer/test --cov=hicexplorer
---cov-report=json`) was started for this plan and had completed only 94 of the
-~588 items after 25 minutes, so the per-line coverage numbers are not in this
+--cov-report=json`) was started for this plan and had completed only 99 of the
+~588 items after 50 minutes, so the per-line coverage numbers are not in this
 revision. The gap analysis above is derived from reading all 56 test files
 directly, which is the stronger evidence anyway: line coverage would count the
 269 assertion-free smoke runs as coverage, and they are not.
@@ -1080,28 +1479,29 @@ Validation inputs are the repository's real files. The full corpus is 532 MB in
 
 | file | size | shape | what it validates |
 |---|---|---|---|
-| `Li_et_al_2015.h5` | 14,215,139 B | 11,104 bins, 1,843 bp, chrX only, 1,661,678 stored (upper-triangle) nonzeros and 3,313,107 after symmetrization, 855 NaN bins, float64 data, sum 17548966.536917936 | the h5 reader/writer, ICE, KR, obs/exp, pearson, the pairwise reduction, NaN-bin handling |
+| `Li_et_al_2015.h5` | 14,215,139 B | 11,104 bins, 1,843 bp, chrX only, 1,661,678 stored (upper-triangle) nonzeros and 3,313,107 after symmetrization, 855 NaN bins, float64 data, sum 17548966.536917936 | the h5 reader/writer, ICE, KR, obs/exp, pearson, the pairwise reduction, NaN-bin handling, the KR noise envelope |
 | `Li_et_al_2015.cool` | 13,001,960 B | the same matrix in cool; `hicInfo` prints 1,661,678 here and 3,313,107 for the h5, see quirk 7 in section 2.7 | the cool reader/writer and the h5-cool round trip |
 | `Li_et_al_2015_twice.h5` | 14,036,532 B | | `hicSumMatrices` |
 | `Li_cut.h5` | 365,040 B | | fast smoke variant of the above |
 | `small_test_matrix.h5` / `.cool` | 289,027 / 172,846 B | 33,754 bins, 35,857 nnz, 15 chromosomes | multi-chromosome ordering, `chrBinBoundaries`, `keepOnlyTheseChr`, blosc chunk layout reference |
 | `small_test_matrix_50kb_res.h5` / `.cool` | 111,138 / 105,170 B | | `hicMergeMatrixBins`, `hicNormalize` |
-| `matrix.mcool` | 2,444,203 B | 5 resolution groups named `/0`../`/4` (the legacy layout, **not** `/resolutions/<res>`), format-version 2 | the mcool reader; note the group naming, since a reader that only understands `/resolutions/` will fail here |
-| `hicTADClassifier/gm12878_chr1.cool` | 79,370,717 B | 24,926 bins, 10 kb, chr1 only, 61,804,782 nnz | the large-matrix path, memory ceilings, threading determinism |
+| `matrix.mcool` | 2,444,203 B | 5 resolution groups named `/0`../`/4` (the legacy layout, **not** `/resolutions/<res>`), format-version 2 | the mcool reader; a reader that only understands `/resolutions/` will fail here |
+| `hicBuildMatrix/multi_small_test_matrix.mcool` | 441,383 B | `/resolutions/{5000,10000,20000}` | the other mcool layout |
+| `hicTADClassifier/gm12878_chr1.cool` | 79,370,717 B | 24,926 bins, 10 kb, chr1 only, 61,804,782 stored nonzeros (123,587,194 symmetric), `W = 741.9 MB` | **the memory benchmark**: KR, ICE, threading determinism, the budget gate |
 | `hicDifferentialTAD/GSM2644945_Untreated-R1.100000_chr1_chr2.cool` | 21,983,415 B | 100 kb | `hicDifferentialTAD`, `hicInterIntraTAD` |
 | `hicDifferentialTAD/GSM2644947_Auxin2days-R1.100000_chr1_chr2.cool` | 28,429,077 B | 3,790 bins, 100 kb, chr1+chr2, 4,208,340 nnz | as above; the two-chromosome case |
 | `hicDifferentialTAD/GSM2644945_Untreated-R1.100000_chr1.h5` | 9,654,418 B | | h5 form of the same |
 | `hicDetectLoops/GSE63525_GM12878_insitu_primary_2_5mb.cool` | 1,602,554 B | | `hicDetectLoops` |
-| `hicCorrectMatrix/gm12878_raw_values.cool` | 1,480,300 B | | ICE and KR on raw integer counts |
+| `hicCorrectMatrix/gm12878_raw_values.cool` | 1,480,300 B | int32 counts | ICE and KR on raw integer counts, where the float32 downcast of section 3.3 is inert |
 | `hicCorrectMatrix/gm12878_KR.cool` | 2,130,904 B | 1,254 bins, has a `/bins/weight` column | the divisive-correction load path (`correctionFactorTable`) |
-| `hicPCA/mm9_reduced_chr1.cool` | 722,538 B | 9,760 bins, 20 kb, mm9 chr1, 470,730 nnz | `hicPCA`, with `pca1.bedgraph`/`pca2.bedgraph`/`pca1.bw` as masters |
+| `hicPCA/mm9_reduced_chr1.cool` | 722,538 B | 9,760 bins, 20 kb, mm9 chr1, 470,730 nnz, `W = 5.6 MB`, dense block `D = 762 MB` | `hicPCA` both modes, with `pca1.bedgraph`/`pca2.bedgraph`/`pca1.bw` as masters; the worst memory-to-data ratio in the corpus at 727x |
 | `hicPCA/obsexp_norm.h5` | 56,085 B | 4,526 bins, 2,207 nnz | `hicCompartmentalization`, and the obs/exp reference for `hicTransform` |
-| `hicAdjustMatrix/gm12878_1_2_3.cool` | 693 bins, 1 Mb, chr1-3, 223,446 nnz | | the multi-chromosome `--interIntraHandling` paths |
-| `hicValidateLocations/GSM1436265_RAD21_ENCFF002EMQ_10kb.cool` | 313,762 bins @10 kb, **93 contigs**, only 7,987 nnz | | the many-contig, extremely sparse case: this is the file that will break a `BinIndex` that assumes few chromosomes or contiguous coverage |
+| `hicAdjustMatrix/gm12878_1_2_3.cool` | | 693 bins, 1 Mb, chr1-3, 223,446 nnz | the multi-chromosome `--interIntraHandling` paths |
+| `hicValidateLocations/GSM1436265_RAD21_ENCFF002EMQ_10kb.cool` | | 313,762 bins @10 kb, **93 contigs**, only 7,987 nnz | the many-contig, extremely sparse case: this is the file that will break a `BinIndex` that assumes few chromosomes or contiguous coverage, and the case where a per-bin `std::string` would dominate the footprint |
 | `cHi-C/FL-E13-5_chr1.cool` | 420,484 B | 197,196 bins, 1 kb, chr1, only 83,665 nnz | the very-sparse, very-many-bins case; the whole cHi-C tier |
 | `cHi-C/MB-E10-5_chr1.cool` | 461,587 B | | the second sample for every differential cHi-C step |
 | `R1_1000.bam` / `R2_1000.bam` | 48,076 / 43,831 B | 1,000 read pairs | `hicBuildMatrix` fast path |
-| `small_test_R1_unsorted.bam` / `small_test_R2_unsorted.bam` | 6,135,374 / 6,139,816 B | | `hicBuildMatrix` full path, QC tables, restriction-fragment mode |
+| `small_test_R1_unsorted.bam` / `small_test_R2_unsorted.bam` | 6,135,374 / 6,139,816 B | | `hicBuildMatrix` full path, QC tables, restriction-fragment mode, per-thread memory |
 | `build_region.bam` | 1,010,780 B | | `hicBuildMatrix --region` |
 | `hicBuildMatrix/DpnII.bed` | 13,704,804 B | | restriction-fragment binning |
 | `hicFindRestSite/hindIII.bed` | 1,349,619 B | | `hicFindRestSite` master |
@@ -1115,20 +1515,23 @@ Validation inputs are the repository's real files. The full corpus is 532 MB in
 
 - **Tier 0**: for each format F and each designated matrix M: Python reads M and
   dumps its in-memory state to a canonical JSON+binary sidecar; C++ reads M and
-  dumps the same; the two must be identical (section 5.1 class E2 applied to
-  each of `matrix.data`, `matrix.indices`, `matrix.indptr`, `cut_intervals`,
+  dumps the same; the two must be identical (class E2 applied to each of
+  `matrix.data`, `matrix.indices`, `matrix.indptr`, `cut_intervals`,
   `nan_bins`, `correction_factors`, `distance_counts`). Then C++ writes M' in F
   and Python reads M' and dumps again: identical. Then the file comparator for F
-  runs against the Python-written original at that format's class.
+  runs against the Python-written original at that format's class. The
+  `gm12878_chr1.cool` load-and-write round trip additionally has to meet
+  `1.3 * W + C` (tier 0 exit criteria, section 6).
 - **Tiers 1-6**: run the Python tool and the C++ tool with identical arguments
   on the designated inputs, compare every produced file with the comparator
-  chosen by the file's extension at the tool's declared class. All CLI option
-  combinations exercised by the Python test suite must be run, plus the
-  combinations identified in `STATUS.md` as untested (those need a
-  characterization test written first, contract rule 1).
+  chosen by the file's extension at the tool's declared class, and record peak
+  RSS for both. All CLI option combinations exercised by the Python test suite
+  must be run, plus the combinations identified in `STATUS.md` as untested
+  (those need a characterization test written first, contract rule 1).
 - **Tier 7**: as above, and the image against the checked-in master with the
   same tolerance the Python test already uses.
 - **Tier 8**: as declared per tool in tier 8 of section 6.
+- **Dual-mode tools**: three runs, per section 5.8.
 
 ### 8.3 When a run counts as passed
 
@@ -1137,16 +1540,24 @@ A tool moves to `equivalence: pass` in `STATUS.md` only when **all** of:
 1. every declared invocation produced the declared files, with exit code 0 where
    Python exits 0 and a non-zero exit where Python exits non-zero;
 2. every comparator returned pass at the declared class;
-3. `--threads 1` and `--threads 16` outputs are byte-identical, for tools that
-   take `--threads`;
-4. the tool was run at least once under the large input (`gm12878_chr1.cool` or
-   `small_test_R*_unsorted.bam`) without exceeding a peak RSS of 1.5x the Python
-   peak RSS on the same input;
+3. the C++ tool is **deterministic**: five repeat runs are byte-identical, and
+   for a tool that takes `--threads`, the `--threads 1` and `--threads 16`
+   outputs are byte-identical too;
+4. the tool's **peak RSS is within its budget** (section 4.5) on the designated
+   large input, measured as described in section 10. This is a hard gate, not a
+   report line: exceeding the budget fails the tool exactly as a comparator
+   mismatch does;
 5. the run is recorded in the harness report with the git commit of the C++
-   tree, the input file checksums, and the comparator output.
+   tree, the input file checksums, the comparator output, and the measured peak
+   RSS and budget.
 
 Any deviation is recorded in `STATUS.md` with its reason; a tool with a recorded
 deviation is `equivalence: deviation`, never `pass`.
+
+Criterion 4 replaces the softer "no more than 1.5x the Python peak RSS" of an
+earlier revision. A ratio against the Python is the wrong gate when the Python
+number is itself twelve times the working set: it would let the port ship at
+13.8 GB for KR and call it a pass.
 
 ## 9. The equivalence harness (`cpp/scripts/`, to be implemented by the implementing agent)
 
@@ -1160,8 +1571,9 @@ matplotlib):
 cpp/scripts/equiv.py run     [--tool NAME]... [--tier N]... [--case ID]...
                              [--cpp-bin DIR] [--py-python PATH] [--jobs N]
                              [--out DIR] [--keep-workdirs] [--update-baseline]
-cpp/scripts/equiv.py compare  --format {cool,h5,text,bed,bedgraph,bedpe,tsv,image,hdf5-chic,bigwig}
-                              --class {E0,E1,E2,E3,E4,E5,E6} A B
+                             [--noise-runs N] [--skip-memory-gate]
+cpp/scripts/equiv.py compare  --format {cool,h5,text,bed,bedgraph,bedpe,tsv,image,hdf5-chic,bigwig,npz}
+                              --class {E0,E1,E2,E3,E4,E5,E6,EN} A B
 cpp/scripts/equiv.py report   [--out DIR] [--format {md,json}]
 cpp/scripts/equiv.py list     [--tool NAME]
 ```
@@ -1170,7 +1582,12 @@ cpp/scripts/equiv.py list     [--tool NAME]
   in the contract; `PYTHONPATH` is set to the repo root so the *repo* Python
   runs, not the installed 3.7.6 package.
 - `--jobs` runs cases in parallel, each in its own temporary work directory
-  under `$TMPDIR`, never under the repo.
+  under `$TMPDIR`, never under the repo. **Memory-gated cases run serially**
+  regardless of `--jobs`, because a peak-RSS measurement taken while other cases
+  compete for memory is not a measurement.
+- `--noise-runs` (default 5) sets `N` for class EN and for the determinism check.
+- `--skip-memory-gate` is for development only and marks the whole report
+  `memory_gate: skipped`; a report with that flag can never record a `pass`.
 - Exit code 0 only if every selected case passed.
 
 ### 9.2 Case definition
@@ -1180,23 +1597,35 @@ Cases live in `cpp/scripts/cases/<tool>.yaml` (one file per tool, parsed with a
 is simpler). One case:
 
 ```yaml
-- id: hicTransform.obs_exp.h5
-  tool: hicTransform
+- id: hicCorrectMatrix.KR.gm12878_chr1
+  tool: hicCorrectMatrix
   tier: 3
-  args: ["-m", "{data}/Li_et_al_2015.h5", "--method", "obs_exp", "-o", "{out}/oe.h5"]
+  args: ["correct", "-m", "{data}/hicTADClassifier/gm12878_chr1.cool",
+         "--correctionMethod", "KR", "--filterThreshold", "-1.5", "5",
+         "-o", "{out}/kr.cool"]
   outputs:
-    - path: "{out}/oe.h5"
-      format: h5
-      class: E2
+    - path: "{out}/kr.cool"
+      format: cool
+      class: EN
   threads_arg: null          # or "--threads", triggers the 1-vs-16 determinism check
+  modes: ["v3", "v4"]        # emits --compatMode v3 / v4 runs; v4 is diffed against v3
   expect_exit: 0
-  large: false
-  notes: ""
+  memory:
+    nnz_stored: 61804782
+    nbins: 24926
+    alpha: 1.2
+    beta: 0.0
+    budget_mb: 954
+  large: true
+  notes: "KR is nondeterministic in the Python reference; see PLAN.md 3.3, 5.7"
 ```
 
 `{data}` expands to `hicexplorer/test/test_data`, `{out}` to the case work
 directory. The runner executes the Python tool with `{out}` = `out_py` and the
-C++ tool with `{out}` = `out_cpp`, then compares pairwise.
+C++ tool with `{out}` = `out_cpp`, then compares pairwise. `memory` may give
+`budget_mb` directly or give `nnz_stored`, `nbins`, `alpha` and `beta` and let
+the runner evaluate the formula of section 4.5; giving both is an error, so the
+budget always has exactly one source of truth.
 
 ### 9.3 Comparator plugins
 
@@ -1208,11 +1637,12 @@ Each is a module in `cpp/scripts/comparators/` exposing
   map for `/bins/chrom`), shape, `maxshape`, chunk shape, the filter pipeline
   (id, name, `cd_values`), the fill value, and finally the decoded bytes. Compares
   root and group attributes, normalising `creation-date`, `generated-by`,
-  `generated-by-cooler-lib` and `tool-url`. For E3/E4, decodes
+  `generated-by-cooler-lib` and `tool-url`. For E3/E4/EN, decodes
   `bin1_id`/`bin2_id`/`count` into a COO set and applies the section 5.5 rules.
-  Handles `::/resolutions/<r>` and `::/cells/<n>` by comparing every group.
-  Reports: `nnz_a`, `nnz_b`, `pattern_symdiff`, `max_abs`, `max_rel`, `corr`,
-  and the first 20 differing pixels with their coordinates.
+  Handles `::/resolutions/<r>`, `::/cells/<n>` and the legacy `::/0` layout by
+  comparing every group. Reports: `nnz_a`, `nnz_b`, `pattern_symdiff`,
+  `max_abs`, `max_rel`, `corr`, and the first 20 differing pixels with their
+  coordinates.
 - **`h5.py`** - PyTables/h5py reader for the HiCExplorer layout. Compares the
   node set, then decodes `/matrix/{data,indices,indptr,shape}` and
   `/intervals/*` and `/nan_bins` and `/correction_factors` and
@@ -1238,8 +1668,14 @@ Each is a module in `cpp/scripts/comparators/` exposing
 - **`bigwig.py`** - reads both with `pyBigWig`, compares the chrom list, the
   header (`nBasesCovered`, `minVal`, `maxVal`, `sumData`, `sumSquared`) and all
   intervals; floats at the case's class.
+- **`npz.py`** - `scipy.sparse.load_npz` on both, then the section 5.5 rules.
 - **`bam.py`** - only for `hicBuildMatrix --outBam`; compares via `pysam` on the
   header (normalising `@PG`) and every record's fields.
+- **`noise.py`** - the class EN driver, and not a file-format comparator. Given
+  the case, it runs the Python tool `N` times into separate directories, calls
+  the format comparator for every pair to obtain the envelope `S` per numeric
+  field, then applies the section 5.7 rules to the C++ output. Reports `S`, the
+  median run's identity, the C++ deviation from it, and the ratio of the two.
 
 ### 9.4 Report format
 
@@ -1247,11 +1683,15 @@ Each is a module in `cpp/scripts/comparators/` exposing
 
 - `report.json`: `{harness_version, timestamp, git_commit, host, cases: [{id,
   tool, tier, class_declared, class_met, passed, py_seconds, cpp_seconds,
-  py_peak_rss_kb, cpp_peak_rss_kb, outputs: [{path, format, passed, metrics,
-  diffs}], stderr_py, stderr_cpp}]}`.
-- `report.md`: a per-tier table (tool, cases, passed, class met, speedup, memory
-  ratio) followed by a section per failing case with the comparator's diff
-  excerpt.
+  py_peak_rss_kb, cpp_peak_rss_kb, budget_kb, memory_gate: {passed, ratio_to_budget,
+  ratio_to_python}, determinism: {repeats, threads_1_vs_16, passed},
+  noise_envelope (EN only), mode_delta (dual-mode only),
+  outputs: [{path, format, passed, metrics, diffs}], stderr_py, stderr_cpp}]}`.
+- `report.md`: a per-tier table (tool, cases, passed, class met, speedup, peak
+  RSS, budget, headroom) followed by a section per failing case with the
+  comparator's diff excerpt. A **memory summary table** at the top lists every
+  tool sorted by `cpp_peak_rss / budget`, so the tools closest to their gate are
+  visible without reading the whole report.
 - `workdirs/<case-id>/` when `--keep-workdirs`, holding `out_py/`, `out_cpp/`,
   the exact command lines, and the raw stdout/stderr.
 
@@ -1263,58 +1703,93 @@ comparison run does not have to be repeated.
 It must not normalise anything not listed in 9.3, must not retry a failing case,
 and must not have a per-case tolerance override. Tolerance lives in the class,
 the class lives in the case file, and changing a class is a reviewed edit to
-`STATUS.md`.
+`STATUS.md`. The same applies to the memory budget: a case may not carry an
+inline exemption, and raising a budget is a reviewed edit to `STATUS.md` with a
+recorded reason.
 
 ## 10. Performance and memory measurement
 
 Every harness run records, per case and per implementation:
 
 - wall time from `time.perf_counter()` around the subprocess,
-- peak RSS from `resource.getrusage(RUSAGE_CHILDREN).ru_maxrss` deltas, or more
-  robustly from `/usr/bin/time -f "%e %M"` wrapping each invocation,
+- **peak RSS from `/usr/bin/time -f "%e %M"` wrapping each invocation.** This is
+  the authoritative figure and the one the section 8.3 gate uses.
+  `resource.getrusage(RUSAGE_CHILDREN).ru_maxrss` is recorded as a cross-check
+  but is not the gate, because it reports the maximum over *all* children since
+  process start, which is wrong as soon as `--jobs > 1`,
+- an RSS **trace**, sampled from `/proc/<pid>/status` `VmHWM` every 100 ms, for
+  cases marked `large: true`. A single peak number says a tool exceeded its
+  budget; the trace says where, which is what the implementing agent needs. The
+  trace is written to `workdirs/<case-id>/rss_<impl>.tsv`,
 - user and system CPU time, so that a "faster" result that merely burns more
   cores is visible,
 - the thread count the tool was given.
 
-The report's per-tool row carries `speedup = py_seconds / cpp_seconds` and
-`memory_ratio = cpp_peak_rss / py_peak_rss`. Both are informational except for
-the tier-gate in 8.3(4), which requires `memory_ratio <= 1.5` on the large
-input. Measurements are only comparable when the machine is otherwise idle; the
-harness records the 1-minute load average at the start of each case and marks a
-case `timing_unreliable` if it exceeded 2.0.
+Every C++ tool also reports its own peak RSS on `--verbose`, read from
+`/proc/self/status` `VmHWM` at exit, so a developer does not need the harness to
+see the number. The harness cross-checks the two and flags a discrepancy above
+5 %, which usually means an allocation outside the tool's own accounting.
+
+The report's per-tool row carries `speedup = py_seconds / cpp_seconds`,
+`memory_ratio_python = cpp_peak_rss / py_peak_rss` (informational) and
+`memory_headroom = 1 - cpp_peak_rss / budget` (the gate). Measurements are only
+comparable when the machine is otherwise idle; the harness records the 1-minute
+load average at the start of each case and marks a case `timing_unreliable` if it
+exceeded 2.0. Memory-gated cases run serially (section 9.1).
 
 The baseline numbers in section 4.2 were taken while the Python test suite was
-running concurrently and are therefore upper bounds on the Python side; they must
-be retaken on an idle machine before they are quoted anywhere.
+running concurrently, so the wall times are upper bounds; the peak RSS figures
+are unaffected by CPU contention and stand. They must be retaken on an idle
+machine before any of them is quoted outside this document.
 
-Targets, stated so that a miss is visible rather than rationalised: 5x on the
-I/O-bound tools (tier 1, dominated by HDF5 and by not paying 0.4 s of Python
-interpreter start-up), 3x on tier 3, 4x on tier 4 and 5 with 16 threads, and a
-memory ratio below 0.4 on `hicTransform --method pearson` (section 4.2).
+Targets, stated so that a miss is visible rather than rationalised:
+
+| dimension | target |
+|---|---|
+| runtime, tier 1 (I/O bound) | 5x, largely from not paying 0.4 s of interpreter start-up |
+| runtime, tier 3 | 3x |
+| runtime, tiers 4 and 5 at 16 threads | 4x |
+| runtime, `hicPCA` corrected mode | the Python takes 471 s on `mm9_reduced_chr1.cool`; `dsyevr` for 2 of 9,760 eigenpairs should be under 10 s, a 45x reduction |
+| peak RSS, `hicCorrectMatrix` KR and ICE on `gm12878_chr1.cool` | 954 MB, a 9.6x and 9.5x reduction |
+| peak RSS, `hicTransform --method pearson` on `Li_et_al_2015.h5` | 1,221 MB, a 4.2x reduction |
+| peak RSS, `hicPCA` on `mm9_reduced_chr1.cool` | 2,509 MB compat, 946 MB corrected, against 4,070 MB |
+| peak RSS, everything else | within the section 4.5 budget, no exceptions |
 
 ## 11. Principal risks
 
-1. **The plotting and ML tiers are not C++ ports.** Thirteen of the 46 tools
-   (tiers 7 and 8) keep a Python shell. That is a third of the tool count,
-   although a much smaller share of the compute. This must be stated in the
-   README and in `STATUS.md`, not discovered later.
-2. **`dgeev` column order in `hicPCA`.** If linking the oracle's OpenBLAS does
-   not reproduce the eigenvector order, `hicPCA` cannot be made equivalent
-   without changing the Python (sorting by eigenvalue), which changes its output.
-   This is the most likely single point of failure in tier 3.
-3. **PyTables blosc chunking.** The decision to compare h5 at value level
-   (L3) rather than structurally (L2) means a C++-written `.h5` will differ from
-   a Python-written one byte-wise. Any downstream consumer that checksums `.h5`
-   files will notice.
-4. **The h5 blosc filter must actually work.** If `H5Zregister` with the
-   vendored blosc filter cannot reproduce what PyTables 3.10.1 writes closely
-   enough for PyTables to read it back, the whole h5 writer is blocked. Verify
-   this in the first week of tier 0, before anything else is built on it.
-5. **`fit_nbinom`'s L-BFGS-B.** A different optimiser stopping point propagates
+1. **KR has no deterministic oracle.** The reference disagrees with itself by up
+   to 1.5e-4 relative on an 11 k-bin matrix and by 8.4e-3 on the normalisation
+   factor of a 25 k-bin one (section 3.3). Class EN handles this, but it means
+   KR can never be validated as tightly as anything else, and a real regression
+   of the same magnitude as the oracle's noise would be invisible. Mitigation:
+   the `v4` mode is deterministic and float64, so `v4`-against-`v4` regression
+   testing across commits is exact even though `v3`-against-Python is not.
+2. **The memory budgets are derived, not yet demonstrated.** Every figure in
+   section 4.5 is a floor computed from the data layout plus an allowance. The
+   first tool to implement, `hicInfo`, will show whether `C = 64 MB` is
+   realistic for a C++ process with HDF5, blosc and OpenBLAS linked in. If it is
+   not, every budget in the plan shifts and the table must be recomputed rather
+   than individually relaxed.
+3. **`dgeev` column order in `hicPCA`.** If linking the oracle's OpenBLAS does
+   not reproduce the eigenvector order, `hicPCA` compatibility mode cannot be
+   made equivalent, and the tool ships as `v4`-only with a recorded deviation.
+4. **PyTables blosc chunking.** Comparing h5 at value level (L3) rather than
+   structurally (L2) means a C++-written `.h5` will differ from a Python-written
+   one byte-wise. Any downstream consumer that checksums `.h5` files will notice.
+5. **The h5 blosc filter must actually work.** If `H5Zregister` with the
+   vendored blosc filter cannot produce a file PyTables 3.10.1 reads, the whole
+   h5 writer is blocked. Verify this in the first week of tier 0, before
+   anything else is built on it.
+6. **`fit_nbinom`'s L-BFGS-B.** A different optimiser stopping point propagates
    into `hicDetectLoops` and the entire cHi-C background model. E4/E5 classes
    absorb it, but if the loop call sets diverge beyond the Jaccard floor the
    only remaining option is to vendor scipy's exact L-BFGS-B Fortran translation.
-6. **Characterization tests must exist before the port.** Five tools have no
-   Python test at all (`STATUS.md`). Porting one of them without first pinning
-   its behaviour means the port defines the behaviour, which is the one outcome
-   the contract forbids.
+7. **The rule 2 exemption list may be too long.** Five tools materialise both
+   triangles, and their budgets are correspondingly loose (`alpha = 2.2`). If
+   `hicFindTADs` or `hicDetectLoops` turns out to need only banded access, the
+   exemption should be withdrawn and the budget tightened; leaving it unexamined
+   would quietly forfeit half the memory win on the heaviest tools.
+8. **Characterization tests must exist before the port.** Five tools have no
+   Python test at all and 22 more have tests that cannot fail (`STATUS.md`).
+   Porting one of them without first pinning its behaviour means the port defines
+   the behaviour, which is the one outcome the contract forbids.
