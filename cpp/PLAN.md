@@ -215,7 +215,7 @@ Groups and dtypes as written by cooler 0.10.2 through hicmatrix:
 /bins/chrom      HDF5 ENUM over int32   <- categorical, not a string column
 /bins/start      int32
 /bins/end        int32
-/bins/weight     float32   (only when correction factors exist)
+/bins/weight     float64   (only when correction factors exist; see below)
 /pixels/bin1_id  int32     (hicmatrix override of cooler's int64 default)
 /pixels/bin2_id  int32
 /pixels/count    int32, or the matrix dtype when non-integer
@@ -226,6 +226,48 @@ Groups and dtypes as written by cooler 0.10.2 through hicmatrix:
 Pixel datasets are created resizable: `shape=(min(5*nbins, nnz),)`,
 `maxshape=(nnz,)`. Filters: `gzip` level 6 with `shuffle` on
 (cooler defaults; hicmatrix passes no `h5opts`).
+
+**`/bins/weight` is the exception and does not follow the other bins columns.**
+An earlier revision of this plan said float32 with the same filters; that was
+wrong on three counts. Verified by writing a fresh cool with
+`hicCorrectMatrix correct --correctionMethod KR -m gm12878_raw_values.cool` and
+dumping it, and confirmed against the checked-in
+`hicCorrectMatrix/gm12878_KR.cool`:
+
+| dataset | dtype | maxshape | chunk | filters |
+|---|---|---|---|---|
+| `/bins/start`, `/bins/end`, `/bins/chrom` | int32, int32, ENUM | **fixed** `(nbins)` | `nbins` | shuffle + deflate 6 |
+| `/bins/weight` | **float64** | **`H5S_UNLIMITED`** | `nbins` | **deflate 6, no shuffle** |
+| `/pixels/*` | int32 / count dtype | `(nnz)` | cooler's own | shuffle + deflate 6 |
+
+The cause is that the weight column is appended through `cooler.core.put` rather
+than being created with the `h5opts` the bins table is built with, so it inherits
+h5py's defaults for a resizable dataset and the pandas column's float64. Note in
+particular that `dtype_pixel['weight'] = np.float32` (`cool.py:303` and `:344`)
+never reaches the bins table at all: `dtype_pixel` is passed as `dtypes=` to
+`cooler.create_cooler`, which applies it to the **pixel** table. The C++ writer
+must special-case this column.
+
+**The `sum` root attribute is order-dependent and its order is set by the pixel
+chunking.** `cooler/create/_create.py:234` starts `total = 0` (a Python int) and
+`:255` does `total += chunk["count"].sum()` for each chunk in sequence. Each
+`chunk["count"].sum()` is a numpy pairwise reduction *within that chunk* and in
+the count column dtype; the chunk results are then accumulated **sequentially**.
+The number of chunks is therefore part of the observable output, and hicmatrix
+fixes it: `cool.py:366-368` splits the pixel frame with
+`np.array_split(matrix_data_frame, 1e4)` when `len(self.matrix.data) > 1e7`, and
+otherwise passes a single `DataFrame`, which `cooler.create.create` wraps as
+`iterable = (pixels,)`. So:
+
+- at most 1e7 stored pixels: **one** numpy pairwise reduction over the whole
+  count column;
+- above 1e7: **exactly 10,000** chunk reductions accumulated sequentially, and
+  `np.array_split` with a float `sections` argument does work in numpy 1.26.4
+  (with a `DataFrame.swapaxes` FutureWarning), so this path is live, not dead.
+
+Reproducing `sum` bit-for-bit means reproducing that split. The dtype of the
+running total follows the count column (float64 stays float64; an int32 count
+column promotes to int64 through the Python `0`), so it is not always float64.
 
 Root attributes written by cooler, then partially overwritten by hicmatrix
 (`cool.py:386-426`), and only when the file is opened in mode `w`:
@@ -1776,10 +1818,13 @@ Targets, stated so that a miss is visible rather than rationalised:
 4. **PyTables blosc chunking.** Comparing h5 at value level (L3) rather than
    structurally (L2) means a C++-written `.h5` will differ from a Python-written
    one byte-wise. Any downstream consumer that checksums `.h5` files will notice.
-5. **The h5 blosc filter must actually work.** If `H5Zregister` with the
-   vendored blosc filter cannot produce a file PyTables 3.10.1 reads, the whole
-   h5 writer is blocked. Verify this in the first week of tier 0, before
-   anything else is built on it.
+5. ~~**The h5 blosc filter must actually work.**~~ **Retired 2026-09-01,
+   commit bd3b4bff.** The C++ blosc compress path produces files PyTables 3.10.1
+   opens as a `CArray` reporting
+   `Filters(complevel=5, complib='blosc', shuffle=True)`, with `cd_values`
+   byte-for-byte what PyTables emits, and Python reads a C++-written h5 back to
+   identical `hicInfo` output including the exact float sum. This was the risk
+   most likely to block tier 0 and it is gone.
 6. **`fit_nbinom`'s L-BFGS-B.** A different optimiser stopping point propagates
    into `hicDetectLoops` and the entire cHi-C background model. E4/E5 classes
    absorb it, but if the loop call sets diverge beyond the Jaccard floor the
