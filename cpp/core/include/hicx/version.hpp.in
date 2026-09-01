@@ -1,0 +1,16 @@
+// Generated from version.hpp.in by CMake.
+//
+// The version string is read from hicexplorer/_version.py at configure time so
+// that the C++ tools report exactly what the Python tools report; hicInfo
+// prints it in the header line of every matrix block.
+
+#ifndef HICX_VERSION_HPP
+#define HICX_VERSION_HPP
+
+namespace hicx {
+
+inline constexpr const char* kVersion = "@HICX_PYTHON_VERSION@";
+
+}  // namespace hicx
+
+#endif  // HICX_VERSION_HPP

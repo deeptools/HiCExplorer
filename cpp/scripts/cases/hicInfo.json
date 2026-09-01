@@ -1,0 +1,260 @@
+[
+  {
+    "id": "hicInfo.li.cool.metadata",
+    "tool": "hicInfo",
+    "tier": 1,
+    "args": ["-m", "{data}/Li_et_al_2015.cool"],
+    "outputs": [
+      {"path": "{out}/stdout.txt", "format": "text", "class": "E0"}
+    ],
+    "notes": "cool metadata path, bin-type variable so bin-size is null"
+  },
+  {
+    "id": "hicInfo.li.cool.no_metadata",
+    "tool": "hicInfo",
+    "tier": 1,
+    "args": ["-m", "{data}/Li_et_al_2015.cool", "--no_metadata"],
+    "outputs": [
+      {"path": "{out}/stdout.txt", "format": "text", "class": "E0"}
+    ],
+    "notes": "loads 1.66 M pixels, symmetrises, numpy pairwise sum of 11104 rows"
+  },
+  {
+    "id": "hicInfo.li.h5",
+    "tool": "hicInfo",
+    "tier": 1,
+    "args": ["-m", "{data}/Li_et_al_2015.h5"],
+    "outputs": [
+      {"path": "{out}/stdout.txt", "format": "text", "class": "E0"}
+    ],
+    "notes": "native h5, blosc compressed, restriction fragment bins"
+  },
+  {
+    "id": "hicInfo.li.h5.outfile",
+    "tool": "hicInfo",
+    "tier": 1,
+    "args": ["-m", "{data}/Li_et_al_2015.h5", "-o", "{out}/info.txt"],
+    "outputs": [
+      {"path": "{out}/info.txt", "format": "text", "class": "E0"},
+      {"path": "{out}/stdout.txt", "format": "text", "class": "E0"}
+    ],
+    "notes": "--outFileName path, stdout must stay empty"
+  },
+  {
+    "id": "hicInfo.gm12878.cool.metadata",
+    "tool": "hicInfo",
+    "tier": 1,
+    "args": ["-m", "{data}/hicTADClassifier/gm12878_chr1.cool"],
+    "large": true,
+    "outputs": [
+      {"path": "{out}/stdout.txt", "format": "text", "class": "E0"}
+    ],
+    "notes": "79 MB cooler, 61.8 M pixels, metadata only"
+  },
+  {
+    "id": "hicInfo.gm12878.cool.no_metadata",
+    "tool": "hicInfo",
+    "tier": 1,
+    "args": ["-m", "{data}/hicTADClassifier/gm12878_chr1.cool", "-nm"],
+    "large": true,
+    "outputs": [
+      {"path": "{out}/stdout.txt", "format": "text", "class": "E0"}
+    ],
+    "notes": "the memory heavy case: 61.8 M int32 pixels symmetrised to 123 M"
+  },
+  {
+    "id": "hicInfo.untreated.100kb.cool",
+    "tool": "hicInfo",
+    "tier": 1,
+    "args": ["-m", "{data}/hicDifferentialTAD/GSM2644945_Untreated-R1.100000_chr1.cool"],
+    "outputs": [
+      {"path": "{out}/stdout.txt", "format": "text", "class": "E0"}
+    ],
+    "notes": "100 kb fixed bins, storage-mode symmetric-upper"
+  },
+  {
+    "id": "hicInfo.untreated.100kb.cool.no_metadata",
+    "tool": "hicInfo",
+    "tier": 1,
+    "args": ["-m", "{data}/hicDifferentialTAD/GSM2644945_Untreated-R1.100000_chr1.cool", "-nm"],
+    "outputs": [
+      {"path": "{out}/stdout.txt", "format": "text", "class": "E0"}
+    ],
+    "notes": "balanced float64 counts, exercises the nan-bin heuristic"
+  },
+  {
+    "id": "hicInfo.untreated.100kb.h5",
+    "tool": "hicInfo",
+    "tier": 1,
+    "args": ["-m", "{data}/hicDifferentialTAD/GSM2644945_Untreated-R1.100000_chr1.h5"],
+    "outputs": [
+      {"path": "{out}/stdout.txt", "format": "text", "class": "E0"}
+    ],
+    "notes": "the h5 twin of the previous case, must print the same numbers"
+  },
+  {
+    "id": "hicInfo.auxin.100kb.cool",
+    "tool": "hicInfo",
+    "tier": 1,
+    "args": ["-m", "{data}/hicDifferentialTAD/GSM2644947_Auxin2days-R1.100000_chr1.cool"],
+    "outputs": [
+      {"path": "{out}/stdout.txt", "format": "text", "class": "E0"}
+    ],
+    "notes": "second 100 kb replicate"
+  },
+  {
+    "id": "hicInfo.auxin.100kb.cool.no_metadata",
+    "tool": "hicInfo",
+    "tier": 1,
+    "args": ["-m", "{data}/hicDifferentialTAD/GSM2644947_Auxin2days-R1.100000_chr1.cool", "-nm"],
+    "outputs": [
+      {"path": "{out}/stdout.txt", "format": "text", "class": "E0"}
+    ],
+    "notes": "the summed matrix differs from the cooler sum attribute, on purpose"
+  },
+  {
+    "id": "hicInfo.auxin.100kb.h5",
+    "tool": "hicInfo",
+    "tier": 1,
+    "args": ["-m", "{data}/hicDifferentialTAD/GSM2644947_Auxin2days-R1.100000_chr1.h5"],
+    "outputs": [
+      {"path": "{out}/stdout.txt", "format": "text", "class": "E0"}
+    ],
+    "notes": "second 100 kb replicate, h5"
+  },
+  {
+    "id": "hicInfo.two_chromosomes.cool",
+    "tool": "hicInfo",
+    "tier": 1,
+    "args": ["-m", "{data}/hicDifferentialTAD/GSM2644945_Untreated-R1.100000_chr1_chr2.cool"],
+    "large": true,
+    "outputs": [
+      {"path": "{out}/stdout.txt", "format": "text", "class": "E0"}
+    ],
+    "notes": "two chromosomes, exercises chrBinBoundaries ordering"
+  },
+  {
+    "id": "hicInfo.several_matrices",
+    "tool": "hicInfo",
+    "tier": 1,
+    "args": ["-m", "{data}/Li_et_al_2015.cool", "{data}/Li_et_al_2015.h5",
+             "{data}/hicDifferentialTAD/GSM2644945_Untreated-R1.100000_chr1.cool"],
+    "outputs": [
+      {"path": "{out}/stdout.txt", "format": "text", "class": "E0"}
+    ],
+    "notes": "-m with several matrices, blocks in argument order"
+  },
+  {
+    "id": "hicInfo.several_matrices.outfile",
+    "tool": "hicInfo",
+    "tier": 1,
+    "args": ["-m", "{data}/Li_et_al_2015.cool", "{data}/Li_et_al_2015.h5",
+             "-o", "{out}/info.txt"],
+    "outputs": [
+      {"path": "{out}/info.txt", "format": "text", "class": "E0"}
+    ],
+    "notes": "the output file is reopened per matrix, so only the last block survives"
+  },
+  {
+    "id": "hicInfo.weights.cool",
+    "tool": "hicInfo",
+    "tier": 1,
+    "args": ["-m", "{data}/hicCorrectMatrix/kr_full.cool"],
+    "outputs": [
+      {"path": "{out}/stdout.txt", "format": "text", "class": "E0"}
+    ],
+    "notes": "cooler with a weight column, 15 chromosomes"
+  },
+  {
+    "id": "hicInfo.weights.cool.no_metadata",
+    "tool": "hicInfo",
+    "tier": 1,
+    "args": ["-m", "{data}/hicCorrectMatrix/kr_full.cool", "-nm"],
+    "outputs": [
+      {"path": "{out}/stdout.txt", "format": "text", "class": "E0"}
+    ],
+    "notes": "the weight column is applied on load"
+  },
+  {
+    "id": "hicInfo.hic2cool.cool",
+    "tool": "hicInfo",
+    "tier": 1,
+    "args": ["-m", "{data}/hicDetectLoops/GSE63525_GM12878_insitu_primary_2_5mb.cool"],
+    "outputs": [
+      {"path": "{out}/stdout.txt", "format": "text", "class": "E0"}
+    ],
+    "notes": "hic2cool file with KR, VC and VC_SQRT bin columns, 25 chromosomes"
+  },
+  {
+    "id": "hicInfo.float32.h5",
+    "tool": "hicInfo",
+    "tier": 1,
+    "args": ["-m", "{data}/hicNormalize/norm_range_one.h5"],
+    "outputs": [
+      {"path": "{out}/stdout.txt", "format": "text", "class": "E0"}
+    ],
+    "notes": "float32 matrix, so scipy sums in single precision"
+  },
+  {
+    "id": "hicInfo.nan_values.h5",
+    "tool": "hicInfo",
+    "tier": 1,
+    "args": ["-m", "{data}/find_TADs/dekker/multiFDR_dekker_zscore_matrix.h5"],
+    "outputs": [
+      {"path": "{out}/stdout.txt", "format": "text", "class": "E0"}
+    ],
+    "notes": "NaN counts and a string extra_list, printed as nan"
+  },
+  {
+    "id": "hicInfo.mcool.uri",
+    "tool": "hicInfo",
+    "tier": 1,
+    "args": ["-m", "{data}/matrix.mcool::/2"],
+    "outputs": [
+      {"path": "{out}/stdout.txt", "format": "text", "class": "E0"}
+    ],
+    "notes": "mcool with an explicit group, the resolutions are named /0 to /4"
+  },
+  {
+    "id": "hicInfo.mcool.uri.no_metadata",
+    "tool": "hicInfo",
+    "tier": 1,
+    "args": ["-m", "{data}/matrix.mcool::/2", "-nm"],
+    "outputs": [
+      {"path": "{out}/stdout.txt", "format": "text", "class": "E0"}
+    ],
+    "notes": "mcool group loaded through HiCMatrix"
+  },
+  {
+    "id": "hicInfo.help",
+    "tool": "hicInfo",
+    "tier": 1,
+    "args": ["--help"],
+    "outputs": [
+      {"path": "{out}/stdout.txt", "format": "text", "class": "E0"}
+    ],
+    "notes": "argparse help text at 80 columns"
+  },
+  {
+    "id": "hicInfo.version",
+    "tool": "hicInfo",
+    "tier": 1,
+    "args": ["--version"],
+    "outputs": [
+      {"path": "{out}/stdout.txt", "format": "text", "class": "E0"}
+    ],
+    "notes": "version string, must match hicexplorer/_version.py"
+  },
+  {
+    "id": "hicInfo.missing_argument",
+    "tool": "hicInfo",
+    "tier": 1,
+    "expect_exit": 2,
+    "args": [],
+    "outputs": [
+      {"path": "{out}/stdout.txt", "format": "text", "class": "E0"},
+      {"path": "{out}/stderr.txt", "format": "text", "class": "E0"}
+    ],
+    "notes": "argparse usage error, exit code 2"
+  }
+]
