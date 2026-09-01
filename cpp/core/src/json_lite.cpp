@@ -342,4 +342,37 @@ std::optional<Value> parse(const std::string& text) {
     return parser.parse_document();
 }
 
+std::string dump_object(
+    const std::vector<std::pair<std::string, std::string>>& fields) {
+    // Only the escapes json.dumps emits for the characters that can occur in
+    // a cooler metadata field are handled; anything else is passed through as
+    // UTF-8, which is what json.dumps with ensure_ascii=False would do and
+    // what the values in this dictionary always are.
+    const auto quote = [](const std::string& text) {
+        std::string out = "\"";
+        for (const char character : text) {
+            switch (character) {
+                case '"': out += "\\\""; break;
+                case '\\': out += "\\\\"; break;
+                case '\n': out += "\\n"; break;
+                case '\r': out += "\\r"; break;
+                case '\t': out += "\\t"; break;
+                default: out += character; break;
+            }
+        }
+        return out + "\"";
+    };
+
+    std::string out = "{";
+    bool first = true;
+    for (const auto& [key, value] : fields) {
+        if (!first) {
+            out += ", ";
+        }
+        first = false;
+        out += quote(key) + ": " + quote(value);
+    }
+    return out + "}";
+}
+
 }  // namespace hicx::json

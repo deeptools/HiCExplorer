@@ -72,6 +72,14 @@ class Value {
 // swallows with `except ValueError: pass`.
 [[nodiscard]] std::optional<Value> parse(const std::string& text);
 
+// json.dumps of a flat string valued dictionary, with Python's default
+// separators ", " and ": " and its insertion order. This is what ends up in
+// the cool 'metadata' attribute (hicmatrix/lib/cool.py:417), and the key order
+// is part of the string, so the caller passes an ordered sequence rather than
+// a map.
+[[nodiscard]] std::string dump_object(
+    const std::vector<std::pair<std::string, std::string>>& fields);
+
 }  // namespace hicx::json
 
 #endif  // HICX_JSON_LITE_HPP

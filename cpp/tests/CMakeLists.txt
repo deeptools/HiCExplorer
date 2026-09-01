@@ -20,7 +20,8 @@ add_executable(hicx_tests
     test_bins.cpp
     test_sparse_matrix.cpp
     test_json_lite.cpp
-    test_readers.cpp)
+    test_readers.cpp
+    test_writers.cpp)
 
 target_link_libraries(hicx_tests PRIVATE hicx::core doctest_header hicx_compile_options)
 
@@ -29,3 +30,9 @@ target_compile_definitions(hicx_tests PRIVATE
     HICX_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/../../hicexplorer/test/test_data")
 
 add_test(NAME hicx_unit_tests COMMAND hicx_tests)
+
+# Not a HiCExplorer tool: the smallest driver that exercises the tier 0 file
+# layer end to end, used by cpp/scripts/equiv.py against its Python twin
+# cpp/scripts/py_roundtrip.py.
+add_executable(hicx_roundtrip hicx_roundtrip.cpp)
+target_link_libraries(hicx_roundtrip PRIVATE hicx::core hicx_compile_options)

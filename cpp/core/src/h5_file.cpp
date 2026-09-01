@@ -1,12 +1,32 @@
 #include "hicx/h5_file.hpp"
 
+#include <algorithm>
 #include <cmath>
+#include <cstdio>
 #include <limits>
 #include <stdexcept>
+#include <string>
 
 #include "hicx/hdf5_util.hpp"
 
 namespace hicx {
+
+namespace {
+
+// One block of a streamed column. 65,536 elements is 512 kB for a float64
+// column, small enough to stay a rounding error against the budget of
+// cpp/PLAN.md 4.5 and large enough that the per call HDF5 overhead disappears.
+constexpr std::size_t kBlock = 65536;
+
+// scipy picks the narrowest index type that can address the matrix
+// (scipy.sparse.sputils.get_index_dtype), and the h5 file stores whatever
+// scipy chose, so the writer has to make the same choice.
+bool index_fits_in_int32(std::size_t nnz, std::int64_t rows) {
+    const std::int64_t limit = 2147483647;
+    return static_cast<std::int64_t>(nnz) <= limit && rows <= limit;
+}
+
+}  // namespace
 
 bool is_hicexplorer_h5(const std::string& path) {
     if (!h5::is_hdf5(path)) {
@@ -79,6 +99,8 @@ H5MatrixData read_hicexplorer_h5(const std::string& path) {
     }
 
     if (file.exists("/correction_factors")) {
+        result.correction_factors_are_column =
+            file.dataset_is_column("/correction_factors");
         std::vector<double> factors = file.read_doubles("/correction_factors");
         if (static_cast<std::int64_t>(factors.size()) != shape[0]) {
             throw h5::Error(
@@ -101,6 +123,298 @@ H5MatrixData read_hicexplorer_h5(const std::string& path) {
     }
 
     return result;
+}
+
+namespace {
+
+// Writes a numeric column that is produced element by element. `produce` is
+// called with a callback it invokes once per value; the values are buffered in
+// blocks of kBlock and never assembled into a full array.
+template <typename T, class Produce>
+void write_streamed(h5::FileWriter& file, const std::string& path, hid_t file_type,
+                    hid_t mem_type, std::size_t length, Produce&& produce,
+                    std::size_t minor = 0) {
+    const h5::Handle dataset = file.create_dataset(path, file_type, length, length,
+                                                   h5::Filter::PyTablesBlosc, 0, minor);
+    std::vector<T> buffer;
+    buffer.reserve(std::min(length, kBlock));
+    std::size_t offset = 0;
+    const auto flush = [&]() {
+        h5::FileWriter::write_block(dataset.get(), mem_type, offset, buffer.size(),
+                                    buffer.data());
+        offset += buffer.size();
+        buffer.clear();
+    };
+    produce([&](T value) {
+        buffer.push_back(value);
+        if (buffer.size() == kBlock) {
+            flush();
+        }
+    });
+    flush();
+    if (offset != length) {
+        throw h5::Error(path + ": produced " + std::to_string(offset) +
+                        " values but the dataset holds " + std::to_string(length));
+    }
+}
+
+template <typename T>
+void write_vector(h5::FileWriter& file, const std::string& path, hid_t file_type,
+                  hid_t mem_type, const std::vector<T>& values) {
+    write_streamed<T>(file, path, file_type, mem_type, values.size(),
+                      [&](auto emit) {
+                          for (const T value : values) {
+                              emit(value);
+                          }
+                      });
+}
+
+// The /matrix/data column, written in the dtype the matrix carries. The values
+// live as double in memory (see sparse_matrix.hpp), so an integer matrix is
+// converted back on the way out; every value came from an integer dataset in
+// the first place, so the conversion is exact.
+void write_matrix_data(h5::FileWriter& file, const CsrMatrix& matrix, bool upper_only,
+                       std::size_t length) {
+    const auto produce = [&](auto emit) {
+        const auto visit = [&](std::int64_t, std::int64_t, double value) { emit(value); };
+        if (upper_only) {
+            matrix.for_each_upper(visit);
+        } else {
+            matrix.for_each_stored(visit);
+        }
+    };
+    const std::string& dtype = matrix.dtype();
+    if (dtype == "float32") {
+        write_streamed<float>(file, "/matrix/data", H5T_IEEE_F32LE, H5T_NATIVE_FLOAT,
+                              length, [&](auto emit) {
+                                  produce([&](double value) {
+                                      emit(static_cast<float>(value));
+                                  });
+                              });
+    } else if (dtype == "int64") {
+        write_streamed<std::int64_t>(file, "/matrix/data", H5T_STD_I64LE,
+                                     H5T_NATIVE_INT64, length, [&](auto emit) {
+                                         produce([&](double value) {
+                                             emit(static_cast<std::int64_t>(value));
+                                         });
+                                     });
+    } else if (dtype == "int32") {
+        write_streamed<std::int32_t>(file, "/matrix/data", H5T_STD_I32LE,
+                                     H5T_NATIVE_INT32, length, [&](auto emit) {
+                                         produce([&](double value) {
+                                             emit(static_cast<std::int32_t>(value));
+                                         });
+                                     });
+    } else {
+        write_streamed<double>(file, "/matrix/data", H5T_IEEE_F64LE, H5T_NATIVE_DOUBLE,
+                               length, [&](auto emit) {
+                                   produce([&](double value) { emit(value); });
+                               });
+    }
+}
+
+// A fixed width byte string column, the layout numpy gives an array of Python
+// strings and therefore the layout PyTables writes for /intervals/chr_list.
+void write_string_column(h5::FileWriter& file, const std::string& path,
+                         const std::vector<CutInterval>& intervals,
+                         bool use_extra_text) {
+    std::size_t width = 0;
+    for (const CutInterval& interval : intervals) {
+        width = std::max(width,
+                         (use_extra_text ? interval.extra_text : interval.chrom).size());
+    }
+    const h5::Handle type = h5::fixed_string_type(width);
+    const h5::Handle dataset = file.create_dataset(path, type.get(), intervals.size(),
+                                                   intervals.size(),
+                                                   h5::Filter::PyTablesBlosc);
+    const std::size_t item = std::max<std::size_t>(width, 1);
+    std::vector<char> buffer;
+    buffer.reserve(std::min(intervals.size(), kBlock) * item);
+    std::size_t offset = 0;
+    const auto flush = [&]() {
+        h5::FileWriter::write_block(dataset.get(), type.get(), offset,
+                                    buffer.size() / item, buffer.data());
+        offset += buffer.size() / item;
+        buffer.clear();
+    };
+    for (const CutInterval& interval : intervals) {
+        const std::string& text = use_extra_text ? interval.extra_text : interval.chrom;
+        const std::size_t previous = buffer.size();
+        buffer.resize(previous + item, '\0');
+        std::copy_n(text.data(), std::min(text.size(), item), buffer.begin() + static_cast<std::ptrdiff_t>(previous));
+        if (buffer.size() == kBlock * item) {
+            flush();
+        }
+    }
+    flush();
+}
+
+// PyTables marks every node it creates with CLASS, VERSION and TITLE, and the
+// root additionally with PYTABLES_FORMAT_VERSION and the file title. The
+// markers are not needed to read the file back (PyTables infers a chunked
+// dataset as a CArray without them), but writing them keeps a C++ written file
+// indistinguishable from a Python written one at the node level.
+void mark_pytables_nodes(h5::FileWriter& file, const std::string& title,
+                         const std::vector<std::string>& groups,
+                         const std::vector<std::string>& leaves) {
+    file.set_bytes_attribute("/", "CLASS", "GROUP");
+    file.set_bytes_attribute("/", "PYTABLES_FORMAT_VERSION", "2.1");
+    file.set_bytes_attribute("/", "TITLE", title);
+    file.set_bytes_attribute("/", "VERSION", "1.0");
+    for (const std::string& group : groups) {
+        file.set_bytes_attribute(group, "CLASS", "GROUP");
+        file.set_bytes_attribute(group, "TITLE", "");
+        file.set_bytes_attribute(group, "VERSION", "1.0");
+    }
+    for (const std::string& leaf : leaves) {
+        file.set_bytes_attribute(leaf, "CLASS", "CARRAY");
+        file.set_bytes_attribute(leaf, "TITLE", "", true);
+        file.set_bytes_attribute(leaf, "VERSION", "1.1");
+    }
+}
+
+}  // namespace
+
+void write_hicexplorer_h5(const std::string& path, const MatrixData& data,
+                          const H5SaveOptions& options) {
+    // hicmatrix appends the suffix and unlinks an existing file
+    // (hicmatrix/lib/h5.py:100-109). H5Fcreate with H5F_ACC_TRUNC is the same
+    // thing for a regular file and also handles the case where the path exists
+    // but is not an HDF5 file.
+    std::string filename = path;
+    if (filename.size() < 3 || filename.compare(filename.size() - 3, 3, ".h5") != 0) {
+        filename += ".h5";
+    }
+    std::remove(filename.c_str());
+
+    const CsrMatrix& matrix = data.matrix;
+    if (data.cut_intervals.size() != static_cast<std::size_t>(matrix.rows())) {
+        throw h5::Error("the bin table has " + std::to_string(data.cut_intervals.size()) +
+                        " entries but the matrix has " + std::to_string(matrix.rows()) +
+                        " rows");
+    }
+    const bool upper_only = options.symmetric;
+    const std::vector<std::int64_t> indptr = upper_only
+                                                 ? matrix.upper_triangle_indptr()
+                                                 : matrix.stored_indptr_without_zeros();
+    const std::size_t nnz = static_cast<std::size_t>(indptr.back());
+
+    h5::FileWriter file(filename);
+    file.create_group("/matrix");
+    file.create_group("/intervals");
+
+    write_matrix_data(file, matrix, upper_only, nnz);
+
+    // scipy holds the column indices and the row offsets in the same index
+    // type, so both follow the same choice.
+    if (index_fits_in_int32(nnz, matrix.rows())) {
+        write_streamed<std::int32_t>(
+            file, "/matrix/indices", H5T_STD_I32LE, H5T_NATIVE_INT32, nnz,
+            [&](auto emit) {
+                const auto visit = [&](std::int64_t, std::int64_t column, double) {
+                    emit(static_cast<std::int32_t>(column));
+                };
+                if (upper_only) {
+                    matrix.for_each_upper(visit);
+                } else {
+                    matrix.for_each_stored(visit);
+                }
+            });
+        write_streamed<std::int32_t>(
+            file, "/matrix/indptr", H5T_STD_I32LE, H5T_NATIVE_INT32, indptr.size(),
+            [&](auto emit) {
+                for (const std::int64_t offset : indptr) {
+                    emit(static_cast<std::int32_t>(offset));
+                }
+            });
+    } else {
+        write_streamed<std::int64_t>(
+            file, "/matrix/indices", H5T_STD_I64LE, H5T_NATIVE_INT64, nnz,
+            [&](auto emit) {
+                const auto visit = [&](std::int64_t, std::int64_t column, double) {
+                    emit(column);
+                };
+                if (upper_only) {
+                    matrix.for_each_upper(visit);
+                } else {
+                    matrix.for_each_stored(visit);
+                }
+            });
+        write_vector(file, "/matrix/indptr", H5T_STD_I64LE, H5T_NATIVE_INT64, indptr);
+    }
+
+    const std::vector<std::int64_t> shape{matrix.rows(), matrix.cols()};
+    write_vector(file, "/matrix/shape", H5T_STD_I64LE, H5T_NATIVE_INT64, shape);
+
+    write_string_column(file, "/intervals/chr_list", data.cut_intervals, false);
+    write_streamed<std::int64_t>(file, "/intervals/start_list", H5T_STD_I64LE,
+                                 H5T_NATIVE_INT64, data.cut_intervals.size(),
+                                 [&](auto emit) {
+                                     for (const CutInterval& bin : data.cut_intervals) {
+                                         emit(bin.start);
+                                     }
+                                 });
+    write_streamed<std::int64_t>(file, "/intervals/end_list", H5T_STD_I64LE,
+                                 H5T_NATIVE_INT64, data.cut_intervals.size(),
+                                 [&](auto emit) {
+                                     for (const CutInterval& bin : data.cut_intervals) {
+                                         emit(bin.end);
+                                     }
+                                 });
+    // extra_list is float64 for every matrix in the corpus except the z score
+    // matrices of hicFindTADs, which store text there.
+    const bool extra_is_text =
+        !data.cut_intervals.empty() &&
+        std::all_of(data.cut_intervals.begin(), data.cut_intervals.end(),
+                    [](const CutInterval& bin) { return !bin.extra_text.empty(); });
+    if (extra_is_text) {
+        write_string_column(file, "/intervals/extra_list", data.cut_intervals, true);
+    } else {
+        write_streamed<double>(file, "/intervals/extra_list", H5T_IEEE_F64LE,
+                               H5T_NATIVE_DOUBLE, data.cut_intervals.size(),
+                               [&](auto emit) {
+                                   for (const CutInterval& bin : data.cut_intervals) {
+                                       emit(bin.extra);
+                                   }
+                               });
+    }
+
+    // The three optional nodes are omitted when they are empty, which is what
+    // the `if len(...)` guards in the Python do.
+    if (!data.nan_bins.empty()) {
+        write_vector(file, "/nan_bins", H5T_STD_I64LE, H5T_NATIVE_INT64, data.nan_bins);
+    }
+    if (data.correction_factors.has_value() && !data.correction_factors->empty()) {
+        // h5.py:157-158 replaces NaN with zero before writing; Inf is left as
+        // it is, unlike on the read side.
+        write_streamed<double>(file, "/correction_factors", H5T_IEEE_F64LE,
+                               H5T_NATIVE_DOUBLE, data.correction_factors->size(),
+                               [&](auto emit) {
+                                   for (const double value : *data.correction_factors) {
+                                       emit(std::isnan(value) ? 0.0 : value);
+                                   }
+                               },
+                               data.correction_factors_are_column ? 1 : 0);
+    }
+    if (data.distance_counts.has_value() && !data.distance_counts->empty()) {
+        write_vector(file, "/distance_counts", H5T_IEEE_F64LE, H5T_NATIVE_DOUBLE,
+                     *data.distance_counts);
+    }
+
+    std::vector<std::string> leaves{"/matrix/data",         "/matrix/indices",
+                                    "/matrix/indptr",       "/matrix/shape",
+                                    "/intervals/chr_list",  "/intervals/start_list",
+                                    "/intervals/end_list",  "/intervals/extra_list"};
+    if (!data.nan_bins.empty()) {
+        leaves.emplace_back("/nan_bins");
+    }
+    if (data.correction_factors.has_value() && !data.correction_factors->empty()) {
+        leaves.emplace_back("/correction_factors");
+    }
+    if (data.distance_counts.has_value() && !data.distance_counts->empty()) {
+        leaves.emplace_back("/distance_counts");
+    }
+    mark_pytables_nodes(file, "HiCExplorer matrix", {"/matrix", "/intervals"}, leaves);
 }
 
 }  // namespace hicx

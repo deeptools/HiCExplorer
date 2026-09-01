@@ -1,0 +1,123 @@
+[
+  {
+    "id": "roundtrip.cool.small_test_matrix",
+    "tier": 0,
+    "py_script": "cpp/scripts/py_roundtrip.py",
+    "cpp_binary": "../tests/hicx_roundtrip",
+    "args": ["{data}/small_test_matrix.cool", "{out}/matrix.cool"],
+    "outputs": [{"path": "{out}/matrix.cool", "format": "cool", "class": "E1"}],
+    "notes": "15 chromosomes, 33,754 bins, int32 counts. Exercises the chromosome enumeration, the multi contig bin table and the chunk layout."
+  },
+  {
+    "id": "roundtrip.h5.small_test_matrix",
+    "tier": 0,
+    "py_script": "cpp/scripts/py_roundtrip.py",
+    "cpp_binary": "../tests/hicx_roundtrip",
+    "args": ["{data}/small_test_matrix.h5", "{out}/matrix.h5"],
+    "outputs": [{"path": "{out}/matrix.h5", "format": "h5", "class": "E2"}],
+    "notes": "The h5 writer through the blosc compression filter, PLAN.md risk 5."
+  },
+  {
+    "id": "roundtrip.cool_to_h5.small_test_matrix",
+    "tier": 0,
+    "py_script": "cpp/scripts/py_roundtrip.py",
+    "cpp_binary": "../tests/hicx_roundtrip",
+    "args": ["{data}/small_test_matrix.cool", "{out}/matrix.h5"],
+    "outputs": [{"path": "{out}/matrix.h5", "format": "h5", "class": "E2"}],
+    "notes": "Cross format, cool reader into h5 writer."
+  },
+  {
+    "id": "roundtrip.h5_to_cool.small_test_matrix",
+    "tier": 0,
+    "py_script": "cpp/scripts/py_roundtrip.py",
+    "cpp_binary": "../tests/hicx_roundtrip",
+    "args": ["{data}/small_test_matrix.h5", "{out}/matrix.cool"],
+    "outputs": [{"path": "{out}/matrix.cool", "format": "cool", "class": "E1"}],
+    "notes": "Cross format, h5 reader into cool writer, which is the path that sets fileWasH5."
+  },
+  {
+    "id": "roundtrip.cool.Li_et_al_2015",
+    "tier": 0,
+    "py_script": "cpp/scripts/py_roundtrip.py",
+    "cpp_binary": "../tests/hicx_roundtrip",
+    "args": ["{data}/Li_et_al_2015.cool", "{out}/matrix.cool"],
+    "outputs": [{"path": "{out}/matrix.cool", "format": "cool", "class": "E1"}],
+    "notes": "11,104 restriction fragment bins, so bin-size is the string null and bin-type is variable. float64 counts, 1,661,678 pixels."
+  },
+  {
+    "id": "roundtrip.h5.Li_et_al_2015",
+    "tier": 0,
+    "py_script": "cpp/scripts/py_roundtrip.py",
+    "cpp_binary": "../tests/hicx_roundtrip",
+    "args": ["{data}/Li_et_al_2015.h5", "{out}/matrix.h5"],
+    "outputs": [{"path": "{out}/matrix.h5", "format": "h5", "class": "E2"}],
+    "notes": "Carries 855 nan bins and a correction factor vector through the writer."
+  },
+  {
+    "id": "roundtrip.h5_to_cool.Li_et_al_2015",
+    "tier": 0,
+    "py_script": "cpp/scripts/py_roundtrip.py",
+    "cpp_binary": "../tests/hicx_roundtrip",
+    "args": ["{data}/Li_et_al_2015.h5", "{out}/matrix.cool"],
+    "outputs": [{"path": "{out}/matrix.cool", "format": "cool", "class": "E1"}],
+    "notes": "The correction path: the factors are inverted, written as the weight column and divided back out of the counts, and the nan bin pairs are dropped."
+  },
+  {
+    "id": "roundtrip.cool_to_h5.Li_et_al_2015",
+    "tier": 0,
+    "py_script": "cpp/scripts/py_roundtrip.py",
+    "cpp_binary": "../tests/hicx_roundtrip",
+    "args": ["{data}/Li_et_al_2015.cool", "{out}/matrix.h5"],
+    "outputs": [{"path": "{out}/matrix.h5", "format": "h5", "class": "E2"}],
+    "notes": "Cross format on the designated float64 matrix."
+  },
+  {
+    "id": "roundtrip.h5.KRcorrected_column_factors",
+    "tier": 0,
+    "py_script": "cpp/scripts/py_roundtrip.py",
+    "cpp_binary": "../tests/hicx_roundtrip",
+    "args": ["{data}/hicCorrectMatrix/small_test_matrix_KRcorrected_chrUextra_chr3LHet.h5",
+             "{out}/matrix.h5"],
+    "outputs": [{"path": "{out}/matrix.h5", "format": "h5", "class": "E2"}],
+    "notes": "The one matrix in the corpus whose /correction_factors is an n-by-1 column rather than a flat vector."
+  },
+  {
+    "id": "roundtrip.h5.float32_counts",
+    "tier": 0,
+    "py_script": "cpp/scripts/py_roundtrip.py",
+    "cpp_binary": "../tests/hicx_roundtrip",
+    "args": ["{data}/hicNormalize/norm_range_one.h5", "{out}/matrix.h5"],
+    "outputs": [{"path": "{out}/matrix.h5", "format": "h5", "class": "E2"}],
+    "notes": "float32 /matrix/data, which the writer must not widen to float64."
+  },
+  {
+    "id": "roundtrip.h5.text_extra_list",
+    "tier": 0,
+    "py_script": "cpp/scripts/py_roundtrip.py",
+    "cpp_binary": "../tests/hicx_roundtrip",
+    "args": ["{data}/find_TADs/dekker/multiFDR_dekker_zscore_matrix.h5", "{out}/matrix.h5"],
+    "outputs": [{"path": "{out}/matrix.h5", "format": "h5", "class": "E2"}],
+    "notes": "hicFindTADs writes text into /intervals/extra_list, so the column is a byte string and not a float."
+  },
+  {
+    "id": "roundtrip.cool.many_contigs",
+    "tier": 0,
+    "py_script": "cpp/scripts/py_roundtrip.py",
+    "cpp_binary": "../tests/hicx_roundtrip",
+    "args": ["{data}/hicValidateLocations/GSM1436265_RAD21_ENCFF002EMQ_10kb.cool",
+             "{out}/matrix.cool"],
+    "outputs": [{"path": "{out}/matrix.cool", "format": "cool", "class": "E1"}],
+    "notes": "313,762 bins over 93 contigs with only 7,987 pixels: the many contig, extremely sparse case for the chromosome enumeration and the bin1 offset index."
+  },
+  {
+    "id": "roundtrip.cool.gm12878_chr1",
+    "tier": 0,
+    "large": true,
+    "py_script": "cpp/scripts/py_roundtrip.py",
+    "cpp_binary": "../tests/hicx_roundtrip",
+    "args": ["{data}/hicTADClassifier/gm12878_chr1.cool", "{out}/matrix.cool"],
+    "outputs": [{"path": "{out}/matrix.cool", "format": "cool", "class": "E1"}],
+    "memory": {"nnz_stored": 61804782, "nbins": 24926, "alpha": 1.3, "beta": 0.0},
+    "notes": "The memory benchmark of PLAN.md 8.1: 61,804,782 pixels, W = 741.9 MB. Also the only input in the corpus where cooler splits the pixel table into 10,000 parts, which fixes the accumulation order of the sum attribute."
+  }
+]

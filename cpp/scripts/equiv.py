@@ -13,7 +13,10 @@ equivalence class the case declares, and records runtime and peak RSS for both.
     cpp/scripts/equiv.py list    [--tool NAME]
 
 Cases live in cpp/scripts/cases/<tool>.json. See cpp/PLAN.md section 9 for the
-specification this implements.
+specification this implements. A case normally names a `tool` and the runner
+executes bin/<tool> against <cpp-bin>/<tool>; a tier 0 case that exercises the
+file layer before any tool exists gives `py_script` (a path relative to the
+repository root) and `cpp_binary` (a path relative to --cpp-bin) instead.
 
 Run it with the reference venv interpreter named in cpp/AGENTS_CONTRACT.md, so
 that the cool and h5 comparators find h5py, PyTables and numpy:
@@ -93,6 +96,9 @@ def load_cases(tools=None, tiers=None, ids=None):
             case.setdefault("large", False)
             case.setdefault("notes", "")
             case.setdefault("threads_arg", None)
+            # A tier 0 case names its two programs instead of a tool.
+            case.setdefault("py_script", None)
+            case.setdefault("cpp_binary", None)
             cases.append(case)
     if tools:
         cases = [case for case in cases if case["tool"] in tools]
@@ -169,8 +175,13 @@ def run_case(case, options):
     env["PYTHONPATH"] = str(REPO_ROOT) + os.pathsep + env.get("PYTHONPATH", "")
     env["COLUMNS"] = "80"
 
-    python_tool = PY_BIN / case["tool"]
-    cpp_tool = Path(options.cpp_bin) / case["tool"]
+    # A tool case runs bin/<tool> against <cpp-bin>/<tool>. A tier 0 case has
+    # no tool and names the two programs itself; that is how the file layer is
+    # exercised before any tool exists (PLAN.md 8.2, tier 0).
+    python_tool = (REPO_ROOT / case["py_script"]) if case.get("py_script") \
+        else (PY_BIN / case["tool"])
+    cpp_tool = (Path(options.cpp_bin) / case["cpp_binary"]).resolve() \
+        if case.get("cpp_binary") else (Path(options.cpp_bin) / case["tool"])
 
     load_average = os.getloadavg()[0]
 

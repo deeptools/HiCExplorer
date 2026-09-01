@@ -8,7 +8,9 @@
 // plus file level attributes: nbins, nchroms, nnz, sum, bin-size, bin-type,
 // storage-mode, generated-by, metadata and others.
 //
-// Only reading is implemented in this milestone.
+// The writer reproduces what cooler.create_cooler produces when hicmatrix
+// calls it (hicmatrix/lib/cool.py:406-426), including the dataset layout,
+// because cool output is compared structurally (class E1 of cpp/PLAN.md).
 
 #ifndef HICX_COOL_FILE_HPP
 #define HICX_COOL_FILE_HPP
@@ -23,6 +25,7 @@
 #include "hicx/bins.hpp"
 #include "hicx/hdf5_util.hpp"
 #include "hicx/json_lite.hpp"
+#include "hicx/matrix_data.hpp"
 #include "hicx/sparse_matrix.hpp"
 
 namespace hicx {
@@ -81,6 +84,80 @@ class CoolFile {
 
     [[nodiscard]] std::string path_of(const std::string& relative) const;
 };
+
+struct CoolLoadOptions {
+    // Cool.applyCorrectionLoad.
+    bool apply_correction = true;
+    // Cool.correctionFactorTable, the bin column holding the weights.
+    std::string correction_factor_table = "weight";
+};
+
+struct CoolLoadResult {
+    MatrixData data;
+    // The state the loader leaves behind on the Cool object and that a
+    // following save reads back (hicmatrix/lib/cool.py:195-207): the operator
+    // the correction was applied with, and the version of whatever wrote the
+    // file. hicConvertFormat carries both from the input handler to the output
+    // handler, so they belong to the load result and not to the matrix.
+    std::optional<char> correction_operator;
+    std::optional<std::string> hic2cool_version;
+    std::optional<std::string> hicmatrix_version;
+    // Cooler.info with every value rendered the way Python's str() would.
+    std::map<std::string, std::string> metadata;
+};
+
+// Port of hicmatrix.lib.Cool.load for the whole matrix case, which is the only
+// one the tools use when no chromosome is preselected.
+[[nodiscard]] CoolLoadResult read_cool(const std::string& uri,
+                                       const CoolLoadOptions& options = CoolLoadOptions());
+
+// The state hicmatrix.lib.Cool carries into save(), one field per Python
+// attribute that changes what is written.
+struct CoolSaveOptions {
+    // pSymmetric: store triu(matrix, k=0). Always true in HiCExplorer.
+    bool symmetric = true;
+    // pApplyCorrection: divide the correction factors back out of the counts
+    // so that 'count' on disk is raw and 'weight' carries the correction.
+    bool apply_correction = true;
+    // Cool.enforceInteger: round the counts to int32 with numpy's
+    // round-half-to-even.
+    bool enforce_integer = false;
+    // Cool.fileWasH5: the input was an h5 file, which both triggers the
+    // nan-bin masking and forces the correction factors to be inverted.
+    bool file_was_h5 = false;
+    // Cool.hic2cool_version, compared as a string against "0.5".
+    std::optional<std::string> hic2cool_version;
+    // Cool.correctionOperator, '*' or '/', set by the loader.
+    std::optional<char> correction_operator;
+    // Cool.hic_metadata, the info dictionary of the source cooler. Only
+    // 'genome-assembly', 'matrix-generated-by' and 'matrix-generated-by-url'
+    // are read out of it.
+    std::map<std::string, std::string> hic_metadata;
+    bool has_hic_metadata = false;
+    // The provenance strings. cpp/PLAN.md 2.4 decides that the port emits the
+    // hicmatrix identity verbatim until the whole suite is green, so that the
+    // four normalised attributes are not a free pass in the comparator.
+    std::string generated_by = "HiCMatrix-17.2";
+    std::string generated_by_cooler_lib = "cooler-0.10.2";
+    std::string tool_url = "https://github.com/deeptools/HiCMatrix";
+    std::string format_url = "https://github.com/mirnylab/cooler";
+    // ISO 8601 local time, like datetime.now().isoformat(). Empty means "take
+    // the current time"; a fixed value makes a test reproducible.
+    std::string creation_date;
+};
+
+// Port of hicmatrix.lib.Cool.create_cooler_input and Cool.save.
+//
+// `data` is modified in place exactly where the Python modifies it: NaN counts
+// become zero, the pairs of NaN bins are dropped for an h5 source, the
+// correction factors are inverted and the counts are divided by them. With
+// pSymmetric the reverted counts are the upper triangle only, because at that
+// point the Python has already replaced its matrix with that triangle. Nothing
+// is copied; the pixel table is streamed out of the CSR one block at a time,
+// so the writer adds a bounded buffer and the O(nbins) row offset array to the
+// resident set and nothing that scales with the pixel count.
+void write_cool(const std::string& path, MatrixData& data,
+                const CoolSaveOptions& options = CoolSaveOptions());
 
 }  // namespace hicx
 

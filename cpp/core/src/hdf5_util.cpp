@@ -1,5 +1,7 @@
 #include "hicx/hdf5_util.hpp"
 
+#include <algorithm>
+#include <cmath>
 #include <cstdlib>
 #include <cstring>
 #include <mutex>
@@ -11,19 +13,58 @@ namespace hicx::h5 {
 namespace {
 
 constexpr H5Z_filter_t kBloscFilterId = 32001;
+// The filter revision that PyTables writes into cd_values[0]. Keeping it makes
+// the parameter block of a dataset written here identical to PyTables'.
+constexpr unsigned int kBloscFilterVersion = 2;
+constexpr int kPyTablesComplevel = 5;
+constexpr int kPyTablesShuffle = 1;
 
-// Decompression half of the reference hdf5-blosc filter. Compression is not
-// implemented; version 4 does not write PyTables files yet.
+// Both halves of the reference hdf5-blosc filter.
+//
+//   cd_values[0] filter revision      cd_values[3] uncompressed chunk bytes
+//   cd_values[1] blosc format version cd_values[4] compression level
+//   cd_values[2] type size            cd_values[5] shuffle flag
+//
+// The first four are filled in by blosc_set_local below, so a caller only has
+// to supply the level and the shuffle flag, exactly as PyTables does.
 size_t blosc_filter_impl(unsigned int flags, size_t cd_nelmts,
                          const unsigned int cd_values[], size_t nbytes,
                          size_t* buf_size, void** buf) {
+    size_t outbuf_size = 0;
+    if ((flags & H5Z_FLAG_REVERSE) == 0) {
+        const size_t typesize = cd_nelmts > 2 ? cd_values[2] : 8;
+        const int clevel =
+            cd_nelmts >= 5 ? static_cast<int>(cd_values[4]) : kPyTablesComplevel;
+        const int doshuffle =
+            cd_nelmts >= 6 ? static_cast<int>(cd_values[5]) : kPyTablesShuffle;
+        outbuf_size = *buf_size;
+        void* outbuf = std::malloc(outbuf_size + BLOSC_MAX_OVERHEAD);
+        if (outbuf == nullptr) {
+            return 0;
+        }
+        // blosclz is what PyTables selects for complib='blosc'.
+        if (blosc_set_compressor("blosclz") < 0) {
+            std::free(outbuf);
+            return 0;
+        }
+        const int status = blosc_compress(clevel, doshuffle, typesize, nbytes, *buf,
+                                          outbuf, nbytes + BLOSC_MAX_OVERHEAD);
+        if (status <= 0) {
+            // A negative status is an error; zero means the data did not
+            // compress, and returning zero makes HDF5 fall back to storing the
+            // chunk uncompressed because the filter is optional.
+            std::free(outbuf);
+            return 0;
+        }
+        std::free(*buf);
+        *buf = outbuf;
+        *buf_size = outbuf_size;
+        return static_cast<size_t>(status);
+    }
+
     (void)cd_nelmts;
     (void)cd_values;
     (void)nbytes;
-    if ((flags & H5Z_FLAG_REVERSE) == 0) {
-        return 0;  // write path unsupported
-    }
-    size_t outbuf_size = 0;
     size_t cbytes = 0;
     size_t blocksize = 0;
     blosc_cbuffer_sizes(*buf, &outbuf_size, &cbytes, &blocksize);
@@ -45,6 +86,39 @@ size_t blosc_filter_impl(unsigned int flags, size_t cd_nelmts,
     return static_cast<size_t>(status);
 }
 
+// Fills in the parameters that depend on the dataset rather than on the
+// caller: the type size and the uncompressed size of one chunk.
+herr_t blosc_set_local(hid_t dcpl, hid_t type, hid_t /*space*/) {
+    unsigned int flags = 0;
+    size_t nelmts = 8;
+    unsigned int values[8] = {0};
+    if (H5Pget_filter_by_id2(dcpl, kBloscFilterId, &flags, &nelmts, values, 0, nullptr,
+                             nullptr) < 0) {
+        return -1;
+    }
+    hsize_t chunk_dims[H5S_MAX_RANK];
+    const int rank = H5Pget_chunk(dcpl, H5S_MAX_RANK, chunk_dims);
+    if (rank < 0) {
+        return -1;
+    }
+    const size_t typesize = H5Tget_size(type);
+    size_t chunk_bytes = typesize;
+    for (int i = 0; i < rank; ++i) {
+        chunk_bytes *= static_cast<size_t>(chunk_dims[i]);
+    }
+    if (nelmts < 5) {
+        values[4] = kPyTablesComplevel;
+    }
+    if (nelmts < 6) {
+        values[5] = kPyTablesShuffle;
+    }
+    values[0] = kBloscFilterVersion;
+    values[1] = BLOSC_VERSION_FORMAT;
+    values[2] = static_cast<unsigned int>(typesize);
+    values[3] = static_cast<unsigned int>(chunk_bytes);
+    return H5Pmodify_filter(dcpl, kBloscFilterId, flags, 6, values);
+}
+
 const H5Z_class2_t kBloscClass = {
     H5Z_CLASS_T_VERS,
     kBloscFilterId,
@@ -52,7 +126,7 @@ const H5Z_class2_t kBloscClass = {
     1,  // decoder_present
     "blosc",
     nullptr,
-    nullptr,
+    blosc_set_local,
     blosc_filter_impl,
 };
 
@@ -105,6 +179,7 @@ void Handle::close() noexcept {
         case Kind::DataType: H5Tclose(id_); break;
         case Kind::DataSpace: H5Sclose(id_); break;
         case Kind::Attribute: H5Aclose(id_); break;
+        case Kind::PropertyList: H5Pclose(id_); break;
     }
     id_ = -1;
 }
@@ -229,6 +304,14 @@ std::size_t File::dataset_length(const std::string& dataset_path) const {
     return static_cast<std::size_t>(points);
 }
 
+bool File::dataset_is_column(const std::string& dataset_path) const {
+    const Handle dataset = open_dataset(dataset_path);
+    const Handle space(H5Dget_space(dataset.get()), Handle::Kind::DataSpace);
+    hsize_t extent[2] = {0, 0};
+    const int rank = H5Sget_simple_extent_dims(space.get(), extent, nullptr);
+    return rank == 2 && extent[1] == 1;
+}
+
 std::string File::dataset_dtype(const std::string& dataset_path) const {
     const Handle dataset = open_dataset(dataset_path);
     const Handle type(H5Dget_type(dataset.get()), Handle::Kind::DataType);
@@ -271,6 +354,250 @@ std::vector<std::int64_t> File::read_int64(const std::string& dataset_path) cons
 std::vector<std::int32_t> File::read_int32(const std::string& dataset_path) const {
     return read_typed<std::int32_t>(*this, dataset_path, H5T_NATIVE_INT32,
                                     dataset_length(dataset_path));
+}
+
+// --------------------------------------------------------------------------
+// Writing
+
+std::size_t guess_chunk(std::size_t length, std::size_t typesize) {
+    // h5py/_hl/filters.py guess_chunk, one dimensional case. The constants and
+    // the loop are copied rather than approximated because the resulting chunk
+    // shape is compared byte for byte against the Python written cool files.
+    constexpr double kChunkBase = 16.0 * 1024.0;
+    constexpr double kChunkMin = 8.0 * 1024.0;
+    constexpr double kChunkMax = 1024.0 * 1024.0;
+
+    double chunk = length != 0 ? static_cast<double>(length) : 1024.0;
+    const double element = static_cast<double>(typesize);
+    const double dataset_bytes = chunk * element;
+    double target = kChunkBase * std::pow(2.0, std::log10(dataset_bytes / (1024.0 * 1024.0)));
+    target = std::min(target, kChunkMax);
+    target = std::max(target, kChunkMin);
+
+    while (true) {
+        const double chunk_bytes = chunk * element;
+        if ((chunk_bytes < target || std::fabs(chunk_bytes - target) / target < 0.5) &&
+            chunk_bytes < kChunkMax) {
+            break;
+        }
+        if (chunk == 1.0) {
+            break;
+        }
+        chunk = std::ceil(chunk / 2.0);
+    }
+    return static_cast<std::size_t>(chunk);
+}
+
+Handle fixed_string_type(std::size_t width) {
+    Handle type(H5Tcopy(H5T_C_S1), Handle::Kind::DataType);
+    if (!type.valid() || H5Tset_size(type.get(), std::max<std::size_t>(width, 1)) < 0 ||
+        H5Tset_strpad(type.get(), H5T_STR_NULLPAD) < 0 ||
+        H5Tset_cset(type.get(), H5T_CSET_ASCII) < 0) {
+        throw Error("cannot build a fixed width string type");
+    }
+    return type;
+}
+
+Handle enum_type(const std::vector<std::string>& names, hid_t base) {
+    Handle type(H5Tenum_create(base), Handle::Kind::DataType);
+    if (!type.valid()) {
+        throw Error("cannot build an enumeration type");
+    }
+    for (std::size_t i = 0; i < names.size(); ++i) {
+        const std::int32_t value = static_cast<std::int32_t>(i);
+        if (H5Tenum_insert(type.get(), names[i].c_str(), &value) < 0) {
+            throw Error("cannot add " + names[i] + " to the chromosome enumeration");
+        }
+    }
+    return type;
+}
+
+FileWriter::FileWriter(const std::string& path) : path_(path) {
+    register_blosc_filter();
+    H5Eset_auto2(H5E_DEFAULT, nullptr, nullptr);
+    const hid_t id = H5Fcreate(path.c_str(), H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT);
+    if (id < 0) {
+        throw Error("cannot create HDF5 file: " + path);
+    }
+    file_ = Handle(id, Handle::Kind::File);
+}
+
+Handle FileWriter::create_group(const std::string& path) {
+    const hid_t group = H5Gcreate2(file_.get(), path.c_str(), H5P_DEFAULT, H5P_DEFAULT,
+                                   H5P_DEFAULT);
+    if (group < 0) {
+        throw Error("cannot create group " + path + " in " + path_);
+    }
+    return Handle(group, Handle::Kind::Group);
+}
+
+Handle FileWriter::create_dataset(const std::string& path, hid_t file_type,
+                                  std::size_t length, std::size_t max_length,
+                                  Filter filter, std::size_t chunk,
+                                  std::size_t minor) {
+    const int rank = minor > 0 ? 2 : 1;
+    const hsize_t dims[2] = {static_cast<hsize_t>(length),
+                             static_cast<hsize_t>(minor)};
+    const hsize_t maxdims[2] = {max_length == kUnlimited
+                                    ? H5S_UNLIMITED
+                                    : static_cast<hsize_t>(std::max(max_length, length)),
+                                static_cast<hsize_t>(minor)};
+    const Handle space(H5Screate_simple(rank, dims, maxdims), Handle::Kind::DataSpace);
+    if (!space.valid()) {
+        throw Error("cannot create the dataspace of " + path);
+    }
+
+    const Handle plist(H5Pcreate(H5P_DATASET_CREATE), Handle::Kind::PropertyList);
+    if (!plist.valid()) {
+        throw Error("cannot create the property list of " + path);
+    }
+    if (chunk == 0) {
+        chunk = guess_chunk(length, H5Tget_size(file_type));
+    }
+    const hsize_t chunk_dims[2] = {static_cast<hsize_t>(std::max<std::size_t>(chunk, 1)),
+                                   static_cast<hsize_t>(std::max<std::size_t>(minor, 1))};
+    if (H5Pset_chunk(plist.get(), rank, chunk_dims) < 0) {
+        throw Error("cannot set the chunk shape of " + path);
+    }
+    switch (filter) {
+        case Filter::None:
+            break;
+        case Filter::CoolerDefault:
+            if (H5Pset_shuffle(plist.get()) < 0 || H5Pset_deflate(plist.get(), 6) < 0) {
+                throw Error("cannot set the shuffle and gzip filters of " + path);
+            }
+            break;
+        case Filter::CoolerColumn:
+            if (H5Pset_deflate(plist.get(), 6) < 0) {
+                throw Error("cannot set the gzip filter of " + path);
+            }
+            break;
+        case Filter::PyTablesBlosc: {
+            // Only the level and the shuffle flag are given here; the type size
+            // and the chunk size are filled in by blosc_set_local.
+            const unsigned int cd_values[6] = {0, 0, 0, 0, kPyTablesComplevel,
+                                               kPyTablesShuffle};
+            if (H5Pset_filter(plist.get(), kBloscFilterId, H5Z_FLAG_OPTIONAL, 6,
+                              cd_values) < 0) {
+                throw Error("cannot set the blosc filter of " + path);
+            }
+            break;
+        }
+    }
+
+    const hid_t dataset = H5Dcreate2(file_.get(), path.c_str(), file_type, space.get(),
+                                     H5P_DEFAULT, plist.get(), H5P_DEFAULT);
+    if (dataset < 0) {
+        throw Error("cannot create dataset " + path + " in " + path_);
+    }
+    return Handle(dataset, Handle::Kind::Dataset);
+}
+
+void FileWriter::resize(hid_t dataset, std::size_t length) {
+    const hsize_t dims = static_cast<hsize_t>(length);
+    if (H5Dset_extent(dataset, &dims) < 0) {
+        throw Error("cannot resize a dataset");
+    }
+}
+
+void FileWriter::write_block(hid_t dataset, hid_t mem_type, std::size_t offset,
+                             std::size_t count, const void* data) {
+    if (count == 0) {
+        return;
+    }
+    const Handle file_space(H5Dget_space(dataset), Handle::Kind::DataSpace);
+    hsize_t extent[2] = {0, 0};
+    const int rank = H5Sget_simple_extent_dims(file_space.get(), extent, nullptr);
+    if (rank < 1 || rank > 2) {
+        throw Error("only one and two dimensional datasets are written");
+    }
+    const hsize_t start[2] = {static_cast<hsize_t>(offset), 0};
+    const hsize_t block[2] = {static_cast<hsize_t>(count), extent[1]};
+    if (H5Sselect_hyperslab(file_space.get(), H5S_SELECT_SET, start, nullptr, block,
+                            nullptr) < 0) {
+        throw Error("cannot select the destination of a dataset write");
+    }
+    const Handle mem_space(H5Screate_simple(rank, block, block),
+                           Handle::Kind::DataSpace);
+    if (H5Dwrite(dataset, mem_type, mem_space.get(), file_space.get(), H5P_DEFAULT,
+                 data) < 0) {
+        char name[512] = {0};
+        H5Iget_name(dataset, name, sizeof(name));
+        throw Error(std::string("cannot write to dataset ") + name);
+    }
+}
+
+void FileWriter::set_attribute(const std::string& object_path, const std::string& name,
+                               const AttributeValue& value) {
+    const hid_t object = H5Oopen(file_.get(), object_path.c_str(), H5P_DEFAULT);
+    if (object < 0) {
+        throw Error("cannot open object " + object_path + " in " + path_);
+    }
+    const Handle object_handle(object, Handle::Kind::Group);
+    const Handle space(H5Screate(H5S_SCALAR), Handle::Kind::DataSpace);
+
+    Handle type;
+    const void* buffer = nullptr;
+    const char* text = nullptr;
+    std::int64_t integer = 0;
+    double number = 0.0;
+    if (std::holds_alternative<std::string>(value)) {
+        // h5py writes a Python str as a variable length UTF-8 string.
+        type = Handle(H5Tcopy(H5T_C_S1), Handle::Kind::DataType);
+        H5Tset_size(type.get(), H5T_VARIABLE);
+        H5Tset_cset(type.get(), H5T_CSET_UTF8);
+        text = std::get<std::string>(value).c_str();
+        buffer = &text;
+    } else if (std::holds_alternative<std::int64_t>(value)) {
+        type = Handle(H5Tcopy(H5T_STD_I64LE), Handle::Kind::DataType);
+        integer = std::get<std::int64_t>(value);
+        buffer = &integer;
+    } else {
+        type = Handle(H5Tcopy(H5T_IEEE_F64LE), Handle::Kind::DataType);
+        number = std::get<double>(value);
+        buffer = &number;
+    }
+
+    const hid_t attribute = H5Acreate2(object, name.c_str(), type.get(), space.get(),
+                                       H5P_DEFAULT, H5P_DEFAULT);
+    if (attribute < 0) {
+        throw Error("cannot create attribute " + name + " on " + object_path);
+    }
+    const Handle attribute_handle(attribute, Handle::Kind::Attribute);
+    Handle mem_type(H5Tcopy(type.get()), Handle::Kind::DataType);
+    if (std::holds_alternative<std::int64_t>(value)) {
+        mem_type = Handle(H5Tcopy(H5T_NATIVE_INT64), Handle::Kind::DataType);
+    } else if (std::holds_alternative<double>(value)) {
+        mem_type = Handle(H5Tcopy(H5T_NATIVE_DOUBLE), Handle::Kind::DataType);
+    }
+    if (H5Awrite(attribute, mem_type.get(), buffer) < 0) {
+        throw Error("cannot write attribute " + name + " on " + object_path);
+    }
+}
+
+void FileWriter::set_bytes_attribute(const std::string& object_path,
+                                     const std::string& name, const std::string& value,
+                                     bool null_dataspace) {
+    const hid_t object = H5Oopen(file_.get(), object_path.c_str(), H5P_DEFAULT);
+    if (object < 0) {
+        throw Error("cannot open object " + object_path + " in " + path_);
+    }
+    const Handle object_handle(object, Handle::Kind::Group);
+    const Handle type = fixed_string_type(std::max<std::size_t>(value.size(), 1));
+    // numpy byte strings are NUL terminated when they are shorter than the
+    // type, which is the padding PyTables writes for these markers.
+    H5Tset_strpad(type.get(), H5T_STR_NULLTERM);
+    const Handle space(H5Screate(null_dataspace ? H5S_NULL : H5S_SCALAR),
+                       Handle::Kind::DataSpace);
+    const hid_t attribute = H5Acreate2(object, name.c_str(), type.get(), space.get(),
+                                       H5P_DEFAULT, H5P_DEFAULT);
+    if (attribute < 0) {
+        throw Error("cannot create attribute " + name + " on " + object_path);
+    }
+    const Handle attribute_handle(attribute, Handle::Kind::Attribute);
+    if (!null_dataspace && H5Awrite(attribute, type.get(), value.data()) < 0) {
+        throw Error("cannot write attribute " + name + " on " + object_path);
+    }
 }
 
 std::vector<std::string> File::read_strings(const std::string& dataset_path) const {

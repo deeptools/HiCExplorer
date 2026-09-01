@@ -152,7 +152,51 @@ class CsrMatrix {
     // Dense element access, for tests and small matrices only.
     [[nodiscard]] double at(std::int64_t row, std::int64_t col) const;
 
+    // triu(self, k=0) after eliminate_zeros, which is what both file writers
+    // store, expressed without building it.
+    //
+    // The row offsets are the CSR indptr of that triangle, and they are also
+    // the cool /indexes/bin1_offset array. The array is O(rows), so producing
+    // it costs 8 bytes per bin and no copy of the matrix.
+    [[nodiscard]] std::vector<std::int64_t> upper_triangle_indptr() const;
+    // Number of entries that triu(self, k=0) would store.
+    [[nodiscard]] std::size_t upper_triangle_nnz() const;
+
+    // Visits every entry of triu(self, k=0) in row major order, exact zeros
+    // skipped, calling visit(row, column, value). Nothing is allocated, which
+    // is what lets the writers stream.
+    template <class F>
+    void for_each_upper(F&& visit) const {
+        for_each_selected(true, std::forward<F>(visit));
+    }
+    // The same over every stored entry, for pSymmetric=False.
+    template <class F>
+    void for_each_stored(F&& visit) const {
+        for_each_selected(false, std::forward<F>(visit));
+    }
+    [[nodiscard]] std::vector<std::int64_t> stored_indptr_without_zeros() const;
+    [[nodiscard]] std::size_t nonzero_stored_nnz() const;
+
   private:
+    template <class F>
+    void for_each_selected(bool upper_only, F&& visit) const {
+        for (std::int64_t row = 0; row < rows_; ++row) {
+            const std::size_t begin =
+                static_cast<std::size_t>(indptr_[static_cast<std::size_t>(row)]);
+            const std::size_t end =
+                static_cast<std::size_t>(indptr_[static_cast<std::size_t>(row) + 1]);
+            for (std::size_t k = begin; k < end; ++k) {
+                if (data_[k] == 0.0) {
+                    continue;  // eliminate_zeros
+                }
+                if (upper_only && indices_[k] < row) {
+                    continue;  // triu(k=0)
+                }
+                visit(row, static_cast<std::int64_t>(indices_[k]), data_[k]);
+            }
+        }
+    }
+
     std::int64_t rows_ = 0;
     std::int64_t cols_ = 0;
     std::vector<std::int64_t> indptr_{0};

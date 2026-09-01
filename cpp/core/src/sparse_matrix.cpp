@@ -139,6 +139,50 @@ std::size_t CsrMatrix::nnz() const {
     return count;
 }
 
+std::vector<std::int64_t> CsrMatrix::upper_triangle_indptr() const {
+    std::vector<std::int64_t> offsets(static_cast<std::size_t>(rows_) + 1, 0);
+    std::int64_t written = 0;
+    std::int64_t current_row = 0;
+    for_each_upper([&](std::int64_t row, std::int64_t, double) {
+        while (current_row < row) {
+            offsets[static_cast<std::size_t>(++current_row)] = written;
+        }
+        ++written;
+    });
+    while (current_row < rows_) {
+        offsets[static_cast<std::size_t>(++current_row)] = written;
+    }
+    return offsets;
+}
+
+std::size_t CsrMatrix::upper_triangle_nnz() const {
+    std::size_t count = 0;
+    for_each_upper([&](std::int64_t, std::int64_t, double) { ++count; });
+    return count;
+}
+
+std::vector<std::int64_t> CsrMatrix::stored_indptr_without_zeros() const {
+    std::vector<std::int64_t> offsets(static_cast<std::size_t>(rows_) + 1, 0);
+    std::int64_t written = 0;
+    std::int64_t current_row = 0;
+    for_each_stored([&](std::int64_t row, std::int64_t, double) {
+        while (current_row < row) {
+            offsets[static_cast<std::size_t>(++current_row)] = written;
+        }
+        ++written;
+    });
+    while (current_row < rows_) {
+        offsets[static_cast<std::size_t>(++current_row)] = written;
+    }
+    return offsets;
+}
+
+std::size_t CsrMatrix::nonzero_stored_nnz() const {
+    std::size_t count = 0;
+    for_each_stored([&](std::int64_t, std::int64_t, double) { ++count; });
+    return count;
+}
+
 bool CsrMatrix::lower_triangle_is_zero() const {
     double total = 0.0;
     for (std::int64_t i = 0; i < rows_; ++i) {
