@@ -3,6 +3,9 @@
 A comparator answers one question: do these two output files agree at the
 requested equivalence class? Classes are defined in cpp/PLAN.md section 5.1:
 
+    ED  the project acceptance gate: every item agrees to three significant
+        digits, that is |a-b| / |b| <= 1e-3, with a stored zero required to
+        stay a stored zero
     E0  byte identical
     E1  structurally identical HDF5, every dataset bit identical
     E2  same sparsity pattern, every stored value bit identical
@@ -11,6 +14,11 @@ requested equivalence class? Classes are defined in cpp/PLAN.md section 5.1:
     E5  Jaccard of called intervals >= 0.99
     E6  image RMS <= 5
     E7  deliberate deviation, not checked automatically
+
+ED is what a port must meet. E0 to E4 are stricter and are recorded when they
+are met, because a stricter result is a better regression signal and several
+tools reach E0 for free, but they are not required. Declaring a case stricter
+than ED is a statement that the tool is expected to achieve it.
 
 Every comparator module exposes
 
@@ -24,7 +32,15 @@ import math
 from dataclasses import dataclass, field
 from typing import Any, Dict, List
 
-CLASSES = ("E0", "E1", "E2", "E3", "E4", "E5", "E6", "E7")
+CLASSES = ("ED", "E0", "E1", "E2", "E3", "E4", "E5", "E6", "E7")
+
+# The project acceptance gate, set 2026-09-01: three significant digits per
+# item. Expressed as a relative tolerance because the corpus spans many orders
+# of magnitude (corrected matrices hold values from 7.9e-06 to 0.09, raw counts
+# reach 10^8), so a fixed number of decimal places would be meaningless at one
+# end and unreachable at the other.
+ACCEPTANCE_SIGNIFICANT_DIGITS = 3
+ACCEPTANCE_RTOL = 10.0 ** (-ACCEPTANCE_SIGNIFICANT_DIGITS)
 
 
 @dataclass
@@ -49,6 +65,12 @@ def fail(message, **metrics):
 
 def float_tolerance(cls):
     """Relative tolerance and its denominator floor for the float classes."""
+    if cls == "ED":
+        # Pure relative, no floor: three significant digits means the same
+        # thing at 1e-06 as at 1e+08. The zero case is handled separately in
+        # values_agree, since a floor would silently accept a value appearing
+        # where Python stored an exact zero.
+        return ACCEPTANCE_RTOL, 0.0
     if cls == "E3":
         return 1e-12, 1.0
     if cls == "E4":
@@ -68,4 +90,11 @@ def values_agree(a, b, cls):
     if math.isinf(a) or math.isinf(b):
         return a == b
     tolerance, floor = float_tolerance(cls)
+    if floor == 0.0:
+        # Pure relative comparison. An exact zero in the reference has no
+        # significant digits to agree with, so it has to be matched exactly;
+        # otherwise a spurious nonzero would pass by dividing by nothing.
+        if b == 0.0:
+            return a == 0.0
+        return abs(a - b) / abs(b) <= tolerance
     return abs(a - b) / max(floor, abs(b)) <= tolerance

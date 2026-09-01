@@ -9,7 +9,16 @@ equivalence harness running for tier 1. Everything else is not started.
 
 - **Tier**: porting tier from `PLAN.md` section 6. Tier 0 (the core library)
   has no tools and is tracked in the second table below.
-- **Class**: declared equivalence class from `PLAN.md` section 5.1.
+- **Class**: declared equivalence class from `PLAN.md` section 5.1. **The gate
+  every tool must clear is ED: every item within three significant digits,
+  relative `1e-3`, set by the project owner 2026-09-01 (`PLAN.md` 5.0).**
+  Byte identicality is not required. A stricter class in this column means the
+  tool is expected to do better than the gate and is checked at that level,
+  because a stricter result is a better regression signal and several tools
+  reach E0 for free; a drop from a declared strict class to ED is worth
+  investigating even though it still passes. KR is the one tool that cannot be
+  held to ED, because the Python reference disagrees with itself by `8.4e-03`
+  on `gm12878_chr1.cool`; it stays at EN.
   E0 byte-identical, E1 HDF5-structural, E2 value-exact, E3 tight float
   (1e-12 rel), E4 loose float (1e-6 rel), E5 set agreement (Jaccard >= 0.99),
   E6 image (RMS <= 5), EN within the measured oracle-noise envelope,

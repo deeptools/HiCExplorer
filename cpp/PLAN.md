@@ -902,10 +902,51 @@ intermediate copies.
 Every tool is assigned exactly one class. The class is recorded in `STATUS.md`
 and enforced by the harness. There is no per-run tolerance tuning.
 
+### 5.0 What a port must meet (project acceptance gate)
+
+**Set by the project owner, 2026-09-01: byte identicality is not required. Every
+item must agree to three significant digits, that is a relative difference of at
+most `1e-3` per element.** That is class **ED** below, and it is the bar every
+tool has to clear.
+
+It is expressed as a relative tolerance rather than a number of decimal places
+because the corpus spans many orders of magnitude: corrected matrices hold
+values from `7.89e-06` to `0.09`, while raw count matrices reach `10^8`. Three
+decimal places would pass every corrected matrix trivially and would be
+unreachable on raw counts. An exact zero in the reference is matched exactly,
+since a zero has no significant digits to agree with and dividing by it would
+let a spurious nonzero through.
+
+The stricter classes E0 to E4 are **not retired**. They are recorded when they
+are met, for two reasons: a stricter result is a much better regression signal,
+and several tools reach E0 for free once the numpy-compatible reduction
+machinery is in place, so there is nothing to gain by loosening them. A case
+declared stricter than ED asserts that the tool is expected to achieve it, and
+a drop from E0 to ED is a real regression worth investigating even though it
+still passes the gate. What changes is that no tool is *blocked* on reaching
+better than ED.
+
+Two consequences worth stating plainly:
+
+1. **Work already done is not wasted.** `hicInfo` and both writers are already
+   byte-identical or structurally identical, which is strictly stronger than
+   required, so they stay declared at E0/E1/E2.
+2. **ED does not rescue every tool, because the oracle is not always that
+   reproducible itself.** Measured: three `hicCorrectMatrix --correctionMethod KR`
+   runs on `gm12878_chr1.cool` produced normalisation factors 0.00660838,
+   0.00663618 and 0.00666417, a spread of `8.4e-03` relative. **Python against
+   Python fails a three-significant-digit test on that input**, so KR keeps
+   class EN (section 5.7) rather than ED: the comparison is against the median
+   of N reference runs within the measured envelope. On the smaller
+   `Li_et_al_2015.h5` the same spread is `1.6e-04` and ED would hold. The rule
+   is therefore ED everywhere except where the reference's own noise exceeds
+   `1e-3`, which so far means KR only.
+
 ### 5.1 The classes
 
 | class | criterion | how measured |
 |---|---|---|
+| **ED acceptance gate** | every item agrees to three significant digits, `abs(a-b) / abs(b) <= 1e-3`; an exact zero in the reference must stay an exact zero; integer and string fields exactly equal | all numeric comparators |
 | **E0 exact** | byte-identical output file | `cmp` |
 | **E1 structural** | HDF5 objects, dtypes, shapes, chunking, filters equal; every dataset decodes to bit-identical bytes; attributes equal after normalising `creation-date`, `generated-by`, `generated-by-cooler-lib`, `tool-url` | cool comparator |
 | **E2 value-exact** | same sparsity pattern; every stored value bit-identical (`memcmp` of the decoded arrays); integer fields exactly equal | h5 and text comparators |
@@ -963,6 +1004,27 @@ So the policy is: **implement numpy-pairwise reduction and vendor Cephes,
 and then most tools become E2 rather than E3.** The float classes are for the
 places where an algorithmic change is deliberately made (section 4.4) or where
 an iterative solver's stopping point differs.
+
+**Revised 2026-09-01 by the acceptance gate in 5.0.** Half of that policy is
+now optional. The split is by cost:
+
+- **Keep the numpy-pairwise reduction.** It is already written, unit-tested
+  against numpy over 161 array sizes, and used by every reduction in the core.
+  It costs nothing further and it is what makes `hicInfo` and the writers land
+  at E0 instead of ED. Removing it would only lose signal.
+- **Drop the vendoring of Cephes, and drop pinning the oracle's OpenBLAS.**
+  Those existed solely to make transcendentals and LAPACK bit-reproducible.
+  A different `libm` agrees with Cephes to far better than `1e-3`, and so does
+  a different eigensolver on a well-conditioned symmetric problem. The
+  dual-mode eigensolver for `hicPCA` (`dgeev` against `dsyevr`, section 5.6)
+  is no longer needed to satisfy equivalence; `dsyevr` alone clears ED, and it
+  is also the cheaper and lower-memory path. Keep the mode flag only if
+  `hicPCA`'s unsorted eigenvector column order turns out to differ, which is a
+  correctness question about which vector is returned, not a tolerance
+  question, and no tolerance can paper over it.
+
+The one place ED does not help is a reference that is not reproducible against
+itself. See 5.0 consequence 2 and section 5.7: KR stays at EN.
 
 Note that the upper-triangle storage decision (4.4 rule 2) is *not* one of those
 places, as long as the symmetric access helper visits elements in the same order
