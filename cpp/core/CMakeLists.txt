@@ -23,9 +23,13 @@ add_library(hicx4core
     src/hdf5_util.cpp
     src/hic_matrix.cpp
     src/json_lite.cpp
+    src/matrix_ops.cpp
     src/numpy_compat.cpp
+    src/reduce_matrix.cpp
     src/resource_usage.cpp
-    src/sparse_matrix.cpp)
+    src/sparse_matrix.cpp
+    src/text_formats.cpp
+    src/tool_matrix.cpp)
 
 target_include_directories(hicx4core PUBLIC
     "${CMAKE_CURRENT_SOURCE_DIR}/include"

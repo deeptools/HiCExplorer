@@ -1,0 +1,122 @@
+[
+  {
+    "id": "hicSumMatrices.h5.GSM_pair",
+    "tool": "hicSumMatrices",
+    "tier": 1,
+    "args": ["-m",
+             "{data}/hicDifferentialTAD/GSM2644945_Untreated-R1.100000_chr1.h5",
+             "{data}/hicDifferentialTAD/GSM2644947_Auxin2days-R1.100000_chr1.h5",
+             "-o", "{out}/sum.h5"],
+    "outputs": [{"path": "{out}/sum.h5", "format": "h5", "class": "E2"}],
+    "memory": {"nnz_stored": 1466566, "nbins": 1972, "alpha": 2.2, "beta": 0.0},
+    "notes": "The designated pair. 1,972 bins, float64 counts, 83 and 81 NaN bins. Exercises the maskBins union that discards 5,142 real counts (hicSumMatrices.py:72): the plain sparse sum has 3,157,763 entries and the written file has 3,152,621."
+  },
+  {
+    "id": "hicSumMatrices.cool.GSM_pair",
+    "tool": "hicSumMatrices",
+    "tier": 1,
+    "args": ["-m",
+             "{data}/hicDifferentialTAD/GSM2644945_Untreated-R1.100000_chr1.cool",
+             "{data}/hicDifferentialTAD/GSM2644947_Auxin2days-R1.100000_chr1.cool",
+             "-o", "{out}/sum.cool"],
+    "outputs": [{"path": "{out}/sum.cool", "format": "cool", "class": "E1"}],
+    "memory": {"nnz_stored": 1466566, "nbins": 1972, "alpha": 2.2, "beta": 0.0},
+    "notes": "The same pair through the cool reader and the cool writer. The cool loader derives the NaN bins from the empty rows rather than reading them, and reaches the same 83 and 81."
+  },
+  {
+    "id": "hicSumMatrices.cool.GSM_pair_chr1_chr2",
+    "tool": "hicSumMatrices",
+    "tier": 1,
+    "args": ["-m",
+             "{data}/hicDifferentialTAD/GSM2644945_Untreated-R1.100000_chr1_chr2.cool",
+             "{data}/hicDifferentialTAD/GSM2644947_Auxin2days-R1.100000_chr1_chr2.cool",
+             "-o", "{out}/sum.cool"],
+    "outputs": [{"path": "{out}/sum.cool", "format": "cool", "class": "E1"}],
+    "memory": {"nnz_stored": 4208340, "nbins": 3790, "alpha": 2.2, "beta": 0.0},
+    "large": true,
+    "notes": "The memory case for this tool: two chromosomes, 3,790 bins and 4,208,340 stored pixels, so W is 50.5 MB and the budget is 175 MB. Measured peak 171 MB against the Python's 1,014 MB. It is the largest input at which the 2.2 alpha still holds, because the sum is a third buffer alongside the two operands; see the report."
+  },
+  {
+    "id": "hicSumMatrices.h5.three_matrices",
+    "tool": "hicSumMatrices",
+    "tier": 1,
+    "args": ["-m",
+             "{data}/hicDifferentialTAD/GSM2644945_Untreated-R1.100000_chr1.h5",
+             "{data}/hicDifferentialTAD/GSM2644947_Auxin2days-R1.100000_chr1.h5",
+             "{data}/hicDifferentialTAD/GSM2644945_Untreated-R1.100000_chr1.h5",
+             "-o", "{out}/sum.h5"],
+    "outputs": [{"path": "{out}/sum.h5", "format": "h5", "class": "E2"}],
+    "memory": {"nnz_stored": 1466566, "nbins": 1972, "alpha": 2.2, "beta": 0.0},
+    "notes": "Runs the accumulation loop more than once, so the intermediate sum is added to rather than a fresh input."
+  },
+  {
+    "id": "hicSumMatrices.h5.integer_matrix_with_itself",
+    "tool": "hicSumMatrices",
+    "tier": 1,
+    "args": ["-m", "{data}/small_test_matrix_50kb_res.h5",
+             "{data}/small_test_matrix_50kb_res.h5", "-o", "{out}/sum.h5"],
+    "outputs": [{"path": "{out}/sum.h5", "format": "h5", "class": "E2"}],
+    "memory": {"nnz_stored": 23929, "nbins": 2794, "alpha": 2.2, "beta": 0.0},
+    "notes": "int64 counts and 139 NaN bins that hold no entries. Pins the dtype quirk: the sum of two int64 matrices is written as float64, because restoreMaskedBins pads with an empty float64 block."
+  },
+  {
+    "id": "hicSumMatrices.h5.single_matrix",
+    "tool": "hicSumMatrices",
+    "tier": 1,
+    "args": ["-m", "{data}/small_test_matrix_50kb_res.h5", "-o", "{out}/sum.h5"],
+    "outputs": [{"path": "{out}/sum.h5", "format": "h5", "class": "E2"}],
+    "memory": {"nnz_stored": 23929, "nbins": 2794, "alpha": 2.2, "beta": 0.0},
+    "notes": "One input means no addition at all, but the mask and restore step still runs and still upcasts to float64."
+  },
+  {
+    "id": "hicSumMatrices.h5.Li_et_al_2015_pair",
+    "tool": "hicSumMatrices",
+    "tier": 1,
+    "args": ["-m", "{data}/Li_et_al_2015.h5", "{data}/Li_et_al_2015_twice.h5",
+             "-o", "{out}/sum.h5"],
+    "outputs": [{"path": "{out}/sum.h5", "format": "h5", "class": "E2"}],
+    "memory": {"nnz_stored": 1661678, "nbins": 11104, "alpha": 2.2, "beta": 0.0},
+    "notes": "11,104 restriction fragment bins and a /correction_factors vector, so this is the case that exercises the load time field swap of PLAN.md 2.7 quirk 1: both implementations must write the factors into /distance_counts and leave /correction_factors out."
+  },
+  {
+    "id": "hicSumMatrices.cool.mixed_dtypes",
+    "tool": "hicSumMatrices",
+    "tier": 1,
+    "args": ["-m", "{data}/small_test_matrix.cool",
+             "{data}/hicCompareMatrices/small_test_matrix_twice.cool",
+             "-o", "{out}/sum.cool"],
+    "outputs": [{"path": "{out}/sum.cool", "format": "cool", "class": "E1"}],
+    "memory": {"nnz_stored": 35857, "nbins": 33754, "alpha": 2.2, "beta": 0.0},
+    "notes": "int32 plus float32 over 15 chromosomes and 14,845 NaN bins. numpy promotes that pair to float64, and the mask step would upcast anyway."
+  },
+  {
+    "id": "hicSumMatrices.cool.balanced_input_loses_its_weight_column",
+    "tool": "hicSumMatrices",
+    "tier": 1,
+    "args": ["-m", "{data}/hicCorrectMatrix/kr_full.cool",
+             "{data}/hicCorrectMatrix/kr_full.cool", "-o", "{out}/sum.cool"],
+    "outputs": [{"path": "{out}/sum.cool", "format": "cool", "class": "E1"}],
+    "memory": {"nnz_stored": 35857, "nbins": 33754, "alpha": 2.2, "beta": 0.0},
+    "notes": "A KR balanced cooler, so the loader applies the weight column to the counts. The load time field swap then puts the weights where the writer does not look for them, so the output has no weight column and its counts are the balanced values rather than the raw ones. Reproduced, not fixed; this case exists to pin it."
+  },
+  {
+    "id": "hicSumMatrices.h5.output_name_ending_in_cool",
+    "tool": "hicSumMatrices",
+    "tier": 1,
+    "args": ["-m", "{data}/small_test_matrix_50kb_res.h5", "-o", "{out}/sum.cool"],
+    "outputs": [{"path": "{out}/sum.cool.h5", "format": "h5", "class": "E2"}],
+    "memory": {"nnz_stored": 23929, "nbins": 2794, "alpha": 2.2, "beta": 0.0},
+    "notes": "hiCMatrix.save reuses the handler built during the load, so an h5 input is written as h5 whatever the output name says, and the h5 writer appends its own suffix. The file that appears is sum.cool.h5. Reproduced, not fixed."
+  },
+  {
+    "id": "hicSumMatrices.chromosome_order_mismatch",
+    "tool": "hicSumMatrices",
+    "tier": 1,
+    "args": ["-m", "{data}/Li_et_al_2015.h5",
+             "{data}/hicDifferentialTAD/GSM2644945_Untreated-R1.100000_chr1.h5",
+             "-o", "{out}/sum.h5"],
+    "outputs": [],
+    "expect_exit": 1,
+    "notes": "The chrBinBoundaries comparison at hicSumMatrices.py:53 rejects the pair and calls exit(1) before anything is written. This check also makes the shape mismatch branch at :60-67 unreachable, because the boundaries encode the shape."
+  }
+]

@@ -31,9 +31,25 @@ SCHEMAS = {
 }
 
 
-def _read_lines(path, schema):
+def _read_bytes(path):
+    """The content of the file, decompressed when it is gzipped.
+
+    The homer writer is gzip.open(..., 'wt'), whose header carries the
+    modification time, so two runs never produce identical compressed bytes.
+    E0 for that format therefore means byte identical *content*, which is also
+    what hicexplorer/test/general/test_hicConvertFormat.py asserts.
+    """
     with open(path, "rb") as handle:
         raw = handle.read()
+    if raw[:2] == b"\x1f\x8b":
+        import gzip
+
+        return gzip.decompress(raw)
+    return raw
+
+
+def _read_lines(path, schema):
+    raw = _read_bytes(path)
     text = raw.decode("utf-8", errors="replace")
     lines = text.split("\n")
     if lines and lines[-1] == "":
@@ -58,10 +74,8 @@ def compare(path_a, path_b, cls, opts=None):
     schema = SCHEMAS[schema_name]
 
     if schema is None or cls == "E0":
-        with open(path_a, "rb") as handle:
-            a = handle.read()
-        with open(path_b, "rb") as handle:
-            b = handle.read()
+        a = _read_bytes(path_a)
+        b = _read_bytes(path_b)
         if a == b:
             return Result(True, "E0", {"bytes": len(a)})
         diffs = _byte_diff(a, b)

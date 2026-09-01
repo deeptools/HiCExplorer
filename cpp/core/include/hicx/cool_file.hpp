@@ -90,6 +90,12 @@ struct CoolLoadOptions {
     bool apply_correction = true;
     // Cool.correctionFactorTable, the bin column holding the weights.
     std::string correction_factor_table = "weight";
+    // Cool.correctionOperator when the caller sets it before the load, which
+    // is what hicConvertFormat --correction_division does. The whole block
+    // that derives the operator from the column name is then skipped
+    // (cool.py:195-207), so the hic2cool and hicmatrix versions are not read
+    // out of 'generated-by' either.
+    std::optional<char> correction_operator;
 };
 
 struct CoolLoadResult {
@@ -122,6 +128,11 @@ struct CoolSaveOptions {
     // Cool.enforceInteger: round the counts to int32 with numpy's
     // round-half-to-even.
     bool enforce_integer = false;
+    // Cool.appendData: cooler.create_cooler is called with mode 'a' instead of
+    // 'w'. hicConvertFormat sets it for every resolution of an mcool after the
+    // first, and it is also what decides whether the hicmatrix provenance
+    // attributes are written onto the file root (cool.py:422-426).
+    bool append = false;
     // Cool.fileWasH5: the input was an h5 file, which both triggers the
     // nan-bin masking and forces the correction factors to be inverted.
     bool file_was_h5 = false;
@@ -141,12 +152,25 @@ struct CoolSaveOptions {
     std::string generated_by_cooler_lib = "cooler-0.10.2";
     std::string tool_url = "https://github.com/deeptools/HiCMatrix";
     std::string format_url = "https://github.com/mirnylab/cooler";
+    // cooler's own format-url, which survives on a cooler written into a group
+    // because hicmatrix overwrites the provenance attributes on the file root
+    // only. Note that hicmatrix's format_url above is the old mirnylab one.
+    std::string cooler_format_url = "https://github.com/open2c/cooler";
     // ISO 8601 local time, like datetime.now().isoformat(). Empty means "take
     // the current time"; a fixed value makes a test reproducible.
     std::string creation_date;
 };
 
 // Port of hicmatrix.lib.Cool.create_cooler_input and Cool.save.
+//
+// `path` is a cooler URI: either a plain file name, in which case the cooler
+// occupies the file root, or "file::/group/path", in which case it is written
+// into that group and the file keeps whatever else it holds. The second form
+// is how hicConvertFormat produces an mcool, one group per resolution. A
+// cooler written into a group keeps cooler's own provenance attributes
+// (format-url open2c, generated-by cooler-<version>) because hicmatrix only
+// overwrites them on the file root, and it overwrites them there only in mode
+// 'w', that is for the first resolution.
 //
 // `data` is modified in place exactly where the Python modifies it: NaN counts
 // become zero, the pairs of NaN bins are dropped for an h5 source, the

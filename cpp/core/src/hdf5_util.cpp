@@ -412,10 +412,20 @@ Handle enum_type(const std::vector<std::string>& names, hid_t base) {
     return type;
 }
 
-FileWriter::FileWriter(const std::string& path) : path_(path) {
+FileWriter::FileWriter(const std::string& path, WriteMode mode) : path_(path) {
     register_blosc_filter();
     H5Eset_auto2(H5E_DEFAULT, nullptr, nullptr);
-    const hid_t id = H5Fcreate(path.c_str(), H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT);
+    hid_t id = -1;
+    if (mode == WriteMode::Append) {
+        // h5py.File(path, 'a'): open an existing file for writing, create it
+        // when it is not there.
+        id = H5Fopen(path.c_str(), H5F_ACC_RDWR, H5P_DEFAULT);
+        if (id < 0) {
+            id = H5Fcreate(path.c_str(), H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT);
+        }
+    } else {
+        id = H5Fcreate(path.c_str(), H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT);
+    }
     if (id < 0) {
         throw Error("cannot create HDF5 file: " + path);
     }
@@ -423,12 +433,52 @@ FileWriter::FileWriter(const std::string& path) : path_(path) {
 }
 
 Handle FileWriter::create_group(const std::string& path) {
-    const hid_t group = H5Gcreate2(file_.get(), path.c_str(), H5P_DEFAULT, H5P_DEFAULT,
-                                   H5P_DEFAULT);
+    // Missing parents are created too, which is what an mcool needs: the
+    // second resolution finds /resolutions already there, the first does not.
+    const Handle link_plist(H5Pcreate(H5P_LINK_CREATE), Handle::Kind::PropertyList);
+    if (!link_plist.valid() ||
+        H5Pset_create_intermediate_group(link_plist.get(), 1) < 0) {
+        throw Error("cannot configure the link creation of group " + path);
+    }
+    const hid_t group = H5Gcreate2(file_.get(), path.c_str(), link_plist.get(),
+                                   H5P_DEFAULT, H5P_DEFAULT);
     if (group < 0) {
         throw Error("cannot create group " + path + " in " + path_);
     }
     return Handle(group, Handle::Kind::Group);
+}
+
+bool FileWriter::exists(const std::string& object_path) const {
+    if (object_path.empty() || object_path == "/") {
+        return true;
+    }
+    // H5Lexists only answers for one link at a time, so every component of the
+    // path has to be probed in turn.
+    std::string prefix;
+    std::size_t position = 0;
+    while (position < object_path.size()) {
+        const std::size_t slash = object_path.find('/', position);
+        const std::size_t end = slash == std::string::npos ? object_path.size() : slash;
+        const std::string component = object_path.substr(position, end - position);
+        position = end + 1;
+        if (component.empty()) {
+            continue;
+        }
+        prefix += "/" + component;
+        if (H5Lexists(file_.get(), prefix.c_str(), H5P_DEFAULT) <= 0) {
+            return false;
+        }
+    }
+    return true;
+}
+
+void FileWriter::unlink(const std::string& object_path) {
+    if (!exists(object_path) || object_path == "/") {
+        return;
+    }
+    if (H5Ldelete(file_.get(), object_path.c_str(), H5P_DEFAULT) < 0) {
+        throw Error("cannot remove " + object_path + " from " + path_);
+    }
 }
 
 Handle FileWriter::create_dataset(const std::string& path, hid_t file_type,
@@ -558,6 +608,12 @@ void FileWriter::set_attribute(const std::string& object_path, const std::string
         buffer = &number;
     }
 
+    // h5py assignment replaces an existing attribute, and hicmatrix relies on
+    // that: cooler writes 'format', 'format-url' and 'generated-by' and
+    // Cool.save overwrites them (hicmatrix/lib/cool.py:422-426).
+    if (H5Aexists(object, name.c_str()) > 0) {
+        H5Adelete(object, name.c_str());
+    }
     const hid_t attribute = H5Acreate2(object, name.c_str(), type.get(), space.get(),
                                        H5P_DEFAULT, H5P_DEFAULT);
     if (attribute < 0) {
@@ -589,6 +645,12 @@ void FileWriter::set_bytes_attribute(const std::string& object_path,
     H5Tset_strpad(type.get(), H5T_STR_NULLTERM);
     const Handle space(H5Screate(null_dataspace ? H5S_NULL : H5S_SCALAR),
                        Handle::Kind::DataSpace);
+    // h5py assignment replaces an existing attribute, and hicmatrix relies on
+    // that: cooler writes 'format', 'format-url' and 'generated-by' and
+    // Cool.save overwrites them (hicmatrix/lib/cool.py:422-426).
+    if (H5Aexists(object, name.c_str()) > 0) {
+        H5Adelete(object, name.c_str());
+    }
     const hid_t attribute = H5Acreate2(object, name.c_str(), type.get(), space.get(),
                                        H5P_DEFAULT, H5P_DEFAULT);
     if (attribute < 0) {

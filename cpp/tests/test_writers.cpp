@@ -266,12 +266,38 @@ TEST_CASE("without pApplyCorrection the counts keep their correction") {
     CHECK(file.read_int64("/pixels/count") == std::vector<std::int64_t>{5, 2, 3, 7});
 }
 
-TEST_CASE("a cooler group URI is refused rather than written as a plain file") {
-    hicx::MatrixData data = toy_matrix();
+TEST_CASE("a cooler group URI writes into that group and leaves the root alone") {
     const TempFile output(".mcool");
-    CHECK_THROWS_AS(
-        hicx::write_cool(output.path() + "::/resolutions/10000", data),
-        hicx::h5::Error);
+    {
+        hicx::MatrixData data = toy_matrix();
+        hicx::write_cool(output.path() + "::/resolutions/10000", data);
+    }
+    {
+        // The second resolution appends, so the first one survives and the
+        // root provenance is not written again.
+        hicx::MatrixData data = toy_matrix();
+        hicx::CoolSaveOptions options;
+        options.append = true;
+        options.generated_by = "should-not-reach-the-root";
+        hicx::write_cool(output.path() + "::/resolutions/20000", data, options);
+    }
+
+    const hicx::h5::File file(output.path());
+    CHECK(file.exists("/resolutions/10000/pixels/count"));
+    CHECK(file.exists("/resolutions/20000/pixels/count"));
+    CHECK(file.children("/") == std::vector<std::string>{"resolutions"});
+
+    // cooler's own provenance stays on the group; hicmatrix overwrites the
+    // root, and only in mode 'w'.
+    const auto group_attrs = file.attributes("/resolutions/10000");
+    CHECK(std::get<std::string>(group_attrs.at("generated-by")) == "cooler-0.10.2");
+    CHECK(std::get<std::string>(group_attrs.at("format-url")) ==
+          "https://github.com/open2c/cooler");
+    const auto root_attrs = file.attributes("/");
+    CHECK(std::get<std::string>(root_attrs.at("generated-by")) == "HiCMatrix-17.2");
+    CHECK(std::get<std::string>(root_attrs.at("format-url")) ==
+          "https://github.com/mirnylab/cooler");
+    CHECK(root_attrs.count("nbins") == 0);
 }
 
 TEST_CASE("enforce_integer rounds half to even into an int32 count column") {

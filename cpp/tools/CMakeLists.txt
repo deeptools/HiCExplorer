@@ -2,7 +2,10 @@
 # name must match a <name>.cpp in this directory and the Python tool it ports.
 
 set(HICX_TOOLS
-    hicInfo)
+    hicCompareMatrices
+    hicConvertFormat
+    hicInfo
+    hicSumMatrices)
 
 foreach(tool IN LISTS HICX_TOOLS)
     add_executable(${tool} "${tool}.cpp")

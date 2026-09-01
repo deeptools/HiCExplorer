@@ -70,6 +70,14 @@ def compare(path_a, path_b, cls, opts=None):
             return fail(f"different cooler groups: {groups_a} vs {groups_b}")
         diffs = []
         metrics = {}
+        if "/" not in groups_a:
+            # An mcool: the coolers live in groups and the file root carries
+            # the provenance hicmatrix writes there for the first resolution
+            # only (hicmatrix/lib/cool.py:422-426). Nothing else compares it.
+            diffs += _compare_attrs(file_a, file_b, "/")
+            if sorted(file_a.keys()) != sorted(file_b.keys()):
+                diffs.append(f"root children {sorted(file_a.keys())} vs "
+                             f"{sorted(file_b.keys())}")
         for group_path in groups_a:
             group_a = file_a[group_path]
             group_b = file_b[group_path]

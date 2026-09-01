@@ -156,15 +156,33 @@ enum class Filter {
 [[nodiscard]] Handle enum_type(const std::vector<std::string>& names,
                                hid_t base = H5T_STD_I32LE);
 
+// h5py's file modes, of which the writers need two. cooler.create_cooler is
+// handed 'w' or 'a' by hicmatrix (hicmatrix/lib/cool.py:370-373) and opens the
+// file with it, so an mcool is one truncating write followed by one appending
+// write per further resolution.
+enum class WriteMode {
+    // h5py.File(path, 'w'): truncate whatever is there.
+    Truncate,
+    // h5py.File(path, 'a'): open for read and write, create when missing.
+    Append,
+};
+
 class FileWriter {
   public:
     // Truncates an existing file, like h5py.File(path, 'w').
-    explicit FileWriter(const std::string& path);
+    explicit FileWriter(const std::string& path, WriteMode mode = WriteMode::Truncate);
 
     [[nodiscard]] hid_t id() const noexcept { return file_.get(); }
     void close() noexcept { file_.close(); }
 
+    // Creates the group and every missing parent of it, like
+    // h5py.Group.create_group with a multi component name.
     Handle create_group(const std::string& path);
+
+    [[nodiscard]] bool exists(const std::string& object_path) const;
+    // Removes a link, like `del f[path]`. Silently does nothing when the
+    // object is not there.
+    void unlink(const std::string& object_path);
 
     // A resizable dataset is created by passing a max_length larger than
     // length; kUnlimited maps to H5S_UNLIMITED. chunk = 0 asks for h5py's

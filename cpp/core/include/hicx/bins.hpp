@@ -44,6 +44,12 @@ struct CutInterval {
 struct BinRange {
     std::int64_t first = 0;  // inclusive
     std::int64_t last = 0;   // exclusive
+
+    // chrBinBoundaries is compared for equality by hicSumMatrices and
+    // hicCompareMatrices, so the ranges need a value comparison.
+    friend bool operator==(const BinRange& a, const BinRange& b) {
+        return a.first == b.first && a.last == b.last;
+    }
 };
 
 class BinTable {

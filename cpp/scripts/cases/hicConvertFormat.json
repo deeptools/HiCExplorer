@@ -1,0 +1,171 @@
+[
+  {
+    "id": "hicConvertFormat.h5_to_cool.small_test_matrix",
+    "tier": 1,
+    "args": ["--matrices", "{data}/hicConvertFormat/small_test_matrix.h5",
+             "--outFileName", "{out}/matrix.cool",
+             "--inputFormat", "h5", "--outputFormat", "cool"],
+    "outputs": [{"path": "{out}/matrix.cool", "format": "cool", "class": "E1"}],
+    "notes": "33,754 bins over 15 chromosomes, int64 counts on disk that the cool writer narrows to int32. The h5 source sets fileWasH5, so the nan bin masking of cool.py:267-279 runs."
+  },
+  {
+    "id": "hicConvertFormat.h5_to_cool.enforce_integer.small_test_matrix",
+    "tier": 1,
+    "args": ["--matrices", "{data}/hicConvertFormat/small_test_matrix.h5",
+             "--outFileName", "{out}/matrix.cool",
+             "--inputFormat", "h5", "--outputFormat", "cool", "--enforce_integer"],
+    "outputs": [{"path": "{out}/matrix.cool", "format": "cool", "class": "E1"}],
+    "notes": "--enforce_integer on a matrix that already holds integers is inert, except that the sum attribute stays float64 because np.rint produces a float column that cooler sums before casting it."
+  },
+  {
+    "id": "hicConvertFormat.h5_to_cool.corrected",
+    "tier": 1,
+    "args": ["--matrices",
+             "{data}/hicDifferentialTAD/GSM2644945_Untreated-R1.100000_chr1.h5",
+             "--outFileName", "{out}/matrix.cool",
+             "--inputFormat", "h5", "--outputFormat", "cool"],
+    "outputs": [{"path": "{out}/matrix.cool", "format": "cool", "class": "E1"}],
+    "notes": "A corrected float64 matrix, 1,252,980 stored pixels between 1.3e-05 and 0.12. The control for the case below."
+  },
+  {
+    "id": "hicConvertFormat.h5_to_cool.enforce_integer.corrected",
+    "tier": 1,
+    "args": ["--matrices",
+             "{data}/hicDifferentialTAD/GSM2644945_Untreated-R1.100000_chr1.h5",
+             "--outFileName", "{out}/matrix.cool",
+             "--inputFormat", "h5", "--outputFormat", "cool", "--enforce_integer"],
+    "outputs": [{"path": "{out}/matrix.cool", "format": "cool", "class": "E1"}],
+    "notes": "The data destroying defect, pinned rather than fixed: every value is below 0.5, np.rint sends all 1,252,980 of them to zero, the file is written with sum 0 and the tool exits 0 without a warning. See test_hicConvertFormat.py:435 and the comment in cpp/tools/hicConvertFormat.cpp."
+  },
+  {
+    "id": "hicConvertFormat.cool_to_h5.small_test_matrix",
+    "tier": 1,
+    "args": ["--matrices", "{data}/hicConvertFormat/small_test_matrix.cool",
+             "--outFileName", "{out}/matrix.h5",
+             "--inputFormat", "cool", "--outputFormat", "h5"],
+    "outputs": [{"path": "{out}/matrix.h5", "format": "h5", "class": "E2"}],
+    "notes": "The reverse direction. The 14,845 nan bins the cool loader recovers heuristically end up in /nan_bins."
+  },
+  {
+    "id": "hicConvertFormat.cool_to_homer.small_test_matrix_chr4",
+    "tier": 1,
+    "args": ["--matrices", "{data}/hicConvertFormat/small_test_matrix_chr4.cool",
+             "--outFileName", "{out}/matrix.homer",
+             "--inputFormat", "cool", "--outputFormat", "homer"],
+    "outputs": [{"path": "{out}/matrix.homer", "format": "text", "class": "E0"}],
+    "notes": "272 bins of int32 counts written as a dense gzipped table with no trailing newline. E0 is on the decompressed content: gzip stores a timestamp, so the compressed bytes can never match."
+  },
+  {
+    "id": "hicConvertFormat.h5_to_homer.Li_cut",
+    "tier": 1,
+    "args": ["--matrices", "{data}/Li_cut.h5",
+             "--outFileName", "{out}/matrix.homer",
+             "--inputFormat", "h5", "--outputFormat", "homer"],
+    "outputs": [{"path": "{out}/matrix.homer", "format": "text", "class": "E0"}],
+    "notes": "306 bins of float64, which is the case that exercises the float repr: a dense table of a float matrix prints '0.0' for every absent cell and the shortest round tripping decimal for every present one."
+  },
+  {
+    "id": "hicConvertFormat.h5_to_ginteractions.small_test_matrix",
+    "tier": 1,
+    "args": ["--matrices", "{data}/hicConvertFormat/small_test_matrix.h5",
+             "--outFileName", "{out}/matrix.ginteractions",
+             "--inputFormat", "h5", "--outputFormat", "ginteractions"],
+    "outputs": [{"path": "{out}/matrix.ginteractions.tsv", "format": "text",
+                 "class": "E0"}],
+    "notes": "35,857 upper triangle entries. The declared output is the '.tsv' sidecar, because --outFileName names a file the tool never writes."
+  },
+  {
+    "id": "hicConvertFormat.h5_to_ginteractions.Li_et_al_2015",
+    "tier": 1,
+    "args": ["--matrices", "{data}/Li_et_al_2015.h5",
+             "--outFileName", "{out}/matrix.ginteractions",
+             "--inputFormat", "h5", "--outputFormat", "ginteractions"],
+    "outputs": [{"path": "{out}/matrix.ginteractions.tsv", "format": "text",
+                 "class": "E0"}],
+    "notes": "1,661,678 float64 values printed as text, the widest test of the float repr in the tier."
+  },
+  {
+    "id": "hicConvertFormat.h5_to_hicpro.small_test_matrix",
+    "tier": 1,
+    "args": ["--matrices", "{data}/hicConvertFormat/small_test_matrix.h5",
+             "--outFileName", "{out}/matrix.hicpro",
+             "--inputFormat", "h5", "--outputFormat", "hicpro",
+             "--bedFileHicpro", "{out}/matrix.bed"],
+    "outputs": [{"path": "{out}/matrix.hicpro", "format": "text", "class": "E0"},
+                {"path": "{out}/matrix.bed", "format": "text", "class": "E0"}],
+    "notes": "One based bin ids for the 35,857 stored entries plus a bed file of all 33,754 bins. Hicpro.save ignores pSymmetric and writes whatever is stored, which for an h5 source is the upper triangle."
+  },
+  {
+    "id": "hicConvertFormat.h5_to_hicpro.Li_cut",
+    "tier": 1,
+    "args": ["--matrices", "{data}/Li_cut.h5",
+             "--outFileName", "{out}/matrix.hicpro",
+             "--inputFormat", "h5", "--outputFormat", "hicpro",
+             "--bedFileHicpro", "{out}/matrix.bed"],
+    "outputs": [{"path": "{out}/matrix.hicpro", "format": "text", "class": "E0"},
+                {"path": "{out}/matrix.bed", "format": "text", "class": "E0"}],
+    "notes": "The float64 variant, and the one bed file in the tier whose bins have unequal widths."
+  },
+  {
+    "id": "hicConvertFormat.hicpro_to_cool.test_matrix",
+    "tier": 1,
+    "args": ["--matrices", "{data}/hicConvertFormat/test_matrix.hicpro",
+             "--outFileName", "{out}/matrix.cool",
+             "--inputFormat", "hicpro", "--outputFormat", "cool",
+             "--bedFileHicpro", "{data}/hicConvertFormat/test_matrix.bed"],
+    "outputs": [{"path": "{out}/matrix.cool", "format": "cool", "class": "E1"}],
+    "notes": "3,114 one megabase bins, 57,034 triplets of float64. The reader has to sum duplicate coordinates, as csr_matrix((data, (i, j))) does."
+  },
+  {
+    "id": "hicConvertFormat.2D_text_to_cool.GSM1436265",
+    "tier": 1,
+    "args": ["--matrices",
+             "{data}/hicConvertFormat/GSM1436265_RAD21_ENCFF002EMQ.txt",
+             "--outFileName", "{out}/matrix.cool",
+             "--inputFormat", "2D-text", "--outputFormat", "cool",
+             "-r", "10000",
+             "--chromosomeSizes", "{data}/hicConvertFormat/hg19.chrom.sizes"],
+    "outputs": [{"path": "{out}/matrix.cool", "format": "cool", "class": "E1"}],
+    "notes": "313,762 bins over 93 hg19 contigs from 8,688 input lines, of which 7,987 cells survive. Exercises the two quirks of the 2D-text path: an interval that straddles a bin boundary sets two cells, and a repeated pair keeps the last value rather than the sum."
+  },
+  {
+    "id": "hicConvertFormat.cool_to_mcool.small_test_matrix_50kb",
+    "tier": 1,
+    "args": ["--matrices", "{data}/small_test_matrix_50kb_res.cool",
+             "--outFileName", "{out}/matrix.mcool",
+             "--inputFormat", "cool", "--outputFormat", "mcool",
+             "-r", "50000", "100000", "200000"],
+    "outputs": [{"path": "{out}/matrix.mcool", "format": "mcool", "class": "E1"}],
+    "notes": "Three resolutions under /resolutions. 50000 is the source resolution and is copied, the other two go through merge_bins; 200000 loses a chromosome that is too short to merge, so its nchroms is 14 and not 15. Also pins the metadata quirk: hic_metadata is consumed in place, so only the first resolution carries genome-assembly in its metadata attribute, and only the first writes hicmatrix's provenance onto the file root."
+  },
+  {
+    "id": "hicConvertFormat.h5_to_mcool.small_test_matrix",
+    "tier": 1,
+    "args": ["--matrices", "{data}/hicConvertFormat/small_test_matrix.h5",
+             "--outFileName", "{out}/matrix.mcool",
+             "--inputFormat", "h5", "--outputFormat", "mcool",
+             "-r", "10000", "100000", "200000"],
+    "outputs": [{"path": "{out}/matrix.mcool", "format": "mcool", "class": "E1"}],
+    "notes": "The same path from an h5 source, where none of the three resolutions equals the 5 kb source bin size so merge_bins runs three times. fileWasH5 is set, so the nan bins merge_bins recomputes are also the ones the cool writer masks with."
+  },
+  {
+    "id": "hicConvertFormat.cool_to_mcool.two_matrices_no_resolutions",
+    "tier": 1,
+    "args": ["--matrices", "{data}/hicConvertFormat/small_test_matrix_chr4.cool",
+             "{data}/hicConvertFormat/small_test_matrix.cool",
+             "--outFileName", "{out}/matrix.mcool",
+             "--inputFormat", "cool", "--outputFormat", "mcool"],
+    "outputs": [{"path": "{out}/matrix.mcool", "format": "mcool", "class": "E1"}],
+    "notes": "The other mcool branch (hicConvertFormat.py:331-344): no --resolutions, one group per input matrix named after its own bin size, the second matrix appended. Both inputs are at 5 kb, so the second replaces the first's group and the file ends with a single resolution. Also the only case where the output handler is built with neither pHiCInfo nor pEnforceInteger."
+  },
+  {
+    "id": "hicConvertFormat.h5_to_cool.Li_et_al_2015",
+    "tier": 1,
+    "args": ["--matrices", "{data}/Li_et_al_2015.h5",
+             "--outFileName", "{out}/matrix.cool",
+             "--inputFormat", "h5", "--outputFormat", "cool"],
+    "outputs": [{"path": "{out}/matrix.cool", "format": "cool", "class": "E1"}],
+    "memory": {"nnz_stored": 1661678, "nbins": 11104, "alpha": 1.3, "beta": 0.0},
+    "notes": "The memory reference of PLAN.md 4.5: Python peaks at 390 MB against a 19.9 MB working set, the budget is 1.3 * 19.9 + 64 = 90 MB. Also the correction path, where the 855 nan bins are masked, the factors are inverted into the weight column and divided back out of the counts."
+  }
+]

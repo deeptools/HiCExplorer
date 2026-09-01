@@ -233,24 +233,34 @@ CoolLoadResult read_cool(const std::string& uri, const CoolLoadOptions& options)
             const bool all_nan = std::all_of(factors.begin(), factors.end(),
                                              [](double v) { return std::isnan(v); });
             if (!all_nan) {
-                // 'weight' is multiplicative, the hic2cool tables KR, VC and
-                // SQRT_VC are divisive.
-                const bool divide = options.correction_factor_table == "KR" ||
-                                    options.correction_factor_table == "VC" ||
-                                    options.correction_factor_table == "SQRT_VC";
-                result.correction_operator = divide ? '/' : '*';
-                const json::Value* generated = cool.info_value("generated-by");
-                if (generated != nullptr && generated->is_string()) {
-                    const std::string& text = generated->as_string();
-                    const std::size_t dash = text.find('-');
-                    if (text.find("hic2cool") != std::string::npos &&
-                        dash != std::string::npos) {
-                        result.hic2cool_version = text.substr(dash + 1);
-                    } else if (text.find("hicmatrix") != std::string::npos &&
-                               dash != std::string::npos) {
-                        result.hicmatrix_version = text.substr(dash + 1);
+                // The whole derivation is skipped when the caller has already
+                // fixed the operator (cool.py:195): the version strings are
+                // then never read either.
+                if (options.correction_operator.has_value()) {
+                    result.correction_operator = options.correction_operator;
+                } else {
+                    // 'weight' is multiplicative, the hic2cool tables KR, VC
+                    // and SQRT_VC are divisive.
+                    result.correction_operator =
+                        (options.correction_factor_table == "KR" ||
+                         options.correction_factor_table == "VC" ||
+                         options.correction_factor_table == "SQRT_VC")
+                            ? '/'
+                            : '*';
+                    const json::Value* generated = cool.info_value("generated-by");
+                    if (generated != nullptr && generated->is_string()) {
+                        const std::string& text = generated->as_string();
+                        const std::size_t dash = text.find('-');
+                        if (text.find("hic2cool") != std::string::npos &&
+                            dash != std::string::npos) {
+                            result.hic2cool_version = text.substr(dash + 1);
+                        } else if (text.find("hicmatrix") != std::string::npos &&
+                                   dash != std::string::npos) {
+                            result.hicmatrix_version = text.substr(dash + 1);
+                        }
                     }
                 }
+                const bool divide = *result.correction_operator == '/';
                 std::vector<double>& values = matrix.mutable_data();
                 const std::vector<std::int64_t>& indptr = matrix.indptr();
                 const std::vector<std::int32_t>& indices = matrix.indices();
@@ -523,17 +533,19 @@ void write_streamed(h5::FileWriter& file, const std::string& path, hid_t file_ty
 
 }  // namespace
 
-void write_cool(const std::string& path, MatrixData& data,
+void write_cool(const std::string& uri, MatrixData& data,
                 const CoolSaveOptions& options) {
-    if (path.find("::") != std::string::npos) {
-        // cooler.create_cooler accepts a URI and writes into the named group,
-        // which is how hicConvertFormat produces mcool and scool. That path is
-        // not implemented yet and must fail loudly rather than write a plain
-        // cooler to a file whose name happens to contain the separator.
-        throw h5::Error("writing into a cooler group ('" + path +
-                        "') is not implemented yet; mcool and scool output is "
-                        "still open, see cpp/STATUS.md");
+    // cooler.util.parse_cooler_uri: everything before the first "::" is the
+    // file, everything after it is the group, defaulting to the root.
+    auto [path, group] = split_uri(uri);
+    while (group.size() > 1 && group.back() == '/') {
+        group.pop_back();
     }
+    // The prefix every object of this cooler carries. Empty at the root, so
+    // that a plain .cool is written exactly as before.
+    const std::string prefix = group == "/" ? std::string() : group;
+    const bool in_group = !prefix.empty();
+
     CsrMatrix& matrix = data.matrix;
     const std::int64_t nbins = matrix.rows();
     if (data.cut_intervals.size() != static_cast<std::size_t>(nbins)) {
@@ -655,10 +667,21 @@ void write_cool(const std::string& path, MatrixData& data,
     const std::optional<std::int64_t> bin_size = uniform_bin_size(data.cut_intervals);
 
     // ---- the file ----
-    std::remove(path.c_str());
-    h5::FileWriter file(path);
+    // cooler.create.create opens the file with the mode hicmatrix chose and
+    // then, for a group URI, replaces the group if it is already there
+    // (cooler/create/_create.py:608-619). Mode 'w' truncates the whole file,
+    // group path or not.
+    if (!options.append) {
+        std::remove(path.c_str());
+    }
+    h5::FileWriter file(path, options.append ? h5::WriteMode::Append
+                                             : h5::WriteMode::Truncate);
+    if (in_group) {
+        file.unlink(prefix);
+        file.create_group(prefix);
+    }
 
-    file.create_group("/chroms");
+    file.create_group(prefix + "/chroms");
     {
         std::size_t width = 0;
         for (const std::string& name : chroms.names) {
@@ -667,7 +690,7 @@ void write_cool(const std::string& path, MatrixData& data,
         const h5::Handle type = h5::fixed_string_type(width);
         const std::size_t item = std::max<std::size_t>(width, 1);
         const h5::Handle dataset =
-            file.create_dataset("/chroms/name", type.get(), chroms.names.size(),
+            file.create_dataset(prefix + "/chroms/name", type.get(), chroms.names.size(),
                                 chroms.names.size(), h5::Filter::CoolerDefault);
         std::vector<char> buffer(chroms.names.size() * item, '\0');
         for (std::size_t i = 0; i < chroms.names.size(); ++i) {
@@ -677,7 +700,7 @@ void write_cool(const std::string& path, MatrixData& data,
         h5::FileWriter::write_block(dataset.get(), type.get(), 0, chroms.names.size(),
                                     buffer.data());
     }
-    write_streamed<std::int32_t>(file, "/chroms/length", H5T_STD_I32LE, H5T_NATIVE_INT32,
+    write_streamed<std::int32_t>(file, prefix + "/chroms/length", H5T_STD_I32LE, H5T_NATIVE_INT32,
                                  chroms.lengths.size(), h5::Filter::CoolerDefault,
                                  [&](auto emit) {
                                      for (const std::int64_t length : chroms.lengths) {
@@ -685,12 +708,12 @@ void write_cool(const std::string& path, MatrixData& data,
                                      }
                                  });
 
-    file.create_group("/bins");
+    file.create_group(prefix + "/bins");
     {
         const h5::Handle type = h5::enum_type(chroms.names);
         const h5::Handle memory_type = h5::enum_type(chroms.names, H5T_NATIVE_INT32);
         const h5::Handle dataset = file.create_dataset(
-            "/bins/chrom", type.get(), data.cut_intervals.size(),
+            prefix + "/bins/chrom", type.get(), data.cut_intervals.size(),
             data.cut_intervals.size(), h5::Filter::CoolerDefault);
         std::vector<std::int32_t> buffer;
         buffer.reserve(std::min(data.cut_intervals.size(), kPixelBlock));
@@ -709,14 +732,14 @@ void write_cool(const std::string& path, MatrixData& data,
         }
         flush();
     }
-    write_streamed<std::int32_t>(file, "/bins/start", H5T_STD_I32LE, H5T_NATIVE_INT32,
+    write_streamed<std::int32_t>(file, prefix + "/bins/start", H5T_STD_I32LE, H5T_NATIVE_INT32,
                                  data.cut_intervals.size(), h5::Filter::CoolerDefault,
                                  [&](auto emit) {
                                      for (const CutInterval& bin : data.cut_intervals) {
                                          emit(static_cast<std::int32_t>(bin.start));
                                      }
                                  });
-    write_streamed<std::int32_t>(file, "/bins/end", H5T_STD_I32LE, H5T_NATIVE_INT32,
+    write_streamed<std::int32_t>(file, prefix + "/bins/end", H5T_STD_I32LE, H5T_NATIVE_INT32,
                                  data.cut_intervals.size(), h5::Filter::CoolerDefault,
                                  [&](auto emit) {
                                      for (const CutInterval& bin : data.cut_intervals) {
@@ -729,7 +752,7 @@ void write_cool(const std::string& path, MatrixData& data,
         // turns a NaN weight into 1.0.
         const std::vector<double>& factors = *data.correction_factors;
         const h5::Handle dataset = file.create_dataset(
-            "/bins/weight", H5T_IEEE_F64LE, factors.size(),
+            prefix + "/bins/weight", H5T_IEEE_F64LE, factors.size(),
             h5::FileWriter::kUnlimited, h5::Filter::CoolerColumn);
         std::vector<double> buffer;
         buffer.reserve(std::min(factors.size(), kPixelBlock));
@@ -750,20 +773,20 @@ void write_cool(const std::string& path, MatrixData& data,
     }
 
     // ---- pixels ----
-    file.create_group("/pixels");
+    file.create_group(prefix + "/pixels");
     const std::size_t max_size =
         static_cast<std::size_t>(nbins) * static_cast<std::size_t>(nbins - 1) / 2 +
         static_cast<std::size_t>(nbins);
     const std::size_t init_size =
         std::min(static_cast<std::size_t>(5 * nbins), max_size);
     const h5::Handle bin1 =
-        file.create_dataset("/pixels/bin1_id", H5T_STD_I32LE, init_size, max_size,
+        file.create_dataset(prefix + "/pixels/bin1_id", H5T_STD_I32LE, init_size, max_size,
                             h5::Filter::CoolerDefault);
     const h5::Handle bin2 =
-        file.create_dataset("/pixels/bin2_id", H5T_STD_I32LE, init_size, max_size,
+        file.create_dataset(prefix + "/pixels/bin2_id", H5T_STD_I32LE, init_size, max_size,
                             h5::Filter::CoolerDefault);
     const h5::Handle count =
-        file.create_dataset("/pixels/count", count_file_type, init_size, max_size,
+        file.create_dataset(prefix + "/pixels/count", count_file_type, init_size, max_size,
                             h5::Filter::CoolerDefault);
     h5::FileWriter::resize(bin1.get(), nnz);
     h5::FileWriter::resize(bin2.get(), nnz);
@@ -821,7 +844,7 @@ void write_cool(const std::string& path, MatrixData& data,
     }
 
     // ---- indexes ----
-    file.create_group("/indexes");
+    file.create_group(prefix + "/indexes");
     {
         std::vector<std::int64_t> chrom_offset(chroms.names.size() + 1, 0);
         std::size_t current = 0;
@@ -841,7 +864,7 @@ void write_cool(const std::string& path, MatrixData& data,
         for (std::size_t k = current; k < chrom_offset.size(); ++k) {
             chrom_offset[k] = static_cast<std::int64_t>(data.cut_intervals.size());
         }
-        write_streamed<std::int64_t>(file, "/indexes/chrom_offset", H5T_STD_I64LE,
+        write_streamed<std::int64_t>(file, prefix + "/indexes/chrom_offset", H5T_STD_I64LE,
                                      H5T_NATIVE_INT64, chrom_offset.size(),
                                      h5::Filter::CoolerDefault, [&](auto emit) {
                                          for (const std::int64_t value : chrom_offset) {
@@ -849,7 +872,7 @@ void write_cool(const std::string& path, MatrixData& data,
                                          }
                                      });
     }
-    write_streamed<std::int64_t>(file, "/indexes/bin1_offset", H5T_STD_I64LE,
+    write_streamed<std::int64_t>(file, prefix + "/indexes/bin1_offset", H5T_STD_I64LE,
                                  H5T_NATIVE_INT64, bin1_offset.size(),
                                  h5::Filter::CoolerDefault, [&](auto emit) {
                                      for (const std::int64_t value : bin1_offset) {
@@ -880,45 +903,49 @@ void write_cool(const std::string& path, MatrixData& data,
         }
     }
 
-    file.set_attribute("/", "bin-type", std::string(bin_size.has_value() ? "fixed"
-                                                                        : "variable"));
+    // cooler.create.write_info writes its own set onto the cooler group, which
+    // for a plain .cool is the file root and for an mcool resolution is the
+    // resolution group.
+    const std::string cooler_group = in_group ? prefix : std::string("/");
+    file.set_attribute(cooler_group, "bin-type",
+                       std::string(bin_size.has_value() ? "fixed" : "variable"));
     if (bin_size.has_value()) {
-        file.set_attribute("/", "bin-size", *bin_size);
+        file.set_attribute(cooler_group, "bin-size", *bin_size);
     } else {
         // cooler writes the literal string "null" here, which is what makes a
         // variable bin size read back as None.
-        file.set_attribute("/", "bin-size", std::string("null"));
+        file.set_attribute(cooler_group, "bin-size", std::string("null"));
     }
-    file.set_attribute("/", "storage-mode",
+    file.set_attribute(cooler_group, "storage-mode",
                        std::string(options.symmetric ? "symmetric-upper" : "square"));
-    file.set_attribute("/", "nchroms", static_cast<std::int64_t>(chroms.names.size()));
-    file.set_attribute("/", "nbins", nbins);
+    file.set_attribute(cooler_group, "nchroms",
+                       static_cast<std::int64_t>(chroms.names.size()));
+    file.set_attribute(cooler_group, "nbins", nbins);
     if (integer_sum) {
-        file.set_attribute("/", "sum", integer_total);
+        file.set_attribute(cooler_group, "sum", integer_total);
     } else {
-        file.set_attribute("/", "sum", sum.total());
+        file.set_attribute(cooler_group, "sum", sum.total());
     }
-    file.set_attribute("/", "nnz", static_cast<std::int64_t>(nnz));
-    {
-        const std::string* assembly =
-            options.has_hic_metadata ? metadata_field("genome-assembly") : nullptr;
-        file.set_attribute("/", "genome-assembly",
-                           assembly != nullptr ? *assembly : std::string("unknown"));
-    }
-    file.set_attribute("/", "metadata", json::dump_object(info));
-    file.set_attribute("/", "creation-date",
+    file.set_attribute(cooler_group, "nnz", static_cast<std::int64_t>(nnz));
+    // write_info does info.setdefault("genome-assembly", "unknown") and
+    // hicmatrix passes no assembly, so cooler always writes "unknown" here.
+    file.set_attribute(cooler_group, "genome-assembly", std::string("unknown"));
+    file.set_attribute(cooler_group, "metadata", json::dump_object(info));
+    file.set_attribute(cooler_group, "creation-date",
                        options.creation_date.empty() ? iso_now()
                                                      : options.creation_date);
-    file.set_attribute("/", "format-version", static_cast<std::int64_t>(3));
-    // cooler writes 'format', 'format-url' and 'generated-by' first and
-    // hicmatrix then overwrites them; only the final values are stored here.
-    file.set_attribute("/", "format", std::string("HDF5::Cooler"));
-    file.set_attribute("/", "format-url", options.format_url);
-    file.set_attribute("/", "generated-by", options.generated_by);
-    file.set_attribute("/", "generated-by-cooler-lib", options.generated_by_cooler_lib);
-    file.set_attribute("/", "tool-url", options.tool_url);
-    for (const auto& [key, value] : info) {
-        if (key == "matrix-generated-by" || key == "matrix-generated-by-url") {
+    file.set_attribute(cooler_group, "format", std::string("HDF5::Cooler"));
+    file.set_attribute(cooler_group, "format-version", static_cast<std::int64_t>(3));
+    file.set_attribute(cooler_group, "format-url", options.cooler_format_url);
+    file.set_attribute(cooler_group, "generated-by", options.generated_by_cooler_lib);
+
+    // Cool.save then overwrites the provenance on the *file root*, and only in
+    // mode 'w' (cool.py:422-426). For a plain .cool the root is the cooler
+    // group and the four fields above are replaced; for an mcool the root is a
+    // different object, so the resolution groups keep cooler's own provenance
+    // and only the first resolution leaves hicmatrix's on the root.
+    if (!options.append) {
+        for (const auto& [key, value] : info) {
             file.set_attribute("/", key, value);
         }
     }
