@@ -34,7 +34,7 @@
     "outputs": [{"path": "{out}/sum.cool", "format": "cool", "class": "E1"}],
     "memory": {"nnz_stored": 4208340, "nbins": 3790, "alpha": 3.0, "beta": 0.0},
     "large": true,
-    "notes": "The memory case for this tool: two chromosomes, 3,790 bins and 4,208,340 stored pixels, so W is 50.5 MB and the budget is 3.0 * 50.5 + 64 = 215.6 MB. Measured peak 175.8 MB against the Python's 1,014 MB, 81.5 % of budget. This is the case that disproved the old alpha of 2.2: at 2.2 the budget is 175.1 MB and this run measures 100.4 % of it. The peak is nnz_a + nnz_b + nnz_result, because scipy's binary operations drop exactly-zero results, so the result is neither a superset nor a subset of either operand and no safe in-place merge exists."
+    "notes": "The memory case for this tool: two chromosomes, 3,790 bins and 4,208,340 stored pixels, so W is 50.5 MB and the budget is 3.0 * 50.5 + 64 = 215.6 MB. Measured peak 176.2 MB against the Python's 1,014 MB, 81.7 % of budget. This is the case that disproved the old alpha of 2.2: at 2.2 the budget is 175.2 MB and the same run measures 100.6 % of it. The peak is nnz_a + nnz_b + nnz_result, because scipy's binary operations drop exactly-zero results, so the result is neither a superset nor a subset of either operand and no safe in-place merge exists."
   },
   {
     "id": "hicSumMatrices.h5.three_matrices",
