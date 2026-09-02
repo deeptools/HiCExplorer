@@ -1,0 +1,204 @@
+[
+  {
+    "id": "hicPCA.bedgraph.lieberman.geneTrack.small_test_matrix",
+    "tool": "hicPCA",
+    "tier": 3,
+    "args": ["-m", "{data}/small_test_matrix.h5",
+             "-o", "{out}/pca1.bedgraph", "{out}/pca2.bedgraph",
+             "-f", "bedgraph", "--whichEigenvectors", "1", "2",
+             "--method", "lieberman",
+             "--extraTrack", "{data}/dm3_genes.bed.gz",
+             "--chromosomes", "chrX"],
+    "outputs": [
+      {"path": "{out}/pca1.bedgraph", "format": "bedgraph", "class": "ED"},
+      {"path": "{out}/pca2.bedgraph", "format": "bedgraph", "class": "ED"}
+    ],
+    "threads_arg": "--threads",
+    "memory": {"alpha": 1.1, "beta": 3.2},
+    "notes": "The eigenvector path with a *decided* sign, and the case that proves the port selects the same eigenvector the Python does. chrX of this matrix under --method lieberman is the block where scipy.linalg.eig's column order is not the descending eigenvalue order: the two leading eigenvalues are 2795.01342998 and 2792.60820894, a relative gap of 8.6e-04, and dgeev returns them swapped, so hicPCA's first eigenvector is the eigenvector of the second largest eigenvalue and the two are orthogonal. Measured, 4,485 lines with 4,484 byte-identical and one differing by 2e-12 in the twelfth decimal, a relative 6.8e-12, which misses E3 (whose floor of 1 turns the bound into an absolute 2e-12) and clears ED by nine orders of magnitude. Why --extraTrack: without it the sign is arbitrary and the Python reference disagrees with itself, the same run on small_test_matrix_50kb_res.h5 at OPENBLAS_NUM_THREADS=1 and at 16 producing a sign-inverted chr2L block with every magnitude equal to all twelve printed digits. correlateEigenvectorWithGeneTrack removes that freedom. Why chrX alone: chrXHet of this matrix has a three-fold degenerate leading eigenvalue (31979.025 with multiplicity 3 over 41 bins holding 10 non-zeros), so its eigenvectors are an arbitrary orthonormal basis of a three dimensional eigenspace and no two implementations can agree on which basis. Its obs/exp and Pearson blocks are still checked, by hicPCA.intermediateMatrices.h5.small_test_matrix."
+  },
+  {
+    "id": "hicPCA.bedgraph.dist_norm.ligationFactor.geneTrack.small_test_matrix",
+    "tool": "hicPCA",
+    "tier": 3,
+    "args": ["-m", "{data}/small_test_matrix.h5",
+             "-o", "{out}/pca1.bedgraph", "{out}/pca2.bedgraph",
+             "-f", "bedgraph", "--whichEigenvectors", "1", "2",
+             "--method", "dist_norm", "--ligation_factor",
+             "--extraTrack", "{data}/dm3_genes.bed.gz",
+             "--chromosomes", "chrX", "chrXHet"],
+    "outputs": [
+      {"path": "{out}/pca1.bedgraph", "format": "bedgraph", "class": "ED"},
+      {"path": "{out}/pca2.bedgraph", "format": "bedgraph", "class": "ED"}
+    ],
+    "threads_arg": "--threads",
+    "memory": {"alpha": 1.1, "beta": 3.2},
+    "notes": "The other obs/exp kernel. utilities.obs_exp_matrix_non_zero divides element by element and assigns each quotient back into a float32 array, so its output is float32 rounded value by value, while obs_exp_matrix_lieberman divides the whole array at once and comes back in float64. The two are different computations and this case is what pins the float32 one."
+  },
+  {
+    "id": "hicPCA.bedgraph.dist_norm.noLigationFactor.geneTrack.small_test_matrix",
+    "tool": "hicPCA",
+    "tier": 3,
+    "args": ["-m", "{data}/small_test_matrix.h5",
+             "-o", "{out}/pca1.bedgraph", "{out}/pca2.bedgraph",
+             "-f", "bedgraph", "--whichEigenvectors", "1", "2",
+             "--method", "dist_norm",
+             "--extraTrack", "{data}/dm3_genes.bed.gz",
+             "--chromosomes", "chrX", "chrXHet"],
+    "outputs": [
+      {"path": "{out}/pca1.bedgraph", "format": "bedgraph", "class": "ED"},
+      {"path": "{out}/pca2.bedgraph", "format": "bedgraph", "class": "ED"}
+    ],
+    "memory": {"alpha": 1.1, "beta": 3.2},
+    "notes": "--method dist_norm without --ligation_factor, the branch of obs_exp_matrix_non_zero that skips the Homer row-sum scaling. Every existing Python test that uses dist_norm passes --ligation_factor, so this branch had no coverage at all before the characterization tests were added."
+  },
+  {
+    "id": "hicPCA.bedgraph.threeEigenvectors.1_3_5.geneTrack.small_test_matrix",
+    "tool": "hicPCA",
+    "tier": 3,
+    "args": ["-m", "{data}/small_test_matrix.h5",
+             "-o", "{out}/pca1.bedgraph", "{out}/pca3.bedgraph", "{out}/pca5.bedgraph",
+             "-f", "bedgraph", "--whichEigenvectors", "1", "3", "5",
+             "--method", "lieberman",
+             "--extraTrack", "{data}/dm3_genes.bed.gz",
+             "--chromosomes", "chrX"],
+    "outputs": [
+      {"path": "{out}/pca1.bedgraph", "format": "bedgraph", "class": "ED"},
+      {"path": "{out}/pca3.bedgraph", "format": "bedgraph", "class": "ED"},
+      {"path": "{out}/pca5.bedgraph", "format": "bedgraph", "class": "ED"}
+    ],
+    "memory": {"alpha": 1.1, "beta": 3.2},
+    "notes": "A non-contiguous eigenvector selection with three outputs. Every Python test asks for '1 2', so nothing checked that column k-1 of dgeev's output lands in output file k."
+  },
+  {
+    "id": "hicPCA.bedgraph.lieberman.histoneMarkTrack.small_test_matrix",
+    "tool": "hicPCA",
+    "tier": 3,
+    "args": ["-m", "{data}/small_test_matrix.h5",
+             "-o", "{out}/pca1.bedgraph", "{out}/pca2.bedgraph",
+             "-f", "bedgraph", "--whichEigenvectors", "1", "2",
+             "--method", "lieberman",
+             "--extraTrack", "{data}/bigwig_chrx_2e6_5e6.bw",
+             "--chromosomes", "chrX"],
+    "outputs": [
+      {"path": "{out}/pca1.bedgraph", "format": "bedgraph", "class": "ED"},
+      {"path": "{out}/pca2.bedgraph", "format": "bedgraph", "class": "ED"}
+    ],
+    "memory": {"alpha": 1.1, "beta": 3.2},
+    "notes": "The bigwig branch of --extraTrack, which reads the track through libBigWig's bwStats the way pyBigWig's stats() does. Note what this case does *not* test: the flip never fires on this input. bigwig_chrx_2e6_5e6.bw covers 2 to 5 Mb of chrX only, every bin with a positive eigenvector component falls outside it, and correlateEigenvectorWithHistonMarkTrack is guarded by `(neg_mean != 0) and (pos_mean != 0)`, so pos_mean is exactly 0 and neither the active nor the inactive branch flips anything. The corpus holds no bigwig that would discriminate the two. The sign here is therefore dgeev's own, and the case passes because the port calls the same dgeev from the same OpenBLAS build; that is a weaker guarantee than the gene-track cases give and is recorded as such. Measured: 4,485 lines, 4,484 byte-identical, one differing by 4e-12 in the twelfth decimal."
+  },
+  {
+    "id": "hicPCA.intermediateMatrices.h5.small_test_matrix",
+    "tool": "hicPCA",
+    "tier": 3,
+    "args": ["-m", "{data}/small_test_matrix.h5",
+             "-o", "{out}/pca1.bedgraph", "{out}/pca2.bedgraph",
+             "-f", "bedgraph", "--whichEigenvectors", "1", "2",
+             "--method", "lieberman",
+             "--chromosomes", "chrX", "chrXHet",
+             "--pearsonMatrix", "{out}/pearson.h5",
+             "--obsexpMatrix", "{out}/obsexp.h5"],
+    "outputs": [
+      {"path": "{out}/pearson.h5", "format": "h5", "class": "ED"},
+      {"path": "{out}/obsexp.h5", "format": "h5", "class": "ED"}
+    ],
+    "memory": {"alpha": 1.1, "beta": 3.2},
+    "notes": "The obs/exp and Pearson path without --extraTrack, which is safe here because neither matrix carries an eigenvector and neither has a sign ambiguity. The two bedgraphs are produced but deliberately not declared as outputs: their sign is not a reproducible property of the Python reference (see hicPCA.bedgraph.lieberman.geneTrack.small_test_matrix) and there is no comparator that compares magnitudes with a per chromosome global sign, so declaring them would be asserting something the reference does not guarantee. This case is what validates the covariance kernel: the port computes it as (A A^T - n m m^T) / (n - 1) out of the sparse obs/exp matrix instead of centring a dense block and calling dgemm, and the Pearson matrix is that covariance rescaled by the square roots of its diagonal."
+  },
+  {
+    "id": "hicPCA.intermediateMatrices.cool.small_test_matrix",
+    "tool": "hicPCA",
+    "tier": 3,
+    "args": ["-m", "{data}/small_test_matrix.h5",
+             "-o", "{out}/pca1.bedgraph", "{out}/pca2.bedgraph",
+             "-f", "bedgraph", "--whichEigenvectors", "1", "2",
+             "--method", "dist_norm", "--ligation_factor",
+             "--chromosomes", "chrX", "chrXHet",
+             "--pearsonMatrix", "{out}/pearson.cool",
+             "--obsexpMatrix", "{out}/obsexp.cool"],
+    "outputs": [
+      {"path": "{out}/obsexp.cool", "format": "cool", "class": "ED"}
+    ],
+    "memory": {"alpha": 1.1, "beta": 3.2},
+    "notes": "The same two intermediate matrices through the cool writer. hicPCA builds its own MatrixFileHandler from the *output* file name (hicPCA.py:329-332, :342-345), unlike hiCMatrix.save which reuses the handler of the input, so an h5 input written to a .cool name really does produce a cooler. That difference has no Python test. Only the obs/exp matrix is declared as an output. The Pearson matrix is written and its pixels agree at ED, but a cooler carries a `sum` root attribute that cooler computes as an exact sequential reduction over the count column, and the cool comparator compares attributes for exact equality at every class. The port's Pearson values differ from numpy's in the last bit, because the covariance is evaluated as (A A^T - n m m^T)/(n - 1) out of the sparse matrix rather than as a centred dense dgemm, so the two sums differ by 3e-16 relative (2388.503249632661 against 2388.5032496326603) and the file fails on that attribute alone while every pixel passes. The h5 format has no such summary attribute, which is why pearson.h5 is checked in the sibling case and pearson.cool is not. Recorded as a gap: it needs either a comparator that compares float attributes at the case's class, which this workstream may not add, or a decision that the cool `sum` attribute is one of the normalised fields."
+  },
+  {
+    "id": "hicPCA.bedgraph.ignoreMaskedBins.geneTrack.small_test_matrix_50kb",
+    "tool": "hicPCA",
+    "tier": 3,
+    "args": ["-m", "{data}/small_test_matrix_50kb_res.h5",
+             "-o", "{out}/pca1.bedgraph", "{out}/pca2.bedgraph",
+             "-f", "bedgraph", "--whichEigenvectors", "1", "2",
+             "--method", "lieberman", "--ignoreMaskedBins",
+             "--extraTrack", "{data}/dm3_genes.bed.gz",
+             "--chromosomes", "chrX"],
+    "outputs": [
+      {"path": "{out}/pca1.bedgraph", "format": "bedgraph", "class": "ED"},
+      {"path": "{out}/pca2.bedgraph", "format": "bedgraph", "class": "ED"}
+    ],
+    "memory": {"alpha": 1.1, "beta": 3.2},
+    "notes": "maskBins(nan_bins) with no restore, followed by utilities.enlarge_bins, over all twelve chromosomes of the 50 kb matrix. 139 of the 2,794 bins are NaN bins and disappear, and enlarge_bins then closes the gaps they leave by moving each boundary to the middle, so the bin table in the output is not the bin table of the input."
+  },
+  {
+    "id": "hicPCA.bigwig.lieberman.geneTrack.small_test_matrix",
+    "tool": "hicPCA",
+    "tier": 3,
+    "args": ["-m", "{data}/small_test_matrix.h5",
+             "-o", "{out}/pca1.bw", "{out}/pca2.bw",
+             "-f", "bigwig", "--whichEigenvectors", "1", "2",
+             "--method", "lieberman",
+             "--extraTrack", "{data}/dm3_genes.bed.gz",
+             "--chromosomes", "chrX", "chrXHet"],
+    "outputs": [],
+    "memory": {"alpha": 1.1, "beta": 3.2},
+    "notes": "The default output format, exercised for its exit status, its peak RSS and its CPU time only. cpp/PLAN.md 9.3 lists a bigwig comparator but none is implemented yet, and this workstream may not add one, so declaring the two .bw files as outputs would compare nothing while looking as though it compared something. The payload is checked on the Python side instead, by test_pca_bigwig_payload_matches_the_bedgraph_at_full_precision in hicexplorer/test/general/test_hicPCA.py, which reads every interval of every chromosome back with pyBigWig and compares it against the bedgraph the same invocation writes. Recorded as a gap."
+  },
+  {
+    "id": "hicPCA.outputFileCountMismatch",
+    "tool": "hicPCA",
+    "tier": 3,
+    "args": ["-m", "{data}/small_test_matrix_50kb_res.h5",
+             "-o", "{out}/pca1.bedgraph",
+             "-f", "bedgraph", "--whichEigenvectors", "1", "2",
+             "--method", "lieberman"],
+    "outputs": [],
+    "expect_exit": 1,
+    "memory": {"alpha": 1.1, "beta": 3.2},
+    "notes": "hicPCA.py:242-248 exits 1 when the number of output names does not match the number of requested eigenvectors. No Python test covered it."
+  },
+  {
+    "id": "hicPCA.intermediateMatrices.h5.wholeGenome.small_test_matrix_50kb",
+    "tool": "hicPCA",
+    "tier": 3,
+    "args": ["-m", "{data}/small_test_matrix_50kb_res.h5",
+             "-o", "{out}/pca1.bedgraph", "{out}/pca2.bedgraph",
+             "-f", "bedgraph", "--whichEigenvectors", "1", "2",
+             "--method", "lieberman",
+             "--pearsonMatrix", "{out}/pearson.h5",
+             "--obsexpMatrix", "{out}/obsexp.h5"],
+    "outputs": [
+      {"path": "{out}/pearson.h5", "format": "h5", "class": "ED"},
+      {"path": "{out}/obsexp.h5", "format": "h5", "class": "ED"}
+    ],
+    "threads_arg": "--threads",
+    "memory": {"alpha": 1.1, "beta": 3.2},
+    "notes": "All twelve chromosomes of the 50 kb matrix, which is the only case that exercises the whole per chromosome loop and the assembly of twelve blocks into one genome-wide matrix. Only the two intermediate matrices are declared, because dm3_genes.bed.gz carries genes for chrX and chrXHet and for no other chromosome of this matrix (measured: 2,701 gene starts on chrX, 16 on chrXHet, 0 on the other ten), so --extraTrack cannot fix the eigenvector sign anywhere else and ten of the twelve blocks would be compared on an arbitrary sign. That is a property of the reference, not of the port."
+  },
+  {
+    "id": "hicPCA.bedgraph.lieberman.geneTrack.mm9_reduced_chr1",
+    "tool": "hicPCA",
+    "tier": 3,
+    "args": ["-m", "{data}/hicPCA/mm9_reduced_chr1.cool",
+             "-o", "{out}/pca1.bedgraph", "{out}/pca2.bedgraph",
+             "-f", "bedgraph", "--whichEigenvectors", "1", "2",
+             "--method", "lieberman",
+             "--extraTrack", "{data}/hicPCA/mm9_genes_sorted.bed12"],
+    "outputs": [
+      {"path": "{out}/pca1.bedgraph", "format": "bedgraph", "class": "ED"},
+      {"path": "{out}/pca2.bedgraph", "format": "bedgraph", "class": "ED"}
+    ],
+    "memory": {"alpha": 1.1, "beta": 3.2},
+    "large": true,
+    "notes": "The designated large input of cpp/PLAN.md 4.2 and the worst memory-to-data ratio in the corpus: 9,760 bins from a 722 KB file, on which the Python spends 4,070 MB and 471 s of wall time, 727 times its 5.6 MB working set. The dense per-chromosome block is 762 MB, so the v3 budget of 1.1 W + 3.2 D + 64 MB allows 2,509 MB; measured, the port peaks at 1,586 MB and 503 s of CPU. The extraTrack here is a bed12 gene track whose coordinates run past the end of the matrix, which is the path hicPCA.py:157-171 warns about and skips; that is the reason this file is in the corpus, and it is also what fixes the sign on the single chromosome this matrix holds."
+  }
+]

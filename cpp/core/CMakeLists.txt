@@ -18,19 +18,30 @@ configure_file(include/hicx/version.hpp.in
 
 add_library(hicx4core
     src/adjust_ops.cpp
+    src/bam_file.cpp
     src/bins.cpp
+    src/correct_ops.cpp
+    src/build_matrix.cpp
     src/cool_file.cpp
     src/h5_file.cpp
     src/hdf5_util.cpp
     src/hic_matrix.cpp
     src/json_lite.cpp
+    src/lbfgsb.cpp
+    src/math/ice.cpp
+    src/math/kr_balancing.cpp
+    src/math/sparse_kernels.cpp
     src/matrix_ops.cpp
     src/numpy_compat.cpp
+    src/obsexp_ops.cpp
     src/reduce_matrix.cpp
     src/resource_usage.cpp
+    src/simd_reduce.cpp
     src/sparse_matrix.cpp
+    src/stats_ops.cpp
     src/text_formats.cpp
-    src/tool_matrix.cpp)
+    src/tool_matrix.cpp
+    src/transform_ops.cpp)
 
 target_include_directories(hicx4core PUBLIC
     "${CMAKE_CURRENT_SOURCE_DIR}/include"
@@ -38,6 +49,10 @@ target_include_directories(hicx4core PUBLIC
 
 target_link_libraries(hicx4core
     PUBLIC hicx::hdf5
-    PRIVATE hicx::blosc hicx::zlib hicx_compile_options)
+    PRIVATE hicx::blosc hicx::zlib hicx::hts hicx::lapack hicx_compile_options)
+
+# transform_ops runs the covariance rows on std::thread workers.
+find_package(Threads REQUIRED)
+target_link_libraries(hicx4core PRIVATE Threads::Threads)
 
 add_library(hicx::core ALIAS hicx4core)

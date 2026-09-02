@@ -440,8 +440,17 @@ Handle FileWriter::create_group(const std::string& path) {
         H5Pset_create_intermediate_group(link_plist.get(), 1) < 0) {
         throw Error("cannot configure the link creation of group " + path);
     }
+    // Object headers carry an optional modification time (message 0x12), which
+    // HDF5 writes by default. Two runs a second apart then produce different
+    // bytes for the same content, which makes the reproducibility check of
+    // cpp/OPTIMIZATION.md section 3 a coin toss. Nothing in the corpus reads
+    // the field and no comparator compares it, so it is cleared.
+    const Handle group_plist(H5Pcreate(H5P_GROUP_CREATE), Handle::Kind::PropertyList);
+    if (!group_plist.valid() || H5Pset_obj_track_times(group_plist.get(), 0) < 0) {
+        throw Error("cannot disable object time tracking on group " + path);
+    }
     const hid_t group = H5Gcreate2(file_.get(), path.c_str(), link_plist.get(),
-                                   H5P_DEFAULT, H5P_DEFAULT);
+                                   group_plist.get(), H5P_DEFAULT);
     if (group < 0) {
         throw Error("cannot create group " + path + " in " + path_);
     }
@@ -500,6 +509,11 @@ Handle FileWriter::create_dataset(const std::string& path, hid_t file_type,
     const Handle plist(H5Pcreate(H5P_DATASET_CREATE), Handle::Kind::PropertyList);
     if (!plist.valid()) {
         throw Error("cannot create the property list of " + path);
+    }
+    // See create_group: the object modification time is the only part of a
+    // dataset that changes between two identical runs.
+    if (H5Pset_obj_track_times(plist.get(), 0) < 0) {
+        throw Error("cannot disable object time tracking on " + path);
     }
     if (chunk == 0) {
         chunk = guess_chunk(length, H5Tget_size(file_type));

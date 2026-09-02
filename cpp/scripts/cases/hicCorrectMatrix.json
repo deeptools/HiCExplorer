@@ -1,0 +1,527 @@
+[
+  {
+    "id": "hicCorrectMatrix.KR.small_test_matrix.h5",
+    "tool": "hicCorrectMatrix",
+    "tier": 3,
+    "args": [
+      "correct",
+      "-m",
+      "{data}/small_test_matrix.h5",
+      "--correctionMethod",
+      "KR",
+      "--chromosomes",
+      "chrUextra",
+      "chr3LHet",
+      "-o",
+      "{out}/kr.h5"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/kr.h5",
+        "format": "h5",
+        "class": "ED"
+      }
+    ],
+    "threads_arg": "--threads",
+    "notes": "KR whole matrix with an '.h5' output name: the balanced values are written and the correction factors are rescaled. Class ED rather than E3 because the reference is not reproducible against itself; the measured spread of this configuration over three Python runs is 1.06e-04, inside ED's 1e-03 (cpp/PLAN.md 5.0 and 5.7)."
+  },
+  {
+    "id": "hicCorrectMatrix.KR.small_test_matrix.coolname",
+    "tool": "hicCorrectMatrix",
+    "tier": 3,
+    "args": [
+      "correct",
+      "-m",
+      "{data}/small_test_matrix.h5",
+      "--correctionMethod",
+      "KR",
+      "--chromosomes",
+      "chrUextra",
+      "chr3LHet",
+      "-o",
+      "{out}/kr.cool"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/kr.cool.h5",
+        "format": "h5",
+        "class": "ED"
+      }
+    ],
+    "threads_arg": "--threads",
+    "notes": "The same run with an output name that does not end in '.h5': the raw matrix is written and only the factors carry the correction. The h5 writer appends its own suffix, so the file is kr.cool.h5 and is an h5 file, because hiCMatrix.save reuses the handler built during the load."
+  },
+  {
+    "id": "hicCorrectMatrix.KR.perchr.small_test_matrix.h5",
+    "tool": "hicCorrectMatrix",
+    "tier": 3,
+    "args": [
+      "correct",
+      "-m",
+      "{data}/small_test_matrix.h5",
+      "--correctionMethod",
+      "KR",
+      "--chromosomes",
+      "chrUextra",
+      "chr3LHet",
+      "--perchr",
+      "-o",
+      "{out}/kr.h5"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/kr.h5",
+        "format": "h5",
+        "class": "ED"
+      }
+    ],
+    "threads_arg": "--threads",
+    "notes": "--perchr with an '.h5' name: rescaled factors, diagonal blocks only. Measured Python spread 9.3e-05. Untested by the Python suite."
+  },
+  {
+    "id": "hicCorrectMatrix.KR.perchr.small_test_matrix.coolname",
+    "tool": "hicCorrectMatrix",
+    "tier": 3,
+    "args": [
+      "correct",
+      "-m",
+      "{data}/small_test_matrix.h5",
+      "--correctionMethod",
+      "KR",
+      "--chromosomes",
+      "chrUextra",
+      "chr3LHet",
+      "--perchr",
+      "-o",
+      "{out}/kr.cool"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/kr.cool.h5",
+        "format": "h5",
+        "class": "E4"
+      }
+    ],
+    "threads_arg": "--threads",
+    "notes": "Finding F4: --perchr with a name that is not '.h5' never calls get_normalised_matrix, so rescale_norm_vector never runs and the factors come back unrescaled. That is also the one KR configuration whose Python output is exactly reproducible, because rescale_norm_vector is the only float32 code in krbalancing, but reproducible is not the same as matching another implementation: this port iterates the symmetric product in row major order while Eigen's sparse product is column major, so the two converge to points that differ by 1.2e-07 relative, measured. Knight-Ruiz stops on a residual tolerance of 1e-06, so agreement of that order is the most this configuration can be held to and the class is E4."
+  },
+  {
+    "id": "hicCorrectMatrix.KR.skipDiagonal.small_test_matrix.h5",
+    "tool": "hicCorrectMatrix",
+    "tier": 3,
+    "args": [
+      "correct",
+      "-m",
+      "{data}/small_test_matrix.h5",
+      "--correctionMethod",
+      "KR",
+      "--chromosomes",
+      "chrUextra",
+      "chr3LHet",
+      "--skipDiagonal",
+      "-o",
+      "{out}/kr.h5"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/kr.h5",
+        "format": "h5",
+        "class": "ED"
+      }
+    ],
+    "threads_arg": "--threads",
+    "notes": "--skipDiagonal, never tested by the Python suite. The diagonal is removed before balancing and the identity term krbalancing adds puts an entry back on every diagonal position, so the pattern is unchanged and only the values move."
+  },
+  {
+    "id": "hicCorrectMatrix.ICE.small_test_matrix.h5",
+    "tool": "hicCorrectMatrix",
+    "tier": 3,
+    "args": [
+      "correct",
+      "-m",
+      "{data}/small_test_matrix.h5",
+      "--correctionMethod",
+      "ICE",
+      "--chromosomes",
+      "chrUextra",
+      "chr3LHet",
+      "--filterThreshold",
+      "-1.5",
+      "5.0",
+      "--iterNum",
+      "500",
+      "-o",
+      "{out}/ice.h5"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/ice.h5",
+        "format": "h5",
+        "class": "E3"
+      }
+    ],
+    "threads_arg": "--threads",
+    "notes": "The configuration of the existing test_correct_matrix_ICE, without --filteredBed. E3, not E2: iterativeCorrection multiplies the two mirror entries of the symmetric matrix by the same pair of factors in opposite order, so the reference's own matrix drifts asymmetric by an ulp per pass while the upper triangle storage stays exactly symmetric."
+  },
+  {
+    "id": "hicCorrectMatrix.ICE.filteredBed.small_test_matrix.h5",
+    "tool": "hicCorrectMatrix",
+    "tier": 3,
+    "args": [
+      "correct",
+      "-m",
+      "{data}/small_test_matrix.h5",
+      "--correctionMethod",
+      "ICE",
+      "--chromosomes",
+      "chrUextra",
+      "chr3LHet",
+      "--filterThreshold",
+      "-1.5",
+      "5.0",
+      "--iterNum",
+      "500",
+      "--filteredBed",
+      "{out}/filtered.bed",
+      "-o",
+      "{out}/ice.h5"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/ice.h5",
+        "format": "h5",
+        "class": "E3"
+      },
+      {
+        "path": "{out}/filtered.bed",
+        "format": "bed",
+        "class": "E0"
+      }
+    ],
+    "threads_arg": "--threads",
+    "notes": "--filteredBed. The line order is CPython's set iteration order, not the bin order, because hicCorrectMatrix.py:668 iterates set(outlier_regions). The port simulates Objects/setobject.c to reproduce it, and the output is byte identical to the checked in hicCorrectMatrix/filtered.bed."
+  },
+  {
+    "id": "hicCorrectMatrix.ICE.small_test_matrix.coolname",
+    "tool": "hicCorrectMatrix",
+    "tier": 3,
+    "args": [
+      "correct",
+      "-m",
+      "{data}/small_test_matrix.h5",
+      "--correctionMethod",
+      "ICE",
+      "--chromosomes",
+      "chrUextra",
+      "chr3LHet",
+      "--filterThreshold",
+      "-1.5",
+      "5.0",
+      "-o",
+      "{out}/ice.cool"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/ice.cool.h5",
+        "format": "h5",
+        "class": "E3"
+      }
+    ],
+    "threads_arg": "--threads",
+    "notes": "hicCorrectMatrix.py:740 calls setMatrixValues unconditionally on the whole matrix ICE path, so an ICE run writes corrected values whatever the output name says. That is the opposite of the KR whole matrix path, which is why both are cases."
+  },
+  {
+    "id": "hicCorrectMatrix.ICE.skipDiagonal.small_test_matrix.h5",
+    "tool": "hicCorrectMatrix",
+    "tier": 3,
+    "args": [
+      "correct",
+      "-m",
+      "{data}/small_test_matrix.h5",
+      "--correctionMethod",
+      "ICE",
+      "--chromosomes",
+      "chrUextra",
+      "chr3LHet",
+      "--filterThreshold",
+      "-1.5",
+      "5.0",
+      "--skipDiagonal",
+      "-o",
+      "{out}/ice.h5"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/ice.h5",
+        "format": "h5",
+        "class": "E3"
+      }
+    ],
+    "threads_arg": "--threads",
+    "notes": "--skipDiagonal with ICE, never tested by the Python suite."
+  },
+  {
+    "id": "hicCorrectMatrix.ICE.transCutoff.small_test_matrix.h5",
+    "tool": "hicCorrectMatrix",
+    "tier": 3,
+    "args": [
+      "correct",
+      "-m",
+      "{data}/small_test_matrix.h5",
+      "--correctionMethod",
+      "ICE",
+      "--chromosomes",
+      "chrUextra",
+      "chr3LHet",
+      "--filterThreshold",
+      "-1.5",
+      "5.0",
+      "--transCutoff",
+      "5",
+      "-o",
+      "{out}/ice.h5"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/ice.h5",
+        "format": "h5",
+        "class": "E3"
+      }
+    ],
+    "threads_arg": "--threads",
+    "notes": "--transCutoff calls hiCMatrix.truncTrans, which is a no operation (finding F11), so this must produce the same file as the run without it. Never tested by the Python suite."
+  },
+  {
+    "id": "hicCorrectMatrix.ICE.perchr.small_test_matrix.exits_1",
+    "tool": "hicCorrectMatrix",
+    "tier": 3,
+    "args": [
+      "correct",
+      "-m",
+      "{data}/small_test_matrix.h5",
+      "--correctionMethod",
+      "ICE",
+      "--chromosomes",
+      "chrUextra",
+      "chr3LHet",
+      "--filterThreshold",
+      "-1.5",
+      "5.0",
+      "--perchr",
+      "-o",
+      "{out}/ice.h5"
+    ],
+    "outputs": [],
+    "expect_exit": 1,
+    "notes": "Every bin of chrUextra survives the MAD filter, the per chromosome correction amplifies the near empty rows without bound and iterativeCorrection.py:80-84 exits 1. The port has to reach the same guard on the same input rather than producing a number."
+  },
+  {
+    "id": "hicCorrectMatrix.ICE.inflationCutoff.exits_1",
+    "tool": "hicCorrectMatrix",
+    "tier": 3,
+    "args": [
+      "correct",
+      "-m",
+      "{data}/small_test_matrix.h5",
+      "--correctionMethod",
+      "ICE",
+      "--chromosomes",
+      "chrUextra",
+      "chr3LHet",
+      "--filterThreshold",
+      "-1.5",
+      "5.0",
+      "--inflationCutoff",
+      "3",
+      "-o",
+      "{out}/ice.h5"
+    ],
+    "outputs": [],
+    "expect_exit": 1,
+    "notes": "hicCorrectMatrix.py:699 assigns pre_row_sum only inside the --transCutoff branch and :770 reads it, so --inflationCutoff alone raises UnboundLocalError. Never tested by the Python suite."
+  },
+  {
+    "id": "hicCorrectMatrix.ICE.inflationCutoff.transCutoff.exits_1",
+    "tool": "hicCorrectMatrix",
+    "tier": 3,
+    "args": [
+      "correct",
+      "-m",
+      "{data}/small_test_matrix.h5",
+      "--correctionMethod",
+      "ICE",
+      "--chromosomes",
+      "chrUextra",
+      "chr3LHet",
+      "--filterThreshold",
+      "-1.5",
+      "5.0",
+      "--transCutoff",
+      "5",
+      "--inflationCutoff",
+      "3",
+      "-o",
+      "{out}/ice.h5"
+    ],
+    "outputs": [],
+    "expect_exit": 1,
+    "notes": "With --transCutoff the run gets past pre_row_sum and dies at :776 instead, where printchrtoremove is handed bin ids from before the masking. --inflationCutoff cannot complete in either form."
+  },
+  {
+    "id": "hicCorrectMatrix.ICE.sequencedCountCutoff.cool.exits_1",
+    "tool": "hicCorrectMatrix",
+    "tier": 3,
+    "args": [
+      "correct",
+      "-m",
+      "{data}/hicCorrectMatrix/gm12878_raw_values.cool",
+      "--correctionMethod",
+      "ICE",
+      "--filterThreshold",
+      "-1.5",
+      "5.0",
+      "--sequencedCountCutoff",
+      "0.5",
+      "-o",
+      "{out}/ice.cool"
+    ],
+    "outputs": [],
+    "expect_exit": 1,
+    "notes": "hicCorrectMatrix.py:678 asserts the per bin coverage is a np.float64 while hicmatrix hardcodes a cool file's coverage to the Python float 1.0, so --sequencedCountCutoff fails on every cool input. Never tested by the Python suite."
+  },
+  {
+    "id": "hicCorrectMatrix.KR.Li_et_al_2015.h5",
+    "tool": "hicCorrectMatrix",
+    "tier": 3,
+    "args": [
+      "correct",
+      "-m",
+      "{data}/Li_et_al_2015.h5",
+      "--correctionMethod",
+      "KR",
+      "-o",
+      "{out}/kr.h5"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/kr.h5",
+        "format": "h5",
+        "class": "ED"
+      }
+    ],
+    "threads_arg": "--threads",
+    "large": true,
+    "notes": "11,104 bins, 1.66 M stored nonzeros, float64 values from 0.170 to 1914.015, so the float32 input downcast of krbalancing is not inert here. Measured Python spread of the normalisation factor 1.6e-04."
+  },
+  {
+    "id": "hicCorrectMatrix.ICE.Li_et_al_2015.h5",
+    "tool": "hicCorrectMatrix",
+    "tier": 3,
+    "args": [
+      "correct",
+      "-m",
+      "{data}/Li_et_al_2015.h5",
+      "--correctionMethod",
+      "ICE",
+      "--filterThreshold",
+      "-1.5",
+      "5",
+      "-o",
+      "{out}/ice.h5"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/ice.h5",
+        "format": "h5",
+        "class": "E3"
+      }
+    ],
+    "threads_arg": "--threads",
+    "large": true,
+    "notes": "500 passes over 1.66 M stored nonzeros without converging, which is the ICE iteration count agreeing between the two implementations on a real matrix."
+  },
+  {
+    "id": "hicCorrectMatrix.KR.gm12878_raw_values.cool",
+    "tool": "hicCorrectMatrix",
+    "tier": 3,
+    "args": [
+      "correct",
+      "-m",
+      "{data}/hicCorrectMatrix/gm12878_raw_values.cool",
+      "--correctionMethod",
+      "KR",
+      "-o",
+      "{out}/kr.cool"
+    ],
+    "outputs": [],
+    "threads_arg": "--threads",
+    "notes": "The configuration of the existing test_correct_matrix_KR_cool. The numeric comparison is NOT declared here because comparators/cool.py compares every /bins column with _arrays_identical at every class, so a float weight column can only pass if it is bit identical, which no balancing result ever is. The pixel table is compared class aware and does agree exactly (the raw counts are written unchanged for a cool name); the weight column is validated instead by cpp/scripts/hicCorrectMatrix_validate.py, which applies the class rules of cpp/PLAN.md 5.5 and the class EN envelope of 5.7 to it. Declaring the output would fail the case on a comparator gap rather than on the tool, so the case is kept for the memory, CPU time and determinism gates and the numeric result is reported separately. One function, comparators/cool.py::_compare_bins, has to become class aware before this can be declared."
+  },
+  {
+    "id": "hicCorrectMatrix.ICE.gm12878_raw_values.cool",
+    "tool": "hicCorrectMatrix",
+    "tier": 3,
+    "args": [
+      "correct",
+      "-m",
+      "{data}/hicCorrectMatrix/gm12878_raw_values.cool",
+      "--correctionMethod",
+      "ICE",
+      "--filterThreshold",
+      "-1.5",
+      "5.0",
+      "-o",
+      "{out}/ice.cool"
+    ],
+    "outputs": [],
+    "threads_arg": "--threads",
+    "notes": "ICE on a real cool input, converging in 36 passes. Numeric comparison blocked by the same comparators/cool.py gap as the KR case above and performed by cpp/scripts/hicCorrectMatrix_validate.py instead."
+  },
+  {
+    "id": "hicCorrectMatrix.KR.gm12878_chr1.cool",
+    "tool": "hicCorrectMatrix",
+    "tier": 3,
+    "args": [
+      "correct",
+      "-m",
+      "{data}/hicTADClassifier/gm12878_chr1.cool",
+      "--correctionMethod",
+      "KR",
+      "-o",
+      "{out}/kr.cool"
+    ],
+    "outputs": [],
+    "threads_arg": "--threads",
+    "large": true,
+    "memory": {
+      "alpha": 1.2,
+      "beta": 0.0
+    },
+    "notes": "The memory case of the whole project: 24,926 bins, 61.8 M stored nonzeros, 741.9 MB working set, against a Python peak of 9,280 MB. Numeric comparison blocked by the comparators/cool.py gap; see the KR gm12878_raw_values case. It would in any event be class EN and only in --compatMode v3: at this matrix size the float32 accumulator of the reference is biased by 1.8e-02, which is more than twice its own run to run spread, so the correct float64 result lies outside the oracle's envelope by construction."
+  },
+  {
+    "id": "hicCorrectMatrix.ICE.gm12878_chr1.cool",
+    "tool": "hicCorrectMatrix",
+    "tier": 3,
+    "args": [
+      "correct",
+      "-m",
+      "{data}/hicTADClassifier/gm12878_chr1.cool",
+      "--correctionMethod",
+      "ICE",
+      "--filterThreshold",
+      "-1.5",
+      "5",
+      "-o",
+      "{out}/ice.cool"
+    ],
+    "outputs": [],
+    "threads_arg": "--threads",
+    "large": true,
+    "memory": {
+      "alpha": 1.2,
+      "beta": 0.0
+    },
+    "notes": "The slowest run in the corpus: 711 s and 9,064 MB in the Python. Numeric comparison blocked by the comparators/cool.py gap and performed by cpp/scripts/hicCorrectMatrix_validate.py."
+  }
+]

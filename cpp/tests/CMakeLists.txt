@@ -24,8 +24,12 @@ add_executable(hicx_tests
     test_readers.cpp
     test_reduce_matrix.cpp
     test_adjust_ops.cpp
+    test_stats_ops.cpp
     test_text_formats.cpp
-    test_writers.cpp)
+    test_transform_ops.cpp
+    test_writers.cpp
+    test_build_matrix.cpp
+    test_correct_math.cpp)
 
 target_link_libraries(hicx_tests PRIVATE hicx::core doctest_header hicx_compile_options)
 

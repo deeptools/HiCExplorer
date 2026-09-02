@@ -182,6 +182,29 @@ class CsrMatrix {
     [[nodiscard]] std::vector<std::int64_t> stored_indptr_without_zeros() const;
     [[nodiscard]] std::size_t nonzero_stored_nnz() const;
 
+    // The three CSR arrays and the metadata that goes with them, detached from
+    // the matrix.
+    //
+    // release() leaves the matrix empty and hands the caller the buffers
+    // themselves, and adopt() puts them back. An operation that only shrinks
+    // the matrix or renumbers its rows can then rewrite the arrays in place and
+    // reuse the same allocation, instead of building a second matrix beside the
+    // first. That matters for one case in particular: masking the zero and
+    // outlier bins out of the 61.8 M pixel gm12878 matrix would otherwise cost
+    // a transient 1.5 GB against a 954 MB budget (cpp/PLAN.md 4.5), because the
+    // value array alone is 494 MB.
+    struct Arrays {
+        std::int64_t rows = 0;
+        std::int64_t cols = 0;
+        std::vector<std::int64_t> indptr;
+        std::vector<std::int32_t> indices;
+        std::vector<double> data;
+        std::string dtype = "float64";
+        Symmetry symmetry = Symmetry::Full;
+    };
+    [[nodiscard]] Arrays release();
+    [[nodiscard]] static CsrMatrix adopt(Arrays arrays);
+
   private:
     template <class F>
     void for_each_selected(bool upper_only, F&& visit) const {

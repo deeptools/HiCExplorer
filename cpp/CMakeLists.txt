@@ -3,7 +3,8 @@ cmake_minimum_required(VERSION 3.24)
 project(hicexplorer4
         VERSION 4.0.0
         DESCRIPTION "HiCExplorer version 4, C++ implementation"
-        LANGUAGES CXX)
+        # C is needed for the vendored libBigWig sources (cmake/HicxDependencies.cmake).
+        LANGUAGES CXX C)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)

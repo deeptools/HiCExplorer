@@ -1,0 +1,63 @@
+[
+  {
+    "id": "hicBuildMatrixMicroC.h5.binSize5000.small_test",
+    "tool": "hicBuildMatrixMicroC",
+    "tier": 4,
+    "args": ["-s", "{data}/small_test_R1_unsorted.bam", "{data}/small_test_R2_unsorted.bam",
+             "--outFileName", "{out}/matrix.h5", "-bs", "5000",
+             "-b", "{out}/valid.bam", "--QCfolder", "{out}/qc", "--threads", "4"],
+    "outputs": [
+      {"path": "{out}/matrix.h5", "format": "h5", "class": "E2"},
+      {"path": "{out}/valid.bam", "format": "plain", "class": "E0"}
+    ],
+    "threads_arg": "--threads",
+    "memory": {"budget_mb": 321},
+    "large": true,
+    "notes": "The only case the pre-existing Python test covers, and it compared the BAM by byte size alone. With no restriction site information the self circle and self ligation branches are never entered, so the 15,393 close inward pairs all land in 'same fragment' where the Hi-C run splits them into 10,283 same fragment, 5,056 self ligation and 651 self circle. The matrix is nevertheless identical to the Hi-C one, 35,857 pixels, because the removed pairs are exactly the ones the self ligation branch would have dropped and the self circle branch never dropped anything (Q2)."
+  },
+  {
+    "id": "hicBuildMatrixMicroC.qc.binSize5000.small_test",
+    "tool": "hicBuildMatrixMicroC",
+    "tier": 4,
+    "args": ["-s", "{data}/small_test_R1_unsorted.bam", "{data}/small_test_R2_unsorted.bam",
+             "--outFileName", "microc_qc_matrix.h5", "-bs", "5000",
+             "--QCfolder", "{out}/qc", "--threads", "4"],
+    "outputs": [
+      {"path": "{out}/qc/QC.log", "format": "plain", "class": "E0"},
+      {"path": "{out}/qc/QC_table.txt", "format": "plain", "class": "E0"},
+      {"path": "{out}/qc/discarded_table.txt", "format": "plain", "class": "E0"},
+      {"path": "{out}/qc/distance_table.txt", "format": "plain", "class": "E0"},
+      {"path": "{out}/qc/read_orientation_table.txt", "format": "plain", "class": "E0"},
+      {"path": "{out}/qc/unmapable_table.txt", "format": "plain", "class": "E0"}
+    ],
+    "memory": {"budget_mb": 321},
+    "large": true,
+    "notes": "The Micro-C QC log is the Hi-C one with four lines gone: 'Min rest. site distance', because pMinDistance is None, and the dangling end, self ligation, 'One mate not close to rest site' and self circle lines, because pRestrictionCutFile is None. discarded_table.txt follows, dropping to two columns and their percentages. As in hicBuildMatrix the --outFileName is given relative to the shared work directory so that the File field is the same string on both sides."
+  },
+  {
+    "id": "hicBuildMatrixMicroC.cool.region",
+    "tool": "hicBuildMatrixMicroC",
+    "tier": 4,
+    "args": ["-s", "{data}/small_test_R1_unsorted.bam", "{data}/small_test_R2_unsorted.bam",
+             "--outFileName", "{out}/matrix.cool", "-bs", "5000",
+             "--QCfolder", "{out}/qc", "--threads", "4",
+             "--genomeAssembly", "dm3", "--region", "chr3R"],
+    "outputs": [{"path": "{out}/matrix.cool", "format": "cool", "class": "E1"}],
+    "threads_arg": "--threads",
+    "memory": {"budget_mb": 320},
+    "notes": "--region and --genomeAssembly, two of the ten options the Python test file never exercises, through the cool writer. Without a cut site file the --region defect of hicBuildMatrix cannot bite, so this is the one place where --region behaves as documented."
+  },
+  {
+    "id": "hicBuildMatrixMicroC.h5.R1_1000.keepSelfCircles",
+    "tool": "hicBuildMatrixMicroC",
+    "tier": 4,
+    "args": ["-s", "{data}/R1_1000.bam", "{data}/R2_1000.bam",
+             "--outFileName", "{out}/matrix.h5", "-bs", "100000",
+             "--QCfolder", "{out}/qc", "--threads", "4",
+             "--keepSelfCircles", "--minMappingQuality", "30",
+             "--skipDuplicationCheck"],
+    "outputs": [{"path": "{out}/matrix.h5", "format": "h5", "class": "E2"}],
+    "memory": {"budget_mb": 320},
+    "notes": "Three more of the untested options at once. --keepSelfCircles cannot do anything here at all, because the branch that counts self circles is guarded by the restriction site dictionary being truthy and there is none, so it is dead code twice over in Micro-C mode."
+  }
+]

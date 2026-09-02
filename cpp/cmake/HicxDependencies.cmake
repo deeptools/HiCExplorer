@@ -13,6 +13,11 @@
 #   hicx::blosc  c-blosc 1.x, needed to decode PyTables/blosc compressed
 #                datasets in the HiCExplorer h5 format
 #   hicx::zlib   zlib
+#   hicx::lapack BLAS and LAPACK. This is the *same* libopenblasp-r0.3.28.so
+#                that numpy and scipy in that prefix are built against, which
+#                is what makes the dgeev column order and eigenvector signs of
+#                hicPCA compatibility mode reproducible (cpp/PLAN.md 3.4, 5.4).
+#   hicx::hts    htslib, the BAM reader and writer behind hicBuildMatrix
 
 include_guard(GLOBAL)
 
@@ -66,9 +71,19 @@ find_library(HICX_ZLIB_LIBRARY
     HINTS "${HICX_DEPS_ROOT}/lib"
     NO_DEFAULT_PATH)
 
+find_path(HICX_HTS_INCLUDE_DIR
+    NAMES htslib/sam.h
+    HINTS "${HICX_DEPS_ROOT}/include"
+    NO_DEFAULT_PATH)
+find_library(HICX_HTS_LIBRARY
+    NAMES hts
+    HINTS "${HICX_DEPS_ROOT}/lib"
+    NO_DEFAULT_PATH)
+
 foreach(var HICX_HDF5_INCLUDE_DIR HICX_HDF5_LIBRARY
             HICX_BLOSC_INCLUDE_DIR HICX_BLOSC_LIBRARY
-            HICX_ZLIB_INCLUDE_DIR HICX_ZLIB_LIBRARY)
+            HICX_ZLIB_INCLUDE_DIR HICX_ZLIB_LIBRARY
+            HICX_HTS_INCLUDE_DIR HICX_HTS_LIBRARY)
     if(NOT ${var})
         message(FATAL_ERROR "${var} not found under ${HICX_DEPS_ROOT}")
     endif()
@@ -88,6 +103,57 @@ add_library(hicx_zlib INTERFACE)
 target_include_directories(hicx_zlib SYSTEM INTERFACE "${HICX_ZLIB_INCLUDE_DIR}")
 target_link_libraries(hicx_zlib INTERFACE "${HICX_ZLIB_LIBRARY}")
 add_library(hicx::zlib ALIAS hicx_zlib)
+
+# BLAS and LAPACK. In this prefix libblas.so and liblapack.so are both symlinks
+# to libopenblasp-r0.3.28.so, the build scipy links against, so one library
+# provides dgeev, dsyevr, dsyrk and openblas_set_num_threads. There is no
+# header: the Fortran symbols are declared in core/include/hicx/lapack_shim.hpp.
+find_library(HICX_LAPACK_LIBRARY
+    NAMES openblas lapack
+    HINTS "${HICX_DEPS_ROOT}/lib"
+    NO_DEFAULT_PATH)
+if(NOT HICX_LAPACK_LIBRARY)
+    message(FATAL_ERROR "No BLAS/LAPACK found under ${HICX_DEPS_ROOT}/lib")
+endif()
+
+add_library(hicx_lapack INTERFACE)
+target_link_libraries(hicx_lapack INTERFACE "${HICX_LAPACK_LIBRARY}")
+add_library(hicx::lapack ALIAS hicx_lapack)
+
+add_library(hicx_hts INTERFACE)
+target_include_directories(hicx_hts SYSTEM INTERFACE "${HICX_HTS_INCLUDE_DIR}")
+target_link_libraries(hicx_hts INTERFACE "${HICX_HTS_LIBRARY}")
+add_library(hicx::hts ALIAS hicx_hts)
+
+# libBigWig, the C library pyBigWig wraps. hicPCA reads a histone mark track
+# and writes its eigenvectors in bigWig, and cpp/PLAN.md 3.5 decides to vendor
+# the library rather than reimplement the zoom levels and the R-tree index.
+#
+# Its own CMakeLists declares cmake_minimum_required(VERSION 3.8), which CMake 4
+# rejects, so only the sources are fetched (SOURCE_SUBDIR does-not-exist, the
+# same trick tests/CMakeLists.txt uses for doctest) and the five translation
+# units are compiled here. NOCURL removes the libcurl dependency; the tools
+# only ever open local files.
+include(FetchContent)
+FetchContent_Declare(libbigwig
+    GIT_REPOSITORY https://github.com/dpryan79/libBigWig.git
+    GIT_TAG 43c294ef1721a73b760803ca5e9410d581b98f17
+    GIT_SHALLOW FALSE
+    SOURCE_SUBDIR does-not-exist)
+FetchContent_MakeAvailable(libbigwig)
+
+add_library(hicx_bigwig STATIC
+    "${libbigwig_SOURCE_DIR}/bwRead.c"
+    "${libbigwig_SOURCE_DIR}/bwStats.c"
+    "${libbigwig_SOURCE_DIR}/bwValues.c"
+    "${libbigwig_SOURCE_DIR}/bwWrite.c"
+    "${libbigwig_SOURCE_DIR}/io.c")
+target_include_directories(hicx_bigwig SYSTEM PUBLIC "${libbigwig_SOURCE_DIR}"
+                                                     "${HICX_ZLIB_INCLUDE_DIR}")
+target_compile_definitions(hicx_bigwig PUBLIC NOCURL)
+target_link_libraries(hicx_bigwig PUBLIC "${HICX_ZLIB_LIBRARY}" m)
+set_target_properties(hicx_bigwig PROPERTIES POSITION_INDEPENDENT_CODE ON C_STANDARD 11)
+add_library(hicx::bigwig ALIAS hicx_bigwig)
 
 # The conda prefix is not on the loader path, so bake it into the binaries.
 get_filename_component(_hicx_libdir "${HICX_HDF5_LIBRARY}" DIRECTORY)

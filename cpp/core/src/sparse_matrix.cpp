@@ -101,6 +101,37 @@ CsrMatrix CsrMatrix::from_coo(std::int64_t rows, std::int64_t cols,
                      std::move(sorted_values), std::move(dtype));
 }
 
+CsrMatrix::Arrays CsrMatrix::release() {
+    Arrays arrays;
+    arrays.rows = rows_;
+    arrays.cols = cols_;
+    arrays.indptr = std::move(indptr_);
+    arrays.indices = std::move(indices_);
+    arrays.data = std::move(data_);
+    arrays.dtype = std::move(dtype_);
+    arrays.symmetry = symmetry_;
+    rows_ = 0;
+    cols_ = 0;
+    indptr_.assign(1, 0);
+    indices_.clear();
+    data_.clear();
+    dtype_ = "float64";
+    symmetry_ = Symmetry::Full;
+    return arrays;
+}
+
+CsrMatrix CsrMatrix::adopt(Arrays arrays) {
+    CsrMatrix result;
+    result.rows_ = arrays.rows;
+    result.cols_ = arrays.cols;
+    result.indptr_ = std::move(arrays.indptr);
+    result.indices_ = std::move(arrays.indices);
+    result.data_ = std::move(arrays.data);
+    result.dtype_ = std::move(arrays.dtype);
+    result.symmetry_ = arrays.symmetry;
+    return result;
+}
+
 void CsrMatrix::eliminate_zeros() {
     std::vector<std::int64_t> new_indptr(indptr_.size(), 0);
     std::size_t write = 0;
