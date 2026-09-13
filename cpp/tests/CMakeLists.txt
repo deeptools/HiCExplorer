@@ -51,7 +51,10 @@ target_link_libraries(hicx_tests PRIVATE hicx::core doctest_header hicx_compile_
 
 # Real matrices from the Python test suite, used by the reader tests.
 target_compile_definitions(hicx_tests PRIVATE
-    HICX_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/../../hicexplorer/test/test_data")
+    HICX_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/../../hicexplorer/test/test_data"
+    # Files the tests write go into the build tree, never into the source tree:
+    # an out-of-tree build from a fresh checkout has no cpp/build directory.
+    HICX_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}")
 
 add_test(NAME hicx_unit_tests COMMAND hicx_tests)
 

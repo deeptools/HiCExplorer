@@ -551,8 +551,7 @@ TEST_CASE("the streamed h5 writer produces the matrix materialize would") {
     };
     const Source source(block);
 
-    const std::string path = std::string(HICX_TEST_DATA_DIR) +
-                             "/../../../cpp/build/streamed_pearson_test.h5";
+    const std::string path = std::string(HICX_TEST_OUTPUT_DIR) + "/streamed_pearson_test.h5";
     hicx::H5SaveOptions options;
     options.symmetric = true;
     hicx::write_hicexplorer_h5(path, hic.data(), source, 4, options);
