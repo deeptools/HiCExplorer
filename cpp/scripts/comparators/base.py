@@ -32,7 +32,7 @@ import math
 from dataclasses import dataclass, field
 from typing import Any, Dict, List
 
-CLASSES = ("ED", "E0", "E1", "E2", "E3", "E4", "E5", "E6", "E7")
+CLASSES = ("ED", "E0", "E1", "E2", "E3", "E4", "E5", "E6", "E7", "EN")
 
 # The project acceptance gate, set 2026-09-01: three significant digits per
 # item. Expressed as a relative tolerance because the corpus spans many orders

@@ -35,6 +35,7 @@ add_executable(hicx_tests
     test_tad_contacts.cpp
     test_compartmentalization.cpp
     test_quick_qc.cpp
+    test_chic.cpp
     # The computational cores of hicDetectLoops, of the two TAD statistics tools
     # and of hicCompartmentalization, so that the tests link against exactly the
     # translation units the tools run.

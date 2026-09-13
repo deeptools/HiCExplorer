@@ -5,6 +5,9 @@ set(HICX_TOOLS
     hicAdjustMatrix
     hicBuildMatrix
     hicBuildMatrixMicroC
+    chicQualityControl
+    chicViewpoint
+    chicViewpointBackgroundModel
     hicCompareMatrices
     hicConvertFormat
     hicFindTADs

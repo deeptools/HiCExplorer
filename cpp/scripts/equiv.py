@@ -155,6 +155,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import comparators  # noqa: E402  pylint: disable=C0413
+import validators  # noqa: E402  pylint: disable=C0413
 
 HARNESS_VERSION = "1.2"
 
@@ -239,6 +240,10 @@ DEFAULT_PY_PYTHON = _default_py_python()
 # The Python entry points live in bin/, one script per tool.
 PY_BIN = REPO_ROOT / "bin"
 
+# Class EN (PLAN.md 5.7) reruns the Python tool through this runner, which can
+# switch on a declared, seeded source of the reference's own nondeterminism.
+NOISE_RUNNER = SCRIPT_DIR / "noise_runner.py"
+
 
 # --------------------------------------------------------------------------
 # case loading
@@ -258,6 +263,7 @@ def load_cases(tools=None, tiers=None, ids=None):
             case.setdefault("notes", "")
             case.setdefault("threads_arg", None)
             case.setdefault("memory", {})
+            case.setdefault("validators", [])
             # A tier 0 case names its two programs instead of a tool.
             case.setdefault("py_script", None)
             case.setdefault("cpp_binary", None)
@@ -708,7 +714,12 @@ def _declared_options(case, name):
 # them; PLAN.md 5.1 already rules that field and three other provenance fields
 # non-significant, and class E1 still requires every dataset to decode to
 # identical bytes, which is what a reduction-order difference would break.
-STRICTEST_CLASS_BY_FORMAT = {"cool": "E1", "mcool": "E1", "h5": "E2"}
+# A comparator format that leaves some columns to a validator, and the
+# validator it therefore requires on the same output.
+REQUIRED_VALIDATOR_BY_FORMAT = {"chic_background_model": "chic_background_likelihood"}
+
+STRICTEST_CLASS_BY_FORMAT = {"cool": "E1", "mcool": "E1", "h5": "E2",
+                             "chic_hdf5": "E2", "hdf5-chic": "E2"}
 
 # An HDF5 object header carries an optional modification time (message type
 # 0x12, H5O_MTIME_NEW): four reserved bytes, then a 4-byte Unix time. It is
@@ -1060,6 +1071,37 @@ def run_case(case, options):
 
     passed = True
     errors = []
+
+    # Class EN: the envelope is measured from N runs of the reference (PLAN.md
+    # 5.7). The first run is the one already made; the others go through
+    # noise_runner.py with the case's declared noise source, if it declares
+    # one. N is --noise-runs; a case cannot set its own.
+    noise_dirs = []
+    if case.get("noise") or any(declared.get("class") == "EN"
+                                for declared in case["outputs"]):
+        noise = case.get("noise") or {}
+        runs = max(2, options.noise_runs)
+        noise_record = {"runs": runs, "shim": noise.get("shim"), "exit_codes": []}
+        for index in range(1, runs):
+            noise_dir = workdir / f"out_py_noise{index}"
+            noise_dir.mkdir()
+            args_noise = [expand(arg, {"data": data, "out": noise_dir})
+                          for arg in case["args"]]
+            env_noise = dict(env)
+            env_noise["HICX_NOISE_RUN"] = str(index)
+            if noise.get("shim"):
+                env_noise["HICX_NOISE_SHIM"] = noise["shim"]
+            measure_noise = run_measured(
+                [str(options.py_python), str(NOISE_RUNNER), str(python_tool)] + args_noise,
+                workdir, noise_dir / "stdout.txt", noise_dir / "stderr.txt", env_noise)
+            noise_record["exit_codes"].append(measure_noise["exit_code"])
+            if measure_noise["exit_code"] != case["expect_exit"]:
+                passed = False
+                errors.append(f"reference noise run {index} exited "
+                              f"{measure_noise['exit_code']}, expected {case['expect_exit']}")
+            noise_dirs.append(noise_dir)
+        result["noise_envelope"] = noise_record
+
     if measure_py["exit_code"] != case["expect_exit"]:
         passed = False
         errors.append(f"the Python tool exited {measure_py['exit_code']}, "
@@ -1085,12 +1127,55 @@ def run_case(case, options):
             outputs.append(entry)
             passed = False
             continue
+        compare_options = dict(declared.get("options") or {})
+        if entry["class"] == "EN":
+            compare_options["noise_paths"] = [str(path_py)] + [
+                expand(declared["path"], {"data": data, "out": noise_dir})
+                for noise_dir in noise_dirs]
         comparison = comparators.compare(declared["format"], str(path_py),
                                          str(path_cpp), entry["class"],
-                                         declared.get("options"))
+                                         compare_options)
         entry.update(comparison.to_json())
         outputs.append(entry)
         passed = passed and comparison.passed
+
+    # Validators (cpp/scripts/validators): checks that need more than the two
+    # output files. A format that leaves columns to a validator names the one
+    # it needs, and a case that uses the format without declaring it fails, so
+    # those columns can never go unchecked.
+    declared_validators = {(entry.get("name"), entry.get("output"))
+                           for entry in case["validators"]}
+    for declared in case["outputs"]:
+        needed = REQUIRED_VALIDATOR_BY_FORMAT.get(declared.get("format"))
+        if needed and (needed, declared["path"]) not in declared_validators:
+            passed = False
+            errors.append(f"{declared['path']} uses format {declared['format']}, which "
+                          f"requires the validator {needed} on the same output")
+    for entry in case["validators"]:
+        record = {"path": entry.get("output"), "format": f"validator:{entry.get('name')}",
+                  "class": entry.get("class", "")}
+        output_name = str(entry.get("output", "")).replace("{out}/", "").replace("{out}", "")
+        if measure_py["exit_code"] != case["expect_exit"] or \
+                measure_cpp["exit_code"] != case["expect_exit"]:
+            record.update(passed=False, class_met=None, metrics={},
+                          diffs=["not run: a tool exited unexpectedly"])
+        else:
+            context = {
+                "case": case, "data": data, "output": output_name,
+                "out_py": str(out_py), "out_cpp": str(out_cpp),
+                "noise_dirs": [str(directory) for directory in noise_dirs],
+                "args_py": args_py, "args_cpp": args_cpp, "workdir": str(workdir),
+                "py_python": str(options.py_python), "env": env,
+                "repo_root": str(REPO_ROOT),
+            }
+            try:
+                validation = validators.run(entry.get("name"), context)
+                record.update(validation.to_json())
+            except Exception as error:  # pylint: disable=W0718
+                record.update(passed=False, class_met=None, metrics={},
+                              diffs=[f"validator raised {type(error).__name__}: {error}"])
+        outputs.append(record)
+        passed = passed and record["passed"]
 
     result["outputs"] = outputs
     result["class_met"] = result["class_declared"] if passed else None
@@ -1579,8 +1664,11 @@ def command_determinism(options):
 
 
 def command_compare(options):
+    compare_options = None
+    if options.reference_runs:
+        compare_options = {"noise_paths": [options.a] + list(options.reference_runs)}
     result = comparators.compare(options.format, options.a, options.b,
-                                 getattr(options, "class"), None)
+                                 getattr(options, "class"), compare_options)
     print(json.dumps(result.to_json(), indent=2))
     return 0 if result.passed else 1
 
@@ -1658,6 +1746,8 @@ def main(argv=None):
                                 choices=list(comparators.CLASSES))
     compare_parser.add_argument("a")
     compare_parser.add_argument("b")
+    compare_parser.add_argument("--reference-runs", nargs="+", default=None,
+                                help="class EN: further runs of the reference, beside A")
     compare_parser.set_defaults(handler=command_compare)
 
     report_parser = subparsers.add_parser("report", help="rerender a report")

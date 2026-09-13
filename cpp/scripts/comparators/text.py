@@ -132,6 +132,9 @@ def compare(path_a, path_b, cls, opts=None):
     schema = SCHEMAS[schema_name]
     normalise = list(opts.get("normalise") or [])
 
+    if cls == "EN":
+        return _compare_envelope(path_a, path_b, schema, schema_name, opts)
+
     if schema is None or cls == "E0":
         a = _read_bytes(path_a)
         b = _read_bytes(path_b)
@@ -186,6 +189,88 @@ def compare(path_a, path_b, cls, opts=None):
     if diffs:
         return Result(False, None, {"lines": len(lines_a)}, diffs)
     return Result(True, cls, {"lines": len(lines_a)})
+
+
+def _compare_envelope(path_a, path_b, schema, schema_name, opts):
+    """Class EN for a typed text file (PLAN.md 5.7).
+
+    Line count, line order and every non float field must agree exactly
+    across all reference runs and the candidate; the float fields are compared
+    against the envelope of the reference runs by comparators/noise.py. A
+    field is a float field when its column is typed float and every run
+    parses it as a float; anything that does not parse is compared as a
+    string, which is what keeps a header line exact.
+    """
+    from . import noise
+
+    if schema is None:
+        return fail(f"class EN needs a typed schema, not {schema_name!r}")
+    paths = list(opts.get("noise_paths") or [])
+    if len(paths) < 2:
+        return fail("class EN needs at least two reference runs (opts['noise_paths'])")
+    runs = [_read_lines(path, schema) for path in paths]
+    candidate = _read_lines(path_b, schema)
+    counts = {len(lines) for lines in runs}
+    if len(counts) != 1:
+        return fail(f"the reference runs disagree on the line count: {sorted(counts)}")
+    if len(candidate) != len(runs[0]):
+        return fail(f"line count differs: {len(runs[0])} vs {len(candidate)}",
+                    lines_py=len(runs[0]), lines_cpp=len(candidate))
+
+    delimiter = schema["delimiter"]
+    diffs = []
+    reference_values = [[] for _ in runs]
+    candidate_values = []
+    labels = []
+    float_columns = {}
+    for index in range(len(candidate)):
+        run_fields = [lines[index].split(delimiter) for lines in runs]
+        fields = candidate[index].split(delimiter)
+        widths = {len(row) for row in run_fields} | {len(fields)}
+        if len(widths) != 1:
+            diffs.append(f"line {index + 1}: column counts {sorted(widths)}")
+            continue
+        for column in range(len(fields)):
+            texts = [row[column] for row in run_fields]
+            value_b = fields[column]
+            parsed = None
+            if _column_type(schema, column) == "float":
+                try:
+                    parsed = [float(text) for text in texts] + [float(value_b)]
+                except ValueError:
+                    parsed = None
+            if parsed is None:
+                if len(set(texts)) != 1 or texts[0] != value_b:
+                    diffs.append(f"line {index + 1} column {column + 1}: "
+                                 f"{texts[0]!r} vs {value_b!r}")
+                continue
+            for run_index, value in enumerate(parsed[:-1]):
+                reference_values[run_index].append(value)
+            candidate_values.append(parsed[-1])
+            labels.append(f"line {index + 1} column {column + 1}")
+            float_columns[column + 1] = float_columns.get(column + 1, 0) + 1
+        if len(diffs) >= 20:
+            break
+    metrics = {"lines": len(candidate), "float_fields_per_column": float_columns}
+    if diffs:
+        return Result(False, None, metrics, diffs)
+    passed, noise_metrics, noise_diffs = noise.compare(reference_values, candidate_values, labels)
+    metrics.update(noise_metrics)
+    # The envelope per column, so that a wide column cannot hide a narrow one.
+    per_column = {}
+    for column in sorted(float_columns):
+        chosen = [i for i, label in enumerate(labels) if label.endswith(f"column {column}")]
+        column_passed, column_metrics, _ = noise.compare(
+            [[run[i] for i in chosen] for run in reference_values],
+            [candidate_values[i] for i in chosen])
+        per_column[column] = {key: column_metrics.get(key) for key in (
+            "within_envelope", "outside_envelope", "envelope_S_median", "envelope_S_max",
+            "deviation_from_median_max", "held_out_reference_run_outside_envelope")}
+        per_column[column]["passed"] = column_passed
+    metrics["per_column"] = per_column
+    if not passed:
+        return Result(False, None, metrics, noise_diffs)
+    return Result(True, "EN", metrics)
 
 
 def _byte_diff(a, b):

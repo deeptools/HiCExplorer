@@ -1,0 +1,81 @@
+[
+  {
+    "id": "chicQualityControl.two_matrices.referencePoints_qc",
+    "tool": "chicQualityControl",
+    "tier": 6,
+    "args": ["--matrices", "{data}/cHi-C/FL-E13-5_chr1.cool", "{data}/cHi-C/MB-E10-5_chr1.cool",
+             "--referencePoints", "{data}/cHi-C/referencePoints_qc.bed",
+             "--sparsity", "0.05", "--outFileName", "{out}/referencepoints.bed", "-t", "1"],
+    "outputs": [
+      {"path": "{out}/referencepoints.bed", "format": "text", "class": "E0"},
+      {"path": "{out}/referencepoints.bed_raw_filter", "format": "text", "class": "E0"},
+      {"path": "{out}/referencepoints.bed_rejected_filter", "format": "text", "class": "E0"},
+      {"path": "{out}/referencepoints.bed_failed_reference_points", "format": "text", "class": "E0"},
+      {"path": "{out}/referencepoints.bed_report", "format": "text", "class": "E0"}
+    ],
+    "threads_arg": "--threads",
+    "notes": "The case test_chicQualityControl.py runs: 45 reference points on the two cHi-C matrices, 35 accepted, 8 rejected, and 2 faulty (a position past the end of chr1, which is a TypeError inside computeViewpoint, and chr2, which the matrices do not have). Declared E0: the sparsity is an integer count divided by an integer length and is written as its repr, so there is nothing to round. The figures sparsity.png and histogram.png are not requested by name, so the Python writes them under their default names into the work directory and the C++ skips them with a note; no output of this case is a figure."
+  },
+  {
+    "id": "chicQualityControl.two_matrices.fixateRange100000.threshold_on_a_value",
+    "tool": "chicQualityControl",
+    "tier": 6,
+    "args": ["--matrices", "{data}/cHi-C/FL-E13-5_chr1.cool", "{data}/cHi-C/MB-E10-5_chr1.cool",
+             "--referencePoints", "{data}/cHi-C/referencePoints_qc.bed",
+             "--sparsity", "0.07960199004975124", "--fixateRange", "100000",
+             "--outFileName", "{out}/referencepoints.bed", "-t", "4"],
+    "outputs": [
+      {"path": "{out}/referencepoints.bed", "format": "text", "class": "E0"},
+      {"path": "{out}/referencepoints.bed_raw_filter", "format": "text", "class": "E0"},
+      {"path": "{out}/referencepoints.bed_rejected_filter", "format": "text", "class": "E0"},
+      {"path": "{out}/referencepoints.bed_failed_reference_points", "format": "text", "class": "E0"},
+      {"path": "{out}/referencepoints.bed_report", "format": "text", "class": "E0"}
+    ],
+    "threads_arg": "--threads",
+    "notes": "--fixateRange at 100 kb, a window of 201 bins instead of 1,001, and a threshold chosen from that window's own sparsity values so that the strict comparison sparsity > threshold decides at least one reference point on equality. Also run at --threads 4, which splits the reference points over four Python worker processes."
+  },
+  {
+    "id": "chicQualityControl.one_matrix.edge_cases",
+    "tool": "chicQualityControl",
+    "tier": 6,
+    "args": ["--matrices", "{data}/cHi-C/MB-E10-5_chr1.cool",
+             "--referencePoints", "{data}/cHi-C/referencePoints_edge_cases.bed",
+             "--sparsity", "0.01", "--outFileName", "{out}/referencepoints.bed", "-t", "3"],
+    "outputs": [
+      {"path": "{out}/referencepoints.bed", "format": "text", "class": "E0"},
+      {"path": "{out}/referencepoints.bed_raw_filter", "format": "text", "class": "E0"},
+      {"path": "{out}/referencepoints.bed_rejected_filter", "format": "text", "class": "E0"},
+      {"path": "{out}/referencepoints.bed_failed_reference_points", "format": "text", "class": "E0"},
+      {"path": "{out}/referencepoints.bed_report", "format": "text", "class": "E0"}
+    ],
+    "threads_arg": "--threads",
+    "notes": "A reference point spanning four bins (its rows are summed and the four bins collapse into one element), one 50 kb before the end of chr1 and one 150 kb after its start (both windows clipped to the chromosome), and a three column line, whose start is also its end. One matrix only."
+  },
+  {
+    "id": "chicQualityControl.skipped_line.index_error",
+    "tool": "chicQualityControl",
+    "tier": 6,
+    "args": ["--matrices", "{data}/cHi-C/FL-E13-5_chr1.cool",
+             "--referencePoints", "{data}/cHi-C/referencePoints_chicViewpoint.bed",
+             "--sparsity", "0.05", "--outFileName", "{out}/referencepoints.bed", "-t", "1"],
+    "expect_exit": 1,
+    "outputs": [
+      {"path": "{out}/referencepoints.bed", "format": "text", "class": "E0"},
+      {"path": "{out}/referencepoints.bed_raw_filter", "format": "text", "class": "E0"},
+      {"path": "{out}/referencepoints.bed_rejected_filter", "format": "text", "class": "E0"},
+      {"path": "{out}/referencepoints.bed_failed_reference_points", "format": "text", "class": "E0"}
+    ],
+    "notes": "The reference point file ends in a blank line. readReferencePointFile skips it, but the output loop re-reads the file and indexes the sparsity table by line number, so the fourth line raises IndexError after the first three have been written, and the Python exits 1 without a report. Reproduced, including the three partial output files."
+  },
+  {
+    "id": "chicQualityControl.start_after_end.value_error",
+    "tool": "chicQualityControl",
+    "tier": 6,
+    "args": ["--matrices", "{data}/cHi-C/FL-E13-5_chr1.cool",
+             "--referencePoints", "{data}/cHi-C/referencePoints_chicViewpoint_crash.bed",
+             "--sparsity", "0.05", "--outFileName", "{out}/referencepoints.bed", "-t", "1"],
+    "expect_exit": 1,
+    "outputs": [],
+    "notes": "The fourth line has its start after its end. computeViewpoint's slice assignment then raises ValueError (could not broadcast input array from shape (163,) into shape (500,)), which chicQualityControl does not catch, so the whole run exits 1 before any output is written."
+  }
+]
