@@ -22,6 +22,9 @@ specification this implements. A case normally names a `tool` and the runner
 executes bin/<tool> against <cpp-bin>/<tool>; a tier 0 case that exercises the
 file layer before any tool exists gives `py_script` (a path relative to the
 repository root) and `cpp_binary` (a path relative to --cpp-bin) instead.
+A case may also give `cpp_args`, appended to the C++ command line only, for an
+option the port has and the Python does not (hicCompartmentalization --noPlot);
+its notes must say why the two command lines differ.
 
 Run it with the reference venv interpreter named in cpp/AGENTS_CONTRACT.md, so
 that the cool and h5 comparators find h5py, PyTables and numpy:
@@ -258,6 +261,11 @@ def load_cases(tools=None, tiers=None, ids=None):
             # A tier 0 case names its two programs instead of a tool.
             case.setdefault("py_script", None)
             case.setdefault("cpp_binary", None)
+            # Arguments appended to the C++ command line only, for an option
+            # the port has and the Python does not (hicCompartmentalization
+            # --noPlot). Never a way to make the two runs do different work on
+            # the outputs being compared: the case notes must say why.
+            case.setdefault("cpp_args", [])
             cases.append(case)
     if tools:
         cases = [case for case in cases if case["tool"] in tools]
@@ -926,7 +934,8 @@ def check_determinism(case, options, workdir, cpp_tool, data, reference_dir):
     def run_into(directory, extra_args):
         directory.mkdir(parents=True, exist_ok=True)
         argv = [expand(argument, {"data": data, "out": directory})
-                for argument in case["args"]] + list(extra_args)
+                for argument in case["args"] + case.get("cpp_args", [])] \
+            + list(extra_args)
         return run_measured([str(cpp_tool)] + argv, workdir,
                             directory / "stdout.txt", directory / "stderr.txt")
 
@@ -987,7 +996,8 @@ def run_case(case, options):
 
     data = str(options.data)
     args_py = [expand(arg, {"data": data, "out": out_py}) for arg in case["args"]]
-    args_cpp = [expand(arg, {"data": data, "out": out_cpp}) for arg in case["args"]]
+    args_cpp = [expand(arg, {"data": data, "out": out_cpp})
+                for arg in case["args"] + case["cpp_args"]]
 
     env = dict(os.environ)
     env["PYTHONPATH"] = str(REPO_ROOT) + os.pathsep + env.get("PYTHONPATH", "")
@@ -1146,7 +1156,8 @@ def run_determinism_case(case, options):
         result.update(passed=False, error=f"missing C++ binary {cpp_tool}")
         return result
 
-    args_cpp = [expand(arg, {"data": data, "out": out_cpp}) for arg in case["args"]]
+    args_cpp = [expand(arg, {"data": data, "out": out_cpp})
+                for arg in case["args"] + case.get("cpp_args", [])]
     measure = run_measured([str(cpp_tool)] + args_cpp, workdir,
                            out_cpp / "stdout.txt", out_cpp / "stderr.txt")
     result["cpp_seconds"] = measure["seconds"]

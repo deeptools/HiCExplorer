@@ -32,10 +32,12 @@ add_executable(hicx_tests
     test_build_matrix.cpp
     test_correct_math.cpp
     test_detect_loops.cpp
+    test_compartmentalization.cpp
     test_quick_qc.cpp
-    # The computational core of hicDetectLoops, so that the tests link against
-    # exactly the translation unit the tool runs.
-    ../tools/detect_loops_impl.cpp)
+    # The computational cores of hicDetectLoops and hicCompartmentalization, so
+    # that the tests link against exactly the translation units the tools run.
+    ../tools/detect_loops_impl.cpp
+    ../tools/compartmentalization_impl.cpp)
 
 target_link_libraries(hicx_tests PRIVATE hicx::core doctest_header hicx_compile_options)
 
@@ -44,6 +46,18 @@ target_compile_definitions(hicx_tests PRIVATE
     HICX_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/../../hicexplorer/test/test_data")
 
 add_test(NAME hicx_unit_tests COMMAND hicx_tests)
+
+# hicCompartmentalization draws a matplotlib figure the C++ port cannot draw
+# yet. A run that asks for it has to fail visibly and write nothing, while
+# --noPlot has to write the numeric outputs. The equivalence harness cannot
+# express a case whose exit status differs between Python and C++, so this is
+# checked here.
+add_test(NAME hicCompartmentalization_refuses_plot
+         COMMAND ${CMAKE_COMMAND}
+                 -DTOOL=$<TARGET_FILE:hicCompartmentalization>
+                 -DDATA=${CMAKE_CURRENT_SOURCE_DIR}/../../hicexplorer/test/test_data
+                 -DOUT=${CMAKE_CURRENT_BINARY_DIR}/hicCompartmentalization_refuses_plot
+                 -P ${CMAKE_CURRENT_SOURCE_DIR}/check_compartmentalization_refuses_plot.cmake)
 
 # Not a HiCExplorer tool: the smallest driver that exercises the tier 0 file
 # layer end to end, used by cpp/scripts/equiv.py against its Python twin

@@ -384,3 +384,155 @@ def test_normalised_sum_per_quantile_written_out_with_and_without_offset():
         '--offset 0 must remove the main diagonal from the within-quantile cells'
     os.unlink(plain.name)
     os.unlink(dropped.name)
+
+
+# ---------------------------------------------------------------------------
+# Further characterization, added 2026-09-13 with the C++ port.
+#
+# The comment at the top of the 2026-09-02 block names
+# test_result_does_not_depend_on_the_number_of_chromosomes, but no such test
+# was committed; it is added here. The other tests pin behaviour a port has to
+# reproduce and that nothing above constrains:
+#
+#  4. The bin holding the largest pc1 value is dropped. The boundaries run from
+#     the minimum to the maximum, and np.searchsorted(side='right') puts a value
+#     equal to the last boundary at index quantile, one past the last quantile,
+#     so that bin is in no block. This is the mirror image of quantile 0 being
+#     empty.
+#  5. A NaN pc1 is dropped the same way. :199 intends to move NaN rows out of
+#     the way, but `pc1["pc1"] == np.nan` is never true and the chained
+#     indexing assigns into a copy, so the line does nothing; searchsorted
+#     sorts NaN last and returns quantile as well.
+#  6. np.savez appends '.npz' to an --outputMatrix name that lacks it.
+#  7. --quantile 1 raises ZeroDivisionError at :192 unless --outliers is given;
+#     --quantile 0 succeeds and writes one empty line.
+
+import shutil
+from tempfile import mkdtemp
+
+
+def _write_bedgraph(pPath, pRows):
+    with open(pPath, 'w') as handle:
+        for row in pRows:
+            handle.write("\t".join(row) + "\n")
+
+
+def _bedgraph_rows():
+    with open(PCA) as handle:
+        return [line.rstrip("\n").split("\t") for line in handle if line.strip()]
+
+
+def _run_matrix(pPca, pQuantiles, pFolder, pName):
+    plot = os.path.join(pFolder, pName + '.png')
+    matrix = os.path.join(pFolder, pName + '.npz')
+    _run("-m {} --pca {} -o {} --quantile {} --outputMatrix {}".format(
+        OBSEXP, pPca, plot, pQuantiles, matrix))
+    return np.load(matrix)['arr_0'][0]
+
+
+def test_the_bin_with_the_largest_pc1_is_in_no_quantile():
+    folder = mkdtemp(prefix="testCompartments_")
+    actual = _run_matrix(PCA, 6, folder, 'plain')
+
+    # The written out count with the reference binning agrees ...
+    nt.assert_allclose(actual, _count_interactions_written_out(6), rtol=1e-12, atol=0)
+
+    # ... because the maximum really is outside the range, and exactly one row is.
+    pc1 = _quantiled_pc1(6)
+    assert (pc1['quantile'] == 6).sum() == 1
+    assert pc1.loc[pc1['quantile'] == 6, 'pc1'].iloc[0] == pc1['pc1'].max()
+    assert (pc1['quantile'] == 0).sum() == 0
+
+    # Putting that bin into the top quantile would have changed the output.
+    rows = _bedgraph_rows()
+    top = int(np.argmax([float(row[3]) for row in rows]))
+    capped = [list(row) for row in rows]
+    second = sorted(float(row[3]) for row in rows)[-2]
+    capped[top][3] = repr(second)
+    capped_path = os.path.join(folder, 'capped.bedgraph')
+    _write_bedgraph(capped_path, capped)
+    moved = _run_matrix(capped_path, 6, folder, 'capped')
+    assert not np.allclose(actual, moved)
+    shutil.rmtree(folder)
+
+
+def test_a_nan_pc1_row_is_dropped_as_if_it_were_absent():
+    folder = mkdtemp(prefix="testCompartments_")
+    rows = _bedgraph_rows()
+    victim = 100
+    assert rows[victim][0] == 'chrX'
+
+    with_nan = [list(row) for row in rows]
+    with_nan[victim][3] = 'nan'
+    nan_path = os.path.join(folder, 'nan.bedgraph')
+    _write_bedgraph(nan_path, with_nan)
+
+    without = [row for index, row in enumerate(rows) if index != victim]
+    without_path = os.path.join(folder, 'without.bedgraph')
+    _write_bedgraph(without_path, without)
+
+    nan_result = _run_matrix(nan_path, 10, folder, 'nan')
+    without_result = _run_matrix(without_path, 10, folder, 'without')
+    nt.assert_array_equal(nan_result, without_result)
+    assert not np.array_equal(nan_result, _run_matrix(PCA, 10, folder, 'plain'))
+    shutil.rmtree(folder)
+
+
+def test_outputMatrix_without_the_suffix_is_written_with_it():
+    folder = mkdtemp(prefix="testCompartments_")
+    plot = os.path.join(folder, 'ratio.png')
+    matrix = os.path.join(folder, 'matrix')
+    _run("-m {} --pca {} -o {} --quantile 6 --outputMatrix {}".format(
+        OBSEXP, PCA, plot, matrix))
+    assert not os.path.exists(matrix)
+    assert np.load(matrix + '.npz')['arr_0'].shape == (1, 6, 6)
+    shutil.rmtree(folder)
+
+
+def test_quantile_one_fails_and_quantile_zero_writes_an_empty_line():
+    folder = mkdtemp(prefix="testCompartments_")
+    plot = os.path.join(folder, 'ratio.png')
+    with pytest.raises(ZeroDivisionError):
+        _run("-m {} --pca {} -o {} --quantile 1".format(OBSEXP, PCA, plot))
+    assert not os.path.exists(plot + '_dat')
+
+    _run("-m {} --pca {} -o {} --quantile 1 --outliers 2.5".format(OBSEXP, PCA, plot))
+    with open(plot + '_dat') as handle:
+        assert handle.read() == "\n"
+    os.unlink(plot + '_dat')
+
+    _run("-m {} --pca {} -o {} --quantile 0".format(OBSEXP, PCA, plot))
+    with open(plot + '_dat') as handle:
+        assert handle.read() == "\n"
+    shutil.rmtree(folder)
+
+
+def test_result_does_not_depend_on_the_number_of_chromosomes():
+    """count_interactions repeats the whole count once per chromosome of the
+    pca file, because its chromosome loop ignores the loop variable. Both
+    accumulators scale together, so relabelling every row to a single
+    chromosome, which leaves the bins and the quantiles alone, gives the same
+    normalised sums to rounding.
+
+    Only to rounding: s + s + s is not always 3 * s in floating point, so the
+    last bits do depend on the chromosome count. Measured on a six bin fixture
+    with non dyadic values, one against three chromosomes differ in 5 of 16
+    cells by one ulp. On this input the two happen to agree bit for bit, which
+    is not a property to pin, hence rtol=1e-12. A port has to repeat the
+    additions to reproduce the bits (cpp/tools/compartmentalization_impl.cpp
+    replays them)."""
+    pc1 = _quantiled_pc1(10)
+    obs_exp = hm.hiCMatrix(OBSEXP)
+    pc1["bin_id"] = pc1.apply(
+        lambda row: np.arange(
+            obs_exp.getRegionBinRange(row['chr'], row['start'], row['end'] - 1)[0],
+            obs_exp.getRegionBinRange(row['chr'], row['start'], row['end'] - 1)[1] + 1),
+        axis=1)
+    assert len(pc1['chr'].unique()) == 2
+
+    two = np.nan_to_num(count_interactions(obs_exp, pc1, 10, None))
+    relabelled = pc1.copy()
+    relabelled['chr'] = 'chrX'
+    one = np.nan_to_num(count_interactions(hm.hiCMatrix(OBSEXP), relabelled, 10, None))
+    nt.assert_allclose(two, one, rtol=1e-12, atol=0)
+    assert np.count_nonzero(two) > 0
