@@ -1511,7 +1511,7 @@ The situation is different for each:
 | 7 | plotting (Python shell over C++ core) | 8 |
 | 8 | ML and hyperparameter search | 4 |
 | | **total** | **46 + 1 alias (`hicQC`)** |
-| 9 | beyond the Python: new features | 1 new tool, 5 extensions |
+| 9 | beyond the Python: new features and a differential redesign | 14 items (9.1 to 9.14) |
 
 Tiers 2, 6 and 7 are independent of tiers 3-5 after tier 0 lands, so up to three
 workers can proceed in parallel from that point.
@@ -1569,8 +1569,77 @@ zoomify`.
 *Validation:* planted loops as in 9.3, and agreement with HiCCUPS and Mustache on
 GM12878, with the criterion fixed here before implementation.
 
-Order: 9.1 now; then 9.2, 9.3, 9.4, 9.6, interleaved with the remaining
-tier 6 tools. 9.5 follows coolercpp milestone 3.
+**9.7 Differential analysis that controls false positives.** The project owner
+reports too many false positives in differential TADs, loops and A/B
+compartments. This was measured on 2026-09-13 on GSE234292 (mouse, wild type and
+BPTF knockout, two biological replicates each, `~/data/Hi-cGAN/biological_replicates/GSE234292`).
+The runs used the C++ ports, which match the Python on every harness case,
+with ICE on chr1-19 and X (`--filterThreshold -1.5 5`). A replicate against
+its replicate is a null comparison. Scripts and outputs are in the session
+scratchpad, under `fp_calibration.sh` and `fpcal/`.
+
+| workflow | null result (replicate vs replicate) |
+|---|---|
+| hicDifferentialTAD, defaults (`-m all -mr one`, p 0.05), 50 kb, 2,730 TADs | 561 TADs (20.5 %) wt, 589 (21.6 %) knockout; p <= 0.05 in 11 % of tests instead of 5 % |
+| the same with Benjamini-Hochberg on each test | still 290 TADs (10.6 %) |
+| the same after masking the union of both samples' filtered bins in both matrices | 25 TADs (0.9 %); p <= 0.05 in 0.3 % of tests |
+| hicDetectLoops, defaults, 10 kb, uncorrected | 79 % of rep1 loops and 83 % of rep2 loops not found in the other replicate (1-bin tolerance) |
+| hicDetectLoops on the ICE matrices (defaults, and `-pit 1`) | 0 loops |
+| hicPCA E1, 100 kb, orientation aligned per chromosome | 1,148 of 24,468 bins (4.7 %) switch A/B; 2.3 % outside the weakest quartile of abs(E1) |
+
+Findings:
+- The dominant false-positive source in hicDifferentialTAD is **asymmetric bin filtering**. ICE filters bins per sample, and a bin removed in one matrix is a zero row against real values in the other. TADs within 500 kb of such a bin were called 63.4 % of the time (n = 816), all others 2.3 % (n = 1,914). TAD size, coverage and local depth ratio barely matter.
+- Wild type against knockout calls 59.0 % of TADs, still 51.4 % with the shared mask, with one replicate per side. That is not an interpretable result without replicates and an effect size.
+- Loops: comparing call lists is dominated by threshold instability, since four fifths of calls do not replicate.
+- Compartments: a naive sign switch calls about 115 Mb between replicates of one condition.
+- No differential tool applies a multiple-testing correction. That includes chicDifferentialTest and chicSignificantInteractions; only hicFindTADs has one. hicDetectLoops' docstring promises FDR correction, which the code does not apply.
+
+Work:
+1. **hicDifferentialTAD, dual mode (section 5.8).** Default output stays Python-equivalent. A C++ option masks the union of both matrices' invalid bins in both, and applies Benjamini-Hochberg across TADs.
+2. **One count-based differential engine** for TADs, loops and compartments.
+   - Replicates per condition, with a negative binomial model: dispersion estimated from replicates, offsets for library size and distance decay, a shared bin mask, and Benjamini-Hochberg FDR with a minimum fold change.
+   - The tested units: per TAD, aggregated counts per distance stratum plus boundary insulation; per loop, the union of loop positions from all samples, tested against local background; per compartment bin, a GC-oriented compartment score.
+   - With a single sample per condition the tool refuses, or runs only with an explicit option that labels its output exploratory.
+3. **Multiple-testing correction** for the chic tools and hicDetectLoops, dual mode.
+
+Gate (EX, fixed before implementation):
+- **Null comparisons** at FDR 0.05 call at most 1 % of tested TADs, loops or compartment bins. The nulls: wt rep1 vs rep2, knockout rep1 vs rep2, and the label swap {wt rep1, knockout rep2} vs {wt rep2, knockout rep1}. In each null the fraction of p <= 0.05 lies between 3 % and 7 %.
+- **Planted differences** in real wt matrices are recovered with recall >= 0.8 at 2-fold and an observed FDR <= 0.10. The plants: contacts scaled inside chosen TADs, at chosen loop pixels, and across chosen compartment bins, at 1.5-fold and 2-fold.
+
+**9.8 Structural variant and translocation detection from Hi-C.** Inter- and
+intra-chromosomal breakpoints and balanced translocations, relevant for
+leukaemia samples. *Validation:* the known rearrangements of K562 (including
+BCR-ABL1) recovered from `GSE63525_K562_combined_30.hic`, plus agreement with
+hic_breakfinder on the same data.
+
+**9.9 Copy-number-aware normalisation.** Copy number removed before or
+alongside balancing, so gains in aneuploid samples do not appear as
+differential contacts. *Validation:* ED against OneD (or HiCnv) on K562, and
+the 9.7 null gate on a sample pair with differing copy number.
+
+**9.10 Reproducibility score (HiCRep SCC).** *Validation:* ED against the
+reference hicrep implementation on the GSE234292 replicate and condition pairs.
+
+**9.11 Count subsampling to equal depth.** Binomial thinning with a seed,
+replacing rescaling for comparisons. *Validation:* exact total, per-pixel
+expectation checked statistically, byte-identical output for a given seed at
+any thread count.
+
+**9.12 Allele-specific matrices** from phased BAMs (haplotype tags). *Validation:*
+E2 that the haplotype matrices plus the unassigned matrix sum to the unsplit
+matrix, and agreement with an established allele-specific pipeline on the same
+reads.
+
+**9.13 Effective resolution estimate** (Rao et al. 2014 criterion: the finest bin
+size at which 80 % of bins have at least 1,000 contacts). *Validation:* exact
+against a direct computation of the definition.
+
+**9.14 Micro-C patterns: fountains and jets.** *Validation:* planted patterns as
+in 9.3, and agreement with a published fountain caller, such as fontanka.
+
+Order: 9.1 now; then 9.7 step 1 (small, removes most measured false positives);
+9.2, 9.3, 9.4, the rest of 9.7, 9.6 and 9.8 to 9.14, interleaved with the
+remaining tier 6 tools. 9.5 follows coolercpp milestone 3.
 
 ## 7. The state of the Python test suite, honestly
 
