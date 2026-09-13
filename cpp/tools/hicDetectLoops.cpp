@@ -65,7 +65,7 @@
 #include "detect_loops_impl.hpp"
 #include "hicx/adjust_ops.hpp"
 #include "hicx/bins.hpp"
-#include "hicx/cool_file.hpp"
+#include "hicx/cool_adapter.hpp"
 #include "hicx/h5_file.hpp"
 #include "hicx/matrix_ops.hpp"
 #include "hicx/numpy_compat.hpp"
@@ -381,13 +381,11 @@ hicx::CsrMatrix upper_band(const hicx::CsrMatrix& matrix, double distance_limit,
 // the counts are stored as float32, which is the dtype of the lil_matrix the
 // Python stages them in and therefore the dtype obs_exp_matrix casts back to.
 //
-// The pixel table and the bin table are read once for the whole file and
-// passed in, not reopened per chromosome. Reading them inside the loop was
-// measured first and is what the timing note in the report compares against:
-// on the 25 chromosome GSE63525 cool it cost 0.89 s of CPU against 0.24 s,
-// because the whole 705k pixel table was decompressed 25 times over.
+// The block is read through coolercpp's range query one chunk of pixel rows
+// at a time and the band is cut while reading, so only the band is ever held.
+// Loading the whole pixel table first and cutting afterwards held the 742 MB
+// table of gm12878_chr1.cool next to the 51 MB band (peak 877 MB).
 ChromosomeMatrix load_cool_chromosome(const hicx::CoolFile& cool,
-                                      const hicx::CsrMatrix& whole,
                                       const std::vector<hicx::CutInterval>& bins,
                                       const std::string& chromosome,
                                       std::int64_t max_loop_distance) {
@@ -425,24 +423,16 @@ ChromosomeMatrix load_cool_chromosome(const hicx::CoolFile& cool,
     arrays.indptr.assign(static_cast<std::size_t>(arrays.rows) + 1, 0);
     const bool restrict_distance = file_bin_size.has_value();
     const std::int64_t band = restrict_distance ? max_loop_distance / *file_bin_size : 0;
-    arrays.dtype = restrict_distance ? "float32" : whole.dtype();
+    arrays.dtype = restrict_distance ? "float32" : cool.count_dtype();
 
-    const std::vector<std::int64_t>& indptr = whole.indptr();
-    const std::vector<std::int32_t>& indices = whole.indices();
-    const std::vector<double>& values = whole.data();
-    for (std::int64_t row = first; row < last; ++row) {
-        const std::size_t begin = static_cast<std::size_t>(indptr[static_cast<std::size_t>(row)]);
-        const std::size_t end =
-            static_cast<std::size_t>(indptr[static_cast<std::size_t>(row) + 1]);
-        for (std::size_t k = begin; k < end; ++k) {
-            const std::int64_t column = static_cast<std::int64_t>(indices[k]);
-            if (column < first || column >= last) {
-                continue;
-            }
+    cool.for_each_pixel_chunk(first, last, first, last, [&](const hicx::PixelChunk& chunk) {
+        for (std::size_t k = 0; k < chunk.bin1.size(); ++k) {
+            const std::int64_t row = chunk.bin1[k];
+            const std::int64_t column = chunk.bin2[k];
             if (restrict_distance && (column - row) >= band) {
                 continue;
             }
-            double value = values[k];
+            double value = chunk.count[k];
             if (restrict_distance) {
                 value = static_cast<double>(static_cast<float>(value));
             }
@@ -453,7 +443,7 @@ ChromosomeMatrix load_cool_chromosome(const hicx::CoolFile& cool,
             arrays.data.push_back(value);
             ++arrays.indptr[static_cast<std::size_t>(row - first) + 1];
         }
-    }
+    });
     for (std::size_t i = 1; i < arrays.indptr.size(); ++i) {
         arrays.indptr[i] += arrays.indptr[i - 1];
     }
@@ -507,7 +497,6 @@ int main(int argc, char** argv) {
     std::vector<std::string> chromosomes;
     hicx::MatrixData whole;
     std::optional<hicx::CoolFile> cool;
-    hicx::CsrMatrix cool_pixels;
     std::vector<hicx::CutInterval> cool_bins;
     if (!is_cooler) {
         whole = hicx::read_hicexplorer_h5(args.matrix);
@@ -527,7 +516,6 @@ int main(int argc, char** argv) {
     } else {
         cool.emplace(args.matrix);
         cool_bins = cool->read_bins();
-        cool_pixels = cool->read_matrix();
         if (args.chromosomes.has_value()) {
             chromosomes = *args.chromosomes;
         } else {
@@ -558,18 +546,8 @@ int main(int argc, char** argv) {
         ChromosomeMatrix block;
         try {
             if (is_cooler) {
-                block = load_cool_chromosome(*cool, cool_pixels, cool_bins,
-                                             chromosome, args.max_loop_distance);
-                if (chromosome_index + 1 == chromosomes.size()) {
-                    // The whole pixel table is not needed once the last block
-                    // has been cut out of it, and on a single chromosome cool
-                    // it is the largest thing in the process by an order of
-                    // magnitude: 742 MB against the 51 MB band that is
-                    // actually processed on gm12878_chr1.cool. Releasing it
-                    // here rather than at the end of main takes the peak from
-                    // 962 MB to 877 MB, measured, three runs each.
-                    cool_pixels = hicx::CsrMatrix();
-                }
+                block = load_cool_chromosome(*cool, cool_bins, chromosome,
+                                             args.max_loop_distance);
             } else {
                 // keepOnlyTheseChr: a monotone selection of that chromosome's
                 // bins out of the whole matrix.

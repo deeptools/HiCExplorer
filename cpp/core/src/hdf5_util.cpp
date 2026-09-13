@@ -398,20 +398,6 @@ Handle fixed_string_type(std::size_t width) {
     return type;
 }
 
-Handle enum_type(const std::vector<std::string>& names, hid_t base) {
-    Handle type(H5Tenum_create(base), Handle::Kind::DataType);
-    if (!type.valid()) {
-        throw Error("cannot build an enumeration type");
-    }
-    for (std::size_t i = 0; i < names.size(); ++i) {
-        const std::int32_t value = static_cast<std::int32_t>(i);
-        if (H5Tenum_insert(type.get(), names[i].c_str(), &value) < 0) {
-            throw Error("cannot add " + names[i] + " to the chromosome enumeration");
-        }
-    }
-    return type;
-}
-
 FileWriter::FileWriter(const std::string& path, WriteMode mode) : path_(path) {
     register_blosc_filter();
     H5Eset_auto2(H5E_DEFAULT, nullptr, nullptr);
@@ -433,8 +419,7 @@ FileWriter::FileWriter(const std::string& path, WriteMode mode) : path_(path) {
 }
 
 Handle FileWriter::create_group(const std::string& path) {
-    // Missing parents are created too, which is what an mcool needs: the
-    // second resolution finds /resolutions already there, the first does not.
+    // Missing parents are created too, like h5py's create_group.
     const Handle link_plist(H5Pcreate(H5P_LINK_CREATE), Handle::Kind::PropertyList);
     if (!link_plist.valid() ||
         H5Pset_create_intermediate_group(link_plist.get(), 1) < 0) {
@@ -457,39 +442,6 @@ Handle FileWriter::create_group(const std::string& path) {
     return Handle(group, Handle::Kind::Group);
 }
 
-bool FileWriter::exists(const std::string& object_path) const {
-    if (object_path.empty() || object_path == "/") {
-        return true;
-    }
-    // H5Lexists only answers for one link at a time, so every component of the
-    // path has to be probed in turn.
-    std::string prefix;
-    std::size_t position = 0;
-    while (position < object_path.size()) {
-        const std::size_t slash = object_path.find('/', position);
-        const std::size_t end = slash == std::string::npos ? object_path.size() : slash;
-        const std::string component = object_path.substr(position, end - position);
-        position = end + 1;
-        if (component.empty()) {
-            continue;
-        }
-        prefix += "/" + component;
-        if (H5Lexists(file_.get(), prefix.c_str(), H5P_DEFAULT) <= 0) {
-            return false;
-        }
-    }
-    return true;
-}
-
-void FileWriter::unlink(const std::string& object_path) {
-    if (!exists(object_path) || object_path == "/") {
-        return;
-    }
-    if (H5Ldelete(file_.get(), object_path.c_str(), H5P_DEFAULT) < 0) {
-        throw Error("cannot remove " + object_path + " from " + path_);
-    }
-}
-
 Handle FileWriter::create_dataset(const std::string& path, hid_t file_type,
                                   std::size_t length, std::size_t max_length,
                                   Filter filter, std::size_t chunk,
@@ -497,9 +449,7 @@ Handle FileWriter::create_dataset(const std::string& path, hid_t file_type,
     const int rank = minor > 0 ? 2 : 1;
     const hsize_t dims[2] = {static_cast<hsize_t>(length),
                              static_cast<hsize_t>(minor)};
-    const hsize_t maxdims[2] = {max_length == kUnlimited
-                                    ? H5S_UNLIMITED
-                                    : static_cast<hsize_t>(std::max(max_length, length)),
+    const hsize_t maxdims[2] = {static_cast<hsize_t>(std::max(max_length, length)),
                                 static_cast<hsize_t>(minor)};
     const Handle space(H5Screate_simple(rank, dims, maxdims), Handle::Kind::DataSpace);
     if (!space.valid()) {
@@ -526,16 +476,6 @@ Handle FileWriter::create_dataset(const std::string& path, hid_t file_type,
     switch (filter) {
         case Filter::None:
             break;
-        case Filter::CoolerDefault:
-            if (H5Pset_shuffle(plist.get()) < 0 || H5Pset_deflate(plist.get(), 6) < 0) {
-                throw Error("cannot set the shuffle and gzip filters of " + path);
-            }
-            break;
-        case Filter::CoolerColumn:
-            if (H5Pset_deflate(plist.get(), 6) < 0) {
-                throw Error("cannot set the gzip filter of " + path);
-            }
-            break;
         case Filter::PyTablesBlosc: {
             // Only the level and the shuffle flag are given here; the type size
             // and the chunk size are filled in by blosc_set_local.
@@ -555,13 +495,6 @@ Handle FileWriter::create_dataset(const std::string& path, hid_t file_type,
         throw Error("cannot create dataset " + path + " in " + path_);
     }
     return Handle(dataset, Handle::Kind::Dataset);
-}
-
-void FileWriter::resize(hid_t dataset, std::size_t length) {
-    const hsize_t dims = static_cast<hsize_t>(length);
-    if (H5Dset_extent(dataset, &dims) < 0) {
-        throw Error("cannot resize a dataset");
-    }
 }
 
 void FileWriter::write_block(hid_t dataset, hid_t mem_type, std::size_t offset,

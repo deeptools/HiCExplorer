@@ -19,7 +19,7 @@
 #include <string>
 #include <vector>
 
-#include "hicx/cool_file.hpp"
+#include "hicx/cool_adapter.hpp"
 #include "hicx/hic_matrix.hpp"
 #include "hicx/numpy_compat.hpp"
 #include "hicx/resource_usage.hpp"

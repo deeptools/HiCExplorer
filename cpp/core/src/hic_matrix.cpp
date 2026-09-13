@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <cmath>
 
-#include "hicx/cool_file.hpp"
+#include "hicx/cool_adapter.hpp"
 #include "hicx/h5_file.hpp"
 
 namespace hicx {

@@ -6,7 +6,7 @@
 
 #include <string>
 
-#include "hicx/cool_file.hpp"
+#include "hicx/cool_adapter.hpp"
 #include "hicx/h5_file.hpp"
 #include "hicx/hic_matrix.hpp"
 #include "hicx/numpy_compat.hpp"

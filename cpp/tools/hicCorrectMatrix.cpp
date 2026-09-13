@@ -83,7 +83,7 @@
 
 #include "hicx/adjust_ops.hpp"
 #include "hicx/bins.hpp"
-#include "hicx/cool_file.hpp"
+#include "hicx/cool_adapter.hpp"
 #include "hicx/correct_ops.hpp"
 #include "hicx/math/ice.hpp"
 #include "hicx/math/kr_balancing.hpp"

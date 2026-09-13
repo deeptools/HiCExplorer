@@ -26,7 +26,7 @@ add_library(hicx4core
     src/build_matrix.cpp
     src/chic_hdf5.cpp
     src/chic_viewpoint.cpp
-    src/cool_file.cpp
+    src/cool_adapter.cpp
     src/fasta_reader.cpp
     src/h5_file.cpp
     src/hdf5_util.cpp
@@ -61,7 +61,8 @@ target_include_directories(hicx4core PUBLIC
 
 target_link_libraries(hicx4core
     PUBLIC hicx::hdf5
-    PRIVATE hicx::blosc hicx::zlib hicx::hts hicx::lapack hicx_compile_options)
+    PRIVATE hicx::blosc hicx::zlib hicx::hts hicx::lapack coolercpp::coolercpp
+            hicx_compile_options)
 
 # np.argsort's tie order on a CPU with AVX512_SKX comes from x86-simd-sort, at
 # the commit numpy 1.26.4 vendors as a submodule (numpy_sort.hpp). The header is

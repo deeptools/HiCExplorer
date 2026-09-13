@@ -89,7 +89,7 @@
 #include "hicx/adjust_ops.hpp"
 #include "hicx/bins.hpp"
 #include "hicx/clustering.hpp"
-#include "hicx/cool_file.hpp"
+#include "hicx/cool_adapter.hpp"
 #include "hicx/h5_file.hpp"
 #include "hicx/matrix_ops.hpp"
 #include "hicx/numpy_compat.hpp"

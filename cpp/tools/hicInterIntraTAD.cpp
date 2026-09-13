@@ -51,7 +51,7 @@
 #include <string>
 #include <vector>
 
-#include "hicx/cool_file.hpp"
+#include "hicx/cool_adapter.hpp"
 #include "hicx/parallel.hpp"
 #include "hicx/resource_usage.hpp"
 #include "hicx/version.hpp"

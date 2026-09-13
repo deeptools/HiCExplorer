@@ -30,7 +30,7 @@
 #include <vector>
 
 #include "hicx/bins.hpp"
-#include "hicx/cool_file.hpp"
+#include "hicx/cool_adapter.hpp"
 #include "hicx/matrix_data.hpp"
 
 namespace hicx {
