@@ -25,10 +25,18 @@
 //    test_hicInterIntraTAD.py::test_h5_input_raises_zero_division and
 //    reproduced here.
 //
-// Not ported: the scatter plot written to --outFileNameRatioPlot. It is a
-// matplotlib figure and belongs to the tier 7 plotting shell (cpp/PLAN.md,
-// tier 7, option (a)); --outFileNameRatioPlot, --fontsize and --dpi are
-// accepted and ignored, and a note on stderr says so.
+// Not ported: the scatter plot. It is a matplotlib figure and belongs to the
+// tier 7 plotting shell (cpp/PLAN.md, tier 7, option (a)). The Python writes
+// it on every run, to ratio.png when --outFileNameRatioPlot is not given
+// (hicInterIntraTAD.py:39-42, :513). The interim policy until plotting is
+// decided, set by the project owner on 2026-09-13: a tool never exits 0
+// without writing every file the user explicitly asked for, so
+//
+//  * --outFileNameRatioPlot / -op given explicitly: the tool exits 1 before it
+//    reads or writes anything;
+//  * -op not given: the default ratio.png is a side effect nobody asked for,
+//    so it is skipped with a note on stderr and the table is written;
+//  * --fontsize and --dpi request no file and are accepted and ignored.
 //
 // Threading: one independent problem per TAD, hicx::parallel_for into
 // preallocated slots, written in file order, so the output does not depend on
@@ -73,9 +81,14 @@ const char* const kHelp =
     "Optional arguments:\n"
     "  --outFileNameRatioPlot OUTFILENAMERATIOPLOT, -op OUTFILENAMERATIOPLOT\n"
     "                        Outfile name for the inter-left/intra vs inter-\n"
-    "                        right/intra ratio plot. Not drawn by the C++ port.\n"
-    "  --fontsize FONTSIZE   Fontsize in the plot for x and y axis.\n"
-    "  --dpi DPI             The dpi of the scatter plot.\n"
+    "                        right/intra ratio plot. The plot is not yet\n"
+    "                        available in the C++ port: giving this option makes\n"
+    "                        the tool exit with status 1 before writing anything.\n"
+    "                        Without it no plot is written.\n"
+    "  --fontsize FONTSIZE   Fontsize in the plot for x and y axis. Accepted and\n"
+    "                        ignored by the C++ port.\n"
+    "  --dpi DPI             The dpi of the scatter plot. Accepted and ignored by\n"
+    "                        the C++ port.\n"
     "  --threads THREADS, -t THREADS\n"
     "                        Number of threads to use, the parallelization is\n"
     "                        implemented per chromosome (Default: 4).\n"
@@ -87,6 +100,9 @@ struct Arguments {
     std::optional<std::string> domains;
     std::string out_file = "output_interintra_tad.tzt";
     std::string plot_file = "ratio.png";
+    // Whether --outFileNameRatioPlot / -op appeared on the command line, as
+    // opposed to plot_file holding the argparse default.
+    bool plot_requested = false;
     long long threads = 4;
 };
 
@@ -167,6 +183,7 @@ Arguments parse_arguments(int argc, char** argv) {
             args.out_file = value("--outFileName/-o");
         } else if (name == "--outFileNameRatioPlot" || name == "-op") {
             args.plot_file = value("--outFileNameRatioPlot/-op");
+            args.plot_requested = true;
         } else if (name == "--fontsize") {
             const std::string text = value("--fontsize");
             if (!python_float(text)) {
@@ -238,6 +255,20 @@ bool write_file(const std::string& path, const std::string& content) {
 int main(int argc, char** argv) {
     const Arguments args = parse_arguments(argc, argv);
     namespace tads = hicx::tads;
+
+    if (args.plot_requested) {
+        // Before anything is read or written: the user named a file this port
+        // cannot produce, so it must not report success, and it must not leave
+        // a table behind that looks like a completed run.
+        std::fprintf(stderr,
+                     "hicInterIntraTAD: error: --outFileNameRatioPlot '%s' was requested, "
+                     "but the ratio plot is not yet available in the C++ port (it is a "
+                     "matplotlib figure, see cpp/PLAN.md tier 7). Nothing was written. "
+                     "Run without --outFileNameRatioPlot to get the table, or use the "
+                     "Python hicInterIntraTAD for the plot.\n",
+                     args.plot_file.c_str());
+        return 1;
+    }
 
     try {
         if (!args.domains.has_value() || !args.matrix.has_value()) {
@@ -342,9 +373,10 @@ int main(int argc, char** argv) {
             throw std::runtime_error("cannot write '" + args.out_file + "'");
         }
         std::fprintf(stderr,
-                     "hicInterIntraTAD: the ratio plot '%s' is a matplotlib figure and is not "
-                     "drawn by the C++ port; the table in '%s' holds its data.\n",
-                     args.plot_file.c_str(), args.out_file.c_str());
+                     "hicInterIntraTAD: no ratio plot was written; the plot is a matplotlib "
+                     "figure and is not yet available in the C++ port. The table in '%s' "
+                     "holds its data.\n",
+                     args.out_file.c_str());
     } catch (const std::exception& error) {
         std::fprintf(stderr, "hicInterIntraTAD: %s\n", error.what());
         return 1;

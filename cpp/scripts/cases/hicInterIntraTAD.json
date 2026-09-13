@@ -6,13 +6,12 @@
     "args": ["-m", "{data}/hicInterIntraTAD/GSM2644947_Auxin2days-R1.100000_chr1_chr2.cool",
              "--tadDomains", "{data}/hicInterIntraTAD/untreated_R1_domains_chr1_chr2.bed",
              "--threads", "4",
-             "--outFileNameRatioPlot", "{out}/ratio.png",
              "-o", "{out}/interintra.txt"],
     "outputs": [
       {"path": "{out}/interintra.txt", "format": "text", "class": "E0"}
     ],
     "threads_arg": "--threads",
-    "notes": "The matrix and TAD file of test_main, whose text comparison was never asserted. 225 TADs. Byte identical: the gate is ED, E0 is what is met, because scipy's sum order (row sums in column order, then numpy's pairwise sum) is reproduced and the mixed int and float columns are printed from the Python type each value has. The ratio plot is a matplotlib figure and is not produced by the port (tier 7 plotting shell), so ratio.png is not a declared output."
+    "notes": "The matrix and TAD file of test_main, whose text comparison was never asserted. 225 TADs. Byte identical: the gate is ED, E0 is what is met, because scipy's sum order (row sums in column order, then numpy's pairwise sum) is reproduced and the mixed int and float columns are printed from the Python type each value has. No case passes --outFileNameRatioPlot: the plot is a matplotlib figure not yet available in the port (tier 7), and under the 2026-09-13 policy an explicit -op makes the C++ exit 1 before writing anything, which ctest pins (hicInterIntraTAD_refuses_ratio_plot). Without -op the Python still writes its default ratio.png into its current directory, which equiv.py sets to the per-case work directory under the system temp directory (tempfile.mkdtemp, cwd=workdir), never the worktree; the C++ writes no plot and notes that on stderr."
   },
   {
     "id": "hicInterIntraTAD.cool.chr1_chr2.t1",
@@ -21,7 +20,6 @@
     "args": ["-m", "{data}/hicInterIntraTAD/GSM2644947_Auxin2days-R1.100000_chr1_chr2.cool",
              "--tadDomains", "{data}/hicInterIntraTAD/untreated_R1_domains_chr1_chr2.bed",
              "--threads", "1",
-             "--outFileNameRatioPlot", "{out}/ratio.png",
              "-o", "{out}/interintra.txt"],
     "outputs": [
       {"path": "{out}/interintra.txt", "format": "text", "class": "E0"}
@@ -36,7 +34,6 @@
     "args": ["-m", "{data}/hicDifferentialTAD/GSM2644945_Untreated-R1.100000_chr1.cool",
              "--tadDomains", "{data}/hicDifferentialTAD/untreated_R1_domains.bed",
              "--threads", "3",
-             "--outFileNameRatioPlot", "{out}/ratio.png",
              "-o", "{out}/interintra.txt"],
     "outputs": [
       {"path": "{out}/interintra.txt", "format": "text", "class": "E0"}
@@ -51,7 +48,6 @@
     "args": ["-m", "{data}/hicInterIntraTAD/GSM2644947_Auxin2days-R1.100000_chr1_chr2.cool",
              "--tadDomains", "{data}/hicDifferentialTAD/domains_chr1_10_chr2_3.bed",
              "--threads", "1",
-             "--outFileNameRatioPlot", "{out}/ratio.png",
              "-o", "{out}/interintra.txt"],
     "outputs": [
       {"path": "{out}/interintra.txt", "format": "text", "class": "E0"}
@@ -66,7 +62,6 @@
     "args": ["-m", "{data}/hicDifferentialTAD/GSM2644945_Untreated-R1.100000_chr1.h5",
              "--tadDomains", "{data}/hicDifferentialTAD/untreated_R1_domains.bed",
              "--threads", "1",
-             "--outFileNameRatioPlot", "{out}/ratio.png",
              "-o", "{out}/interintra.txt"],
     "outputs": [],
     "expect_exit": 1,
