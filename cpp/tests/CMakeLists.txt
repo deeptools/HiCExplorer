@@ -35,6 +35,7 @@ add_executable(hicx_tests
     test_tad_contacts.cpp
     test_compartmentalization.cpp
     test_quick_qc.cpp
+    test_aggregate_support.cpp
     # The computational cores of hicDetectLoops, of the two TAD statistics tools
     # and of hicCompartmentalization, so that the tests link against exactly the
     # translation units the tools run.
@@ -76,6 +77,17 @@ add_test(NAME hicCompartmentalization_refuses_plot
                  -DDATA=${CMAKE_CURRENT_SOURCE_DIR}/../../hicexplorer/test/test_data
                  -DOUT=${CMAKE_CURRENT_BINARY_DIR}/hicCompartmentalization_refuses_plot
                  -P ${CMAKE_CURRENT_SOURCE_DIR}/check_compartmentalization_refuses_plot.cmake)
+
+# hicAggregateContacts draws a matplotlib figure the C++ port cannot draw yet,
+# the same situation as hicCompartmentalization: a run that asks for a figure
+# (a plain run, or --diagnosticHeatmapFile) has to fail visibly and write
+# nothing, while --noPlot has to write the numeric outputs.
+add_test(NAME hicAggregateContacts_refuses_plot
+         COMMAND ${CMAKE_COMMAND}
+                 -DTOOL=$<TARGET_FILE:hicAggregateContacts>
+                 -DDATA=${CMAKE_CURRENT_SOURCE_DIR}/../../hicexplorer/test/test_data
+                 -DOUT=${CMAKE_CURRENT_BINARY_DIR}/hicAggregateContacts_refuses_plot
+                 -P ${CMAKE_CURRENT_SOURCE_DIR}/check_aggregate_contacts_refuses_plot.cmake)
 
 # Not a HiCExplorer tool: the smallest driver that exercises the tier 0 file
 # layer end to end, used by cpp/scripts/equiv.py against its Python twin

@@ -1,0 +1,1397 @@
+[
+  {
+    "id": "hicAggregateContacts.intra.perChr",
+    "tool": "hicAggregateContacts",
+    "tier": 5,
+    "args": [
+      "--matrix",
+      "{data}/Li_et_al_2015.h5",
+      "--numberOfBins",
+      "30",
+      "--BED",
+      "{data}/hicAggregateContacts/test_regions.bed",
+      "--mode",
+      "intra-chr",
+      "--range",
+      "50000:900000",
+      "--perChr",
+      "--outFileName",
+      "{out}/aggregate.png",
+      "--outFilePrefixMatrix",
+      "{out}/m",
+      "--outFileContactPairs",
+      "{out}/p"
+    ],
+    "cpp_args": [
+      "--noPlot"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/m_X.tab",
+        "format": "plain",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/p_X.tab",
+        "format": "plain",
+        "class": "E0"
+      }
+    ],
+    "notes": "cpp_args: --noPlot exists only in the port, which refuses a run that asks for the figure (tier 7 is undecided); the Python draws aggregate.png, which is not compared. The configuration of test_hicAggregateContacts_intra_perChr, with both tables compared: 279 submatrices of Li_et_al_2015 chrX, median, and the contact pairs in np.argsort order, where a third of the centre values tie."
+  },
+  {
+    "id": "hicAggregateContacts.intra.sum",
+    "tool": "hicAggregateContacts",
+    "tier": 5,
+    "args": [
+      "--matrix",
+      "{data}/Li_et_al_2015.h5",
+      "--numberOfBins",
+      "30",
+      "--BED",
+      "{data}/hicAggregateContacts/test_regions.bed",
+      "--mode",
+      "intra-chr",
+      "--range",
+      "50000:900000",
+      "--operationType",
+      "sum",
+      "--outFileName",
+      "{out}/aggregate.png",
+      "--outFilePrefixMatrix",
+      "{out}/m",
+      "--outFileContactPairs",
+      "{out}/p"
+    ],
+    "cpp_args": [
+      "--noPlot"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/m_genome.tab",
+        "format": "plain",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/p_genome.tab",
+        "format": "plain",
+        "class": "E0"
+      }
+    ],
+    "notes": "cpp_args: --noPlot exists only in the port, which refuses a run that asks for the figure (tier 7 is undecided); the Python draws aggregate.png, which is not compared. np.sum along axis 0, sequential over the 279 submatrices."
+  },
+  {
+    "id": "hicAggregateContacts.intra.mean",
+    "tool": "hicAggregateContacts",
+    "tier": 5,
+    "args": [
+      "--matrix",
+      "{data}/Li_et_al_2015.h5",
+      "--numberOfBins",
+      "30",
+      "--BED",
+      "{data}/hicAggregateContacts/test_regions.bed",
+      "--mode",
+      "intra-chr",
+      "--range",
+      "50000:900000",
+      "--operationType",
+      "mean",
+      "--outFileName",
+      "{out}/aggregate.png",
+      "--outFilePrefixMatrix",
+      "{out}/m",
+      "--outFileContactPairs",
+      "{out}/p"
+    ],
+    "cpp_args": [
+      "--noPlot"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/m_genome.tab",
+        "format": "plain",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/p_genome.tab",
+        "format": "plain",
+        "class": "E0"
+      }
+    ],
+    "notes": "cpp_args: --noPlot exists only in the port, which refuses a run that asks for the figure (tier 7 is undecided); the Python draws aggregate.png, which is not compared. np.mean along axis 0: the sequential sum divided by the count."
+  },
+  {
+    "id": "hicAggregateContacts.cool.perChr",
+    "tool": "hicAggregateContacts",
+    "tier": 5,
+    "args": [
+      "--matrix",
+      "{data}/Li_et_al_2015.cool",
+      "--numberOfBins",
+      "30",
+      "--BED",
+      "{data}/hicAggregateContacts/test_regions.bed",
+      "--mode",
+      "intra-chr",
+      "--range",
+      "50000:900000",
+      "--perChr",
+      "--outFileName",
+      "{out}/aggregate.png",
+      "--outFilePrefixMatrix",
+      "{out}/m",
+      "--outFileContactPairs",
+      "{out}/p"
+    ],
+    "cpp_args": [
+      "--noPlot"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/m_X.tab",
+        "format": "plain",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/p_X.tab",
+        "format": "plain",
+        "class": "E0"
+      }
+    ],
+    "notes": "cpp_args: --noPlot exists only in the port, which refuses a run that asks for the figure (tier 7 is undecided); the Python draws aggregate.png, which is not compared. The same matrix through the cool loader (test_hicAggregateContacts_cooler)."
+  },
+  {
+    "id": "hicAggregateContacts.kmeans4",
+    "tool": "hicAggregateContacts",
+    "tier": 5,
+    "args": [
+      "--matrix",
+      "{data}/Li_et_al_2015.h5",
+      "--numberOfBins",
+      "30",
+      "--BED",
+      "{data}/hicAggregateContacts/test_regions.bed",
+      "--mode",
+      "intra-chr",
+      "--range",
+      "50000:900000",
+      "--kmeans",
+      "4",
+      "--outFileName",
+      "{out}/aggregate.png",
+      "--outFilePrefixMatrix",
+      "{out}/m",
+      "--outFileContactPairs",
+      "{out}/p"
+    ],
+    "cpp_args": [
+      "--noPlot"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/m_genome_cluster_1.tab",
+        "format": "plain",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/m_genome_cluster_2.tab",
+        "format": "plain",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/m_genome_cluster_3.tab",
+        "format": "plain",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/m_genome_cluster_4.tab",
+        "format": "plain",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/p_genome_cluster_1.tab",
+        "format": "plain",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/p_genome_cluster_2.tab",
+        "format": "plain",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/p_genome_cluster_3.tab",
+        "format": "plain",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/p_genome_cluster_4.tab",
+        "format": "plain",
+        "class": "E0"
+      }
+    ],
+    "notes": "cpp_args: --noPlot exists only in the port, which refuses a run that asks for the figure (tier 7 is undecided); the Python draws aggregate.png, which is not compared. KMeans(n_clusters=4, random_state=0) on the 961-value vectors; the labels decide which file a submatrix lands in, so this is a partition check with labels, not only up to relabelling. Also carries defect 2, the contact pair coordinates taken by position."
+  },
+  {
+    "id": "hicAggregateContacts.hclust4.perChr.diagonal",
+    "tool": "hicAggregateContacts",
+    "tier": 5,
+    "args": [
+      "--matrix",
+      "{data}/Li_et_al_2015.h5",
+      "--numberOfBins",
+      "30",
+      "--BED",
+      "{data}/hicAggregateContacts/test_regions.bed",
+      "--mode",
+      "intra-chr",
+      "--range",
+      "50000:900000",
+      "--perChr",
+      "--hclust",
+      "4",
+      "--howToCluster",
+      "diagonal",
+      "--outFileName",
+      "{out}/aggregate.png",
+      "--outFilePrefixMatrix",
+      "{out}/m",
+      "--outFileContactPairs",
+      "{out}/p"
+    ],
+    "cpp_args": [
+      "--noPlot"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/m_X_cluster_1.tab",
+        "format": "plain",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/m_X_cluster_2.tab",
+        "format": "plain",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/m_X_cluster_3.tab",
+        "format": "plain",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/m_X_cluster_4.tab",
+        "format": "plain",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/p_X_cluster_1.tab",
+        "format": "plain",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/p_X_cluster_2.tab",
+        "format": "plain",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/p_X_cluster_3.tab",
+        "format": "plain",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/p_X_cluster_4.tab",
+        "format": "plain",
+        "class": "E0"
+      }
+    ],
+    "notes": "cpp_args: --noPlot exists only in the port, which refuses a run that asks for the figure (tier 7 is undecided); the Python draws aggregate.png, which is not compared. Ward linkage on the diagonals (test_hicAggregateContacts_clustering); scipy's nearest-neighbour chain and sklearn's _hc_cut."
+  },
+  {
+    "id": "hicAggregateContacts.spectral.ignored",
+    "tool": "hicAggregateContacts",
+    "tier": 5,
+    "args": [
+      "--matrix",
+      "{data}/Li_et_al_2015.h5",
+      "--numberOfBins",
+      "30",
+      "--BED",
+      "{data}/hicAggregateContacts/test_regions.bed",
+      "--mode",
+      "intra-chr",
+      "--range",
+      "50000:900000",
+      "--spectral",
+      "3",
+      "--outFileName",
+      "{out}/aggregate.png",
+      "--outFilePrefixMatrix",
+      "{out}/m",
+      "--outFileContactPairs",
+      "{out}/p"
+    ],
+    "cpp_args": [
+      "--noPlot"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/m_genome.tab",
+        "format": "plain",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/p_genome.tab",
+        "format": "plain",
+        "class": "E0"
+      }
+    ],
+    "notes": "cpp_args: --noPlot exists only in the port, which refuses a run that asks for the figure (tier 7 is undecided); the Python draws aggregate.png, which is not compared. Defect 1: --spectral is parsed and never used."
+  },
+  {
+    "id": "hicAggregateContacts.kmeans2.center.max_deviation1",
+    "tool": "hicAggregateContacts",
+    "tier": 5,
+    "args": [
+      "--matrix",
+      "{data}/Li_et_al_2015.h5",
+      "--numberOfBins",
+      "30",
+      "--BED",
+      "{data}/hicAggregateContacts/test_regions.bed",
+      "--mode",
+      "intra-chr",
+      "--range",
+      "50000:900000",
+      "--kmeans",
+      "2",
+      "--howToCluster",
+      "center",
+      "--max_deviation",
+      "1",
+      "--outFileName",
+      "{out}/aggregate.png",
+      "--outFilePrefixMatrix",
+      "{out}/m",
+      "--outFileContactPairs",
+      "{out}/p"
+    ],
+    "cpp_args": [
+      "--noPlot"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/m_genome_cluster_1.tab",
+        "format": "plain",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/m_genome_cluster_2.tab",
+        "format": "plain",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/p_genome_cluster_1.tab",
+        "format": "plain",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/p_genome_cluster_2.tab",
+        "format": "plain",
+        "class": "E0"
+      }
+    ],
+    "notes": "cpp_args: --noPlot exists only in the port, which refuses a run that asks for the figure (tier 7 is undecided); the Python draws aggregate.png, which is not compared. The only layout where the outlier filter fires on this input (defect 4): 50 of 279 submatrices removed at max_deviation 1."
+  },
+  {
+    "id": "hicAggregateContacts.kmeans2.center.keep_outlier",
+    "tool": "hicAggregateContacts",
+    "tier": 5,
+    "args": [
+      "--matrix",
+      "{data}/Li_et_al_2015.h5",
+      "--numberOfBins",
+      "30",
+      "--BED",
+      "{data}/hicAggregateContacts/test_regions.bed",
+      "--mode",
+      "intra-chr",
+      "--range",
+      "50000:900000",
+      "--kmeans",
+      "2",
+      "--howToCluster",
+      "center",
+      "--keep_outlier",
+      "--outFileName",
+      "{out}/aggregate.png",
+      "--outFilePrefixMatrix",
+      "{out}/m",
+      "--outFileContactPairs",
+      "{out}/p"
+    ],
+    "cpp_args": [
+      "--noPlot"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/m_genome_cluster_1.tab",
+        "format": "plain",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/m_genome_cluster_2.tab",
+        "format": "plain",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/p_genome_cluster_1.tab",
+        "format": "plain",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/p_genome_cluster_2.tab",
+        "format": "plain",
+        "class": "E0"
+      }
+    ],
+    "notes": "cpp_args: --noPlot exists only in the port, which refuses a run that asks for the figure (tier 7 is undecided); the Python draws aggregate.png, which is not compared. The same clustering with the outliers kept."
+  },
+  {
+    "id": "hicAggregateContacts.strand",
+    "tool": "hicAggregateContacts",
+    "tier": 5,
+    "args": [
+      "--matrix",
+      "{data}/Li_et_al_2015.h5",
+      "--numberOfBins",
+      "30",
+      "--BED",
+      "{data}/hicAggregateContacts/test_regions_strand.bed",
+      "--mode",
+      "intra-chr",
+      "--range",
+      "50000:900000",
+      "--considerStrandDirection",
+      "--outFileName",
+      "{out}/aggregate.png",
+      "--outFilePrefixMatrix",
+      "{out}/m",
+      "--outFileContactPairs",
+      "{out}/p"
+    ],
+    "cpp_args": [
+      "--noPlot"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/m_genome.tab",
+        "format": "plain",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/p_genome.tab",
+        "format": "plain",
+        "class": "E0"
+      }
+    ],
+    "notes": "cpp_args: --noPlot exists only in the port, which refuses a run that asks for the figure (tier 7 is undecided); the Python draws aggregate.png, which is not compared. Mixed strands: fliplr, flipud and the transpose of defect 3; the zero test sums flipped views in logical order."
+  },
+  {
+    "id": "hicAggregateContacts.largeRegions.first",
+    "tool": "hicAggregateContacts",
+    "tier": 5,
+    "args": [
+      "--matrix",
+      "{data}/Li_et_al_2015.h5",
+      "--numberOfBins",
+      "30",
+      "--BED",
+      "{data}/hicAggregateContacts/test_regions_large.bed",
+      "--mode",
+      "intra-chr",
+      "--range",
+      "50000:900000",
+      "--largeRegionsOperation",
+      "first",
+      "--outFileName",
+      "{out}/aggregate.png",
+      "--outFilePrefixMatrix",
+      "{out}/m",
+      "--outFileContactPairs",
+      "{out}/p"
+    ],
+    "cpp_args": [
+      "--noPlot"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/m_genome.tab",
+        "format": "plain",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/p_genome.tab",
+        "format": "plain",
+        "class": "E0"
+      }
+    ],
+    "notes": "cpp_args: --noPlot exists only in the port, which refuses a run that asks for the figure (tier 7 is undecided); the Python draws aggregate.png, which is not compared. 12 kb regions over bins of about 1.8 kb, resolved to the first bin."
+  },
+  {
+    "id": "hicAggregateContacts.largeRegions.last",
+    "tool": "hicAggregateContacts",
+    "tier": 5,
+    "args": [
+      "--matrix",
+      "{data}/Li_et_al_2015.h5",
+      "--numberOfBins",
+      "30",
+      "--BED",
+      "{data}/hicAggregateContacts/test_regions_large.bed",
+      "--mode",
+      "intra-chr",
+      "--range",
+      "50000:900000",
+      "--largeRegionsOperation",
+      "last",
+      "--outFileName",
+      "{out}/aggregate.png",
+      "--outFilePrefixMatrix",
+      "{out}/m",
+      "--outFileContactPairs",
+      "{out}/p"
+    ],
+    "cpp_args": [
+      "--noPlot"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/m_genome.tab",
+        "format": "plain",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/p_genome.tab",
+        "format": "plain",
+        "class": "E0"
+      }
+    ],
+    "notes": "cpp_args: --noPlot exists only in the port, which refuses a run that asks for the figure (tier 7 is undecided); the Python draws aggregate.png, which is not compared. 12 kb regions over bins of about 1.8 kb, resolved to the last bin."
+  },
+  {
+    "id": "hicAggregateContacts.largeRegions.center",
+    "tool": "hicAggregateContacts",
+    "tier": 5,
+    "args": [
+      "--matrix",
+      "{data}/Li_et_al_2015.h5",
+      "--numberOfBins",
+      "30",
+      "--BED",
+      "{data}/hicAggregateContacts/test_regions_large.bed",
+      "--mode",
+      "intra-chr",
+      "--range",
+      "50000:900000",
+      "--largeRegionsOperation",
+      "center",
+      "--outFileName",
+      "{out}/aggregate.png",
+      "--outFilePrefixMatrix",
+      "{out}/m",
+      "--outFileContactPairs",
+      "{out}/p"
+    ],
+    "cpp_args": [
+      "--noPlot"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/m_genome.tab",
+        "format": "plain",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/p_genome.tab",
+        "format": "plain",
+        "class": "E0"
+      }
+    ],
+    "notes": "cpp_args: --noPlot exists only in the port, which refuses a run that asks for the figure (tier 7 is undecided); the Python draws aggregate.png, which is not compared. 12 kb regions over bins of about 1.8 kb, resolved to the center bin."
+  },
+  {
+    "id": "hicAggregateContacts.rowwise.strand.perChr",
+    "tool": "hicAggregateContacts",
+    "tier": 5,
+    "args": [
+      "--matrix",
+      "{data}/Li_et_al_2015.h5",
+      "--numberOfBins",
+      "30",
+      "--BED",
+      "{data}/hicAggregateContacts/bed1_row-wise_strand.bed",
+      "--BED2",
+      "{data}/hicAggregateContacts/bed2_row-wise_strand.bed",
+      "--row_wise",
+      "--mode",
+      "intra-chr",
+      "--range",
+      "50000:6000000",
+      "--perChr",
+      "--keep_outlier",
+      "--considerStrandDirection",
+      "--outFileName",
+      "{out}/aggregate.png",
+      "--outFilePrefixMatrix",
+      "{out}/m",
+      "--outFileContactPairs",
+      "{out}/p"
+    ],
+    "cpp_args": [
+      "--noPlot"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/m_X.tab",
+        "format": "plain",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/p_X.tab",
+        "format": "plain",
+        "class": "E0"
+      }
+    ],
+    "notes": "cpp_args: --noPlot exists only in the port, which refuses a run that asks for the figure (tier 7 is undecided); the Python draws aggregate.png, which is not compared. Row-wise pairs with strands; coordinates written as given (defect 5)."
+  },
+  {
+    "id": "hicAggregateContacts.rowwise.inter.int",
+    "tool": "hicAggregateContacts",
+    "tier": 5,
+    "args": [
+      "--matrix",
+      "{data}/small_test_matrix_50kb_res.h5",
+      "--numberOfBins",
+      "30",
+      "--BED",
+      "{data}/hicAggregateContacts/bed1_row-wise.bed",
+      "--BED2",
+      "{data}/hicAggregateContacts/bed2_row-wise.bed",
+      "--row_wise",
+      "--mode",
+      "inter-chr",
+      "--outFileName",
+      "{out}/aggregate.png",
+      "--outFilePrefixMatrix",
+      "{out}/m",
+      "--outFileContactPairs",
+      "{out}/p"
+    ],
+    "cpp_args": [
+      "--noPlot"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/m_genome.tab",
+        "format": "plain",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/p_genome.tab",
+        "format": "plain",
+        "class": "E0"
+      }
+    ],
+    "notes": "cpp_args: --noPlot exists only in the port, which refuses a run that asks for the figure (tier 7 is undecided); the Python draws aggregate.png, which is not compared. test_hicAggregateContacts_row_wise_inter: an int64 matrix, whose centre values print as integers."
+  },
+  {
+    "id": "hicAggregateContacts.zscore",
+    "tool": "hicAggregateContacts",
+    "tier": 5,
+    "args": [
+      "--matrix",
+      "{data}/Li_et_al_2015.h5",
+      "--numberOfBins",
+      "30",
+      "--BED",
+      "{data}/hicAggregateContacts/test_regions.bed",
+      "--mode",
+      "intra-chr",
+      "--range",
+      "50000:900000",
+      "--transform",
+      "z-score",
+      "--outFileName",
+      "{out}/aggregate.png",
+      "--outFilePrefixMatrix",
+      "{out}/m",
+      "--outFileContactPairs",
+      "{out}/p"
+    ],
+    "cpp_args": [
+      "--noPlot"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/m_genome.tab",
+        "format": "plain",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/p_genome.tab",
+        "format": "plain",
+        "class": "E0"
+      }
+    ],
+    "notes": "cpp_args: --noPlot exists only in the port, which refuses a run that asks for the figure (tier 7 is undecided); the Python draws aggregate.png, which is not compared. z-score with maxdepth 2,250,000: NaN on diagonals without spread, so the median table is all nan. The budget is that of hicFindTADs: the z-score band, 10,249 bins * int(900,000 * 3.75 / 1,843) = 1,831 diagonals at 12 bytes, is 225 MB; 2.2 * that + 64 MB.",
+    "memory": {
+      "budget_mb": 559
+    }
+  },
+  {
+    "id": "hicAggregateContacts.zscore.kmeans2.diagonal",
+    "tool": "hicAggregateContacts",
+    "tier": 5,
+    "args": [
+      "--matrix",
+      "{data}/Li_et_al_2015.h5",
+      "--numberOfBins",
+      "30",
+      "--BED",
+      "{data}/hicAggregateContacts/test_regions.bed",
+      "--mode",
+      "intra-chr",
+      "--range",
+      "50000:900000",
+      "--transform",
+      "z-score",
+      "--kmeans",
+      "2",
+      "--howToCluster",
+      "diagonal",
+      "--outFileName",
+      "{out}/aggregate.png",
+      "--outFilePrefixMatrix",
+      "{out}/m",
+      "--outFileContactPairs",
+      "{out}/p"
+    ],
+    "cpp_args": [
+      "--noPlot"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/m_genome_cluster_1.tab",
+        "format": "plain",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/m_genome_cluster_2.tab",
+        "format": "plain",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/p_genome_cluster_1.tab",
+        "format": "plain",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/p_genome_cluster_2.tab",
+        "format": "plain",
+        "class": "E0"
+      }
+    ],
+    "notes": "cpp_args: --noPlot exists only in the port, which refuses a run that asks for the figure (tier 7 is undecided); the Python draws aggregate.png, which is not compared. Clustering vectors with NaN replaced by zero after the outlier filter, which the NaN median disables. Budget as for the z-score case.",
+    "memory": {
+      "budget_mb": 559
+    }
+  },
+  {
+    "id": "hicAggregateContacts.obsexp.h5",
+    "tool": "hicAggregateContacts",
+    "tier": 5,
+    "args": [
+      "--matrix",
+      "{data}/Li_et_al_2015.h5",
+      "--numberOfBins",
+      "30",
+      "--BED",
+      "{data}/hicAggregateContacts/test_regions.bed",
+      "--mode",
+      "intra-chr",
+      "--range",
+      "50000:900000",
+      "--transform",
+      "obs/exp",
+      "--outFileObsExp",
+      "{out}/obs_exp.h5",
+      "--outFileName",
+      "{out}/aggregate.png",
+      "--outFilePrefixMatrix",
+      "{out}/m",
+      "--outFileContactPairs",
+      "{out}/p"
+    ],
+    "cpp_args": [
+      "--noPlot"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/m_genome.tab",
+        "format": "plain",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/p_genome.tab",
+        "format": "plain",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/obs_exp.h5",
+        "format": "h5",
+        "class": "E2"
+      }
+    ],
+    "notes": "cpp_args: --noPlot exists only in the port, which refuses a run that asks for the figure (tier 7 is undecided); the Python draws aggregate.png, which is not compared. obs/exp without the z-score band: only the stored entries are counted. The matrix is written as h5 with the NaN bins masked out, 10,249 bins."
+  },
+  {
+    "id": "hicAggregateContacts.obsexp.cool.hclust3.center",
+    "tool": "hicAggregateContacts",
+    "tier": 5,
+    "args": [
+      "--matrix",
+      "{data}/Li_et_al_2015.h5",
+      "--numberOfBins",
+      "30",
+      "--BED",
+      "{data}/hicAggregateContacts/test_regions.bed",
+      "--mode",
+      "intra-chr",
+      "--range",
+      "50000:900000",
+      "--transform",
+      "obs/exp",
+      "--hclust",
+      "3",
+      "--howToCluster",
+      "center",
+      "--outFileObsExp",
+      "{out}/obs_exp.cool",
+      "--outFileName",
+      "{out}/aggregate.png",
+      "--outFilePrefixMatrix",
+      "{out}/m",
+      "--outFileContactPairs",
+      "{out}/p"
+    ],
+    "cpp_args": [
+      "--noPlot"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/m_genome_cluster_1.tab",
+        "format": "plain",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/m_genome_cluster_2.tab",
+        "format": "plain",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/m_genome_cluster_3.tab",
+        "format": "plain",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/p_genome_cluster_1.tab",
+        "format": "plain",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/p_genome_cluster_2.tab",
+        "format": "plain",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/p_genome_cluster_3.tab",
+        "format": "plain",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/obs_exp.cool",
+        "format": "cool",
+        "class": "E1"
+      }
+    ],
+    "notes": "cpp_args: --noPlot exists only in the port, which refuses a run that asks for the figure (tier 7 is undecided); the Python draws aggregate.png, which is not compared. The obs/exp matrix written as cool because of its name, and a ward clustering on the centre means after 21 outliers are removed."
+  },
+  {
+    "id": "hicAggregateContacts.obsexp.narrow.range",
+    "tool": "hicAggregateContacts",
+    "tier": 5,
+    "args": [
+      "--matrix",
+      "{data}/Li_et_al_2015.h5",
+      "--numberOfBins",
+      "30",
+      "--BED",
+      "{data}/hicAggregateContacts/test_regions.bed",
+      "--mode",
+      "intra-chr",
+      "--range",
+      "20000:60000",
+      "--transform",
+      "obs/exp",
+      "--outFileObsExp",
+      "{out}/obs_exp.h5",
+      "--outFileName",
+      "{out}/aggregate.png",
+      "--outFilePrefixMatrix",
+      "{out}/m",
+      "--outFileContactPairs",
+      "{out}/p"
+    ],
+    "cpp_args": [
+      "--noPlot"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/m_genome.tab",
+        "format": "plain",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/p_genome.tab",
+        "format": "plain",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/obs_exp.h5",
+        "format": "h5",
+        "class": "E2"
+      }
+    ],
+    "notes": "cpp_args: --noPlot exists only in the port, which refuses a run that asks for the figure (tier 7 is undecided); the Python draws aggregate.png, which is not compared. A range narrow enough that maxdepth truncates the band: 122 diagonals."
+  },
+  {
+    "id": "hicAggregateContacts.total_counts",
+    "tool": "hicAggregateContacts",
+    "tier": 5,
+    "args": [
+      "--matrix",
+      "{data}/Li_et_al_2015.h5",
+      "--numberOfBins",
+      "30",
+      "--BED",
+      "{data}/hicAggregateContacts/test_regions.bed",
+      "--mode",
+      "intra-chr",
+      "--range",
+      "50000:900000",
+      "--transform",
+      "total-counts",
+      "--outFileName",
+      "{out}/aggregate.png",
+      "--outFilePrefixMatrix",
+      "{out}/m",
+      "--outFileContactPairs",
+      "{out}/p"
+    ],
+    "cpp_args": [
+      "--noPlot"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/m_genome.tab",
+        "format": "plain",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/p_genome.tab",
+        "format": "plain",
+        "class": "E0"
+      }
+    ],
+    "notes": "cpp_args: --noPlot exists only in the port, which refuses a run that asks for the figure (tier 7 is undecided); the Python draws aggregate.png, which is not compared. Each submatrix divided by its pairwise sum."
+  },
+  {
+    "id": "hicAggregateContacts.inter.mean",
+    "tool": "hicAggregateContacts",
+    "tier": 5,
+    "args": [
+      "--matrix",
+      "{data}/small_test_matrix.h5",
+      "--numberOfBins",
+      "30",
+      "--BED",
+      "{data}/hicAggregateContacts/test_regions.bed",
+      "--mode",
+      "inter-chr",
+      "--operationType",
+      "mean",
+      "--outFileName",
+      "{out}/aggregate.png",
+      "--outFilePrefixMatrix",
+      "{out}/m",
+      "--outFileContactPairs",
+      "{out}/p"
+    ],
+    "cpp_args": [
+      "--noPlot"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/m_genome.tab",
+        "format": "plain",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/p_genome.tab",
+        "format": "plain",
+        "class": "E0"
+      }
+    ],
+    "notes": "cpp_args: --noPlot exists only in the port, which refuses a run that asks for the figure (tier 7 is undecided); the Python draws aggregate.png, which is not compared. test_hicAggregateContacts_inter: 33,754 bins, 15 chromosomes, BED names without the chr prefix."
+  },
+  {
+    "id": "hicAggregateContacts.all.keep_outlier",
+    "tool": "hicAggregateContacts",
+    "tier": 5,
+    "args": [
+      "--matrix",
+      "{data}/Li_et_al_2015.h5",
+      "--numberOfBins",
+      "30",
+      "--BED",
+      "{data}/hicAggregateContacts/test_regions.bed",
+      "--mode",
+      "all",
+      "--keep_outlier",
+      "--outFileName",
+      "{out}/aggregate.png",
+      "--outFilePrefixMatrix",
+      "{out}/m",
+      "--outFileContactPairs",
+      "{out}/p"
+    ],
+    "cpp_args": [
+      "--noPlot"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/m_genome.tab",
+        "format": "plain",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/p_genome.tab",
+        "format": "plain",
+        "class": "E0"
+      }
+    ],
+    "notes": "cpp_args: --noPlot exists only in the port, which refuses a run that asks for the figure (tier 7 is undecided); the Python draws aggregate.png, which is not compared. test_hicAggregateContacts_all; --range is ignored in mode all."
+  },
+  {
+    "id": "hicAggregateContacts.all.obsexp.unbounded",
+    "tool": "hicAggregateContacts",
+    "tier": 5,
+    "args": [
+      "--matrix",
+      "{data}/Li_et_al_2015.h5",
+      "--numberOfBins",
+      "30",
+      "--BED",
+      "{data}/hicAggregateContacts/test_regions.bed",
+      "--mode",
+      "all",
+      "--keep_outlier",
+      "--transform",
+      "obs/exp",
+      "--outFileObsExp",
+      "{out}/obs_exp.h5",
+      "--outFileName",
+      "{out}/aggregate.png",
+      "--outFilePrefixMatrix",
+      "{out}/m",
+      "--outFileContactPairs",
+      "{out}/p"
+    ],
+    "cpp_args": [
+      "--noPlot"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/m_genome.tab",
+        "format": "plain",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/p_genome.tab",
+        "format": "plain",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/obs_exp.h5",
+        "format": "h5",
+        "class": "E2"
+      }
+    ],
+    "notes": "cpp_args: --noPlot exists only in the port, which refuses a run that asks for the figure (tier 7 is undecided); the Python draws aggregate.png, which is not compared. maxdepth=None, the unbounded branch of convert_to_obs_exp_matrix."
+  },
+  {
+    "id": "hicAggregateContacts.all.obsexp.all_outliers",
+    "tool": "hicAggregateContacts",
+    "tier": 5,
+    "args": [
+      "--matrix",
+      "{data}/Li_et_al_2015.h5",
+      "--numberOfBins",
+      "30",
+      "--BED",
+      "{data}/hicAggregateContacts/test_regions.bed",
+      "--mode",
+      "all",
+      "--transform",
+      "obs/exp",
+      "--outFileObsExp",
+      "{out}/obs_exp.h5",
+      "--outFileName",
+      "{out}/aggregate.png",
+      "--outFilePrefixMatrix",
+      "{out}/m",
+      "--outFileContactPairs",
+      "{out}/p"
+    ],
+    "cpp_args": [
+      "--noPlot"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/obs_exp.h5",
+        "format": "h5",
+        "class": "E2"
+      }
+    ],
+    "notes": "cpp_args: --noPlot exists only in the port, which refuses a run that asks for the figure (tier 7 is undecided); the Python draws aggregate.png, which is not compared. Every submatrix is an outlier, so the tool exits 1, after it has written the obs/exp matrix.",
+    "expect_exit": 1
+  },
+  {
+    "id": "hicAggregateContacts.perChr.k_persists",
+    "tool": "hicAggregateContacts",
+    "tier": 5,
+    "args": [
+      "--matrix",
+      "{data}/small_test_matrix.cool",
+      "--numberOfBins",
+      "30",
+      "--BED",
+      "{data}/hicAggregateContacts/test_regions.bed",
+      "--mode",
+      "intra-chr",
+      "--perChr",
+      "--kmeans",
+      "4",
+      "--outFileName",
+      "{out}/aggregate.png",
+      "--outFilePrefixMatrix",
+      "{out}/m",
+      "--outFileContactPairs",
+      "{out}/p"
+    ],
+    "cpp_args": [
+      "--noPlot"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/m_chr2L_cluster_1.tab",
+        "format": "plain",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/m_chr2R_cluster_1.tab",
+        "format": "plain",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/m_chr3L_cluster_1.tab",
+        "format": "plain",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/m_chrX_cluster_1.tab",
+        "format": "plain",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/p_chr2L_cluster_1.tab",
+        "format": "plain",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/p_chr2R_cluster_1.tab",
+        "format": "plain",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/p_chr3L_cluster_1.tab",
+        "format": "plain",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/p_chrX_cluster_1.tab",
+        "format": "plain",
+        "class": "E0"
+      }
+    ],
+    "notes": "cpp_args: --noPlot exists only in the port, which refuses a run that asks for the figure (tier 7 is undecided); the Python draws aggregate.png, which is not compared. Defect 6: chr3L has fewer submatrices than clusters, k becomes 1 for it and every chromosome after it, and the names keep _cluster_1."
+  },
+  {
+    "id": "hicAggregateContacts.chromosomes.restores_mask",
+    "tool": "hicAggregateContacts",
+    "tier": 5,
+    "args": [
+      "--matrix",
+      "{data}/Li_et_al_2015.h5",
+      "--numberOfBins",
+      "30",
+      "--BED",
+      "{data}/hicAggregateContacts/test_regions.bed",
+      "--mode",
+      "intra-chr",
+      "--range",
+      "50000:900000",
+      "--chromosomes",
+      "X",
+      "--kmeans",
+      "3",
+      "--howToCluster",
+      "diagonal",
+      "--outFileName",
+      "{out}/aggregate.png",
+      "--outFilePrefixMatrix",
+      "{out}/m",
+      "--outFileContactPairs",
+      "{out}/p"
+    ],
+    "cpp_args": [
+      "--noPlot"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/m_genome_cluster_1.tab",
+        "format": "plain",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/m_genome_cluster_2.tab",
+        "format": "plain",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/m_genome_cluster_3.tab",
+        "format": "plain",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/p_genome_cluster_1.tab",
+        "format": "plain",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/p_genome_cluster_2.tab",
+        "format": "plain",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/p_genome_cluster_3.tab",
+        "format": "plain",
+        "class": "E0"
+      }
+    ],
+    "notes": "cpp_args: --noPlot exists only in the port, which refuses a run that asks for the figure (tier 7 is undecided); the Python draws aggregate.png, which is not compared. Defect 7: keepOnlyTheseChr restores the masked bins and the bin table from before enlarge_bins, so 277 submatrices instead of 279."
+  },
+  {
+    "id": "hicAggregateContacts.int.all.total_counts",
+    "tool": "hicAggregateContacts",
+    "tier": 5,
+    "args": [
+      "--matrix",
+      "{data}/small_test_matrix_50kb_res.h5",
+      "--numberOfBins",
+      "30",
+      "--BED",
+      "{data}/hicAggregateContacts/test_regions.bed",
+      "--mode",
+      "all",
+      "--transform",
+      "total-counts",
+      "--outFileName",
+      "{out}/aggregate.png",
+      "--outFilePrefixMatrix",
+      "{out}/m",
+      "--outFileContactPairs",
+      "{out}/p"
+    ],
+    "cpp_args": [
+      "--noPlot"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/m_genome.tab",
+        "format": "plain",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/p_genome.tab",
+        "format": "plain",
+        "class": "E0"
+      }
+    ],
+    "notes": "cpp_args: --noPlot exists only in the port, which refuses a run that asks for the figure (tier 7 is undecided); the Python draws aggregate.png, which is not compared. An int64 matrix with 139 NaN bins in mode all; integer centre values."
+  },
+  {
+    "id": "hicAggregateContacts.int.chromosomes.mean",
+    "tool": "hicAggregateContacts",
+    "tier": 5,
+    "args": [
+      "--matrix",
+      "{data}/small_test_matrix_50kb_res.h5",
+      "--numberOfBins",
+      "30",
+      "--BED",
+      "{data}/hicAggregateContacts/test_regions.bed",
+      "--mode",
+      "intra-chr",
+      "--range",
+      "100000:20000000",
+      "--chromosomes",
+      "chrX",
+      "chr2L",
+      "--operationType",
+      "mean",
+      "--outFileName",
+      "{out}/aggregate.png",
+      "--outFilePrefixMatrix",
+      "{out}/m",
+      "--outFileContactPairs",
+      "{out}/p"
+    ],
+    "cpp_args": [
+      "--noPlot"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/m_genome.tab",
+        "format": "plain",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/p_genome.tab",
+        "format": "plain",
+        "class": "E0"
+      }
+    ],
+    "notes": "cpp_args: --noPlot exists only in the port, which refuses a run that asks for the figure (tier 7 is undecided); the Python draws aggregate.png, which is not compared. The same matrix with --chromosomes: the restore of defect 7 turns it float64, so the centre values print as floats."
+  }
+]

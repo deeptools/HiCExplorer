@@ -77,6 +77,7 @@
 #include <vector>
 
 #include "hicx/bins.hpp"
+#include "hicx/adjust_ops.hpp"
 #include "hicx/matrix_data.hpp"
 #include "hicx/sparse_matrix.hpp"
 
@@ -89,12 +90,7 @@ namespace hicx {
 // should move there. They sit here so that the hicPCA port does not edit a
 // header another workstream is changing at the same time.
 
-// hiCMatrix.keepOnlyTheseChr (HiCMatrix.py:603). Keeps the bins of the named
-// chromosomes in ascending bin order, carries the bin table, the correction
-// factors and the NaN bins along, and clears distance_counts, which the Python
-// does unconditionally at :677. Throws when a name is not in the matrix, which
-// is the ValueError of :614.
-void keep_only_chromosomes(MatrixData& data, const std::vector<std::string>& chromosomes);
+// keep_only_chromosomes moved to adjust_ops.hpp, which this header includes.
 
 // utilities.enlarge_bins lives in obsexp_ops.hpp, added by the hicFindTADs
 // workstream; hicPCA calls it from there rather than shipping a second copy.
