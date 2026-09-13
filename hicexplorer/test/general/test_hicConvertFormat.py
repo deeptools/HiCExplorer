@@ -517,3 +517,88 @@ def test_2D_text_to_cool_is_bit_exact():
     assert_csr_identical(triu(new.matrix), expected)
     nt.assert_equal(new.cut_intervals, expected_intervals)
     os.unlink(out)
+
+
+# ---------------------------------------------------------------------------
+# Characterization tests for --inputFormat hic, added for the v4 C++ port
+# (cpp/PLAN.md tier 9, item 9.1). The Python route is hic2cool
+# (hicConvertFormat.py:124-138); these tests pin what it writes for the
+# repository's Juicer file SRR1791297_30.hic (version 8, sacCer3, nine base
+# pair resolutions from 2.5 Mb to 5 kb, KR, VC and VC_SQRT vectors).
+# ---------------------------------------------------------------------------
+from tempfile import mkdtemp  # noqa: E402
+
+HIC_FILE = os.path.join(DATA_ROOT, 'hicHyperoptDetectLoopsHiCCUPS', 'SRR1791297_30.hic')
+
+
+def test_hic_input_one_resolution_writes_a_cool_file_named_after_the_resolution():
+    """--resolutions R inserts _R before the file extension.
+
+    The cool file is hic2cool's layout, not hicmatrix's: fixed width S32
+    chromosome names, an enum chrom column, one float64 bin column per
+    normalization of the .hic file, int32 counts, the .hic header attributes
+    (statistics, graphs) copied to the root, and hic2cool's format-url and
+    generated-by. The file named by --outFileName itself is not written.
+    """
+    import h5py
+    directory = mkdtemp()
+    out = os.path.join(directory, 'matrix.cool')
+    hicConvertFormat.main(['--matrices', HIC_FILE, '--outFileName', out,
+                           '--inputFormat', 'hic', '--outputFormat', 'cool',
+                           '--resolutions', '250000'])
+    assert not os.path.exists(out)
+    with h5py.File(os.path.join(directory, 'matrix_250000.cool'), 'r') as handle:
+        attrs = handle.attrs
+        assert attrs['bin-size'] == 250000
+        assert attrs['nbins'] == 57
+        assert attrs['nchroms'] == 16
+        assert attrs['nnz'] == 1653
+        assert attrs['format-version'] == 3
+        assert attrs['storage-mode'] == 'symmetric-upper'
+        assert attrs['format-url'] == 'https://github.com/4dn-dcic/hic2cool'
+        assert attrs['generated-by'].startswith('hic2cool-')
+        assert 'statistics' in attrs and 'graphs' in attrs
+        assert sorted(handle['bins'].keys()) == ['KR', 'VC', 'VC_SQRT', 'chrom', 'end', 'start']
+        assert h5py.check_enum_dtype(handle['bins/chrom'].dtype) is not None
+        assert handle['chroms/name'].dtype == np.dtype('S32')
+        assert handle['pixels/count'].dtype == np.int32
+        assert [x.decode() for x in handle['chroms/name'][:3]] == ['NC_001133.9', 'NC_001134.8', 'NC_001135.5']
+        pixels = list(zip(handle['pixels/bin1_id'][:4], handle['pixels/bin2_id'][:4],
+                          handle['pixels/count'][:4]))
+        assert pixels == [(0, 0, 243095), (0, 1, 17306), (0, 2, 10095), (0, 3, 2940)]
+        assert int(handle['pixels/count'][:].sum()) == 36490041
+        nt.assert_array_equal(handle['bins/KR'][:2], [1.0, 1.1494348144163238])
+        nt.assert_array_equal(handle['indexes/chrom_offset'][:4], [0, 1, 5, 7])
+        nt.assert_array_equal(handle['indexes/bin1_offset'][:4], [0, 57, 113, 168])
+
+
+def test_hic_input_without_resolutions_writes_every_resolution_to_an_mcool_file():
+    """Without --resolutions hic2cool converts all nine resolutions and, since
+    that is more than one, renames matrix.cool to matrix.mcool."""
+    import h5py
+    directory = mkdtemp()
+    out = os.path.join(directory, 'matrix.cool')
+    hicConvertFormat.main(['--matrices', HIC_FILE, '--outFileName', out,
+                           '--inputFormat', 'hic', '--outputFormat', 'cool'])
+    assert not os.path.exists(out)
+    with h5py.File(os.path.join(directory, 'matrix.mcool'), 'r') as handle:
+        assert handle.attrs['format'] == 'HDF5::MCOOL'
+        assert sorted(int(r) for r in handle['resolutions'].keys()) == \
+            [5000, 10000, 25000, 50000, 100000, 250000, 500000, 1000000, 2500000]
+        finest = handle['resolutions/5000']
+        assert finest.attrs['nnz'] == 2421438
+        assert int(finest['pixels/count'][:].sum()) == 36490041
+
+
+def test_hic_input_to_any_format_but_cool_is_refused():
+    """hicConvertFormat.py:120-122: log.error and exit(1)."""
+    directory = mkdtemp()
+    try:
+        hicConvertFormat.main(['--matrices', HIC_FILE, '--outFileName',
+                               os.path.join(directory, 'matrix.h5'),
+                               '--inputFormat', 'hic', '--outputFormat', 'h5'])
+    except SystemExit as error:
+        assert error.code == 1
+    else:
+        raise AssertionError('hic to h5 did not exit')
+    assert os.listdir(directory) == []
