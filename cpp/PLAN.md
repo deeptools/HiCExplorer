@@ -941,6 +941,19 @@ Two consequences worth stating plainly:
    `Li_et_al_2015.h5` the same spread is `1.6e-04` and ED would hold. The rule
    is therefore ED everywhere except where the reference's own noise exceeds
    `1e-3`, which so far means KR only.
+3. **Implementation freedom (set by the project owner, 2026-09-13).** Nothing
+   has to be implemented one to one with the Python. Data structures and
+   algorithms may be redesigned wherever the result is the same, judged by the
+   acceptance gate and the harness. The port already relies on this, with
+   upper-triangle storage, streamed writes and a single dense block reduced by
+   `dsyrk` in place of numpy's copies. What stays fixed is the result, not the
+   route. Two consequences follow. Pinned reference defects are still
+   reproduced, because they change results. And where a result depends on the
+   low-order bits of an intermediate, matching that intermediate exactly is part
+   of producing the same result: hicPCA selects eigenvectors positionally from a
+   spectrum whose largest eigenvalue occurs 169 times, so its covariance has to
+   equal numpy's bit for bit, while nothing else about how it is computed is
+   constrained.
 
 ### 5.0.1 Provenance: v4 identifies itself as v4
 

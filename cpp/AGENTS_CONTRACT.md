@@ -100,7 +100,11 @@ directories would silently not be committed.
 3. **Equivalence is the acceptance criterion.** A ported tool is done when its
    output matches the Python tool on real input. Numeric tolerance policy is
    defined in `PLAN.md`; it must be justified per tool, not chosen ad hoc, and
-   any deliberate deviation must be recorded in `STATUS.md`.
+   any deliberate deviation must be recorded in `STATUS.md`. How a tool reaches
+   its result is free: data structures and algorithms may differ from the
+   Python wherever the harness shows the same result (project owner,
+   2026-09-13; `PLAN.md` 5.0 item 3). Reproduce the Python's route only where
+   the result depends on it.
 4. **No silent scope cuts.** If a tool cannot be ported faithfully (for example
    because it depends on scikit-learn, hyperopt or matplotlib), record that in
    `STATUS.md` with the reason and the proposed strategy. Do not quietly drop
