@@ -36,12 +36,15 @@ add_executable(hicx_tests
     test_compartmentalization.cpp
     test_quick_qc.cpp
     test_chic.cpp
-    # The computational cores of hicDetectLoops, of the two TAD statistics tools
-    # and of hicCompartmentalization, so that the tests link against exactly the
-    # translation units the tools run.
+    test_merge_domains.cpp
+    test_cool_chromosome_cut.cpp
+    # The computational cores of hicDetectLoops, of the two TAD statistics tools,
+    # of hicCompartmentalization and of hicMergeDomains, so that the tests link
+    # against exactly the translation units the tools run.
     ../tools/detect_loops_impl.cpp
     ../tools/tad_contacts_impl.cpp
-    ../tools/compartmentalization_impl.cpp)
+    ../tools/compartmentalization_impl.cpp
+    ../tools/merge_domains_impl.cpp)
 
 target_link_libraries(hicx_tests PRIVATE hicx::core doctest_header hicx_compile_options)
 
@@ -77,6 +80,17 @@ add_test(NAME hicCompartmentalization_refuses_plot
                  -DDATA=${CMAKE_CURRENT_SOURCE_DIR}/../../hicexplorer/test/test_data
                  -DOUT=${CMAKE_CURRENT_BINARY_DIR}/hicCompartmentalization_refuses_plot
                  -P ${CMAKE_CURRENT_SOURCE_DIR}/check_compartmentalization_refuses_plot.cmake)
+
+# Command line behaviour that only the finished executables can show: refusals
+# that must leave no output behind, and hicMergeDomains' graphviz rendering.
+find_program(HICX_BASH bash REQUIRED)
+set(HICX_TEST_DATA "${CMAKE_CURRENT_SOURCE_DIR}/../../hicexplorer/test/test_data")
+add_test(NAME hicPlotSVL_cli
+         COMMAND ${HICX_BASH} "${CMAKE_CURRENT_SOURCE_DIR}/cli/hicPlotSVL_cli.sh"
+                 $<TARGET_FILE:hicPlotSVL> "${HICX_TEST_DATA}")
+add_test(NAME hicMergeDomains_cli
+         COMMAND ${HICX_BASH} "${CMAKE_CURRENT_SOURCE_DIR}/cli/hicMergeDomains_cli.sh"
+                 $<TARGET_FILE:hicMergeDomains> "${HICX_TEST_DATA}" "${HICX_DEPS_ROOT}")
 
 # Not a HiCExplorer tool: the smallest driver that exercises the tier 0 file
 # layer end to end, used by cpp/scripts/equiv.py against its Python twin

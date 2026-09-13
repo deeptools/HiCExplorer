@@ -1,0 +1,423 @@
+[
+  {
+    "id": "hicPlotSVL.h5_twice.reference",
+    "tool": "hicPlotSVL",
+    "tier": 3,
+    "args": [
+      "-m",
+      "{data}/small_test_matrix_50kb_res.h5",
+      "{data}/small_test_matrix_50kb_res.h5",
+      "-o",
+      "{out}/p_values.txt",
+      "-od",
+      "{out}/data.txt"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/data.txt",
+        "format": "text",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/p_values.txt",
+        "format": "text",
+        "class": "E0"
+      }
+    ],
+    "memory": {
+      "alpha": 1.3,
+      "beta": 0.0
+    },
+    "notes": "The invocation of test_plotSVL. Pins reference defect 1 of cpp/tools/hicPlotSVL.cpp at E0: chr3RHet has no contact beyond 2 Mb, its ratio is inf and it is dropped, and every later value is written against the previous chromosome's name, so 7 values fill the first 7 of 12 rows, exactly as test_data/hicPlotSVL/data.txt shows. p-value 1.0 for identical samples.",
+    "threads_arg": "--threads"
+  },
+  {
+    "id": "hicPlotSVL.h5_and_cool",
+    "tool": "hicPlotSVL",
+    "tier": 3,
+    "args": [
+      "-m",
+      "{data}/small_test_matrix_50kb_res.h5",
+      "{data}/small_test_matrix_50kb_res.cool",
+      "-o",
+      "{out}/p_values.txt",
+      "-od",
+      "{out}/data.txt"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/data.txt",
+        "format": "text",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/p_values.txt",
+        "format": "text",
+        "class": "E0"
+      }
+    ],
+    "memory": {
+      "alpha": 1.3,
+      "beta": 0.0
+    },
+    "notes": "An h5 and a cool matrix of the same data. The cool file lists 15 chromosomes and the h5 12, the rows are named after the last matrix (the cool), and the cool keeps an eighth value that the h5 does not have. Every chromosome of the cool is loaded on its own, through read_cool's chromosome cut. p-value 0.8621866944007625.",
+    "threads_arg": "--threads"
+  },
+  {
+    "id": "hicPlotSVL.cool_and_h5",
+    "tool": "hicPlotSVL",
+    "tier": 3,
+    "args": [
+      "-m",
+      "{data}/small_test_matrix_50kb_res.cool",
+      "{data}/small_test_matrix_50kb_res.h5",
+      "-o",
+      "{out}/p_values.txt",
+      "-od",
+      "{out}/data.txt"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/data.txt",
+        "format": "text",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/p_values.txt",
+        "format": "text",
+        "class": "E0"
+      }
+    ],
+    "memory": {
+      "alpha": 1.3,
+      "beta": 0.0
+    },
+    "notes": "The same pair in the other order: the rows are now named after the h5's 12 chromosomes."
+  },
+  {
+    "id": "hicPlotSVL.distance100000.threads20",
+    "tool": "hicPlotSVL",
+    "tier": 3,
+    "args": [
+      "-m",
+      "{data}/small_test_matrix_50kb_res.h5",
+      "-t",
+      "20",
+      "-d",
+      "100000",
+      "-o",
+      "{out}/p_values.txt",
+      "-od",
+      "{out}/data.txt"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/data.txt",
+        "format": "text",
+        "class": "E0"
+      }
+    ],
+    "memory": {
+      "alpha": 1.3,
+      "beta": 0.0
+    },
+    "notes": "--distance and --threads, both untested by the Python suite. At 100 kb no chromosome is skipped, so all 12 rows are aligned. 20 threads for 12 chromosomes gives the first 19 Python workers no chromosome at all; the output does not change.",
+    "threads_arg": "--threads"
+  },
+  {
+    "id": "hicPlotSVL.chromosomes",
+    "tool": "hicPlotSVL",
+    "tier": 3,
+    "args": [
+      "-m",
+      "{data}/small_test_matrix_50kb_res.h5",
+      "--chromosomes",
+      "chr2L",
+      "chr3R",
+      "chrX",
+      "-t",
+      "1",
+      "-o",
+      "{out}/p_values.txt",
+      "-od",
+      "{out}/data.txt"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/data.txt",
+        "format": "text",
+        "class": "E0"
+      }
+    ],
+    "memory": {
+      "alpha": 1.3,
+      "beta": 0.0
+    },
+    "notes": "--chromosomes, untested by the Python suite: the rows follow the order given, not the matrix order.",
+    "threads_arg": "--threads"
+  },
+  {
+    "id": "hicPlotSVL.negative_threads",
+    "tool": "hicPlotSVL",
+    "tier": 3,
+    "args": [
+      "-m",
+      "{data}/small_test_matrix_50kb_res.cool",
+      "-t",
+      "-1",
+      "-o",
+      "{out}/p_values.txt",
+      "-od",
+      "{out}/data.txt"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/data.txt",
+        "format": "text",
+        "class": "E0"
+      }
+    ],
+    "memory": {
+      "alpha": 1.3,
+      "beta": 0.0
+    },
+    "notes": "--threads -1: range(-1) starts no worker, so no chromosome is evaluated and all 15 rows are blank, exit 0. Reproduced as the reference does it."
+  },
+  {
+    "id": "hicPlotSVL.li_h5.distance50000",
+    "tool": "hicPlotSVL",
+    "tier": 3,
+    "args": [
+      "-m",
+      "{data}/Li_et_al_2015.h5",
+      "-d",
+      "50000",
+      "-o",
+      "{out}/p_values.txt",
+      "-od",
+      "{out}/data.txt"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/data.txt",
+        "format": "text",
+        "class": "E0"
+      }
+    ],
+    "memory": {
+      "alpha": 1.3,
+      "beta": 0.0
+    },
+    "notes": "A float64 matrix with non homogeneous bins (median 1,843 bp): the sums are numpy pairwise sums over scipy's row major order of the symmetric matrix, reproduced bit for bit with npy::PairwiseSumStream. At the default 2 Mb every contact is short range and the only chromosome would be skipped."
+  },
+  {
+    "id": "hicPlotSVL.li_cool.distance50000",
+    "tool": "hicPlotSVL",
+    "tier": 3,
+    "args": [
+      "-m",
+      "{data}/Li_et_al_2015.cool",
+      "-d",
+      "50000",
+      "-o",
+      "{out}/p_values.txt",
+      "-od",
+      "{out}/data.txt"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/data.txt",
+        "format": "text",
+        "class": "E0"
+      }
+    ],
+    "memory": {
+      "alpha": 1.3,
+      "beta": 0.0
+    },
+    "notes": "The float64 cool twin of the previous case, through the single chromosome cool load."
+  },
+  {
+    "id": "hicPlotSVL.li_pair.distance20000",
+    "tool": "hicPlotSVL",
+    "tier": 3,
+    "args": [
+      "-m",
+      "{data}/Li_et_al_2015.h5",
+      "{data}/Li_et_al_2015.cool",
+      "-d",
+      "20000",
+      "-o",
+      "{out}/p_values.txt",
+      "-od",
+      "{out}/data.txt"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/data.txt",
+        "format": "text",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/p_values.txt",
+        "format": "text",
+        "class": "E0"
+      }
+    ],
+    "memory": {
+      "alpha": 1.3,
+      "beta": 0.0
+    },
+    "notes": "h5 and cool float64 matrices together, one chromosome each: p-value 1.0."
+  },
+  {
+    "id": "hicPlotSVL.gm12878_chr1",
+    "tool": "hicPlotSVL",
+    "tier": 3,
+    "args": [
+      "-m",
+      "{data}/hicTADClassifier/gm12878_chr1.cool",
+      "-o",
+      "{out}/p_values.txt",
+      "-od",
+      "{out}/data.txt"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/data.txt",
+        "format": "text",
+        "class": "E0"
+      }
+    ],
+    "memory": {
+      "alpha": 1.3,
+      "beta": 0.0
+    },
+    "notes": "The designated large input, 61.8 M stored int32 pixels. Python peaks at about 3.8 GB. Integer sums do not depend on the order of summation, so the stored triangle is summed directly; the budget rests on read_cool cutting the chromosome in place rather than through select_bins.",
+    "large": true
+  },
+  {
+    "id": "hicPlotSVL.gsm_pair.distance1000000",
+    "tool": "hicPlotSVL",
+    "tier": 3,
+    "args": [
+      "-m",
+      "{data}/hicDifferentialTAD/GSM2644945_Untreated-R1.100000_chr1_chr2.cool",
+      "{data}/hicDifferentialTAD/GSM2644947_Auxin2days-R1.100000_chr1_chr2.cool",
+      "-d",
+      "1000000",
+      "-o",
+      "{out}/p_values.txt",
+      "-od",
+      "{out}/data.txt"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/data.txt",
+        "format": "text",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/p_values.txt",
+        "format": "text",
+        "class": "E0"
+      }
+    ],
+    "memory": {
+      "alpha": 1.3,
+      "beta": 0.0
+    },
+    "notes": "Two corrected 100 kb coolers with a weight column, two chromosomes each: the float64 path with correction factors applied at load."
+  },
+  {
+    "id": "hicPlotSVL.float32_h5_and_cool",
+    "tool": "hicPlotSVL",
+    "tier": 3,
+    "args": [
+      "-m",
+      "{data}/hicNormalize/smallest_one.h5",
+      "{data}/hicNormalize/smallest_two.cool",
+      "-o",
+      "{out}/p_values.txt",
+      "-od",
+      "{out}/data.txt"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/data.txt",
+        "format": "text",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/p_values.txt",
+        "format": "text",
+        "class": "E0"
+      }
+    ],
+    "memory": {
+      "alpha": 1.3,
+      "beta": 0.0
+    },
+    "notes": "float32 matrices: the sums accumulate in float32 and the ratio is a float32 division, but '{}'.format of a numpy float32 prints the float64 repr of the widened value (48.16666793823242, not 48.166668)."
+  },
+  {
+    "id": "hicPlotSVL.float32_cool.distance500000",
+    "tool": "hicPlotSVL",
+    "tier": 3,
+    "args": [
+      "-m",
+      "{data}/hicTransform/obs_exp_non_zero.cool",
+      "-d",
+      "500000",
+      "-o",
+      "{out}/p_values.txt",
+      "-od",
+      "{out}/data.txt"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/data.txt",
+        "format": "text",
+        "class": "E0"
+      }
+    ],
+    "memory": {
+      "alpha": 1.3,
+      "beta": 0.0
+    },
+    "notes": "A float32 cool whose values are not whole numbers, so the float32 accumulation order shows in the last digits."
+  },
+  {
+    "id": "hicPlotSVL.float32_range.distance500000",
+    "tool": "hicPlotSVL",
+    "tier": 3,
+    "args": [
+      "-m",
+      "{data}/hicNormalize/norm_range_one.cool",
+      "{data}/hicNormalize/norm_range_two.h5",
+      "-d",
+      "500000",
+      "-o",
+      "{out}/p_values.txt",
+      "-od",
+      "{out}/data.txt"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/data.txt",
+        "format": "text",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/p_values.txt",
+        "format": "text",
+        "class": "E0"
+      }
+    ],
+    "memory": {
+      "alpha": 1.3,
+      "beta": 0.0
+    },
+    "notes": "float32 matrices normalised to a range, where only 2 of 15 chromosomes keep a finite ratio."
+  }
+]

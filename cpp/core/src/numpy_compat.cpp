@@ -80,6 +80,34 @@ float pairwise_sum(const float* a, std::size_t n) {
     return buffered_pairwise_sum(a, n);
 }
 
+template <typename T>
+PairwiseSumStream<T>::PairwiseSumStream() {
+    buffer_.reserve(kReduceBufferSize);
+}
+
+template <typename T>
+void PairwiseSumStream<T>::add(T value) {
+    buffer_.push_back(value);
+    ++count_;
+    if (buffer_.size() == kReduceBufferSize) {
+        accumulated_ += pairwise_block(buffer_.data(), buffer_.size());
+        buffer_.clear();
+    }
+}
+
+template <typename T>
+T PairwiseSumStream<T>::result() const {
+    // buffered_pairwise_sum adds a block only when there is one, so an empty
+    // tail must not be added either: 0.0 + -0.0 would turn a -0.0 into 0.0.
+    if (buffer_.empty()) {
+        return accumulated_;
+    }
+    return accumulated_ + pairwise_block(buffer_.data(), buffer_.size());
+}
+
+template class PairwiseSumStream<double>;
+template class PairwiseSumStream<float>;
+
 std::string float_repr(double value) {
     if (std::isnan(value)) {
         return "nan";

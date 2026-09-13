@@ -23,7 +23,8 @@ set(HICX_TOOLS
     hicQuickQC
     hicValidateLocations
     hicSumMatrices
-    hicTransform)
+    hicTransform
+    hicPlotSVL)
 
 foreach(tool IN LISTS HICX_TOOLS)
     add_executable(${tool} "${tool}.cpp")
@@ -42,6 +43,11 @@ foreach(tool IN ITEMS hicDifferentialTAD hicInterIntraTAD)
     add_executable(${tool} "${tool}.cpp" tad_contacts_impl.cpp)
     target_link_libraries(${tool} PRIVATE hicx::core hicx_compile_options)
 endforeach()
+
+# hicMergeDomains keeps its algorithm in a second translation unit for the same
+# reason: cpp/tests/test_merge_domains.cpp links against it.
+add_executable(hicMergeDomains hicMergeDomains.cpp merge_domains_impl.cpp)
+target_link_libraries(hicMergeDomains PRIVATE hicx::core hicx_compile_options)
 
 # hicPCA additionally reads and writes bigWig, through the same libBigWig that
 # pyBigWig wraps, and uses zlib directly for a gzipped BED extraTrack.

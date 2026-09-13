@@ -43,6 +43,31 @@ inline float pairwise_sum(const std::vector<float>& data) {
 // repr() of a Python float, which is also str() of a numpy.float64 scalar.
 std::string float_repr(double value);
 
+// np.sum over a sequence that is produced one value at a time and never held
+// as an array. Bit identical to pairwise_sum() over the same values in the
+// same order: numpy reduces 8192 element buffers with the pairwise kernel and
+// accumulates the buffer results sequentially, so a stream only ever needs
+// one buffer. hicPlotSVL uses it to sum the short and the long range contacts
+// of a chromosome in the matrix's row major order without materialising
+// either masked array.
+template <typename T>
+class PairwiseSumStream {
+  public:
+    PairwiseSumStream();
+    void add(T value);
+    // The sum of everything added so far. Does not reset the stream.
+    [[nodiscard]] T result() const;
+    [[nodiscard]] std::size_t count() const noexcept { return count_; }
+
+  private:
+    T accumulated_ = 0;
+    std::vector<T> buffer_;
+    std::size_t count_ = 0;
+};
+
+extern template class PairwiseSumStream<double>;
+extern template class PairwiseSumStream<float>;
+
 // "{:,}".format(i)
 std::string int_with_thousands_separator(std::int64_t value);
 
