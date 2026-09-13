@@ -1,0 +1,70 @@
+[
+  {
+    "id": "chicViewpointBackgroundModel.two_matrices.referencePoints",
+    "tool": "chicViewpointBackgroundModel",
+    "tier": 6,
+    "args": ["--matrices", "{data}/cHi-C/FL-E13-5_chr1.cool", "{data}/cHi-C/MB-E10-5_chr1.cool",
+             "--referencePoints", "{data}/cHi-C/referencePoints.bed",
+             "-o", "{out}/background.txt", "-t", "1"],
+    "outputs": [
+      {"path": "{out}/background.txt", "format": "tsv", "class": "EN"}
+    ],
+    "noise": {"shim": "fit_nbinom_order"},
+    "threads_arg": "--threads",
+    "notes": "The case test_chicViewpointBackgroundModel.py runs: 43 reference points on both matrices, 1,001 relative positions, 86 values per distribution. Class EN (PLAN.md 5.7), with the reference envelope measured from runs whose distributions reach fit_nbinom in a different order, which is the nondeterminism the tool itself has at --threads > 1 (noise_runner.py). Every field that does not depend on the fit (the position, max value and mean value columns) is identical in every reference run, so its envelope is 0 and the port must reproduce it to 1e-12, which it does to the last printed digit. The fitted size and prob sit on a flat likelihood ridge: see the report for the measured envelope, and for the held-out reference run, which is tested against the envelope of the others exactly as the C++ output is."
+  },
+  {
+    "id": "chicViewpointBackgroundModel.two_matrices.truncateZeros",
+    "tool": "chicViewpointBackgroundModel",
+    "tier": 6,
+    "args": ["--matrices", "{data}/cHi-C/FL-E13-5_chr1.cool", "{data}/cHi-C/MB-E10-5_chr1.cool",
+             "--referencePoints", "{data}/cHi-C/referencePoints.bed",
+             "--truncateZeros", "-o", "{out}/background.txt", "-t", "1"],
+    "outputs": [
+      {"path": "{out}/background.txt", "format": "tsv", "class": "EN"}
+    ],
+    "noise": {"shim": "fit_nbinom_order"},
+    "threads_arg": "--threads",
+    "notes": "--truncateZeros, which the Python suite runs at a tolerance of 1,000 mismatching values. It empties the distribution at +500 kb, for which the Python writes size 10, prob nan, max 0 and mean 0; the port writes the same."
+  },
+  {
+    "id": "chicViewpointBackgroundModel.two_matrices.fixateRange200000.averageContactBin4",
+    "tool": "chicViewpointBackgroundModel",
+    "tier": 6,
+    "args": ["--matrices", "{data}/cHi-C/FL-E13-5_chr1.cool", "{data}/cHi-C/MB-E10-5_chr1.cool",
+             "--referencePoints", "{data}/cHi-C/referencePoints.bed",
+             "--fixateRange", "200000", "--averageContactBin", "4",
+             "-o", "{out}/background.txt", "-t", "1"],
+    "outputs": [
+      {"path": "{out}/background.txt", "format": "tsv", "class": "EN"}
+    ],
+    "noise": {"shim": "fit_nbinom_order"},
+    "threads_arg": "--threads",
+    "notes": "The two options the Python suite never varies: a 200 kb fixate range, 401 positions, and an even smoothing window, whose right border takes one more value upstream than the rest of the viewpoint does (viewpoint.py:561)."
+  },
+  {
+    "id": "chicViewpointBackgroundModel.one_matrix.edge_cases",
+    "tool": "chicViewpointBackgroundModel",
+    "tier": 6,
+    "args": ["--matrices", "{data}/cHi-C/MB-E10-5_chr1.cool",
+             "--referencePoints", "{data}/cHi-C/referencePoints_edge_cases.bed",
+             "-o", "{out}/background.txt", "-t", "1"],
+    "outputs": [
+      {"path": "{out}/background.txt", "format": "tsv", "class": "EN"}
+    ],
+    "noise": {"shim": "fit_nbinom_order"},
+    "threads_arg": "--threads",
+    "notes": "A reference point spanning four bins, whose downstream values the Python shifts by three relative positions (its data are three bins shorter than the range it zips them with), two reference points whose windows are clipped by a chromosome end, and a three column line. Seven distributions of different lengths per position."
+  },
+  {
+    "id": "chicViewpointBackgroundModel.faulty_reference_points",
+    "tool": "chicViewpointBackgroundModel",
+    "tier": 6,
+    "args": ["--matrices", "{data}/cHi-C/FL-E13-5_chr1.cool",
+             "--referencePoints", "{data}/cHi-C/referencePoints_qc.bed",
+             "-o", "{out}/background.txt", "-t", "1"],
+    "expect_exit": 1,
+    "outputs": [],
+    "notes": "The reference points chicQualityControl flags as faulty (chr2, and a position past the end of chr1). The Python reports the failure after every matrix has been processed and exits 1 without writing the model; this is the path test_compute_background_functional_fail exercises under xfail."
+  }
+]

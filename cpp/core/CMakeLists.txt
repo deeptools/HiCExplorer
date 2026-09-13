@@ -31,6 +31,7 @@ add_library(hicx4core
     src/hic_matrix.cpp
     src/json_lite.cpp
     src/lbfgsb.cpp
+    src/lbfgsb_scipy.cpp
     src/math/ice.cpp
     src/math/kr_balancing.cpp
     src/math/sparse_kernels.cpp
