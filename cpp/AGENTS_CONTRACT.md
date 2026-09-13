@@ -10,6 +10,10 @@ and must keep it accurate.
   checkout, **do not touch it**).
 - v4 work happens in the git worktree `~/src/HiCExplorer-v4`, branch
   `version4-cpp`, forked from `master` (`c2ad8630`).
+- Parallel ports run in separate worktrees under
+  `~/src/HiCExplorer-v4-worktrees/`, each on its own branch created from
+  `version4-cpp`, and the orchestrating session verifies and merges them. Never
+  create a worktree or any other directory inside `~/src/HiCExplorer`.
 - Python reference version in this tree: 3.7.7-dev (47 tools, ~18k lines).
 
 ## 2. Environments
@@ -70,8 +74,8 @@ cpp/
   tools/                one executable per HiCExplorer tool
   tests/                C++ unit tests
   scripts/              python-vs-C++ equivalence harness
-  PLAN.md               architecture + porting roadmap (supervisor owns)
-  STATUS.md             per-tool progress ledger (supervisor owns)
+  PLAN.md               architecture + porting roadmap (orchestrating session owns)
+  STATUS.md             per-tool progress ledger (orchestrating session owns)
   AGENTS_CONTRACT.md    this file
 ```
 
@@ -101,11 +105,17 @@ directories would silently not be committed.
    because it depends on scikit-learn, hyperopt or matplotlib), record that in
    `STATUS.md` with the reason and the proposed strategy. Do not quietly drop
    it and do not fake equivalence.
-5. **Git.** Agents never run git write commands (`add`, `commit`, `checkout`,
-   `stash`, `push`). Several agents share this one worktree, so a concurrent
-   index write would corrupt another agent's work. Leave finished work in the
-   working tree and report it; the orchestrating session commits, one commit per
-   completed task, only after it is verified working. Nothing is ever pushed.
+5. **Git.** It depends on where the agent works.
+   - **Shared worktree** `~/src/HiCExplorer-v4`: the agent runs no git write
+     command (`add`, `commit`, `checkout`, `stash`, `push`), because a
+     concurrent index write would corrupt another agent's work. Finished work
+     stays in the working tree; the orchestrating session commits it, one
+     commit per completed task, only after verifying it.
+   - **Own worktree** under `~/src/HiCExplorer-v4-worktrees/`: the agent commits
+     its verified work on that worktree's branch, one commit per tool, and
+     reports the hashes; the orchestrating session verifies and merges.
+   - **Always:** never push, never touch another branch or worktree, never
+     reset or rewrite history. (Revised 2026-09-13 for the worktree model.)
 6. **Style.** English only, ISO dates, no em-dashes, no emojis in code,
    comments, docs or commit messages.
 7. **Requested output files.** A tool never exits 0 without writing every file
