@@ -319,12 +319,59 @@ CoolLoadResult read_cool(const std::string& uri, const CoolLoadOptions& options)
             first = 0;
             last = 0;
         }
-        std::vector<std::int64_t> selection;
-        selection.reserve(static_cast<std::size_t>(last - first));
-        for (std::int64_t bin = first; bin < last; ++bin) {
-            selection.push_back(bin);
+        // The bins of one chromosome are a contiguous range, so the block is
+        // cut in place: a kept entry is never written to an offset beyond the
+        // one it is read from. select_bins would build the block beside the
+        // whole matrix, which on a single chromosome file is twice the working
+        // set (hicPlotSVL on gm12878_chr1.cool: 1,534 MB, against a 1,028 MB
+        // budget). The result is what select_bins returns for the same
+        // contiguous selection: the same entries in the same rows, columns
+        // renumbered and sorted within each row, dtype and symmetry flag
+        // unchanged. cpp/tests/test_cool_chromosome_cut.cpp pins that.
+        CsrMatrix::Arrays arrays = matrix.release();
+        const auto block = static_cast<std::size_t>(last - first);
+        std::vector<std::int64_t> block_indptr(block + 1, 0);
+        std::size_t write = 0;
+        std::vector<std::pair<std::int32_t, double>> unsorted_row;
+        for (std::size_t local = 0; local < block; ++local) {
+            const std::size_t row = static_cast<std::size_t>(first) + local;
+            const auto begin = static_cast<std::size_t>(arrays.indptr[row]);
+            const auto end = static_cast<std::size_t>(arrays.indptr[row + 1]);
+            const std::size_t row_start = write;
+            bool sorted = true;
+            for (std::size_t k = begin; k < end; ++k) {
+                const std::int64_t column = arrays.indices[k];
+                if (column < first || column >= last) {
+                    continue;
+                }
+                const auto renumbered = static_cast<std::int32_t>(column - first);
+                if (write > row_start && renumbered < arrays.indices[write - 1]) {
+                    sorted = false;
+                }
+                arrays.indices[write] = renumbered;
+                arrays.data[write] = arrays.data[k];
+                ++write;
+            }
+            if (!sorted) {
+                unsorted_row.clear();
+                for (std::size_t k = row_start; k < write; ++k) {
+                    unsorted_row.emplace_back(arrays.indices[k], arrays.data[k]);
+                }
+                std::sort(unsorted_row.begin(), unsorted_row.end(),
+                          [](const auto& a, const auto& b) { return a.first < b.first; });
+                for (std::size_t k = row_start; k < write; ++k) {
+                    arrays.indices[k] = unsorted_row[k - row_start].first;
+                    arrays.data[k] = unsorted_row[k - row_start].second;
+                }
+            }
+            block_indptr[local + 1] = static_cast<std::int64_t>(write);
         }
-        matrix = select_bins(matrix, selection);
+        arrays.indices.resize(write);
+        arrays.data.resize(write);
+        arrays.indptr = std::move(block_indptr);
+        arrays.rows = static_cast<std::int64_t>(block);
+        arrays.cols = static_cast<std::int64_t>(block);
+        matrix = CsrMatrix::adopt(std::move(arrays));
         result.data.cut_intervals.assign(
             result.data.cut_intervals.begin() + static_cast<std::ptrdiff_t>(first),
             result.data.cut_intervals.begin() + static_cast<std::ptrdiff_t>(last));

@@ -33,6 +33,7 @@ add_executable(hicx_tests
     test_correct_math.cpp
     test_detect_loops.cpp
     test_merge_domains.cpp
+    test_cool_chromosome_cut.cpp
     # The computational cores of hicDetectLoops and hicMergeDomains, so that
     # the tests link against exactly the translation units the tools run.
     ../tools/detect_loops_impl.cpp
@@ -50,6 +51,9 @@ add_test(NAME hicx_unit_tests COMMAND hicx_tests)
 # that must leave no output behind, and hicMergeDomains' graphviz rendering.
 find_program(HICX_BASH bash REQUIRED)
 set(HICX_TEST_DATA "${CMAKE_CURRENT_SOURCE_DIR}/../../hicexplorer/test/test_data")
+add_test(NAME hicPlotSVL_cli
+         COMMAND ${HICX_BASH} "${CMAKE_CURRENT_SOURCE_DIR}/cli/hicPlotSVL_cli.sh"
+                 $<TARGET_FILE:hicPlotSVL> "${HICX_TEST_DATA}")
 add_test(NAME hicMergeDomains_cli
          COMMAND ${HICX_BASH} "${CMAKE_CURRENT_SOURCE_DIR}/cli/hicMergeDomains_cli.sh"
                  $<TARGET_FILE:hicMergeDomains> "${HICX_TEST_DATA}" "${HICX_DEPS_ROOT}")

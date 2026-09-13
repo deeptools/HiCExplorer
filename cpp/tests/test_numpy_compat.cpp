@@ -1,5 +1,8 @@
 #include <doctest/doctest.h>
 
+#include <cmath>
+#include <cstdint>
+#include <cstring>
 #include <string>
 #include <vector>
 
@@ -81,4 +84,50 @@ TEST_CASE("array_str matches str() of a numpy string array") {
     CHECK(array_str({"chrom", "start", "end", "KR", "VC", "VC_SQRT"}) ==
           "['chrom' 'start' 'end' 'KR' 'VC' 'VC_SQRT']");
     CHECK(array_str({}) == "[]");
+}
+
+TEST_CASE("PairwiseSumStream is bit identical to pairwise_sum over the same sequence") {
+    // Sizes around the 8 accumulator unroll, the 128 element pairwise block
+    // and the 8192 element reduction buffer, where a streaming implementation
+    // that got the buffering wrong would first diverge.
+    std::uint64_t state = 0x9e3779b97f4a7c15ULL;
+    const auto next = [&state]() {
+        state ^= state << 13;
+        state ^= state >> 7;
+        state ^= state << 17;
+        return static_cast<double>(state % 2000003) / 7.0 - 142857.0;
+    };
+    for (const std::size_t n : {0UL, 1UL, 7UL, 8UL, 9UL, 127UL, 128UL, 129UL, 1000UL,
+                                8191UL, 8192UL, 8193UL, 16384UL, 20000UL, 65537UL}) {
+        std::vector<double> values(n);
+        for (double& value : values) {
+            value = next() * 1e-3;
+        }
+        hicx::npy::PairwiseSumStream<double> stream;
+        for (const double value : values) {
+            stream.add(value);
+        }
+        CAPTURE(n);
+        CHECK(stream.count() == n);
+        const double expected = pairwise_sum(values);
+        const double got = stream.result();
+        CHECK(std::memcmp(&expected, &got, sizeof(double)) == 0);
+
+        std::vector<float> narrow(values.begin(), values.end());
+        hicx::npy::PairwiseSumStream<float> stream32;
+        for (const float value : narrow) {
+            stream32.add(value);
+        }
+        const float expected32 = pairwise_sum(narrow);
+        const float got32 = stream32.result();
+        CHECK(std::memcmp(&expected32, &got32, sizeof(float)) == 0);
+    }
+
+    // An empty tail is not added: -0.0 stays -0.0, as in buffered_pairwise_sum.
+    hicx::npy::PairwiseSumStream<double> negative_zero;
+    for (int i = 0; i < 8192; ++i) {
+        negative_zero.add(-0.0);
+    }
+    const std::vector<double> zeros(8192, -0.0);
+    CHECK(std::signbit(negative_zero.result()) == std::signbit(pairwise_sum(zeros)));
 }

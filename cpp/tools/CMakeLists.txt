@@ -19,7 +19,8 @@ set(HICX_TOOLS
     hicNormalize
     hicValidateLocations
     hicSumMatrices
-    hicTransform)
+    hicTransform
+    hicPlotSVL)
 
 foreach(tool IN LISTS HICX_TOOLS)
     add_executable(${tool} "${tool}.cpp")
