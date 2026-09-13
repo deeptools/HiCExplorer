@@ -32,9 +32,9 @@ endforeach()
 add_executable(hicDetectLoops hicDetectLoops.cpp detect_loops_impl.cpp)
 target_link_libraries(hicDetectLoops PRIVATE hicx::core hicx_compile_options)
 
-# hicDifferentialTAD cuts its TAD blocks with tad_contacts_impl.cpp, which is
-# also what cpp/tests/test_tad_contacts.cpp links against.
-foreach(tool IN ITEMS hicDifferentialTAD)
+# hicDifferentialTAD and hicInterIntraTAD cut their TAD blocks with the same
+# code, which is also what cpp/tests/test_tad_contacts.cpp links against.
+foreach(tool IN ITEMS hicDifferentialTAD hicInterIntraTAD)
     add_executable(${tool} "${tool}.cpp" tad_contacts_impl.cpp)
     target_link_libraries(${tool} PRIVATE hicx::core hicx_compile_options)
 endforeach()
