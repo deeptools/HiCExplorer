@@ -33,11 +33,14 @@ add_executable(hicx_tests
     test_correct_math.cpp
     test_detect_loops.cpp
     test_tad_contacts.cpp
-    # The computational cores of hicDetectLoops and of the two TAD statistics
-    # tools, so that the tests link against exactly the translation units the
-    # tools run.
+    test_compartmentalization.cpp
+    test_quick_qc.cpp
+    # The computational cores of hicDetectLoops, of the two TAD statistics tools
+    # and of hicCompartmentalization, so that the tests link against exactly the
+    # translation units the tools run.
     ../tools/detect_loops_impl.cpp
-    ../tools/tad_contacts_impl.cpp)
+    ../tools/tad_contacts_impl.cpp
+    ../tools/compartmentalization_impl.cpp)
 
 target_link_libraries(hicx_tests PRIVATE hicx::core doctest_header hicx_compile_options)
 
@@ -61,6 +64,18 @@ foreach(_option IN ITEMS --outFileNameRatioPlot -op)
             "-DMUST_NOT_EXIST=${_refusal_dir}${_option}/ratio.png;${_refusal_dir}${_option}/table.txt"
             -P "${CMAKE_CURRENT_SOURCE_DIR}/refuses_unavailable_output.cmake")
 endforeach()
+
+# hicCompartmentalization draws a matplotlib figure the C++ port cannot draw
+# yet. A run that asks for it has to fail visibly and write nothing, while
+# --noPlot has to write the numeric outputs. The equivalence harness cannot
+# express a case whose exit status differs between Python and C++, so this is
+# checked here.
+add_test(NAME hicCompartmentalization_refuses_plot
+         COMMAND ${CMAKE_COMMAND}
+                 -DTOOL=$<TARGET_FILE:hicCompartmentalization>
+                 -DDATA=${CMAKE_CURRENT_SOURCE_DIR}/../../hicexplorer/test/test_data
+                 -DOUT=${CMAKE_CURRENT_BINARY_DIR}/hicCompartmentalization_refuses_plot
+                 -P ${CMAKE_CURRENT_SOURCE_DIR}/check_compartmentalization_refuses_plot.cmake)
 
 # Not a HiCExplorer tool: the smallest driver that exercises the tier 0 file
 # layer end to end, used by cpp/scripts/equiv.py against its Python twin

@@ -17,6 +17,7 @@ set(HICX_TOOLS
     hicFindRestSite
     hicMergeLoops
     hicNormalize
+    hicQuickQC
     hicValidateLocations
     hicSumMatrices
     hicTransform)
@@ -44,3 +45,10 @@ endforeach()
 add_executable(hicPCA hicPCA.cpp)
 target_link_libraries(hicPCA PRIVATE hicx::core hicx::bigwig hicx::zlib
                                      hicx_compile_options)
+
+# hicCompartmentalization keeps its computational core in a second translation
+# unit, like hicDetectLoops, so that cpp/tests/test_compartmentalization.cpp
+# links against exactly the code the tool runs.
+add_executable(hicCompartmentalization hicCompartmentalization.cpp
+                                       compartmentalization_impl.cpp)
+target_link_libraries(hicCompartmentalization PRIVATE hicx::core hicx_compile_options)

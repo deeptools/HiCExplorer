@@ -22,6 +22,9 @@ specification this implements. A case normally names a `tool` and the runner
 executes bin/<tool> against <cpp-bin>/<tool>; a tier 0 case that exercises the
 file layer before any tool exists gives `py_script` (a path relative to the
 repository root) and `cpp_binary` (a path relative to --cpp-bin) instead.
+A case may also give `cpp_args`, appended to the C++ command line only, for an
+option the port has and the Python does not (hicCompartmentalization --noPlot);
+its notes must say why the two command lines differ.
 
 Run it with the reference venv interpreter named in cpp/AGENTS_CONTRACT.md, so
 that the cool and h5 comparators find h5py, PyTables and numpy:
@@ -258,6 +261,11 @@ def load_cases(tools=None, tiers=None, ids=None):
             # A tier 0 case names its two programs instead of a tool.
             case.setdefault("py_script", None)
             case.setdefault("cpp_binary", None)
+            # Arguments appended to the C++ command line only, for an option
+            # the port has and the Python does not (hicCompartmentalization
+            # --noPlot). Never a way to make the two runs do different work on
+            # the outputs being compared: the case notes must say why.
+            case.setdefault("cpp_args", [])
             cases.append(case)
     if tools:
         cases = [case for case in cases if case["tool"] in tools]
@@ -685,6 +693,15 @@ def _declared_outputs(case):
     return found
 
 
+def _declared_options(case, name):
+    """The comparator options a case declares for the output named `name`."""
+    for declared in case["outputs"]:
+        path = declared["path"].replace("{out}/", "").replace("{out}", "")
+        if path == name:
+            return declared.get("options") or {}
+    return {}
+
+
 # The strictest class each format admits, used to say *what* differs when two
 # runs are not byte-identical. A cool file carries a `creation-date` attribute,
 # so two writes of the same matrix can never be byte-identical, whoever writes
@@ -789,6 +806,22 @@ def _compare_run_outputs(case, reference_dir, other_dir):
         mtime_bytes, other_bytes = _classify_byte_differences(str(left), offsets)
         where = (f"{len(offsets)}{'+' if truncated else ''} differing bytes, "
                  f"first at offset {offsets[0]}" if offsets else "sizes differ")
+
+        # A text output whose case declares a named normalisation, such as the
+        # random temporary matrix name hicQuickQC prints, is compared through
+        # that normalisation and nothing else: a difference it absorbs is a
+        # qualification, any other byte is a failure.
+        normalise = _declared_options(case, name).get("normalise")
+        if normalise and fmt in ("plain", "text"):
+            comparison = comparators.compare(fmt, str(left), str(right), "E0",
+                                             {"normalise": normalise})
+            if comparison.passed:
+                qualified.append(f"{name}: identical after the named normalisation "
+                                 f"{normalise} but not byte for byte ({where})")
+            else:
+                diffs.append(f"{name}: differs after the named normalisation "
+                             f"{normalise}: " + "; ".join(comparison.diffs[:3]))
+            continue
 
         strictest = STRICTEST_CLASS_BY_FORMAT.get(fmt)
         content_identical = None
@@ -901,7 +934,8 @@ def check_determinism(case, options, workdir, cpp_tool, data, reference_dir):
     def run_into(directory, extra_args):
         directory.mkdir(parents=True, exist_ok=True)
         argv = [expand(argument, {"data": data, "out": directory})
-                for argument in case["args"]] + list(extra_args)
+                for argument in case["args"] + case.get("cpp_args", [])] \
+            + list(extra_args)
         return run_measured([str(cpp_tool)] + argv, workdir,
                             directory / "stdout.txt", directory / "stderr.txt")
 
@@ -962,7 +996,8 @@ def run_case(case, options):
 
     data = str(options.data)
     args_py = [expand(arg, {"data": data, "out": out_py}) for arg in case["args"]]
-    args_cpp = [expand(arg, {"data": data, "out": out_cpp}) for arg in case["args"]]
+    args_cpp = [expand(arg, {"data": data, "out": out_cpp})
+                for arg in case["args"] + case["cpp_args"]]
 
     env = dict(os.environ)
     env["PYTHONPATH"] = str(REPO_ROOT) + os.pathsep + env.get("PYTHONPATH", "")
@@ -1121,7 +1156,8 @@ def run_determinism_case(case, options):
         result.update(passed=False, error=f"missing C++ binary {cpp_tool}")
         return result
 
-    args_cpp = [expand(arg, {"data": data, "out": out_cpp}) for arg in case["args"]]
+    args_cpp = [expand(arg, {"data": data, "out": out_cpp})
+                for arg in case["args"] + case.get("cpp_args", [])]
     measure = run_measured([str(cpp_tool)] + args_cpp, workdir,
                            out_cpp / "stdout.txt", out_cpp / "stderr.txt")
     result["cpp_seconds"] = measure["seconds"]
