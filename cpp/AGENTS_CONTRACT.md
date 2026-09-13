@@ -139,3 +139,18 @@ directories would silently not be committed.
 9. **Counting verdicts.** `cpp/scripts/equiv.py` prints `pass` in lowercase and
    `FAIL` in uppercase. Always count verdicts case-insensitively. A filter that
    matched only lowercase `fail` once hid three failures. (Added 2026-09-13.)
+10. **Committed inputs.** Before committing, every file a test or harness case
+    reads must be tracked. Run `cpp/scripts/check_case_inputs.py <repo> <rev>`
+    on the revision, which fails when a case expecting success reads an
+    untracked input. An earlier commit shipped three cases whose BED inputs
+    existed only untracked in one worktree, so its verification passed there
+    and every fresh checkout failed. (Added 2026-09-13.)
+11. **Clean-export build.** Verify by building a clean export of the revision
+    outside its source tree and running ctest, not only in the worktree that
+    produced it. A unit test once wrote into a `cpp/build` directory inside the
+    source tree and passed only where that directory happened to exist.
+    (Added 2026-09-13.)
+12. **No orphaned processes.** Before reporting, check that no process started
+    by the task is still running, including mutation-test and noise runs. An
+    agent cut off by a usage limit once left a mutation-test run that consumed a
+    CPU core and 4.4 GB for eleven days. (Added 2026-09-13.)
