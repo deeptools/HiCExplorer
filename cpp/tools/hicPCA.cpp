@@ -22,6 +22,15 @@
 // tolerance covers that. Compatibility mode therefore calls dgeev from the
 // same OpenBLAS build scipy is linked against.
 //
+// Calling the same dgeev is necessary and not sufficient: the matrix has to be
+// the same to the bit. chrX of the same file under --method dist_norm
+// --ligation_factor has a massively repeated largest eigenvalue, and eig's
+// columns 0 and 1 hold eigenvalues of descending rank 169 and 179, so no rule
+// on the eigenvalues describes the selection. A covariance that agreed with
+// np.cov to 7.7e-14 relative made the same dgeev put the largest eigenvalue in
+// column 0 and shift every column by one. See numpy_covariance, and
+// test_pca_dist_norm_ligation_selects_eig_columns_not_the_largest_eigenvalues.
+//
 // **Which sign.** Arbitrary, and demonstrably so: running the Python on
 // small_test_matrix_50kb_res.h5 with OPENBLAS_NUM_THREADS=1 and with 16 gives
 // bedgraph files whose chr2L block is sign-inverted while every magnitude
@@ -34,10 +43,13 @@
 // The memory rewrite. The Python densifies the chromosome block, calls
 // np.corrcoef and np.cov on it and keeps five to six live copies; on
 // mm9_reduced_chr1.cool, 9,760 bins from a 722 KB file, that is 4,070 MB and
-// 471 s. The port never densifies the obs/exp block: it is sparse (0.98 %
-// filled on that input) and the covariance comes straight out of the CSR
-// through the identity in transform_ops.hpp, into the one dense block the
-// eigensolver needs.
+// 471 s. The port holds at most two dense blocks at a time: the centred
+// obs/exp block and the covariance while dsyrk runs, then the covariance and
+// dgeev's eigenvector matrix. The Pearson matrix is read row by row out of
+// the covariance instead of being a third block. The obs/exp block used to
+// stay sparse, with the covariance taken through the identity in
+// transform_ops.hpp; that was given up for the reason above, and it did not
+// lower the peak, which the eigensolver phase sets.
 //
 // Two flags the Python does not have, both cpp/PLAN.md 5.8 and
 // cpp/OPTIMIZATION.md:
@@ -55,8 +67,10 @@
 #include <cstdlib>
 #include <cstring>
 #include <limits>
+#include <memory>
 #include <optional>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include "hicx/adjust_ops.hpp"
@@ -64,6 +78,7 @@
 #include "hicx/cool_file.hpp"
 #include "hicx/h5_file.hpp"
 #include "hicx/matrix_ops.hpp"
+#include "hicx/numpy_compat.hpp"
 #include "hicx/obsexp_ops.hpp"
 #include "hicx/resource_usage.hpp"
 #include "hicx/tool_matrix.hpp"
@@ -72,7 +87,167 @@
 
 #include "bigWig.h"
 
+extern "C" {
+// OpenBLAS's CBLAS dsyrk, the routine numpy's cblas_matrixproduct calls for
+// dot(X, X.T). The dependency prefix ships no cblas header, so it is declared
+// here; the symbol resolves from the same libopenblasp-r0.3.28.so that
+// liblapack.so points to, which is the build numpy and scipy use.
+void cblas_dsyrk(int order, int uplo, int trans, int n, int k, double alpha,
+                 const double* a, int lda, double beta, double* c, int ldc);
+}
+
 namespace {
+
+// CBLAS enumerators, as numpy passes them.
+constexpr int kCblasRowMajor = 101;
+constexpr int kCblasUpper = 121;
+constexpr int kCblasNoTrans = 111;
+
+// Runs fn(first, last) over [0, n) in `threads` contiguous chunks. Every
+// caller writes disjoint rows, so the result does not depend on the split.
+template <typename Function>
+void for_row_chunks(std::int64_t n, int threads, Function&& fn) {
+    const int workers = std::max(1, threads);
+    if (workers == 1 || n < 64) {
+        fn(std::int64_t{0}, n);
+        return;
+    }
+    std::vector<std::thread> pool;
+    pool.reserve(static_cast<std::size_t>(workers));
+    const std::int64_t chunk = (n + workers - 1) / workers;
+    for (int w = 0; w < workers; ++w) {
+        const std::int64_t first = static_cast<std::int64_t>(w) * chunk;
+        const std::int64_t last = std::min(n, first + chunk);
+        if (first >= last) {
+            break;
+        }
+        pool.emplace_back([&fn, first, last] { fn(first, last); });
+    }
+    for (std::thread& worker : pool) {
+        worker.join();
+    }
+}
+
+// np.cov(obs_exp_matrix_) evaluated the way numpy 1.26 evaluates it, to the
+// bit, which is what hicPCA.py:301 hands to scipy.linalg.eig:
+//
+//     X = array(m, dtype=float64)          elementwise, exact
+//     X -= X.mean(axis=1)[:, None]          pairwise row sums, then / n
+//     c = dot(X, X.T)                       cblas_dsyrk(RowMajor, Upper,
+//                                           NoTrans), then the upper
+//                                           triangle copied to the lower
+//     c *= true_divide(1, n - 1)            elementwise, exact
+//
+// Why bit-exact and not the sparse identity (A A^T - n m m^T) / (n - 1) of
+// covariance_of_symmetric, which agrees to 7.7e-14 relative: dgeev's column
+// order is a discontinuous function of its input's last bits on a degenerate
+// spectrum, and hicPCA selects columns by position. Measured on
+// small_test_matrix.h5 chrX under --method dist_norm --ligation_factor, whose
+// largest eigenvalue 4079.5559768 is massively repeated: the same dgeev from
+// the same OpenBLAS, pinned to one thread, puts 3977.6724988 and
+// 3891.1597454 in columns 0 and 1 on numpy's covariance, which is what the
+// Python writes, and puts 4079.5559768 in column 0 on the identity's
+// covariance, shifting everything by one. Those two columns have descending
+// ranks 169 and 179 of 4,485, so no ordering rule stated on the eigenvalues
+// reproduces the selection; only the identical matrix does.
+//
+// numpy's dsyrk result depends on the BLAS thread count (measured: np.cov of
+// that block differs in bits between OPENBLAS_NUM_THREADS=1 and 32), and this
+// runs under pin_blas_to_one_thread, so the matrix is np.cov's at one BLAS
+// thread. The Python reference runs at the default thread count; its written
+// eigenvectors agree with its own one-thread run to 1e-12 on every hicPCA
+// case, and on this chrX both covariances put the same eigenvalues in columns
+// 0 and 1 under dgeev at 1 and at 32 threads.
+//
+// `block` is consumed: it is released once the dense centred copy exists, so
+// the peak is two dense blocks (centred X and the covariance) during dsyrk,
+// the same two the eigensolver phase holds (covariance and dgeev's vectors).
+// The result is raw, NaN and infinity included, because the Pearson matrix is
+// derived from the uncleaned covariance (hicPCA.py:296).
+hicx::DenseSymmetric numpy_covariance(hicx::CsrMatrix& block, int threads) {
+    const std::int64_t n = block.rows();
+    if (n == 0) {
+        block = hicx::CsrMatrix();
+        return hicx::DenseSymmetric();
+    }
+    const std::size_t width = static_cast<std::size_t>(n);
+    std::unique_ptr<double[]> centred(new double[width * width]);
+    {
+        const std::vector<std::int64_t>& indptr = block.indptr();
+        const std::vector<std::int32_t>& indices = block.indices();
+        const std::vector<double>& data = block.data();
+        const double observations = static_cast<double>(n);
+        for_row_chunks(n, threads, [&](std::int64_t first, std::int64_t last) {
+            for (std::int64_t i = first; i < last; ++i) {
+                double* row = centred.get() + static_cast<std::size_t>(i) * width;
+                std::fill(row, row + width, 0.0);
+                const std::size_t begin = static_cast<std::size_t>(indptr[static_cast<std::size_t>(i)]);
+                const std::size_t end =
+                    static_cast<std::size_t>(indptr[static_cast<std::size_t>(i) + 1]);
+                for (std::size_t k = begin; k < end; ++k) {
+                    row[static_cast<std::size_t>(indices[k])] = data[k];
+                }
+                // _methods._mean: umr_sum over the contiguous row, which is
+                // the buffered pairwise reduction, then true_divide by n.
+                const double mean = hicx::npy::pairwise_sum(row, width) / observations;
+                for (std::size_t j = 0; j < width; ++j) {
+                    row[j] -= mean;
+                }
+            }
+        });
+    }
+    block = hicx::CsrMatrix();
+
+    // dsyrk with beta = 0 never reads its output, and the copy below writes
+    // every element of the lower triangle, so the block need not be zeroed.
+    hicx::DenseSymmetric covariance = hicx::DenseSymmetric::uninitialized(n);
+    const int order = static_cast<int>(n);
+    cblas_dsyrk(kCblasRowMajor, kCblasUpper, kCblasNoTrans, order, order, 1.0,
+                centred.get(), order, 0.0, covariance.data(), order);
+    centred.reset();
+
+    // numpy's syrk() helper copies R[i, j] into R[j, i] for j > i. Reads only
+    // the upper triangle and writes only the lower one, so the rows can be
+    // split freely.
+    for_row_chunks(n, threads, [&](std::int64_t first, std::int64_t last) {
+        for (std::int64_t i = first; i < last; ++i) {
+            double* row = covariance.row(i);
+            for (std::int64_t j = 0; j < i; ++j) {
+                row[static_cast<std::size_t>(j)] = covariance.at(j, i);
+            }
+        }
+    });
+    const double factor = 1.0 / static_cast<double>(n - 1);
+    for_row_chunks(n, threads, [&](std::int64_t first, std::int64_t last) {
+        for (std::int64_t i = first; i < last; ++i) {
+            double* row = covariance.row(i);
+            for (std::size_t j = 0; j < width; ++j) {
+                row[j] *= factor;
+            }
+        }
+    });
+    return covariance;
+}
+
+// convertNansToZeros(csr_matrix(c)).todense() followed by the same for
+// infinities (hicPCA.py:303-304). csr_matrix of a dense block keeps only the
+// entries that compare unequal to zero, so besides NaN and infinity becoming
+// 0.0 a negative zero comes back as a positive one. Zero signs can reach
+// dgeev's arithmetic, so they are normalised as well.
+void clean_covariance_like_hicpca(hicx::DenseSymmetric& covariance, int threads) {
+    const std::int64_t n = covariance.size();
+    for_row_chunks(n, threads, [&](std::int64_t first, std::int64_t last) {
+        for (std::int64_t i = first; i < last; ++i) {
+            double* row = covariance.row(i);
+            for (std::int64_t j = 0; j < n; ++j) {
+                double& value = row[static_cast<std::size_t>(j)];
+                if (!std::isfinite(value) || value == 0.0) {
+                    value = 0.0;
+                }
+            }
+        }
+    });
+}
 
 const char* const kUsage =
     "usage: hicPCA --matrix MATRIX --outputFileName OUTPUTFILENAME\n"
@@ -613,10 +788,36 @@ int main(int argc, char** argv) {
         hicx::ToolMatrix hic = hicx::ToolMatrix::load(args.matrix);
 
         if (args.ignore_masked_bins) {
-            // maskBins(nan_bins) with no restore, then setCutIntervals of the
-            // enlarged bins.
-            hicx::delete_bins(hic.data(), hic.data().nan_bins);
-            hicx::enlarge_bins(hic.data().cut_intervals);
+            if (!args.chromosomes.empty() && !hic.data().nan_bins.empty()) {
+                // Pinned reference defect, reproduced and not fixed.
+                // hicPCA.py:253-259 masks the NaN bins, replaces the bin
+                // table with enlarge_bins and only then calls
+                // keepOnlyTheseChr, whose first action (HiCMatrix.py:616) is
+                // restoreMaskedBins. That undoes both steps: the masked bins
+                // come back as empty rows and columns, the bin table comes
+                // back from orig_cut_intervals, which maskBins saved before
+                // the enlargement, and nan_bins becomes the masked set, which
+                // keepOnlyTheseChr then narrows to the kept chromosomes. So
+                // --ignoreMaskedBins is silently a no-op whenever
+                // --chromosomes is given. The net effect of that round trip
+                // is mask_and_restore_bins: masked entries dropped, shape and
+                // bin table unchanged, float64 matrix, NaN correction factors
+                // at masked bins. Measured on small_test_matrix_50kb_res.h5
+                // chrX, which has four NaN bins: the Python writes all 449
+                // bins at their original 50 kb boundaries.
+                // test_pca_ignore_masked_bins_is_a_no_op_with_chromosomes pins
+                // it.
+                const std::vector<std::int64_t> masked = hic.data().nan_bins;
+                hicx::mask_and_restore_bins(hic.data(), masked);
+            } else {
+                // Without --chromosomes nothing restores the mask: maskBins
+                // removes the bins for good and setCutIntervals installs the
+                // enlarged bins. With no NaN bins maskBins returns early,
+                // restoreMaskedBins has nothing to undo and the enlargement
+                // persists on either path, which is this branch too.
+                hicx::delete_bins(hic.data(), hic.data().nan_bins);
+                hicx::enlarge_bins(hic.data().cut_intervals);
+            }
             hic.refresh_boundaries();
         }
         if (!args.chromosomes.empty()) {
@@ -731,9 +932,10 @@ int main(int argc, char** argv) {
                 }
             }
 
-            hicx::DenseSymmetric covariance =
-                hicx::covariance_of_symmetric(block, args.threads);
-            block = hicx::CsrMatrix();  // the sparse block is no longer needed
+            // Consumes the sparse block. Bit-identical to np.cov, which is
+            // what decides the column order dgeev returns; see
+            // numpy_covariance.
+            hicx::DenseSymmetric covariance = numpy_covariance(block, args.threads);
 
             if (pearson_builder.has_value()) {
                 // np.corrcoef of the same obs/exp block, which is this
@@ -754,7 +956,7 @@ int main(int argc, char** argv) {
                 }
             }
 
-            hicx::zero_non_finite_in_place(covariance, args.threads);
+            clean_covariance_like_hicpca(covariance, args.threads);
             hicx::EigenResult eigen =
                 hicx::leading_eigenvectors(covariance, which, solver);
 

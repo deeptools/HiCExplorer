@@ -33,7 +33,7 @@
     ],
     "threads_arg": "--threads",
     "memory": {"alpha": 1.1, "beta": 3.2},
-    "notes": "The other obs/exp kernel. utilities.obs_exp_matrix_non_zero divides element by element and assigns each quotient back into a float32 array, so its output is float32 rounded value by value, while obs_exp_matrix_lieberman divides the whole array at once and comes back in float64. The two are different computations and this case is what pins the float32 one."
+    "notes": "The other obs/exp kernel. utilities.obs_exp_matrix_non_zero divides element by element and assigns each quotient back into a float32 array, so its output is float32 rounded value by value, while obs_exp_matrix_lieberman divides the whole array at once and comes back in float64. The two are different computations and this case is what pins the float32 one. It is also the case that proves the covariance handed to dgeev has to be numpy's to the bit. chrX of this block has a massively repeated largest eigenvalue, 4079.5559768, and scipy.linalg.eig returns 3977.6724988 and 3891.1597454 in columns 0 and 1, eigenvalues of descending rank 169 and 179 out of 4,485, so no rule stated on the eigenvalues reproduces hicPCA's selection. Measured with the same dgeev from the same OpenBLAS at one thread: numpy's covariance gives those two columns, while a covariance computed through the sparse identity (A A^T - n m m^T)/(n - 1), which agrees to 7.7e-14 relative, puts 4079.5559768 in column 0 and shifts the rest by one, so the C++ pca2 equalled the Python pca1 exactly and its pca1 matched nothing. The port therefore evaluates np.cov exactly as numpy does (dense centring, cblas_dsyrk, the triangle copy), at one BLAS thread. np.cov's own bits differ between OPENBLAS_NUM_THREADS=1 and 32, and eig's columns 2 and 3 of this block swap between those thread counts, but columns 0 and 1 do not, and the Python bedgraphs of every small hicPCA case agree at 1, 16 and 32 BLAS threads to 1e-12. test_pca_dist_norm_ligation_selects_eig_columns_not_the_largest_eigenvalues pins the selection."
   },
   {
     "id": "hicPCA.bedgraph.dist_norm.noLigationFactor.geneTrack.small_test_matrix",
@@ -137,7 +137,25 @@
       {"path": "{out}/pca2.bedgraph", "format": "bedgraph", "class": "ED"}
     ],
     "memory": {"alpha": 1.1, "beta": 3.2},
-    "notes": "maskBins(nan_bins) with no restore, followed by utilities.enlarge_bins, over all twelve chromosomes of the 50 kb matrix. 139 of the 2,794 bins are NaN bins and disappear, and enlarge_bins then closes the gaps they leave by moving each boundary to the middle, so the bin table in the output is not the bin table of the input."
+    "notes": "--ignoreMaskedBins together with --chromosomes, which in the Python is silently a no-op, and the port reproduces that. hicPCA.py:253-259 masks the NaN bins and replaces the bin table with utilities.enlarge_bins, and then keepOnlyTheseChr calls restoreMaskedBins as its first action (HiCMatrix.py:616), which puts the masked bins back as empty rows and columns and restores the bin table maskBins saved before the enlargement. chrX of the 50 kb matrix has four NaN bins, 100000-150000 and 21650000-21800000, and the Python writes all 449 chrX bins at their original 50 kb boundaries; a port that kept the mask wrote 445 bins with enlarged boundaries such as 50000-125000. Recorded as a pinned reference defect, by test_pca_ignore_masked_bins_is_a_no_op_with_chromosomes. The path on which the mask does persist, without --chromosomes, is hicPCA.intermediateMatrices.h5.ignoreMaskedBins.wholeGenome.small_test_matrix_50kb."
+  },
+  {
+    "id": "hicPCA.intermediateMatrices.h5.ignoreMaskedBins.wholeGenome.small_test_matrix_50kb",
+    "tool": "hicPCA",
+    "tier": 3,
+    "args": ["-m", "{data}/small_test_matrix_50kb_res.h5",
+             "-o", "{out}/pca1.bedgraph", "{out}/pca2.bedgraph",
+             "-f", "bedgraph", "--whichEigenvectors", "1", "2",
+             "--method", "lieberman", "--ignoreMaskedBins",
+             "--pearsonMatrix", "{out}/pearson.h5",
+             "--obsexpMatrix", "{out}/obsexp.h5"],
+    "outputs": [
+      {"path": "{out}/pearson.h5", "format": "h5", "class": "ED"},
+      {"path": "{out}/obsexp.h5", "format": "h5", "class": "ED"}
+    ],
+    "threads_arg": "--threads",
+    "memory": {"alpha": 1.1, "beta": 3.2},
+    "notes": "--ignoreMaskedBins without --chromosomes, the path on which the mask persists: maskBins removes the NaN bins for good and utilities.enlarge_bins moves the boundaries of their neighbours to the middle of each gap, so the bin table of both intermediate matrices is not the bin table of the input and nan_bins is empty. The intermediate matrices are what is declared because they carry that bin table and every value of the masked obs/exp and Pearson blocks, while the two bedgraphs would be compared on an arbitrary eigenvector sign on the ten chromosomes dm3_genes.bed.gz does not cover (see hicPCA.intermediateMatrices.h5.wholeGenome.small_test_matrix_50kb)."
   },
   {
     "id": "hicPCA.bigwig.lieberman.geneTrack.small_test_matrix",

@@ -679,6 +679,147 @@ def test_pca_ignore_masked_bins_full_precision():
         os.unlink(path)
 
 
+def test_pca_ignore_masked_bins_is_a_no_op_with_chromosomes():
+    """Pins a reference defect: --ignoreMaskedBins keeps no bin out with --chromosomes.
+
+    hicPCA.py:253-259 masks the NaN bins with maskBins, installs the bins of
+    utilities.enlarge_bins with setCutIntervals, and only then calls
+    keepOnlyTheseChr. keepOnlyTheseChr begins with restoreMaskedBins
+    (hicmatrix HiCMatrix.py:616), which puts the masked bins back and restores
+    the bin table maskBins saved before the enlargement. The mask and the
+    enlargement are both gone before the PCA runs; what is left is the float64
+    dtype the round trip gives the matrix, which changes the lieberman values.
+
+    chrX of small_test_matrix_50kb_res.h5 has four NaN bins, so a mask that
+    survived would remove them and move the boundaries of their neighbours.
+    Without --chromosomes the mask does survive, which is asserted as well, so
+    that this test says which of the two paths ignores the flag. Recorded
+    2026-09-13 for the C++ port, which reproduces the defect.
+    """
+    matrix = ROOT + "small_test_matrix_50kb_res.h5"
+    track = ROOT + "dm3_genes.bed.gz"
+
+    # The precondition that keeps the assertion from being vacuous.
+    hic = hm.hiCMatrix(matrix)
+    first, last = hic.getChrBinRange('chrX')
+    masked_on_chrx = sorted(tuple(hic.cut_intervals[b][1:3])
+                            for b in hic.nan_bins if first <= b < last)
+    assert masked_on_chrx == [(100000, 150000), (21650000, 21700000),
+                              (21700000, 21750000), (21750000, 21800000)]
+    original_bins = [(chrom, start, end)
+                     for chrom, start, end, _extra in hic.cut_intervals[first:last]]
+    assert len(original_bins) == 449
+
+    with_flag = _temporary_names(2, '.bedgraph')
+    without_flag = _temporary_names(2, '.bedgraph')
+    whole_genome = _temporary_names(2, '.bedgraph')
+    arguments = ("--matrix {} -f bedgraph --whichEigenvectors 1 2 "
+                 "--method lieberman --extraTrack {} ")
+    _run_pca((arguments + "--chromosomes chrX --ignoreMaskedBins "
+              "--outputFileName {} {}")
+             .format(matrix, track, with_flag[0], with_flag[1]).split())
+    _run_pca((arguments + "--chromosomes chrX --outputFileName {} {}")
+             .format(matrix, track, without_flag[0], without_flag[1]).split())
+    _run_pca((arguments + "--ignoreMaskedBins --outputFileName {} {}")
+             .format(matrix, track, whole_genome[0], whole_genome[1]).split())
+
+    # The mask leaves one trace behind. restoreMaskedBins pads the matrix with
+    # an empty float64 block, so the int64 counts of this file come back as
+    # float64, and obs_exp_matrix_lieberman casts its quotients back to the
+    # dtype of the input (utilities.py:506): truncated to integers on the
+    # plain run, kept fractional on the flagged one. The NaN bins of chrX hold
+    # no contacts, so that upcast is the only difference, and the flagged
+    # values are those of the plain pipeline on a float64 matrix.
+    hic = hm.hiCMatrix(matrix)
+    hic.keepOnlyTheseChr(['chrX'])
+    assert hic.matrix.dtype == np.int64
+    hic.matrix = hic.matrix.astype(np.float64)
+    size = hic.matrix.shape[0]
+    obs_exp = obs_exp_matrix_lieberman(hic.matrix[0:size, 0:size], size, 1)
+    covariance = np.cov(csr_matrix(obs_exp).todense())
+    covariance = convertNansToZeros(csr_matrix(covariance)).todense()
+    covariance = convertInfsToZeros(csr_matrix(covariance)).todense()
+    eigenvectors = linalg.eig(covariance)[1]
+
+    for column, (flagged, plain) in enumerate(zip(with_flag, without_flag)):
+        rows = _read_bedgraph(flagged)
+        # All 449 bins, NaN bins included, at their original boundaries.
+        assert [row[:3] for row in rows] == original_bins
+        expected = [bin_ + (float(value),) for bin_, value in
+                    zip(original_bins, eigenvectors[:, column].real)]
+        assert_bedgraph_equal(flagged, expected)
+        # And far from the plain run, so a port that dropped the upcast fails.
+        difference = np.abs(np.array([row[3] for row in rows]) -
+                            np.array([row[3] for row in _read_bedgraph(plain)]))
+        assert difference.max() > 1e-3
+
+    # Without --chromosomes the mask persists: four bins fewer on chrX, and the
+    # neighbours of 100000-150000 meet in the middle of the gap.
+    chrx_rows = [row[:3] for row in _read_bedgraph(whole_genome[0])
+                 if row[0] == 'chrX']
+    assert len(chrx_rows) == 445
+    assert ('chrX', 50000, 125000) in chrx_rows
+    assert ('chrX', 125000, 200000) in chrx_rows
+    assert ('chrX', 100000, 150000) not in chrx_rows
+
+    for path in with_flag + without_flag + whole_genome:
+        os.unlink(path)
+
+
+def test_pca_dist_norm_ligation_selects_eig_columns_not_the_largest_eigenvalues():
+    """Pins scipy.linalg.eig's column order on a degenerate spectrum.
+
+    hicPCA.py:305-318 takes columns 0 and 1 of eig without sorting. On
+    small_test_matrix.h5 chrX under --method dist_norm --ligation_factor the
+    largest eigenvalue, 4079.5559768, occurs 169 times, and eig returns
+    3977.6724988 in column 0 and 3891.1597454 in column 1: eigenvalues with
+    169 and 179 larger ones. No ordering rule on the eigenvalues yields that
+    selection, and the order is sensitive to the last bits of the matrix:
+    measured with the same dgeev, a covariance that agrees with np.cov to
+    7.7e-14 relative puts 4079.5559768 in column 0. So what hicPCA writes is
+    asserted here through the eigenvalue each written vector belongs to, its
+    Rayleigh quotient, rather than through the column index alone. Recorded
+    2026-09-13 for the C++ port.
+    """
+    matrix = ROOT + "small_test_matrix.h5"
+    blocks = dict((name, covariance) for name, _iv, _oe, _pe, covariance in
+                  _covariance_per_chromosome(matrix, ['chrX', 'chrXHet'],
+                                             'dist_norm', pLigationFactor=True))
+    covariance = blocks['chrX']
+    eigenvalues = linalg.eig(covariance)[0].real
+    largest = eigenvalues.max()
+
+    nt.assert_allclose(largest, 4079.5559768065, rtol=1e-9)
+    assert np.sum(np.abs(eigenvalues - largest) <= 1e-9 * largest) == 169
+    nt.assert_allclose(eigenvalues[0], 3977.6724988045, rtol=1e-9)
+    nt.assert_allclose(eigenvalues[1], 3891.1597454057, rtol=1e-9)
+    assert np.sum(eigenvalues > eigenvalues[0] * (1 + 1e-9)) == 169
+    assert np.sum(eigenvalues > eigenvalues[1] * (1 + 1e-9)) == 179
+
+    outputs = _temporary_names(2, '.bedgraph')
+    args = ("--matrix {} --outputFileName {} {} -f bedgraph "
+            "--whichEigenvectors 1 2 --method dist_norm --ligation_factor "
+            "--extraTrack {} --chromosomes chrX chrXHet"
+            .format(matrix, outputs[0], outputs[1],
+                    ROOT + "dm3_genes.bed.gz")).split()
+    _run_pca(args)
+
+    for path, expected in zip(outputs, (3977.6724988045, 3891.1597454057)):
+        rows = _read_bedgraph(path)
+        vector = np.array([row[3] for row in rows if row[0] == 'chrX'])
+        assert vector.size == covariance.shape[0]
+        image = covariance @ vector
+        rayleigh = float(vector @ image) / float(vector @ vector)
+        nt.assert_allclose(rayleigh, expected, rtol=1e-8,
+                           err_msg='{} is not the eigenvector of {}'
+                           .format(path, expected))
+        # An eigenvector, not a mixture that happens to have that quotient.
+        residual = np.linalg.norm(image - rayleigh * vector) / np.linalg.norm(image)
+        assert residual < 1e-8, 'residual {} for {}'.format(residual, path)
+    for path in outputs:
+        os.unlink(path)
+
+
 def test_pca_output_file_count_must_match_eigenvector_count():
     """The argument check at hicPCA.py:242-248 exits 1. Nothing tests it."""
     matrix = ROOT + "small_test_matrix_50kb_res.h5"
