@@ -25,19 +25,31 @@ evaluated in numpy exactly as fit_nbinom.fit evaluates it, at the size and prob
 that run printed (the printed 12 decimals are what every consumer reads). Then,
 over every distribution with a finite objective (see below):
 
-    spread[i] = max_r NLL[r, i] - min_r NLL[r, i]
-    T         = max_i spread[i]
-    worst[i]  = max_r NLL[r, i]
-    passes    = NLL[cpp, i] - worst[i] <= T      for every such i
+    spread[i]    = max_r NLL[r, i] - min_r NLL[r, i]
+    T_well       = max spread[i] over the distributions with three or more
+                   distinct values
+    tolerance[i] = max(spread[i], T_well)
+    worst[i]     = max_r NLL[r, i]
+    passes       = NLL[cpp, i] - worst[i] <= tolerance[i]    for every such i
 
-T is the measured run-to-run likelihood spread of the reference on this case,
-recomputed on every run of the harness from its N reference runs, never a
-chosen constant. A C++ fit that reaches a better likelihood than every
-reference run passes. The per distribution spread is not used as the
-tolerance, because where all N runs happen to stop at the same bits it is 0,
-and a fit a hundredth of a nat better than the others elsewhere would be held
-to bit identity there; how many distributions would fail that stricter rule is
-reported.
+Both spreads are measured from the case's N reference runs on every run of the
+harness, never chosen. A C++ fit that reaches a better likelihood than every
+reference run passes. T_well is a floor under each distribution's own spread,
+because where all N runs happen to stop at the same bits spread[i] is 0 and a
+fit a hundredth of a nat better than the others would otherwise be held to bit
+identity. T_well is taken from the well conditioned distributions only, so that
+one badly conditioned distribution loosens its own check and no other: on the
+one matrix edge case a single distribution with two distinct values has a
+spread of 7.98 nats, while T_well is 0.0061 (coordinator refinement,
+2026-09-13; an earlier version used the largest spread of all distributions for
+every distribution).
+
+A case without any distribution of three or more distinct values has no well
+conditioned measurement to take T_well from. T_well then falls back to the
+largest spread over all its distributions with a finite objective, which is the
+only run to run spread the reference offers for that case, and the metrics name
+the fallback. None of the four cases in cpp/scripts/cases needs it: they have
+998, 990, 396 and 449 such distributions.
 
 Degenerate distributions, and how each is handled:
 
@@ -51,15 +63,15 @@ Degenerate distributions, and how each is handled:
                   of the reference runs' printed values, which is exact
                   equality when the runs agree.
   two or fewer distinct values
-                  kept in the rule and in T, not skipped. They are where the
-                  reference is least reproducible: on the one matrix edge case
-                  a distribution of six values, two distinct, has three
-                  reference runs at size 7.2e14 (NLL -4.748) and two at size 10
-                  (NLL 3.229), a spread of 7.98 nats, which then is T for that
-                  case. Because one such distribution can dominate T, the
-                  metrics also give T recomputed without them and how many C++
-                  fits would fail against that stricter T; that figure is
-                  informational and does not decide the verdict.
+                  judged by the same rule, not skipped, but they do not
+                  contribute to T_well. They are where the reference is least
+                  reproducible: on the one matrix edge case a distribution of
+                  six values, two distinct, has three reference runs at size
+                  7.2e14 (NLL -4.748) and two at size 10 (NLL 3.229), a spread
+                  of 7.98 nats. Its own spread is its tolerance, so that
+                  bimodality loosens its check alone. The largest C++ excess
+                  over the worst reference among these distributions is
+                  reported separately from the well conditioned ones.
 
 Also reported, informational: the spread and the C++ excess separately for
 distributions with np.var(X) > np.mean(X) (fit_nbinom's own test for its moment
@@ -316,28 +328,51 @@ def chic_background_likelihood(context):
         return max(values) if values else None
 
     t_all = tolerance(rows)
-    failing = [row for row in rows if row["excess"] > t_all]
-    for row in sorted(failing, key=lambda item: -item["excess"])[:20]:
+    well = [row for row in rows if not row["few"] and row["spread"] is not None]
+    if well:
+        t_well = tolerance(well)
+        t_well_from = "distributions with three or more distinct values"
+    else:
+        t_well = t_all
+        t_well_from = ("fallback: the case has no distribution with three or more distinct "
+                       "values, so the largest spread over all distributions is used")
+    for row in rows:
+        own = row["spread"] if row["spread"] is not None else 0.0
+        row["tolerance"] = max(own, t_well)
+        row["margin"] = row["excess"] - row["tolerance"]
+    failing = [row for row in rows if row["excess"] > row["tolerance"]]
+    for row in sorted(failing, key=lambda item: -item["margin"])[:20]:
         diffs.append(f"position {row['position']}: cpp NLL {row['cpp']:.6f}, worst reference "
                      f"{row['worst']:.6f}, best {row['best']:.6f}: {row['excess']:.4g} nats "
-                     f"worse than the worst, above the measured spread T = {t_all:.4g}")
+                     f"worse than the worst, above its tolerance {row['tolerance']:.4g} "
+                     f"(own spread {row['spread']}, T_well {t_well:.4g})")
 
-    without_few = [row for row in rows if not row["few"]]
-    t_without_few = tolerance(without_few)
+    finite_margin = [row for row in rows if math.isfinite(row["margin"])]
+    tightest = max(finite_margin, key=lambda item: item["margin"]) if finite_margin else None
+    largest = max((row for row in rows if math.isfinite(row["excess"])),
+                  key=lambda item: item["excess"], default=None)
     over_rows = [row for row in rows if row["over"]]
     under_rows = [row for row in rows if not row["over"]]
     metrics = {
         "reference_runs": len(references),
         "distributions": len(positions),
         **{f"distributions_{key}": value for key, value in counts.items()},
-        "tolerance_T": t_all,
+        "distributions_three_or_more_distinct": len(well),
+        "T_well": t_well,
+        "T_well_from": t_well_from,
         "cpp_minus_worst_max": excess_max(rows),
-        "cpp_worse_than_worst_by_more_than_T": len(failing),
+        "cpp_minus_worst_max_position": largest["position"] if largest else None,
+        "cpp_minus_worst_max_tolerance": largest["tolerance"] if largest else None,
+        "cpp_minus_worst_minus_tolerance_max": tightest["margin"] if tightest else None,
+        "cpp_minus_worst_minus_tolerance_max_position":
+            tightest["position"] if tightest else None,
+        "cpp_worse_than_worst_by_more_than_tolerance": len(failing),
         "cpp_better_than_best_reference": sum(1 for row in rows if row["cpp"] < row["best"]),
         "cpp_worse_than_worst_reference": sum(1 for row in rows if row["excess"] > 0.0),
-        "informational_T_without_two_or_fewer_distinct": t_without_few,
-        "informational_cpp_above_that_T": sum(1 for row in rows
-                                              if row["excess"] > t_without_few),
+        "cpp_minus_worst_max_three_or_more_distinct": excess_max(well),
+        "cpp_minus_worst_max_two_or_fewer_distinct":
+            excess_max([row for row in rows if row["few"]]),
+        "informational_largest_spread_all_distributions": t_all,
         "informational_T_var_above_mean": tolerance(over_rows),
         "informational_T_var_at_most_mean": tolerance(under_rows),
         "informational_cpp_minus_worst_max_var_above_mean": excess_max(over_rows),
