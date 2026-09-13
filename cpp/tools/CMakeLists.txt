@@ -2,6 +2,7 @@
 # name must match a <name>.cpp in this directory and the Python tool it ports.
 
 set(HICX_TOOLS
+    hicAggregateContacts
     hicAdjustMatrix
     hicBuildMatrix
     hicBuildMatrixMicroC

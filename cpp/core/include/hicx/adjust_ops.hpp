@@ -81,6 +81,13 @@ void zero_inter_or_intra(CsrMatrix& matrix,
                          const std::vector<std::pair<std::string, BinRange>>& boundaries,
                          InterIntra mode);
 
+// hiCMatrix.keepOnlyTheseChr (HiCMatrix.py:603). Keeps the bins of the named
+// chromosomes in ascending bin order, carries the bin table, the correction
+// factors and the NaN bins along, and clears distance_counts, which the Python
+// does unconditionally at :677. Throws when a name is not in the matrix, which
+// is the ValueError of :614.
+void keep_only_chromosomes(MatrixData& data, const std::vector<std::string>& chromosomes);
+
 }  // namespace hicx
 
 #endif  // HICX_ADJUST_OPS_HPP

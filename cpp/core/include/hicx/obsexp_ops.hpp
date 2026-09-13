@@ -32,10 +32,13 @@
 //     exact zero. NaN survives, so a diagonal with zero standard deviation
 //     leaves NaN entries behind.
 //
-// Only the branch the tools actually take is implemented: maxdepth is
-// required. Without it the Python densifies the whole matrix, which no ported
-// tool asks for, and pretending to support it would mean shipping an untested
-// path.
+// Both branches of maxdepth are implemented. maxdepth=None (options.unbounded)
+// is what hicAggregateContacts takes in its `all` and `inter-chr` modes; the
+// Python then densifies a band as wide as the whole matrix for the z-score,
+// which this port walks without materialising, and for obs/exp keeps the whole
+// upper triangle. Plain obs/exp (zscore=false) adds no band at all, so only the
+// stored entries are counted, nothing is round tripped, and no depth limit is
+// applied when dividing.
 
 #ifndef HICX_OBSEXP_OPS_HPP
 #define HICX_OBSEXP_OPS_HPP
@@ -58,6 +61,8 @@ struct ObsExpOptions {
     // perchr=True processes one chromosome block at a time, which is what
     // every caller in HiCExplorer does.
     bool perchr = true;
+    // maxdepth=None. max_depth_bp is then ignored.
+    bool unbounded = false;
 };
 
 // hiCMatrix.convert_to_obs_exp_matrix. `bin_size` is hiCMatrix.getBinSize(),

@@ -21,6 +21,7 @@ add_library(hicx4core
     src/bam_file.cpp
     src/bedtools_ops.cpp
     src/bins.cpp
+    src/clustering.cpp
     src/correct_ops.cpp
     src/build_matrix.cpp
     src/chic_hdf5.cpp
@@ -39,6 +40,9 @@ add_library(hicx4core
     src/matrix_ops.cpp
     src/npz_file.cpp
     src/numpy_compat.cpp
+    src/numpy_random.cpp
+    src/numpy_sort.cpp
+    src/numpy_sort_avx512.cpp
     src/obsexp_ops.cpp
     src/reduce_matrix.cpp
     src/resource_usage.cpp
@@ -58,6 +62,27 @@ target_include_directories(hicx4core PUBLIC
 target_link_libraries(hicx4core
     PUBLIC hicx::hdf5
     PRIVATE hicx::blosc hicx::zlib hicx::hts hicx::lapack hicx_compile_options)
+
+# np.argsort's tie order on a CPU with AVX512_SKX comes from x86-simd-sort, at
+# the commit numpy 1.26.4 vendors as a submodule (numpy_sort.hpp). The header is
+# compiled into one translation unit with numpy's SKX target flags and is only
+# called after a runtime CPU check; everything else stays at the baseline.
+include(FetchContent)
+FetchContent_Declare(x86simdsort
+    GIT_REPOSITORY https://github.com/intel/x86-simd-sort.git
+    GIT_TAG 0631a88763a4a0a4c9e84d5eeb0ec5d36053730b
+    GIT_SHALLOW FALSE
+    SOURCE_SUBDIR does-not-exist)
+FetchContent_MakeAvailable(x86simdsort)
+set_source_files_properties(src/numpy_sort_avx512.cpp PROPERTIES
+    COMPILE_OPTIONS "-mavx512f;-mavx512cd;-mavx512bw;-mavx512dq;-mavx512vl;-isystem${x86simdsort_SOURCE_DIR}/src")
+
+# clustering.cpp loads OpenBLAS with dlopen on first use instead of linking it,
+# so that a tool which may cluster does not start the BLAS threads at load.
+get_filename_component(_hicx_openblas_real "${HICX_LAPACK_LIBRARY}" REALPATH)
+set_source_files_properties(src/clustering.cpp PROPERTIES
+    COMPILE_DEFINITIONS "HICX_OPENBLAS_LIBRARY=\"${_hicx_openblas_real}\"")
+target_link_libraries(hicx4core PRIVATE ${CMAKE_DL_LIBS})
 
 # transform_ops runs the covariance rows on std::thread workers.
 find_package(Threads REQUIRED)

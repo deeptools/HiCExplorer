@@ -144,8 +144,12 @@ namespace {
 // produces, without allocating the band. A position whose value plus one is
 // exactly zero is skipped, because scipy's sparse addition stores only results
 // that are not exactly zero.
+//
+// Without the band (with_band false, the obs/exp transform, where the Python
+// adds no ones) only the stored entries of the block are visited, unchanged:
+// no zeros are inserted, nothing is round tripped, and a stored -1 is kept.
 template <class Visit>
-void for_each_band_position(const CsrMatrix& matrix, bool integral,
+void for_each_band_position(const CsrMatrix& matrix, bool integral, bool with_band,
                             std::int64_t first_bin, std::int64_t local_row,
                             std::int64_t block_size, std::int64_t width,
                             Visit&& visit) {
@@ -165,6 +169,17 @@ void for_each_band_position(const CsrMatrix& matrix, bool integral,
     const std::size_t end = static_cast<std::size_t>(
         matrix.indptr()[static_cast<std::size_t>(global_row) + 1]);
     const std::int64_t band_end = std::min(local_row + width, block_size);
+
+    if (!with_band) {
+        for (std::size_t k = begin; k < end; ++k) {
+            const std::int64_t column =
+                static_cast<std::int64_t>(matrix.indices()[k]) - first_bin;
+            if (column >= local_row && column < block_size) {
+                visit(column, matrix.data()[k]);
+            }
+        }
+        return;
+    }
 
     constexpr std::int64_t kNone = std::numeric_limits<std::int64_t>::max();
     std::size_t k = begin;
@@ -213,13 +228,12 @@ void for_each_band_position(const CsrMatrix& matrix, bool integral,
 
 void convert_to_obs_exp_matrix(MatrixData& data, std::int64_t bin_size,
                                const ObsExpOptions& options) {
-    if (options.max_depth_bp <= 0.0) {
+    if (!options.unbounded && options.max_depth_bp <= 0.0) {
         throw std::runtime_error(
-            "convert_to_obs_exp_matrix requires a maxdepth; the unbounded "
-            "branch of the Python densifies the whole matrix and no ported "
-            "tool uses it");
+            "convert_to_obs_exp_matrix: a maxdepth of zero is maxdepth=None, "
+            "which has to be requested with ObsExpOptions::unbounded");
     }
-    if (options.max_depth_bp < static_cast<double>(bin_size)) {
+    if (!options.unbounded && options.max_depth_bp < static_cast<double>(bin_size)) {
         throw std::runtime_error("Please specify a maxDepth larger than bin size (" +
                                  std::to_string(bin_size) + ")");
     }
@@ -227,8 +241,14 @@ void convert_to_obs_exp_matrix(MatrixData& data, std::int64_t bin_size,
     CsrMatrix& matrix = data.matrix;
     const bool integral = matrix.integral_dtype();
     const std::int64_t n = matrix.rows();
-    const std::int64_t width = static_cast<std::int64_t>(
-        static_cast<double>(options.max_depth_bp) * 1.5 / static_cast<double>(bin_size));
+    // maxdepth=None keeps the whole upper triangle, and for the z-score adds
+    // the ones over all m_size diagonals, which is a band as wide as the
+    // matrix: nothing lies beyond it, so the same walk covers both branches.
+    const std::int64_t width =
+        options.unbounded
+            ? n + 1
+            : static_cast<std::int64_t>(static_cast<double>(options.max_depth_bp) * 1.5 /
+                                        static_cast<double>(bin_size));
 
     // Step 1: triu(m, 0) - triu(m, width). The stored entries are already the
     // upper triangle, so this keeps column - row < width, plus any NaN further
@@ -378,7 +398,7 @@ void convert_to_obs_exp_matrix(MatrixData& data, std::int64_t bin_size,
         };
         for (std::int64_t i = 0; i < block_size; ++i) {
             for_each_band_position(
-                matrix, integral, block.first, i, block_size, width,
+                matrix, integral, options.zscore, block.first, i, block_size, width,
                 [&](std::int64_t j, double value) {
                     const std::int64_t d = distance_index(i, j);
                     grow(d);
@@ -394,8 +414,11 @@ void convert_to_obs_exp_matrix(MatrixData& data, std::int64_t bin_size,
         std::vector<std::int64_t> lengths(distances, 0);
         for (std::size_t d = 0; d < distances; ++d) {
             if (d == 0) {
-                // maxdepth is always set here, so the inter-chromosomal bucket
-                // is NaN by construction (HiCMatrix.py:481-486).
+                // With maxdepth set the inter-chromosomal bucket is NaN by
+                // construction (HiCMatrix.py:481-486). Without it the Python
+                // computes it, but a per chromosome block holds no
+                // inter-chromosomal pair, so its diagonal length is zero and
+                // the mean is NaN as well.
                 continue;
             }
             std::int64_t length = 0;
@@ -422,7 +445,7 @@ void convert_to_obs_exp_matrix(MatrixData& data, std::int64_t bin_size,
             std::vector<double> deviations(offset[distances], 0.0);
             for (std::int64_t i = 0; i < block_size; ++i) {
                 for_each_band_position(
-                    matrix, integral, block.first, i, block_size, width,
+                    matrix, integral, options.zscore, block.first, i, block_size, width,
                     [&](std::int64_t j, double value) {
                         const std::size_t d =
                             static_cast<std::size_t>(distance_index(i, j));
@@ -453,11 +476,14 @@ void convert_to_obs_exp_matrix(MatrixData& data, std::int64_t bin_size,
         const std::int64_t depth_limit = width;
         for (std::int64_t i = 0; i < block_size; ++i) {
             for_each_band_position(
-                matrix, integral, block.first, i, block_size, width,
+                matrix, integral, options.zscore, block.first, i, block_size, width,
                 [&](std::int64_t j, double value) {
                     const std::size_t d = static_cast<std::size_t>(distance_index(i, j));
                     double transformed = 0.0;
-                    if (static_cast<std::int64_t>(d) <= depth_limit + 1) {
+                    // `depth` is only set on the z-score branch; plain
+                    // obs/exp divides every value (HiCMatrix.py:537).
+                    if (!options.zscore ||
+                        static_cast<std::int64_t>(d) <= depth_limit + 1) {
                         if (options.zscore) {
                             transformed = sigma[d] == 0.0
                                               ? std::numeric_limits<double>::quiet_NaN()
