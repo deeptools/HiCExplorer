@@ -942,6 +942,42 @@ Two consequences worth stating plainly:
    is therefore ED everywhere except where the reference's own noise exceeds
    `1e-3`, which so far means KR only.
 
+### 5.0.1 Provenance: v4 identifies itself as v4
+
+**Set by the project owner, 2026-09-02.** Output is byte-identical to the Python
+reference everywhere except the fields that record which program wrote the file,
+and those must honestly name HiCExplorer version 4. Reproducing `3.7.x` there
+was a side effect of chasing byte identity and is wrong: a file written by v4
+that claims to come from 3.7 misleads every later reader about which
+implementation produced it, including any bug report filed against it.
+
+The version string is `4.0.0-dev` until a release is tagged, generated once from
+`core/include/hicx/version.hpp.in` and never spelled out in a tool.
+
+Fields that carry it, all of which must be written with the v4 identity:
+
+| output | field |
+|---|---|
+| text reports | header lines such as `# Matrix information file. Created with HiCExplorer's hicInfo version ...` |
+| cool | root attributes `generated-by` and `tool-url`; `metadata` JSON keys `matrix-generated-by` and `matrix-generated-by-url` where the tool sets them |
+| HiCExplorer h5 | any producer or version attribute the writer emits |
+| QC folders | the version line in `QC.log` and the HTML report |
+| `--version` | the program's own version output |
+
+The comparators normalise exactly these fields and nothing else, the same way
+`creation-date` is already normalised for cool. The normalisation must be a list
+of named fields, never a pattern that could hide a real difference, and a case
+where a provenance field differs in anything other than the version number still
+fails. The characterization tests stay pinned to the Python output, since they
+test the reference, not v4.
+
+The same concern covers a second reproducibility defect found by the harness
+determinism mode: every HDF5 object v4 writes embeds its modification time,
+because `H5Pset_obj_track_times` is left at its default, so two runs a second
+apart differ in bytes. v4 clears it on the file, group and dataset creation
+property lists so that repeated runs are byte-identical apart from the declared
+`creation-date` attribute.
+
 ### 5.1 The classes
 
 | class | criterion | how measured |
