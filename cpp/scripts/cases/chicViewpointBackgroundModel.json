@@ -7,11 +7,15 @@
              "--referencePoints", "{data}/cHi-C/referencePoints.bed",
              "-o", "{out}/background.txt", "-t", "1"],
     "outputs": [
-      {"path": "{out}/background.txt", "format": "tsv", "class": "EN"}
+      {"path": "{out}/background.txt", "format": "chic_background_model", "class": "E0"}
+    ],
+    "validators": [
+      {"name": "chic_background_likelihood", "output": "{out}/background.txt", "class": "NLL"},
+      {"name": "chic_background_downstream", "output": "{out}/background.txt", "class": "E5"}
     ],
     "noise": {"shim": "fit_nbinom_order"},
     "threads_arg": "--threads",
-    "notes": "The case test_chicViewpointBackgroundModel.py runs: 43 reference points on both matrices, 1,001 relative positions, 86 values per distribution. Class EN (PLAN.md 5.7), with the reference envelope measured from runs whose distributions reach fit_nbinom in a different order, which is the nondeterminism the tool itself has at --threads > 1 (noise_runner.py). Every field that does not depend on the fit (the position, max value and mean value columns) is identical in every reference run, so its envelope is 0 and the port must reproduce it to 1e-12, which it does to the last printed digit. The fitted size and prob sit on a flat likelihood ridge: see the report for the measured envelope, and for the held-out reference run, which is tested against the envelope of the others exactly as the C++ output is."
+    "notes": "The case test_chicViewpointBackgroundModel.py runs: 43 reference points on both matrices, 1,001 relative positions, 86 values per distribution. Position, max value and mean value are compared at E0 and are byte identical. Size nbinom and prob nbinom are not compared as numbers (coordinator decision, 2026-09-13): class EN was withdrawn for them because the reference is not reproducible against itself. Reordering a distribution moves the fitted size by a median of 55 percent, and a held-out Python run fell outside the EN envelope of the other four runs in 66 values where the C++ fell outside in 30. They are judged by the two validators instead (validators/chic_background_model.py). Likelihood: the negative log likelihood of the C++ fit must be no worse than the worst of the 5 reference runs by more than T, the largest run to run NLL spread of the reference over the case's distributions. Measured on 2026-09-13: T = 0.0842 nats; the largest C++ excess over the worst reference is 0.0214 nats; the C++ is better than the best reference on 148 of 999 distributions; 2 distributions have an unbounded objective and match the reference's start point exactly. Downstream, class E5: the Python chicViewpoint and chicSignificantInteractions (--pValue 0.2 --xFoldBackground 1.5, dual) call 555 interactions from the Python model and the same 555 from the C++ model, Jaccard 1.000000; the control, a second Python run's model, also gives 1.000000."
   },
   {
     "id": "chicViewpointBackgroundModel.two_matrices.truncateZeros",
@@ -21,11 +25,15 @@
              "--referencePoints", "{data}/cHi-C/referencePoints.bed",
              "--truncateZeros", "-o", "{out}/background.txt", "-t", "1"],
     "outputs": [
-      {"path": "{out}/background.txt", "format": "tsv", "class": "EN"}
+      {"path": "{out}/background.txt", "format": "chic_background_model", "class": "E0"}
+    ],
+    "validators": [
+      {"name": "chic_background_likelihood", "output": "{out}/background.txt", "class": "NLL"},
+      {"name": "chic_background_downstream", "output": "{out}/background.txt", "class": "E5"}
     ],
     "noise": {"shim": "fit_nbinom_order"},
     "threads_arg": "--threads",
-    "notes": "--truncateZeros, which the Python suite runs at a tolerance of 1,000 mismatching values. It empties the distribution at +500 kb, for which the Python writes size 10, prob nan, max 0 and mean 0; the port writes the same."
+    "notes": "--truncateZeros, which the Python suite runs at a tolerance of 1,000 mismatching values. It empties the distribution at +500 kb. For that distribution the Python writes size 10, prob nan, max 0 and mean 0, and the port writes the same text, which the likelihood validator checks exactly. Position, max and mean are E0. Size and prob are judged by likelihood and downstream agreement for the reason given in the first case; under the withdrawn EN rule a held-out Python run fell outside in 74 values and the C++ in 33. Measured on 2026-09-13: T = 0.1954 nats; the largest C++ excess over the worst of 5 reference runs is 0.0917 nats; the C++ is better than the best reference on 209 of 998 distributions; 2 distributions are unbounded and match exactly. Downstream E5: 572 interactions from either model, Jaccard 1.000000, control 1.000000."
   },
   {
     "id": "chicViewpointBackgroundModel.two_matrices.fixateRange200000.averageContactBin4",
@@ -36,11 +44,15 @@
              "--fixateRange", "200000", "--averageContactBin", "4",
              "-o", "{out}/background.txt", "-t", "1"],
     "outputs": [
-      {"path": "{out}/background.txt", "format": "tsv", "class": "EN"}
+      {"path": "{out}/background.txt", "format": "chic_background_model", "class": "E0"}
+    ],
+    "validators": [
+      {"name": "chic_background_likelihood", "output": "{out}/background.txt", "class": "NLL"},
+      {"name": "chic_background_downstream", "output": "{out}/background.txt", "class": "E5"}
     ],
     "noise": {"shim": "fit_nbinom_order"},
     "threads_arg": "--threads",
-    "notes": "The two options the Python suite never varies: a 200 kb fixate range, 401 positions, and an even smoothing window, whose right border takes one more value upstream than the rest of the viewpoint does (viewpoint.py:561)."
+    "notes": "The two options the Python suite never varies: a 200 kb fixate range, 401 positions, and an even smoothing window, whose right border takes one more value upstream than the rest of the viewpoint does (viewpoint.py:561). Position, max and mean are E0. Size and prob are judged by likelihood and downstream agreement for the reason given in the first case; under the withdrawn EN rule a held-out Python run fell outside in 33 values and the C++ in 15. Measured on 2026-09-13: T = 0.0333 nats; the largest C++ excess over the worst of 5 reference runs is 0.0096 nats; the C++ is better than the best reference on 59 of 397 distributions; 4 distributions are unbounded and match exactly. Downstream E5 at --range 200000 --fixateRange 200000 --averageContactBin 4: 660 interactions from either model, Jaccard 1.000000, control 1.000000."
   },
   {
     "id": "chicViewpointBackgroundModel.one_matrix.edge_cases",
@@ -50,11 +62,15 @@
              "--referencePoints", "{data}/cHi-C/referencePoints_edge_cases.bed",
              "-o", "{out}/background.txt", "-t", "1"],
     "outputs": [
-      {"path": "{out}/background.txt", "format": "tsv", "class": "EN"}
+      {"path": "{out}/background.txt", "format": "chic_background_model", "class": "E0"}
+    ],
+    "validators": [
+      {"name": "chic_background_likelihood", "output": "{out}/background.txt", "class": "NLL"},
+      {"name": "chic_background_downstream", "output": "{out}/background.txt", "class": "E5"}
     ],
     "noise": {"shim": "fit_nbinom_order"},
     "threads_arg": "--threads",
-    "notes": "A reference point spanning four bins, whose downstream values the Python shifts by three relative positions (its data are three bins shorter than the range it zips them with), two reference points whose windows are clipped by a chromosome end, and a three column line. Seven distributions of different lengths per position."
+    "notes": "Covers a reference point spanning four bins, whose downstream values the Python shifts by three relative positions (its data is three bins shorter than the range it is zipped with). Also covers two reference points whose windows are clipped by a chromosome end, and a three column line. Seven values per distribution. Position, max and mean are E0. Size and prob are judged by likelihood and downstream agreement for the reason given in the first case; under the withdrawn EN rule a held-out Python run and the C++ both fell outside in 82 values. With 7 values per distribution, 549 of the 998 fitted distributions have two or fewer distinct values. They are kept in the rule and in T, not skipped. One of them has three reference runs at size 7.2e14 and two at size 10, an NLL spread of 7.98 nats, and that is T for this case. Measured on 2026-09-13: T = 7.976 nats. Without the distributions of two or fewer distinct values T would be 0.0061 nats, and the C++ would still pass: its largest excess over the worst of 5 reference runs is 0.0013 nats. The C++ is better than the best reference on 120 distributions; 3 are unbounded and match exactly. Downstream E5 with --combinationMode single for the one matrix: 20 interactions from either model, Jaccard 1.000000, control 1.000000."
   },
   {
     "id": "chicViewpointBackgroundModel.faulty_reference_points",

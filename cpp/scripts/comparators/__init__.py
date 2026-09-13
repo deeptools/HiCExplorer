@@ -5,7 +5,7 @@ compare(path_a, path_b, cls, opts) -> Result and registering it below.
 """
 from __future__ import annotations
 
-from . import chic_hdf5, cool, h5, interval, npz, text
+from . import chic_background, chic_hdf5, cool, h5, interval, npz, text
 from .base import CLASSES, Result, fail
 
 _REGISTRY = {
@@ -27,6 +27,9 @@ _REGISTRY = {
     # cHi-C tools; see comparators/chic_hdf5.py.
     "chic_hdf5": chic_hdf5,
     "hdf5-chic": chic_hdf5,
+    # chicViewpointBackgroundModel; the fit columns are left to
+    # validators/chic_background_model.py.
+    "chic_background_model": chic_background,
 }
 
 # Default text schema per format name, so a case can just say format: bedgraph.

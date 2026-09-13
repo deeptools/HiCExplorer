@@ -152,6 +152,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import comparators  # noqa: E402  pylint: disable=C0413
+import validators  # noqa: E402  pylint: disable=C0413
 
 HARNESS_VERSION = "1.2"
 
@@ -259,6 +260,7 @@ def load_cases(tools=None, tiers=None, ids=None):
             case.setdefault("notes", "")
             case.setdefault("threads_arg", None)
             case.setdefault("memory", {})
+            case.setdefault("validators", [])
             # A tier 0 case names its two programs instead of a tool.
             case.setdefault("py_script", None)
             case.setdefault("cpp_binary", None)
@@ -695,6 +697,10 @@ def _declared_outputs(case):
 # them; PLAN.md 5.1 already rules that field and three other provenance fields
 # non-significant, and class E1 still requires every dataset to decode to
 # identical bytes, which is what a reduction-order difference would break.
+# A comparator format that leaves some columns to a validator, and the
+# validator it therefore requires on the same output.
+REQUIRED_VALIDATOR_BY_FORMAT = {"chic_background_model": "chic_background_likelihood"}
+
 STRICTEST_CLASS_BY_FORMAT = {"cool": "E1", "mcool": "E1", "h5": "E2",
                              "chic_hdf5": "E2", "hdf5-chic": "E2"}
 
@@ -1036,7 +1042,8 @@ def run_case(case, options):
     # noise_runner.py with the case's declared noise source, if it declares
     # one. N is --noise-runs; a case cannot set its own.
     noise_dirs = []
-    if any(declared.get("class") == "EN" for declared in case["outputs"]):
+    if case.get("noise") or any(declared.get("class") == "EN"
+                                for declared in case["outputs"]):
         noise = case.get("noise") or {}
         runs = max(2, options.noise_runs)
         noise_record = {"runs": runs, "shim": noise.get("shim"), "exit_codes": []}
@@ -1096,6 +1103,44 @@ def run_case(case, options):
         entry.update(comparison.to_json())
         outputs.append(entry)
         passed = passed and comparison.passed
+
+    # Validators (cpp/scripts/validators): checks that need more than the two
+    # output files. A format that leaves columns to a validator names the one
+    # it needs, and a case that uses the format without declaring it fails, so
+    # those columns can never go unchecked.
+    declared_validators = {(entry.get("name"), entry.get("output"))
+                           for entry in case["validators"]}
+    for declared in case["outputs"]:
+        needed = REQUIRED_VALIDATOR_BY_FORMAT.get(declared.get("format"))
+        if needed and (needed, declared["path"]) not in declared_validators:
+            passed = False
+            errors.append(f"{declared['path']} uses format {declared['format']}, which "
+                          f"requires the validator {needed} on the same output")
+    for entry in case["validators"]:
+        record = {"path": entry.get("output"), "format": f"validator:{entry.get('name')}",
+                  "class": entry.get("class", "")}
+        output_name = str(entry.get("output", "")).replace("{out}/", "").replace("{out}", "")
+        if measure_py["exit_code"] != case["expect_exit"] or \
+                measure_cpp["exit_code"] != case["expect_exit"]:
+            record.update(passed=False, class_met=None, metrics={},
+                          diffs=["not run: a tool exited unexpectedly"])
+        else:
+            context = {
+                "case": case, "data": data, "output": output_name,
+                "out_py": str(out_py), "out_cpp": str(out_cpp),
+                "noise_dirs": [str(directory) for directory in noise_dirs],
+                "args_py": args_py, "args_cpp": args_cpp, "workdir": str(workdir),
+                "py_python": str(options.py_python), "env": env,
+                "repo_root": str(REPO_ROOT),
+            }
+            try:
+                validation = validators.run(entry.get("name"), context)
+                record.update(validation.to_json())
+            except Exception as error:  # pylint: disable=W0718
+                record.update(passed=False, class_met=None, metrics={},
+                              diffs=[f"validator raised {type(error).__name__}: {error}"])
+        outputs.append(record)
+        passed = passed and record["passed"]
 
     result["outputs"] = outputs
     result["class_met"] = result["class_declared"] if passed else None
