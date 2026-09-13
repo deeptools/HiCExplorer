@@ -1062,15 +1062,19 @@ now optional. The split is by cost:
   It costs nothing further and it is what makes `hicInfo` and the writers land
   at E0 instead of ED. Removing it would only lose signal.
 - **Drop the vendoring of Cephes, and drop pinning the oracle's OpenBLAS.**
-  Those existed solely to make transcendentals and LAPACK bit-reproducible.
-  A different `libm` agrees with Cephes to far better than `1e-3`, and so does
-  a different eigensolver on a well-conditioned symmetric problem. The
-  dual-mode eigensolver for `hicPCA` (`dgeev` against `dsyevr`, section 5.6)
-  is no longer needed to satisfy equivalence; `dsyevr` alone clears ED, and it
-  is also the cheaper and lower-memory path. Keep the mode flag only if
-  `hicPCA`'s unsorted eigenvector column order turns out to differ, which is a
-  correctness question about which vector is returned, not a tolerance
-  question, and no tolerance can paper over it.
+  Those existed to make transcendentals and LAPACK bit-reproducible, and a
+  different `libm` agrees with Cephes to far better than `1e-3`.
+- **Except where the result depends on the bits (revised 2026-09-13).** hicPCA
+  keeps LAPACK `dgeev` with positional column selection, as the Python does,
+  because on real data its spectrum has a largest eigenvalue occurring 169
+  times, and the column order `dgeev` returns depends on the last bits of its
+  input. Its covariance is therefore computed to equal `np.cov` bit for bit. An
+  earlier revision of this paragraph proposed `dsyevr` alone for hicPCA; that
+  selects different eigenvectors and is withdrawn. See 5.0 item 3.
+- **Use the library scipy uses.** Where scipy itself relies on a vendored
+  library, the port uses the same one: scipy 1.14 computes `betainc` with
+  Boost.Math `ibeta`, not Cephes, and Cephes differs by up to one ulp, enough to
+  turn a stored p-value of 0.0 into `1.1e-16` (`STATUS.md` F42).
 
 The one place ED does not help is a reference that is not reproducible against
 itself. See 5.0 consequence 2 and section 5.7: KR stays at EN.
