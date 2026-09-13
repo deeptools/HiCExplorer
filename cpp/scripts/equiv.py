@@ -236,6 +236,13 @@ DEFAULT_PY_PYTHON = _default_py_python()
 # The Python entry points live in bin/, one script per tool.
 PY_BIN = REPO_ROOT / "bin"
 
+# The conda prefix of cpp/AGENTS_CONTRACT.md, which also holds the external
+# programs a few tools run (graphviz's dot for hicMergeDomains). A case names
+# the directories it needs in `path_prepend`, with {deps} for this prefix, and
+# only that case's processes see them on PATH.
+HICX_DEPS = Path(os.environ.get("HICX_DEPS",
+                                "~/miniconda3/envs/__hicexplorer@3.7.6")).expanduser()
+
 
 # --------------------------------------------------------------------------
 # case loading
@@ -258,6 +265,7 @@ def load_cases(tools=None, tiers=None, ids=None):
             # A tier 0 case names its two programs instead of a tool.
             case.setdefault("py_script", None)
             case.setdefault("cpp_binary", None)
+            case.setdefault("path_prepend", [])
             cases.append(case)
     if tools:
         cases = [case for case in cases if case["tool"] in tools]
@@ -272,6 +280,24 @@ def expand(value, mapping):
     for key, replacement in mapping.items():
         value = value.replace("{" + key + "}", str(replacement))
     return value
+
+
+def case_environment(case, base=None):
+    """The environment of one case's processes.
+
+    None, meaning the harness's own environment, unless the case declares
+    `path_prepend`; then a copy with those directories in front of PATH and
+    nothing else changed. Both implementations and every determinism repeat get
+    the same one.
+    """
+    prepend = [str(Path(expand(entry, {"deps": HICX_DEPS})).expanduser())
+               for entry in case.get("path_prepend") or []]
+    if not prepend and base is None:
+        return None
+    env = dict(os.environ if base is None else base)
+    if prepend:
+        env["PATH"] = os.pathsep.join(prepend + [env.get("PATH", "")])
+    return env
 
 
 # --------------------------------------------------------------------------
@@ -685,6 +711,14 @@ def _declared_outputs(case):
     return found
 
 
+def _declared_output_class(case, name):
+    for declared in case["outputs"]:
+        path = declared["path"].replace("{out}/", "").replace("{out}", "")
+        if path == name:
+            return declared.get("class", "E0")
+    return None
+
+
 # The strictest class each format admits, used to say *what* differs when two
 # runs are not byte-identical. A cool file carries a `creation-date` attribute,
 # so two writes of the same matrix can never be byte-identical, whoever writes
@@ -783,6 +817,17 @@ def _compare_run_outputs(case, reference_dir, other_dir):
         if not left.exists():
             continue
         if filecmp.cmp(str(left), str(right), shallow=False):
+            continue
+        if _declared_output_class(case, name) == "E7":
+            # A declared deviation, whose reason is in the case notes (a pdf
+            # rendered by graphviz embeds its creation date). The structure is
+            # still checked; the bytes are not expected to repeat.
+            checked = comparators.compare(fmt, str(left), str(right), "E7", None)
+            if not checked.passed:
+                diffs.append(f"{name}: " + "; ".join(checked.diffs[:3]))
+            else:
+                qualified.append(f"{name}: declared E7, not byte-identical between "
+                                 f"runs, structure checked")
             continue
 
         offsets, truncated = _byte_differences(str(left), str(right))
@@ -903,7 +948,8 @@ def check_determinism(case, options, workdir, cpp_tool, data, reference_dir):
         argv = [expand(argument, {"data": data, "out": directory})
                 for argument in case["args"]] + list(extra_args)
         return run_measured([str(cpp_tool)] + argv, workdir,
-                            directory / "stdout.txt", directory / "stderr.txt")
+                            directory / "stdout.txt", directory / "stderr.txt",
+                            env=case_environment(case))
 
     for index in range(1, max(1, options.noise_runs)):
         repeat_dir = workdir / f"out_cpp_repeat{index}"
@@ -999,10 +1045,10 @@ def run_case(case, options):
     trace_cpp = (workdir / "rss_cpp.tsv") if case.get("large") else None
     measure_py = run_measured([str(options.py_python), str(python_tool)] + args_py,
                               workdir, out_py / "stdout.txt", out_py / "stderr.txt",
-                              env, trace_path=trace_py)
+                              case_environment(case, env), trace_path=trace_py)
     measure_cpp = run_measured([str(cpp_tool)] + args_cpp, workdir,
                                out_cpp / "stdout.txt", out_cpp / "stderr.txt",
-                               trace_path=trace_cpp)
+                               env=case_environment(case), trace_path=trace_cpp)
 
     result.update({
         "py_seconds": measure_py["seconds"],
@@ -1123,7 +1169,8 @@ def run_determinism_case(case, options):
 
     args_cpp = [expand(arg, {"data": data, "out": out_cpp}) for arg in case["args"]]
     measure = run_measured([str(cpp_tool)] + args_cpp, workdir,
-                           out_cpp / "stdout.txt", out_cpp / "stderr.txt")
+                           out_cpp / "stdout.txt", out_cpp / "stderr.txt",
+                           env=case_environment(case))
     result["cpp_seconds"] = measure["seconds"]
     result["cpp_cpu_seconds"] = measure["cpu_seconds"]
     result["cpp_peak_rss_kb"] = measure["peak_rss_kb"]

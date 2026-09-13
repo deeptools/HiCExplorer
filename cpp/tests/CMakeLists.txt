@@ -32,9 +32,11 @@ add_executable(hicx_tests
     test_build_matrix.cpp
     test_correct_math.cpp
     test_detect_loops.cpp
-    # The computational core of hicDetectLoops, so that the tests link against
-    # exactly the translation unit the tool runs.
-    ../tools/detect_loops_impl.cpp)
+    test_merge_domains.cpp
+    # The computational cores of hicDetectLoops and hicMergeDomains, so that
+    # the tests link against exactly the translation units the tools run.
+    ../tools/detect_loops_impl.cpp
+    ../tools/merge_domains_impl.cpp)
 
 target_link_libraries(hicx_tests PRIVATE hicx::core doctest_header hicx_compile_options)
 
@@ -43,6 +45,14 @@ target_compile_definitions(hicx_tests PRIVATE
     HICX_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/../../hicexplorer/test/test_data")
 
 add_test(NAME hicx_unit_tests COMMAND hicx_tests)
+
+# Command line behaviour that only the finished executables can show: refusals
+# that must leave no output behind, and hicMergeDomains' graphviz rendering.
+find_program(HICX_BASH bash REQUIRED)
+set(HICX_TEST_DATA "${CMAKE_CURRENT_SOURCE_DIR}/../../hicexplorer/test/test_data")
+add_test(NAME hicMergeDomains_cli
+         COMMAND ${HICX_BASH} "${CMAKE_CURRENT_SOURCE_DIR}/cli/hicMergeDomains_cli.sh"
+                 $<TARGET_FILE:hicMergeDomains> "${HICX_TEST_DATA}" "${HICX_DEPS_ROOT}")
 
 # Not a HiCExplorer tool: the smallest driver that exercises the tier 0 file
 # layer end to end, used by cpp/scripts/equiv.py against its Python twin

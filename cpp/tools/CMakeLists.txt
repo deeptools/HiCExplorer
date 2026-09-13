@@ -32,6 +32,11 @@ endforeach()
 add_executable(hicDetectLoops hicDetectLoops.cpp detect_loops_impl.cpp)
 target_link_libraries(hicDetectLoops PRIVATE hicx::core hicx_compile_options)
 
+# hicMergeDomains keeps its algorithm in a second translation unit for the same
+# reason: cpp/tests/test_merge_domains.cpp links against it.
+add_executable(hicMergeDomains hicMergeDomains.cpp merge_domains_impl.cpp)
+target_link_libraries(hicMergeDomains PRIVATE hicx::core hicx_compile_options)
+
 # hicPCA additionally reads and writes bigWig, through the same libBigWig that
 # pyBigWig wraps, and uses zlib directly for a gzipped BED extraTrack.
 add_executable(hicPCA hicPCA.cpp)
