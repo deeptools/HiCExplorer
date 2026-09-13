@@ -640,6 +640,10 @@ compression with zlib) and reading it is a few hundred lines. Do not shell out t
 Python. Until it is ported, `hicConvertFormat` reports "hic input not yet
 supported" and `STATUS.md` records the gap; it must not silently succeed.
 
+**Superseded 2026-09-13 by tier 9, item 9.1:** the project owner asked for native
+`.hic` reading **and writing**, in its own library like coolercpp. The reader is
+no longer a tier 4 item.
+
 ## 4. Threading and memory (memory is a v4 goal, not a side effect)
 
 Reduced peak memory is a first-class objective of v4, alongside equivalence and
@@ -1005,6 +1009,7 @@ property lists so that repeated runs are byte-identical apart from the declared
 | **E6 visual** | image comparison, RMS difference over the pixel array `<= 5` on a 0-255 scale, same dimensions | image comparator |
 | **EN within oracle noise** | the Python reference is **not reproducible against itself**; the tolerance is measured, not chosen. See 5.7 | noise-envelope comparator |
 | **E7 not equivalent** | deliberate deviation, documented | `STATUS.md` note, no automated check |
+| **EX external reference** | only for tier 9 features, which have no Python version: agreement with a named external implementation on the same real input, and, for calling tools, recovery of signal planted into a real matrix. The criterion is fixed in this plan before the feature is implemented, never after seeing results | per-feature comparator named in tier 9 |
 
 ### 5.2 Why float classes exist at all
 
@@ -1506,9 +1511,66 @@ The situation is different for each:
 | 7 | plotting (Python shell over C++ core) | 8 |
 | 8 | ML and hyperparameter search | 4 |
 | | **total** | **46 + 1 alias (`hicQC`)** |
+| 9 | beyond the Python: new features | 1 new tool, 5 extensions |
 
 Tiers 2, 6 and 7 are independent of tiers 3-5 after tier 0 lands, so up to three
 workers can proceed in parallel from that point.
+
+### Tier 9 - beyond the Python (added 2026-09-13)
+
+Features HiCExplorer 3.7 does not have, requested by the project owner. None has a
+Python oracle, so each is validated under class **EX** with the criterion stated
+here. Where part of a feature does have a Python path (for example `.hic` to
+cool through hic2cool), that part keeps its ordinary class. Memory, CPU-time and
+determinism gates apply as for every port, measured against the external
+reference implementation where no Python exists.
+
+**9.1 Native `.hic` reading and writing.** Started first, at the owner's request.
+- *Where:* its own library, `~/src/hicfilecpp`, a C++ implementation of the Juicer
+  `.hic` format with no Python or Java dependency, consumed by v4 the way
+  coolercpp is. HiCExplorer behaviour stays in v4.
+- *Scope:* read versions 8 and 9 (header, chromosomes, attributes, BP and FRAG
+  resolutions, blocks, normalisation vectors NONE, VC, VC_SQRT, KR, SCALE,
+  expected-value vectors, observed and observed/expected). Write versions 8 and
+  9 from pixels at one or many resolutions, with expected values and the
+  normalisation vectors Juicer's `pre` and `addNorm` compute. Older versions are
+  refused explicitly.
+- *v4:* `hicConvertFormat` reads `.hic` into cool, mcool, h5 and the text formats,
+  and writes `.hic` from h5, cool and mcool. Afterwards every matrix-reading
+  tool accepts a `.hic` with a resolution and normalisation selector.
+- *Validation:* `.hic` to cool against the Python `hic2cool` path, **E1/E2**.
+  Reading against `hicstraw` record by record at every resolution and
+  normalisation: pixels exact, vectors **ED**. Writing: files read back through
+  `hicstraw`, `hic2cool` and Juicer tools `dump` must give the source pixels
+  exactly, and expected and normalisation vectors **ED** against Juicer tools
+  `pre` and `addNorm` on the same input. Output bytes need not match Juicer's.
+- *Data:* `SRR1791297_30.hic` (in the repository) for cases; the 423 MB
+  `GSM6505198` and 5.3 GB `GSE63525_HMEC` files (read-only mounts) for memory
+  and time at scale. All available files are version 8.
+
+**9.2 `.pairs` input for hicBuildMatrix.** 4DN and pairtools `.pairs`, plain or
+bgzipped. *Validation:* **E2** against `cooler cload pairs` on the same file, and
+**E2** against the BAM route when the pairs file carries exactly the pairs
+hicBuildMatrix keeps from that BAM.
+
+**9.3 Stripe detection (`hicDetectStripes`).** *Validation:* planted stripes in
+real matrices recovered at a recall and precision fixed in this plan before the
+method is chosen, and agreement with Stripenn on GM12878 reported as a Jaccard
+index with the disagreeing calls examined.
+
+**9.4 SCALE normalisation in hicCorrectMatrix.** *Validation:* **ED** against the
+SCALE vector Juicer tools `addNorm` computes on the same matrix.
+
+**9.5 Multi-resolution files (coarsen, zoomify).** Delivered with coolercpp
+milestone 3. *Validation:* **E1/E2** against `cooler coarsen` and `cooler
+zoomify`.
+
+**9.6 Multiscale loop calling.** Loops called across resolutions and merged.
+*Validation:* planted loops as in 9.3, and agreement with HiCCUPS and Mustache on
+GM12878, with the criterion fixed here before implementation.
+
+Order: 9.1 now; then 9.2, 9.3, 9.4, 9.6, interleaved with the remaining
+tier 6 tools. 9.5 follows coolercpp milestone 3.
 
 ## 7. The state of the Python test suite, honestly
 
