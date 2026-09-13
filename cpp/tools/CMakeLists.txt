@@ -32,6 +32,13 @@ endforeach()
 add_executable(hicDetectLoops hicDetectLoops.cpp detect_loops_impl.cpp)
 target_link_libraries(hicDetectLoops PRIVATE hicx::core hicx_compile_options)
 
+# hicDifferentialTAD and hicInterIntraTAD cut their TAD blocks with the same
+# code, which is also what cpp/tests/test_tad_contacts.cpp links against.
+foreach(tool IN ITEMS hicDifferentialTAD hicInterIntraTAD)
+    add_executable(${tool} "${tool}.cpp" tad_contacts_impl.cpp)
+    target_link_libraries(${tool} PRIVATE hicx::core hicx_compile_options)
+endforeach()
+
 # hicPCA additionally reads and writes bigWig, through the same libBigWig that
 # pyBigWig wraps, and uses zlib directly for a gzipped BED extraTrack.
 add_executable(hicPCA hicPCA.cpp)

@@ -1,0 +1,202 @@
+[
+  {
+    "id": "hicDifferentialTAD.cool.chr1.all_all",
+    "tool": "hicDifferentialTAD",
+    "tier": 5,
+    "args": ["-tm", "{data}/hicDifferentialTAD/GSM2644945_Untreated-R1.100000_chr1.cool",
+             "-cm", "{data}/hicDifferentialTAD/GSM2644947_Auxin2days-R1.100000_chr1.cool",
+             "-td", "{data}/hicDifferentialTAD/untreated_R1_domains.bed",
+             "-m", "all", "-mr", "all", "-t", "1", "-o", "{out}/diff"],
+    "outputs": [
+      {"path": "{out}/diff_accepted.diff_tad", "format": "text", "class": "E0"},
+      {"path": "{out}/diff_rejected.diff_tad", "format": "text", "class": "E0"},
+      {"path": "{out}/diff_accepted.diff_tad", "format": "interval", "class": "E5"},
+      {"path": "{out}/diff_rejected.diff_tad", "format": "interval", "class": "E5"}
+    ],
+    "threads_arg": "--threads",
+    "notes": "The invocation of test_cool_all_single_core. 140 TADs, 11 rejected. Every file is declared twice: text E0 as the regression signal, and interval E5 so that the report carries the Jaccard index of the called set that the task asks for. The acceptance gate is ED; E0 is what is met, because the ranks, the rank sum and the cephes normal tail are reproduced operation for operation. The last TAD's left test runs on the block the stale right_boundary_index selects (tad_contacts_impl.hpp point 3), p 0.9185395091955513."
+  },
+  {
+    "id": "hicDifferentialTAD.cool.chr1.intra_all",
+    "tool": "hicDifferentialTAD",
+    "tier": 5,
+    "args": ["-tm", "{data}/hicDifferentialTAD/GSM2644945_Untreated-R1.100000_chr1.cool",
+             "-cm", "{data}/hicDifferentialTAD/GSM2644947_Auxin2days-R1.100000_chr1.cool",
+             "-td", "{data}/hicDifferentialTAD/untreated_R1_domains.bed",
+             "-m", "intra-TAD", "-mr", "all", "-t", "4", "-o", "{out}/diff"],
+    "outputs": [
+      {"path": "{out}/diff_accepted.diff_tad", "format": "text", "class": "E0"},
+      {"path": "{out}/diff_rejected.diff_tad", "format": "text", "class": "E0"},
+      {"path": "{out}/diff_accepted.diff_tad", "format": "interval", "class": "E5"},
+      {"path": "{out}/diff_rejected.diff_tad", "format": "interval", "class": "E5"}
+    ],
+    "threads_arg": "--threads",
+    "notes": "Only the intra-TAD test decides, so --modeReject has no effect. 91 of 140 rejected. --threads 4: the Python's output on the full TAD file is identical at 1, 4, 11 and 16 processes, measured 2026-09-13."
+  },
+  {
+    "id": "hicDifferentialTAD.cool.chr1.left_one",
+    "tool": "hicDifferentialTAD",
+    "tier": 5,
+    "args": ["-tm", "{data}/hicDifferentialTAD/GSM2644945_Untreated-R1.100000_chr1.cool",
+             "-cm", "{data}/hicDifferentialTAD/GSM2644947_Auxin2days-R1.100000_chr1.cool",
+             "-td", "{data}/hicDifferentialTAD/untreated_R1_domains.bed",
+             "-m", "left-inter-TAD", "-mr", "one", "-t", "1", "-o", "{out}/diff"],
+    "outputs": [
+      {"path": "{out}/diff_accepted.diff_tad", "format": "text", "class": "E0"},
+      {"path": "{out}/diff_rejected.diff_tad", "format": "text", "class": "E0"},
+      {"path": "{out}/diff_accepted.diff_tad", "format": "interval", "class": "E5"},
+      {"path": "{out}/diff_rejected.diff_tad", "format": "interval", "class": "E5"}
+    ],
+    "threads_arg": "--threads",
+    "notes": "left-inter-TAD with --modeReject one, which the original Python suite never ran (it ran left-inter-TAD with all only)."
+  },
+  {
+    "id": "hicDifferentialTAD.cool.chr1.right_all",
+    "tool": "hicDifferentialTAD",
+    "tier": 5,
+    "args": ["-tm", "{data}/hicDifferentialTAD/GSM2644945_Untreated-R1.100000_chr1.cool",
+             "-cm", "{data}/hicDifferentialTAD/GSM2644947_Auxin2days-R1.100000_chr1.cool",
+             "-td", "{data}/hicDifferentialTAD/untreated_R1_domains.bed",
+             "-m", "right-inter-TAD", "-mr", "all", "-t", "4", "-o", "{out}/diff"],
+    "outputs": [
+      {"path": "{out}/diff_accepted.diff_tad", "format": "text", "class": "E0"},
+      {"path": "{out}/diff_rejected.diff_tad", "format": "text", "class": "E0"},
+      {"path": "{out}/diff_accepted.diff_tad", "format": "interval", "class": "E5"},
+      {"path": "{out}/diff_rejected.diff_tad", "format": "interval", "class": "E5"}
+    ],
+    "threads_arg": "--threads",
+    "notes": "The right inter-TAD block on the cool path ends at the literal -1 of the region, so it drops the last bin of the next TAD; the h5 path keeps it (tad_contacts_impl.hpp point 2)."
+  },
+  {
+    "id": "hicDifferentialTAD.cool.chr1.all_one.pvalue_0.01",
+    "tool": "hicDifferentialTAD",
+    "tier": 5,
+    "args": ["-tm", "{data}/hicDifferentialTAD/GSM2644945_Untreated-R1.100000_chr1.cool",
+             "-cm", "{data}/hicDifferentialTAD/GSM2644947_Auxin2days-R1.100000_chr1.cool",
+             "-td", "{data}/hicDifferentialTAD/untreated_R1_domains.bed",
+             "-m", "all", "-mr", "one", "-p", "0.01", "-t", "2", "-o", "{out}/diff"],
+    "outputs": [
+      {"path": "{out}/diff_accepted.diff_tad", "format": "text", "class": "E0"},
+      {"path": "{out}/diff_rejected.diff_tad", "format": "text", "class": "E0"},
+      {"path": "{out}/diff_accepted.diff_tad", "format": "interval", "class": "E5"},
+      {"path": "{out}/diff_rejected.diff_tad", "format": "interval", "class": "E5"}
+    ],
+    "threads_arg": "--threads",
+    "notes": "--pValue varied from its default for the first time; the header line repeats it as repr(float). 82 of 140 rejected. The one case of the corpus with a p-value within 1 % of its threshold: 0.010074561112534944, the left inter-TAD test of chr1:148600000, 0.75 % above 0.01, so that test does not reject (the row is rejected by another of its tests under --modeReject one). No p-value sits exactly on a threshold in any run."
+  },
+  {
+    "id": "hicDifferentialTAD.cool.chr1_chr2.all_all",
+    "tool": "hicDifferentialTAD",
+    "tier": 5,
+    "args": ["-tm", "{data}/hicDifferentialTAD/GSM2644945_Untreated-R1.100000_chr1_chr2.cool",
+             "-cm", "{data}/hicDifferentialTAD/GSM2644947_Auxin2days-R1.100000_chr1_chr2.cool",
+             "-td", "{data}/hicDifferentialTAD/untreated_R1_domains_chr1_chr2.bed",
+             "-m", "all", "-mr", "all", "-t", "4", "-o", "{out}/diff"],
+    "outputs": [
+      {"path": "{out}/diff_accepted.diff_tad", "format": "text", "class": "E0"},
+      {"path": "{out}/diff_rejected.diff_tad", "format": "text", "class": "E0"},
+      {"path": "{out}/diff_accepted.diff_tad", "format": "interval", "class": "E5"},
+      {"path": "{out}/diff_rejected.diff_tad", "format": "interval", "class": "E5"}
+    ],
+    "threads_arg": "--threads",
+    "notes": "Two chromosomes, 225 TADs, the largest input of the corpus for this tool (4,208,340 stored pixels in the control). The original test compared this at delta=2; it matches the master exactly."
+  },
+  {
+    "id": "hicDifferentialTAD.h5.chr1.all_one",
+    "tool": "hicDifferentialTAD",
+    "tier": 5,
+    "args": ["-tm", "{data}/hicDifferentialTAD/GSM2644945_Untreated-R1.100000_chr1.h5",
+             "-cm", "{data}/hicDifferentialTAD/GSM2644947_Auxin2days-R1.100000_chr1.h5",
+             "-td", "{data}/hicDifferentialTAD/untreated_R1_domains.bed",
+             "-m", "all", "-mr", "one", "-t", "1", "-o", "{out}/diff"],
+    "outputs": [
+      {"path": "{out}/diff_accepted.diff_tad", "format": "text", "class": "E0"},
+      {"path": "{out}/diff_rejected.diff_tad", "format": "text", "class": "E0"},
+      {"path": "{out}/diff_accepted.diff_tad", "format": "interval", "class": "E5"},
+      {"path": "{out}/diff_rejected.diff_tad", "format": "interval", "class": "E5"}
+    ],
+    "threads_arg": "--threads",
+    "notes": "The whole-matrix h5 path. Its blocks differ from the cool path's (the right block keeps the next TAD's last bin) and the last TAD's left test is NaN, because the stale absolute index gives a block with no columns."
+  },
+  {
+    "id": "hicDifferentialTAD.h5.chr1.left_one",
+    "tool": "hicDifferentialTAD",
+    "tier": 5,
+    "args": ["-tm", "{data}/hicDifferentialTAD/GSM2644945_Untreated-R1.100000_chr1.h5",
+             "-cm", "{data}/hicDifferentialTAD/GSM2644947_Auxin2days-R1.100000_chr1.h5",
+             "-td", "{data}/hicDifferentialTAD/untreated_R1_domains.bed",
+             "-m", "left-inter-TAD", "-mr", "one", "-t", "3", "-o", "{out}/diff"],
+    "outputs": [
+      {"path": "{out}/diff_accepted.diff_tad", "format": "text", "class": "E0"},
+      {"path": "{out}/diff_rejected.diff_tad", "format": "text", "class": "E0"},
+      {"path": "{out}/diff_accepted.diff_tad", "format": "interval", "class": "E5"},
+      {"path": "{out}/diff_rejected.diff_tad", "format": "interval", "class": "E5"}
+    ],
+    "threads_arg": "--threads",
+    "notes": "h5 with a mode other than all, which the original suite never ran."
+  },
+  {
+    "id": "hicDifferentialTAD.cool.chr1.four_tads",
+    "tool": "hicDifferentialTAD",
+    "tier": 5,
+    "args": ["-tm", "{data}/hicDifferentialTAD/GSM2644945_Untreated-R1.100000_chr1.cool",
+             "-cm", "{data}/hicDifferentialTAD/GSM2644947_Auxin2days-R1.100000_chr1.cool",
+             "-td", "{data}/hicDifferentialTAD/domains_chr1_4.bed",
+             "-m", "all", "-mr", "one", "-t", "1", "-o", "{out}/diff"],
+    "outputs": [
+      {"path": "{out}/diff_accepted.diff_tad", "format": "text", "class": "E0"},
+      {"path": "{out}/diff_rejected.diff_tad", "format": "text", "class": "E0"},
+      {"path": "{out}/diff_accepted.diff_tad", "format": "interval", "class": "E5"},
+      {"path": "{out}/diff_rejected.diff_tad", "format": "interval", "class": "E5"}
+    ],
+    "threads_arg": "--threads",
+    "notes": "The first four real TADs of chr1. Compared at --threads 1 on purpose: at --threads 4 the Python gives each process exactly one TAD and the last TAD loses its left test (p 0.8706579826550646 becomes nan), a defect of its partitioning pinned by test_threads_one_tad_per_thread_loses_last_left_test. The port is thread count invariant and reproduces --threads 1."
+  },
+  {
+    "id": "hicDifferentialTAD.cool.chr1_chr2.small_chromosome_first",
+    "tool": "hicDifferentialTAD",
+    "tier": 5,
+    "args": ["-tm", "{data}/hicDifferentialTAD/GSM2644945_Untreated-R1.100000_chr1_chr2.cool",
+             "-cm", "{data}/hicDifferentialTAD/GSM2644947_Auxin2days-R1.100000_chr1_chr2.cool",
+             "-td", "{data}/hicDifferentialTAD/domains_chr1_3_chr2_10.bed",
+             "-m", "all", "-mr", "one", "-t", "1", "-o", "{out}/diff"],
+    "outputs": [
+      {"path": "{out}/diff_accepted.diff_tad", "format": "text", "class": "E0"},
+      {"path": "{out}/diff_rejected.diff_tad", "format": "text", "class": "E0"},
+      {"path": "{out}/diff_accepted.diff_tad", "format": "interval", "class": "E5"},
+      {"path": "{out}/diff_rejected.diff_tad", "format": "interval", "class": "E5"}
+    ],
+    "threads_arg": "--threads",
+    "notes": "3 chr1 TADs, then 10 chr2 TADs. Compared at --threads 1 on purpose: at --threads 4 the Python drops chr2's last TAD (13 rows become 12), pinned by test_threads_small_chromosome_first_drops_last_tad. Includes a chromosome with exactly three TADs, so the i - 1 > 0 guard of the last TAD is on its boundary."
+  },
+  {
+    "id": "hicDifferentialTAD.cool.chr1_chr2.small_chromosome_last",
+    "tool": "hicDifferentialTAD",
+    "tier": 5,
+    "args": ["-tm", "{data}/hicDifferentialTAD/GSM2644945_Untreated-R1.100000_chr1_chr2.cool",
+             "-cm", "{data}/hicDifferentialTAD/GSM2644947_Auxin2days-R1.100000_chr1_chr2.cool",
+             "-td", "{data}/hicDifferentialTAD/domains_chr1_10_chr2_3.bed",
+             "-m", "all", "-mr", "one", "-t", "1", "-o", "{out}/diff"],
+    "outputs": [
+      {"path": "{out}/diff_accepted.diff_tad", "format": "text", "class": "E0"},
+      {"path": "{out}/diff_rejected.diff_tad", "format": "text", "class": "E0"},
+      {"path": "{out}/diff_accepted.diff_tad", "format": "interval", "class": "E5"},
+      {"path": "{out}/diff_rejected.diff_tad", "format": "interval", "class": "E5"}
+    ],
+    "threads_arg": "--threads",
+    "notes": "10 chr1 TADs, then 3 chr2 TADs. Compared at --threads 1 on purpose: at --threads 4 the Python writes eight chr1 rows a second time from stale result slots (13 rows become 21), pinned by test_threads_small_chromosome_last_duplicates_rows."
+  },
+  {
+    "id": "hicDifferentialTAD.error.mixed_formats",
+    "tool": "hicDifferentialTAD",
+    "tier": 5,
+    "args": ["-tm", "{data}/hicDifferentialTAD/GSM2644945_Untreated-R1.100000_chr1.cool",
+             "-cm", "{data}/hicDifferentialTAD/GSM2644947_Auxin2days-R1.100000_chr1.h5",
+             "-td", "{data}/hicDifferentialTAD/untreated_R1_domains.bed",
+             "-t", "1", "-o", "{out}/diff"],
+    "outputs": [],
+    "expect_exit": 1,
+    "memory": {"budget_mb": 64},
+    "notes": "A cool target with an h5 control: 'Matrices are not given in the same format!' and exit status 1, with nothing written, before any matrix is loaded."
+  }
+]

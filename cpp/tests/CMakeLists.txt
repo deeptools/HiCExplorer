@@ -32,9 +32,12 @@ add_executable(hicx_tests
     test_build_matrix.cpp
     test_correct_math.cpp
     test_detect_loops.cpp
-    # The computational core of hicDetectLoops, so that the tests link against
-    # exactly the translation unit the tool runs.
-    ../tools/detect_loops_impl.cpp)
+    test_tad_contacts.cpp
+    # The computational cores of hicDetectLoops and of the two TAD statistics
+    # tools, so that the tests link against exactly the translation units the
+    # tools run.
+    ../tools/detect_loops_impl.cpp
+    ../tools/tad_contacts_impl.cpp)
 
 target_link_libraries(hicx_tests PRIVATE hicx::core doctest_header hicx_compile_options)
 
@@ -43,6 +46,21 @@ target_compile_definitions(hicx_tests PRIVATE
     HICX_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/../../hicexplorer/test/test_data")
 
 add_test(NAME hicx_unit_tests COMMAND hicx_tests)
+
+# hicInterIntraTAD cannot draw its matplotlib ratio plot. When the user names
+# the plot file explicitly it must exit non-zero before writing anything,
+# neither the plot nor the table, and leave its working directory empty.
+set(_refusal_dir "${CMAKE_CURRENT_BINARY_DIR}/hicInterIntraTAD_refuses_ratio_plot")
+set(_refusal_data "${CMAKE_CURRENT_SOURCE_DIR}/../../hicexplorer/test/test_data")
+foreach(_option IN ITEMS --outFileNameRatioPlot -op)
+    add_test(NAME hicInterIntraTAD_refuses_ratio_plot${_option}
+        COMMAND ${CMAKE_COMMAND}
+            "-DTOOL=$<TARGET_FILE:hicInterIntraTAD>"
+            "-DWORKDIR=${_refusal_dir}${_option}"
+            "-DARGS=-m;${_refusal_data}/hicInterIntraTAD/GSM2644947_Auxin2days-R1.100000_chr1_chr2.cool;--tadDomains;${_refusal_data}/hicInterIntraTAD/untreated_R1_domains_chr1_chr2.bed;${_option};${_refusal_dir}${_option}/ratio.png;-o;${_refusal_dir}${_option}/table.txt"
+            "-DMUST_NOT_EXIST=${_refusal_dir}${_option}/ratio.png;${_refusal_dir}${_option}/table.txt"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/refuses_unavailable_output.cmake")
+endforeach()
 
 # Not a HiCExplorer tool: the smallest driver that exercises the tier 0 file
 # layer end to end, used by cpp/scripts/equiv.py against its Python twin
