@@ -59,6 +59,12 @@ class ToolMatrix {
     [[nodiscard]] const std::vector<CutInterval>& cut_intervals() const noexcept {
         return data_.cut_intervals;
     }
+    // Which writer save() will use. hiCMatrix reuses the file handler built
+    // during the load, so this is a property of the input, not of the output
+    // name. A caller that needs to write the result some other way, as
+    // hicTransform does for its streamed dense output, has to ask.
+    [[nodiscard]] bool input_is_h5() const noexcept { return input_is_h5_; }
+
     // chrBinBoundaries, the ordered mapping the tools compare between inputs.
     [[nodiscard]] const std::vector<std::pair<std::string, BinRange>>& boundaries()
         const noexcept {

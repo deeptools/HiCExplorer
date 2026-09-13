@@ -26,10 +26,15 @@ add_executable(hicx_tests
     test_adjust_ops.cpp
     test_stats_ops.cpp
     test_text_formats.cpp
+    test_tier2_support.cpp
     test_transform_ops.cpp
     test_writers.cpp
     test_build_matrix.cpp
-    test_correct_math.cpp)
+    test_correct_math.cpp
+    test_detect_loops.cpp
+    # The computational core of hicDetectLoops, so that the tests link against
+    # exactly the translation unit the tool runs.
+    ../tools/detect_loops_impl.cpp)
 
 target_link_libraries(hicx_tests PRIVATE hicx::core doctest_header hicx_compile_options)
 

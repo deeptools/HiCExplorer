@@ -820,6 +820,208 @@ EigenResult eigenvectors_dsyevr(DenseSymmetric& covariance, const std::vector<in
 
 }  // namespace
 
+// ---------------------------------------------------------------------------
+// DenseCorrelationRows
+
+DenseCorrelationRows::DenseCorrelationRows(const CsrMatrix& matrix,
+                                           std::vector<BinRange> blocks, Kind kind,
+                                           int threads)
+    : matrix_(&matrix), n_(matrix.rows()), kind_(kind), blocks_(std::move(blocks)) {
+    require_full_square(matrix, "DenseCorrelationRows");
+
+    block_of_bin_.assign(static_cast<std::size_t>(n_), -1);
+    for (std::size_t b = 0; b < blocks_.size(); ++b) {
+        const BinRange& range = blocks_[b];
+        if (range.first < 0 || range.last > n_ || range.first > range.last) {
+            throw std::runtime_error("DenseCorrelationRows: block out of range");
+        }
+        if (range.last - range.first == 1) {
+            // np.cov of a single observation returns a zero dimensional array,
+            // and hicTransform.py:243 then calls len() on its .data, which
+            // raises "0-dim memory has no length". A one bin chromosome
+            // therefore aborts the Python tool with a TypeError rather than
+            // producing a file. No matrix in the corpus has one (the smallest
+            // is chrM of small_test_matrix.cool at four bins), so this is a
+            // latent defect of the reference, reported rather than imitated:
+            // the port fails with a message instead of a traceback.
+            throw std::runtime_error(
+                "a chromosome with a single bin has no covariance; the Python "
+                "reference aborts here with a TypeError from len() on a zero "
+                "dimensional np.cov result (hicTransform.py:243)");
+        }
+        for (std::int64_t bin = range.first; bin < range.last; ++bin) {
+            block_of_bin_[static_cast<std::size_t>(bin)] = static_cast<std::int32_t>(b);
+        }
+    }
+
+    // m = A.mean(axis=1) over the row's own block. The sums go through numpy's
+    // pairwise reduction, as covariance_of_symmetric's do, so that the means
+    // match the dense ones to the last bits the sparse layout allows.
+    const std::vector<std::int64_t>& indptr = matrix.indptr();
+    const std::vector<std::int32_t>& indices = matrix.indices();
+    const std::vector<double>& data = matrix.data();
+    means_.assign(static_cast<std::size_t>(n_), 0.0);
+    for (const BinRange& range : blocks_) {
+        const std::int64_t nb = range.last - range.first;
+        if (nb <= 0) {
+            continue;
+        }
+        const double dnb = static_cast<double>(nb);
+        for (std::int64_t i = range.first; i < range.last; ++i) {
+            const std::size_t begin =
+                static_cast<std::size_t>(indptr[static_cast<std::size_t>(i)]);
+            const std::size_t end =
+                static_cast<std::size_t>(indptr[static_cast<std::size_t>(i) + 1]);
+            // The stored entries of row i whose column is inside the block.
+            // The column indices of a CSR row ascend, so that is one
+            // contiguous run and the row of the block submatrix is a view of
+            // it rather than a copy.
+            const std::size_t block_begin = static_cast<std::size_t>(
+                std::lower_bound(indices.begin() + static_cast<std::ptrdiff_t>(begin),
+                                 indices.begin() + static_cast<std::ptrdiff_t>(end),
+                                 static_cast<std::int32_t>(range.first)) -
+                indices.begin());
+            const std::size_t block_end = static_cast<std::size_t>(
+                std::lower_bound(indices.begin() + static_cast<std::ptrdiff_t>(block_begin),
+                                 indices.begin() + static_cast<std::ptrdiff_t>(end),
+                                 static_cast<std::int32_t>(range.last)) -
+                indices.begin());
+            means_[static_cast<std::size_t>(i)] =
+                npy::pairwise_sum(data.data() + block_begin, block_end - block_begin) / dnb;
+        }
+    }
+
+    if (kind_ != Kind::Pearson) {
+        return;
+    }
+    // sqrt(diag(cov)), taken from the covariance rows themselves. See the
+    // header for why the O(nnz) shortcut was rejected: element i of row i does
+    // not go through the same rounding as the shortcut unless the lane count
+    // of the dispatched SIMD path is known.
+    scaling_.assign(static_cast<std::size_t>(n_), 0.0);
+    const int workers = std::max(1, threads);
+    const auto diagonal_pass = [&](std::int64_t first, std::int64_t last) {
+        std::vector<double> row(static_cast<std::size_t>(n_));
+        for (std::int64_t i = first; i < last; ++i) {
+            fill_covariance_row(i, row.data());
+            scaling_[static_cast<std::size_t>(i)] =
+                std::sqrt(row[static_cast<std::size_t>(i)]);
+        }
+    };
+    if (workers == 1 || n_ < 64) {
+        diagonal_pass(0, n_);
+    } else {
+        std::vector<std::thread> pool;
+        pool.reserve(static_cast<std::size_t>(workers));
+        const std::int64_t chunk = (n_ + workers - 1) / workers;
+        for (int w = 0; w < workers; ++w) {
+            const std::int64_t first = static_cast<std::int64_t>(w) * chunk;
+            const std::int64_t last = std::min(n_, first + chunk);
+            if (first >= last) {
+                break;
+            }
+            pool.emplace_back(diagonal_pass, first, last);
+        }
+        for (std::thread& worker : pool) {
+            worker.join();
+        }
+    }
+}
+
+void DenseCorrelationRows::fill_covariance_row(std::int64_t i, double* out) const {
+    std::memset(out, 0, static_cast<std::size_t>(n_) * sizeof(double));
+    const std::int32_t block = block_of_bin_[static_cast<std::size_t>(i)];
+    if (block < 0) {
+        return;
+    }
+    const BinRange& range = blocks_[static_cast<std::size_t>(block)];
+    const std::int64_t nb = range.last - range.first;
+    const double dnb = static_cast<double>(nb);
+    const double inverse = 1.0 / (dnb - 1.0);
+
+    const std::vector<std::int64_t>& indptr = matrix_->indptr();
+    const std::vector<std::int32_t>& indices = matrix_->indices();
+    const std::vector<double>& data = matrix_->data();
+
+    double* accumulator = out + range.first;
+    const std::size_t begin = static_cast<std::size_t>(indptr[static_cast<std::size_t>(i)]);
+    const std::size_t end = static_cast<std::size_t>(indptr[static_cast<std::size_t>(i) + 1]);
+    const bool whole_matrix = range.first == 0 && range.last == n_;
+    for (std::size_t k = begin; k < end; ++k) {
+        const std::int64_t middle = indices[k];
+        if (!whole_matrix) {
+            if (middle < range.first) {
+                continue;
+            }
+            if (middle >= range.last) {
+                break;  // the columns ascend, so nothing further is in the block
+            }
+        }
+        const double a = data[k];
+        if (a == 0.0) {
+            continue;
+        }
+        const std::size_t inner_begin =
+            static_cast<std::size_t>(indptr[static_cast<std::size_t>(middle)]);
+        const std::size_t inner_end =
+            static_cast<std::size_t>(indptr[static_cast<std::size_t>(middle) + 1]);
+        if (whole_matrix) {
+            // The one block covers every column, so the two bounds tests are
+            // known false and the inner loop is the flat form of
+            // cpp/OPTIMIZATION.md section 5. Measured on Li_et_al_2015.h5, see
+            // the header of hicTransform.cpp.
+            const std::int32_t* __restrict inner_cols = indices.data() + inner_begin;
+            const double* __restrict inner_vals = data.data() + inner_begin;
+            const std::size_t count = inner_end - inner_begin;
+            for (std::size_t t = 0; t < count; ++t) {
+                accumulator[inner_cols[t]] += a * inner_vals[t];
+            }
+            continue;
+        }
+        for (std::size_t t = inner_begin; t < inner_end; ++t) {
+            const std::int64_t column = indices[t];
+            if (column < range.first) {
+                continue;
+            }
+            if (column >= range.last) {
+                break;
+            }
+            accumulator[column - range.first] += a * data[t];
+        }
+    }
+
+    covariance_row_finalise(accumulator, accumulator, means_.data() + range.first,
+                            means_[static_cast<std::size_t>(i)], dnb, inverse,
+                            static_cast<std::size_t>(nb));
+}
+
+void DenseCorrelationRows::fill_row(std::int64_t i, double* out) const {
+    fill_covariance_row(i, out);
+    if (kind_ != Kind::Pearson) {
+        return;
+    }
+    const std::int32_t block = block_of_bin_[static_cast<std::size_t>(i)];
+    if (block < 0) {
+        return;
+    }
+    const BinRange& range = blocks_[static_cast<std::size_t>(block)];
+    // numpy.corrcoef divides twice, by d[:, None] and then by d[None, :], and
+    // clips into [-1, 1]. Reproduced literally; see pearson_row.
+    const double di = scaling_[static_cast<std::size_t>(i)];
+    for (std::int64_t j = range.first; j < range.last; ++j) {
+        double value = out[j] / di;
+        value = value / scaling_[static_cast<std::size_t>(j)];
+        if (value < -1.0) {
+            value = -1.0;
+        } else if (value > 1.0) {
+            value = 1.0;
+        }
+        // np.clip leaves a NaN alone; convertNansToZeros then maps it to zero,
+        // and no infinity can survive the clip.
+        out[j] = std::isnan(value) ? 0.0 : value;
+    }
+}
+
 void pin_blas_to_one_thread() {
     if (openblas_set_num_threads != nullptr) {
         openblas_set_num_threads(1);

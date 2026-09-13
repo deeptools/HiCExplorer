@@ -5,7 +5,7 @@ compare(path_a, path_b, cls, opts) -> Result and registering it below.
 """
 from __future__ import annotations
 
-from . import cool, h5, text
+from . import cool, h5, interval, npz, text
 from .base import CLASSES, Result, fail
 
 _REGISTRY = {
@@ -18,6 +18,11 @@ _REGISTRY = {
     "cool": cool,
     "mcool": cool,
     "h5": h5,
+    # Set agreement over called regions, for a tool whose reference breaks a
+    # tie non-reproducibly; see comparators/interval.py.
+    "interval": interval,
+    # scipy.sparse .npz, for hicAverageRegions; see comparators/npz.py.
+    "npz": npz,
 }
 
 # Default text schema per format name, so a case can just say format: bedgraph.

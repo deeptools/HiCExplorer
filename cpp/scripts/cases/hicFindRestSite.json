@@ -1,0 +1,65 @@
+[
+  {
+    "id": "hicFindRestSite.fasta.hindIII",
+    "tool": "hicFindRestSite",
+    "tier": 2,
+    "args": ["-f", "{data}/hicFindRestSite/dm3_chrM.fasta", "-p", "AAGCTT",
+             "-o", "{out}/sites.bed"],
+    "outputs": [{"path": "{out}/sites.bed", "format": "plain", "class": "E0"}],
+    "notes": "The plain FASTA reader and a palindromic pattern, so the reverse strand branch is not taken and the four sites of dm3 chrM come out on the plus strand."
+  },
+  {
+    "id": "hicFindRestSite.fastagz.hindIII",
+    "tool": "hicFindRestSite",
+    "tier": 2,
+    "args": ["-f", "{data}/hicFindRestSite/dm3_chrM.fasta.gz", "-p", "AAGCTT",
+             "-o", "{out}/sites.bed"],
+    "outputs": [{"path": "{out}/sites.bed", "format": "plain", "class": "E0"}],
+    "notes": "The gzip reader. Which of the two runs is decided from the file name alone, through mimetypes.guess_type, and never from the file's magic bytes."
+  },
+  {
+    "id": "hicFindRestSite.fasta.two_patterns",
+    "tool": "hicFindRestSite",
+    "tier": 2,
+    "args": ["-f", "{data}/hicFindRestSite/dm3_chrM.fasta", "-p", "AAGCTT", "GATC",
+             "-o", "{out}/sites.bed"],
+    "outputs": [{"path": "{out}/sites.bed", "format": "plain", "class": "E0"}],
+    "notes": "Two patterns, the master hindIII_DpnII.bed. The FASTA is reopened once per pattern, so the temporary file holds all AAGCTT sites before all GATC sites, and that order is what decides the survivor of a key collision."
+  },
+  {
+    "id": "hicFindRestSite.fastagz.two_patterns",
+    "tool": "hicFindRestSite",
+    "tier": 2,
+    "args": ["-f", "{data}/hicFindRestSite/dm3_chrM.fasta.gz", "-p", "AAGCTT", "GATC",
+             "-o", "{out}/sites.bed"],
+    "outputs": [{"path": "{out}/sites.bed", "format": "plain", "class": "E0"}],
+    "notes": "The same through the gzip reader."
+  },
+  {
+    "id": "hicFindRestSite.fasta.non_palindromic_regex",
+    "tool": "hicFindRestSite",
+    "tier": 2,
+    "args": ["-f", "{data}/hicFindRestSite/dm3_chrM.fasta", "-p", "CG.AG",
+             "-o", "{out}/sites.bed"],
+    "outputs": [{"path": "{out}/sites.bed", "format": "plain", "class": "E0"}],
+    "notes": "The pattern from the tool's own doctest, and the only case in the suite that reaches the reverse-strand branch: CG.AG is a regular expression and its reverse complement CT.CG is a different string, so four of the nine sites carry a minus strand. It also pins the reverse complement of a pattern that is not a sequence, since '.' has to pass through the IUPAC table unchanged."
+  },
+  {
+    "id": "hicFindRestSite.fasta.key_collision_first_pattern_wins",
+    "tool": "hicFindRestSite",
+    "tier": 2,
+    "args": ["-f", "{data}/hicFindRestSite/dm3_chrM.fasta", "-p", "AAGCTT", "AAGC",
+             "-o", "{out}/sites.bed"],
+    "outputs": [{"path": "{out}/sites.bed", "format": "plain", "class": "E0"}],
+    "notes": "AAGCTT begins with AAGC, so each of the four AAGCTT sites shares a chromosome and a start with an AAGC site. `sort -u` de-duplicates on the key alone, so one of each pair survives, and GNU sort's stable merge with the last-resort comparison disabled keeps the first in the temporary file, that is the AAGCTT one. 74 sites, four of them six bases wide."
+  },
+  {
+    "id": "hicFindRestSite.fasta.key_collision_reversed_pattern_order",
+    "tool": "hicFindRestSite",
+    "tier": 2,
+    "args": ["-f", "{data}/hicFindRestSite/dm3_chrM.fasta", "-p", "AAGC", "AAGCTT",
+             "-o", "{out}/sites.bed"],
+    "outputs": [{"path": "{out}/sites.bed", "format": "plain", "class": "E0"}],
+    "notes": "The same two patterns in the other order. Still 74 sites, but now the four collisions keep the four base AAGC site. The pair of cases is the only way to see that the de-duplication is stable rather than arbitrary."
+  }
+]

@@ -17,8 +17,8 @@
 //
 //   hicFindTADs           ranksums, benjamini_hochberg_cutoff,
 //                         bonferroni_in_place
-//   hicDetectLoops        ranksums (its Wilcoxon preselection), fit_nbinom and
-//                         nbinom_sf for the p-value of a candidate loop
+//   hicDetectLoops        ranksums (its donut tests), fit_nbinom, betainc and
+//                         nbinom_sf for the per distance preselection p-value
 //   chicViewpointBackgroundModel, chicViewpoint, chicSignificantInteractions
 //                         fit_nbinom over the per distance distributions
 //   hicDifferentialTAD    ranksums
@@ -170,11 +170,71 @@ struct NBinomFit {
 // objective and optimiser settings the Python package uses.
 [[nodiscard]] NBinomFit fit_nbinom(std::span<const double> data);
 
-// Still missing for hicDetectLoops and the cHi-C background model, and left
-// out deliberately rather than stubbed: the negative binomial survival
-// function needs the regularised incomplete beta function (cephes incbet),
-// which nothing ported so far calls. It belongs next to gammaln and digamma in
-// this file when that tool lands.
+// The precision the objective is evaluated in, which is **not** a detail.
+//
+// fit_nbinom.fit is handed the `.data` array of a scipy matrix, so its dtype
+// is whatever the caller's matrix holds. Under numpy's value based promotion
+// (1.26, which the reference environment pins) a float32 array combined with a
+// float64 scalar stays float32, so for a float32 matrix two of the five terms
+// of the log likelihood -- sum(gammaln(X + r)) and sum(X * log(1 - p)) -- are
+// computed and reduced in **single precision**, while the other three stay in
+// float64.
+//
+// The consequence is not a rounding difference, it is a different answer. At
+// an objective value around 100 the float32 terms resolve to about 8e-06,
+// while approx_grad probes the objective with a step of 1e-08, so the forward
+// difference gradient is noise of order 1e+03 rather than the true gradient of
+// order 1. scipy's L-BFGS-B then fails its line search and returns after three
+// iterations, a few parts in 1e-06 away from its starting point, with
+// warnflag 2 (ABNORMAL_TERMINATION_IN_LNSRCH). Measured on the 19 distance
+// distributions of GSE63525_GM12878_insitu_primary_2_5mb.cool chromosome 1:
+// every one of them, and the fitted `size` stays at the initial 10 while the
+// true maximum likelihood value is between 120 and 220.
+//
+// An implementation that evaluates the same objective in float64 converges
+// instead, finds an objective up to 4 percent lower, and reports a `size` 20
+// times larger. It is the better fit and it is not the reference. Choosing
+// Float32 here reproduces the reference, including its failure.
+enum class NBinomPrecision {
+    // X is an integer or float64 array; everything is float64.
+    Float64,
+    // X is a float32 array; the two X dependent sums, and the moment
+    // estimator that seeds the optimiser, are evaluated in float32.
+    Float32,
+};
+
+[[nodiscard]] NBinomFit fit_nbinom(std::span<const double> data,
+                                   NBinomPrecision precision);
+
+// --------------------------------------------------------------------------
+// The negative binomial tail
+//
+// Added for hicDetectLoops; chicViewpointBackgroundModel and the rest of the
+// cHi-C suite need the same two functions.
+
+// The regularised incomplete beta function I_x(a, b), scipy.special.betainc.
+// Translated from scipy/special/special/cephes/incbet.h: the same two
+// continued fractions, the same power series for the small-b corner, the same
+// switch between them and the same symmetry reflection. Only the gamma
+// functions differ, being libm's rather than a second vendored table, which
+// costs at most an ulp; the measured agreement against scipy over the corpus
+// is recorded in tests/test_stats_ops.cpp.
+//
+// Returns NaN for a <= 0, b <= 0 or x outside [0, 1], as cephes does.
+[[nodiscard]] double betainc(double a, double b, double x);
+
+// The survival function of the *continuous* generalisation of the negative
+// binomial that hicexplorer/lib/cnb.py defines:
+//
+//     cnb.cdf(x, r, p) = betainc(r, x + 1, p)
+//     nbinom_sf(x, r, p) = 1 - cnb.cdf(x, r, p)
+//
+// hicDetectLoops.py:163 writes exactly `1 - cnb.cdf(...)`, so the subtraction
+// is performed here in the same place and in float64, rather than folded into
+// the incomplete beta as a betaincc would. A p-value that lands within an ulp
+// of the preselection threshold decides whether a pixel becomes a loop
+// candidate, so where the rounding happens is observable.
+[[nodiscard]] double nbinom_sf(double x, double r, double p);
 
 }  // namespace hicx::stats
 

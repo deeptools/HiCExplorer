@@ -19,10 +19,12 @@ configure_file(include/hicx/version.hpp.in
 add_library(hicx4core
     src/adjust_ops.cpp
     src/bam_file.cpp
+    src/bedtools_ops.cpp
     src/bins.cpp
     src/correct_ops.cpp
     src/build_matrix.cpp
     src/cool_file.cpp
+    src/fasta_reader.cpp
     src/h5_file.cpp
     src/hdf5_util.cpp
     src/hic_matrix.cpp
@@ -32,6 +34,7 @@ add_library(hicx4core
     src/math/kr_balancing.cpp
     src/math/sparse_kernels.cpp
     src/matrix_ops.cpp
+    src/npz_file.cpp
     src/numpy_compat.cpp
     src/obsexp_ops.cpp
     src/reduce_matrix.cpp
@@ -40,6 +43,7 @@ add_library(hicx4core
     src/sparse_matrix.cpp
     src/stats_ops.cpp
     src/text_formats.cpp
+    src/text_table.cpp
     src/tool_matrix.cpp
     src/transform_ops.cpp)
 

@@ -232,6 +232,100 @@ void pearson_row(const DenseSymmetric& covariance, const std::vector<double>& sc
 void covariance_to_pearson_in_place(DenseSymmetric& covariance, int threads);
 
 // --------------------------------------------------------------------------
+// dense correlation rows without the dense block
+
+// The covariance or the Pearson correlation of a symmetric CSR matrix,
+// produced one row at a time instead of as an n-by-n block.
+//
+// Why this exists beside covariance_of_symmetric. hicPCA works chromosome by
+// chromosome and needs the whole covariance block resident anyway, because the
+// eigensolver takes it. hicTransform does not: it writes the transform out and
+// never looks at it again, and its --method pearson branch is the second worst
+// memory ratio in the corpus, 5,150 MB against a 19.9 MB working set on
+// Li_et_al_2015.h5 (cpp/PLAN.md 4.3). Removing the Python's five live copies
+// still leaves two blocks that do not fit the budget of cpp/PLAN.md 4.5:
+// the dense input block, 987 MB on that matrix, and the dense *output*, which
+// as a CsrMatrix would be 123 M stored entries, another 1.5 GB. A row source
+// removes both, so the resident set is the sparse matrix plus O(n) vectors
+// whatever the density of the result.
+//
+// The arithmetic is covariance_of_symmetric's, element for element:
+//     cov = (A A^T - n m m^T) / (n - 1),  m = row means of A,
+// accumulated over the same index ranges in the same order and finalised by
+// the same covariance_row_finalise, so the two agree bit for bit.
+// cpp/tests/test_transform_ops.cpp asserts that on a real chromosome block.
+//
+// The Pearson scaling needs sqrt(diag(cov)) before any row can be scaled, so
+// the covariance rows are computed twice for Kind::Pearson: once to collect
+// the diagonal and once to emit. An O(nnz) shortcut for the diagonal was
+// written and rejected. For a matrix in its explicit symmetric form the raw
+// accumulator satisfies
+//     acc(i, i) = sum_k A(i, k) * A(k, i) = sum_k A(i, k)^2
+// summed in increasing k, which is the order the row accumulation visits it
+// in, so the *accumulator* is reproduced exactly; but the finalisation is not.
+// covariance_row_finalise dispatches to an AVX2 or AVX-512 body that uses one
+// fused multiply-add where the scalar expression rounds twice, and whether
+// element i of row i falls in the vector body or in the scalar tail depends on
+// i modulo the lane count. A scalar shortcut therefore disagrees with the
+// dispatched kernel in the last bit for most of the diagonal, which was
+// measured on chrX of small_test_matrix_50kb_res.h5, and the second division
+// by sqrt of it turns that into a last-bit difference across the whole Pearson
+// matrix. Matching it would mean hard-coding the lane count of whichever path
+// was dispatched, which is exactly the coupling cpp/OPTIMIZATION.md section 3
+// exists to prevent. The extra pass was expected to be expensive and measured
+// not to be: hicTransform --method pearson on Li_et_al_2015.h5 goes from 3.97
+// to 4.06 s of CPU, 2.3 %, because the run is dominated by the blosc
+// compression of a 373 MB result rather than by the accumulation, against a
+// Python reference that spends 66.3 s. It buys an invariant a unit test can
+// state: DenseCorrelationRows and covariance_of_symmetric are the same
+// arithmetic, bit for bit.
+//
+// `blocks` are the bin ranges the correlation is taken within: one range over
+// every bin is hicTransform's whole-matrix branch, one range per chromosome is
+// --perChromosome. A row outside every range is all zeros.
+class DenseCorrelationRows {
+  public:
+    enum class Kind {
+        // np.cov(dense(block)), raw. No NaN or infinity cleanup, because
+        // hicTransform.py:249 applies none to the covariance branch, unlike
+        // the pearson one.
+        Covariance,
+        // np.corrcoef(dense(block)): cov divided by sqrt(diag) twice, clipped
+        // into [-1, 1], with NaN mapped to zero as convertNansToZeros does.
+        Pearson,
+    };
+
+    // `threads` splits the diagonal pass Kind::Pearson needs. It changes no
+    // value: every row is produced by one worker over a fixed contiguous
+    // range.
+    DenseCorrelationRows(const CsrMatrix& matrix, std::vector<BinRange> blocks, Kind kind,
+                         int threads = 1);
+
+    [[nodiscard]] std::int64_t size() const noexcept { return n_; }
+
+    // Fills out[0 .. size()-1] with row `i` of the result. Const and free of
+    // shared mutable state, so several threads may fill different rows at
+    // once; the values do not depend on how the rows were distributed.
+    void fill_row(std::int64_t i, double* out) const;
+
+    // The covariance row alone, before the Pearson rescaling. Exposed so that
+    // the diagonal pass and fill_row cannot drift apart.
+    void fill_covariance_row(std::int64_t i, double* out) const;
+
+  private:
+    const CsrMatrix* matrix_ = nullptr;
+    std::int64_t n_ = 0;
+    Kind kind_ = Kind::Covariance;
+    std::vector<BinRange> blocks_;
+    // Per bin: the block it belongs to, or -1.
+    std::vector<std::int32_t> block_of_bin_;
+    // Per bin: the mean of its row over its own block, the block's 1/(nb - 1)
+    // and, for Pearson, sqrt of the covariance diagonal.
+    std::vector<double> means_;
+    std::vector<double> scaling_;
+};
+
+// --------------------------------------------------------------------------
 // eigenvectors
 
 // Pins OpenBLAS to one thread for the rest of the process, which is what makes

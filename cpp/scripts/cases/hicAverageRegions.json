@@ -1,0 +1,137 @@
+[
+  {
+    "id": "hicAverageRegions.range.start",
+    "tool": "hicAverageRegions",
+    "tier": 2,
+    "args": ["--matrix", "{data}/small_test_matrix.cool",
+             "--regions", "{data}/hicAverageRegions/regions_multi.bed",
+             "--range", "100000", "100000", "-cb", "start",
+             "-o", "{out}/average.npz"],
+    "outputs": [{"path": "{out}/average.npz", "format": "npz", "class": "E2"}],
+    "notes": "The designated case. Six regions of chr2L, a 40 by 40 output, 191 stored values. E2 means every stored float64 is bit identical, which requires reproducing three things the Python does not advertise: the float32 accumulator, the shape guard that drops a clipped window instead of padding it, and scipy's division, which is a multiplication by the reciprocal."
+  },
+  {
+    "id": "hicAverageRegions.range.center",
+    "tool": "hicAverageRegions",
+    "tier": 2,
+    "args": ["--matrix", "{data}/small_test_matrix.cool",
+             "--regions", "{data}/hicAverageRegions/regions_multi.bed",
+             "--range", "100000", "100000", "-cb", "center",
+             "-o", "{out}/average.npz"],
+    "outputs": [{"path": "{out}/average.npz", "format": "npz", "class": "E2"}],
+    "notes": "The centre anchor, whose coordinate is int(start + (end - start) / 2), truncated towards zero. This is also the case where three of the 252 values sit on the difference between `sum / 6` and `sum * (1 / 6)`."
+  },
+  {
+    "id": "hicAverageRegions.range.end",
+    "tool": "hicAverageRegions",
+    "tier": 2,
+    "args": ["--matrix", "{data}/small_test_matrix.cool",
+             "--regions", "{data}/hicAverageRegions/regions_multi.bed",
+             "--range", "100000", "100000", "-cb", "end",
+             "-o", "{out}/average.npz"],
+    "outputs": [{"path": "{out}/average.npz", "format": "npz", "class": "E2"}],
+    "notes": "The end anchor."
+  },
+  {
+    "id": "hicAverageRegions.rangeInBins.start",
+    "tool": "hicAverageRegions",
+    "tier": 2,
+    "args": ["--matrix", "{data}/small_test_matrix.cool",
+             "--regions", "{data}/hicAverageRegions/regions_multi.bed",
+             "--rangeInBins", "100", "100", "-cb", "start",
+             "-o", "{out}/average.npz"],
+    "outputs": [{"path": "{out}/average.npz", "format": "npz", "class": "E2"}],
+    "notes": "The bin-unit range, a separate code path: the window is built from getChrBinRange rather than from getRegionBinRange, and it is clamped to the chromosome instead of to the genome. 200 by 200, 1,814 stored values."
+  },
+  {
+    "id": "hicAverageRegions.rangeInBins.center",
+    "tool": "hicAverageRegions",
+    "tier": 2,
+    "args": ["--matrix", "{data}/small_test_matrix.cool",
+             "--regions", "{data}/hicAverageRegions/regions_multi.bed",
+             "--rangeInBins", "100", "100", "-cb", "center",
+             "-o", "{out}/average.npz"],
+    "outputs": [{"path": "{out}/average.npz", "format": "npz", "class": "E2"}],
+    "notes": "The bin-unit centre anchor, which resolves the centre coordinate to a bin with getRegionBinRange(centre, centre) and takes its *second* element."
+  },
+  {
+    "id": "hicAverageRegions.rangeInBins.end",
+    "tool": "hicAverageRegions",
+    "tier": 2,
+    "args": ["--matrix", "{data}/small_test_matrix.cool",
+             "--regions", "{data}/hicAverageRegions/regions_multi.bed",
+             "--rangeInBins", "100", "100", "-cb", "end",
+             "-o", "{out}/average.npz"],
+    "outputs": [{"path": "{out}/average.npz", "format": "npz", "class": "E2"}],
+    "notes": "The bin-unit end anchor."
+  },
+  {
+    "id": "hicAverageRegions.range.two_column_regions",
+    "tool": "hicAverageRegions",
+    "tier": 2,
+    "args": ["--matrix", "{data}/small_test_matrix.cool",
+             "--regions", "{data}/hicAverageRegions/regions.bed",
+             "--range", "100000", "100000",
+             "-o", "{out}/average.npz"],
+    "outputs": [{"path": "{out}/average.npz", "format": "npz", "class": "E2"}],
+    "notes": "A two column region file, where the viewpoint becomes (chrom, start, start) and the three --coordinatesToBinMapping values coincide."
+  },
+  {
+    "id": "hicAverageRegions.rangeInBins.two_column_regions",
+    "tool": "hicAverageRegions",
+    "tier": 2,
+    "args": ["--matrix", "{data}/small_test_matrix.cool",
+             "--regions", "{data}/hicAverageRegions/regions.bed",
+             "--rangeInBins", "100", "100",
+             "-o", "{out}/average.npz"],
+    "outputs": [{"path": "{out}/average.npz", "format": "npz", "class": "E2"}],
+    "notes": "The same through the bin-unit path."
+  },
+  {
+    "id": "hicAverageRegions.considerStrandDirection",
+    "tool": "hicAverageRegions",
+    "tier": 2,
+    "args": ["--matrix", "{data}/small_test_matrix.cool",
+             "--regions", "{data}/hicAverageRegions/regions_multi_strand.bed",
+             "--range", "100000", "100000", "-cb", "start",
+             "--considerStrandDirection",
+             "-o", "{out}/average.npz"],
+    "outputs": [{"path": "{out}/average.npz", "format": "npz", "class": "E2"}],
+    "notes": "--considerStrandDirection was never exercised by the Python suite. regions_multi_strand.bed is regions_multi.bed with a name, a score and a strand column, three of the six regions on the minus strand. The option turns out to be a no-op: it transposes the submatrix, the submatrix is a diagonal block of a symmetric Hi-C matrix, and such a block is its own transpose. The result is therefore identical to the run without the option, which is what this case pins."
+  },
+  {
+    "id": "hicAverageRegions.considerStrandDirection.missing_column",
+    "tool": "hicAverageRegions",
+    "tier": 2,
+    "args": ["--matrix", "{data}/small_test_matrix.cool",
+             "--regions", "{data}/hicAverageRegions/regions_multi.bed",
+             "--range", "100000", "100000", "--considerStrandDirection",
+             "-o", "{out}/average.npz"],
+    "outputs": [],
+    "expect_exit": 1,
+    "notes": "The tool's only input validation: --considerStrandDirection on a region file without a sixth column logs an error and exits 1."
+  },
+  {
+    "id": "hicAverageRegions.range.out_of_range_region",
+    "tool": "hicAverageRegions",
+    "tier": 2,
+    "args": ["--matrix", "{data}/small_test_matrix.cool",
+             "--regions", "{data}/hicAverageRegions/regions_multi_out_of_range.bed",
+             "--range", "100000", "100000", "-cb", "start",
+             "-o", "{out}/average.npz"],
+    "outputs": [{"path": "{out}/average.npz", "format": "npz", "class": "E2"}],
+    "notes": "regions_multi.bed with one extra region at the start of chr2L, whose upstream window is clipped to the chromosome boundary. The clipped window is 20 bins wide against a 40 bin output, so it is skipped with a warning and does not enter the count: the result equals the six-region run exactly. The case exists because it is the only one that exercises the shape guard, and because a port that padded the window instead would still produce a plausible file."
+  },
+  {
+    "id": "hicAverageRegions.rangeInBins.Li_float64",
+    "tool": "hicAverageRegions",
+    "tier": 2,
+    "args": ["--matrix", "{data}/Li_et_al_2015.h5",
+             "--regions", "{data}/hicAverageRegions/regions_Li_chrX.bed",
+             "--rangeInBins", "20", "20", "-cb", "start",
+             "-o", "{out}/average.npz"],
+    "outputs": [{"path": "{out}/average.npz", "format": "npz", "class": "E2"}],
+    "memory": {"alpha": 1.3, "beta": 0.0},
+    "notes": "The designated large input, and the only case where the float32 accumulator is observable: Li_et_al_2015.h5 holds float64 values from 0.170 to 1914.015 and six of them summed and rounded to float32 differ from the float64 sum in the low bits. The first output value, 377.5341796875, is a float32 to its last digit. On small_test_matrix the counts are small integers and the rounding is inert, which is why no case built on that matrix constrains it. 11,104 restriction fragment bins of chromosome X, so --rangeInBins rather than --range."
+  }
+]

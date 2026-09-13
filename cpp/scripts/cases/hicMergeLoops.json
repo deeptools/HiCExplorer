@@ -1,0 +1,54 @@
+[
+  {
+    "id": "hicMergeLoops.three_files.r5000",
+    "tool": "hicMergeLoops",
+    "tier": 2,
+    "args": ["-i", "{data}/hicMergeLoops/gm12878_10kb.bedgraph",
+             "{data}/hicMergeLoops/gm12878_25kb.bedgraph",
+             "{data}/hicMergeLoops/gm12878_5kb.bedgraph",
+             "-o", "{out}/merged.bedgraph", "-r", "5000"],
+    "outputs": [{"path": "{out}/merged.bedgraph", "format": "interval", "class": "E0"}],
+    "notes": "The invocation the Python test uses. 21,524 loops in, 16,549 out, byte identical. Two of the 13,486 overlap groups have a tied maximum anchor width here and the port decides both the way the reference does, so this case really is E0 and not E0 by luck of the comparator."
+  },
+  {
+    "id": "hicMergeLoops.single_file.r10000",
+    "tool": "hicMergeLoops",
+    "tier": 2,
+    "args": ["-i", "{data}/hicMergeLoops/gm12878_10kb.bedgraph",
+             "-o", "{out}/merged.bedgraph", "-r", "10000"],
+    "outputs": [{"path": "{out}/merged.bedgraph", "format": "interval", "class": "E0"}],
+    "notes": "One input file, which the Python suite never ran: the concat branch is not taken and every anchor has the same width, so only a genuine double overlap can merge. 12,320 in, 12,317 out, byte identical. It also pins the score column, whose 0.0019430592210407135 comes back as 0.0019430592210407 because pandas' default float converter keeps 17 significant digits and then scales."
+  },
+  {
+    "id": "hicMergeLoops.same_file_twice.r25000",
+    "tool": "hicMergeLoops",
+    "tier": 2,
+    "args": ["-i", "{data}/hicMergeLoops/gm12878_25kb.bedgraph",
+             "{data}/hicMergeLoops/gm12878_25kb.bedgraph",
+             "-o", "{out}/merged.bedgraph", "-r", "25000"],
+    "outputs": [{"path": "{out}/merged.bedgraph", "format": "interval", "class": "E0"}],
+    "notes": "drop_duplicates(keep=False) drops every copy of a repeated row, not all but one, so passing the same file twice empties the frame and the tool writes a zero byte file. The degenerate case, and the one that shows the difference between keep=False and the default."
+  },
+  {
+    "id": "hicMergeLoops.three_files.r25000",
+    "tool": "hicMergeLoops",
+    "tier": 2,
+    "args": ["-i", "{data}/hicMergeLoops/gm12878_10kb.bedgraph",
+             "{data}/hicMergeLoops/gm12878_25kb.bedgraph",
+             "{data}/hicMergeLoops/gm12878_5kb.bedgraph",
+             "-o", "{out}/merged.bedgraph", "-r", "25000"],
+    "outputs": [{"path": "{out}/merged.bedgraph", "format": "interval", "class": "E5"}],
+    "notes": "The resolution the tool's own help text recommends for these three files, and the case that shows where the port cannot be exact. At 25,000 eighteen overlap groups have a tied maximum anchor width, and the reference breaks those ties by CPython's set iteration order (see the file comment of cpp/tools/hicMergeLoops.cpp). The port reproduces the reproducible half of that, the interval hash and the set's table size, and decides twelve of the eighteen the same way; the residue moves two of the 15,908 output rows to a neighbouring loop with the same y anchor. Jaccard 0.99975. Declared E5 rather than E0 for that reason, and the divergence is measured rather than absorbed: 5000 gives 0 differing rows, 10000 gives 1, 25000 gives 2, 50000 gives 2."
+  },
+  {
+    "id": "hicMergeLoops.three_files.r50000",
+    "tool": "hicMergeLoops",
+    "tier": 2,
+    "args": ["-i", "{data}/hicMergeLoops/gm12878_10kb.bedgraph",
+             "{data}/hicMergeLoops/gm12878_25kb.bedgraph",
+             "{data}/hicMergeLoops/gm12878_5kb.bedgraph",
+             "-o", "{out}/merged.bedgraph", "-r", "50000"],
+    "outputs": [{"path": "{out}/merged.bedgraph", "format": "interval", "class": "E5"}],
+    "notes": "A --lowestResolution larger than every input resolution, so the neighbourhood factor is positive for all three and the search widens: 15,602 rows survive against 16,549 at 5000. Nineteen tied groups, thirteen decided as the reference does, two differing rows."
+  }
+]

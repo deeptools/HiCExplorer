@@ -19,6 +19,8 @@ namespace {
 
 constexpr double kMaxLog = 7.09782712893383996732E2;
 constexpr double kEuler = 0.577215664901532860606512090082402431;
+// np.finfo(np.float64).eps, the bound and the guard fit_nbinom uses.
+constexpr double kMachineEpsilonStats = 2.220446049250313e-16;
 
 double polevl(double x, const double* coefficients, int degree) {
     double answer = coefficients[0];
@@ -99,7 +101,274 @@ double psi_asy(double x) {
     return std::log(x) - (0.5 / x) - y;
 }
 
+// --------------------------------------------------------------------------
+// incbet, translated from scipy/special/special/cephes/incbet.h. The two
+// continued fractions, the power series and the thresholds that pick between
+// them are the cephes ones unchanged; `Gamma` and `lgam` are libm's tgamma and
+// lgamma_r rather than a second vendored table, which is where the two
+// implementations may differ, by at most an ulp.
+
+constexpr double kMachEp = 1.11022302462515654042E-16;
+constexpr double kMaxGam = 171.624376956302725;
+constexpr double kMinLog = -7.08396418532264106224E2;
+constexpr double kIncbetBig = 4.503599627370496e15;
+constexpr double kIncbetBigInv = 2.22044604925031308085e-16;
+
+// Power series for the incomplete beta integral, cephes pseries. Used when
+// b * x is small, where the continued fractions converge slowly.
+double incbet_pseries(double a, double b, double x) {
+    const double ai = 1.0 / a;
+    double u = (1.0 - b) * x;
+    double v = u / (a + 1.0);
+    const double t1 = v;
+    double t = u;
+    double n = 2.0;
+    double s = 0.0;
+    const double z = kMachEp * ai;
+
+    while (std::abs(v) > z) {
+        u = (n - b) * x / n;
+        t *= u;
+        v = t / (a + n);
+        s += v;
+        n += 1.0;
+    }
+    s += t1;
+    s += ai;
+
+    u = a * std::log(x);
+    if ((a + b) < kMaxGam && std::abs(u) < kMaxLog) {
+        t = std::tgamma(a + b) / (std::tgamma(a) * std::tgamma(b));
+        s = s * t * std::pow(x, a);
+    } else {
+        t = gammaln(a + b) - gammaln(a) - gammaln(b) + u + std::log(s);
+        s = t < kMinLog ? 0.0 : std::exp(t);
+    }
+    return s;
+}
+
+// Continued fraction expansion #1 for the incomplete beta integral.
+double incbet_cf1(double a, double b, double x) {
+    double k1 = a;
+    double k2 = a + b;
+    double k3 = a;
+    double k4 = a + 1.0;
+    double k5 = 1.0;
+    double k6 = b - 1.0;
+    double k7 = k4;
+    double k8 = a + 2.0;
+
+    double pkm2 = 0.0;
+    double qkm2 = 1.0;
+    double pkm1 = 1.0;
+    double qkm1 = 1.0;
+    double ans = 1.0;
+    double r = 1.0;
+    const double thresh = 3.0 * kMachEp;
+
+    for (int n = 0; n < 300; ++n) {
+        double xk = -(x * k1 * k2) / (k3 * k4);
+        double pk = pkm1 + pkm2 * xk;
+        double qk = qkm1 + qkm2 * xk;
+        pkm2 = pkm1;
+        pkm1 = pk;
+        qkm2 = qkm1;
+        qkm1 = qk;
+
+        xk = (x * k5 * k6) / (k7 * k8);
+        pk = pkm1 + pkm2 * xk;
+        qk = qkm1 + qkm2 * xk;
+        pkm2 = pkm1;
+        pkm1 = pk;
+        qkm2 = qkm1;
+        qkm1 = qk;
+
+        if (qk != 0.0) {
+            r = pk / qk;
+        }
+        double t = 1.0;
+        if (r != 0.0) {
+            t = std::abs((ans - r) / r);
+            ans = r;
+        }
+        if (t < thresh) {
+            return ans;
+        }
+
+        k1 += 1.0;
+        k2 += 1.0;
+        k3 += 2.0;
+        k4 += 2.0;
+        k5 += 1.0;
+        k6 -= 1.0;
+        k7 += 2.0;
+        k8 += 2.0;
+
+        if ((std::abs(qk) + std::abs(pk)) > kIncbetBig) {
+            pkm2 *= kIncbetBigInv;
+            pkm1 *= kIncbetBigInv;
+            qkm2 *= kIncbetBigInv;
+            qkm1 *= kIncbetBigInv;
+        }
+        if ((std::abs(qk) < kIncbetBigInv) || (std::abs(pk) < kIncbetBigInv)) {
+            pkm2 *= kIncbetBig;
+            pkm1 *= kIncbetBig;
+            qkm2 *= kIncbetBig;
+            qkm1 *= kIncbetBig;
+        }
+    }
+    return ans;
+}
+
+// Continued fraction expansion #2 for the incomplete beta integral.
+double incbet_cf2(double a, double b, double x) {
+    double k1 = a;
+    double k2 = b - 1.0;
+    double k3 = a;
+    double k4 = a + 1.0;
+    double k5 = 1.0;
+    double k6 = a + b;
+    double k7 = a + 1.0;
+    double k8 = a + 2.0;
+
+    double pkm2 = 0.0;
+    double qkm2 = 1.0;
+    double pkm1 = 1.0;
+    double qkm1 = 1.0;
+    const double z = x / (1.0 - x);
+    double ans = 1.0;
+    double r = 1.0;
+    const double thresh = 3.0 * kMachEp;
+
+    for (int n = 0; n < 300; ++n) {
+        double xk = -(z * k1 * k2) / (k3 * k4);
+        double pk = pkm1 + pkm2 * xk;
+        double qk = qkm1 + qkm2 * xk;
+        pkm2 = pkm1;
+        pkm1 = pk;
+        qkm2 = qkm1;
+        qkm1 = qk;
+
+        xk = (z * k5 * k6) / (k7 * k8);
+        pk = pkm1 + pkm2 * xk;
+        qk = qkm1 + qkm2 * xk;
+        pkm2 = pkm1;
+        pkm1 = pk;
+        qkm2 = qkm1;
+        qkm1 = qk;
+
+        if (qk != 0.0) {
+            r = pk / qk;
+        }
+        double t = 1.0;
+        if (r != 0.0) {
+            t = std::abs((ans - r) / r);
+            ans = r;
+        }
+        if (t < thresh) {
+            return ans;
+        }
+
+        k1 += 1.0;
+        k2 -= 1.0;
+        k3 += 2.0;
+        k4 += 2.0;
+        k5 += 1.0;
+        k6 += 1.0;
+        k7 += 2.0;
+        k8 += 2.0;
+
+        if ((std::abs(qk) + std::abs(pk)) > kIncbetBig) {
+            pkm2 *= kIncbetBigInv;
+            pkm1 *= kIncbetBigInv;
+            qkm2 *= kIncbetBigInv;
+            qkm1 *= kIncbetBigInv;
+        }
+        if ((std::abs(qk) < kIncbetBigInv) || (std::abs(pk) < kIncbetBigInv)) {
+            pkm2 *= kIncbetBig;
+            pkm1 *= kIncbetBig;
+            qkm2 *= kIncbetBig;
+            qkm1 *= kIncbetBig;
+        }
+    }
+    return ans;
+}
+
 }  // namespace
+
+double betainc(double a, double b, double x) {
+    const double nan = std::numeric_limits<double>::quiet_NaN();
+    if (std::isnan(a) || std::isnan(b) || std::isnan(x)) {
+        return nan;
+    }
+    if (a <= 0.0 || b <= 0.0) {
+        return nan;
+    }
+    if (x <= 0.0 || x >= 1.0) {
+        if (x == 0.0) {
+            return 0.0;
+        }
+        if (x == 1.0) {
+            return 1.0;
+        }
+        return nan;
+    }
+
+    double t = 0.0;
+    bool reflected = false;
+
+    if (b * x <= 1.0 && x <= 0.95) {
+        t = incbet_pseries(a, b, x);
+    } else {
+        double w = 1.0 - x;
+        double aa = a;
+        double bb = b;
+        double xx = x;
+        double xc = w;
+        // Reverse a and b when x is greater than the mean, so that the
+        // expansion is always evaluated on the convergent side.
+        if (x > (a / (a + b))) {
+            reflected = true;
+            aa = b;
+            bb = a;
+            xc = x;
+            xx = w;
+        }
+
+        if (reflected && (bb * xx) <= 1.0 && xx <= 0.95) {
+            t = incbet_pseries(aa, bb, xx);
+        } else {
+            const double y0 = xx * (aa + bb - 2.0) - (aa - 1.0);
+            w = y0 < 0.0 ? incbet_cf1(aa, bb, xx) : incbet_cf2(aa, bb, xx) / xc;
+
+            // Multiply w by x^a (1-x)^b Gamma(a+b) / (a Gamma(a) Gamma(b)).
+            double y = aa * std::log(xx);
+            double s = bb * std::log(xc);
+            if ((aa + bb) < kMaxGam && std::abs(y) < kMaxLog &&
+                std::abs(s) < kMaxLog) {
+                t = std::pow(xc, bb);
+                t *= std::pow(xx, aa);
+                t /= aa;
+                t *= w;
+                t *= std::tgamma(aa + bb) / (std::tgamma(aa) * std::tgamma(bb));
+            } else {
+                y += s + gammaln(aa + bb) - gammaln(aa) - gammaln(bb);
+                y += std::log(w / aa);
+                t = y < kMinLog ? 0.0 : std::exp(y);
+            }
+        }
+    }
+
+    if (reflected) {
+        t = t <= kMachEp ? 1.0 - kMachEp : 1.0 - t;
+    }
+    return t;
+}
+
+double nbinom_sf(double x, double r, double p) {
+    // hicexplorer/lib/cnb.py:29 plus hicDetectLoops.py:163, literally.
+    return 1.0 - betainc(r, x + 1.0, p);
+}
 
 double erfc(double a) {
     if (std::isnan(a)) {
@@ -311,6 +580,213 @@ double benjamini_hochberg_cutoff(std::vector<double> pvalues, double q) {
         }
     }
     return largest;
+}
+
+// --------------------------------------------------------------------------
+// The float32 flavour of fit_nbinom. See the comment on NBinomPrecision for
+// why this exists; the float64 flavour lives beside the optimiser in
+// lbfgsb.cpp and this one is deliberately a separate function rather than a
+// branch inside it, so that the tools that do not need it are untouched.
+
+NBinomFit fit_nbinom(std::span<const double> data, NBinomPrecision precision) {
+    if (precision == NBinomPrecision::Float64) {
+        return fit_nbinom(data);
+    }
+    NBinomFit fit;
+    const std::size_t n = data.size();
+    if (n == 0) {
+        fit.status = 2;
+        return fit;
+    }
+
+    // The array as scipy holds it. The caller has already rounded the values
+    // to float32; this is the array the ufuncs actually see.
+    std::vector<float> x(n, 0.0F);
+    for (std::size_t i = 0; i < n; ++i) {
+        x[i] = static_cast<float>(data[i]);
+    }
+
+    // np.sum(np.log(factorial(X))): scipy's factorial returns a float64 array
+    // even for a float32 argument, but it evaluates gamma(x + 1) in the
+    // float32 loop and widens the result, so it **overflows above about 34.6**
+    // rather than above 170.6. That is not a detail: as soon as one obs/exp
+    // value at a genomic distance exceeds it, this term is infinite, the whole
+    // objective is infinite for every parameter pair, the forward difference
+    // gradient is NaN and fmin_l_bfgs_b returns its starting point. Measured
+    // on the corpus: 3 of the 199 distances of gm12878_chr1.cool are in that
+    // state, and computing the term in float64 instead lets the optimiser run
+    // on those three and call a loop the reference does not, which is exactly
+    // how this was found.
+    std::vector<double> log_factorial(n, 0.0);
+    bool factorial_overflowed = false;
+    for (std::size_t i = 0; i < n; ++i) {
+        const float gamma =
+            static_cast<float>(std::tgamma(static_cast<double>(x[i] + 1.0F)));
+        if (std::isinf(gamma)) {
+            factorial_overflowed = true;
+            break;
+        }
+        log_factorial[i] = std::log(static_cast<double>(gamma));
+    }
+
+    const double log_factorial_sum =
+        factorial_overflowed ? std::numeric_limits<double>::infinity()
+                             : npy::pairwise_sum(log_factorial);
+
+    // gammaln is by far the most expensive thing in the objective and it is
+    // evaluated over the same array on every iteration, so the distinct values
+    // are collected once and each objective evaluation looks the result up
+    // instead of recomputing it. This is exact, not an approximation: gammaln
+    // is a function of its argument, and the values are scattered back into
+    // their original positions before the reduction, so the summation order is
+    // untouched and the result is bit identical to the direct loop.
+    //
+    // It pays because an obs/exp value is a small integer count divided by a
+    // per distance constant, so the same value recurs constantly. Measured on
+    // gm12878_chr1.cool, the six sampled distance distributions hold 130,256
+    // values of which 4,469 are distinct, 3.4 percent. The table is only built
+    // when it at least halves the work; on a distribution of genuinely
+    // distinct values, such as the 19 distances of the GSE63525 cool where the
+    // ratio is 99.9 percent, it is skipped and the direct loop runs.
+    std::vector<float> unique;
+    std::vector<std::int32_t> slot;
+    bool use_table = false;
+    {
+        bool finite = true;
+        for (std::size_t i = 0; i < n && finite; ++i) {
+            finite = std::isfinite(x[i]);
+        }
+        if (finite) {
+            unique = x;
+            std::sort(unique.begin(), unique.end());
+            unique.erase(std::unique(unique.begin(), unique.end()), unique.end());
+            if (unique.size() * 2 <= n) {
+                slot.resize(n);
+                for (std::size_t i = 0; i < n; ++i) {
+                    slot[i] = static_cast<std::int32_t>(std::distance(
+                        unique.begin(),
+                        std::lower_bound(unique.begin(), unique.end(), x[i])));
+                }
+                use_table = true;
+            }
+        }
+        if (!use_table) {
+            unique.clear();
+            unique.shrink_to_fit();
+        }
+    }
+    std::vector<float> table(unique.size(), 0.0F);
+
+    std::vector<float> scratch(n, 0.0F);
+    const auto negative_log_likelihood =
+        [&](std::span<const double> parameters) -> double {
+        const double r = parameters[0];
+        const double p = parameters[1];
+        const double safe_p = p < 1.0 ? p : 1.0 - kMachineEpsilonStats;
+
+        // gammaln(X + r): the addition runs in the float32 loop, with the
+        // scalar cast to float32 first, and so does the reduction.
+        const float r32 = static_cast<float>(r);
+        if (use_table) {
+            for (std::size_t u = 0; u < unique.size(); ++u) {
+                table[u] =
+                    static_cast<float>(gammaln(static_cast<double>(unique[u] + r32)));
+            }
+            for (std::size_t i = 0; i < n; ++i) {
+                scratch[i] = table[static_cast<std::size_t>(slot[i])];
+            }
+        } else {
+            for (std::size_t i = 0; i < n; ++i) {
+                scratch[i] =
+                    static_cast<float>(gammaln(static_cast<double>(x[i] + r32)));
+            }
+        }
+        const float gammaln_sum = npy::pairwise_sum(scratch.data(), n);
+
+        // X * log(1 - p), likewise float32 throughout.
+        const float log1p32 = static_cast<float>(std::log(1.0 - safe_p));
+        for (std::size_t i = 0; i < n; ++i) {
+            scratch[i] = x[i] * log1p32;
+        }
+        const float tail = npy::pairwise_sum(scratch.data(), n);
+
+        // The five terms are combined left to right, and the float32 partial
+        // sums widen to float64 as they meet a float64 term.
+        double value = static_cast<double>(gammaln_sum);
+        value -= log_factorial_sum;
+        value -= static_cast<double>(n) * gammaln(r);
+        value += static_cast<double>(n) * r * std::log(p);
+        value += static_cast<double>(tail);
+        return -value;
+    };
+
+    // np.mean and np.var of a float32 array reduce in float32 as well, so the
+    // moment estimator that seeds the optimiser is a float32 quantity.
+    const float mean32 =
+        npy::pairwise_sum(x.data(), n) / static_cast<float>(n);
+    for (std::size_t i = 0; i < n; ++i) {
+        const float difference = x[i] - mean32;
+        scratch[i] = difference * difference;
+    }
+    const float variance32 =
+        npy::pairwise_sum(scratch.data(), n) / static_cast<float>(n);
+
+    double start_size = 0.0;
+    double start_prob = 0.0;
+    if (variance32 > mean32) {
+        // `size = (m ** 2) / (v - m)`. `m ** 2` with a Python int exponent
+        // promotes a numpy float32 scalar to float64 in numpy 1.26, while
+        // `v - m` stays float32, so the quotient and everything after it is
+        // float64 even though the data is not. `m * m` would have stayed
+        // float32; the difference is the eighth significant digit of the
+        // starting point, which is enough to move the fit by 1e-08.
+        const double mean = static_cast<double>(mean32);
+        start_size = (mean * mean) / static_cast<double>(variance32 - mean32);
+        const double denominator = start_size + mean;
+        start_prob = denominator != 0.0 ? start_size / denominator : start_size;
+    } else {
+        // `size = 10` is a Python int here, and numpy 1.26 promotes
+        // int + float32 to float64 for scalars, so this branch finishes in
+        // double precision even though the data is float32.
+        start_size = 10.0;
+        const double denominator = 10.0 + static_cast<double>(mean32);
+        start_prob = denominator != 0.0 ? 10.0 / denominator : 10.0;
+    }
+
+    const std::vector<double> begin{start_size, start_prob};
+    const std::vector<Bound> bounds{
+        Bound{kMachineEpsilonStats, std::numeric_limits<double>::infinity()},
+        Bound{kMachineEpsilonStats, 1.0}};
+
+    if (factorial_overflowed) {
+        // The objective is +inf everywhere, so the forward difference gradient
+        // is inf - inf = NaN, the projected gradient norm test compares
+        // against NaN and std::max leaves it at zero, and minimise_lbfgsb
+        // breaks out at iteration zero with the clamped starting point.
+        // Returning it directly is the same answer, asserted bit for bit by
+        // the unit test in cpp/tests/test_detect_loops.cpp.
+        //
+        // This is not an optimisation and is not claimed as one. Measured
+        // interleaved on gm12878_chr1.cool, three runs each: 7.12 s of CPU
+        // with it against 7.12 s without, because only 3 of the 199 distances
+        // reach it. It is here because the alternative is to depend on
+        // std::max(0.0, NaN) evaluating to 0.0 for the tool to terminate at
+        // the right point, which is an accident of the comparison order in
+        // projected_gradient_norm rather than something this code states.
+        fit.size = std::min(std::max(start_size, bounds[0].lower), bounds[0].upper);
+        fit.prob = std::min(std::max(start_prob, bounds[1].lower), bounds[1].upper);
+        fit.status = 0;
+        fit.iterations = 0;
+        return fit;
+    }
+
+    const LbfgsbResult solution =
+        minimise_lbfgsb(negative_log_likelihood, begin, bounds, LbfgsbOptions());
+    fit.size = solution.x[0];
+    fit.prob = solution.x[1];
+    fit.status = solution.status;
+    fit.iterations = solution.iterations;
+    return fit;
 }
 
 void bonferroni_in_place(std::vector<double>& pvalues) {

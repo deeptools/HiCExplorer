@@ -1,0 +1,205 @@
+[
+  {
+    "id": "hicDetectLoops.h5.small_test_matrix.chr2L",
+    "tool": "hicDetectLoops",
+    "tier": 5,
+    "args": ["-m", "{data}/small_test_matrix.h5",
+             "--chromosomes", "chr2L",
+             "-pit", "1", "-p", "0.5", "-pp", "0.5",
+             "-t", "1", "-tpc", "1",
+             "-o", "{out}/loops.bedgraph"],
+    "outputs": [
+      {"path": "{out}/loops.bedgraph", "format": "text", "class": "E0"}
+    ],
+    "threads_arg": "--threads",
+    "notes": "The default --expected mean on an integer count matrix, which is the path the Python test suite exercises and the one where the obs/exp result is truncated back to int64 (utilities.py:588). 25 loops on chromosome chr2L. Declared E0 because it is byte identical: 293 of the 373 per distance negative binomial fits are degenerate, in the sense that scipy's factorial overflows above 170 so the objective is constant and fmin_l_bfgs_b returns its starting point, and that starting point is R's moment estimator, which is exactly reproducible. A single chromosome also makes the Python's own line order well defined, so the comparison is line for line rather than as a set."
+  },
+  {
+    "id": "hicDetectLoops.h5.small_test_matrix.all_chromosomes",
+    "tool": "hicDetectLoops",
+    "tier": 5,
+    "args": ["-m", "{data}/small_test_matrix.h5",
+             "-pit", "1", "-p", "0.5", "-pp", "0.5",
+             "-t", "1", "-tpc", "1",
+             "-o", "{out}/loops.bedgraph"],
+    "outputs": [
+      {"path": "{out}/loops.bedgraph", "format": "text", "class": "E0"}
+    ],
+    "threads_arg": "--threads",
+    "notes": "The whole file, all 15 chromosomes, 52 loops. This is the case test_hicDetectLoops.py::test_main_h5 runs and never asserts on. It is compared at E0 only because --threads 1 is passed: the Python starts one process per chromosome and appends each result as that process finishes, so at --threads 4 the same 52 loops come out in a different order from run to run. Measured: three runs at --threads 4 gave two distinct orderings, and --threads 8 --threadsPerChromosome 4 gave a third. The C++ writes the chromosomes in file order whatever the thread count is."
+  },
+  {
+    "id": "hicDetectLoops.h5.small_test_matrix.mean_nonzero",
+    "tool": "hicDetectLoops",
+    "tier": 5,
+    "args": ["-m", "{data}/small_test_matrix.h5",
+             "--chromosomes", "chr2L", "--expected", "mean_nonzero",
+             "-pit", "1", "-p", "0.5", "-pp", "0.5",
+             "-t", "1", "-tpc", "1",
+             "-o", "{out}/loops.bedgraph"],
+    "outputs": [
+      {"path": "{out}/loops.bedgraph", "format": "bedpe", "class": "ED"}
+    ],
+    "threads_arg": "--threads",
+    "notes": "The --expected branch the Python suite never runs. obs_exp_matrix_non_zero leaves its result in float32 (utilities.py:533,540 assign each quotient back into an array already cast to float32 and never cast back), which changes what fit_nbinom does: none of the 373 distance distributions is degenerate any more, so every one of them runs the optimiser, and it runs on a float32 objective. Declared ED rather than E0 because that is where a real numeric difference could appear; measured, the file is byte identical and the fitted size agrees with the reference to a median of 1.4e-06 against a reference self consistency envelope of 7.6e-07."
+  },
+  {
+    "id": "hicDetectLoops.h5.small_test_matrix.mean_nonzero_ligation",
+    "tool": "hicDetectLoops",
+    "tier": 5,
+    "args": ["-m", "{data}/small_test_matrix.h5",
+             "--chromosomes", "chr2L", "--expected", "mean_nonzero_ligation",
+             "-pit", "1", "-p", "0.5", "-pp", "0.5",
+             "-t", "1", "-tpc", "1",
+             "-o", "{out}/loops.bedgraph"],
+    "outputs": [
+      {"path": "{out}/loops.bedgraph", "format": "bedpe", "class": "ED"}
+    ],
+    "threads_arg": "--threads",
+    "notes": "The Homer style ligation factor, the third --expected branch and also untested in Python. It multiplies the expected value by row_sum(i) * row_sum(j) / total, which is zero for a bin with an empty row, so the quotient is infinite and pToEpsilon replaces it with 1e-9 rather than the 1e-6 obs_exp_matrix uses. 62 loops, the largest call set of this tool in the corpus."
+  },
+  {
+    "id": "hicDetectLoops.h5.small_test_matrix.threshold_file",
+    "tool": "hicDetectLoops",
+    "tier": 5,
+    "args": ["-m", "{data}/small_test_matrix.h5",
+             "--chromosomes", "chr2L",
+             "--maxLoopDistance", "200000",
+             "-pp", "{data}/hicCreateThresholdFile/thresholdFile_loose_pValue.txt",
+             "-pit", "1", "-p", "0.5",
+             "-t", "1", "-tpc", "1",
+             "-o", "{out}/loops.bedgraph"],
+    "outputs": [
+      {"path": "{out}/loops.bedgraph", "format": "bedpe", "class": "ED"}
+    ],
+    "threads_arg": "--threads",
+    "notes": "--pValuePreselection given as a threshold file rather than a float, which is the read_threshold_file branch (hicDetectLoops.py:940) and is never exercised by the Python suite. The threshold is looked up by distance_in_bins * binSize, and a distance the file does not cover raises KeyError inside a worker process, which is why --maxLoopDistance is capped at 200000 here: the committed threshold file stops at that genomic distance. 22 loops."
+  },
+  {
+    "id": "hicDetectLoops.h5.small_test_matrix.tight_preselection",
+    "tool": "hicDetectLoops",
+    "tier": 5,
+    "args": ["-m", "{data}/small_test_matrix.h5",
+             "--chromosomes", "chr2L",
+             "-pit", "1", "-p", "0.5", "-pp", "0.01",
+             "-t", "1", "-tpc", "1",
+             "-o", "{out}/loops.bedgraph"],
+    "outputs": [
+      {"path": "{out}/loops.bedgraph", "format": "bedpe", "class": "ED"}
+    ],
+    "threads_arg": "--threads",
+    "notes": "The case that makes the negative binomial preselection decisive rather than permissive. At --pValuePreselection 0.5 nearly every pixel that clears --obsExpThreshold survives the tail test and the call set is decided downstream; at 0.01 the fitted (size, prob) chooses the candidates. 25 loops fall to 14."
+  },
+  {
+    "id": "hicDetectLoops.h5.small_test_matrix.window7",
+    "tool": "hicDetectLoops",
+    "tier": 5,
+    "args": ["-m", "{data}/small_test_matrix.h5",
+             "--chromosomes", "chr2L",
+             "-w", "7", "-pw", "3",
+             "-pit", "1", "-p", "0.5", "-pp", "0.5",
+             "-t", "1", "-tpc", "1",
+             "-o", "{out}/loops.bedgraph"],
+    "outputs": [
+      {"path": "{out}/loops.bedgraph", "format": "bedpe", "class": "ED"}
+    ],
+    "threads_arg": "--threads",
+    "notes": "A larger neighbourhood and peak, which changes the shape of every window the donut test cuts and therefore exercises the numpy slicing rules the Python leans on: with --peakWidth 3 a peak within three bins of the edge of its window produces a negative slice bound, and numpy reads that as counting from the end rather than as an empty slice. 11 loops."
+  },
+  {
+    "id": "hicDetectLoops.h5.small_test_matrix.maxLoopDistance",
+    "tool": "hicDetectLoops",
+    "tier": 5,
+    "args": ["-m", "{data}/small_test_matrix.h5",
+             "--chromosomes", "chr2L",
+             "--maxLoopDistance", "100000",
+             "-pit", "1", "-p", "0.5", "-pp", "0.5",
+             "-t", "1", "-tpc", "1",
+             "-o", "{out}/loops.bedgraph"],
+    "outputs": [
+      {"path": "{out}/loops.bedgraph", "format": "bedpe", "class": "ED"}
+    ],
+    "threads_arg": "--threads",
+    "notes": "--maxLoopDistance at 20 bins rather than 400. On an h5 input the cut is `distances > maxLoopDistance / binSize` with a float division and a non strict comparison (hicDetectLoops.py:820-823), which is not the same rule the cool loader applies; both are reproduced. It also shrinks the number of genomic distances from 400 to 20, so the whole per distance fitting stage runs on 20 distributions instead of 373. 19 loops."
+  },
+  {
+    "id": "hicDetectLoops.h5.Li_et_al_2015.variable_bins",
+    "tool": "hicDetectLoops",
+    "tier": 5,
+    "args": ["-m", "{data}/Li_et_al_2015.h5",
+             "--maxLoopDistance", "100000",
+             "-pit", "1", "-p", "0.5", "-pp", "0.5",
+             "-t", "1", "-tpc", "1",
+             "-o", "{out}/loops.bedgraph"],
+    "outputs": [
+      {"path": "{out}/loops.bedgraph", "format": "bedpe", "class": "ED"}
+    ],
+    "threads_arg": "--threads",
+    "large": true,
+    "notes": "The designated validation input for this tier: 11,104 restriction fragment bins of chromosome X with float64 values, so the bins are not fixed width and getBinSize() is a median over bins that genuinely differ. It produces 832 loops, the largest call set of this tool anywhere in the corpus, and it is the only case where the bin distance cut and the genomic distance filter of cluster_to_genome_position_mapping are different rules rather than one being redundant. Python: 9.31 s of CPU and 435 MB; the port: 1.71 s and 61 MB."
+  },
+  {
+    "id": "hicDetectLoops.cool.GSE63525_2_5mb.chr1",
+    "tool": "hicDetectLoops",
+    "tier": 5,
+    "args": ["-m", "{data}/hicDetectLoops/GSE63525_GM12878_insitu_primary_2_5mb.cool",
+             "--chromosomes", "1",
+             "--maxLoopDistance", "50000000",
+             "-pit", "1", "-w", "5", "-pw", "2", "-p", "0.5", "-pp", "0.55",
+             "-t", "1", "-tpc", "1",
+             "-o", "{out}/loops.bedgraph"],
+    "outputs": [
+      {"path": "{out}/loops.bedgraph", "format": "bedpe", "class": "ED"}
+    ],
+    "threads_arg": "--threads",
+    "notes": "The cool loader, which for a single chromosome with a distance limit stages the pixels through a float32 lil_matrix and keeps bin2 - bin1 strictly below maxLoopDistance // binsize (hicmatrix/lib/cool.py:126-141). --maxLoopDistance is 50000000 rather than the 3000000 the Python test file passes, because these are 2.5 Mb bins: at 3000000 the loader keeps distance 0 only, the diagonal is then removed and nothing is left, and the tool finds no loops at all. See the note on the degenerate case in the report. 4 loops."
+  },
+  {
+    "id": "hicDetectLoops.cool.GSE63525_2_5mb.chr1_chr2",
+    "tool": "hicDetectLoops",
+    "tier": 5,
+    "args": ["-m", "{data}/hicDetectLoops/GSE63525_GM12878_insitu_primary_2_5mb.cool",
+             "--chromosomes", "1", "2",
+             "--maxLoopDistance", "50000000",
+             "-pit", "1", "-w", "5", "-pw", "2", "-p", "0.5", "-pp", "0.55",
+             "-t", "1", "-tpc", "1",
+             "-o", "{out}/loops.bedgraph"],
+    "outputs": [
+      {"path": "{out}/loops.bedgraph", "format": "bedpe", "class": "ED"}
+    ],
+    "threads_arg": "--threads",
+    "notes": "Two chromosomes, so the Python leaves its single core branch and goes through the process pool; at --threads 1 only one worker is in flight at a time and its line order is still the order of --chromosomes, which is also the order this port writes. 9 loops."
+  },
+  {
+    "id": "hicDetectLoops.cool.GSE63525_2_5mb.chr1.mean_nonzero",
+    "tool": "hicDetectLoops",
+    "tier": 5,
+    "args": ["-m", "{data}/hicDetectLoops/GSE63525_GM12878_insitu_primary_2_5mb.cool",
+             "--chromosomes", "1", "--expected", "mean_nonzero",
+             "--maxLoopDistance", "50000000",
+             "-pit", "1", "-w", "5", "-pw", "2", "-p", "0.5", "-pp", "0.55",
+             "-t", "1", "-tpc", "1",
+             "-o", "{out}/loops.bedgraph"],
+    "outputs": [
+      {"path": "{out}/loops.bedgraph", "format": "bedpe", "class": "ED"}
+    ],
+    "threads_arg": "--threads",
+    "notes": "The cool loader together with the non zero expected value, so both the input and the obs/exp matrix are float32 and the whole fitting stage runs in the mixed precision the reference uses. 11 loops."
+  },
+  {
+    "id": "hicDetectLoops.cool.GSE63525_2_5mb.chr1.tight_preselection",
+    "tool": "hicDetectLoops",
+    "tier": 5,
+    "args": ["-m", "{data}/hicDetectLoops/GSE63525_GM12878_insitu_primary_2_5mb.cool",
+             "--chromosomes", "1",
+             "--maxLoopDistance", "50000000",
+             "-pit", "1", "-w", "5", "-pw", "2", "-p", "0.5", "-pp", "0.1",
+             "-t", "1", "-tpc", "1",
+             "-o", "{out}/loops.bedgraph"],
+    "outputs": [
+      {"path": "{out}/loops.bedgraph", "format": "bedpe", "class": "ED"}
+    ],
+    "threads_arg": "--threads",
+    "notes": "The preselection made decisive on the cool path, where all 19 distance distributions run the optimiser rather than falling into the factorial overflow. 3 loops."
+  }
+]

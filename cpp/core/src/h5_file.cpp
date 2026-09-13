@@ -3,9 +3,12 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <cstring>
 #include <limits>
 #include <stdexcept>
 #include <string>
+#include <thread>
+#include <vector>
 
 #include "hicx/hdf5_util.hpp"
 
@@ -273,6 +276,11 @@ void mark_pytables_nodes(h5::FileWriter& file, const std::string& title,
     }
 }
 
+// Defined below write_hicexplorer_h5, next to the rest of the metadata
+// writing, and declared here because both writers call it.
+void write_h5_metadata(h5::FileWriter& file, const MatrixData& data, std::int64_t rows,
+                       std::int64_t cols);
+
 }  // namespace
 
 void write_hicexplorer_h5(const std::string& path, const MatrixData& data,
@@ -343,7 +351,18 @@ void write_hicexplorer_h5(const std::string& path, const MatrixData& data,
         write_vector(file, "/matrix/indptr", H5T_STD_I64LE, H5T_NATIVE_INT64, indptr);
     }
 
-    const std::vector<std::int64_t> shape{matrix.rows(), matrix.cols()};
+    write_h5_metadata(file, data, matrix.rows(), matrix.cols());
+}
+
+namespace {
+
+// Everything of the file except /matrix/{data,indices,indptr}: the shape, the
+// bin table, the three optional nodes and the PyTables node markers. Shared by
+// the CsrMatrix writer above and the DenseRowSource one below, which differ
+// only in how the CSR arrays are produced.
+void write_h5_metadata(h5::FileWriter& file, const MatrixData& data, std::int64_t rows,
+                       std::int64_t cols) {
+    const std::vector<std::int64_t> shape{rows, cols};
     write_vector(file, "/matrix/shape", H5T_STD_I64LE, H5T_NATIVE_INT64, shape);
 
     write_string_column(file, "/intervals/chr_list", data.cut_intervals, false);
@@ -415,6 +434,226 @@ void write_hicexplorer_h5(const std::string& path, const MatrixData& data,
         leaves.emplace_back("/distance_counts");
     }
     mark_pytables_nodes(file, "HiCExplorer matrix", {"/matrix", "/intervals"}, leaves);
+}
+
+}  // namespace
+
+namespace {
+
+// How many rows the streaming writer computes before it emits them. About
+// 32 MB of staging: a rounding error against every budget in cpp/PLAN.md 4.5,
+// and enough rows that sixteen workers each get a contiguous range.
+std::int64_t staging_row_count(std::int64_t n) {
+    if (n <= 0) {
+        return 1;
+    }
+    const std::int64_t rows = 32000000 / (n * 8);
+    return std::min<std::int64_t>(256, std::max<std::int64_t>(1, rows));
+}
+
+// Fills `count` rows from `first` into `staging`, row r at
+// staging + (r - first) * n. Every row is produced by exactly one worker and
+// the workers take fixed contiguous ranges, so the buffer is the same for any
+// thread count (cpp/OPTIMIZATION.md section 3).
+void fill_rows(const DenseRowSource& source, std::int64_t first, std::int64_t count,
+               std::int64_t n, double* staging, int threads) {
+    const auto work = [&](std::int64_t begin, std::int64_t end) {
+        for (std::int64_t row = begin; row < end; ++row) {
+            source.fill_row(row, staging + (row - first) * n);
+        }
+    };
+    const int workers = std::max(1, threads);
+    if (workers == 1 || count < 2) {
+        work(first, first + count);
+        return;
+    }
+    std::vector<std::thread> pool;
+    pool.reserve(static_cast<std::size_t>(workers));
+    const std::int64_t chunk = (count + workers - 1) / workers;
+    for (int w = 0; w < workers; ++w) {
+        const std::int64_t begin = first + static_cast<std::int64_t>(w) * chunk;
+        const std::int64_t end = std::min(first + count, begin + chunk);
+        if (begin >= end) {
+            break;
+        }
+        pool.emplace_back(work, begin, end);
+    }
+    for (std::thread& worker : pool) {
+        worker.join();
+    }
+}
+
+// Walks the source in chunks, handing each produced row to `consume` in
+// increasing row order.
+template <class F>
+void for_each_produced_row(const DenseRowSource& source, std::int64_t n, int threads,
+                           std::vector<double>& staging, F&& consume) {
+    const std::int64_t block_rows = static_cast<std::int64_t>(staging.size() /
+                                                              static_cast<std::size_t>(n));
+    for (std::int64_t first = 0; first < n; first += block_rows) {
+        const std::int64_t count = std::min(block_rows, n - first);
+        fill_rows(source, first, count, n, staging.data(), threads);
+        for (std::int64_t r = 0; r < count; ++r) {
+            consume(first + r, staging.data() + r * n);
+        }
+    }
+}
+
+}  // namespace
+
+void write_hicexplorer_h5(const std::string& path, const MatrixData& metadata,
+                          const DenseRowSource& source, int threads,
+                          const H5SaveOptions& options) {
+    std::string filename = path;
+    if (filename.size() < 3 || filename.compare(filename.size() - 3, 3, ".h5") != 0) {
+        filename += ".h5";
+    }
+    std::remove(filename.c_str());
+
+    const std::int64_t n = source.rows();
+    if (metadata.cut_intervals.size() != static_cast<std::size_t>(n)) {
+        throw h5::Error("the bin table has " +
+                        std::to_string(metadata.cut_intervals.size()) +
+                        " entries but the result has " + std::to_string(n) + " rows");
+    }
+    if (source.dtype() != "float64") {
+        // The only callers are the dense transforms, which are float64. A
+        // typed staging buffer per dtype would be dead code with no case
+        // behind it, and cpp/AGENTS_CONTRACT.md rule 4 asks for the gap to be
+        // named rather than filled with something untested.
+        throw h5::Error("the streaming h5 writer only handles float64, not " +
+                        source.dtype());
+    }
+    const bool upper_only = options.symmetric;
+
+    std::vector<double> staging(static_cast<std::size_t>(staging_row_count(n)) *
+                                static_cast<std::size_t>(n));
+
+    // Pass one: the row lengths. A PyTables CArray has a fixed length that has
+    // to be known before the dataset is created, so the entries have to be
+    // counted before any of them can be written.
+    std::vector<std::int64_t> indptr(static_cast<std::size_t>(n) + 1, 0);
+    for_each_produced_row(source, n, threads, staging,
+                          [&](std::int64_t row, const double* values) {
+                              std::int64_t stored = 0;
+                              for (std::int64_t j = upper_only ? row : 0; j < n; ++j) {
+                                  // eliminate_zeros: an exact zero is not
+                                  // stored, a NaN is.
+                                  if (values[j] != 0.0) {
+                                      ++stored;
+                                  }
+                              }
+                              indptr[static_cast<std::size_t>(row) + 1] = stored;
+                          });
+    for (std::int64_t row = 0; row < n; ++row) {
+        indptr[static_cast<std::size_t>(row) + 1] +=
+            indptr[static_cast<std::size_t>(row)];
+    }
+    const std::size_t nnz = static_cast<std::size_t>(indptr.back());
+
+    h5::FileWriter file(filename);
+    file.create_group("/matrix");
+    file.create_group("/intervals");
+
+    const bool narrow = index_fits_in_int32(nnz, n);
+    const h5::Handle data_set =
+        file.create_dataset("/matrix/data", H5T_IEEE_F64LE, nnz, nnz,
+                            h5::Filter::PyTablesBlosc, 0, 0);
+    const h5::Handle index_set = file.create_dataset(
+        "/matrix/indices", narrow ? H5T_STD_I32LE : H5T_STD_I64LE, nnz, nnz,
+        h5::Filter::PyTablesBlosc, 0, 0);
+
+    // Pass two: the values and the column indices, written into both datasets
+    // in the same block so that the source is walked once more, not twice.
+    std::vector<double> value_buffer;
+    std::vector<std::int32_t> index_buffer32;
+    std::vector<std::int64_t> index_buffer64;
+    value_buffer.reserve(kBlock);
+    if (narrow) {
+        index_buffer32.reserve(kBlock);
+    } else {
+        index_buffer64.reserve(kBlock);
+    }
+    std::size_t written = 0;
+    const auto flush = [&]() {
+        const std::size_t count = value_buffer.size();
+        if (count == 0) {
+            return;
+        }
+        h5::FileWriter::write_block(data_set.get(), H5T_NATIVE_DOUBLE, written, count,
+                                    value_buffer.data());
+        if (narrow) {
+            h5::FileWriter::write_block(index_set.get(), H5T_NATIVE_INT32, written, count,
+                                        index_buffer32.data());
+            index_buffer32.clear();
+        } else {
+            h5::FileWriter::write_block(index_set.get(), H5T_NATIVE_INT64, written, count,
+                                        index_buffer64.data());
+            index_buffer64.clear();
+        }
+        written += count;
+        value_buffer.clear();
+    };
+    for_each_produced_row(
+        source, n, threads, staging, [&](std::int64_t row, const double* values) {
+            for (std::int64_t j = upper_only ? row : 0; j < n; ++j) {
+                if (values[j] == 0.0) {
+                    continue;
+                }
+                value_buffer.push_back(values[j]);
+                if (narrow) {
+                    index_buffer32.push_back(static_cast<std::int32_t>(j));
+                } else {
+                    index_buffer64.push_back(j);
+                }
+                if (value_buffer.size() == kBlock) {
+                    flush();
+                }
+            }
+        });
+    flush();
+    if (written != nnz) {
+        throw h5::Error("/matrix/data: produced " + std::to_string(written) +
+                        " values but the two passes counted " + std::to_string(nnz));
+    }
+
+    if (narrow) {
+        write_streamed<std::int32_t>(file, "/matrix/indptr", H5T_STD_I32LE,
+                                     H5T_NATIVE_INT32, indptr.size(), [&](auto emit) {
+                                         for (const std::int64_t offset : indptr) {
+                                             emit(static_cast<std::int32_t>(offset));
+                                         }
+                                     });
+    } else {
+        write_vector(file, "/matrix/indptr", H5T_STD_I64LE, H5T_NATIVE_INT64, indptr);
+    }
+
+    write_h5_metadata(file, metadata, n, n);
+}
+
+CsrMatrix materialize_dense_row_source(const DenseRowSource& source, int threads) {
+    const std::int64_t n = source.rows();
+    std::vector<std::int64_t> indptr(1, 0);
+    indptr.reserve(static_cast<std::size_t>(n) + 1);
+    std::vector<std::int32_t> indices;
+    std::vector<double> data;
+    std::vector<double> staging(static_cast<std::size_t>(staging_row_count(n)) *
+                                static_cast<std::size_t>(std::max<std::int64_t>(n, 1)));
+    if (n > 0) {
+        for_each_produced_row(source, n, threads, staging,
+                              [&](std::int64_t, const double* values) {
+                                  for (std::int64_t j = 0; j < n; ++j) {
+                                      if (values[j] != 0.0) {
+                                          indices.push_back(static_cast<std::int32_t>(j));
+                                          data.push_back(values[j]);
+                                      }
+                                  }
+                                  indptr.push_back(
+                                      static_cast<std::int64_t>(data.size()));
+                              });
+    }
+    return CsrMatrix(n, n, std::move(indptr), std::move(indices), std::move(data),
+                     source.dtype());
 }
 
 }  // namespace hicx
