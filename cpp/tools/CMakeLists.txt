@@ -17,6 +17,7 @@ set(HICX_TOOLS
     hicFindRestSite
     hicMergeLoops
     hicNormalize
+    hicQuickQC
     hicValidateLocations
     hicSumMatrices
     hicTransform)

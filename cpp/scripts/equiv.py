@@ -685,6 +685,15 @@ def _declared_outputs(case):
     return found
 
 
+def _declared_options(case, name):
+    """The comparator options a case declares for the output named `name`."""
+    for declared in case["outputs"]:
+        path = declared["path"].replace("{out}/", "").replace("{out}", "")
+        if path == name:
+            return declared.get("options") or {}
+    return {}
+
+
 # The strictest class each format admits, used to say *what* differs when two
 # runs are not byte-identical. A cool file carries a `creation-date` attribute,
 # so two writes of the same matrix can never be byte-identical, whoever writes
@@ -789,6 +798,22 @@ def _compare_run_outputs(case, reference_dir, other_dir):
         mtime_bytes, other_bytes = _classify_byte_differences(str(left), offsets)
         where = (f"{len(offsets)}{'+' if truncated else ''} differing bytes, "
                  f"first at offset {offsets[0]}" if offsets else "sizes differ")
+
+        # A text output whose case declares a named normalisation, such as the
+        # random temporary matrix name hicQuickQC prints, is compared through
+        # that normalisation and nothing else: a difference it absorbs is a
+        # qualification, any other byte is a failure.
+        normalise = _declared_options(case, name).get("normalise")
+        if normalise and fmt in ("plain", "text"):
+            comparison = comparators.compare(fmt, str(left), str(right), "E0",
+                                             {"normalise": normalise})
+            if comparison.passed:
+                qualified.append(f"{name}: identical after the named normalisation "
+                                 f"{normalise} but not byte for byte ({where})")
+            else:
+                diffs.append(f"{name}: differs after the named normalisation "
+                             f"{normalise}: " + "; ".join(comparison.diffs[:3]))
+            continue
 
         strictest = STRICTEST_CLASS_BY_FORMAT.get(fmt)
         content_identical = None

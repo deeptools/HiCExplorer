@@ -15,6 +15,8 @@ columns are compared exactly; float columns at the requested class.
 """
 from __future__ import annotations
 
+import re
+
 from .base import Result, fail, values_agree
 
 SCHEMAS = {
@@ -66,20 +68,88 @@ def _column_type(schema, index):
     return schema["rest"]
 
 
+# Named normalisations. Each one names a single field the two programs cannot
+# agree on by construction, states exactly where it may occur, and replaces
+# only that. It is never a pattern that could absorb a real difference: a file
+# in which the field is missing, appears a second time, or has a different
+# shape fails outright.
+#
+# quickqc_temporary_matrix
+#     hicQuickQC names a tempfile.NamedTemporaryFile(suffix='.h5') as the
+#     hicBuildMatrix output, and that name, random by design, is printed into
+#     the second line of QC.log (`File\t<name>\t\t`) and into the first field
+#     of the second line of every *_table.txt that hicPrepareQCreport derives
+#     from it. The basename `tmp` + 8 characters of [a-z0-9_] + `.h5` is
+#     replaced by `tmpXXXXXXXX.h5`; the directory is kept, so the two runs
+#     must still have chosen the same temporary directory.
+_QUICKQC_NAME = re.compile(rb"^(/(?:[^\t\n/]+/)*|)tmp[a-z0-9_]{8}\.h5$")
+
+
+def _normalise_quickqc_temporary_matrix(raw):
+    lines = raw.split(b"\n")
+    if len(lines) < 2:
+        return None, "fewer than two lines"
+    fields = lines[1].split(b"\t")
+    if fields[0] == b"File":
+        # QC.log: `File\t<name>\t\t`
+        if len(fields) != 4 or fields[2] != b"" or fields[3] != b"":
+            return None, "QC.log line 2 is not 'File<TAB>name<TAB><TAB>'"
+        position = 1
+    else:
+        position = 0
+    match = _QUICKQC_NAME.match(fields[position])
+    if match is None:
+        return None, (f"line 2 field {position + 1} {fields[position][:80]!r} is not "
+                      f"a NamedTemporaryFile .h5 name")
+    fields[position] = match.group(1) + b"tmpXXXXXXXX.h5"
+    lines[1] = b"\t".join(fields)
+    normalised = b"\n".join(lines)
+    if re.search(rb"tmp[a-z0-9_]{8}\.h5", normalised):
+        return None, "the temporary name occurs more than once"
+    return normalised, None
+
+
+NORMALISATIONS = {
+    "quickqc_temporary_matrix": _normalise_quickqc_temporary_matrix,
+}
+
+
+def _apply_normalisations(raw, names, side):
+    for name in names:
+        if name not in NORMALISATIONS:
+            return None, f"unknown normalisation {name!r}; known: {sorted(NORMALISATIONS)}"
+        raw, problem = NORMALISATIONS[name](raw)
+        if problem:
+            return None, f"{side}: normalisation {name}: {problem}"
+    return raw, None
+
+
 def compare(path_a, path_b, cls, opts=None):
     opts = opts or {}
     schema_name = opts.get("schema", "plain")
     if schema_name not in SCHEMAS:
         return fail(f"unknown text schema {schema_name!r}")
     schema = SCHEMAS[schema_name]
+    normalise = list(opts.get("normalise") or [])
 
     if schema is None or cls == "E0":
         a = _read_bytes(path_a)
         b = _read_bytes(path_b)
+        metrics = {"bytes": len(a)}
+        if normalise:
+            a, problem = _apply_normalisations(a, normalise, "python")
+            if problem:
+                return fail(problem)
+            b, problem = _apply_normalisations(b, normalise, "c++")
+            if problem:
+                return fail(problem)
+            metrics["normalised"] = normalise
         if a == b:
-            return Result(True, "E0", {"bytes": len(a)})
+            return Result(True, "E0", metrics)
         diffs = _byte_diff(a, b)
         return Result(False, None, {"bytes_py": len(a), "bytes_cpp": len(b)}, diffs)
+    if normalise:
+        return fail("named normalisations are defined for byte comparison (E0) only")
 
     lines_a = _read_lines(path_a, schema)
     lines_b = _read_lines(path_b, schema)
