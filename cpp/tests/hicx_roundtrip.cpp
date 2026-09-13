@@ -21,7 +21,7 @@
 #include <string>
 #include <vector>
 
-#include "hicx/cool_file.hpp"
+#include "hicx/cool_adapter.hpp"
 #include "hicx/h5_file.hpp"
 #include "hicx/matrix_data.hpp"
 #include "hicx/resource_usage.hpp"

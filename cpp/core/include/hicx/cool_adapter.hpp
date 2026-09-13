@@ -1,21 +1,32 @@
-// Reader for the cool format (HDF5, https://github.com/open2c/cooler).
+// cool and mcool files for HiCExplorer v4: the hicmatrix layer over coolercpp.
 //
-// A cooler is an HDF5 group holding
-//   chroms/name, chroms/length
-//   bins/chrom, bins/start, bins/end and optional weight columns
-//   pixels/bin1_id, pixels/bin2_id, pixels/count
-//   indexes/bin1_offset, indexes/chrom_offset
-// plus file level attributes: nbins, nchroms, nnz, sum, bin-size, bin-type,
-// storage-mode, generated-by, metadata and others.
+// Every read and write of the cool format goes through coolercpp, the
+// cooler-compatible library (cmake/HicxCoolercpp.cmake). This adapter keeps
+// only what hicmatrix.lib.Cool adds on top of cooler, and hands the tools the
+// v4 matrix types:
 //
-// The writer reproduces what cooler.create_cooler produces when hicmatrix
-// calls it (hicmatrix/lib/cool.py:406-426), including the dataset layout,
-// because cool output is compared structurally (class E1 of cpp/PLAN.md).
+//   * the correction handling of Cool.load: weights applied on load,
+//     multiplicative for 'weight' and divisive for the hic2cool tables, the
+//     operator and the hic2cool/hicmatrix versions read out of generated-by;
+//   * the NaN bin list rebuilt on every load as the bins with an empty row
+//     and an empty column;
+//   * the single chromosome load, which reads only that chromosome's block;
+//   * Cool.create_cooler_input and Cool.save on write: NaN bin pair masking
+//     for an h5 source, the inversion and reversion of the correction
+//     factors, the weight column, int32 bin IDs, the count dtype, the pixel
+//     table split into 10,000 parts above 10^7 pixels (which fixes the order
+//     the 'sum' attribute is accumulated in), hicmatrix's metadata dictionary
+//     and its key order, and hicmatrix's provenance written onto the file root
+//     only in mode 'w'.
+//
+// The load time correction_factors/distance_counts swap of hiCMatrix
+// (STATUS.md F9, F10, F21) stays with hicx::ToolMatrix, as before.
 
-#ifndef HICX_COOL_FILE_HPP
-#define HICX_COOL_FILE_HPP
+#ifndef HICX_COOL_ADAPTER_HPP
+#define HICX_COOL_ADAPTER_HPP
 
 #include <cstdint>
+#include <functional>
 #include <map>
 #include <memory>
 #include <optional>
@@ -23,28 +34,41 @@
 #include <vector>
 
 #include "hicx/bins.hpp"
-#include "hicx/hdf5_util.hpp"
 #include "hicx/json_lite.hpp"
 #include "hicx/matrix_data.hpp"
 #include "hicx/sparse_matrix.hpp"
 
+namespace coolercpp {
+class Cooler;
+}
+
 namespace hicx {
 
-// cooler.fileops.is_cooler: an HDF5 group carrying the four cooler groups.
+// The cooler of a path or URI, as cooler.fileops.is_cooler decides; a missing
+// group is false rather than an error.
 [[nodiscard]] bool is_cooler(const std::string& path);
 
 // hicexplorer.utilities.check_cooler.
 [[nodiscard]] bool check_cooler(const std::string& path);
 
+// One chunk of stored pixels, in storage order.
+struct PixelChunk {
+    std::vector<std::int64_t> bin1;
+    std::vector<std::int64_t> bin2;
+    std::vector<double> count;
+};
+
+// A cooler opened through coolercpp, with its metadata in the form the tools
+// consume.
 class CoolFile {
   public:
-    // Accepts a plain path or a cooler URI "file.mcool::/resolutions/10000".
+    // A plain path or a cooler URI "file.mcool::/resolutions/10000".
     explicit CoolFile(const std::string& uri);
 
     [[nodiscard]] const std::string& filename() const noexcept { return filename_; }
     [[nodiscard]] const std::string& root() const noexcept { return root_; }
 
-    // Cooler.info: file attributes with cooler's json coercion applied.
+    // Cooler.info: string attributes JSON decoded, the rest as numbers.
     [[nodiscard]] const std::map<std::string, json::Value>& info() const noexcept {
         return info_;
     }
@@ -57,32 +81,37 @@ class CoolFile {
         return chrom_lengths_;
     }
 
-    // Cooler.bins().columns.values: chrom, start, end first, then any further
-    // column of the bins group in HDF5 name order.
+    // Cooler.bins().columns: chrom, start, end, then the other bin columns.
     [[nodiscard]] std::vector<std::string> bin_columns() const;
-
     [[nodiscard]] std::int64_t nbins() const;
     [[nodiscard]] std::int64_t nnz() const;
 
-    // The bin table as cut intervals, with the constant extra value 1.0 that
-    // hicmatrix uses for cool files.
+    // The bin table as cut intervals with hicmatrix's constant extra 1.0.
     [[nodiscard]] std::vector<CutInterval> read_bins() const;
-
     [[nodiscard]] bool has_column(const std::string& column) const;
     [[nodiscard]] std::vector<double> read_column(const std::string& column) const;
+    // The numpy dtype name of the pixel count column.
+    [[nodiscard]] std::string count_dtype() const;
 
-    // The raw pixel table as a CSR matrix, without any balancing applied.
+    // The stored pixel table as a CSR matrix, without balancing.
     [[nodiscard]] CsrMatrix read_matrix() const;
+    // The stored pixels with first <= bin1, bin2 < last, renumbered from
+    // `first`, columns sorted within each row: the chromosome block of a
+    // contiguous bin range, read without touching the other rows.
+    [[nodiscard]] CsrMatrix read_block(std::int64_t first, std::int64_t last) const;
+    // The stored pixels of rows [row_first, row_last) whose column lies in
+    // [col_first, col_last), in storage order, one chunk at a time.
+    void for_each_pixel_chunk(std::int64_t row_first, std::int64_t row_last,
+                              std::int64_t col_first, std::int64_t col_last,
+                              const std::function<void(const PixelChunk&)>& visit) const;
 
   private:
+    std::shared_ptr<const coolercpp::Cooler> cooler_;
     std::string filename_;
     std::string root_ = "/";
-    std::shared_ptr<h5::File> file_;
     std::map<std::string, json::Value> info_;
     std::vector<std::string> chrom_names_;
     std::vector<std::int64_t> chrom_lengths_;
-
-    [[nodiscard]] std::string path_of(const std::string& relative) const;
 };
 
 struct CoolLoadOptions {
@@ -110,10 +139,7 @@ struct CoolLoadOptions {
 struct CoolLoadResult {
     MatrixData data;
     // The state the loader leaves behind on the Cool object and that a
-    // following save reads back (hicmatrix/lib/cool.py:195-207): the operator
-    // the correction was applied with, and the version of whatever wrote the
-    // file. hicConvertFormat carries both from the input handler to the output
-    // handler, so they belong to the load result and not to the matrix.
+    // following save reads back (hicmatrix/lib/cool.py:195-207).
     std::optional<char> correction_operator;
     std::optional<std::string> hic2cool_version;
     std::optional<std::string> hicmatrix_version;
@@ -121,8 +147,7 @@ struct CoolLoadResult {
     std::map<std::string, std::string> metadata;
 };
 
-// Port of hicmatrix.lib.Cool.load for the whole matrix case, which is the only
-// one the tools use when no chromosome is preselected.
+// hicmatrix.lib.Cool.load.
 [[nodiscard]] CoolLoadResult read_cool(const std::string& uri,
                                        const CoolLoadOptions& options = CoolLoadOptions());
 
@@ -138,9 +163,7 @@ struct CoolSaveOptions {
     // round-half-to-even.
     bool enforce_integer = false;
     // Cool.appendData: cooler.create_cooler is called with mode 'a' instead of
-    // 'w'. hicConvertFormat sets it for every resolution of an mcool after the
-    // first, and it is also what decides whether the hicmatrix provenance
-    // attributes are written onto the file root (cool.py:422-426).
+    // 'w', and hicmatrix's provenance is not written onto the file root.
     bool append = false;
     // Cool.fileWasH5: the input was an h5 file, which both triggers the
     // nan-bin masking and forces the correction factors to be inverted.
@@ -154,44 +177,24 @@ struct CoolSaveOptions {
     // are read out of it.
     std::map<std::string, std::string> hic_metadata;
     bool has_hic_metadata = false;
-    // The provenance strings. cpp/PLAN.md 2.4 decides that the port emits the
-    // hicmatrix identity verbatim until the whole suite is green, so that the
-    // four normalised attributes are not a free pass in the comparator.
+    // The provenance strings, passed to coolercpp and written onto the root.
+    // cpp/PLAN.md 5.0.1 decides when they change; until then the port emits
+    // the hicmatrix identity verbatim.
     std::string generated_by = "HiCMatrix-17.2";
     std::string generated_by_cooler_lib = "cooler-0.10.2";
     std::string tool_url = "https://github.com/deeptools/HiCMatrix";
     std::string format_url = "https://github.com/mirnylab/cooler";
-    // cooler's own format-url, which survives on a cooler written into a group
-    // because hicmatrix overwrites the provenance attributes on the file root
-    // only. Note that hicmatrix's format_url above is the old mirnylab one.
-    std::string cooler_format_url = "https://github.com/open2c/cooler";
     // ISO 8601 local time, like datetime.now().isoformat(). Empty means "take
     // the current time"; a fixed value makes a test reproducible.
     std::string creation_date;
 };
 
-// Port of hicmatrix.lib.Cool.create_cooler_input and Cool.save.
-//
-// `path` is a cooler URI: either a plain file name, in which case the cooler
-// occupies the file root, or "file::/group/path", in which case it is written
-// into that group and the file keeps whatever else it holds. The second form
-// is how hicConvertFormat produces an mcool, one group per resolution. A
-// cooler written into a group keeps cooler's own provenance attributes
-// (format-url open2c, generated-by cooler-<version>) because hicmatrix only
-// overwrites them on the file root, and it overwrites them there only in mode
-// 'w', that is for the first resolution.
-//
-// `data` is modified in place exactly where the Python modifies it: NaN counts
-// become zero, the pairs of NaN bins are dropped for an h5 source, the
-// correction factors are inverted and the counts are divided by them. With
-// pSymmetric the reverted counts are the upper triangle only, because at that
-// point the Python has already replaced its matrix with that triangle. Nothing
-// is copied; the pixel table is streamed out of the CSR one block at a time,
-// so the writer adds a bounded buffer and the O(nbins) row offset array to the
-// resident set and nothing that scales with the pixel count.
+// hicmatrix.lib.Cool.create_cooler_input and Cool.save, through
+// coolercpp::create_cooler. `path` is a plain file name or "file::/group".
+// `data` is modified in place exactly where the Python modifies it.
 void write_cool(const std::string& path, MatrixData& data,
                 const CoolSaveOptions& options = CoolSaveOptions());
 
 }  // namespace hicx
 
-#endif  // HICX_COOL_FILE_HPP
+#endif  // HICX_COOL_ADAPTER_HPP

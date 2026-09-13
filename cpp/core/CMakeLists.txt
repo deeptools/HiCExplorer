@@ -26,7 +26,7 @@ add_library(hicx4core
     src/build_matrix.cpp
     src/chic_hdf5.cpp
     src/chic_viewpoint.cpp
-    src/cool_file.cpp
+    src/cool_adapter.cpp
     src/fasta_reader.cpp
     src/h5_file.cpp
     src/hdf5_util.cpp

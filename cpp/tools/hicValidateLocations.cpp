@@ -51,7 +51,7 @@
 
 #include "hicx/bedtools_ops.hpp"
 #include "hicx/bins.hpp"
-#include "hicx/cool_file.hpp"
+#include "hicx/cool_adapter.hpp"
 #include "hicx/numpy_compat.hpp"
 #include "hicx/resource_usage.hpp"
 #include "hicx/text_table.hpp"

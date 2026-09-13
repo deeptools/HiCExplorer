@@ -1,5 +1,5 @@
 // read_cool with a chromosome name cuts the chromosome's block out of the
-// pixel table in place (core/src/cool_file.cpp). Before that change the cut
+// pixel table (core/src/cool_adapter.cpp). Before that change the cut
 // was select_bins over the chromosome's contiguous bin range, and every tool
 // that loads one chromosome of a cooler (hicAdjustMatrix, hicCorrectMatrix,
 // hicPlotSVL) was validated against that. This pins that the in-place cut
@@ -14,7 +14,7 @@
 #include <vector>
 
 #include "hicx/adjust_ops.hpp"
-#include "hicx/cool_file.hpp"
+#include "hicx/cool_adapter.hpp"
 
 namespace {
 

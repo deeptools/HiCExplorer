@@ -8,7 +8,7 @@
 #include <stdexcept>
 #include <utility>
 
-#include "hicx/cool_file.hpp"
+#include "hicx/cool_adapter.hpp"
 #include "hicx/h5_file.hpp"
 #include "hicx/json_lite.hpp"
 #include "hicx/numpy_compat.hpp"

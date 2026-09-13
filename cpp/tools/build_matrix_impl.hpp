@@ -34,7 +34,7 @@
 
 #include "hicx/bam_file.hpp"
 #include "hicx/build_matrix.hpp"
-#include "hicx/cool_file.hpp"
+#include "hicx/cool_adapter.hpp"
 #include "hicx/h5_file.hpp"
 #include "hicx/reduce_matrix.hpp"
 #include "hicx/resource_usage.hpp"

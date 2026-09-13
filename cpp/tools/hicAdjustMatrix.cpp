@@ -54,7 +54,7 @@
 
 #include "hicx/adjust_ops.hpp"
 #include "hicx/bins.hpp"
-#include "hicx/cool_file.hpp"
+#include "hicx/cool_adapter.hpp"
 #include "hicx/matrix_ops.hpp"
 #include "hicx/resource_usage.hpp"
 #include "hicx/tool_matrix.hpp"

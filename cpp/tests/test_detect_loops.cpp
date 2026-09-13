@@ -16,7 +16,7 @@
 
 #include "../tools/detect_loops_impl.hpp"
 #include "hicx/adjust_ops.hpp"
-#include "hicx/cool_file.hpp"
+#include "hicx/cool_adapter.hpp"
 #include "hicx/h5_file.hpp"
 #include "hicx/numpy_compat.hpp"
 #include "hicx/simd_reduce.hpp"

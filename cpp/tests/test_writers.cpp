@@ -18,7 +18,7 @@
 #include <unistd.h>
 #include <vector>
 
-#include "hicx/cool_file.hpp"
+#include "hicx/cool_adapter.hpp"
 #include "hicx/h5_file.hpp"
 #include "hicx/hdf5_util.hpp"
 #include "hicx/matrix_data.hpp"
