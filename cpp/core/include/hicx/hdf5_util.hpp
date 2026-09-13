@@ -122,44 +122,28 @@ class File {
 // --------------------------------------------------------------------------
 // Writing
 
-// The filter pipelines the two writers use. Each one is the pipeline a
-// specific Python writer produces, and the cool comparator checks it, so they
-// are named after their origin rather than after what they do.
+// The filter pipelines the writers use, named after the Python writer whose
+// pipeline each one reproduces. cool files are written by coolercpp.
 enum class Filter {
     // No filter at all.
     None,
-    // cooler's default h5opts: shuffle followed by gzip level 6
-    // (cooler/create/_create.py:_set_h5opts).
-    CoolerDefault,
-    // cooler.core.put's default for an extra bin column: gzip level 6 with no
-    // shuffle (cooler/core/_tableops.py:160).
-    CoolerColumn,
     // PyTables Filters(complevel=5, complib='blosc') (hicmatrix/lib/h5.py:123).
     PyTablesBlosc,
 };
 
-// h5py's automatic chunk layout, h5py/_hl/filters.py guess_chunk, for the one
-// dimensional datasets both formats consist of. cool output is compared
-// including the chunk shape, so this has to be the same function and not
-// merely a reasonable one. Returns the chunk length in elements.
+// h5py's automatic chunk layout, h5py/_hl/filters.py guess_chunk, for one
+// dimensional datasets. Output is compared including the chunk shape, so this
+// has to be the same function and not merely a reasonable one. Returns the
+// chunk length in elements.
 [[nodiscard]] std::size_t guess_chunk(std::size_t length, std::size_t typesize);
 
 // A fixed width byte string type, NUL padded and ASCII, which is what numpy
 // writes for an S<width> array.
 [[nodiscard]] Handle fixed_string_type(std::size_t width);
 
-// An HDF5 ENUM with the members inserted in id order, which is what
-// h5py.special_dtype(enum=(int32, idmap)) produces for cool /bins/chrom. The
-// base defaults to the file type; HDF5 has no conversion path from a plain
-// integer to an enumeration, so writing one needs the same enumeration over
-// H5T_NATIVE_INT32 as the memory type.
-[[nodiscard]] Handle enum_type(const std::vector<std::string>& names,
-                               hid_t base = H5T_STD_I32LE);
-
-// h5py's file modes, of which the writers need two. cooler.create_cooler is
-// handed 'w' or 'a' by hicmatrix (hicmatrix/lib/cool.py:370-373) and opens the
-// file with it, so an mcool is one truncating write followed by one appending
-// write per further resolution.
+// h5py's file modes, of which the writers need two: the h5 writer truncates,
+// and the cool adapter reopens a file coolercpp has written to set hicmatrix's
+// root attributes.
 enum class WriteMode {
     // h5py.File(path, 'w'): truncate whatever is there.
     Truncate,
@@ -179,23 +163,15 @@ class FileWriter {
     // h5py.Group.create_group with a multi component name.
     Handle create_group(const std::string& path);
 
-    [[nodiscard]] bool exists(const std::string& object_path) const;
-    // Removes a link, like `del f[path]`. Silently does nothing when the
-    // object is not there.
-    void unlink(const std::string& object_path);
-
     // A resizable dataset is created by passing a max_length larger than
-    // length; kUnlimited maps to H5S_UNLIMITED. chunk = 0 asks for h5py's
-    // guessed layout, which is derived from the *initial* length exactly as
-    // h5py derives it. minor > 0 makes the dataset two dimensional, which one
-    // matrix in the corpus needs for its n-by-1 correction factor column.
-    static constexpr std::size_t kUnlimited = static_cast<std::size_t>(-1);
+    // length. chunk = 0 asks for h5py's guessed layout, which is derived from
+    // the *initial* length exactly as h5py derives it. minor > 0 makes the
+    // dataset two dimensional, which one matrix in the corpus needs for its
+    // n-by-1 correction factor column.
     Handle create_dataset(const std::string& path, hid_t file_type,
                           std::size_t length, std::size_t max_length,
                           Filter filter, std::size_t chunk = 0,
                           std::size_t minor = 0);
-
-    static void resize(hid_t dataset, std::size_t length);
 
     // Writes count rows at offset. For a two dimensional dataset a row is the
     // whole minor extent. The writers call this once per block so that no full
