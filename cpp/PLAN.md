@@ -1512,6 +1512,7 @@ The situation is different for each:
 | 8 | ML and hyperparameter search | 4 |
 | | **total** | **46 + 1 alias (`hicQC`)** |
 | 9 | beyond the Python: new features and a differential redesign | 14 items (9.1 to 9.14) |
+| 10 | Python GUI (PySide6) with workflows and visualisation, Linux and macOS | 8 items (10.1 to 10.8) |
 
 Tiers 2, 6 and 7 are independent of tiers 3-5 after tier 0 lands, so up to three
 workers can proceed in parallel from that point.
@@ -1640,6 +1641,99 @@ in 9.3, and agreement with a published fountain caller, such as fontanka.
 Order: 9.1 now; then 9.7 step 1 (small, removes most measured false positives);
 9.2, 9.3, 9.4, the rest of 9.7, 9.6 and 9.8 to 9.14, interleaved with the
 remaining tier 6 tools. 9.5 follows coolercpp milestone 3.
+
+### Tier 10 - HiCExplorer GUI (added 2026-09-13)
+
+The project owner asked for a Python GUI that runs on Linux (including Ubuntu)
+and macOS, runs end-to-end workflows and offers visualisations. It is built on
+tier 7 option (a): C++ computes, Python draws. The GUI request therefore settles
+tier 7 in favour of (a) for every plotting tool.
+
+**Stack.**
+- **Toolkit:** Qt 6 through PySide6 (LGPL). Native on Linux and macOS, arm64
+  and x86_64; Windows works with the same code if wanted.
+- **Interactive views:** Qt with an OpenGL-backed image widget (pyqtgraph or
+  equivalent).
+- **Saved figures:** go through the tier 7 matplotlib shells, so a figure
+  exported from the GUI equals the CLI tool's figure.
+- **Tool runs:** the GUI runs the C++ tools as subprocesses. A tool crash cannot
+  take the GUI down, and every run is reproducible from its logged command line.
+- **Interactive data access:** Python bindings (pybind11) over libhicx4,
+  coolercpp and hicfilecpp. They query only the region and resolution on
+  screen, so browsing stays within the memory budget; a matrix is never loaded
+  whole.
+
+**Components** (top-level `gui/`, Python package `hicexplorer_gui`):
+1. **Tool specifications.** Each C++ tool emits a machine-readable description
+   of its arguments (`--help-json`), which is the single source for GUI forms,
+   validation and file pickers. This is the argparse layer listed as open work
+   in `STATUS.md`.
+2. **Workflow engine, usable without the GUI** (`hicexplorer-workflow run
+   file.yaml`).
+   - A workflow is a DAG of tool steps in a versioned YAML file.
+   - It resumes by hashing inputs and parameters, and records per-step logs,
+     peak RSS and CPU time, with cancellation and a thread budget.
+   - It exports to a shell script and a Snakemake file; a Galaxy workflow export
+     can come later.
+3. **Visualisation.**
+   - *Matrix browser:* cool, mcool, h5 and `.hic`. Raw, log, obs/exp and
+     Pearson views, and resolution switching on zoom for mcool and `.hic`.
+     Side-by-side and difference views, and coordinate navigation.
+   - *Tracks under the matrix:* TADs, loops, BED, bigWig, bedGraph and
+     eigenvectors.
+   - *Analysis views:* QC report, distance-decay curves, viewpoint (virtual 4C)
+     plots, aggregate contacts and saddle plots, and correlation or HiCRep
+     heatmaps. Differential results appear as tables and volcano plots linked
+     to the matrix browser.
+4. **Projects and history:** inputs, runs, parameters and provenance per
+   project.
+
+**Workflow templates.**
+- **Hi-C:** BAM or `.pairs`, then hicBuildMatrix with QC, merging replicates,
+  binning or zoomify, correction, TADs, loops, compartments and a report.
+- **Differential:** two conditions with replicates, a shared bin mask, then the
+  9.7 engine for TADs, loops and compartments.
+- **Capture Hi-C:** the chic tools, from background model to differential test
+  and viewpoint plots.
+- **Conversion and QC:** format conversions, hicInfo, correlation and HiCRep,
+  distance decay.
+
+A step whose tool is not yet ported shows as unavailable with the reason (rule
+4); nothing is silently substituted.
+
+**Validation.**
+- *Workflow runner:* every step's outputs are E0 against invoking the same tool
+  with the logged command line. The Hi-C template runs end to end on real
+  BAMs, and the differential template on GSE234292.
+- *Exported figures:* E6 against the tier 7 CLI plotting with the same
+  parameters.
+- *Interactive views:* the displayed values for a region are E2 against the
+  tools' region extraction. Peak RSS stays within budget while browsing
+  `gm12878_chr1.cool` and the 5.3 GB `.hic`.
+- *GUI tests:* pytest-qt with `QT_QPA_PLATFORM=offscreen`, plus screenshot
+  review on a real display. Layouts must stay usable from 1280x720 to 4K,
+  with no clipped controls.
+- *macOS:* the C++ core must build with Apple clang on arm64 and pass the
+  harness there. Its x86 SIMD dispatch needs NEON or scalar paths with
+  byte-identical output (`OPTIMIZATION.md`), and the non-AVX-512 fallback is
+  currently untested (`STATUS.md`). **This cannot be verified on the build
+  machine; it needs a Mac or a CI runner (open question for the owner).**
+
+**Packaging:** a conda recipe for the C++ tools and the GUI, a pip wheel for the
+GUI, and a macOS app bundle later.
+
+**Order:**
+- 10.1 tool specifications;
+- 10.2 Python bindings;
+- 10.3 headless workflow engine;
+- 10.4 GUI shell with tool forms and the run view;
+- 10.5 matrix browser;
+- 10.6 tier 7 shells and the analysis views;
+- 10.7 workflow templates;
+- 10.8 macOS.
+
+10.1 to 10.3 can start once 9.1 is merged. The templates grow as tier 6 and
+tier 9 tools land.
 
 ## 7. The state of the Python test suite, honestly
 
