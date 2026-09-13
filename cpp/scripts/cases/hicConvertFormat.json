@@ -167,5 +167,322 @@
     "outputs": [{"path": "{out}/matrix.cool", "format": "cool", "class": "E1"}],
     "memory": {"nnz_stored": 1661678, "nbins": 11104, "alpha": 1.3, "beta": 0.0},
     "notes": "The memory reference of PLAN.md 4.5: Python peaks at 390 MB against a 19.9 MB working set, the budget is 1.3 * 19.9 + 64 = 90 MB. Also the correction path, where the 855 nan bins are masked, the factors are inverted into the weight column and divided back out of the counts."
+  },
+  {
+    "id": "hicConvertFormat.hic_to_cool.SRR1791297_30.250000",
+    "tier": 1,
+    "args": [
+      "--matrices",
+      "{data}/hicHyperoptDetectLoopsHiCCUPS/SRR1791297_30.hic",
+      "--outFileName",
+      "{out}/matrix.cool",
+      "--inputFormat",
+      "hic",
+      "--outputFormat",
+      "cool",
+      "--resolutions",
+      "250000"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/matrix_250000.cool",
+        "format": "cool",
+        "class": "E1"
+      }
+    ],
+    "notes": "hic2cool_convert at one resolution (hicConvertFormat.py:131-138): the resolution goes into the file name, and the cool file is hic2cool's layout with the .hic header's statistics and graphs attributes and the KR, VC and VC_SQRT columns. Version 8 Juicer file, 57 bins, 1,653 pixels."
+  },
+  {
+    "id": "hicConvertFormat.hic_to_cool.SRR1791297_30.5000_and_1000000",
+    "tier": 1,
+    "args": [
+      "--matrices",
+      "{data}/hicHyperoptDetectLoopsHiCCUPS/SRR1791297_30.hic",
+      "--outFileName",
+      "{out}/matrix.cool",
+      "--inputFormat",
+      "hic",
+      "--outputFormat",
+      "cool",
+      "--resolutions",
+      "5000",
+      "1000000"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/matrix_5000.cool",
+        "format": "cool",
+        "class": "E1"
+      },
+      {
+        "path": "{out}/matrix_1000000.cool",
+        "format": "cool",
+        "class": "E1"
+      }
+    ],
+    "notes": "One cool file per resolution. At 5 kb: 2,421,438 pixels in 2,418 bins over 16 chromosomes and 136 chromosome pairs, several pixel chunks of 1024 and the chromosome-grouped pixel order of hic2cool's loop."
+  },
+  {
+    "id": "hicConvertFormat.hic_to_cool.SRR1791297_30.every_resolution",
+    "tier": 1,
+    "args": [
+      "--matrices",
+      "{data}/hicHyperoptDetectLoopsHiCCUPS/SRR1791297_30.hic",
+      "--outFileName",
+      "{out}/matrix.cool",
+      "--inputFormat",
+      "hic",
+      "--outputFormat",
+      "cool"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/matrix.mcool",
+        "format": "mcool",
+        "class": "E1"
+      }
+    ],
+    "notes": "Without --resolutions hic2cool converts every resolution and renames matrix.cool to matrix.mcool, whose root carries format HDF5::MCOOL and format-version 2."
+  },
+  {
+    "id": "hicConvertFormat.hic_to_cool.SRR1791297_30.unsupported_resolution",
+    "tier": 1,
+    "args": [
+      "--matrices",
+      "{data}/hicHyperoptDetectLoopsHiCCUPS/SRR1791297_30.hic",
+      "--outFileName",
+      "{out}/matrix.cool",
+      "--inputFormat",
+      "hic",
+      "--outputFormat",
+      "cool",
+      "--resolutions",
+      "12345"
+    ],
+    "expect_exit": 1,
+    "outputs": [],
+    "memory": {
+      "budget_mb": 100
+    },
+    "notes": "hic2cool's force_exit: a resolution the file lacks prints the list of resolutions and exits 1 before writing."
+  },
+  {
+    "id": "hicConvertFormat.hic_to_mcool.SRR1791297_30",
+    "tier": 1,
+    "py_script": "cpp/scripts/py_hic_reference.py",
+    "args": [
+      "--matrices",
+      "{data}/hicHyperoptDetectLoopsHiCCUPS/SRR1791297_30.hic",
+      "--outFileName",
+      "{out}/matrix.mcool",
+      "--inputFormat",
+      "hic",
+      "--outputFormat",
+      "mcool"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/matrix.mcool",
+        "format": "mcool",
+        "class": "E1"
+      }
+    ],
+    "notes": "Class EX (cpp/PLAN.md tier 9, 9.1): the Python refuses --outputFormat mcool for hic input. The reference is hicConvertFormat --outputFormat cool with the .mcool name, whose hic2cool call writes every resolution into it."
+  },
+  {
+    "id": "hicConvertFormat.hic_to_h5.SRR1791297_30.50000",
+    "tier": 1,
+    "py_script": "cpp/scripts/py_hic_reference.py",
+    "args": [
+      "--matrices",
+      "{data}/hicHyperoptDetectLoopsHiCCUPS/SRR1791297_30.hic",
+      "--outFileName",
+      "{out}/matrix.h5",
+      "--inputFormat",
+      "hic",
+      "--outputFormat",
+      "h5",
+      "--resolutions",
+      "50000"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/matrix.h5",
+        "format": "h5",
+        "class": "E2"
+      }
+    ],
+    "notes": "Class EX. The reference converts the 50 kb resolution with hic2cool and that cool file with hicConvertFormat --inputFormat cool, the Python route in two steps. The hic2cool cool has no weight column, so no correction is applied, and its generated-by names hic2cool."
+  },
+  {
+    "id": "hicConvertFormat.hic_to_ginteractions.SRR1791297_30.250000",
+    "tier": 1,
+    "py_script": "cpp/scripts/py_hic_reference.py",
+    "args": [
+      "--matrices",
+      "{data}/hicHyperoptDetectLoopsHiCCUPS/SRR1791297_30.hic",
+      "--outFileName",
+      "{out}/matrix.ginteractions",
+      "--inputFormat",
+      "hic",
+      "--outputFormat",
+      "ginteractions",
+      "--resolutions",
+      "250000"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/matrix.ginteractions.tsv",
+        "format": "text",
+        "class": "E0"
+      }
+    ],
+    "memory": {
+      "budget_mb": 100
+    },
+    "notes": "Class EX, the two step route as above into the ginteractions text format."
+  },
+  {
+    "id": "hicConvertFormat.hic_to_hicpro.SRR1791297_30.100000",
+    "tier": 1,
+    "py_script": "cpp/scripts/py_hic_reference.py",
+    "args": [
+      "--matrices",
+      "{data}/hicHyperoptDetectLoopsHiCCUPS/SRR1791297_30.hic",
+      "--outFileName",
+      "{out}/matrix.hicpro",
+      "--inputFormat",
+      "hic",
+      "--outputFormat",
+      "hicpro",
+      "--resolutions",
+      "100000",
+      "--bedFileHicpro",
+      "{out}/matrix.bed"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/matrix.hicpro",
+        "format": "text",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/matrix.bed",
+        "format": "text",
+        "class": "E0"
+      }
+    ],
+    "memory": {
+      "budget_mb": 100
+    },
+    "notes": "Class EX, the two step route as above into the hicpro matrix and bed files."
+  },
+  {
+    "id": "hicConvertFormat.cool_to_hic.gm12878_raw_values.v8",
+    "tier": 1,
+    "py_script": "cpp/scripts/py_hic_reference.py",
+    "args": [
+      "--matrices",
+      "{data}/hicCorrectMatrix/gm12878_raw_values.cool",
+      "--outFileName",
+      "{out}/matrix.hic",
+      "--inputFormat",
+      "cool",
+      "--outputFormat",
+      "hic",
+      "--resolutions",
+      "5000000",
+      "10000000",
+      "--load_raw_values"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/matrix.hic",
+        "format": "hic",
+        "class": "E2"
+      }
+    ],
+    "notes": "Class EX: no Python writes .hic. The reference writes the pixels the file must hold; comparators/hic.py reads the C++ .hic back and requires them bit for bit at 2.5, 5 and 10 Mb, plus VC, VC_SQRT, KR and SCALE vectors of Juicer's length for every chromosome. Genome wide, 25 chromosomes, int32 counts. The vectors' values are validated against Juicer tools in hicfilecpp's harness."
+  },
+  {
+    "id": "hicConvertFormat.cool_to_hic.gm12878_KR.v9",
+    "tier": 1,
+    "py_script": "cpp/scripts/py_hic_reference.py",
+    "args": [
+      "--matrices",
+      "{data}/hicCorrectMatrix/gm12878_KR.cool",
+      "--outFileName",
+      "{out}/matrix.hic",
+      "--inputFormat",
+      "cool",
+      "--outputFormat",
+      "hic",
+      "--hicVersion",
+      "9",
+      "--hicNormalizations",
+      "VC",
+      "SCALE",
+      "--threads",
+      "4"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/matrix.hic",
+        "format": "hic",
+        "class": "E2"
+      }
+    ],
+    "notes": "Class EX, version 9, float counts of a KR corrected matrix as loaded by hicConvertFormat, two normalizations, four compression threads."
+  },
+  {
+    "id": "hicConvertFormat.h5_to_hic.GSM2644945_Untreated_chr1.v9",
+    "tier": 1,
+    "py_script": "cpp/scripts/py_hic_reference.py",
+    "args": [
+      "--matrices",
+      "{data}/hicDifferentialTAD/GSM2644945_Untreated-R1.100000_chr1.h5",
+      "--outFileName",
+      "{out}/matrix.hic",
+      "--inputFormat",
+      "h5",
+      "--outputFormat",
+      "hic",
+      "--hicVersion",
+      "9"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/matrix.hic",
+        "format": "hic",
+        "class": "E2"
+      }
+    ],
+    "memory": {
+      "budget_mb": 160
+    },
+    "notes": "Class EX, an h5 matrix of 100 kb bins on chr1 with 1,252,980 float64 values stored as float32 pixels. Budget: the formula of PLAN.md 4.5 counts the input matrix only, while writing also holds one resolution's pixels sorted into blocks (16 bytes each, twice during the sort) and the merged records the normalizations are computed from (12 bytes each), about 3.5 times the stored matrix for a single chromosome; measured 112 MB."
+  },
+  {
+    "id": "hicConvertFormat.mcool_to_hic.multi_small_test_matrix.v8",
+    "tier": 1,
+    "py_script": "cpp/scripts/py_hic_reference.py",
+    "args": [
+      "--matrices",
+      "{data}/hicBuildMatrix/multi_small_test_matrix.mcool",
+      "--outFileName",
+      "{out}/matrix.hic",
+      "--inputFormat",
+      "cool",
+      "--outputFormat",
+      "hic"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/matrix.hic",
+        "format": "hic",
+        "class": "E2"
+      }
+    ],
+    "notes": "Class EX, a multi resolution cool file given to --inputFormat cool: every resolution group (5, 10 and 20 kb) is written as its own .hic resolution."
   }
 ]

@@ -129,6 +129,10 @@ enum class Filter {
     None,
     // PyTables Filters(complevel=5, complib='blosc') (hicmatrix/lib/h5.py:123).
     PyTablesBlosc,
+    // h5py create_dataset(..., compression='gzip', compression_opts=6,
+    // shuffle=True): shuffle followed by gzip level 6, the pipeline of every
+    // dataset hic2cool writes (hic2cool_config.py H5OPTS).
+    Hic2cool,
 };
 
 // h5py's automatic chunk layout, h5py/_hl/filters.py guess_chunk, for one
@@ -140,6 +144,14 @@ enum class Filter {
 // A fixed width byte string type, NUL padded and ASCII, which is what numpy
 // writes for an S<width> array.
 [[nodiscard]] Handle fixed_string_type(std::size_t width);
+
+// An HDF5 ENUM with the members inserted in id order, which is what
+// h5py.special_dtype(enum=(int32, idmap)) produces for a cool file's
+// /bins/chrom. HDF5 has no conversion from a plain integer to an enumeration,
+// so writing one needs the same enumeration over H5T_NATIVE_INT32 as the
+// memory type.
+[[nodiscard]] Handle enum_type(const std::vector<std::string>& names,
+                               hid_t base = H5T_STD_I32LE);
 
 // h5py's file modes, of which the writers need two: the h5 writer truncates,
 // and the cool adapter reopens a file coolercpp has written to set hicmatrix's
@@ -168,6 +180,8 @@ class FileWriter {
     // the *initial* length exactly as h5py derives it. minor > 0 makes the
     // dataset two dimensional, which one matrix in the corpus needs for its
     // n-by-1 correction factor column.
+    // max_length kUnlimited maps to H5S_UNLIMITED, h5py's maxshape=(None,).
+    static constexpr std::size_t kUnlimited = static_cast<std::size_t>(-1);
     Handle create_dataset(const std::string& path, hid_t file_type,
                           std::size_t length, std::size_t max_length,
                           Filter filter, std::size_t chunk = 0,
@@ -176,6 +190,9 @@ class FileWriter {
     // Writes count rows at offset. For a two dimensional dataset a row is the
     // whole minor extent. The writers call this once per block so that no full
     // column ever exists in memory.
+    // Sets the length of a resizable one dimensional dataset.
+    static void resize(hid_t dataset, std::size_t length);
+
     static void write_block(hid_t dataset, hid_t mem_type, std::size_t offset,
                             std::size_t count, const void* data);
 

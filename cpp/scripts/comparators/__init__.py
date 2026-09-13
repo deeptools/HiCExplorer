@@ -5,7 +5,7 @@ compare(path_a, path_b, cls, opts) -> Result and registering it below.
 """
 from __future__ import annotations
 
-from . import chic_background, chic_hdf5, cool, h5, interval, npz, rendered, text
+from . import chic_background, chic_hdf5, cool, h5, hic, interval, npz, rendered, text
 from .base import CLASSES, Result, fail
 
 _REGISTRY = {
@@ -18,6 +18,10 @@ _REGISTRY = {
     "cool": cool,
     "mcool": cool,
     "h5": h5,
+    # Juicer .hic files the C++ hicConvertFormat writes, read back and compared
+    # with the pixels cpp/scripts/py_hic_reference.py expects; see
+    # comparators/hic.py.
+    "hic": hic,
     # Set agreement over called regions, for a tool whose reference breaks a
     # tie non-reproducibly; see comparators/interval.py.
     "interval": interval,

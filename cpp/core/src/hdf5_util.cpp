@@ -398,6 +398,20 @@ Handle fixed_string_type(std::size_t width) {
     return type;
 }
 
+Handle enum_type(const std::vector<std::string>& names, hid_t base) {
+    Handle type(H5Tenum_create(base), Handle::Kind::DataType);
+    if (!type.valid()) {
+        throw Error("cannot build an enumeration type");
+    }
+    for (std::size_t i = 0; i < names.size(); ++i) {
+        const std::int32_t value = static_cast<std::int32_t>(i);
+        if (H5Tenum_insert(type.get(), names[i].c_str(), &value) < 0) {
+            throw Error("cannot add " + names[i] + " to the chromosome enumeration");
+        }
+    }
+    return type;
+}
+
 FileWriter::FileWriter(const std::string& path, WriteMode mode) : path_(path) {
     register_blosc_filter();
     H5Eset_auto2(H5E_DEFAULT, nullptr, nullptr);
@@ -449,7 +463,9 @@ Handle FileWriter::create_dataset(const std::string& path, hid_t file_type,
     const int rank = minor > 0 ? 2 : 1;
     const hsize_t dims[2] = {static_cast<hsize_t>(length),
                              static_cast<hsize_t>(minor)};
-    const hsize_t maxdims[2] = {static_cast<hsize_t>(std::max(max_length, length)),
+    const hsize_t maxdims[2] = {max_length == kUnlimited
+                                    ? H5S_UNLIMITED
+                                    : static_cast<hsize_t>(std::max(max_length, length)),
                                 static_cast<hsize_t>(minor)};
     const Handle space(H5Screate_simple(rank, dims, maxdims), Handle::Kind::DataSpace);
     if (!space.valid()) {
@@ -475,6 +491,11 @@ Handle FileWriter::create_dataset(const std::string& path, hid_t file_type,
     }
     switch (filter) {
         case Filter::None:
+            break;
+        case Filter::Hic2cool:
+            if (H5Pset_shuffle(plist.get()) < 0 || H5Pset_deflate(plist.get(), 6) < 0) {
+                throw Error("cannot set the shuffle and gzip filters of " + path);
+            }
             break;
         case Filter::PyTablesBlosc: {
             // Only the level and the shuffle flag are given here; the type size
@@ -521,6 +542,13 @@ void FileWriter::write_block(hid_t dataset, hid_t mem_type, std::size_t offset,
         char name[512] = {0};
         H5Iget_name(dataset, name, sizeof(name));
         throw Error(std::string("cannot write to dataset ") + name);
+    }
+}
+
+void FileWriter::resize(hid_t dataset, std::size_t length) {
+    const hsize_t dims = static_cast<hsize_t>(length);
+    if (H5Dset_extent(dataset, &dims) < 0) {
+        throw Error("cannot resize a dataset");
     }
 }
 

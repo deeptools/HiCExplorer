@@ -11,9 +11,26 @@
 //   * mcool output rebuilds the matrix through hiCMatrix.setMatrix and merges
 //     its bins once per requested resolution (:294-329)
 //
+// .hic files (cpp/PLAN.md tier 9, item 9.1) go through hicfilecpp and
+// core/src/hic_adapter.cpp:
+//
+//   * --inputFormat hic --outputFormat cool is hic2cool_convert, as in the
+//     Python (hicConvertFormat.py:124-138): every resolution into one mcool
+//     file without --resolutions, one cool file per resolution with it.
+//   * --inputFormat hic into mcool, h5, homer, ginteractions and hicpro goes
+//     beyond the Python, which refuses them. mcool is hic2cool's multi
+//     resolution layout of every resolution or of those in --resolutions. The
+//     other formats convert the single resolution in --resolutions into a
+//     temporary cool file with hic2cool and continue as --inputFormat cool,
+//     which is the Python route in two steps.
+//   * --outputFormat hic, also beyond the Python, writes the loaded matrix as
+//     a Juicer .hic file of version --hicVersion with the normalizations of
+//     --hicNormalizations; coarser --resolutions are binned from the matrix.
+//     A cool file with a /resolutions group given to --inputFormat cool is
+//     written with every resolution, or with those in --resolutions.
+//
 // Not supported, and refused rather than half done:
 //
-//   * --inputFormat hic. hic2cool is deferred to tier 4 of cpp/PLAN.md 3.6.
 //   * --chromosome. Loading a single chromosome out of a cooler is a distinct
 //     cooler code path (cool.py:119-151) that the C++ cool reader does not
 //     have yet.
@@ -37,6 +54,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <exception>
+#include <filesystem>
 #include <iostream>
 #include <map>
 #include <optional>
@@ -46,6 +64,8 @@
 #include "hicx/bins.hpp"
 #include "hicx/cool_adapter.hpp"
 #include "hicx/h5_file.hpp"
+#include "hicx/hdf5_util.hpp"
+#include "hicx/hic_adapter.hpp"
 #include "hicx/matrix_data.hpp"
 #include "hicx/reduce_matrix.hpp"
 #include "hicx/resource_usage.hpp"
@@ -58,14 +78,18 @@ const char* const kUsage =
     "usage: hicConvertFormat --matrices MATRICES [MATRICES ...] --outFileName\n"
     "                        OUTFILENAME [OUTFILENAME ...] --inputFormat\n"
     "                        {h5,cool,hic,homer,hicpro,2D-text} --outputFormat\n"
-    "                        {cool,h5,homer,ginteractions,mcool,hicpro}\n"
+    "                        {cool,h5,homer,ginteractions,mcool,hicpro,hic}\n"
     "                        [--correction_name CORRECTION_NAME]\n"
     "                        [--correction_division] [--store_applied_correction]\n"
     "                        [--chromosome CHROMOSOME] [--enforce_integer]\n"
     "                        [--load_raw_values] [--resolutions RESOLUTIONS "
     "[RESOLUTIONS ...]]\n"
     "                        [--help] [--chromosomeSizes txt file] [--version]\n"
-    "                        [--bedFileHicpro BEDFILEHICPRO [BEDFILEHICPRO ...]]\n";
+    "                        [--bedFileHicpro BEDFILEHICPRO [BEDFILEHICPRO ...]]\n"
+    "                        [--hicVersion {8,9}]\n"
+    "                        [--hicNormalizations {VC,VC_SQRT,KR,SCALE,none} "
+    "[{VC,VC_SQRT,KR,SCALE,none} ...]]\n"
+    "                        [--threads THREADS]\n";
 
 const char* const kHelp =
     "\n"
@@ -87,7 +111,7 @@ const char* const kHelp =
     "                        File name to save the exported matrix.\n"
     "  --inputFormat {h5,cool,hic,homer,hicpro,2D-text}\n"
     "                        File format of the input matrix file.\n"
-    "  --outputFormat {cool,h5,homer,ginteractions,mcool,hicpro}\n"
+    "  --outputFormat {cool,h5,homer,ginteractions,mcool,hicpro,hic}\n"
     "                        Output format. (Default: cool).\n"
     "\n"
     "Optional arguments:\n"
@@ -112,7 +136,14 @@ const char* const kHelp =
     "  --version             show program's version number and exit\n"
     "  --bedFileHicpro BEDFILEHICPRO [BEDFILEHICPRO ...], -bf BEDFILEHICPRO "
     "[BEDFILEHICPRO ...]\n"
-    "                        Bed file(s) of hicpro file format.\n";
+    "                        Bed file(s) of hicpro file format.\n"
+    "  --hicVersion {8,9}    Version of a .hic output file. (Default: 8).\n"
+    "  --hicNormalizations {VC,VC_SQRT,KR,SCALE,none} [{VC,VC_SQRT,KR,SCALE,none} ...]\n"
+    "                        Normalizations a .hic output file stores, computed\n"
+    "                        as Juicer tools addNorm does. (Default: VC VC_SQRT KR\n"
+    "                        SCALE).\n"
+    "  --threads THREADS     Threads for compressing a .hic output file; the file\n"
+    "                        does not depend on the number. (Default: 1).\n";
 
 struct Arguments {
     std::vector<std::string> matrices;
@@ -128,6 +159,10 @@ struct Arguments {
     bool store_applied_correction = false;
     bool enforce_integer = false;
     bool load_raw_values = false;
+    std::string hic_version = "8";
+    std::vector<std::string> hic_normalizations{"VC", "VC_SQRT", "KR", "SCALE"};
+    bool hic_normalizations_seen = false;
+    std::string threads = "1";
 };
 
 [[noreturn]] void argument_error(const std::string& message) {
@@ -168,7 +203,10 @@ std::string choice_error(const std::string& option, const std::string& value,
 const std::vector<std::string> kInputFormats{"h5",    "cool",   "hic",
                                              "homer", "hicpro", "2D-text"};
 const std::vector<std::string> kOutputFormats{"cool",          "h5",    "homer",
-                                              "ginteractions", "mcool", "hicpro"};
+                                              "ginteractions", "mcool", "hicpro",
+                                              "hic"};
+const std::vector<std::string> kHicVersions{"8", "9"};
+const std::vector<std::string> kHicNormalizations{"VC", "VC_SQRT", "KR", "SCALE", "none"};
 
 Arguments parse_arguments(int argc, char** argv) {
     Arguments args;
@@ -280,6 +318,23 @@ Arguments parse_arguments(int argc, char** argv) {
             take_value(args.chromosome_sizes, "--chromosomeSizes");
             continue;
         }
+        if (name == "--hicVersion") {
+            take_value(args.hic_version, "--hicVersion");
+            continue;
+        }
+        if (name == "--hicNormalizations") {
+            if (!args.hic_normalizations_seen) {
+                args.hic_normalizations.clear();
+                args.hic_normalizations_seen = true;
+            }
+            bool seen = false;
+            take_list(args.hic_normalizations, seen);
+            continue;
+        }
+        if (name == "--threads") {
+            take_value(args.threads, "--threads");
+            continue;
+        }
         if (name == "--correction_division") {
             args.correction_division = true;
             continue;
@@ -337,6 +392,25 @@ Arguments parse_arguments(int argc, char** argv) {
     if (!one_of(args.output_format, kOutputFormats)) {
         argument_error(
             choice_error("--outputFormat", args.output_format, kOutputFormats));
+    }
+    if (!one_of(args.hic_version, kHicVersions)) {
+        argument_error(choice_error("--hicVersion", args.hic_version, kHicVersions));
+    }
+    if (args.hic_normalizations_seen && args.hic_normalizations.empty()) {
+        argument_error("argument --hicNormalizations: expected at least one argument");
+    }
+    for (const auto& norm : args.hic_normalizations) {
+        if (!one_of(norm, kHicNormalizations)) {
+            argument_error(choice_error("--hicNormalizations", norm, kHicNormalizations));
+        }
+    }
+    {
+        const bool digits = !args.threads.empty() &&
+                            std::all_of(args.threads.begin(), args.threads.end(),
+                                        [](unsigned char c) { return std::isdigit(c) != 0; });
+        if (!digits || std::stoll(args.threads) < 1 || std::stoll(args.threads) > 1024) {
+            argument_error("argument --threads: invalid value: '" + args.threads + "'");
+        }
     }
     if (!args.chromosome_sizes.empty()) {
         // argparse.FileType('r') opens the file while parsing.
@@ -419,6 +493,182 @@ void consume_metadata(std::map<std::string, std::string>& metadata) {
     metadata.erase("genome-assembly");
 }
 
+int run(const Arguments& args);
+
+// Removes a file when it goes out of scope.
+struct TemporaryFile {
+    std::string path;
+    ~TemporaryFile() {
+        std::error_code ignored;
+        std::filesystem::remove(path, ignored);
+    }
+};
+
+std::vector<std::string> split_on_dots(const std::string& text) {
+    std::vector<std::string> parts{""};
+    for (const char c : text) {
+        if (c == '.') {
+            parts.emplace_back();
+        } else {
+            parts.back() += c;
+        }
+    }
+    return parts;
+}
+
+// --inputFormat hic.
+int run_hic_input(const Arguments& args) {
+    if (args.output_format == "hic") {
+        return reject("hic to hic conversion is not supported.");
+    }
+    std::vector<std::int64_t> resolutions;
+    for (const auto& text : args.resolutions) {
+        resolutions.push_back(std::stoll(text));
+    }
+    try {
+        if (args.output_format == "cool") {
+            // hicConvertFormat.py:124-138. The Python indexes outFileName by
+            // the matrix and splits it on dots, so a missing name or a name
+            // without an extension raises IndexError there.
+            if (args.out_file_names.size() < args.matrices.size()) {
+                return reject("Number of input matrices is larger than the number of output "
+                              "file names.");
+            }
+            for (std::size_t i = 0; i < args.matrices.size(); ++i) {
+                if (resolutions.empty()) {
+                    hicx::hic2cool_convert(args.matrices[i], args.out_file_names[i], 0);
+                    continue;
+                }
+                for (std::size_t j = 0; j < resolutions.size(); ++j) {
+                    std::vector<std::string> parts = split_on_dots(args.out_file_names[i]);
+                    if (parts.size() < 2) {
+                        return reject("The output file name " + args.out_file_names[i] +
+                                      " has no extension to insert the resolution before.");
+                    }
+                    parts[parts.size() - 2] += "_" + args.resolutions[j];
+                    std::string name = parts[0];
+                    for (std::size_t k = 1; k < parts.size(); ++k) {
+                        name += "." + parts[k];
+                    }
+                    hicx::hic2cool_convert(args.matrices[i], name, resolutions[j]);
+                }
+            }
+            return 0;
+        }
+        if (args.matrices.size() != args.out_file_names.size()) {
+            return reject("Number of input matrices does not match number output "
+                          "matrices!: Input matrices " +
+                          std::to_string(args.matrices.size()) + "; output matrices " +
+                          std::to_string(args.out_file_names.size()));
+        }
+        if (args.output_format == "mcool") {
+            for (std::size_t i = 0; i < args.matrices.size(); ++i) {
+                hicx::hic2cool_convert_mcool(args.matrices[i], args.out_file_names[i],
+                                             resolutions);
+            }
+            return 0;
+        }
+        if (resolutions.size() != 1) {
+            return reject("--inputFormat hic with --outputFormat " + args.output_format +
+                          " needs exactly one resolution in --resolutions.");
+        }
+        for (std::size_t i = 0; i < args.matrices.size(); ++i) {
+            const std::filesystem::path out(args.out_file_names[i]);
+            TemporaryFile temporary{
+                (out.parent_path() / ("." + out.filename().string() + ".hic2cool.cool")).string()};
+            hicx::hic2cool_convert(args.matrices[i], temporary.path, resolutions[0]);
+            Arguments cool = args;
+            cool.input_format = "cool";
+            cool.matrices = {temporary.path};
+            cool.out_file_names = {args.out_file_names[i]};
+            cool.resolutions.clear();
+            if (args.output_format == "hicpro" && i < args.bed_file_hicpro.size()) {
+                cool.bed_file_hicpro = {args.bed_file_hicpro[i]};
+            }
+            const int status = run(cool);
+            if (status != 0) {
+                return status;
+            }
+        }
+        return 0;
+    } catch (const hicx::Hic2coolExit& exit) {
+        // hic2cool's force_exit: the message on stderr, then sys.exit(1).
+        std::fprintf(stderr, "%s\n", exit.what());
+        return 1;
+    }
+}
+
+// The resolution groups of a multi resolution cool file, numerically sorted;
+// empty for anything else.
+std::vector<std::string> mcool_resolutions(const std::string& path) {
+    if (path.find("::") != std::string::npos || !hicx::h5::is_hdf5(path)) {
+        return {};
+    }
+    const hicx::h5::File file(path);
+    if (!file.exists("/resolutions")) {
+        return {};
+    }
+    std::vector<std::string> groups = file.children("/resolutions");
+    std::sort(groups.begin(), groups.end(), [](const std::string& a, const std::string& b) {
+        return std::stoll(a) < std::stoll(b);
+    });
+    return groups;
+}
+
+// --outputFormat hic.
+int run_hic_output(const Arguments& args) {
+    hicx::HicWriteOptions options;
+    options.version = std::stoi(args.hic_version);
+    options.threads = static_cast<int>(std::stoll(args.threads));
+    options.normalizations.clear();
+    if (!one_of("none", args.hic_normalizations)) {
+        for (const auto& norm : {"VC", "VC_SQRT", "KR", "SCALE"}) {
+            if (one_of(norm, args.hic_normalizations)) {
+                options.normalizations.emplace_back(norm);
+            }
+        }
+    }
+    std::vector<std::int64_t> resolutions;
+    for (const auto& text : args.resolutions) {
+        resolutions.push_back(std::stoll(text));
+    }
+    for (std::size_t i = 0; i < args.matrices.size(); ++i) {
+        std::vector<Loaded> loaded;
+        std::vector<std::int64_t> extra = resolutions;
+        const std::vector<std::string> groups =
+            args.input_format == "cool" ? mcool_resolutions(args.matrices[i])
+                                        : std::vector<std::string>{};
+        if (!groups.empty()) {
+            for (const auto& group : groups) {
+                if (!resolutions.empty() &&
+                    std::find(resolutions.begin(), resolutions.end(), std::stoll(group)) ==
+                        resolutions.end()) {
+                    continue;
+                }
+                Arguments single = args;
+                single.matrices = {args.matrices[i] + "::/resolutions/" + group};
+                loaded.push_back(load_input(single, 0));
+            }
+            if (loaded.empty()) {
+                return reject("None of --resolutions is a resolution of " + args.matrices[i]);
+            }
+            extra.clear();
+        } else {
+            loaded.push_back(load_input(args, i));
+        }
+        const auto assembly = loaded.front().metadata.find("genome-assembly");
+        if (assembly != loaded.front().metadata.end() && !assembly->second.empty()) {
+            options.genome = assembly->second;
+        }
+        std::vector<const hicx::MatrixData*> matrices;
+        for (const auto& entry : loaded) {
+            matrices.push_back(&entry.data);
+        }
+        hicx::write_hic(args.out_file_names[i], matrices, extra, options);
+    }
+    return 0;
+}
+
 int run(const Arguments& args) {
     if (args.input_format != "hic" && args.output_format != "mcool") {
         if (args.matrices.size() != args.out_file_names.size()) {
@@ -428,15 +678,8 @@ int run(const Arguments& args) {
                           std::to_string(args.out_file_names.size()));
         }
     }
-    if (args.input_format == "hic" && args.output_format != "cool") {
-        return reject("The export of a hic file is only possible to a cool file.");
-    }
     if (args.input_format == "hic") {
-        // cpp/PLAN.md 3.6: the Juicer .hic reader is tier 4. Refusing is the
-        // only honest answer until it exists.
-        return reject("hic input is not supported yet: the .hic reader is deferred "
-                      "to tier 4 of cpp/PLAN.md 3.6. Convert with the Python "
-                      "hicConvertFormat, or wait for the port.");
+        return run_hic_input(args);
     }
     if (!args.chromosome.empty()) {
         return reject("--chromosome is not supported yet: loading a single "
@@ -462,6 +705,10 @@ int run(const Arguments& args) {
             return reject("The sizes of the chromosomes must be defined via "
                           "--chromosomeSizes.");
         }
+    }
+
+    if (args.output_format == "hic") {
+        return run_hic_output(args);
     }
 
     for (std::size_t i = 0; i < args.matrices.size(); ++i) {
