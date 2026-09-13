@@ -1,287 +1,273 @@
 # HiCExplorer v4 (C++) - per-tool progress ledger
 
-Owner: supervising agent. Architecture and rationale: `cpp/PLAN.md`. Rules:
-`cpp/AGENTS_CONTRACT.md`. Initialised 2026-09-01. Current state: **1 of 46 tools
-ported** (`hicInfo`, commit f1ced036), the tier 0 core partially landed, the
-equivalence harness running for tier 1. Everything else is not started.
+Owner: the orchestrating session; the original supervising agent is no longer
+running. Architecture: `cpp/PLAN.md`. Rules: `cpp/AGENTS_CONTRACT.md`.
+Optimization rules: `cpp/OPTIMIZATION.md`. Last updated 2026-09-13.
+
+**Current state: 20 of 46 tools ported and committed** on `version4-cpp`. The
+harness holds 263 cases for those tools plus the tier 0 round trips; 260 pass
+with the memory and CPU-time gates live. All 3 failures are `hicPCA`, see its
+row. In progress, each in its own git worktree so no two agents share a source
+tree: `hicDifferentialTAD` and `hicInterIntraTAD` on branch `v4-tad-stats`;
+`chicQualityControl`, `chicViewpointBackgroundModel` and `chicViewpoint` on
+branch `v4-chic-foundation`; a `hicPCA` fix on `version4-cpp`.
+
+**Provenance of the facts in this file.** "(reproduced)" marks a result the
+orchestrating session reproduced itself. Unmarked results come from the
+implementing agent's report and the tests and case files it committed. The
+distinction matters: a monitoring filter that matched only lowercase `fail`
+once hid three `FAIL` verdicts, and commit 882164e5 claimed a pass count that
+only held because most `hicPCA` cases had not been run.
 
 ## Legend
 
-- **Tier**: porting tier from `PLAN.md` section 6. Tier 0 (the core library)
-  has no tools and is tracked in the second table below.
-- **Class**: declared equivalence class from `PLAN.md` section 5.1. **The gate
-  every tool must clear is ED: every item within three significant digits,
-  relative `1e-3`, set by the project owner 2026-09-01 (`PLAN.md` 5.0).**
-  Byte identicality is not required. A stricter class in this column means the
-  tool is expected to do better than the gate and is checked at that level,
-  because a stricter result is a better regression signal and several tools
-  reach E0 for free; a drop from a declared strict class to ED is worth
-  investigating even though it still passes. KR is the one tool that cannot be
-  held to ED, because the Python reference disagrees with itself by `8.4e-03`
-  on `gm12878_chr1.cool`; it stays at EN.
-  E0 byte-identical, E1 HDF5-structural, E2 value-exact, E3 tight float
-  (1e-12 rel), E4 loose float (1e-6 rel), E5 set agreement (Jaccard >= 0.99),
-  E6 image (RMS <= 5), EN within the measured oracle-noise envelope,
-  E7 not equivalent by design.
-- **Mem**: peak-RSS budget as `alpha`/`beta` in
-  `budget = alpha*W + beta*D + C`, with `W` the stored (upper-triangle) CSR
-  working set, `D` the largest dense per-chromosome block, `C = 64 MB`
-  (`PLAN.md` 4.5). Evaluated numbers for the memory-heavy tools are in the
-  budgets table below. The budget is a **hard gate** in the harness
-  (`PLAN.md` 8.3 criterion 4), not a report line.
-- **Py test**: state of the existing Python test.
-  `none` = no test file; `weak` = a test file exists but its assertions do not
-  constrain the numbers (structure-only, byte-size, unasserted comparison, or a
-  tolerance so loose it cannot fail); `partial` = real value assertions on some
-  paths only; `good` = real value assertions on the main paths.
-- **Char. test**: is a characterization test required before the C++ port
-  (contract rule 1). `yes` for every `none` and `weak` row, and for every
-  `partial` row where the port touches an unexercised path.
-- **Port**: `not started` / `in progress` / `done`.
-- **Equiv**: `-` (not attempted) / `pass` / `fail` / `deviation`.
+- **Tier**: porting tier from `PLAN.md` section 6. Tier 0, the core library,
+  has no tools and is tracked in its own table below.
+- **Class**: equivalence class from `PLAN.md` 5.1. **Every tool must clear ED:
+  each item within three significant digits, relative `1e-3`, set by the project
+  owner 2026-09-01 (`PLAN.md` 5.0). Byte identity is not required.** A stricter
+  class here means the tool reaches it and is checked at that level. EN is
+  reserved for outputs whose Python reference is not reproducible against
+  itself, where the tolerance is measured from repeated reference runs rather
+  than chosen. E0 byte identical, E1 HDF5 structural, E2 value exact, E3
+  `1e-12` relative, E4 `1e-6` relative, E5 set agreement (Jaccard `>= 0.99`), E6
+  image, E7 not equivalent by design.
+- **Mem**: peak-RSS budget `alpha*W + beta*D + C`, `W` the stored
+  upper-triangle CSR working set, `D` the largest dense per-chromosome block,
+  `C = 64 MB`, all in SI MB (`PLAN.md` 4.5). A hard gate in the harness.
+- **Py test**: state of the Python test **before** the port: `none`, `weak`
+  (assertions that cannot constrain the numbers), `partial`, `good`.
+- **Char. test**: `written` once a characterization test pinning the Python
+  behaviour is committed; `yes` where one is still required; `no` where the
+  existing test is adequate.
+- **Port**: `not started`, `in progress`, `done`.
+- **Equiv**: harness result as passing cases over total, with the gates live.
 
 ## Tools
 
 | Tool | Tier | Class | Mem | Py test | Char. test | Port | Equiv | Notes |
 |---|---|---|---|---|---|---|---|---|
-| hicInfo | 1 | E0 | 0W (cool) / 1.05W (h5) | none -> char. test written | **done** | **done** | **pass (E0)** | Ported and byte-identical to the Python tool on all 184 cool and h5 matrices in `test_data`, commit f1ced036. `hicexplorer/test/general/test_hicInfo.py` was written first and passing against Python before any C++ existed (contract rule 1). Peak RSS on `gm12878_chr1.cool --no_metadata`: **809 MB against Python's 2,854 MB**, inside the 843 MB budget. Two further quirks uncovered by the characterization test and now pinned: `--outFileName` is reopened in `w` mode per matrix, so with several `-m` only the last block survives (`test_hicInfo.py:197`); and a cool file whose `bin-size` attribute is the string `"null"` prints no `Bin_length` line (`test_hicInfo.py:128`, which is the case for `Li_et_al_2015.cool`, `bin-type` variable). It also reproduces the cool-versus-h5 nnz split of `PLAN.md` 2.7 quirk 7. Remaining: mcool inputs in both group layouts are not yet in the case file. |
-| hicConvertFormat | 1 | E1 cool / E2 h5 / E0 text | 1.3W | partial | yes | not started | - | 9 general tests at `assert_array_almost_equal(decimal=0)` plus 92 `trivial_runs` smoke cases. ginteractions (`:76`), hicpro (`:84`) and mcool (`:94`) conversions assert nothing. `:38-49` asserts an integer dtype without passing `--enforce_integer`. `hic` input is deferred to tier 4 (`PLAN.md` 3.6) and must error explicitly until then. |
-| hicSumMatrices | 1 | E1/E2 | 2.2W | none | yes | not started | - | No test file. `Li_et_al_2015.h5` + `Li_et_al_2015_twice.h5` are the obvious char. test inputs. Exercises the `chrBinBoundaries` order check (`hicSumMatrices.py:52`) and `maskBins` union of nan bins. Two matrices live at once, hence alpha 2.2. |
-| hicCompareMatrices | 1 | E1/E2 | 2.2W | partial | no | not started | - | 2 tests with exact `nt.assert_equal`, but only `--operation diff` and `--noNorm`. `ratio` and `log2ratio` untested. |
-| hicAdjustMatrix | 1 | E1/E2 | 1.3W | partial | yes | not started | - | 4 real tests at `decimal=5`; the other 24 collected items are "did not crash". `:157,177` pass the BED file positionally after `--chromosomes`, so `--regions` is not exercised there. `--maskBadRegions` never tested. Takes the both-triangles exemption (`PLAN.md` 4.4 rule 2) because `reorderBins` permutes rows and columns independently. |
-| hicMergeMatrixBins | 1 | E1/E2 | 1.3W | partial | yes | not started | - | 1 test, exact. `--runningWindow` (`hicMergeMatrixBins.py:88`) never tested. Also used internally by `hicConvertFormat` for mcool, so a regression here breaks tier 1. |
-| hicFindRestSite | 2 | E0 | n/a (FASTA stream) | good | no | not started | - | 4 tests, `are_files_equal(delta=1)`, all options covered. Shells out to GNU `sort`; the C++ version sorts in memory under `LC_ALL=C` byte order. Budget is `2 * sites * 24 B + C`. |
-| hicMergeLoops | 2 | E0 | n/a (BED) | partial | no | not started | - | 1 test, set-based comparison with `delta=2`. All options covered. |
-| hicValidateLocations | 2 | E0 | 1.3W | good | no | not started | - | 4 tests, set-based `delta=1`. All options covered. Its `GSM1436265_..._10kb.cool` input (313,762 bins, 93 contigs, 7,987 nnz) is the many-contig stress case for `BinIndex` and the case where a per-bin `std::string` would dominate the footprint. |
-| hicCreateThresholdFile | 2 | E0 | n/a (text) | partial | no | not started | - | 1 test. `--resolution/-r` never tested. Trivial tool. |
-| hicMergeTADbins | 2 | E1/E2 | 1.3W | none | yes | not started | - | No test file. Exercises `reduceMatrix.reduce_matrix` with `diagonal=True` and deliberately clears `correction_factors` (`hicMergeTADbins.py:84`). |
-| hicAverageRegions | 2 | E2 | 1.3W | partial | yes | not started | - | 8 tests at `decimal=0` on the `.npz` data array. `--considerStrandDirection` never tested. Output is `scipy.sparse.save_npz`, so tier 0 needs the `.npy`/`.npz` writer (`PLAN.md` 2.4). |
-| hicNormalize | 2 | E1/E2 | 1.2W | good | no | not started | - | 8 tests with exact `nt.assert_equal` including h5-cool cross-format checks. `--setToZeroThreshold` never tested. The strongest test file in the suite. Pure in-place elementwise scaling, hence alpha 1.2. |
-| hicTransform | 3 | E2 obs_exp / E3 pearson, covariance | 1.2W (obs_exp) / 1.1W + 1.15D (pearson) | weak | yes | not started | - | 11 tests but all at `assert_array_almost_equal(decimal=0)`, i.e. agreement to the nearest integer, which cannot detect a real numeric regression. `--chromosomes` never tested. Char. test must re-assert at full float precision. The pearson path is the second-largest memory win in the plan: 5,150 MB measured on `Li_et_al_2015.h5`, 259x its 19.9 MB working set. |
-| hicCorrectMatrix | 3 | E3 ICE / **EN** KR | 1.2W | weak | yes | not started | - | **Dual-mode** (`--compatMode v3\|v4`), see the modes table. ICE/h5 is exact in the Python test, but KR/cool is only a range check `3e9 < sum//2 < 3688003604` (`:84`, elementwise comparison commented out at `:85-86`) and KR/partial uses `assert_allclose(rtol=1.0)` (`:106`). Given the measured nondeterminism (finding F1) a range test may be the only thing that could have passed reliably. Untested: `--perchr` (a distinct code path in both ICE and KR, and the site of finding F4), `--inflationCutoff`, `--transCutoff`, `--sequencedCountCutoff`, `--skipDiagonal`, `--xMax`, `--verbose`. **The largest memory win in the plan**: 9,199 MB (KR) and 9,064 MB (ICE) measured on `gm12878_chr1.cool`, against a 741.9 MB working set. |
-| hicPCA | 3 | E3 + sign rule | 1.1W + 3.2D (v3) / 1.1W + 1.15D (v4) | weak | yes | not started | - | **Dual-mode**, see the modes table. 10 tests, but the bigwig comparison is `assert_array_almost_equal(np.absolute(...), decimal=0)` (`:64`): sign-agnostic and integer-rounded. `--histonMarkType` never tested. Highest-risk tool in tier 3: `scipy.linalg.eig` (not `eigh`) with unsorted output (`PLAN.md` 5.4). Also the worst memory-to-data ratio in the corpus: 4,070 MB and 471 s on a 722 KB input, 727x its 5.6 MB working set. |
-| hicCompartmentalization | 3 | E3 | 1.3W | weak | yes | not started | - | 1 test, image-only at tolerance 60, and it is `xfail`. `--outputMatrix` and `--offset` never tested. Effectively uncovered. |
-| hicInterIntraTAD | 3 | E3 | 1.3W | weak | yes | not started | - | `are_files_equal` at `:55` is called without `assert`, so its result is discarded; the only asserted check is an `xfail`-ed image comparison. Effectively "did not crash". |
+| hicInfo | 1 | E0 | 0W cool / 1.05W h5 | none | written | done | 25/25 | Byte identical on all 184 cool and h5 matrices in `test_data`; reproduced on six of them, including the `--no_metadata` float path. `--no_metadata` on `gm12878_chr1.cool` peaks at 829.2 MB against an 842.9 MB budget, 98.4 percent and the tightest case in the corpus, and against 2,854 MB for Python. An earlier figure of 809 MB mixed KiB and SI MB. Pinned quirks: `--outFileName` is reopened per matrix, so with several `-m` only the last block survives; a `bin-size` attribute holding the string `"null"` prints no `Bin_length`. Open: no mcool input case. |
+| hicConvertFormat | 1 | E1 cool / E2 h5 / E0 text | 1.3W | partial | written | done | 17/17 | Inputs h5, cool, hicpro and 2D text; outputs cool, h5, homer, ginteractions, hicpro and mcool. Text is byte identical after gunzip. Peak RSS 5x to 10x below Python. `.hic` input and `--chromosome` refuse with an explicit error (see deviations). Reproduces F15. Open: the h5 writer emits `/intervals/extra_list` as float64 where Python infers int64 for hicpro and homer sources; homer input has no harness case because `test_data` holds no homer file. |
+| hicSumMatrices | 1 | E1 cool / E2 h5 | **3.0W** | none | written | done | 11/11 | `alpha` raised from 2.2 to 3.0: scipy's binary operations drop exact-zero results, so the output is neither a superset nor a subset of either operand and the peak is `nnz_a + nnz_b + nnz_result`. The largest case measured 100.6 percent of a 2.2W budget and 81.7 percent of 3.0W. 995 MB to 167 MB on the 4.2 M nonzero GSM pair. Reproduces F18. |
+| hicCompareMatrices | 1 | E1/E2, ED on `log2ratio` | **3.0W** | partial | written | done | 18/18 | Bit exact except `--operation log2ratio`, where numpy's own float64 `log2` differs from libm by at most `3.2e-16` relative. `alpha` 3.0 for the same reason as hicSumMatrices. |
+| hicAdjustMatrix | 1 | E1/E2 | 1.3W | partial | written | done | 21/21 | No longer needs the both-triangles exemption: `select_bins` scatters each entry straight into the upper triangle of `P A P^T`, 140 to 57 MB on the duplicate-bin case. Reproduces F14 and F28. |
+| hicMergeMatrixBins | 1 | E1/E2, ED on one case | 1.3W, see note | partial | written | done | 13/13 | Bit identical at `-nb 5` on `Li_et_al_2015.h5` (reproduced). The float `--runningWindow` case is ED because scipy's `csr_sort_indices` leaves the order of duplicates undefined, `1.8e-19` relative. `--runningWindow` produces a denser matrix than it reads, so `1.3W` of the input is the wrong budget shape; it passes only because `C` is large next to a 20 MB input and needs a term in the output nnz. Reproduces F17 and F19. |
+| hicFindRestSite | 2 | E0 | n/a | good | written | done | 7/7 | Python 5.0 s CPU against under 0.01 s (reproduced from the verification logs). Sorts in memory under `LC_ALL=C` byte order in place of GNU `sort`. |
+| hicMergeLoops | 2 | E0 | n/a | partial | written | done | 5/5 | Python 13.6 s CPU against 0.28 s (reproduced from the verification logs). |
+| hicValidateLocations | 2 | E0 | 1.3W | good | written | done | 6/6 | Python 93.2 s CPU against 0.60 s, median peak RSS 177 to 51 MB (reproduced from the verification logs). The 313,762-bin, 93-contig input is the many-contig stress case. |
+| hicCreateThresholdFile | 2 | E0 | n/a | partial | written | done | 5/5 | `--resolution` now covered. |
+| hicMergeTADbins | 2 | E1/E2 | 1.3W | none | written | done | 4/4 | 404.6 to 34.6 MB. Reproduces F16 and a bare `TypeError` for a domain outside the matrix (`hicMergeTADbins.py:129`). |
+| hicAverageRegions | 2 | E2 | 1.3W | partial | written | done | 12/12 | Output through the new `npz_file` core component, which writes scipy `save_npz`. Python 20.5 s CPU against 0.07 s (reproduced from the verification logs). |
+| hicNormalize | 2 | E1/E2 | 1.2W | good | written | done | 9/9 | Python 20.2 s CPU against 0.25 s (reproduced from the verification logs). |
+| hicTransform | 3 | ED or better | 1.2W obs_exp / 1.1W + 1.15D pearson | weak | written | done | 23/23 | `--method pearson` on `Li_et_al_2015.h5` falls from 5,532 MB to 97 MB and from 64.9 s to 3.9 s CPU (reproduced from the verification logs): the dense block is held once and streamed into the output CSR instead of five or six live dense copies and a LIL accumulator. The original 11 tests asserted to the nearest integer. Reuses the transform components written for hicPCA. |
+| hicCorrectMatrix | 3 | ED or better ICE / **EN** KR | 1.2W | weak | written | done | 20/20 | krbalancing is reimplemented, not vendored, so F2, F3, F5 and F6 are not inherited. On `gm12878_chr1.cool` ICE goes from 9,331 to 830 MB and 144.9 to 26.9 s CPU, KR from 9,409 to 829 MB and 65.9 to 18.3 s, both at 87 percent of the 954 MB budget (reproduced). `--compatMode v3` reproduces the float32 behaviour of F1 and F2; on `Li_et_al_2015.h5` it shifts all 3,313,962 values by `1.65e-04` relative against the float64 default, with an identical pattern (reproduced). F4 is reproduced through the call ordering. `diagnostic_plot` refuses explicitly, since it belongs to tier 7. |
+| hicPCA | 3 | ED or better | 1.1W + 1.15D | weak | written | done, **3 cases failing** | **9/12** | **Correction to commit 882164e5**, which reported all cases passing when only 2 of 12 had run. Rerun against that revision in a separate worktree, the same 3 fail as at HEAD (reproduced): (a) `dist_norm --ligation_factor`: on chrX the C++ ranks a different eigenvector first, and its vector 2 equals Python's vector 1 exactly, because the Python takes `linalg.eig` columns unsorted (F8); (b) `--ignoreMaskedBins` with `--chromosomes`: the Python silently undoes the masking (F25), the C++ does not, 445 lines against 449; (c) a single round-off value around zero in the whole-genome intermediate matrix, `-9.3e-18` against `-1.2e-19`, which the relative ED rule cannot judge (see known open work). A fix for (a) and (b) is in progress. `mm9_reduced_chr1.cool`: 7,923 s to 369 s CPU and 4,185 to 1,585 MB against a 2,509 MB budget. |
+| hicCompartmentalization | 3 | E3 | 1.3W | weak | written | not started | - | Characterization tests committed in af76573c, 8 passed and 1 xpassed (reproduced). No C++ yet. |
+| hicInterIntraTAD | 3 | E3 | 1.3W | weak | yes | in progress | - | Branch `v4-tad-stats`. `are_files_equal` at `test_hicInterIntraTAD.py:55` is called without `assert`, so its result is discarded; the only asserted check is an `xfail` image comparison. |
 | hicPlotSVL | 3 | E3 data / E6 plot | 1.3W | partial | yes | not started | - | 1 test, `are_files_equal(delta=2)` on the two text outputs; the image comparison is commented out at `:66-67`. Untested: `--distance`, `--chromosomes`, `--threads`, `--colorList`. Plot step follows the tier 7 rule. |
-| hicBuildMatrix | 4 | E1/E2 matrix, E0 QC | `2*nnz_out*12 + threads*64 MB + C` | partial | yes | not started | - | 10 tests with exact matrix comparison, but the output BAM is only checked by byte size within 80,000 (`:17`). Untested: `--maxDistance`, `--keepSelfLigation`, `--doTestRunLines`. `trivial_runs` parametrizes `region="ChrX"` with the comment `# region does not work!!` and never passes it. Largest single unit of work in the port. The Python forks workers that each hold a share of the pixel buffers; the C++ pool shares one (`PLAN.md` 4.4 rule 8). |
-| hicBuildMatrixMicroC | 4 | E1/E2 matrix, E0 QC | as hicBuildMatrix | weak | yes | not started | - | 1 test. 10 of 16 options untested: `--maxLibraryInsertSize`, `--genomeAssembly`, `--region`, `--keepSelfCircles`, `--minMappingQuality`, `--inputBufferSize`, `--doTestRun`, `--doTestRunLines`, `--skipDuplicationCheck`, `--chromosomeSizes`. `test_hicBuildMatrixMicroC.py:59` references a `delta` that is not defined in that module. |
-| hicQuickQC | 4 | E0 | 1.05W | good | no | not started | - | 1 test with strict line equality on `QC.log`. All options covered. Shares `createMatrix` with hicBuildMatrix, so it comes free once that lands. |
-| hicFindTADs | 5 | E3 scores / E5 calls | 2.2W | partial | yes | not started | - | 4 tests: exact on the z-score matrix, but the BED/GFF/BM/bedgraph outputs use `are_files_equal(pDifference=10)`, a per-line budget of 10 differing characters. `--TAD_sep_score_prefix` and `--delta` never tested. Two of the four tests pre-copy the reference z-score matrix, so they only test the downstream calling step. Uses `multiprocessing.Pool` (`hicFindTADs.py:1107`), unlike every other threaded tool. Takes the both-triangles exemption; revisit the budget once it works (`PLAN.md` risk 7). |
-| hicDetectLoops | 5 | E3 stats / E5 calls | 2.2W | partial | yes | not started | - | 4 tests, `are_files_equal(delta=0)` on the loop bedgraph, but `test_main_h5` (`:44`) asserts nothing. `--obsExpThreshold` and `--expected` (the entire obs/exp preselection path) never tested. Depends on `fit_nbinom` (E4 on the fitted parameters, `PLAN.md` 3.5). Takes the both-triangles exemption. |
-| hicDifferentialTAD | 5 | E5 | 1.3W x 2 | good | no | not started | - | 16 tests, `are_files_equal(delta=0, skip=4)`, i.e. exact, across all four `-m` modes and both `-mr` modes and thread counts 1/4/11. `--pValue` never varied from its default. Best-covered tool in the suite. |
-| hicMergeDomains | 5 | E0/E5 | n/a (BED) | weak | yes | not started | - | Every `are_files_equal` call (`:70,84-85,106-107`) is missing `assert`; three of four tests are `xfail`. Effectively "did not crash". Untested: `--minimumNumberOfPeaks`, `--value`, `--percent`. Needs a `scipy.cluster.hierarchy.linkage` reimplementation and a DOT writer. |
-| hicAggregateContacts | 5 | E3 `.tab` / E6 plot | 2.2W | weak | yes | not started | - | All 12 general tests are both `xfail(ImageComparisonFailure)` and `skipif(4 GB > memory)`, so nothing runs on a small machine and nothing asserts on a large one. The 162 `trivial_runs` items assert nothing, and `_three.py:64-67` hard-codes its arguments so its 72 parametrized cases are identical. Untested: `--considerStrandDirection`, `--largeRegionsOperation`, `--outFileObsExp`, `--spectral`, `--max_deviation`. Needs a `KMeans(random_state=0)` reimplementation (`PLAN.md` 3.5). The 4 GB `skipif` should become unnecessary once the memory rules land. |
-| chicQualityControl | 6 | E0 text / E6 plot | 1.3W | weak | yes | not started | - | 1 test, `xfail`. `:66` compares the `_failed_reference_points` output against the `_report` reference, so that output is never actually checked. Untested: `--fixateRange`, `--dpi`. |
-| chicViewpointBackgroundModel | 6 | E4 (NB parameters) | 1.3W | weak | yes | not started | - | `are_files_equal` allows 700 (`:62`) and 1000 (`:74`) mismatching values at `eps=0.1`. Untested: `--averageContactBin`, `--fixateRange`. Depends on `fit_nbinom`; E4 is declared for exactly this reason. |
-| chicViewpoint | 6 | E1 hdf5 / E3 values | 1.3W | weak | yes | not started | - | 2 tests asserting only HDF5 keys and the default values of `averageContactBin` and `fixateRange`. No numeric comparison at all. `--averageContactBin` and `--fixateRange` never actually passed. |
-| chicSignificantInteractions | 6 | E1 hdf5 / E5 calls | 1.3W | weak | yes | not started | - | 3 tests asserting HDF5 structure and attribute echo-back only. Untested: `--truncateZeroPvalues`, `--fixateRange`, `--peakInteractionsThreshold`. Uses `pybedtools` at `:515`. |
-| chicAggregateStatistic | 6 | E1 hdf5 | 1.3W | weak | yes | not started | - | 5 tests asserting group names and `len(...)` only. All 5 options are at least passed. Uses `intervaltree` for target overlap. |
-| chicDifferentialTest | 6 | E3 p-values / E5 calls | 1.3W | weak | yes | not started | - | 2 tests asserting HDF5 structure and `attrs['alpha']`/`attrs['test']`. No p-value comparison. Needs `fisher_exact`, `chi2_contingency` and `chi2.ppf` reimplementations. |
-| chicExportData | 6 | E0 text / E1 bigwig | 1.3W | partial | yes | not started | - | 16 tests, 5 of them `xfail` by design (bad input). Text at `are_files_equal(delta=1, skip=1)`, bigwig at `decimal=0`. Untested: `--decimalPlaces`, `--oneTargetFile`, `--outputValueBigwig` (all three of its branches at `chicExportData.py:158-162` are dead code), `--threads`. |
-| hicPlotMatrix | 7 | E6 | 1.1W + 1.15D | weak | yes | not started | - | 32 tests, **all 32 `xfail(ImageComparisonFailure)` and all 32 `skipif` on memory**, six of them behind a 120 GB gate. Nothing in this file has run in CI. 12 of 33 options untested: `--scoreName`, `--perChromosome`, `--vMin`, `--flipBigwigSign`, `--scaleFactorBigwig`, `--fontsize`, `--rotationX`, `--rotationY`, `--increaseFigureWidth`, `--increaseFigureHeight`, `--loops`, `--loopLargeRegionsOperation`. `:444` passes `--log1`, which argparse prefix-matches to `--log1p`. Python plotting shell over a C++ compute core; the 120 GB gate is a direct consequence of the memory blowups and should fall with them. |
-| hicPlotTADs | 7 | E7 | n/a | none | no | not started | - | A 9-line delegation to `pygenometracks.plotTracks.main`. Nothing to port; stays a Python script. Recorded as a deliberate non-port. No characterization test is meaningful because the behaviour is entirely pyGenomeTracks'. |
-| hicPlotViewpoint | 7 | E0 data / E6 plot | 1.3W | weak | yes | not started | - | All 6 tests `xfail`. `:83-97` passes `-i viewpoint_interactons` (a literal string) while asserting on the temp file names, so those assertions can only pass against stale files. `--chromosome` never tested. |
-| hicPlotAverageRegions | 7 | E6 | n/a (npz) | weak | yes | not started | - | All 4 tests `xfail`, image-only. `--dpi` never tested. Reads the `.npz` written by hicAverageRegions and uses `scipy.ndimage.rotate`. |
-| hicPlotDistVsCounts | 7 | E3 data / E6 plot | 1.3W | weak | yes | not started | - | The only real assertion is a PNG byte-size difference below 2000 (`:19`); the other 32 collected items are "did not crash". `--skipDiagonal` is parametrized and named but never inserted into the argument string (`:41-61`), doubling the case count for nothing. `--domains` never tested. |
-| hicCorrelate | 7 | E3 matrix / E6 plot | 1.3W x n | weak | yes | not started | - | Both tests correlate one file with itself, so a correlation of 1.0 is structurally guaranteed. Untested: `--zMin`, `--zMax`, `--range`, `--threads`, and `--method pearson` entirely. Needs complete-linkage clustering with matching leaf order (`PLAN.md` 3.5). Budget scales with the number of input matrices. |
-| hicPrepareQCreport (alias hicQC) | 7 | E0 tables / E6 plots | n/a (text) | none | yes | not started | - | No test file, although `test_data/QC*/` holds six reference output directories produced by it. Table aggregation moves to C++ at E0; the five bar charts and the Jinja2 HTML stay Python. |
-| chicPlotViewpoint | 7 | E6 | 1.3W | weak | yes | not started | - | All 4 tests `xfail(ImageComparisonFailure, reason='Matplotlib plots for reasons a different image size.')`. 9 options untested: `--outputFormat`, `--dpi`, `--colorMapPvalue`, `--maxPValue`, `--minPValue`, `--pValueSignificanceLevels`, `--xFold`, `--truncateZeroPvalues`, `--colorList`. |
-| hicTADClassifier | 8 | E7 | 1.3W (features) | weak | yes | not started | - | 6 tests, of which 3 exercise the CLI and assert only `domain_df['Chrom'].iloc[0] == 1`. `--chromosomes` never tested. **Deliberate non-port**: the shipped `.BIN` models are pickles of `imblearn.EasyEnsembleClassifier` and `cleanlab.CleanLearning`, for which no ONNX converter exists (`PLAN.md` tier 8). Feature extraction moves to C++, which is also the memory win here; inference stays Python. |
-| hicTrainTADClassifier | 8 | E7 | 1.3W (features) | weak | yes | not started | - | 1 test function, 4 sequential CLI runs, asserting only that the first word of the report is `accuracy`. **14 of 24 options untested**, the worst ratio in the suite: `--threshold`, `--leniency`, `--unselect_border_cases`, `--protein_file`, `--threads`, `--chromosomes`, `--concatenate_before_resample`, `--resampling_method`, `--alternative_resampling_method`, `--distance`, `--impute_value`, `--alternative_classifier`, `--use_cleanlab`, `--chrPrefixProtein`. **Deliberate non-port**, training stays Python. Note a latent `NameError` at `lib/tadClassifier.py:782` (`imblearn.base` referenced without `import imblearn`) that fires whenever `--alternative_resampling_method` is used. |
-| hicHyperoptDetectLoops | 8 | E7 | inherits hicDetectLoops | partial | yes | not started | - | 3 tests, `are_files_equal(delta=2)`. `--resolution/-re` and `--threads` never used. **Partial port**: the driver moves to C++, TPE is deferred to v4.1 behind a `--parameterFile` mode; the harness instead checks that a fixed parameter set reproduces the Python result. |
-| hicHyperoptDetectLoopsHiCCUPS | 8 | E7 | n/a (shells to java) | weak | yes | not started | - | 1 test, `xfail`, and doubly `skipif` on `nvcc` and on `juicer.jar` existing in the CWD, so it never runs. Its `are_files_equal` is `return True` (`:29`) and is called without `assert` (`:64`). Untested: `--chrPrefixLoops`, `--threads`, `--restricted`. **Partial port**: it shells out to `java -jar juicer.jar hiccups`; only the driver is ported. |
+| hicBuildMatrix | 4 | E0 BAM and QC / E1 cool / E2 h5 | `2*nnz_out*12 + threads*64 MB + C` | partial | written | done | 17/17 | New htslib BAM subsystem. The output BAM is byte identical, which also pins the record order `--outBam` produces, and the QC folder is byte identical, which is the contract `hicPrepareQCreport` reads. 21.1 s to 0.5 s CPU and 936 to 142 MB on the small_test BAMs (reproduced). Reproduces F29 and F30. The same build written as cool drops per-bin coverage (F26). Baseline: one failure and one error in the Python `trivial_runs` on master; the diagnosis was not recorded before that agent's session ended. |
+| hicBuildMatrixMicroC | 4 | as hicBuildMatrix | as hicBuildMatrix | weak | **yes, not written** | done | 4/4 | Shares the BAM subsystem. **Landed without a characterization test**, on harness cases alone, contrary to contract rule 1: `test_hicBuildMatrixMicroC.py` was not strengthened and still leaves 10 of 16 options untested. `--region` behaves as documented here, because without a cut site file F30 cannot occur. |
+| hicQuickQC | 4 | E0 | 1.05W | good | no | not started | - | 1 test with strict line equality on `QC.log`; all options covered. Shares `createMatrix` with hicBuildMatrix, so it is now unblocked. |
+| hicFindTADs | 5 | E0 text / E1 cool / E2 h5 | per case, `2.2 * Wz + C` | partial | written | done | 8/8 | The original 4 tests caught 2 of 10 source mutations: their comparator used `zip()`, which stops at the shorter file, and allowed 10 differing characters per line. The replacement kills all 10. Text byte identical, z-score matrix E2 in h5 and E1 in cool. `small_test_matrix.h5 --fdr`: 22.2 to 1.0 s CPU, 890 to 114 MB. The budget is declared per case against the z-score band `Wz` (54.7 MB on a 0.7 MB input), not against the input. An AVX2 pairwise kernel is bit identical to the scalar reference; an AVX-512 kernel was 24 percent slower on Zen 4 and was reverted. F22. |
+| hicDetectLoops | 5 | E0 text / EN fitted `size` / E5 calls | 2.2W | partial | written | done | 13/13 | The original tests computed nothing (F23). Across 19 configurations and 2,161 called loops: pooled Jaccard 1.000000, no p-value differences, 18 of 19 byte identical, the exception differing only in line order. Four numpy float32 promotions that decide which loops are called are reproduced behind `NBinomPrecision`. The fitted `prob` clears ED but not the tighter EN envelope. On `gm12878_chr1.cool` peak RSS is **877 MB against Python's 619 MB** (budget 1,696 MB), the one case where the port uses more memory, because the cool reader loads the full pixel table before cutting the band. |
+| hicDifferentialTAD | 5 | E5 | 1.3W x 2 | good | no | in progress | - | Branch `v4-tad-stats`. 16 tests, exact, across all `-m` and `-mr` modes and thread counts 1, 4 and 11; `--pValue` never varied. |
+| hicMergeDomains | 5 | E0/E5 | n/a | weak | yes | not started | - | **2 of its tests fail on master** in the baseline run (`test_main_two_file_protein`, `test_main_two_file_no_protein`), and every `are_files_equal` call (`:70,84-85,106-107`) lacks `assert`. The reference behaviour has to be established before a port. Needs a `scipy.cluster.hierarchy.linkage` reimplementation and a DOT writer. |
+| hicAggregateContacts | 5 | E3 `.tab` / E6 plot | 2.2W | weak | yes | not started | - | All 12 general tests are both `xfail` and `skipif(4 GB > memory)`; the 162 `trivial_runs` items assert nothing. Needs `KMeans(random_state=0)`. |
+| chicQualityControl | 6 | E0 text / E6 plot | 1.3W | weak | yes | in progress | - | Branch `v4-chic-foundation`. 1 test, `xfail`; `:66` compares the `_failed_reference_points` output against the `_report` reference, so that output is never checked. |
+| chicViewpointBackgroundModel | 6 | **EN** fitted parameters | 1.3W | weak | yes | in progress | - | Branch `v4-chic-foundation`. EN rather than E4 because of F24. The existing test allows 700 and 1000 mismatching values at `eps=0.1`. |
+| chicViewpoint | 6 | E1 output / E3 values | 1.3W | weak | yes | in progress | - | Branch `v4-chic-foundation`. 2 tests assert only HDF5 keys and parameter defaults; no numeric comparison. |
+| chicSignificantInteractions | 6 | E5 calls | 1.3W | weak | yes | not started | - | Builds on the chicViewpoint core. 3 tests assert structure and attribute echo-back only. Uses `pybedtools` at `:515`. |
+| chicAggregateStatistic | 6 | E1 | 1.3W | weak | yes | not started | - | 5 tests assert group names and lengths only. |
+| chicDifferentialTest | 6 | E3 p-values / E5 calls | 1.3W | weak | yes | not started | - | No p-value comparison in the existing tests. Needs `fisher_exact`, `chi2_contingency` and `chi2.ppf`. |
+| chicExportData | 6 | E0 text / E1 bigwig | 1.3W | partial | yes | not started | - | Text at `delta=1`, bigwig at `decimal=0`. The three branches of `--outputValueBigwig` at `chicExportData.py:158-162` are dead code. |
+| hicPlotMatrix | 7 | E6 | 1.1W + 1.15D | weak | yes | not started | - | All 32 tests are `xfail` and `skipif` on memory, six behind a 120 GB gate; nothing in this file has run in CI. |
+| hicPlotTADs | 7 | E7 | n/a | none | no | not started | - | A 9-line delegation to `pygenometracks.plotTracks.main`; nothing to port. |
+| hicPlotViewpoint | 7 | E0 data / E6 plot | 1.3W | weak | yes | not started | - | All 6 tests `xfail`; `:83-97` asserts against stale file names. |
+| hicPlotAverageRegions | 7 | E6 | n/a | weak | yes | not started | - | All 4 tests `xfail`, image only. |
+| hicPlotDistVsCounts | 7 | E3 data / E6 plot | 1.3W | weak | yes | not started | - | The only real assertion is a PNG byte-size difference below 2000. |
+| hicCorrelate | 7 | E3 matrix / E6 plot | 1.3W x n | weak | yes | not started | - | Both tests correlate a file with itself, so 1.0 is guaranteed. Needs complete-linkage clustering with matching leaf order. |
+| hicPrepareQCreport (alias hicQC) | 7 | E0 tables / E6 plots | n/a | none | yes | not started | - | No test file, although `test_data/QC*/` holds six reference outputs. Its input, the hicBuildMatrix QC folder, is now byte identical. |
+| chicPlotViewpoint | 7 | E6 | 1.3W | weak | yes | not started | - | All 4 tests `xfail`. |
+| hicTADClassifier | 8 | E7 | 1.3W features | weak | yes | not started | - | The shipped `.BIN` models are pickles of `imblearn` and `cleanlab` classes with no ONNX converter. |
+| hicTrainTADClassifier | 8 | E7 | 1.3W features | weak | yes | not started | - | 14 of 24 options untested. F13. |
+| hicHyperoptDetectLoops | 8 | E7 | inherits hicDetectLoops | partial | yes | not started | - | TPE search is RNG dependent. |
+| hicHyperoptDetectLoopsHiCCUPS | 8 | E7 | n/a | weak | yes | not started | - | 1 test, `xfail` and doubly `skipif` on `nvcc` and `juicer.jar`, so it never runs. Its `are_files_equal` (`:29`) is a real line-by-line comparator, but the call at `:64` has no `assert`, so its result is discarded. Shells out to `java -jar juicer.jar hiccups`. |
 
-Counts: 46 tools. Tier 1: 6. Tier 2: 7. Tier 3: 6. Tier 4: 3. Tier 5: 5.
-Tier 6: 7. Tier 7: 8. Tier 8: 4. Plus the `hicQC` alias and the `hicexplorer`
-banner script, neither of which is a tool.
+**Tiers 7 and 8 await a decision by the project owner.** `PLAN.md` recommends a
+Python plotting shell over the C++ core for the 8 plotting tools, and C++
+feature extraction with inference left in Python for the ML tools. That
+recommendation has not been confirmed, and it decides whether the port covers 34
+or 46 tools.
 
-Test state at the start of the port: `none` 5, `weak` 22, `partial` 12,
-`good` 7. Characterization tests required before porting: **39 of 46**, of which
-**1 is written** (`hicInfo`) and 38 remain.
+## Counts
 
-Ported: **1 of 46** (`hicInfo`, tier 1, equivalence pass at E0 and inside its
-memory budget).
+| tier | tools | ported | in progress | not started |
+|---|---|---|---|---|
+| 1 | 6 | 6 | 0 | 0 |
+| 2 | 7 | 7 | 0 | 0 |
+| 3 | 6 | 3 | 1 | 2 (hicCompartmentalization has tests) |
+| 4 | 3 | 2 | 0 | 1 |
+| 5 | 5 | 2 | 1 | 2 |
+| 6 | 7 | 0 | 3 | 4 |
+| 7 | 8 | 0 | 0 | 8 |
+| 8 | 4 | 0 | 0 | 4 |
+| **total** | **46** | **20** | **5** | **21** |
+
+Characterization tests written: 20 tools, 19 of the 20 ported plus hicCompartmentalization; hicBuildMatrixMicroC was ported without one. Originally required before porting:
+39 of 46.
+
+**Baseline of the Python suite**, first full run on this branch (2026-09-01,
+2 h 11 min): 498 passed, 3 failed, 1 error, 1 skipped, 23 xfailed, 62 xpassed
+(reproduced). The failures are `test_hicMergeDomains.py::test_main_two_file_protein`,
+`::test_main_two_file_no_protein`, and
+`test_hicBuildMatrix_trivial_runs.py::test_build_matrix_restrictionCutFile_two`;
+the error is `test_hicBuildMatrix_trivial_runs_2.py::test_build_matrix_restrictionCutFile_six`.
 
 ## Memory budgets on the designated large inputs
 
-`budget = alpha*W + beta*D + C`, `C = 64 MB` (`PLAN.md` 4.5). Python peaks are
-measured on this machine against the reference oracle with
-`/usr/bin/time -f "%e %M"`. All figures in SI MB. The harness fails a tool whose
-C++ peak RSS exceeds the budget (`PLAN.md` 8.3 criterion 4).
+`budget = alpha*W + beta*D + C`, `C = 64 MB`, SI MB. Python peaks measured on
+this machine against the reference oracle.
 
-| tool and input | `W` | `D` | Python peak | budget | required reduction | measured C++ |
-|---|---|---|---|---|---|---|
-| `hicCorrectMatrix --correctionMethod KR`, gm12878_chr1.cool | 741.9 | - | 9,199 | **954** | 9.6x | - |
-| `hicCorrectMatrix --correctionMethod ICE`, gm12878_chr1.cool | 741.9 | - | 9,064 | **954** | 9.5x | - |
-| `hicPCA` v3 (dgeev), mm9_reduced_chr1.cool | 5.6 | 762 | 4,070 | **2,509** | 1.6x | - |
-| `hicPCA` v4 (dsyevr), mm9_reduced_chr1.cool | 5.6 | 762 | 4,070 | **946** | 4.3x | - |
-| `hicTransform --method pearson`, Li_et_al_2015.h5 | 19.9 | 987 | 5,150 | **1,221** | 4.2x | - |
-| `hicTransform --method pearson`, gm12878_chr1.cool | 741.9 | 4,971 | > 25,000 (est.) | **6,596** | > 3.8x | - |
-| `hicCorrectMatrix --correctionMethod KR`, Li_et_al_2015.h5 | 19.9 | - | 486 | **88** | 5.5x | - |
-| `hicTransform --method obs_exp`, Li_et_al_2015.h5 | 19.9 | - | 305 | **88** | 3.5x | - |
-| `hicConvertFormat` h5 -> cool, Li_et_al_2015.h5 | 19.9 | - | 390 | **90** | 4.3x | - |
-| `hicInfo`, Li_et_al_2015.h5 | 19.9 | - | 264 | **85** | 3.1x | to be recorded |
-| `hicInfo`, Li_et_al_2015.cool | 19.9 | - | 139 | **64** | 2.2x | to be recorded |
-| `hicInfo --no_metadata`, gm12878_chr1.cool | 741.9 | - | 2,854 | **843** | 3.4x | **809 (pass)** |
-| `hicBuildMatrix`, small_test_R1/R2_unsorted.bam, 16 threads | - | - | not yet measured | `2*nnz_out*12 + 16*64 + 64` | - | - |
-| `hicFindTADs`, gm12878_chr1.cool | 741.9 | - | not yet measured | 1,696 | - | - |
-| `hicDetectLoops`, GSE63525_..._2_5mb.cool | 12.5 (est.) | - | not yet measured | 92 | - | - |
-
-Every remaining tool takes `alpha = 1.3, beta = 0` and is expected to land well
-inside its budget; those rows are added to this table as they are measured.
-
-The `hicBuildMatrix`, `hicFindTADs` and `hicDetectLoops` Python peaks must be
-measured before their tiers start, so that the budget is a target rather than a
-guess. That measurement is part of the characterization work for those tools.
+| tool and input | `W` | `D` | Python peak | budget | measured C++ |
+|---|---|---|---|---|---|
+| `hicCorrectMatrix` KR, gm12878_chr1.cool | 741.9 | - | 9,409 | 954 | **829 (reproduced)** |
+| `hicCorrectMatrix` ICE, gm12878_chr1.cool | 741.9 | - | 9,331 | 954 | **830 (reproduced)** |
+| `hicPCA`, mm9_reduced_chr1.cool | 5.6 | 762 | 4,185 | 2,509 | **1,585** |
+| `hicTransform --method pearson`, Li_et_al_2015.h5 | 19.9 | 987 | 5,532 | 1,221 | **97 (reproduced)** |
+| `hicTransform --method pearson`, gm12878_chr1.cool | 741.9 | 4,971 | > 25,000 (est.) | 6,596 | not measured |
+| round trip cool to cool, gm12878_chr1.cool | 741.9 | - | 4,048 | 1,028 | **790 (reproduced)** |
+| `hicInfo --no_metadata`, gm12878_chr1.cool | 741.9 | - | 2,854 | 842.9 | **829.2, 98.4 percent (reproduced)** |
+| `hicSumMatrices`, GSM pair chr1+chr2 (4.2 M nnz) | 50.5 | - | 995 | 215.6 at alpha 3.0 | **176.2** |
+| `hicBuildMatrix`, small_test BAMs | - | - | 936 | 321 | **142 (reproduced)** |
+| `hicFindTADs --fdr`, small_test_matrix.h5 | 54.7 (z-score band) | - | 890 | 184 | **114 (reproduced)** |
+| `hicDetectLoops`, gm12878_chr1.cool | 741.9 | - | 619 | 1,696 | **877, above Python** |
 
 ## Dual-mode tools
 
-`PLAN.md` 5.8. `v3` is the default and is what the harness compares against
-Python; `v4` applies the fix and is validated against `v3` with the difference
-quantified here.
-
-| tool | `v3` reproduces | `v4` fixes | measured `v3` - `v4` difference |
+| tool | `v3` reproduces | default | measured `v3` against default |
 |---|---|---|---|
-| `hicCorrectMatrix --correctionMethod KR` | float32 downcast of input values (`krbalancing.cpp:27`); float32 rescale accumulators (`:228-229`), but summed in a fixed order so the C++ is deterministic where the Python is not; the `--perchr` `.h5`-vs-`.cool` correction-factor split (finding F4) | float64 throughout; pairwise accumulation. The `--perchr` `.h5`-vs-`.cool` behaviour is **preserved in both modes**: it is intended, not a defect, and unifying it would change what a corrected matrix means per output format | not yet measured; expected to be of the order of the oracle's own noise envelope, 1e-4 to 1e-2 relative depending on matrix size |
-| `hicPCA` | `dgeev` on the covariance matrix, all eigenpairs, unsorted, columns taken by index (`hicPCA.py:305,314-322`) | `dsyevr` with `range='I'`, only the requested vectors, sorted by descending eigenvalue, deterministic sign convention | not yet measured; report per chromosome on `mm9_reduced_chr1.cool` |
+| `hicCorrectMatrix --correctionMethod KR` | krbalancing's float32 input rounding (F2) and float32 rescale accumulators (F1), summed in a fixed order so the C++ stays deterministic | float64 throughout, `v4` | `Li_et_al_2015.h5`: identical pattern, all 3,313,962 values shifted by `1.65e-04` relative, none by more than `1e-3` (reproduced) |
+| `hicPCA` | under revision: matching the Python's eigenvector column order is a correctness requirement the ED gate cannot absorb, and the fix in progress may take LAPACK `dgeev` for ordering | - | pending the fix |
 
-Neither mode reproduces krbalancing's `exit(0)` on non-convergence; see the
-deviations table.
+The `--perchr` h5-versus-cool correction factor split (F4) is preserved in
+both modes, and neither mode reproduces krbalancing's `exit(0)` (F5).
 
 ## Known open work in the landed code
 
 | where | issue | effect |
 |---|---|---|
-| `core/include/hicx/sparse_matrix.hpp` | values are held as `double` regardless of the stored dtype | an int32 or float32 matrix costs twice the memory it needs. On `gm12878_chr1.cool` a dtype-parametric value store would take `W` from 741.9 MB to 494 MB and every dependent budget with it. Recorded by the implementing agent in the header itself |
-| `cpp/scripts/equiv.py` | peak RSS is recorded and reported as a Python-to-C++ ratio, but the **budget gate** of `PLAN.md` 8.3 criterion 4 is not implemented | a tool can currently be marked `pass` while over budget. Until the gate lands, budget compliance is checked by hand and written into the budgets table above |
-| `cpp/scripts/equiv.py` | the determinism check of `PLAN.md` 8.3 criterion 3 (five repeats, `--threads 1` versus `--threads 16`) is not implemented | needed before any threaded tool can pass |
-| `cpp/scripts/comparators/` | only `cool`, `h5` and `text` exist | `image`, `chic_hdf5`, `bigwig`, `npz`, `bam` and the `noise.py` EN driver are needed by tiers 3 and above |
-| `cpp/scripts/cases/hicInfo.json` | no mcool cases | both group layouts (`/resolutions/<r>` and the legacy `/0`) need a case, see open question 5 |
+| `cpp/scripts/comparators/base.py` | the relative ED rule has no floor for round-off around zero | a value of `-9.3e-18` against `-1.2e-19` in a correlation matrix fails, although both are zero to machine precision. Fails `hicPCA.intermediateMatrices.h5.wholeGenome`. Needs a floor derived from machine epsilon and the dataset's scale, applied as a named rule, never widened to fit |
+| `cpp/tools/hicPCA.cpp` | failures (a) and (b) in the hicPCA row | fix in progress |
+| all tools | `PLAN.md` 5.0.1 v4 provenance strings are recorded but not implemented | output still names HiCExplorer 3.7.x in its provenance fields. To land across all tools at once, after the worktree branches are merged |
+| HDF5 writers | `H5Pset_obj_track_times` left at its default | two runs a second apart differ in bytes (F27). Same timing as the provenance change |
+| `core/include/hicx/sparse_matrix.hpp` | values held as `double` regardless of the stored dtype | an int32 or float32 matrix costs twice what it needs; `W` for `gm12878_chr1.cool` would fall from 741.9 to 494 MB |
+| `core/src/cool_file.cpp` | no hyperslab read off `indexes/bin1_offset`; the whole pixel table is read before a band or chromosome is cut | the reason hicDetectLoops uses more memory than Python on `gm12878_chr1.cool`, and why the single-chromosome load reads chromosomes it does not need |
+| budget formula | `--runningWindow` and hicFindTADs do not fit `alpha * W_input` | both need a term in the working set they actually build |
+| `core/src/lbfgsb.cpp` | a projected L-BFGS-B, not a translation of the Fortran | hicDetectLoops' fitted `prob` clears ED but not its EN envelope; closing that means translating the Fortran line search |
+| `cpp/scripts/equiv.py` | no `noise.py` EN driver, no dual-mode runs, no `image`, `bigwig` or `bam` comparator | EN cases are currently measured by per-tool scripts |
+| argument parsing | no argparse compatibility layer | unambiguous prefix abbreviations such as `--matr` are rejected; `--help` wrapping is close but not identical |
 
 ## Findings against the Python reference
 
-Behaviour found while planning that the port must account for. Most are defects
-worth reporting upstream; F4 is not a defect but intended behaviour, kept here
-because the port has to reproduce it deliberately. F1 changes what the port can
-promise; F5 is a silent-success failure mode.
+Behaviour found while porting that the C++ reproduces, pins, or deliberately
+departs from. Most are defects worth reporting upstream. F4 is intended
+behaviour, kept here because the port reproduces it on purpose.
 
 | id | where | finding |
 |---|---|---|
-| **F1** | `krbalancing.cpp:228-229` with `:233-250` | `rescale_norm_vector` accumulates `original_sum` and `norm_vector_sum` in **float32** inside an `omp parallel for` whose body is an `omp critical`. The critical section serialises the additions but does not fix their order, so **KR is not reproducible run to run.** Measured: six runs on `Li_et_al_2015.h5` gave six distinct normalisation factors (0.0190883 to 0.0190899), with a maximum pairwise relative difference of **1.503e-04 on the output matrix values** and **7.513e-05 on the correction factors**; three runs on `gm12878_chr1.cool` gave 0.00660838, 0.00663618 and 0.00666417, a spread of **8.4e-03 relative**. The sparsity pattern is stable. |
-| **F2** | `krbalancing.cpp:12,27` | The float64 input is downcast to **float32** (`Eigen::Triplet<float>`, `float(input_values(j_start))`) before being stored into a float64 sparse matrix. Inert for raw integer counts below 2^24, but real for already-float matrices such as `Li_et_al_2015.h5` (values 0.170 to 1914.015). |
-| **F3** | `krbalancing.cpp:11-32,35,47` | Construction stages the whole matrix into a `std::vector<Eigen::Triplet<float>>` before `setFromTriplets`, having already reserved the destination; `setFromTriplets` builds a third copy; `A = A + I` builds a fourth; and `triplets.clear()` at `:35` does not release capacity, so the staging buffer is still resident during that copy. On `gm12878_chr1.cool` that is 1,483 + 1,978 + 1,978 + 1,978 MB of avoidable allocation against a 742 MB working set. The input is already CSR and the matrix is symmetric, so CSR equals CSC and an `Eigen::Map` would need none of it. |
-| **F4** | `hicCorrectMatrix.py:715-732` | **Not a defect. Intended behaviour, confirmed by the project owner 2026-09-01, and the port must reproduce it rather than unify the two branches.** The output format determines what a corrected matrix means. HiCExplorer's h5 historically could not carry correction factors, so for `.h5` output the correction is applied to the matrix values themselves and the file is written already corrected. cool carries the factors as a weight column, so for `.cool` output the raw matrix is written and the factors are stored beside it to be applied on read. That is why `get_normalised_matrix(True)` is called only for `.h5` (`:726`). Mechanically, that call is also what triggers `rescale_norm_vector()`, so the following `get_normalisation_vector(False)` (`:731`) returns rescaled factors for `.h5` and unrescaled ones for `.cool`. Two consequences for the port: the C++ must reproduce this **call ordering**, not just the arithmetic, because the rescaling is an in-place side effect on `x`; and the split is specific to `--perchr`. On the whole-matrix path (`:754`) `get_normalisation_vector(True)` is called unconditionally, so the factors are rescaled for both output formats there and only the matrix values differ. Note also that the modern h5 schema does carry a `correction_factors` dataset (present in `Li_et_al_2015.h5`, shape 11104, float64) and `ma.setCorrectionFactors()` is called for both formats; the historical limitation explains the pre-corrected matrix, not an absence of the dataset. The Python suite never runs `--perchr`, so the characterization test must cover all four combinations of `--perchr` and output format. |
-| **F5** | `krbalancing.cpp:115-119` | `outer_loop` calls `exit(0)` after 300 outer iterations, having printed the entire `x` vector to stdout (also at 100 and 200). A library that terminates the host process with a **success** status on non-convergence: HiCExplorer exits 0 and writes no output file, which is indistinguishable from success to any calling pipeline. Worth reporting upstream as a bug in its own right. |
-| **F6** | `krbalancing.cpp:212-221`, `krbalancing.hpp:29` | The loop body of `compute_normalised_matrix` is wrapped in `omp critical` although it only performs an elementwise in-place update with no shared state: pure serialisation with contention and no correctness role. `num_threads` is a hardcoded global of 10 that no caller can set. |
-| **F7** | `hicCorrectMatrix.py:722,724` | `.indices.astype(np.int64, copy=False)` and `.data.astype(np.float64, copy=False)` both copy, because the dtypes differ. `copy=False` permits avoiding a copy, it does not achieve one. 989 MB each on `gm12878_chr1.cool`. |
-| **F8** | `hicPCA.py:305` | `scipy.linalg.eig`, the general non-symmetric solver, is used on a symmetric covariance matrix and all n eigenpairs are computed and returned complex when two real ones are requested. 471 s and 4,070 MB on a 722 KB input. |
-| **F9** | `hicmatrix/lib/h5.py:84` | `distance_counts` is read from `f.root.correction_factors`. |
-| **F10** | `hicmatrix/HiCMatrix.py:58-59` | The loader tuple is unpacked with `correction_factors` and `distance_counts` swapped relative to what every loader returns, so an h5-to-h5 round trip moves correction factors into `/distance_counts`. |
-| **F11** | `hicmatrix/HiCMatrix.py:902-919` | `truncTrans` is a no-op: a 2-tuple unpack of a 3-value return, and `==` where an assignment was meant. |
-| **F12** | `bin/hicFindEnrichedContacts` | Installed by `setup.py` but imports `hicexplorer.hicFindEnrichedContacts`, which does not exist. |
-| **F13** | `lib/tadClassifier.py:782` | `imblearn.base` is referenced without `import imblearn`; fires whenever `--alternative_resampling_method` is used. |
+| **F1** | `krbalancing.cpp:228-229` | The rescale sums accumulate in float32 inside an `omp critical` within a `parallel for`, which serialises the additions without fixing their order, so **KR is not reproducible run to run**: three runs on `gm12878_chr1.cool` gave normalisation factors 0.00660838, 0.00663618 and 0.00666417, a spread of `8.4e-03` relative (reproduced on `Li_et_al_2015.h5`: 0.0190859, 0.01909, 0.019089). |
+| **F2** | `krbalancing.cpp:12,27` | float64 input values are downcast to float32 on load. |
+| **F3** | `krbalancing.cpp:11-47` | the matrix is staged through a triplet vector, a reserved destination, `setFromTriplets` and `A = A + I`: four copies against a 742 MB working set, most of the 9.2 GB peak. |
+| **F4** | `hicCorrectMatrix.py:715-732` | **Intended, confirmed by the project owner 2026-09-01.** h5 historically could not carry correction factors, so h5 output is written already corrected, while cool output keeps raw counts with the factors as a weight column. On `--perchr` the call ordering makes the factors rescaled for h5 and unrescaled for cool. The port reproduces the call ordering. |
+| **F5** | `krbalancing.cpp:115-119` | `exit(0)` after 300 outer iterations: the host process ends with a success status and no output. |
+| **F6** | `krbalancing.cpp:212-221`, `krbalancing.hpp:29` | `omp critical` around a body with no shared state; `num_threads` hardcoded to 10. |
+| **F7** | `hicCorrectMatrix.py:722,724` | `astype(..., copy=False)` copies anyway when the dtype differs: 989 MB each on `gm12878_chr1.cool`. |
+| **F8** | `hicPCA.py:305,316` | `scipy.linalg.eig`, the general solver, on a symmetric matrix, with columns taken by position and never sorted, so which vector counts as first depends on LAPACK's internal ordering. |
+| **F9** | `hicmatrix/lib/h5.py:84` | `distance_counts` is read from `/correction_factors`. |
+| **F10** | `hicmatrix/HiCMatrix.py:58-59` | `correction_factors` and `distance_counts` are unpacked swapped. |
+| **F11** | `hicmatrix/HiCMatrix.py:902-919` | `truncTrans` is a no-op. |
+| **F12** | `bin/hicFindEnrichedContacts` | imports a module that does not exist (reproduced). |
+| **F13** | `lib/tadClassifier.py:782` | `imblearn.base` used without `import imblearn`. |
+| **F14** | `hicAdjustMatrix.py:161-165` | `--maskBadRegions` never opens the BED file it is given: `:162` takes `len()` of `--chromosomes`, which is mutually exclusive with the option and always `None`, so h5 input is written back unchanged at exit 0 and cool input raises `TypeError` (reproduced by reading the source). |
+| **F15** | `hicConvertFormat --enforce_integer` | on an already corrected matrix every value rounds to zero: `GSM2644945_Untreated-R1.100000_chr1.h5` to cool writes 1,252,980 pixels, all zero, sum zero, exit 0, no warning (reproduced). |
+| **F16** | `hicMergeTADbins`, `reduce_matrix(diagonal=True)` | rebuilds the symmetric matrix as `R + R.T - diag(R)` where the subtracted diagonal is the whole within-TAD block sum, losing 22 percent of the total count (30,482,969.64 to 23,695,524.86). |
+| **F17** | `hicMergeMatrixBins.py:248` | groups smaller than `numBins/2` are dropped with only a `log.debug`; at `--numBins 20` two whole chromosomes disappear. |
+| **F18** | `hicSumMatrices.py:72` | `maskBins` of the union of both inputs' nan bins discards real counts: 5,142 on the GSM2644945 plus GSM2644947 pair. |
+| **F19** | `hicMergeMatrixBins --runningWindow` | the window runs over raw bin indices and crosses chromosome borders. |
+| **F20** | `hicmatrix/HiCMatrix.py:84-92` | `save` reuses the handler built during `load`, so the output format follows the input regardless of the name given: `-m a.h5 -o out.cool` writes an h5 file named `out.cool.h5` (reproduced by reading the source). A name ending in neither `cool` nor `h5` writes nothing and exits 0. |
+| **F21** | consequence of F10 | for cool input the correction factors land in `distance_counts`, which the cool writer never reads, so a KR-balanced cooler is written back with **no weight column and balanced values as its counts**. |
+| **F22** | `hicFindTADs.py:345` | `--numberOfProcessors 12` or more aborts with `ValueError` on `small_test_matrix.h5`, because `np.array_split` can hand a worker a range whose bins are all skipped. Every working process count gives identical output. |
+| **F23** | `test_hicDetectLoops.py` | the three cool tests pass `--maxLoopDistance 3000000` against 2.5 Mb bins, so only the main diagonal loads, is deleted, and no loop is called; they pass because the comparator uses `zip()`. The fourth test asserts nothing. Separately, the Python's loop output order depends on `--threads`. |
+| **F24** | `fit_nbinom` | not reproducible against itself: perturbing the start of scipy's `fmin_l_bfgs_b` by `1e-9` moves the fitted `size` by a median of 8.7 percent and up to 75 percent, a flat likelihood ridge meeting `pgtol=1e-5`. Fitted negative binomial parameters are therefore class EN everywhere they appear. |
+| **F25** | `hicPCA.py:253-258`, `hicmatrix/HiCMatrix.py:603` | `--ignoreMaskedBins` masks and enlarges the bins, then `--chromosomes` calls `keepOnlyTheseChr`, whose first action is `restoreMaskedBins()`. The masking is silently undone whenever both options are given (reproduced). |
+| **F26** | h5 against cool | the same `hicBuildMatrix` run written as h5 and as cool gives identical matrices, but the cool file loses the per-bin coverage (18,346 distinct values become a single 1.0) and has no nan-bin list, which hicmatrix rebuilds on load as every all-zero row (0 against 14,845). `hicCorrectMatrix --sequencedCountCutoff` therefore runs on h5 input and **crashes with `AssertionError` on cool input** at `hicCorrectMatrix.py:679` (all reproduced; identical in Python and C++). |
+| **F27** | HDF5 output, Python and v4 | every object embeds its modification time, 841 across the corpus, so two runs a second apart differ in bytes. |
+| **F28** | `hicAdjustMatrix.py:124,144` | the `--regions --action remove` warning calls `getChrBinRange` with the chromosome of the last readable BED line rather than the region reported. |
+| **F29** | `buildMatrixMethods.py:744-762` | `--keepSelfCircles` is a no-op, because the `continue` meant to drop a self circle sits inside the loop over restriction sequences; with two enzymes a self circle is counted once per enzyme. |
+| **F30** | `hicBuildMatrix --region` | empties the restriction site list, because `bed2interval_list` keeps a site only when `region_end <= site_end` and `region_end` is the chromosome length; every close inward pair becomes "same fragment" and no self circle is counted. |
 
 ## Tier 0 - core library components
 
-| Component | Path | Port | Notes |
+| Component | Path | State | Notes |
 |---|---|---|---|
-| `CutIntervals`, `BinIndex` | `core/include/hicx/bins.hpp` | **done** | struct-of-arrays with interned chrom ids; replaces `intervaltree`; `PLAN.md` 2.1, 2.2 |
-| `CsrMatrix`, `Matrix` | `core/include/hicx/sparse_matrix.hpp`, `hic_matrix.hpp` | **done** | **upper-triangle storage with symmetric access** (`PLAN.md` 4.4 rule 2), int32 indices while `nbins <= INT32_MAX` (rule 3) |
-| HDF5 C wrapper + blosc filter | `core/src/hdf5_util.cpp` | **read path done** | the landed filter is **decompress-only**, which is enough to read every PyTables-written `.h5` in the corpus without an external filter plugin. The **compress** path, which is what `PLAN.md` risk 5 is about, is still unwritten and unverified |
-| cool reader | `core/src/cool_file.cpp` | **done** | takes CSR row offsets straight from `/indexes/bin1_offset` and never reads `bin1_id`, so ingestion is zero-copy as rule 1 requires |
-| cool writer | `core/src/cool_file.cpp` | not started | cooler schema v3, gzip-6 + shuffle, ENUM chrom column |
-| mcool / scool | `core/src/io/cool.cpp` | not started | `::` path is opaque; discover only when absent; both `/resolutions/<r>` and the legacy `/0`../`/4` layouts occur in the corpus |
-| h5 (PyTables layout) reader | `core/src/h5_file.cpp` | **done** | |
-| h5 writer | `core/src/h5_file.cpp` | not started | blosc complevel 5; L3 value-identical only; blocked on the blosc compress path |
-| JSON writer for the tier 0 state dump | `core/src/json_lite.cpp` | **done** | used by the harness comparators |
-| homer, ginteractions, hicpro, 2D-text | `core/src/io/text_formats.cpp` | not started | ginteractions is write-only, as in Python |
-| npy/npz | `core/src/io/npz.cpp` | not started | for `hicAverageRegions` / `hicPlotAverageRegions` |
-| `.hic` reader | `core/src/io/hic.cpp` | not started | tier 4; until then `hicConvertFormat --inputFormat hic` must error |
-| numpy-pairwise reduction | `core/src/numpy_compat.cpp` | **done** | all three layers of `PLAN.md` 5.2 (8192-element ufunc buffer, `PW_BLOCKSIZE = 128` with eight accumulators, float32 kept in float32), verified against numpy over 161 array sizes |
-| Cephes (`gammaln`, `psi`, `betainc`, `igam`, `igamc`, `igami`) | `core/src/math/cephes/` | not started | vendored; makes NB, chi2 and Fisher exact |
-| KR balancing | `core/src/math/kr/` | not started | reimplemented from the upstream source with a `v3`/`v4` mode switch; **not** vendored verbatim; `PLAN.md` 3.3, 5.7, 5.8 |
-| ICE | `core/src/math/ice.cpp` | not started | port of `iterativeCorrection.py:10-86`; CSR row-order marginals reproduce `coo_matvec` exactly, so no mode switch |
-| obs/exp, z-score, expected interactions | `core/src/math/obsexp.cpp` | not started | port of `utilities.py:293-604` |
-| dense Pearson / covariance | `core/src/math/dense_corr.cpp` | not started | one dense block, `dsyrk`, streamed output (`PLAN.md` 4.4 rule 7) |
-| `reduce_matrix` | `core/src/math/reduce_matrix.cpp` | not started | port of `reduceMatrix.py:12`; the complex-number `np.unique` trick becomes an in-place sort on a packed `(row,col)` key |
-| `ranksums`, `anderson_ksamp`, `fisher_exact`, `chi2_contingency`, `pearsonr`, `spearmanr` | `core/src/math/stats.cpp` | not started | |
-| complete-linkage clustering, k-means++ with `RandomState(0)` | `core/src/math/cluster.cpp` | not started | for `hicCorrelate`, `hicMergeDomains`, `hicAggregateContacts` |
-| L-BFGS-B + NB MLE (`fit_nbinom`) | `core/src/math/nbinom_fit.cpp` | not started | `PLAN.md` risk 6 |
-| BED / narrowPeak / broadPeak / bedgraph reader | `core/src/io/bed.cpp` | not started | port of `readBed.py` and `utilities.py:19,38` |
-| bedtools replacement (sort, merge, intersect) | `core/src/util/intervals.cpp` | not started | must match bedtools lexicographic chrom order |
-| libBigWig | `core/third_party/libBigWig/` | not started | FetchContent; read and write |
-| htslib binding | `core/src/io/bam.cpp` | not started | link `$HICX_DEPS/lib/libhts.so.1.21` |
-| FASTA reader + IUPAC revcomp | `core/src/io/fasta.cpp` | not started | replaces `Bio.SeqIO` |
-| thread pool with deterministic reductions | `core/include/hicx/parallel.hpp` | not started | fixed index partitions, combine in index order, never accumulate into a shared float; `PLAN.md` 4.1 |
-| peak-RSS self-report | `core/include/hicx/resource_usage.hpp` | **done** | `/proc/self/status` `VmHWM` at exit, printed on `--verbose`; cross-checked by the harness |
-| argparse compatibility layer | `core/include/hicx/argparse.hpp` | not started | help text, groups, `choices`, `nargs`, prefix matching, error strings; `PLAN.md` tier 0 |
-| Python-repr float formatting | `core/src/numpy_compat.cpp` | **done** | `float_repr`, `int_with_thousands_separator`, and numpy's `array_str` line wrapping at 75 characters |
-| equivalence harness | `cpp/scripts/equiv.py` + `comparators/{base,cool,h5,text}.py` | **partly done** | `run`/`compare`/`report`/`list` work and both runtimes and peak RSS are recorded, with `--data` and `--tmpdir` added beyond the spec. Still missing: the **memory-budget gate** (`PLAN.md` 8.3 criterion 4; RSS is currently reported as a ratio only), the determinism check (criterion 3), `--noise-runs` and the `noise.py` EN driver, dual-mode runs, and the `image`, `chic_hdf5`, `bigwig`, `npz` and `bam` comparators |
+| bins, interval lookup | `core/include/hicx/bins.hpp` | done | |
+| CSR matrix, upper-triangle storage | `sparse_matrix.hpp`, `hic_matrix.hpp` | done | int32 indices while they fit; values held as double (open work) |
+| HDF5 wrapper and blosc filter | `hdf5_util.cpp` | done | compress and decompress; Python reads C++-written h5 back to identical `hicInfo` output (reproduced); `cd_values` byte for byte what PyTables emits |
+| cool reader and writer | `cool_file.cpp` | done | writer at E1; `/bins/weight` is float64, deflate 6, no shuffle, unlimited maxshape; no hyperslab band read yet |
+| mcool | `cool_file.cpp` | done | `::` group URIs, both group layouts |
+| HiCExplorer h5 reader and writer | `h5_file.cpp` | done | writer at E2; metadata writing refactored into `write_h5_metadata` in af76573c, regression 171 of 171 afterwards (reproduced) |
+| homer, ginteractions, hicpro, 2D text | text format components | done | |
+| npy/npz | `npz_file.cpp` | done | |
+| `.hic` reader | - | not started | `hicConvertFormat --inputFormat hic` refuses explicitly |
+| numpy-compatible reductions | `numpy_compat.cpp`, `simd_reduce.*` | done | per-8192-buffer pairwise sum verified over 161 sizes; AVX2 kernel bit identical to scalar over 307 lengths |
+| statistics | `stats_ops.*`, `lbfgsb.cpp` | done in part | cephes `ndtr`, `erf`, `erfc`, `digamma`, `gammaln`; `rankdata`, `ranksums`, Benjamini-Hochberg, Bonferroni, `betainc`, `nbinom_sf`, `fit_nbinom`, `NBinomPrecision`. Not yet: `fisher_exact`, `chi2_contingency`, `chi2.ppf`, `pearsonr`, `spearmanr`, `anderson_ksamp` |
+| KR and ICE | hicCorrectMatrix components | done | KR reimplemented, not vendored |
+| obs/exp, z-score | `obsexp_ops.*` | done | the general path without `maxdepth` throws rather than densifying |
+| Pearson, covariance, PCA transforms | `transform_ops.*` | done | |
+| `reduce_matrix`, bin merging, adjust operations | `reduce_matrix.*`, `adjust_ops.*`, `matrix_ops.*` | done | |
+| BED intervals, bedtools replacement | `bedtools_ops.*`, `text_table.*` | done | |
+| FASTA reader | `fasta_reader.*` | done | |
+| BAM via htslib | hicBuildMatrix components | done | |
+| libBigWig | `hicx::bigwig` target | done | used by hicPCA |
+| clustering (complete linkage, k-means) | - | not started | for hicCorrelate, hicMergeDomains, hicAggregateContacts |
+| deterministic thread pool | `parallel.hpp` | done | fixed partitions, combined in index order |
+| peak-RSS self-report | `resource_usage.hpp` | done | |
+| argparse compatibility layer | - | not started | |
+| equivalence harness | `cpp/scripts/equiv.py`, `comparators/` | done in part | memory gate, CPU-time gate and determinism mode live on every case; comparators `text`, `cool`, `h5`, `interval`, `npz`. Missing: ED round-off floor, `noise.py` EN driver, dual-mode runs, `image`, `bigwig`, `bam` |
 
 ## Deliberate deviations from the Python behaviour
 
-None yet, because nothing is ported. Every entry here must name the tool, what
-differs, why, and who decided. Contract rule 4: a tool that cannot be ported
-faithfully is recorded here, never quietly dropped and never given a faked
-equivalence.
+| Tool / component | Deviation | Reason | Decided by |
+|---|---|---|---|
+| acceptance, all tools | three significant digits per item, not byte identity | the owner's gate; SIMD and threading change reduction order | project owner, 2026-09-01 |
+| provenance, all tools | output is to name HiCExplorer 4 in its provenance fields (`PLAN.md` 5.0.1) | a file written by v4 must not claim to come from 3.7; recorded, not yet implemented | project owner, 2026-09-02 |
+| KR, both modes | `exit(0)` on non-convergence (F5) is not reproduced; the port raises and exits non-zero | a success status with no output breaks every pipeline | orchestrating session |
+| KR | deterministic, and class EN rather than a single reference comparison | the reference is not reproducible (F1) | orchestrating session |
+| KR | krbalancing reimplemented rather than vendored | vendoring would import F2, F3, F5 and F6 | orchestrating session |
+| hicCorrectMatrix, hicPCA | a `--compatMode {v3,v4}` flag that the Python does not have | quantifies what the float32 defects cost without forcing them on users | orchestrating session |
+| hicDetectLoops | chromosomes written in a fixed order | the Python's order depends on `--threads` (F23) | implementing agent, reported |
+| hicFindTADs | no abort at `--numberOfProcessors 12` or more | F22; an empty partition contributes no rows | implementing agent, reported |
+| hicConvertFormat | `.hic` input and `--chromosome` refuse explicitly | `.hic` is tier 4; single-chromosome cooler loading is not in the reader | implementing agent, reported |
+| hicCorrectMatrix | `diagnostic_plot` refuses explicitly | matplotlib, tier 7 | orchestrating session |
+| all tools | upper-triangle storage with symmetric access | halves the resident matrix; visit order preserved and unit tested | plan |
+| tiers 7 and 8 | Python shell over the C++ core; ML inference stays Python | recommended in `PLAN.md`; **not yet confirmed** | pending |
+| `hicFindEnrichedContacts` | not ported | F12, dead in the reference | plan |
 
-Known deviations already planned (they become entries when the code lands):
+## Open questions
 
-| Tool / component | Planned deviation | Reason |
-|---|---|---|
-| KR balancing, both modes | `exit(0)` after 300 outer iterations (finding F5) is **not** reproduced; the port raises an error and exits non-zero | terminating the host process with a success status and no output file is not behaviour any correct pipeline can depend on |
-| KR balancing, `v3` mode | the two float32 rescale accumulators are summed in a **fixed** order, so the C++ is deterministic where the Python is not (finding F1) | there is no reproducible target to match; the fixed order is one member of the family of orders the Python produces, and determinism is a hard requirement (`PLAN.md` 4.1) |
-| `hicCorrectMatrix --correctionMethod KR` | equivalence class **EN**, not E2 or E3: the tolerance is measured from five Python runs rather than chosen | the oracle disagrees with itself by up to 1.5e-4 on values and 8.4e-3 on the normalisation factor |
-| `hicCorrectMatrix`, `hicPCA` | ship a `--compatMode {v3,v4}` flag that does not exist in the Python | the accuracy and algorithm fixes change results; forcing them on users would break equivalence, dropping them would forfeit the fix |
-| h5 writer | chunk shape and blosc block size differ from PyTables' | PyTables' chunk heuristic is undocumented and version-dependent; equivalence is declared at L3 value level (`PLAN.md` 2.5) |
-| cool writer | `generated-by`, `generated-by-cooler-lib`, `tool-url`, `creation-date` will eventually say `hicx4` | provenance fields, normalised by the comparator. Until the suite is green the writer emits `HiCMatrix-17.2` verbatim so these fields are not a free pass |
-| `hicTransform --method pearson`, `hicPCA --pearsonMatrix` | reduction order changes (one dense input block, streamed output, instead of five live copies) | fixes a 5,150 MB peak RSS on an 11,104-bin matrix; moves the class from E2 to E3 (`PLAN.md` 4.4) |
-| all tools | upper-triangle storage with symmetric access instead of a materialised symmetric CSR | halves the resident matrix; no arithmetic changes provided the access helper preserves visit order, which has a unit test |
-| `hicPlotTADs` and the 7 other tier 7 tools | not a C++ port; a Python plotting shell over the C++ core | matplotlib and pyGenomeTracks have no reproducible C++ equivalent (`PLAN.md` tier 7) |
-| `hicTADClassifier`, `hicTrainTADClassifier` | not a C++ port; feature extraction in C++, model in Python | the shipped `.BIN` models are pickles of imblearn and cleanlab classes with no ONNX converter |
-| `hicHyperoptDetectLoops`, `...HiCCUPS` | TPE search deferred; `--parameterFile` mode first | hyperopt's search path is RNG-dependent, so the chosen hyperparameters cannot be equivalent |
-| `hicFindEnrichedContacts` | not ported | finding F12: the script is dead in the Python reference |
-
-## Open questions for the implementing agent
-
-1. (Partly resolved 2026-09-01.) The **decompress** half of the blosc HDF5
-   filter is in and reads every PyTables-written `.h5` in the corpus. The
-   question that `PLAN.md` risk 5 actually turns on is still open: does the
-   **compress** half, at complevel 5 with shuffle, produce a file PyTables
-   3.10.1 reads without complaint? Answer it before the h5 writer is built on
-   top of it.
-2. (Resolved 2026-09-01.) `C = 64 MB` holds. `hicInfo --no_metadata` on
-   `gm12878_chr1.cool` peaks at **809 MB against a budget of 843 MB**
-   (`1.05 * 741.9 + 64`), and against Python's 2,854 MB. The budget formula and
-   the fixed allowance are therefore validated on the largest matrix in the
-   corpus, on the tool with the least headroom to hide in. One known slack
-   remains: `sparse_matrix.hpp` holds values as `double` regardless of the stored
-   dtype, so an int32 matrix such as this one costs twice what it needs; with a
-   dtype-parametric value store, `W` for this input falls from 741.9 MB to
-   494 MB and the budget to 583 MB. That optimisation is recorded as open
-   work, not as a budget relaxation.
-3. Does calling LAPACK `dgeev` from `$HICX_DEPS`'s OpenBLAS reproduce
-   `scipy.linalg.eig`'s eigenvector column order and signs on
-   `hicPCA/mm9_reduced_chr1.cool`? Check this early; it decides whether
-   `hicPCA` `v3` mode is possible at all (`PLAN.md` risk 3). Budget 8 minutes
-   per Python reference run.
-4. What is the actual `v3`-to-`v4` difference for KR on
-   `gm12878_raw_values.cool` (raw int32, where F2 is inert) and on
-   `Li_et_al_2015.h5` (float64, where it is not)? Fill it into the dual-mode
-   table; it is the number that tells a user whether switching modes matters.
-5. (Resolved 2026-09-01.) Both mcool group layouts occur in the corpus and both
-   must be readable. `hicConvertFormat --outputFormat mcool` writes
-   `/resolutions/<res>`, verified by running it on
-   `small_test_matrix_50kb_res.cool` with `-r 100000 200000`;
-   `test_data/hicBuildMatrix/multi_small_test_matrix.mcool` is the same layout
-   and is opened as `...mcool::/resolutions/5000` at
-   `test_hicBuildMatrix.py:249-251`. But `test_data/matrix.mcool` has top-level
-   groups `/0`../`/4` and no `/resolutions`. Since hicmatrix opens whatever URI
-   it is handed and never enumerates resolutions itself, the C++ reader must do
-   the same: treat the part after `::` as an opaque HDF5 group path, and only
-   fall back to discovery (`/resolutions/*`, then top-level numeric groups) when
-   no `::` suffix is given.
-6. Do `hicFindTADs`, `hicDetectLoops` and `hicAggregateContacts` really need
-   both triangles materialised, or only a band around the diagonal? If a band
-   suffices, withdraw their rule 2 exemption and tighten `alpha` from 2.2
-   towards 1.3 (`PLAN.md` risk 7).
+1. (Resolved.) The blosc compress path produces files PyTables 3.10.1 reads.
+2. (Resolved.) `C = 64 MB` holds, although `hicInfo --no_metadata` on
+   `gm12878_chr1.cool` is at 98.4 percent of its budget.
+3. (In progress, hicPCA fix.) Does LAPACK `dgeev` from the conda prefix
+   reproduce `scipy.linalg.eig`'s column order? Failure (a) in the hicPCA row
+   turns on it.
+4. (Answered in part.) KR `v3` against the default on `Li_et_al_2015.h5`:
+   `1.65e-04` relative on every value. Not yet measured on
+   `gm12878_raw_values.cool`, where F2 is inert.
+5. (Resolved.) Both mcool group layouts are read.
+6. (Answered for hicFindTADs.) It needs the z-score band, not both triangles.
+   hicDetectLoops and hicAggregateContacts remain open.
+7. What is the correct reference behaviour of `hicMergeDomains`, given that two
+   of its tests fail on master?
+8. Tiers 7 and 8: confirm or replace the recommended strategy (project owner).
