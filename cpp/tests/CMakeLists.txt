@@ -32,9 +32,12 @@ add_executable(hicx_tests
     test_build_matrix.cpp
     test_correct_math.cpp
     test_detect_loops.cpp
-    # The computational core of hicDetectLoops, so that the tests link against
-    # exactly the translation unit the tool runs.
-    ../tools/detect_loops_impl.cpp)
+    test_tad_contacts.cpp
+    # The computational cores of hicDetectLoops and of the two TAD statistics
+    # tools, so that the tests link against exactly the translation units the
+    # tools run.
+    ../tools/detect_loops_impl.cpp
+    ../tools/tad_contacts_impl.cpp)
 
 target_link_libraries(hicx_tests PRIVATE hicx::core doctest_header hicx_compile_options)
 
