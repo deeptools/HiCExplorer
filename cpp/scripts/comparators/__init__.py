@@ -5,7 +5,7 @@ compare(path_a, path_b, cls, opts) -> Result and registering it below.
 """
 from __future__ import annotations
 
-from . import cool, h5, interval, npz, text
+from . import chic_hdf5, cool, h5, interval, npz, text
 from .base import CLASSES, Result, fail
 
 _REGISTRY = {
@@ -23,6 +23,10 @@ _REGISTRY = {
     "interval": interval,
     # scipy.sparse .npz, for hicAverageRegions; see comparators/npz.py.
     "npz": npz,
+    # The cHi-C HDF5 layout written with h5py by lib/viewpoint.py and the
+    # cHi-C tools; see comparators/chic_hdf5.py.
+    "chic_hdf5": chic_hdf5,
+    "hdf5-chic": chic_hdf5,
 }
 
 # Default text schema per format name, so a case can just say format: bedgraph.

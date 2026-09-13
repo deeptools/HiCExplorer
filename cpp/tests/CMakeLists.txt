@@ -32,6 +32,7 @@ add_executable(hicx_tests
     test_build_matrix.cpp
     test_correct_math.cpp
     test_detect_loops.cpp
+    test_chic.cpp
     # The computational core of hicDetectLoops, so that the tests link against
     # exactly the translation unit the tool runs.
     ../tools/detect_loops_impl.cpp)

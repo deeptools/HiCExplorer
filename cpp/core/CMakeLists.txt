@@ -23,6 +23,7 @@ add_library(hicx4core
     src/bins.cpp
     src/correct_ops.cpp
     src/build_matrix.cpp
+    src/chic_hdf5.cpp
     src/chic_viewpoint.cpp
     src/cool_file.cpp
     src/fasta_reader.cpp
