@@ -198,8 +198,10 @@ def load_cpp_spec(cpp_bin, tool):
 
 # Tools whose Python module has no parse_arguments of its own. hicPlotTADs is
 # `pygenometracks.plotTracks.main(args)` (hicexplorer/hicPlotTADs.py), so its
-# parser is pyGenomeTracks'.
-PARSER_MODULES = {"hicPlotTADs": "pygenometracks.plotTracks"}
+# parser is pyGenomeTracks'; bin/hicQC runs hicPrepareQCreport.main, and there
+# is no hicexplorer.hicQC. The gui tests read the same list.
+PARSER_MODULES = {"hicPlotTADs": "pygenometracks.plotTracks",
+                  "hicQC": "hicexplorer.hicPrepareQCreport"}
 
 
 def load_python_parser(tool):

@@ -14,7 +14,16 @@ import contextlib
 import importlib
 import io
 import json
+import os
 import sys
+
+# A tool that delegates to another package is parsed by that package's parser,
+# the one cpp/scripts/tool_specs.py compares the C++ spec against
+# (hicPlotTADs: pygenometracks.plotTracks). Every other tool is
+# hicexplorer.<tool>.
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+                                "cpp", "scripts"))
+from tool_specs import PARSER_MODULES  # noqa: E402
 
 
 def plain(value):
@@ -35,7 +44,7 @@ def main():
         requests = json.load(handle)
     results = []
     for request in requests:
-        module = importlib.import_module("hicexplorer." + request["tool"])
+        module = importlib.import_module(PARSER_MODULES.get(request["tool"], "hicexplorer." + request["tool"]))
         parser = module.parse_arguments()
         err = io.StringIO()
         try:
