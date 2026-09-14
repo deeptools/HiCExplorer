@@ -5,7 +5,7 @@ compare(path_a, path_b, cls, opts) -> Result and registering it below.
 """
 from __future__ import annotations
 
-from . import chic_background, chic_hdf5, cool, h5, hic, interval, npz, rendered, text
+from . import chic_background, chic_hdf5, cool, h5, hic, image, interval, npz, rendered, text
 from .base import CLASSES, Result, fail
 
 _REGISTRY = {
@@ -37,6 +37,10 @@ _REGISTRY = {
     # Files an external renderer draws from a source the tool writes, for
     # hicMergeDomains' graphviz trees; see comparators/rendered.py.
     "rendered": rendered,
+    # Figures the tier 7 drawing layer (plot/hicexplorer_plot) renders with
+    # matplotlib, class E6; see comparators/image.py.
+    "png": image,
+    "image": image,
 }
 
 # Default text schema per format name, so a case can just say format: bedgraph.

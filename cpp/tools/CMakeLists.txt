@@ -25,12 +25,22 @@ set(HICX_TOOLS
     hicValidateLocations
     hicSumMatrices
     hicTransform
-    hicPlotSVL)
+    hicPlotSVL
+    hicPlotDistVsCounts)
 
 foreach(tool IN LISTS HICX_TOOLS)
     add_executable(${tool} "${tool}.cpp")
     target_link_libraries(${tool} PRIVATE hicx::core hicx_compile_options)
 endforeach()
+
+# The drawing layer of the plotting tools (cpp/PLAN.md tier 7, option (a)),
+# copied next to the tools directory, where hicx::plot::draw finds it as
+# <tools>/../plot without an installed package.
+add_custom_target(hicx_plot_package ALL
+    COMMAND "${CMAKE_COMMAND}" -E copy_directory
+            "${PROJECT_SOURCE_DIR}/../plot/hicexplorer_plot"
+            "${CMAKE_BINARY_DIR}/plot/hicexplorer_plot"
+    COMMENT "Copying the hicexplorer_plot drawing package")
 
 # hicDetectLoops keeps its computational core in a second translation unit so
 # that cpp/tests/test_detect_loops.cpp can link against exactly the code the

@@ -1,0 +1,88 @@
+[
+  {
+    "id": "hicPlotDistVsCounts.test_plot",
+    "tool": "hicPlotDistVsCounts",
+    "tier": 7,
+    "args": ["--matrices", "{data}/small_test_matrix_50kb_res.h5", "--plotFile", "{out}/dist_vs_counts.png",
+             "--plotsize", "8", "4"],
+    "outputs": [
+      {"path": "{out}/dist_vs_counts.png", "format": "png", "class": "E6"}
+    ],
+    "notes": "The invocation of test_plot, whose master is test_data/hicPlotDistVsCounts/dist_vs_counts.png. The curve is computed in C++ and drawn by plot/hicexplorer_plot with the matplotlib calls of the Python tool."
+  },
+  {
+    "id": "hicPlotDistVsCounts.perchr_labels_data",
+    "tool": "hicPlotDistVsCounts",
+    "tier": 7,
+    "args": ["--matrices", "{data}/small_test_matrix_50kb_res.h5", "--plotFile", "{out}/plot.png",
+             "--labels", "label_1", "label_2", "--plotsize", "6", "5", "--perchr",
+             "--outFileData", "{out}/data.txt", "--maxdepth", "1000000", "--chromosomeExclude", "chrX"],
+    "outputs": [
+      {"path": "{out}/plot.png", "format": "png", "class": "E6"},
+      {"path": "{out}/data.txt", "format": "text", "class": "E0"}
+    ],
+    "notes": "One point of test_trivial_run's grid: --perchr with a single matrix draws every chromosome into one axis, two labels for one matrix (zip truncates), --maxdepth 1000000 cuts the upper triangle at 30 bins, chrX excluded. The data file is one to_csv per chromosome, appended."
+  },
+  {
+    "id": "hicPlotDistVsCounts.genome_skipdiagonal_data",
+    "tool": "hicPlotDistVsCounts",
+    "tier": 7,
+    "args": ["--matrices", "{data}/small_test_matrix_50kb_res.h5", "--plotFile", "{out}/plot.png",
+             "--plotsize", "6", "4", "--skipDiagonal", "--outFileData", "{out}/data.txt",
+             "--maxdepth", "3000000", "--chromosomeExclude", "chrX"],
+    "outputs": [
+      {"path": "{out}/plot.png", "format": "png", "class": "E6"},
+      {"path": "{out}/data.txt", "format": "text", "class": "E0"}
+    ],
+    "notes": "Another point of test_trivial_run's grid: the genome wide curve, --skipDiagonal (accepted and without effect in the reference) and the default depth of 3 Mb."
+  },
+  {
+    "id": "hicPlotDistVsCounts.two_matrices_perchr",
+    "tool": "hicPlotDistVsCounts",
+    "tier": 7,
+    "args": ["--matrices", "{data}/small_test_matrix_50kb_res.h5", "{data}/small_test_matrix_50kb_res.cool",
+             "--plotFile", "{out}/plot.png", "--perchr", "--labels", "h5", "cool",
+             "--maxdepth", "1000000", "--outFileData", "{out}/data.txt"],
+    "outputs": [
+      {"path": "{out}/plot.png", "format": "png", "class": "E6"},
+      {"path": "{out}/data.txt", "format": "text", "class": "E0"}
+    ],
+    "notes": "Two matrices with --perchr: one axis per chromosome in a grid of at most four columns, both matrices scaled to the smaller sum."
+  },
+  {
+    "id": "hicPlotDistVsCounts.domains",
+    "tool": "hicPlotDistVsCounts",
+    "tier": 7,
+    "args": ["--matrices", "{data}/hicDifferentialTAD/GSM2644945_Untreated-R1.100000_chr1.h5",
+             "--plotFile", "{out}/plot.png", "--domains", "{data}/hicDifferentialTAD/untreated_R1_domains.bed",
+             "--outFileData", "{out}/data.txt"],
+    "outputs": [
+      {"path": "{out}/plot.png", "format": "png", "class": "E6"},
+      {"path": "{out}/data.txt", "format": "text", "class": "E0"}
+    ],
+    "notes": "--domains: the distances are computed within the TADs of a BED file (from_bed_to_cut_interval), bins outside every TAD are _ignore_ units."
+  },
+  {
+    "id": "hicPlotDistVsCounts.domains_two_matrices_exhausted",
+    "tool": "hicPlotDistVsCounts",
+    "tier": 7,
+    "args": ["--matrices", "{data}/hicDifferentialTAD/GSM2644945_Untreated-R1.100000_chr1.h5",
+             "{data}/hicDifferentialTAD/GSM2644945_Untreated-R1.100000_chr1.h5",
+             "--plotFile", "{out}/plot.png", "--domains", "{data}/hicDifferentialTAD/untreated_R1_domains.bed"],
+    "outputs": [],
+    "expect_exit": 1,
+    "notes": "Pins reference behaviour 2 of cpp/tools/hicPlotDistVsCounts.cpp: --domains is an argparse FileType read once, so the second matrix finds the handle exhausted and the reference fails its assertion 'No region overlapped with bins.'."
+  },
+  {
+    "id": "hicPlotDistVsCounts.gm12878_chr1_perchr",
+    "tool": "hicPlotDistVsCounts",
+    "tier": 7,
+    "args": ["--matrices", "{data}/hicTADClassifier/gm12878_chr1.cool", "--plotFile", "{out}/plot.png",
+             "--perchr", "--outFileData", "{out}/data.txt"],
+    "outputs": [
+      {"path": "{out}/plot.png", "format": "png", "class": "E6"},
+      {"path": "{out}/data.txt", "format": "text", "class": "E0"}
+    ],
+    "notes": "Real data: GM12878 chr1 at 10 kb, default depth."
+  }
+]

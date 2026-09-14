@@ -15,7 +15,7 @@ import pytest
 pytest.importorskip("PySide6")
 pytest.importorskip("pytestqt")
 
-from gui_support import CPP_BIN, REFERENCE_PYTHON, needs_reference, needs_tools, python_namespaces  # noqa: E402
+from gui_support import CPP_BIN, REFERENCE_PYTHON, REPO, needs_reference, needs_tools, python_namespaces  # noqa: E402
 from hicexplorer_gui.catalog import tool_entries  # noqa: E402
 from hicexplorer_gui.forms import ChoiceField, FileField, FlagField, ToolForm, is_list_arg  # noqa: E402
 from hicexplorer_gui.workflow.spec import NON_SETTABLE_ACTIONS  # noqa: E402
@@ -34,10 +34,17 @@ def _spec(tool):
     return next(e.spec for e in ENTRIES if e.name == tool)
 
 
-def test_thirty_tools_available_and_the_rest_explained():
+def ported_tools():
+    """The tools this revision ports: cpp/tools/<tool>.cpp, as
+    cpp/scripts/tool_specs.py lists them."""
+    names = os.listdir(os.path.join(REPO, "cpp", "tools"))
+    return sorted(os.path.splitext(n)[0] for n in names if n.endswith(".cpp") and n.startswith(("hic", "chic")))
+
+
+def test_ported_tools_available_and_the_rest_explained():
     available = [e for e in ENTRIES if e.available]
     missing = [e for e in ENTRIES if not e.available]
-    assert len(available) == 30, [e.name for e in available]
+    assert sorted(e.name for e in available) == ported_tools()
     assert missing and all(e.reason.startswith("not ported to C++ yet, PLAN tier") for e in missing), \
         [(e.name, e.reason) for e in missing]
 

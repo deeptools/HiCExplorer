@@ -68,6 +68,16 @@ otherwise from ALPHA_BETA_BY_TOOL, which is PLAN.md 4.5's table; the report
 records which. Raising a budget is a reviewed edit to the case file and
 STATUS.md, never an inline exemption (PLAN.md 9.5).
 
+Plotting tools (PLAN.md tier 7, option (a)) compute in C++ and then replace
+themselves with a Python process that draws the figure with matplotlib. The
+harness passes HICX_COMPUTE_RSS_FILE to every C++ run; a tool that hands a
+figure to hicx::plot::draw writes the peak RSS of its C++ step there before the
+exec. When that file exists, the budget above gates the C++ step's own peak,
+and the peak /usr/bin/time reports, which is the larger of the C++ step and
+the drawing process, must not exceed the Python tool's peak. Both numbers are
+recorded, so the fixed cost of the drawing interpreter is visible instead of
+being folded into a raised budget.
+
 The time gate
 -------------
 Design decision, 2026-09-01, in answer to the project owner's request that time
@@ -1092,9 +1102,18 @@ def run_case(case, options):
     measure_py = run_measured([str(options.py_python), str(python_tool)] + args_py,
                               workdir, out_py / "stdout.txt", out_py / "stderr.txt",
                               case_environment(case, env), trace_path=trace_py)
+    compute_rss_file = workdir / "cpp_compute_rss_kb.txt"
+    env_cpp = dict(case_environment(case) or os.environ)
+    env_cpp["HICX_COMPUTE_RSS_FILE"] = str(compute_rss_file)
     measure_cpp = run_measured([str(cpp_tool)] + args_cpp, workdir,
                                out_cpp / "stdout.txt", out_cpp / "stderr.txt",
-                               env=case_environment(case), trace_path=trace_cpp)
+                               env=env_cpp, trace_path=trace_cpp)
+    compute_peak_kb = None
+    if compute_rss_file.exists():
+        try:
+            compute_peak_kb = int(compute_rss_file.read_text().split()[0])
+        except (ValueError, IndexError):
+            compute_peak_kb = None
 
     result.update({
         "py_seconds": measure_py["seconds"],
@@ -1227,11 +1246,27 @@ def run_case(case, options):
     result["class_met"] = result["class_declared"] if passed else None
 
     # --- the gates ---------------------------------------------------------
-    memory_gate = evaluate_memory_gate(case, options, measure_cpp["peak_rss_kb"],
-                                       out_py, data)
+    gated_peak_kb = compute_peak_kb if compute_peak_kb is not None else measure_cpp["peak_rss_kb"]
+    memory_gate = evaluate_memory_gate(case, options, gated_peak_kb, out_py, data)
     memory_gate["ratio_to_python"] = (
         measure_cpp["peak_rss_kb"] / measure_py["peak_rss_kb"]
         if measure_py["peak_rss_kb"] else None)
+    if compute_peak_kb is not None:
+        # A plotting tool: the budget gated the C++ step; the pair with the
+        # drawing process must stay within the Python tool (module docstring).
+        pair_within_python = (not measure_py["peak_rss_kb"]
+                              or measure_cpp["peak_rss_kb"] <= measure_py["peak_rss_kb"])
+        memory_gate.update(drawing=True,
+                           compute_peak_rss_mb=compute_peak_kb * 1024 / MB,
+                           pair_peak_rss_mb=(measure_cpp["peak_rss_kb"] or 0) * 1024 / MB,
+                           pair_within_python=pair_within_python)
+        if not options.skip_memory_gate and not pair_within_python:
+            memory_gate["passed"] = False
+            memory_gate["reason"] = (
+                f"the C++ step and the drawing process peak at "
+                f"{measure_cpp['peak_rss_kb'] * 1024 / MB:.1f} MB, above the Python tool's "
+                f"{measure_py['peak_rss_kb'] * 1024 / MB:.1f} MB")
+    result["cpp_compute_peak_rss_kb"] = compute_peak_kb
     result["memory_gate"] = memory_gate
     result["budget_kb"] = memory_gate.get("budget_kb")
     if not memory_gate["passed"]:
@@ -1661,6 +1696,7 @@ def command_run(options):
               f"rss {case.get('py_peak_rss_kb', 0) * 1024 / MB:7.1f} / "
               f"{case.get('cpp_peak_rss_kb', 0) * 1024 / MB:7.1f} MB  "
               f"budget {budget} MB {share}"
+              f"{'  compute %.1f MB' % gate['compute_peak_rss_mb'] if gate.get('drawing') else ''}"
               f"{'  time gate not applied' if not time_gate.get('applied') else ''}")
         if not case.get("passed"):
             if case.get("error"):

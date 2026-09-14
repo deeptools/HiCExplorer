@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hicexplorer-plot"
+version = "0.1.0"
+description = "Drawing layer of the HiCExplorer v4 C++ plotting tools: matplotlib figures from the data the C++ binaries compute"
+requires-python = ">=3.9"
+# The figures must equal the Python tools' figures (class E6), so the
+# renderers are pinned to the versions of the reference environment.
+dependencies = [
+    "matplotlib==3.8.4",
+    "pyGenomeTracks==3.9",
+    "numpy",
+]
+
+[project.scripts]
+hicPlotDistVsCounts = "hicexplorer_plot.tools:hicPlotDistVsCounts"
+
+[tool.setuptools]
+packages = ["hicexplorer_plot"]
