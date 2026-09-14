@@ -8,6 +8,11 @@
 #     deviation approved 2026-09-13).
 #  2. --threads 0 fails as the Python's ZeroDivisionError does.
 #
+# Every run passes the C++-only --plotData with a path outside the checked
+# directories: these checks are about the computation, and without a figure to
+# draw the tool neither needs nor checks a drawing interpreter (without it a
+# refused drawing environment would end the run before the failure under test).
+#
 # Usage: hicPlotSVL_cli.sh <hicPlotSVL binary> <test_data directory>
 
 set -u
@@ -34,7 +39,7 @@ only_logs_in() {
 
 # 1
 mkdir "$work/missing" && cd "$work/missing" || exit 1
-"$tool" -m "$data/small_test_matrix_50kb_res.h5" --chromosomes chr2L chrNotThere \
+"$tool" --plotData "$work/plot.json" -m "$data/small_test_matrix_50kb_res.h5" --chromosomes chr2L chrNotThere \
     -o p_values.txt -od data.txt > out.txt 2> err.txt
 status=$?
 expect "a chromosome missing from an h5 matrix exits non-zero" [ "$status" -ne 0 ]
@@ -42,7 +47,7 @@ expect "the message names the chromosome" grep -q "chrNotThere" err.txt
 expect "the message names the reference behaviour" grep -q "waits for that worker forever" err.txt
 expect "a missing chromosome writes nothing" only_logs_in "$work/missing"
 
-"$tool" -m "$data/small_test_matrix_50kb_res.cool" --chromosomes chrNotThere \
+"$tool" --plotData "$work/plot.json" -m "$data/small_test_matrix_50kb_res.cool" --chromosomes chrNotThere \
     -o p_values.txt -od data.txt > out.txt 2> err.txt
 status=$?
 expect "a chromosome missing from a cool matrix exits non-zero" [ "$status" -ne 0 ]
@@ -50,7 +55,7 @@ expect "a missing cool chromosome writes nothing" only_logs_in "$work/missing"
 
 # 2
 mkdir "$work/threads" && cd "$work/threads" || exit 1
-"$tool" -m "$data/small_test_matrix_50kb_res.h5" --threads 0 -o p_values.txt -od data.txt \
+"$tool" --plotData "$work/plot.json" -m "$data/small_test_matrix_50kb_res.h5" --threads 0 -o p_values.txt -od data.txt \
     > out.txt 2> err.txt
 status=$?
 expect "--threads 0 exits non-zero" [ "$status" -ne 0 ]
