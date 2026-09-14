@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hicexplorer-gui"
+version = "0.1.0"
+description = "HiCExplorer v4 GUI and headless workflow engine"
+requires-python = ">=3.9"
+license = { text = "GPL-3.0-or-later" }
+dependencies = ["pyyaml"]
+
+[project.optional-dependencies]
+test = ["pytest"]
+
+[project.scripts]
+hicexplorer-workflow = "hicexplorer_gui.workflow.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["hicexplorer_gui*"]
