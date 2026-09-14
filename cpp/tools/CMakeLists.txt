@@ -26,7 +26,8 @@ set(HICX_TOOLS
     hicSumMatrices
     hicTransform
     hicPlotSVL
-    hicPlotDistVsCounts)
+    hicPlotDistVsCounts
+    hicPlotViewpoint)
 
 foreach(tool IN LISTS HICX_TOOLS)
     add_executable(${tool} "${tool}.cpp")

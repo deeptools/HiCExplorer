@@ -17,6 +17,7 @@ dependencies = [
 
 [project.scripts]
 hicPlotDistVsCounts = "hicexplorer_plot.tools:hicPlotDistVsCounts"
+hicPlotViewpoint = "hicexplorer_plot.tools:hicPlotViewpoint"
 
 [tool.setuptools]
 packages = ["hicexplorer_plot"]

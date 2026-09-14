@@ -28,3 +28,7 @@ def _run(tool):
 
 def hicPlotDistVsCounts():
     return _run("hicPlotDistVsCounts")
+
+
+def hicPlotViewpoint():
+    return _run("hicPlotViewpoint")
