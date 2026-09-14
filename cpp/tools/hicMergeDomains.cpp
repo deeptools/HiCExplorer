@@ -48,6 +48,7 @@
 #include <string>
 #include <vector>
 
+#include "hicx/argparse.hpp"
 #include "hicx/resource_usage.hpp"
 #include "hicx/version.hpp"
 #include "merge_domains_impl.hpp"
@@ -147,115 +148,72 @@ struct Arguments {
     std::string output_tree_plot_format = "pdf";
 };
 
-[[noreturn]] void fail(const std::string& message) {
-    std::fputs(kUsage, stderr);
-    std::fprintf(stderr, "hicMergeDomains: error: %s\n", message.c_str());
-    std::exit(2);
-}
-
-// argparse treats a token as an option when it starts with '-' and is not a
-// negative number (the parser defines no option that looks like one).
-bool looks_like_option(const std::string& token) {
-    if (token.size() < 2 || token[0] != '-') {
-        return false;
-    }
-    std::size_t i = 1;
-    bool digits = false;
-    while (i < token.size() && std::isdigit(static_cast<unsigned char>(token[i])) != 0) {
-        ++i;
-        digits = true;
-    }
-    if (i < token.size() && token[i] == '.') {
-        ++i;
-        digits = false;
-        while (i < token.size() && std::isdigit(static_cast<unsigned char>(token[i])) != 0) {
-            ++i;
-            digits = true;
-        }
-    }
-    const bool negative_number = digits && i == token.size();
-    return !negative_number && token.find(' ') == std::string::npos;
-}
-
+// hicMergeDomains.py parse_arguments. The Python parser uses
+// conflict_handler='resolve' and redefines --help/-h, which removes argparse's
+// own help action, so there is exactly one.
 Arguments parse_arguments(int argc, char** argv) {
-    Arguments args;
-    bool domains_seen = false;
-    std::vector<std::string> tokens(argv + 1, argv + argc);
+    namespace cli = hicx::cli;
+    cli::Parser parser("hicMergeDomains",
+                       "hicMergeDomains takes as input multiple TAD domain files from hicFindTads. "
+                       "It merges TADs from different resolutions to one TAD domains file, considers "
+                       "protein peaks from known TAD binding sites and computes a dependency graph "
+                       "of the TADs.");
+    parser.set_usage(kUsage).set_help(kHelp).set_version_string(hicx::kVersion);
+    cli::ArgumentGroup& required = parser.group("Required arguments");
+    required.add({"--domainFiles", "-d"})
+        .nargs("+")
+        .required()
+        .input({"bed"})
+        .help("The domain files of the different resolutions is required");
+    cli::ArgumentGroup& optional = parser.group("Optional arguments");
+    optional.add({"--proteinFile", "-p"})
+        .input({"bed"})
+        .help("The associated protein file (e.g. CTCF for mammals), in broadpeak format.");
+    optional.add({"--minimumNumberOfPeaks", "-m"})
+        .type("int")
+        .default_value(1)
+        .help("At least minimumNumberOfPeaks unique peaks must be in a bin for it to be "
+              "considered.");
+    optional.add({"--value", "-v"})
+        .type("int")
+        .default_value(5000)
+        .help("How much the boundaries of two TADs must at least differ to consider them as two "
+              "separate TADs.");
+    optional.add({"--percent", "-pe"})
+        .type("float")
+        .default_value(0.5)
+        .help("The area coverage from which on two TADs are related to each other.");
+    optional.add({"--outputMergedList", "-om"})
+        .default_value("mergedDomains.bed")
+        .output({"bed"})
+        .help("File name for the merged domains list");
+    optional.add({"--outputRelationList", "-or"})
+        .default_value("relationList.txt")
+        .output({"txt"})
+        .help("File name for the relationship list of the TADs");
+    optional.add({"--outputTreePlotPrefix", "-ot"})
+        .default_value("relationship_tree_")
+        .output({"pdf", "png", "svg"}, "prefix")
+        .note("The C++ port renders the tree with graphviz's dot, which must be on PATH when "
+              "more than one domain file is given.")
+        .help("File name prefix for the relationship tree of the TADs");
+    optional.add({"--outputTreePlotFormat", "-of"})
+        .default_value("pdf")
+        .help("File format of the relationship tree, one of the graphviz output formats.");
+    optional.add({"--help", "-h"}).action(cli::Action::Help).help("show this help message and exit");
+    optional.add({"--version"}).version(std::string("%(prog)s ") + hicx::kVersion);
 
-    for (std::size_t i = 0; i < tokens.size(); ++i) {
-        std::string name = tokens[i];
-        std::optional<std::string> inline_value;
-        const std::size_t equals = name.find('=');
-        if (name.rfind("--", 0) == 0 && equals != std::string::npos) {
-            inline_value = name.substr(equals + 1);
-            name = name.substr(0, equals);
-        }
-        if (name == "-h" || name == "--help") {
-            std::fputs(kUsage, stdout);
-            std::fputs(kHelp, stdout);
-            std::exit(0);
-        }
-        if (name == "--version") {
-            std::printf("hicMergeDomains %s\n", hicx::kVersion);
-            std::exit(0);
-        }
-        const auto single = [&](const std::string& display) -> std::string {
-            if (inline_value.has_value()) {
-                return *inline_value;
-            }
-            if (i + 1 >= tokens.size() || looks_like_option(tokens[i + 1])) {
-                fail("argument " + display + ": expected one argument");
-            }
-            return tokens[++i];
-        };
-        const auto as_int = [&](const std::string& display, const std::string& text) {
-            try {
-                return md::py_int(text);
-            } catch (const md::PythonError&) {
-                fail("argument " + display + ": invalid int value: '" + text + "'");
-            }
-        };
-        if (name == "-d" || name == "--domainFiles") {
-            args.domain_files.clear();
-            if (inline_value.has_value()) {
-                args.domain_files.push_back(*inline_value);
-            }
-            while (i + 1 < tokens.size() && !looks_like_option(tokens[i + 1])) {
-                args.domain_files.push_back(tokens[++i]);
-            }
-            if (args.domain_files.empty()) {
-                fail("argument --domainFiles/-d: expected at least one argument");
-            }
-            domains_seen = true;
-        } else if (name == "-p" || name == "--proteinFile") {
-            args.protein_file = single("--proteinFile/-p");
-        } else if (name == "-m" || name == "--minimumNumberOfPeaks") {
-            const std::string display = "--minimumNumberOfPeaks/-m";
-            args.minimum_number_of_peaks = as_int(display, single(display));
-        } else if (name == "-v" || name == "--value") {
-            args.value = as_int("--value/-v", single("--value/-v"));
-        } else if (name == "-pe" || name == "--percent") {
-            const std::string text = single("--percent/-pe");
-            try {
-                args.percent = md::py_float(text);
-            } catch (const md::PythonError&) {
-                fail("argument --percent/-pe: invalid float value: '" + text + "'");
-            }
-        } else if (name == "-om" || name == "--outputMergedList") {
-            args.output_merged_list = single("--outputMergedList/-om");
-        } else if (name == "-or" || name == "--outputRelationList") {
-            args.output_relation_list = single("--outputRelationList/-or");
-        } else if (name == "-ot" || name == "--outputTreePlotPrefix") {
-            args.output_tree_plot_prefix = single("--outputTreePlotPrefix/-ot");
-        } else if (name == "-of" || name == "--outputTreePlotFormat") {
-            args.output_tree_plot_format = single("--outputTreePlotFormat/-of");
-        } else {
-            fail("unrecognized arguments: " + tokens[i]);
-        }
-    }
-    if (!domains_seen) {
-        fail("the following arguments are required: --domainFiles/-d");
-    }
+    const cli::Namespace ns = parser.parse(argc, argv);
+    Arguments args;
+    args.domain_files = ns.strs("domainFiles");
+    args.protein_file = ns.opt_str("proteinFile");
+    args.minimum_number_of_peaks = ns.integer("minimumNumberOfPeaks");
+    args.value = ns.integer("value");
+    args.percent = ns.real("percent");
+    args.output_merged_list = ns.str("outputMergedList");
+    args.output_relation_list = ns.str("outputRelationList");
+    args.output_tree_plot_prefix = ns.str("outputTreePlotPrefix");
+    args.output_tree_plot_format = ns.str("outputTreePlotFormat");
     return args;
 }
 

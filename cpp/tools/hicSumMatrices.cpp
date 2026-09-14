@@ -32,6 +32,7 @@
 #include <string>
 #include <vector>
 
+#include "hicx/argparse.hpp"
 #include "hicx/matrix_ops.hpp"
 #include "hicx/resource_usage.hpp"
 #include "hicx/tool_matrix.hpp"
@@ -71,93 +72,35 @@ struct Arguments {
     std::string out_file_name;
 };
 
-[[noreturn]] void fail(const std::string& message) {
-    std::fputs(kUsage, stderr);
-    std::fprintf(stderr, "hicSumMatrices: error: %s\n", message.c_str());
-    std::exit(2);
-}
-
+// hicSumMatrices.py parse_arguments.
 Arguments parse_arguments(int argc, char** argv) {
+    namespace cli = hicx::cli;
+    cli::Parser parser("hicSumMatrices",
+                       "Adds Hi-C matrices of the same size. In order to minimize the loss of "
+                       "information, it is recommended to sum uncorrected matrices (before "
+                       "hicCorrectMatrix).");
+    parser.set_usage(kUsage).set_help(kHelp).set_version_string(hicx::kVersion);
+    cli::ArgumentGroup& required = parser.group("Required arguments");
+    required.add({"--matrices", "-m"})
+        .metavar(".h5 or cooler file format")
+        .nargs("+")
+        .required()
+        .input({"h5", "cool", "mcool"})
+        .help("Space-delimited names of the matrices to add. The matrices must have the same "
+              "shape/size.");
+    required.add({"--outFileName", "-o"})
+        .required()
+        .output({"h5", "cool"})
+        .help("File name to save the resulting matrix. The output is from the same file type "
+              "as the input.");
+    cli::ArgumentGroup& optional = parser.group("Optional arguments");
+    optional.add({"-h", "--help"}).action(cli::Action::Help).help("show this help message and exit");
+    optional.add({"--version"}).version(std::string("%(prog)s ") + hicx::kVersion);
+
+    const cli::Namespace ns = parser.parse(argc, argv);
     Arguments args;
-    bool matrices_seen = false;
-    bool out_seen = false;
-    std::string* pending_value = nullptr;
-    bool collecting_matrices = false;
-
-    for (int i = 1; i < argc; ++i) {
-        const std::string token(argv[i]);
-
-        if (pending_value != nullptr) {
-            *pending_value = token;
-            pending_value = nullptr;
-            continue;
-        }
-
-        const bool is_option =
-            token.size() > 1 && token[0] == '-' &&
-            std::isdigit(static_cast<unsigned char>(token[1])) == 0;
-        if (!is_option) {
-            if (collecting_matrices) {
-                args.matrices.push_back(token);
-                continue;
-            }
-            fail("unrecognized arguments: " + token);
-        }
-
-        collecting_matrices = false;
-        std::string name = token;
-        std::optional<std::string> inline_value;
-        const std::size_t equals = token.find('=');
-        if (equals != std::string::npos && token.rfind("--", 0) == 0) {
-            name = token.substr(0, equals);
-            inline_value = token.substr(equals + 1);
-        }
-
-        if (name == "-h" || name == "--help") {
-            std::fputs(kUsage, stdout);
-            std::fputs(kHelp, stdout);
-            std::exit(0);
-        }
-        if (name == "--version") {
-            std::printf("hicSumMatrices %s\n", hicx::kVersion);
-            std::exit(0);
-        }
-        if (name == "-m" || name == "--matrices") {
-            matrices_seen = true;
-            collecting_matrices = true;
-            if (inline_value.has_value()) {
-                args.matrices.push_back(*inline_value);
-                collecting_matrices = false;
-            }
-            continue;
-        }
-        if (name == "-o" || name == "--outFileName") {
-            out_seen = true;
-            if (inline_value.has_value()) {
-                args.out_file_name = *inline_value;
-            } else {
-                pending_value = &args.out_file_name;
-            }
-            continue;
-        }
-        fail("unrecognized arguments: " + token);
-    }
-
-    if (pending_value != nullptr) {
-        fail("expected one argument");
-    }
-    if (!matrices_seen && !out_seen) {
-        fail("the following arguments are required: --matrices/-m, --outFileName/-o");
-    }
-    if (!matrices_seen) {
-        fail("the following arguments are required: --matrices/-m");
-    }
-    if (!out_seen) {
-        fail("the following arguments are required: --outFileName/-o");
-    }
-    if (args.matrices.empty()) {
-        fail("argument --matrices/-m: expected at least one argument");
-    }
+    args.matrices = ns.strs("matrices");
+    args.out_file_name = ns.str("outFileName");
     return args;
 }
 

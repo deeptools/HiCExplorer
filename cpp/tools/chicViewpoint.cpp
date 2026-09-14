@@ -54,7 +54,7 @@
 #include <utility>
 #include <vector>
 
-#include "chic_arguments.hpp"
+#include "hicx/argparse.hpp"
 #include "hicx/chic_hdf5.hpp"
 #include "hicx/chic_viewpoint.hpp"
 #include "hicx/numpy_compat.hpp"
@@ -69,11 +69,53 @@ using hicx::chic::ViewpointMatrix;
 
 const char* const kUsage =
     "usage: chicViewpoint --matrices MATRICES [MATRICES ...] --range RANGE RANGE\n"
-    "                     --referencePoints REFERENCEPOINTS\n"
-    "                     --backgroundModelFile BACKGROUNDMODELFILE\n"
-    "                     [--outFileName OUTFILENAME] [--threads THREADS]\n"
+    "                     --referencePoints REFERENCEPOINTS --backgroundModelFile\n"
+    "                     BACKGROUNDMODELFILE [--outFileName OUTFILENAME]\n"
+    "                     [--threads THREADS]\n"
     "                     [--averageContactBin AVERAGECONTACTBIN]\n"
     "                     [--fixateRange FIXATERANGE] [--help] [--version]\n";
+
+const char* const kHelp =
+    "\n"
+    "Computes per input matrix all viewpoints which are defined in the reference points "
+    "file.\n"
+    "\n"
+    "Required arguments:\n"
+    "  --matrices MATRICES [MATRICES ...], -m MATRICES [MATRICES ...]\n"
+    "                        Path to the Hi-C matrices which store the captured\n"
+    "                        Hi-C data per sample.\n"
+    "  --range RANGE RANGE   Defines the region upstream and downstream of a\n"
+    "                        reference point which should be considered in the\n"
+    "                        analysis. Please remember to use the same fixate range\n"
+    "                        setting as for the background model computation and\n"
+    "                        that distances of the range larger than the fixate\n"
+    "                        range use the background model of those.Format is\n"
+    "                        --region upstream downstream\n"
+    "  --referencePoints REFERENCEPOINTS, -rp REFERENCEPOINTS\n"
+    "                        Reference point file. Needs to be in the format: 'chr\n"
+    "                        100' for a single reference point or 'chr 100 200' for\n"
+    "                        a reference region and with a single reference point\n"
+    "                        per line\n"
+    "  --backgroundModelFile BACKGROUNDMODELFILE, -bmf BACKGROUNDMODELFILE\n"
+    "                        path to the background file computed by\n"
+    "                        chicViewpointBackgroundModel\n"
+    "  --outFileName OUTFILENAME, -o OUTFILENAME\n"
+    "                        This hdf5 file contains all created viewpoint files.\n"
+    "\n"
+    "Optional arguments:\n"
+    "  --threads THREADS, -t THREADS\n"
+    "                        Number of threads (uses the python multiprocessing\n"
+    "                        module) (Default: 4).\n"
+    "  --averageContactBin AVERAGECONTACTBIN\n"
+    "                        Average the contacts of n bins via a sliding window\n"
+    "                        approach to smooth the values and be less sensitive\n"
+    "                        for outliers (Default: 5).\n"
+    "  --fixateRange FIXATERANGE, -fs FIXATERANGE\n"
+    "                        Fixate range of background model starting at distance\n"
+    "                        x. E.g. all values greater 500kb are set to the value\n"
+    "                        of the 500kb bin (Default: 500000).\n"
+    "  --help, -h            show this help message and exit\n"
+    "  --version             show program's version number and exit\n";
 
 std::string basename(const std::string& path) {
     const std::size_t slash = path.find_last_of('/');
@@ -224,39 +266,60 @@ struct Slot {
 }  // namespace
 
 int main(int argc, char** argv) {
-    using hicx::chic_cli::Arity;
-    using hicx::chic_cli::Option;
-    using hicx::chic_cli::Type;
-
-    hicx::chic_cli::Parser parser(
-        "chicViewpoint", kUsage,
-        "Computes per input matrix all viewpoints which are defined in the reference points file.",
-        hicx::kVersion);
-    parser.add(Option{{"--matrices", "-m"}, "matrices", Arity::OneOrMore, Type::String, true, {},
-                      "Path to the Hi-C matrices which store the captured Hi-C data per sample."});
-    parser.add(Option{{"--range"}, "range", Arity::Two, Type::Int, true, {},
-                      "The region upstream and downstream of a reference point."});
-    parser.add(Option{{"--referencePoints", "-rp"}, "referencePoints", Arity::One, Type::String,
-                      true, {}, "Reference point file."});
-    parser.add(Option{{"--backgroundModelFile", "-bmf"}, "backgroundModelFile", Arity::One,
-                      Type::String, true, {},
-                      "Path to the background file computed by chicViewpointBackgroundModel."});
-    parser.add(Option{{"--outFileName", "-o"}, "outFileName", Arity::One, Type::String, false,
-                      {"chic_files.hdf5"}, "This hdf5 file contains all created viewpoint files."});
-    parser.add(Option{{"--threads", "-t"}, "threads", Arity::One, Type::Int, false, {"4"},
-                      "Number of threads."});
-    parser.add(Option{{"--averageContactBin"}, "averageContactBin", Arity::One, Type::Int, false,
-                      {"5"}, "Average the contacts of n bins via a sliding window approach."});
-    parser.add(Option{{"--fixateRange", "-fs"}, "fixateRange", Arity::One, Type::Int, false,
-                      {"500000"}, "Fixate range of background model starting at distance x."});
-    const hicx::chic_cli::Parsed args = parser.parse(argc, argv);
+    namespace cli = hicx::cli;
+    cli::Parser parser(
+        "chicViewpoint",
+        "Computes per input matrix all viewpoints which are defined in the reference points file.");
+    parser.set_usage(kUsage).set_help(kHelp).set_version_string(hicx::kVersion);
+    cli::ArgumentGroup& required = parser.group("Required arguments");
+    required.add({"--matrices", "-m"})
+        .required()
+        .nargs("+")
+        .input({"cool", "h5"})
+        .help("Path to the Hi-C matrices which store the captured Hi-C data per sample.");
+    required.add({"--range"})
+        .required()
+        .type("int")
+        .nargs(2)
+        .help("The region upstream and downstream of a reference point which should be "
+              "considered in the analysis. Format is --range upstream downstream");
+    required.add({"--referencePoints", "-rp"})
+        .required()
+        .input({"bed"})
+        .help("Reference point file, 'chr 100' for a single reference point or 'chr 100 200' "
+              "for a reference region, one per line.");
+    required.add({"--backgroundModelFile", "-bmf"})
+        .required()
+        .input({"txt"})
+        .help("path to the background file computed by chicViewpointBackgroundModel");
+    required.add({"--outFileName", "-o"})
+        .default_value("chic_files.hdf5")
+        .output({"hdf5"})
+        .help("This hdf5 file contains all created viewpoint files.");
+    cli::ArgumentGroup& optional = parser.group("Optional arguments");
+    optional.add({"--threads", "-t"})
+        .type("int")
+        .default_value(4)
+        .help("Number of threads.");
+    optional.add({"--averageContactBin"})
+        .type("int")
+        .default_value(5)
+        .help("Average the contacts of n bins via a sliding window approach to smooth the values "
+              "and be less sensitive for outliers.");
+    optional.add({"--fixateRange", "-fs"})
+        .type("int")
+        .default_value(500000)
+        .help("Fixate range of background model starting at distance x.");
+    optional.add({"--help", "-h"}).action(cli::Action::Help).help("show this help message and exit");
+    optional.add({"--version"}).version(std::string("%(prog)s ") + hicx::kVersion);
+    const cli::Namespace args = parser.parse(argc, argv);
 
     Settings settings;
-    settings.range_upstream = args.integer("range", 0);
-    settings.range_downstream = args.integer("range", 1);
+    settings.range_upstream = args.integers("range").at(0);
+    settings.range_downstream = args.integers("range").at(1);
     settings.fixate_range = args.integer("fixateRange");
     settings.average_contact_bin = args.integer("averageContactBin");
-    const std::vector<std::string>& matrices = args.list("matrices");
+    const std::vector<std::string> matrices = args.strs("matrices");
     const std::int64_t threads = args.integer("threads");
 
     try {

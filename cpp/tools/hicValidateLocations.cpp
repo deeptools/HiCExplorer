@@ -49,6 +49,7 @@
 #include <string>
 #include <vector>
 
+#include "hicx/argparse.hpp"
 #include "hicx/bedtools_ops.hpp"
 #include "hicx/bins.hpp"
 #include "hicx/cool_adapter.hpp"
@@ -129,118 +130,66 @@ struct Arguments {
     std::string chr_prefix_protein = "None";
 };
 
-[[noreturn]] void fail(const std::string& message) {
-    std::fputs(kUsage, stderr);
-    std::fprintf(stderr, "hicValidateLocations: error: %s\n", message.c_str());
-    std::exit(2);
-}
-
-// argparse's option name prefix matching, which the Python test suite relies on:
-// test_hicValidateLocations.py:78 passes --chrPrefixLoop for --chrPrefixLoops.
-bool matches_option(const std::string& token, const std::string& full,
-                    const std::string& shrt) {
-    if (token == shrt) {
-        return true;
-    }
-    return token.rfind("--", 0) == 0 && token.size() > 2 &&
-           full.rfind(token, 0) == 0;
-}
-
+// hicValidateLocations.py parse_arguments. --chrPrefixLoops and
+// --chrPrefixProtein have None among their choices, which only the default can
+// be: the string 'None' on the command line is an invalid choice, as in Python.
 Arguments parse_arguments(int argc, char** argv) {
+    namespace cli = hicx::cli;
+    cli::Parser parser("hicValidateLocations",
+                       "This script overlaps the loop locations with protein locations to determine "
+                       "the accuracy of the loop detection.");
+    parser.set_usage(kUsage).set_help(kHelp).set_version_string(hicx::kVersion);
+    const std::vector<hicx::json::Value> prefix_choices{
+        hicx::json::Value(), hicx::json::Value::string("add"), hicx::json::Value::string("remove")};
+    cli::ArgumentGroup& required = parser.group("Required arguments");
+    required.add({"--data", "-d"})
+        .required()
+        .input({"bedgraph", "bed"})
+        .help("The loop file from hicDetectLoops, 'chr start end chr start end'; for TAD data "
+              "the boundaries.bed file.");
+    required.add({"--validationData", "-vd"})
+        .required()
+        .input({"bed", "cool"})
+        .help("The data file to validate the given locations. Can be narrowPeak, broadPeak (both "
+              "in bed), or cool");
+    required.add({"--validationType", "-vt"})
+        .choices({"bed", "cool"})
+        .default_value("bed")
+        .help("The type of the validation data. Can be bed, or cool format");
+    required.add({"--method", "-m"})
+        .choices({"loops", "tad"})
+        .default_value("loops")
+        .help("The method used.");
+    required.add({"--resolution", "-r"})
+        .type("int")
+        .required()
+        .help("The used resolution of the Hi-C interaction matrix.");
+    cli::ArgumentGroup& optional = parser.group("Optional arguments");
+    optional.add({"--outFileName", "-o"})
+        .output({"txt"}, "prefix")
+        .help("The prefix name of the output files output_matched_locations and "
+              "output_statistics.");
+    optional.add({"--chrPrefixLoops", "-cl"})
+        .choices(prefix_choices)
+        .help("Adding / removing / do nothing a 'chr'-prefix to chromosome name of the loops.");
+    optional.add({"--chrPrefixProtein", "-cp"})
+        .choices(prefix_choices)
+        .help("Adding / removing / do nothing a 'chr'-prefix to chromosome name of the protein.");
+    optional.add({"--help", "-h"}).action(cli::Action::Help).help("show this help message and exit");
+    optional.add({"--version"}).version(std::string("%(prog)s ") + hicx::kVersion);
+
+    const cli::Namespace ns = parser.parse(argc, argv);
     Arguments args;
-    bool data_seen = false;
-    bool validation_seen = false;
-    bool resolution_seen = false;
-
-    std::vector<std::string> tokens;
-    for (int i = 1; i < argc; ++i) {
-        const std::string token(argv[i]);
-        const std::size_t equals = token.find('=');
-        if (equals != std::string::npos && token.rfind("--", 0) == 0) {
-            tokens.push_back(token.substr(0, equals));
-            tokens.push_back(token.substr(equals + 1));
-        } else {
-            tokens.push_back(token);
-        }
-    }
-
-    for (std::size_t i = 0; i < tokens.size(); ++i) {
-        const std::string& token = tokens[i];
-        const auto value = [&]() -> std::string {
-            if (i + 1 >= tokens.size()) {
-                fail("argument " + token + ": expected one argument");
-            }
-            return tokens[++i];
-        };
-        if (token == "-h" || matches_option(token, "--help", "-h")) {
-            std::fputs(kUsage, stdout);
-            std::fputs(kHelp, stdout);
-            std::exit(0);
-        }
-        if (matches_option(token, "--version", "")) {
-            std::printf("hicValidateLocations %s\n", hicx::kVersion);
-            std::exit(0);
-        }
-        if (matches_option(token, "--data", "-d")) {
-            args.data = value();
-            data_seen = true;
-        } else if (matches_option(token, "--validationData", "-vd")) {
-            args.validation_data = value();
-            validation_seen = true;
-        } else if (matches_option(token, "--validationType", "-vt")) {
-            args.validation_type = value();
-        } else if (matches_option(token, "--method", "-m")) {
-            args.method = value();
-        } else if (matches_option(token, "--resolution", "-r")) {
-            const std::string text = value();
-            try {
-                args.resolution = std::stoll(text);
-            } catch (const std::exception&) {
-                fail("argument --resolution/-r: invalid int value: '" + text + "'");
-            }
-            resolution_seen = true;
-        } else if (matches_option(token, "--outFileName", "-o")) {
-            args.out_file_name = value();
-            args.has_out_file_name = true;
-        } else if (matches_option(token, "--chrPrefixLoops", "-cl")) {
-            args.chr_prefix_loops = value();
-        } else if (matches_option(token, "--chrPrefixProtein", "-cp")) {
-            args.chr_prefix_protein = value();
-        } else {
-            fail("unrecognized arguments: " + token);
-        }
-    }
-
-    std::string missing;
-    const auto add_missing = [&missing](const char* name) {
-        missing += missing.empty() ? name : std::string(", ") + name;
-    };
-    if (!data_seen) {
-        add_missing("--data/-d");
-    }
-    if (!validation_seen) {
-        add_missing("--validationData/-vd");
-    }
-    if (!resolution_seen) {
-        add_missing("--resolution/-r");
-    }
-    if (!missing.empty()) {
-        fail("the following arguments are required: " + missing);
-    }
-    if (args.validation_type != "bed" && args.validation_type != "cool") {
-        fail("argument --validationType/-vt: invalid choice: '" + args.validation_type +
-             "' (choose from 'bed', 'cool')");
-    }
-    if (args.method != "loops" && args.method != "tad") {
-        fail("argument --method/-m: invalid choice: '" + args.method +
-             "' (choose from 'loops', 'tad')");
-    }
-    for (const std::string* choice : {&args.chr_prefix_loops, &args.chr_prefix_protein}) {
-        if (*choice != "None" && *choice != "add" && *choice != "remove") {
-            fail("argument --chrPrefixLoops/-cl: invalid choice: '" + *choice +
-                 "' (choose from None, 'add', 'remove')");
-        }
-    }
+    args.data = ns.str("data");
+    args.validation_data = ns.str("validationData");
+    args.validation_type = ns.str("validationType");
+    args.method = ns.str("method");
+    args.resolution = ns.integer("resolution");
+    const std::optional<std::string> out_file_name = ns.opt_str("outFileName");
+    args.has_out_file_name = out_file_name.has_value();
+    args.out_file_name = out_file_name.value_or("");
+    args.chr_prefix_loops = ns.opt_str("chrPrefixLoops").value_or("None");
+    args.chr_prefix_protein = ns.opt_str("chrPrefixProtein").value_or("None");
     return args;
 }
 

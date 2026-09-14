@@ -50,6 +50,7 @@
 #include <string>
 #include <vector>
 
+#include "hicx/argparse.hpp"
 #include "hicx/resource_usage.hpp"
 #include "hicx/tool_matrix.hpp"
 #include "hicx/version.hpp"
@@ -108,161 +109,52 @@ struct Arguments {
     double set_to_zero_threshold = 0.0;
 };
 
-[[noreturn]] void fail(const std::string& message) {
-    std::fputs(kUsage, stderr);
-    std::fprintf(stderr, "hicNormalize: error: %s\n", message.c_str());
-    std::exit(2);
-}
-
-double parse_double(const std::string& text, const std::string& option) {
-    try {
-        std::size_t used = 0;
-        const double value = std::stod(text, &used);
-        if (used != text.size()) {
-            throw std::invalid_argument("trailing characters");
-        }
-        return value;
-    } catch (const std::exception&) {
-        fail("argument " + option + ": invalid float value: '" + text + "'");
-    }
-}
-
+// hicNormalize.py parse_arguments.
 Arguments parse_arguments(int argc, char** argv) {
+    namespace cli = hicx::cli;
+    cli::Parser parser("hicNormalize",
+                       "Normalizes given matrices either to the smallest given read number of all "
+                       "matrices or to 0 - 1 range. However, it does NOT compute the contact "
+                       "probability.");
+    parser.set_usage(kUsage).set_help(kHelp).set_version_string(hicx::kVersion);
+    cli::ArgumentGroup& required = parser.group("Required arguments");
+    required.add({"--matrices", "-m"})
+        .nargs("+")
+        .required()
+        .input({"h5", "cool", "mcool"})
+        .help("The matrix (or multiple matrices) to normalize.");
+    required.add({"--normalize", "-n"})
+        .choices({"norm_range", "smallest", "multiplicative"})
+        .default_value("smallest")
+        .required()
+        .help("Normalize to a) 0 to 1 range, b) all matrices to the lowest read count of the "
+              "given matrices.");
+    required.add({"--outFileName", "-o"})
+        .metavar("FILENAME")
+        .nargs("+")
+        .required()
+        .output({"h5", "cool"})
+        .help("Output file name for the Hi-C matrix.");
+    cli::ArgumentGroup& optional = parser.group("Optional arguments");
+    optional.add({"--multiplicativeValue", "-mv"})
+        .type("float")
+        .default_value(1)
+        .help("Value to multiply if --normalize is set to multiplicative.");
+    optional.add({"--setToZeroThreshold", "-sz"})
+        .default_value(0.0)
+        .type("float")
+        .help("A threshold to set all values after normalization to 0 if smaller this "
+              "threshold.");
+    optional.add({"--help", "-h"}).action(cli::Action::Help).help("show this help message and exit");
+    optional.add({"--version"}).version(std::string("%(prog)s ") + hicx::kVersion);
+
+    const cli::Namespace ns = parser.parse(argc, argv);
     Arguments args;
-    bool matrices_seen = false;
-    bool out_seen = false;
-    bool normalize_seen = false;
-
-    enum class Collect { None, Matrices, OutFiles };
-    Collect collecting = Collect::None;
-    std::string* pending_string = nullptr;
-    double* pending_double = nullptr;
-    std::string pending_option;
-
-    for (int i = 1; i < argc; ++i) {
-        const std::string token(argv[i]);
-
-        if (pending_string != nullptr) {
-            *pending_string = token;
-            pending_string = nullptr;
-            continue;
-        }
-        if (pending_double != nullptr) {
-            *pending_double = parse_double(token, pending_option);
-            pending_double = nullptr;
-            continue;
-        }
-
-        // A negative number is a value, not an option. argparse decides this
-        // the same way when the parser holds no numeric-looking option string.
-        const bool is_option =
-            token.size() > 1 && token[0] == '-' &&
-            std::isdigit(static_cast<unsigned char>(token[1])) == 0 && token[1] != '.';
-        if (!is_option) {
-            if (collecting == Collect::Matrices) {
-                args.matrices.push_back(token);
-                continue;
-            }
-            if (collecting == Collect::OutFiles) {
-                args.out_file_names.push_back(token);
-                continue;
-            }
-            fail("unrecognized arguments: " + token);
-        }
-
-        collecting = Collect::None;
-        std::string name = token;
-        std::optional<std::string> inline_value;
-        const std::size_t equals = token.find('=');
-        if (equals != std::string::npos && token.rfind("--", 0) == 0) {
-            name = token.substr(0, equals);
-            inline_value = token.substr(equals + 1);
-        }
-
-        if (name == "-h" || name == "--help") {
-            std::fputs(kUsage, stdout);
-            std::fputs(kHelp, stdout);
-            std::exit(0);
-        }
-        if (name == "--version") {
-            std::printf("hicNormalize %s\n", hicx::kVersion);
-            std::exit(0);
-        }
-        if (name == "-m" || name == "--matrices") {
-            matrices_seen = true;
-            if (inline_value.has_value()) {
-                args.matrices.push_back(*inline_value);
-            } else {
-                collecting = Collect::Matrices;
-            }
-            continue;
-        }
-        if (name == "-o" || name == "--outFileName") {
-            out_seen = true;
-            if (inline_value.has_value()) {
-                args.out_file_names.push_back(*inline_value);
-            } else {
-                collecting = Collect::OutFiles;
-            }
-            continue;
-        }
-        if (name == "-n" || name == "--normalize") {
-            normalize_seen = true;
-            if (inline_value.has_value()) {
-                args.normalize = *inline_value;
-            } else {
-                pending_string = &args.normalize;
-            }
-            continue;
-        }
-        if (name == "-mv" || name == "--multiplicativeValue") {
-            if (inline_value.has_value()) {
-                args.multiplicative_value =
-                    parse_double(*inline_value, "--multiplicativeValue/-mv");
-            } else {
-                pending_double = &args.multiplicative_value;
-                pending_option = "--multiplicativeValue/-mv";
-            }
-            continue;
-        }
-        if (name == "-sz" || name == "--setToZeroThreshold") {
-            if (inline_value.has_value()) {
-                args.set_to_zero_threshold =
-                    parse_double(*inline_value, "--setToZeroThreshold/-sz");
-            } else {
-                pending_double = &args.set_to_zero_threshold;
-                pending_option = "--setToZeroThreshold/-sz";
-            }
-            continue;
-        }
-        fail("unrecognized arguments: " + token);
-    }
-
-    if (pending_string != nullptr || pending_double != nullptr) {
-        fail("expected one argument");
-    }
-
-    std::string missing;
-    const auto add_missing = [&missing](const char* name) {
-        missing += missing.empty() ? name : std::string(", ") + name;
-    };
-    if (!matrices_seen || args.matrices.empty()) {
-        add_missing("--matrices/-m");
-    }
-    if (!normalize_seen) {
-        add_missing("--normalize/-n");
-    }
-    if (!out_seen || args.out_file_names.empty()) {
-        add_missing("--outFileName/-o");
-    }
-    if (!missing.empty()) {
-        fail("the following arguments are required: " + missing);
-    }
-    if (args.normalize != "norm_range" && args.normalize != "smallest" &&
-        args.normalize != "multiplicative") {
-        fail("argument --normalize/-n: invalid choice: '" + args.normalize +
-             "' (choose from 'norm_range', 'smallest', 'multiplicative')");
-    }
+    args.matrices = ns.strs("matrices");
+    args.out_file_names = ns.strs("outFileName");
+    args.normalize = ns.str("normalize");
+    args.multiplicative_value = ns.real("multiplicativeValue");
+    args.set_to_zero_threshold = ns.real("setToZeroThreshold");
     return args;
 }
 

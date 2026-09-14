@@ -44,7 +44,6 @@
 // tad_contacts_impl.hpp; this port reproduces --threads 1.
 
 #include <algorithm>
-#include <cctype>
 #include <cstdio>
 #include <cstdlib>
 #include <optional>
@@ -52,6 +51,7 @@
 #include <vector>
 
 #include "hicx/cool_adapter.hpp"
+#include "hicx/argparse.hpp"
 #include "hicx/parallel.hpp"
 #include "hicx/resource_usage.hpp"
 #include "hicx/version.hpp"
@@ -106,104 +106,55 @@ struct Arguments {
     long long threads = 4;
 };
 
-[[noreturn]] void fail(const std::string& message) {
-    std::fputs(kUsage, stderr);
-    std::fprintf(stderr, "hicInterIntraTAD: error: %s\n", message.c_str());
-    std::exit(2);
-}
-
-std::string trim(const std::string& text) {
-    std::size_t begin = 0;
-    std::size_t end = text.size();
-    while (begin < end && std::isspace(static_cast<unsigned char>(text[begin])) != 0) {
-        ++begin;
-    }
-    while (end > begin && std::isspace(static_cast<unsigned char>(text[end - 1])) != 0) {
-        --end;
-    }
-    return text.substr(begin, end - begin);
-}
-
-bool python_float(const std::string& text) {
-    const std::string trimmed = trim(text);
-    char* end = nullptr;
-    (void)std::strtod(trimmed.c_str(), &end);
-    return !trimmed.empty() && end == trimmed.c_str() + trimmed.size();
-}
-
-bool python_int(const std::string& text, long long* value) {
-    const std::string trimmed = trim(text);
-    char* end = nullptr;
-    *value = std::strtoll(trimmed.c_str(), &end, 10);
-    return !trimmed.empty() && end == trimmed.c_str() + trimmed.size();
-}
-
-bool looks_like_option(const std::string& token) {
-    return token.size() > 1 && token[0] == '-' &&
-           std::isdigit(static_cast<unsigned char>(token[1])) == 0 && token[1] != '.';
-}
-
+// hicInterIntraTAD.py parse_arguments.
 Arguments parse_arguments(int argc, char** argv) {
+    namespace cli = hicx::cli;
+    cli::Parser parser("hicInterIntraTAD",
+                       "Extracts and computes different inter and intra TAD values and ratios.");
+    parser.set_usage(kUsage).set_help(kHelp).set_version_string(hicx::kVersion);
+    cli::ArgumentGroup& required = parser.group("Required arguments");
+    required.add({"--matrix", "-m"})
+        .input({"cool", "h5"})
+        .help("The matrix which was used to compute the TADs");
+    required.add({"--tadDomains", "-td"})
+        .input({"bed"})
+        .help("The TADs domain file computed by hicFindTADs.");
+    required.add({"--outFileName", "-o"})
+        .default_value("output_interintra_tad.tzt")
+        .output({"txt"})
+        .help("Outfile name");
+    cli::ArgumentGroup& optional = parser.group("Optional arguments");
+    optional.add({"--outFileNameRatioPlot", "-op"})
+        .default_value("ratio.png")
+        .output({"png", "pdf", "svg"})
+        .note("The C++ port draws no plot: giving this option makes the tool exit with status 1 "
+              "before writing anything.")
+        .help("Outfile name for the inter-left/intra vs inter-right/intra ratio plot");
+    optional.add({"--fontsize"})
+        .type("float")
+        .default_value(15)
+        .note("Accepted and ignored by the C++ port, which draws no plot.")
+        .help("Fontsize in the plot for x and y axis.");
+    optional.add({"--dpi"})
+        .type("int")
+        .default_value(300)
+        .note("Accepted and ignored by the C++ port, which draws no plot.")
+        .help("The dpi of the scatter plot.");
+    optional.add({"--threads", "-t"})
+        .type("int")
+        .default_value(4)
+        .help("Number of threads to use, the parallelization is implemented per chromosome.");
+    optional.add({"--help", "-h"}).action(cli::Action::Help).help("show this help message and exit");
+    optional.add({"--version"}).version(std::string("%(prog)s ") + hicx::kVersion);
+
+    const cli::Namespace ns = parser.parse(argc, argv);
     Arguments args;
-    const std::vector<std::string> tokens(argv + 1, argv + argc);
-    for (std::size_t i = 0; i < tokens.size(); ++i) {
-        const std::string& token = tokens[i];
-        std::string name = token;
-        std::optional<std::string> inline_value;
-        if (token.rfind("--", 0) == 0) {
-            const std::size_t equals = token.find('=');
-            if (equals != std::string::npos) {
-                name = token.substr(0, equals);
-                inline_value = token.substr(equals + 1);
-            }
-        }
-        if (name == "-h" || name == "--help") {
-            std::fputs(kUsage, stdout);
-            std::fputs(kHelp, stdout);
-            std::exit(0);
-        }
-        if (name == "--version") {
-            std::printf("hicInterIntraTAD %s\n", hicx::kVersion);
-            std::exit(0);
-        }
-        const auto value = [&](const char* label) {
-            if (inline_value.has_value()) {
-                return *inline_value;
-            }
-            if (i + 1 >= tokens.size() || looks_like_option(tokens[i + 1])) {
-                fail(std::string("argument ") + label + ": expected one argument");
-            }
-            return tokens[++i];
-        };
-        if (name == "--matrix" || name == "-m") {
-            args.matrix = value("--matrix/-m");
-        } else if (name == "--tadDomains" || name == "-td") {
-            args.domains = value("--tadDomains/-td");
-        } else if (name == "--outFileName" || name == "-o") {
-            args.out_file = value("--outFileName/-o");
-        } else if (name == "--outFileNameRatioPlot" || name == "-op") {
-            args.plot_file = value("--outFileNameRatioPlot/-op");
-            args.plot_requested = true;
-        } else if (name == "--fontsize") {
-            const std::string text = value("--fontsize");
-            if (!python_float(text)) {
-                fail("argument --fontsize: invalid float value: '" + text + "'");
-            }
-        } else if (name == "--dpi") {
-            const std::string text = value("--dpi");
-            long long ignored = 0;
-            if (!python_int(text, &ignored)) {
-                fail("argument --dpi: invalid int value: '" + text + "'");
-            }
-        } else if (name == "--threads" || name == "-t") {
-            const std::string text = value("--threads/-t");
-            if (!python_int(text, &args.threads)) {
-                fail("argument --threads/-t: invalid int value: '" + text + "'");
-            }
-        } else {
-            fail("unrecognized arguments: " + token);
-        }
-    }
+    args.matrix = ns.opt_str("matrix");
+    args.domains = ns.opt_str("tadDomains");
+    args.out_file = ns.str("outFileName");
+    args.plot_file = ns.str("outFileNameRatioPlot");
+    args.plot_requested = ns.given("outFileNameRatioPlot");
+    args.threads = ns.integer("threads");
     return args;
 }
 

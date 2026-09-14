@@ -28,6 +28,7 @@
 #include <string>
 #include <vector>
 
+#include "hicx/argparse.hpp"
 #include "hicx/numpy_compat.hpp"
 #include "hicx/resource_usage.hpp"
 #include "hicx/version.hpp"
@@ -47,108 +48,41 @@ struct Arguments {
     std::string out_file_name;
 };
 
-[[noreturn]] void fail(const std::string& message) {
-    std::fputs(kUsage, stderr);
-    std::fprintf(stderr, "hicCreateThresholdFile: error: %s\n", message.c_str());
-    std::exit(2);
-}
-
-std::int64_t parse_int(const std::string& text, const std::string& option) {
-    try {
-        std::size_t used = 0;
-        const long long value = std::stoll(text, &used);
-        if (used != text.size()) {
-            throw std::invalid_argument("trailing characters");
-        }
-        return value;
-    } catch (const std::exception&) {
-        fail("argument " + option + ": invalid int value: '" + text + "'");
-    }
-}
-
+// hicCreateThresholdFile.py parse_arguments. argparse reports missing required
+// arguments before unrecognised ones, so a bare `--version` prints "the
+// following arguments are required"; the argument layer does the same.
 Arguments parse_arguments(int argc, char** argv) {
+    namespace cli = hicx::cli;
+    cli::Parser parser("hicCreateThresholdFile", "");
+    parser.set_usage(kUsage).set_version_string(hicx::kVersion);
+    cli::ArgumentGroup& required = parser.group("Required arguments");
+    required.add({"--thresholdValue", "-tv"})
+        .type("float")
+        .required()
+        .help("Standard threshold value for all relative distances.");
+    required.add({"--range"})
+        .type("int")
+        .nargs(2)
+        .required()
+        .help("Defines the region upstream and downstream of a reference point which should be "
+              "included.");
+    required.add({"--resolution", "-r"})
+        .type("int")
+        .default_value(1000)
+        .help("Resolution of the bin in genomic units.");
+    required.add({"--outFileName", "-o"})
+        .required()
+        .output({"txt"})
+        .help("The name and path of the created threshold file.");
+
+    const cli::Namespace ns = parser.parse(argc, argv);
     Arguments args;
-    bool threshold_seen = false;
-    bool range_seen = false;
-    bool out_seen = false;
-
-    std::vector<std::string> tokens;
-    for (int i = 1; i < argc; ++i) {
-        const std::string token(argv[i]);
-        const std::size_t equals = token.find('=');
-        if (equals != std::string::npos && token.rfind("--", 0) == 0) {
-            tokens.push_back(token.substr(0, equals));
-            tokens.push_back(token.substr(equals + 1));
-        } else {
-            tokens.push_back(token);
-        }
-    }
-
-    // argparse reports missing required arguments before it reports an
-    // unrecognised one, because parse_args validates what it parsed and only
-    // then complains about the leftovers. `hicCreateThresholdFile --version`
-    // therefore prints "the following arguments are required", not
-    // "unrecognized arguments: --version". Reproduced by collecting the
-    // unknown tokens and reporting them last.
-    std::vector<std::string> unrecognized;
-
-    for (std::size_t i = 0; i < tokens.size(); ++i) {
-        const std::string& token = tokens[i];
-        const auto next = [&]() -> std::string {
-            if (i + 1 >= tokens.size()) {
-                fail("argument " + token + ": expected one argument");
-            }
-            return tokens[++i];
-        };
-        if (token == "--thresholdValue" || token == "-tv") {
-            const std::string text = next();
-            try {
-                std::size_t used = 0;
-                args.threshold_value = std::stod(text, &used);
-                if (used != text.size()) {
-                    throw std::invalid_argument("trailing characters");
-                }
-            } catch (const std::exception&) {
-                fail("argument --thresholdValue/-tv: invalid float value: '" + text + "'");
-            }
-            threshold_seen = true;
-        } else if (token == "--range") {
-            args.range_upstream = parse_int(next(), "--range");
-            args.range_downstream = parse_int(next(), "--range");
-            range_seen = true;
-        } else if (token == "--resolution" || token == "-r") {
-            args.resolution = parse_int(next(), "--resolution/-r");
-        } else if (token == "--outFileName" || token == "-o") {
-            args.out_file_name = next();
-            out_seen = true;
-        } else {
-            unrecognized.push_back(token);
-        }
-    }
-
-    std::string missing;
-    const auto add_missing = [&missing](const char* name) {
-        missing += missing.empty() ? name : std::string(", ") + name;
-    };
-    if (!threshold_seen) {
-        add_missing("--thresholdValue/-tv");
-    }
-    if (!range_seen) {
-        add_missing("--range");
-    }
-    if (!out_seen) {
-        add_missing("--outFileName/-o");
-    }
-    if (!missing.empty()) {
-        fail("the following arguments are required: " + missing);
-    }
-    if (!unrecognized.empty()) {
-        std::string joined;
-        for (const std::string& token : unrecognized) {
-            joined += joined.empty() ? token : " " + token;
-        }
-        fail("unrecognized arguments: " + joined);
-    }
+    args.threshold_value = ns.real("thresholdValue");
+    const std::vector<std::int64_t> range = ns.integers("range");
+    args.range_upstream = range[0];
+    args.range_downstream = range[1];
+    args.resolution = ns.integer("resolution");
+    args.out_file_name = ns.str("outFileName");
     return args;
 }
 

@@ -42,6 +42,7 @@
 #include <vector>
 
 #include "hicx/adjust_ops.hpp"
+#include "hicx/argparse.hpp"
 #include "hicx/reduce_matrix.hpp"
 #include "hicx/resource_usage.hpp"
 #include "hicx/tool_matrix.hpp"
@@ -87,91 +88,41 @@ struct Arguments {
     bool running_window = false;
 };
 
-[[noreturn]] void fail(const std::string& message) {
-    std::fputs(kUsage, stderr);
-    std::fprintf(stderr, "hicMergeMatrixBins: error: %s\n", message.c_str());
-    std::exit(2);
-}
-
+// hicMergeMatrixBins.py parse_arguments.
 Arguments parse_arguments(int argc, char** argv) {
-    Arguments args;
-    bool matrix_seen = false;
-    bool out_seen = false;
-    bool bins_seen = false;
-    std::string num_bins_text;
-    std::string* pending = nullptr;
+    namespace cli = hicx::cli;
+    cli::Parser parser("hicMergeMatrixBins",
+                       "Merges bins from a Hi-C matrix. For example, using a matrix containing "
+                       "5kb bins, a matrix of 50kb bins can be derived using --numBins 10.");
+    parser.set_usage(kUsage).set_help(kHelp).set_version_string(hicx::kVersion);
+    cli::ArgumentGroup& required = parser.group("Required arguments");
+    required.add({"--matrix", "-m"})
+        .metavar("matrix.h5")
+        .required()
+        .input({"h5", "cool", "mcool"})
+        .help("Matrix to reduce in h5 format.");
+    required.add({"--outFileName", "-o"})
+        .required()
+        .output({"h5", "cool"})
+        .help("File name to save the resulting matrix. The output format follows the input.");
+    required.add({"--numBins", "-nb"})
+        .metavar("int")
+        .type("int")
+        .required()
+        .help("Number of bins to merge.");
+    cli::ArgumentGroup& optional = parser.group("Optional arguments");
+    optional.add({"--runningWindow"})
+        .action(cli::Action::StoreTrue)
+        .help("Set to merge for using a running window of length --numBins.");
+    optional.add({"--help", "-h"}).action(cli::Action::Help).help("Show this help message and exit.");
+    optional.add({"--version"}).version(std::string("%(prog)s ") + hicx::kVersion);
 
-    for (int i = 1; i < argc; ++i) {
-        const std::string token(argv[i]);
-        if (pending != nullptr) {
-            *pending = token;
-            pending = nullptr;
-            continue;
-        }
-        std::string name = token;
-        std::optional<std::string> inline_value;
-        const std::size_t equals = token.find('=');
-        if (equals != std::string::npos && token.rfind("--", 0) == 0) {
-            name = token.substr(0, equals);
-            inline_value = token.substr(equals + 1);
-        }
-        if (name == "-h" || name == "--help") {
-            std::fputs(kUsage, stdout);
-            std::fputs(kHelp, stdout);
-            std::exit(0);
-        }
-        if (name == "--version") {
-            std::printf("hicMergeMatrixBins %s\n", hicx::kVersion);
-            std::exit(0);
-        }
-        if (name == "--runningWindow") {
-            args.running_window = true;
-            continue;
-        }
-        std::string* target = nullptr;
-        if (name == "-m" || name == "--matrix") {
-            target = &args.matrix;
-            matrix_seen = true;
-        } else if (name == "-o" || name == "--outFileName") {
-            target = &args.out_file_name;
-            out_seen = true;
-        } else if (name == "-nb" || name == "--numBins") {
-            target = &num_bins_text;
-            bins_seen = true;
-        } else {
-            fail("unrecognized arguments: " + token);
-        }
-        if (inline_value.has_value()) {
-            *target = *inline_value;
-        } else {
-            pending = target;
-        }
-    }
-    if (pending != nullptr) {
-        fail("expected one argument");
-    }
-    std::string missing;
-    if (!matrix_seen) {
-        missing += "--matrix/-m";
-    }
-    if (!out_seen) {
-        missing += missing.empty() ? "--outFileName/-o" : ", --outFileName/-o";
-    }
-    if (!bins_seen) {
-        missing += missing.empty() ? "--numBins/-nb" : ", --numBins/-nb";
-    }
-    if (!missing.empty()) {
-        fail("the following arguments are required: " + missing);
-    }
-    try {
-        std::size_t consumed = 0;
-        args.num_bins = std::stoll(num_bins_text, &consumed);
-        if (consumed != num_bins_text.size()) {
-            throw std::invalid_argument("trailing characters");
-        }
-    } catch (const std::exception&) {
-        fail("argument --numBins/-nb: invalid int value: '" + num_bins_text + "'");
-    }
+    const cli::Namespace ns = parser.parse(argc, argv);
+    Arguments args;
+    args.matrix = ns.str("matrix");
+    args.out_file_name = ns.str("outFileName");
+    args.num_bins = ns.integer("numBins");
+    args.running_window = ns.flag("runningWindow");
     return args;
 }
 

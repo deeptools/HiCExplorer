@@ -82,6 +82,7 @@
 #include <vector>
 
 #include "hicx/adjust_ops.hpp"
+#include "hicx/argparse.hpp"
 #include "hicx/bins.hpp"
 #include "hicx/cool_adapter.hpp"
 #include "hicx/correct_ops.hpp"
@@ -199,220 +200,199 @@ struct Arguments {
     int threads = 4;
 };
 
-[[noreturn]] void fail(const std::string& message, const char* usage = kCorrectUsage) {
-    std::fputs(usage, stderr);
-    std::fprintf(stderr, "hicCorrectMatrix: error: %s\n", message.c_str());
+const char* const kDiagnosticUsage =
+    "usage: hicCorrectMatrix diagnostic_plot --matrix hic_matrix.h5 -o file.png\n";
+
+const char* const kDiagnosticHelp =
+    "\n"
+    "options:\n"
+    "  -h, --help            show this help message and exit\n"
+    "\n"
+    "Required arguments:\n"
+    "  --matrix MATRIX, -m MATRIX\n"
+    "                        Name of the Hi-C matrix to correct in .h5 format.\n"
+    "                        (default: None)\n"
+    "  --plotName PLOTNAME, -o PLOTNAME\n"
+    "                        File name to save the diagnostic plot. (default: None)\n"
+    "\n"
+    "Optional arguments:\n"
+    "  --chromosomes CHROMOSOMES [CHROMOSOMES ...]\n"
+    "                        List of chromosomes to be included in the iterative\n"
+    "                        correction. The order of the given chromosomes will be\n"
+    "                        then kept for the resulting corrected matrix.\n"
+    "                        (default: None)\n"
+    "  --xMax XMAX           Max value for the x-axis in counts per bin. (default:\n"
+    "                        None)\n"
+    "  --perchr              Compute histogram per chromosome. For samples from\n"
+    "                        cells with uneven number of chromosomes and/or\n"
+    "                        translocations it is advisable to check the histograms\n"
+    "                        per chromosome to find the most conservative\n"
+    "                        `filterThreshold`. (default: False)\n"
+    "  --verbose             Print processing status. (default: False)\n";
+
+[[noreturn]] void fail(const std::string& message) {
+    std::fputs(kCorrectUsage, stderr);
+    std::fprintf(stderr, "hicCorrectMatrix correct: error: %s\n", message.c_str());
     std::exit(2);
 }
 
-double parse_double(const std::string& text, const std::string& option) {
-    try {
-        std::size_t used = 0;
-        const double value = std::stod(text, &used);
-        if (used != text.size()) {
-            throw std::invalid_argument("trailing");
-        }
-        return value;
-    } catch (const std::exception&) {
-        fail("argument " + option + ": invalid float value: '" + text + "'");
-    }
-}
-
-std::int64_t parse_int(const std::string& text, const std::string& option) {
-    try {
-        std::size_t used = 0;
-        const long long value = std::stoll(text, &used);
-        if (used != text.size()) {
-            throw std::invalid_argument("trailing");
-        }
-        return value;
-    } catch (const std::exception&) {
-        fail("argument " + option + ": invalid int value: '" + text + "'");
-    }
-}
-
+// hicCorrectMatrix.py parse_arguments and correct_subparser.
 Arguments parse_arguments(int argc, char** argv) {
+    namespace cli = hicx::cli;
+    cli::Parser parser("hicCorrectMatrix",
+                       "This function provides 2 balancing methods which can be applied on a raw "
+                       "matrix: the Knight-Ruiz balancing (KR) and the iterative correction of "
+                       "Imakaev et al. (ICE).");
+    parser.set_usage(kUsage).set_help(kHelp).set_version_string(hicx::kVersion);
+    cli::ArgumentGroup& options = parser.group("options");
+    options.add({"-h", "--help"})
+        .action(cli::Action::Help)
+        .help("show this help message and exit");
+    options.add({"--version"}).version(std::string("%(prog)s ") + hicx::kVersion);
+    parser.subcommands("command", false, std::string());
+
+    cli::Parser& plot = parser.add_subcommand(
+        "diagnostic_plot",
+        "Plots a histogram of the coverage per bin together with the modified z-score based on "
+        "the median absolute deviation method.");
+    plot.set_usage(kDiagnosticUsage).set_help(kDiagnosticHelp);
+    plot.group("options")
+        .add({"-h", "--help"})
+        .action(cli::Action::Help)
+        .help("show this help message and exit");
+    cli::ArgumentGroup& plot_required = plot.group("Required arguments");
+    plot_required.add({"--matrix", "-m"})
+        .required()
+        .input({"h5", "cool", "mcool"})
+        .help("Name of the Hi-C matrix to correct in .h5 format.");
+    plot_required.add({"--plotName", "-o"})
+        .required()
+        .output({"png", "pdf", "svg"})
+        .help("File name to save the diagnostic plot.");
+    cli::ArgumentGroup& plot_optional = plot.group("Optional arguments");
+    plot_optional.add({"--chromosomes"})
+        .nargs("+")
+        .help("List of chromosomes to be included in the iterative correction.");
+    plot_optional.add({"--xMax"}).type("float").help("Max value for the x-axis in counts per bin.");
+    plot_optional.add({"--perchr"})
+        .action(cli::Action::StoreTrue)
+        .help("Compute histogram per chromosome.");
+    plot_optional.add({"--verbose"})
+        .action(cli::Action::StoreTrue)
+        .help("Print processing status.");
+
+    cli::Parser& correct = parser.add_subcommand(
+        "correct",
+        "Run Knight-Ruiz matrix balancing algorithm (KR) or the iterative matrix correction (ICE).");
+    correct.set_usage(kCorrectUsage).set_help(kCorrectHelp);
+    correct.group("options")
+        .add({"-h", "--help"})
+        .action(cli::Action::Help)
+        .help("show this help message and exit");
+    cli::ArgumentGroup& required = correct.group("Required arguments");
+    required.add({"--matrix", "-m"})
+        .required()
+        .input({"h5", "cool", "mcool"})
+        .help("Name of the Hi-C matrix to correct in .h5 format.");
+    required.add({"--outFileName", "-o"})
+        .required()
+        .output({"h5", "cool"})
+        .help("File name to save the resulting matrix.");
+    cli::ArgumentGroup& optional = correct.group("Optional arguments");
+    optional.add({"--correctionMethod"})
+        .type("str")
+        .metavar("STR")
+        .default_value("KR")
+        .choices({"KR", "ICE"})
+        .help("Method to be used for matrix correction.");
+    optional.add({"--filterThreshold", "-t"})
+        .type("float")
+        .nargs(2)
+        .help("Removes bins of low or large coverage. Applied only for ICE!");
+    optional.add({"--iterNum", "-n"})
+        .type("int")
+        .metavar("INT")
+        .default_value(500)
+        .help("Number of iterations to compute. Only for ICE!");
+    optional.add({"--inflationCutoff"})
+        .type("float")
+        .help("Maximum number of times a bin can be scaled up during the iterative correction.");
+    optional.add({"--transCutoff", "-transcut"})
+        .type("float")
+        .help("Clip high counts in the top -transcut trans regions. Only for ICE!");
+    optional.add({"--sequencedCountCutoff"})
+        .type("float")
+        .help("Discard bins covered by reads on less than this fraction. Only for ICE!");
+    optional.add({"--chromosomes"})
+        .nargs("+")
+        .help("List of chromosomes to be included in the iterative correction.");
+    optional.add({"--skipDiagonal", "-s"})
+        .action(cli::Action::StoreTrue)
+        .help("If set, diagonal counts are not included. Only for ICE!");
+    optional.add({"--perchr"})
+        .action(cli::Action::StoreTrue)
+        .help("Normalize each chromosome separately.");
+    optional.add({"--filteredBed"})
+        .output({"bed"})
+        .help("Print bins filtered out by --filterThreshold to this file.");
+    optional.add({"--verbose"})
+        .action(cli::Action::StoreTrue)
+        .help("Print processing status.");
+    // argparse expands %(prog)s to the sub-parser's prog here.
+    optional.add({"--version"}).version(std::string("hicCorrectMatrix correct ") + hicx::kVersion);
+    optional.add({"--compatMode"})
+        .choices({"v3", "v4"})
+        .default_value("v4")
+        .cpp_only("v3 reproduces krbalancing's float32 input rounding and float32 rescaling "
+                  "accumulators, to measure the cost of those defects.")
+        .help("v4 balances in float64; v3 reproduces krbalancing's float32 arithmetic. Only for KR.");
+    optional.add({"--threads"})
+        .type("int")
+        .metavar("INT")
+        .default_value(4)
+        .cpp_only("Worker threads of the C++ port; the result does not depend on the number.")
+        .help("Worker threads. The result does not depend on this.");
+
+    const cli::Namespace ns = parser.parse(argc, argv);
     Arguments args;
-    if (argc < 2) {
-        std::fputs(kUsage, stderr);
-        std::fputs("hicCorrectMatrix: error: the following arguments are required: \n",
+    args.command = ns.command();
+    if (args.command.empty()) {
+        // Without a subcommand argparse sets no option at all, and main reads
+        // args.verbose first.
+        std::fputs("hicCorrectMatrix: AttributeError: 'Namespace' object has no attribute "
+                   "'verbose'. Without a subcommand no option is set, and "
+                   "hicCorrectMatrix.py:599 reads args.verbose.\n",
                    stderr);
-        std::exit(2);
+        std::exit(1);
     }
-    int index = 1;
-    const std::string first(argv[index]);
-    if (first == "-h" || first == "--help") {
-        std::fputs(kUsage, stdout);
-        std::fputs(kHelp, stdout);
-        std::exit(0);
+    args.matrix = ns.str("matrix");
+    args.chromosomes = ns.strs("chromosomes");
+    args.has_chromosomes = ns.given("chromosomes");
+    args.perchr = ns.flag("perchr");
+    args.verbose = ns.flag("verbose");
+    if (args.command == "diagnostic_plot") {
+        args.plot_name = ns.str("plotName");
+        args.x_max = ns.opt_real("xMax");
+        return args;
     }
-    if (first == "--version") {
-        std::printf("hicCorrectMatrix %s\n", hicx::kVersion);
-        std::exit(0);
+    args.out_file_name = ns.str("outFileName");
+    args.method = ns.str("correctionMethod") == "ICE" ? Method::Ice : Method::Kr;
+    if (ns.given("filterThreshold")) {
+        const std::vector<double> threshold = ns.reals("filterThreshold");
+        args.filter_threshold = std::make_pair(threshold[0], threshold[1]);
     }
-    if (first != "correct" && first != "diagnostic_plot") {
-        std::fputs(kUsage, stderr);
-        std::fprintf(stderr,
-                     "hicCorrectMatrix: error: argument : invalid choice: '%s' "
-                     "(choose from 'diagnostic_plot', 'correct')\n",
-                     first.c_str());
-        std::exit(2);
+    args.iter_num = ns.integer("iterNum");
+    args.inflation_cutoff = ns.opt_real("inflationCutoff");
+    args.trans_cutoff = ns.opt_real("transCutoff");
+    args.sequenced_count_cutoff = ns.opt_real("sequencedCountCutoff");
+    args.skip_diagonal = ns.flag("skipDiagonal");
+    args.filtered_bed = ns.opt_str("filteredBed");
+    args.compat_v3 = ns.str("compatMode") == "v3";
+    const std::int64_t threads = ns.integer("threads");
+    if (threads < 1) {
+        fail("argument --threads: must be at least 1");
     }
-    args.command = first;
-    ++index;
-
-    bool collecting_chromosomes = false;
-    bool matrix_seen = false;
-    bool out_seen = false;
-    std::vector<std::string> threshold_values;
-    bool collecting_threshold = false;
-
-    const auto take_value = [&](const std::string& name, std::optional<std::string> inline_value,
-                                int& position) -> std::string {
-        if (inline_value.has_value()) {
-            return *inline_value;
-        }
-        if (position + 1 >= argc) {
-            fail("argument " + name + ": expected one argument");
-        }
-        return std::string(argv[++position]);
-    };
-
-    for (; index < argc; ++index) {
-        const std::string token(argv[index]);
-        const bool is_option = token.size() > 1 && token[0] == '-' &&
-                               std::isdigit(static_cast<unsigned char>(token[1])) == 0;
-        if (!is_option) {
-            if (collecting_chromosomes) {
-                args.chromosomes.push_back(token);
-                continue;
-            }
-            if (collecting_threshold && threshold_values.size() < 2) {
-                threshold_values.push_back(token);
-                if (threshold_values.size() == 2) {
-                    collecting_threshold = false;
-                }
-                continue;
-            }
-            fail("unrecognized arguments: " + token);
-        }
-        if (collecting_threshold && threshold_values.size() < 2) {
-            // A negative number is not an option; the digit test above already
-            // let it through, so reaching here means a genuine option.
-            fail("argument --filterThreshold/-t: expected 2 arguments");
-        }
-        collecting_chromosomes = false;
-        collecting_threshold = false;
-
-        std::string name = token;
-        std::optional<std::string> inline_value;
-        const std::size_t equals = token.find('=');
-        if (equals != std::string::npos && token.rfind("--", 0) == 0) {
-            name = token.substr(0, equals);
-            inline_value = token.substr(equals + 1);
-        }
-
-        if (name == "-h" || name == "--help") {
-            std::fputs(kCorrectUsage, stdout);
-            std::fputs(kCorrectHelp, stdout);
-            std::exit(0);
-        }
-        if (name == "--version") {
-            std::printf("hicCorrectMatrix %s\n", hicx::kVersion);
-            std::exit(0);
-        }
-        if (name == "-m" || name == "--matrix") {
-            args.matrix = take_value(name, inline_value, index);
-            matrix_seen = true;
-        } else if (name == "-o" || name == "--outFileName") {
-            args.out_file_name = take_value(name, inline_value, index);
-            out_seen = true;
-        } else if (name == "--plotName") {
-            args.plot_name = take_value(name, inline_value, index);
-            out_seen = true;
-        } else if (name == "--correctionMethod") {
-            const std::string value = take_value(name, inline_value, index);
-            if (value == "KR") {
-                args.method = Method::Kr;
-            } else if (value == "ICE") {
-                args.method = Method::Ice;
-            } else {
-                fail("argument --correctionMethod: invalid choice: '" + value +
-                     "' (choose from 'KR', 'ICE')");
-            }
-        } else if (name == "-t" || name == "--filterThreshold") {
-            if (inline_value.has_value()) {
-                fail("argument --filterThreshold/-t: expected 2 arguments");
-            }
-            threshold_values.clear();
-            collecting_threshold = true;
-        } else if (name == "-n" || name == "--iterNum") {
-            args.iter_num = parse_int(take_value(name, inline_value, index), name);
-        } else if (name == "--inflationCutoff") {
-            args.inflation_cutoff = parse_double(take_value(name, inline_value, index), name);
-        } else if (name == "-transcut" || name == "--transCutoff") {
-            args.trans_cutoff = parse_double(take_value(name, inline_value, index), name);
-        } else if (name == "--sequencedCountCutoff") {
-            args.sequenced_count_cutoff =
-                parse_double(take_value(name, inline_value, index), name);
-        } else if (name == "--xMax") {
-            args.x_max = parse_double(take_value(name, inline_value, index), name);
-        } else if (name == "--chromosomes") {
-            args.has_chromosomes = true;
-            if (inline_value.has_value()) {
-                args.chromosomes.push_back(*inline_value);
-            } else {
-                collecting_chromosomes = true;
-            }
-        } else if (name == "-s" || name == "--skipDiagonal") {
-            args.skip_diagonal = true;
-        } else if (name == "--perchr") {
-            args.perchr = true;
-        } else if (name == "--filteredBed") {
-            args.filtered_bed = take_value(name, inline_value, index);
-        } else if (name == "--verbose") {
-            args.verbose = true;
-        } else if (name == "--compatMode") {
-            const std::string value = take_value(name, inline_value, index);
-            if (value == "v3") {
-                args.compat_v3 = true;
-            } else if (value == "v4") {
-                args.compat_v3 = false;
-            } else {
-                fail("argument --compatMode: invalid choice: '" + value +
-                     "' (choose from 'v3', 'v4')");
-            }
-        } else if (name == "--threads") {
-            args.threads =
-                static_cast<int>(parse_int(take_value(name, inline_value, index), name));
-            if (args.threads < 1) {
-                fail("argument --threads: must be at least 1");
-            }
-        } else {
-            fail("unrecognized arguments: " + token);
-        }
-    }
-    if (collecting_threshold && threshold_values.size() < 2) {
-        fail("argument --filterThreshold/-t: expected 2 arguments");
-    }
-    if (threshold_values.size() == 2) {
-        args.filter_threshold = std::make_pair(
-            parse_double(threshold_values[0], "--filterThreshold/-t"),
-            parse_double(threshold_values[1], "--filterThreshold/-t"));
-    }
-    std::string missing;
-    if (!matrix_seen) {
-        missing += "--matrix/-m";
-    }
-    if (!out_seen) {
-        missing += missing.empty() ? "--outFileName/-o" : ", --outFileName/-o";
-    }
-    if (!missing.empty()) {
-        fail("the following arguments are required: " + missing);
-    }
-    if (args.has_chromosomes && args.chromosomes.empty()) {
-        fail("argument --chromosomes: expected at least one argument");
-    }
+    args.threads = static_cast<int>(std::min<std::int64_t>(threads, 1 << 16));
     return args;
 }
 

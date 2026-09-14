@@ -68,6 +68,7 @@
 #include <unordered_set>
 #include <vector>
 
+#include "hicx/argparse.hpp"
 #include "hicx/bedtools_ops.hpp"
 #include "hicx/resource_usage.hpp"
 #include "hicx/text_table.hpp"
@@ -117,116 +118,35 @@ struct Arguments {
     std::int64_t lowest_resolution = 0;
 };
 
-[[noreturn]] void fail(const std::string& message) {
-    std::fputs(kUsage, stderr);
-    std::fprintf(stderr, "hicMergeLoops: error: %s\n", message.c_str());
-    std::exit(2);
-}
-
+// hicMergeLoops.py parse_arguments.
 Arguments parse_arguments(int argc, char** argv) {
-    Arguments args;
-    bool inputs_seen = false;
-    bool out_seen = false;
-    bool resolution_seen = false;
-    bool collecting_inputs = false;
-    std::string* pending_string = nullptr;
-    bool pending_resolution = false;
+    namespace cli = hicx::cli;
+    cli::Parser parser("hicMergeLoops",
+                       "This script merges the locations of loops detected at several resolutions.");
+    parser.set_usage(kUsage).set_help(kHelp).set_version_string(hicx::kVersion);
+    cli::ArgumentGroup& required = parser.group("Required arguments");
+    required.add({"--inputFiles", "-i"})
+        .nargs("+")
+        .required()
+        .input({"bedgraph", "txt"})
+        .help("The loop files from hicDetectLoops.");
+    required.add({"--outFileName", "-o"})
+        .required()
+        .output({"bedgraph"})
+        .help("The name of the merged loop file.");
+    required.add({"--lowestResolution", "-r"})
+        .type("int")
+        .required()
+        .help("The lowest resolution of all loop files, i.e. 5kb, 10kb and 25kb, please use 25000.");
+    cli::ArgumentGroup& optional = parser.group("Optional arguments");
+    optional.add({"--help", "-h"}).action(cli::Action::Help).help("show this help message and exit");
+    optional.add({"--version"}).version(std::string("%(prog)s ") + hicx::kVersion);
 
-    for (int i = 1; i < argc; ++i) {
-        const std::string token(argv[i]);
-        if (pending_string != nullptr) {
-            *pending_string = token;
-            pending_string = nullptr;
-            continue;
-        }
-        if (pending_resolution) {
-            try {
-                args.lowest_resolution = std::stoll(token);
-            } catch (const std::exception&) {
-                fail("argument --lowestResolution/-r: invalid int value: '" + token + "'");
-            }
-            pending_resolution = false;
-            continue;
-        }
-        const bool is_option = token.size() > 1 && token[0] == '-' &&
-                               std::isdigit(static_cast<unsigned char>(token[1])) == 0;
-        if (!is_option) {
-            if (collecting_inputs) {
-                args.input_files.push_back(token);
-                continue;
-            }
-            fail("unrecognized arguments: " + token);
-        }
-        collecting_inputs = false;
-        std::string name = token;
-        std::optional<std::string> inline_value;
-        const std::size_t equals = token.find('=');
-        if (equals != std::string::npos && token.rfind("--", 0) == 0) {
-            name = token.substr(0, equals);
-            inline_value = token.substr(equals + 1);
-        }
-        if (name == "-h" || name == "--help") {
-            std::fputs(kUsage, stdout);
-            std::fputs(kHelp, stdout);
-            std::exit(0);
-        }
-        if (name == "--version") {
-            std::printf("hicMergeLoops %s\n", hicx::kVersion);
-            std::exit(0);
-        }
-        if (name == "-i" || name == "--inputFiles") {
-            inputs_seen = true;
-            if (inline_value.has_value()) {
-                args.input_files.push_back(*inline_value);
-            } else {
-                collecting_inputs = true;
-            }
-            continue;
-        }
-        if (name == "-o" || name == "--outFileName") {
-            out_seen = true;
-            if (inline_value.has_value()) {
-                args.out_file_name = *inline_value;
-            } else {
-                pending_string = &args.out_file_name;
-            }
-            continue;
-        }
-        if (name == "-r" || name == "--lowestResolution") {
-            resolution_seen = true;
-            if (inline_value.has_value()) {
-                try {
-                    args.lowest_resolution = std::stoll(*inline_value);
-                } catch (const std::exception&) {
-                    fail("argument --lowestResolution/-r: invalid int value: '" +
-                         *inline_value + "'");
-                }
-            } else {
-                pending_resolution = true;
-            }
-            continue;
-        }
-        fail("unrecognized arguments: " + token);
-    }
-    if (pending_string != nullptr || pending_resolution) {
-        fail("expected one argument");
-    }
-    std::string missing;
-    const auto add_missing = [&missing](const char* name) {
-        missing += missing.empty() ? name : std::string(", ") + name;
-    };
-    if (!inputs_seen || args.input_files.empty()) {
-        add_missing("--inputFiles/-i");
-    }
-    if (!out_seen) {
-        add_missing("--outFileName/-o");
-    }
-    if (!resolution_seen) {
-        add_missing("--lowestResolution/-r");
-    }
-    if (!missing.empty()) {
-        fail("the following arguments are required: " + missing);
-    }
+    const cli::Namespace ns = parser.parse(argc, argv);
+    Arguments args;
+    args.input_files = ns.strs("inputFiles");
+    args.out_file_name = ns.str("outFileName");
+    args.lowest_resolution = ns.integer("lowestResolution");
     return args;
 }
 

@@ -74,6 +74,7 @@
 #include <vector>
 
 #include "hicx/adjust_ops.hpp"
+#include "hicx/argparse.hpp"
 #include "hicx/bins.hpp"
 #include "hicx/cool_adapter.hpp"
 #include "hicx/h5_file.hpp"
@@ -332,229 +333,111 @@ struct Arguments {
     int threads = 4;
 };
 
-[[noreturn]] void fail(const std::string& message) {
-    std::fputs(kUsage, stderr);
-    std::fprintf(stderr, "hicPCA: error: %s\n", message.c_str());
-    std::exit(2);
-}
-
 bool ends_with(const std::string& text, const std::string& suffix) {
     return text.size() >= suffix.size() &&
            text.compare(text.size() - suffix.size(), suffix.size(), suffix) == 0;
 }
 
+// hicPCA.py parse_arguments, plus the C++-only --compatMode and --threads.
 Arguments parse_arguments(int argc, char** argv) {
+    namespace cli = hicx::cli;
+    cli::Parser parser("hicPCA", "Computes PCA eigenvectors for a Hi-C matrix.");
+    parser.set_usage(kUsage).set_help(kHelp).set_version_string(hicx::kVersion);
+    cli::ArgumentGroup& required = parser.group("Required arguments");
+    required.add({"--matrix", "-m"})
+        .required()
+        .input({"h5", "cool", "mcool"})
+        .help("HiCExplorer matrix in h5 format.");
+    required.add({"--outputFileName", "-o"})
+        .nargs("+")
+        .required()
+        .output({"bedgraph", "bigwig"})
+        .help("File names for the result of the pca. Number of output files must match the "
+              "number of computed eigenvectors.");
+    cli::ArgumentGroup& optional = parser.group("Optional arguments");
+    optional.add({"--whichEigenvectors", "-we"})
+        .default_value("1 2")
+        .nargs("+")
+        .required(false)
+        .help("The list of eigenvectors that the PCA should compute e.g. 1 2 5 will return the "
+              "first, second and fifth eigenvector.");
+    optional.add({"--format", "-f"})
+        .choices({"bedgraph", "bigwig"})
+        .default_value("bigwig")
+        .required(false)
+        .help("Output format. Either bedgraph or bigwig.");
+    optional.add({"--chromosomes"})
+        .nargs("+")
+        .help("List of chromosomes to be included in the correlation.");
+    optional.add({"--method"})
+        .choices({"dist_norm", "lieberman"})
+        .default_value("dist_norm")
+        .required(false)
+        .help("possible methods which can be used to build the obs-exp matrix are dist_norm "
+              "and lieberman.");
+    optional.add({"--ligation_factor"})
+        .action(cli::Action::StoreTrue)
+        .help("Multiply a scaling factor to each entry of the expected matrix, as the Homer "
+              "software does. Only effective with the dist_norm method.");
+    optional.add({"--extraTrack"})
+        .input({"bed", "bigwig"})
+        .help("Either a gene track (bed) or a histone mark coverage file (bigwig) used to decide "
+              "the sign of the eigenvector.");
+    optional.add({"--histonMarkType"})
+        .default_value("active")
+        .help("Set it to active or inactive.");
+    optional.add({"--pearsonMatrix", "-pm"})
+        .output({"h5", "cool"})
+        .help("Write the intermediate Pearson matrix to this file.");
+    optional.add({"--obsexpMatrix", "-oem"})
+        .output({"h5", "cool"})
+        .help("Write the intermediate observed/expected matrix to this file.");
+    optional.add({"--ignoreMaskedBins"})
+        .action(cli::Action::StoreTrue)
+        .help("Remove the masked bins before the PCA is computed.");
+    optional.add({"--compatMode"})
+        .choices({"v3", "v4"})
+        .default_value("v3")
+        .cpp_only("v4 replaces the general eigensolver by the symmetric one for the requested "
+                  "eigenvectors only (cpp/PLAN.md 5.8).")
+        .help("v3 reproduces scipy.linalg.eig; v4 uses the symmetric solver dsyevr.");
+    optional.add({"--threads", "-t"})
+        .type("int")
+        .default_value(4)
+        .cpp_only("The Python computes the covariance single-threaded; the output is "
+                  "byte-identical for any value.")
+        .help("Workers for the covariance rows.");
+    optional.add({"--help", "-h"}).action(cli::Action::Help).help("show the help message and exit");
+    optional.add({"--version"}).version(std::string("%(prog)s ") + hicx::kVersion);
+
+    const cli::Namespace ns = parser.parse(argc, argv);
     Arguments args;
-    bool matrix_seen = false;
-    bool outputs_seen = false;
-    bool eigenvectors_seen = false;
-
-    // argparse nargs='+' keeps consuming tokens until the next option.
-    std::vector<std::string>* collecting = nullptr;
-    std::string* pending_string = nullptr;
-    std::optional<std::string>* pending_optional = nullptr;
-    int* pending_int = nullptr;
-
-    auto looks_like_option = [](const std::string& token) {
-        return token.size() > 1 && token[0] == '-' &&
-               !(std::isdigit(static_cast<unsigned char>(token[1])) != 0);
-    };
-
-    for (int i = 1; i < argc; ++i) {
-        const std::string token(argv[i]);
-        if (pending_string != nullptr) {
-            *pending_string = token;
-            pending_string = nullptr;
-            continue;
+    args.matrix = ns.str("matrix");
+    args.output_file_names = ns.strs("outputFileName");
+    if (ns.given("whichEigenvectors")) {
+        args.which_eigenvectors = ns.strs("whichEigenvectors");
+    } else {
+        // The default is the string '1 2'; see the comment on the member.
+        args.which_eigenvectors.clear();
+        for (const char character : ns.str("whichEigenvectors")) {
+            args.which_eigenvectors.emplace_back(1, character);
         }
-        if (pending_optional != nullptr) {
-            *pending_optional = token;
-            pending_optional = nullptr;
-            continue;
-        }
-        if (pending_int != nullptr) {
-            try {
-                *pending_int = std::stoi(token);
-            } catch (const std::exception&) {
-                fail("argument --threads: invalid int value: '" + token + "'");
-            }
-            pending_int = nullptr;
-            continue;
-        }
-        if (collecting != nullptr && !looks_like_option(token)) {
-            collecting->push_back(token);
-            continue;
-        }
-        collecting = nullptr;
-
-        std::string name = token;
-        std::optional<std::string> inline_value;
-        const std::size_t equals = token.find('=');
-        if (equals != std::string::npos && token.rfind("--", 0) == 0) {
-            name = token.substr(0, equals);
-            inline_value = token.substr(equals + 1);
-        }
-
-        if (name == "-h" || name == "--help") {
-            std::fputs(kUsage, stdout);
-            std::fputs(kHelp, stdout);
-            std::exit(0);
-        }
-        if (name == "--version") {
-            std::printf("hicPCA %s\n", hicx::kVersion);
-            std::exit(0);
-        }
-        if (name == "--ligation_factor") {
-            args.ligation_factor = true;
-            continue;
-        }
-        if (name == "--ignoreMaskedBins") {
-            args.ignore_masked_bins = true;
-            continue;
-        }
-        if (name == "-m" || name == "--matrix") {
-            matrix_seen = true;
-            if (inline_value) {
-                args.matrix = *inline_value;
-            } else {
-                pending_string = &args.matrix;
-            }
-            continue;
-        }
-        if (name == "-o" || name == "--outputFileName") {
-            outputs_seen = true;
-            if (inline_value) {
-                args.output_file_names.push_back(*inline_value);
-            } else {
-                collecting = &args.output_file_names;
-            }
-            continue;
-        }
-        if (name == "-we" || name == "--whichEigenvectors") {
-            if (!eigenvectors_seen) {
-                args.which_eigenvectors.clear();
-                eigenvectors_seen = true;
-            }
-            if (inline_value) {
-                args.which_eigenvectors.push_back(*inline_value);
-            } else {
-                collecting = &args.which_eigenvectors;
-            }
-            continue;
-        }
-        if (name == "--chromosomes") {
-            if (inline_value) {
-                args.chromosomes.push_back(*inline_value);
-            } else {
-                collecting = &args.chromosomes;
-            }
-            continue;
-        }
-        if (name == "-f" || name == "--format") {
-            if (inline_value) {
-                args.format = *inline_value;
-            } else {
-                pending_string = &args.format;
-            }
-            continue;
-        }
-        if (name == "--method") {
-            if (inline_value) {
-                args.method = *inline_value;
-            } else {
-                pending_string = &args.method;
-            }
-            continue;
-        }
-        if (name == "--histonMarkType") {
-            if (inline_value) {
-                args.histone_mark_type = *inline_value;
-            } else {
-                pending_string = &args.histone_mark_type;
-            }
-            continue;
-        }
-        if (name == "--extraTrack") {
-            if (inline_value) {
-                args.extra_track = *inline_value;
-            } else {
-                pending_optional = &args.extra_track;
-            }
-            continue;
-        }
-        if (name == "-pm" || name == "--pearsonMatrix") {
-            if (inline_value) {
-                args.pearson_matrix = *inline_value;
-            } else {
-                pending_optional = &args.pearson_matrix;
-            }
-            continue;
-        }
-        if (name == "-oem" || name == "--obsexpMatrix") {
-            if (inline_value) {
-                args.obsexp_matrix = *inline_value;
-            } else {
-                pending_optional = &args.obsexp_matrix;
-            }
-            continue;
-        }
-        if (name == "--compatMode") {
-            std::string value;
-            if (inline_value) {
-                value = *inline_value;
-            } else if (i + 1 < argc) {
-                value = argv[++i];
-            } else {
-                fail("argument --compatMode: expected one argument");
-            }
-            if (value == "v3") {
-                args.compat_v4 = false;
-            } else if (value == "v4") {
-                args.compat_v4 = true;
-            } else {
-                fail("argument --compatMode: invalid choice: '" + value +
-                     "' (choose from 'v3', 'v4')");
-            }
-            continue;
-        }
-        if (name == "--threads" || name == "-t") {
-            if (inline_value) {
-                try {
-                    args.threads = std::stoi(*inline_value);
-                } catch (const std::exception&) {
-                    fail("argument --threads: invalid int value: '" + *inline_value + "'");
-                }
-            } else {
-                pending_int = &args.threads;
-            }
-            continue;
-        }
-        fail("unrecognized arguments: " + token);
     }
-    if (pending_string != nullptr || pending_optional != nullptr || pending_int != nullptr) {
-        fail("expected one argument");
-    }
-
-    std::string missing;
-    if (!matrix_seen) {
-        missing = "--matrix/-m";
-    }
-    if (!outputs_seen || args.output_file_names.empty()) {
-        missing += missing.empty() ? "--outputFileName/-o" : ", --outputFileName/-o";
-    }
-    if (!missing.empty()) {
-        fail("the following arguments are required: " + missing);
-    }
-    if (args.format != "bedgraph" && args.format != "bigwig") {
-        fail("argument --format/-f: invalid choice: '" + args.format +
-             "' (choose from 'bedgraph', 'bigwig')");
-    }
-    if (args.method != "dist_norm" && args.method != "lieberman") {
-        fail("argument --method: invalid choice: '" + args.method +
-             "' (choose from 'dist_norm', 'lieberman')");
-    }
+    args.format = ns.str("format");
+    args.chromosomes = ns.strs("chromosomes");
+    args.method = ns.str("method");
+    args.ligation_factor = ns.flag("ligation_factor");
+    args.extra_track = ns.opt_str("extraTrack");
+    args.histone_mark_type = ns.str("histonMarkType");
+    args.pearson_matrix = ns.opt_str("pearsonMatrix");
+    args.obsexp_matrix = ns.opt_str("obsexpMatrix");
+    args.ignore_masked_bins = ns.flag("ignoreMaskedBins");
+    args.compat_v4 = ns.str("compatMode") == "v4";
+    args.threads = static_cast<int>(ns.integer("threads"));
     if (args.threads < 1) {
-        fail("argument --threads: must be at least 1");
+        std::fputs(kUsage, stderr);
+        std::fputs("hicPCA: error: argument --threads: must be at least 1\n", stderr);
+        std::exit(2);
     }
     return args;
 }

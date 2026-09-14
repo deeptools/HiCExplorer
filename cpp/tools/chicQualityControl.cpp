@@ -46,7 +46,7 @@
 #include <string>
 #include <vector>
 
-#include "chic_arguments.hpp"
+#include "hicx/argparse.hpp"
 #include "hicx/chic_viewpoint.hpp"
 #include "hicx/numpy_compat.hpp"
 #include "hicx/version.hpp"
@@ -56,13 +56,63 @@ namespace {
 using hicx::chic::ReferencePoint;
 
 const char* const kUsage =
-    "usage: chicQualityControl --matrices MATRICES [MATRICES ...]\n"
-    "                          --referencePoints REFERENCEPOINTS --sparsity SPARSITY\n"
+    "usage: chicQualityControl --matrices MATRICES [MATRICES ...] --referencePoints\n"
+    "                          REFERENCEPOINTS --sparsity SPARSITY\n"
     "                          [--outFileName OUTFILENAME]\n"
     "                          [--outFileNameHistogram OUTFILENAMEHISTOGRAM]\n"
     "                          [--outFileNameSparsity OUTFILENAMESPARSITY]\n"
     "                          [--threads THREADS] [--fixateRange FIXATERANGE]\n"
     "                          [--dpi DPI] [--help] [--version]\n";
+
+const char* const kHelp =
+    "\n"
+    "Computes the sparsity of each viewpoint to determine the quality. A viewpoint is "
+    "considered to be of bad quality if it is too sparse i.e. if there are too many "
+    "locations with no interactions recorded.\n"
+    "\n"
+    "This script creates three output files: a plot with the sparsity distribution per "
+    "matrix, a plot with the sparsity distribution as histograms and a filtered reference "
+    "points file.\n"
+    "\n"
+    "An example usage is:\n"
+    "\n"
+    "$ chicQualityControl -m matrix1.cool matrix2.cool -rp referencePointsFile.bed --range "
+    "20000 40000 --sparsity 0.01 -o referencePointFile_QC_passed.bed\n"
+    "\n"
+    "Required arguments:\n"
+    "  --matrices MATRICES [MATRICES ...], -m MATRICES [MATRICES ...]\n"
+    "                        The input matrices to apply the QC on.\n"
+    "  --referencePoints REFERENCEPOINTS, -rp REFERENCEPOINTS\n"
+    "                        Bed file contains all reference points which are\n"
+    "                        checked for a sufficient number of interactions.\n"
+    "  --sparsity SPARSITY, -s SPARSITY\n"
+    "                        Viewpoints with a sparsity less than the value given\n"
+    "                        are considered of bad quality. If multiple matrices\n"
+    "                        are given, the viewpoint is removed as soon as it is\n"
+    "                        of bad quality in at least one matrix.\n"
+    "\n"
+    "Optional arguments:\n"
+    "  --outFileName OUTFILENAME, -o OUTFILENAME\n"
+    "                        The output file name of the passed reference points.\n"
+    "                        Used as prefix for the plots as well (Default:\n"
+    "                        new_referencepoints.bed).\n"
+    "  --outFileNameHistogram OUTFILENAMEHISTOGRAM, -oh OUTFILENAMEHISTOGRAM\n"
+    "                        The output file for the histogram plot (Default:\n"
+    "                        histogram.png).\n"
+    "  --outFileNameSparsity OUTFILENAMESPARSITY, -os OUTFILENAMESPARSITY\n"
+    "                        The output file for the sparsity distribution plot\n"
+    "                        (Default: sparsity.png).\n"
+    "  --threads THREADS, -t THREADS\n"
+    "                        Number of threads (Default: 4).\n"
+    "  --fixateRange FIXATERANGE, -fs FIXATERANGE\n"
+    "                        Fixate score of background model starting at distance\n"
+    "                        x. E.g. all values greater than 500kb are set to the\n"
+    "                        value of the 500kb bin (Default: 500000).\n"
+    "  --dpi DPI             Optional parameter: Resolution for the image if\n"
+    "                        theoutput is a raster graphics image (e.g png, jpg)\n"
+    "                        (Default: 300).\n"
+    "  --help, -h            show this help message and exit\n"
+    "  --version             show program's version number and exit\n";
 
 std::string basename(const std::string& path) {
     const std::size_t slash = path.find_last_of('/');
@@ -78,38 +128,62 @@ struct Slot {
 }  // namespace
 
 int main(int argc, char** argv) {
-    using hicx::chic_cli::Arity;
-    using hicx::chic_cli::Option;
-    using hicx::chic_cli::Type;
-
-    hicx::chic_cli::Parser parser(
-        "chicQualityControl", kUsage,
-        "Computes the sparsity of each viewpoint to determine the quality.",
-        hicx::kVersion);
-    parser.add(Option{{"--matrices", "-m"}, "matrices", Arity::OneOrMore, Type::String, true, {},
-                      "The input matrices to apply the QC on."});
-    parser.add(Option{{"--referencePoints", "-rp"}, "referencePoints", Arity::One, Type::String,
-                      true, {}, "Bed file with the reference points."});
-    parser.add(Option{{"--sparsity", "-s"}, "sparsity", Arity::One, Type::Float, true, {},
-                      "Sparsity threshold."});
-    parser.add(Option{{"--outFileName", "-o"}, "outFileName", Arity::One, Type::String, false,
-                      {"new_referencepoints.bed"}, "Output file of the passed reference points."});
-    parser.add(Option{{"--outFileNameHistogram", "-oh"}, "outFileNameHistogram", Arity::One,
-                      Type::String, false, {"histogram.png"}, "Histogram plot."});
-    parser.add(Option{{"--outFileNameSparsity", "-os"}, "outFileNameSparsity", Arity::One,
-                      Type::String, false, {"sparsity.png"}, "Sparsity distribution plot."});
-    parser.add(Option{{"--threads", "-t"}, "threads", Arity::One, Type::Int, false, {"4"},
-                      "Number of threads."});
-    parser.add(Option{{"--fixateRange", "-fs"}, "fixateRange", Arity::One, Type::Int, false,
-                      {"500000"}, "Range on either side of a reference point."});
-    parser.add(Option{{"--dpi"}, "dpi", Arity::One, Type::Int, false, {"300"},
-                      "Resolution of the plots."});
-    const hicx::chic_cli::Parsed args = parser.parse(argc, argv);
+    namespace cli = hicx::cli;
+    cli::Parser parser("chicQualityControl",
+                       "Computes the sparsity of each viewpoint to determine the quality.");
+    parser.set_usage(kUsage).set_help(kHelp).set_version_string(hicx::kVersion);
+    cli::ArgumentGroup& required = parser.group("Required arguments");
+    required.add({"--matrices", "-m"})
+        .nargs("+")
+        .required()
+        .input({"cool", "h5"})
+        .help("The input matrices to apply the QC on.");
+    required.add({"--referencePoints", "-rp"})
+        .type("str")
+        .required()
+        .input({"bed"})
+        .help("Bed file contains all reference points which are checked for a sufficient number "
+              "of interactions.");
+    required.add({"--sparsity", "-s"})
+        .type("float")
+        .required()
+        .help("Viewpoints with a sparsity less than the value given are considered of bad "
+              "quality.");
+    cli::ArgumentGroup& optional = parser.group("Optional arguments");
+    optional.add({"--outFileName", "-o"})
+        .default_value("new_referencepoints.bed")
+        .output({"bed"})
+        .help("The output file name of the passed reference points.");
+    optional.add({"--outFileNameHistogram", "-oh"})
+        .default_value("histogram.png")
+        .output({"png", "pdf", "svg"})
+        .note("The C++ port draws no figures: naming this file makes the tool exit with status 1 "
+              "before writing anything.")
+        .help("The output file for the histogram plot");
+    optional.add({"--outFileNameSparsity", "-os"})
+        .default_value("sparsity.png")
+        .output({"png", "pdf", "svg"})
+        .note("The C++ port draws no figures: naming this file makes the tool exit with status 1 "
+              "before writing anything.")
+        .help("The output file for the sparsity distribution plot");
+    optional.add({"--threads", "-t"}).type("int").default_value(4).help("Number of threads");
+    optional.add({"--fixateRange", "-fs"})
+        .type("int")
+        .default_value(500000)
+        .help("Range on either side of a reference point the sparsity is computed over.");
+    optional.add({"--dpi"})
+        .type("int")
+        .default_value(300)
+        .note("Accepted and ignored by the C++ port, which draws no figures.")
+        .help("Resolution for the image if the output is a raster graphics image.");
+    optional.add({"--help", "-h"}).action(cli::Action::Help).help("show this help message and exit");
+    optional.add({"--version"}).version(std::string("%(prog)s ") + hicx::kVersion);
+    const cli::Namespace args = parser.parse(argc, argv);
 
     // The project rule for figures: refuse before writing anything when one
     // was requested by name.
     for (const char* dest : {"outFileNameHistogram", "outFileNameSparsity"}) {
-        if (args.explicitly_given(dest)) {
+        if (args.given(dest)) {
             std::fprintf(stderr,
                          "chicQualityControl: error: --%s %s was requested, but plotting is not "
                          "yet available in the C++ port of HiCExplorer. No output was written. "
@@ -119,7 +193,7 @@ int main(int argc, char** argv) {
         }
     }
 
-    const std::vector<std::string>& matrices = args.list("matrices");
+    const std::vector<std::string>& matrices = args.strs("matrices");
     const std::string reference_point_file = args.str("referencePoints");
     const double sparsity_threshold = args.real("sparsity");
     const std::string out_file_name = args.str("outFileName");

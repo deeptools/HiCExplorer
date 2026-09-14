@@ -87,6 +87,7 @@
 #include <vector>
 
 #include "hicx/adjust_ops.hpp"
+#include "hicx/argparse.hpp"
 #include "hicx/bins.hpp"
 #include "hicx/clustering.hpp"
 #include "hicx/cool_adapter.hpp"
@@ -133,12 +134,6 @@ const char* const kHelp =
     "                        --outFileObsExp) without the figure. A run without this\n"
     "                        flag, or with --diagnosticHeatmapFile, is refused.\n";
 
-[[noreturn]] void usage_error(const std::string& message) {
-    std::fputs(kUsage, stderr);
-    std::fprintf(stderr, "hicAggregateContacts: error: %s\n", message.c_str());
-    std::exit(2);
-}
-
 // A failure the Python reports through exit(message), log.error + exit(1), an
 // assertion or an uncaught exception: all of them end with status 1.
 struct ToolError : std::runtime_error {
@@ -171,24 +166,6 @@ struct Arguments {
     std::vector<std::string> chromosomes;
     bool no_plot = false;
 };
-
-bool is_option(const std::string& token) {
-    if (token.size() < 2 || token[0] != '-') {
-        return false;
-    }
-    // argparse's negative number matcher, '^-\d+$|^-\d*\.\d+$'
-    bool number = true;
-    bool dot = false;
-    for (std::size_t i = 1; i < token.size(); ++i) {
-        if (token[i] == '.' && !dot) {
-            dot = true;
-        } else if (token[i] < '0' || token[i] > '9') {
-            number = false;
-            break;
-        }
-    }
-    return !number;
-}
 
 std::optional<std::int64_t> python_int(const std::string& text) {
     std::size_t begin = 0;
@@ -238,168 +215,148 @@ std::int64_t to_int(const std::string& text) {
     return *value;
 }
 
+// hicAggregateContacts.py parse_arguments, plus the C++-only --noPlot. The
+// plotting options are parsed and validated like the Python's; the numeric
+// outputs do not use them. argparse.FileType('r') opens --BED and --BED2
+// while parsing; FileType('w') is not opened here (no figure is written).
 Arguments parse_arguments(int argc, char** argv) {
-    Arguments args;
-    bool seen_matrix = false;
-    bool seen_out = false;
-    bool seen_bed = false;
-    bool seen_mode = false;
-    const auto choice = [](const std::string& option, const std::string& value,
-                           std::initializer_list<const char*> choices) {
-        for (const char* allowed : choices) {
-            if (value == allowed) {
-                return value;
-            }
-        }
-        std::string list;
-        for (const char* allowed : choices) {
-            list += (list.empty() ? "'" : ", '") + std::string(allowed) + "'";
-        }
-        usage_error("argument " + option + ": invalid choice: '" + value + "' (choose from " +
-                    list + ")");
-    };
-    for (int i = 1; i < argc; ++i) {
-        std::string name(argv[i]);
-        std::optional<std::string> inline_value;
-        const std::size_t equals = name.find('=');
-        if (equals != std::string::npos && name.rfind("--", 0) == 0) {
-            inline_value = name.substr(equals + 1);
-            name = name.substr(0, equals);
-        }
-        const auto take = [&](const std::string& option) -> std::string {
-            if (inline_value.has_value()) {
-                return *inline_value;
-            }
-            if (i + 1 >= argc || is_option(argv[i + 1])) {
-                usage_error("argument " + option + ": expected one argument");
-            }
-            return std::string(argv[++i]);
-        };
-        const auto take_int = [&](const std::string& option) -> std::int64_t {
-            const std::string text = take(option);
-            const std::optional<std::int64_t> value = python_int(text);
-            if (!value.has_value()) {
-                usage_error("argument " + option + ": invalid int value: '" + text + "'");
-            }
-            return *value;
-        };
-        const auto take_float = [&](const std::string& option) {
-            const std::string text = take(option);
-            char* end = nullptr;
-            std::strtod(text.c_str(), &end);
-            if (text.empty() || end != text.c_str() + text.size()) {
-                usage_error("argument " + option + ": invalid float value: '" + text + "'");
-            }
-        };
+    namespace cli = hicx::cli;
+    cli::Parser parser("hicAggregateContacts",
+                       "Takes a list of positions in the Hi-C matrix and makes a pooled image.");
+    parser.set_usage(kUsage).set_help(kHelp).set_version_string(hicx::kVersion);
+    cli::ArgumentGroup& required = parser.group("Required arguments");
+    required.add({"--matrix", "-m"})
+        .required()
+        .input({"h5", "cool", "mcool"})
+        .help("Path of the Hi-C matrix to plot.");
+    required.add({"--outFileName", "-out"})
+        .file_type("w")
+        .required()
+        .output({"png", "pdf", "svg"})
+        .help("File name to save the image.");
+    required.add({"--BED"})
+        .file_type("r")
+        .required()
+        .input({"bed"})
+        .help("Interactions between regions in this BED file are plotted.");
+    required.add({"--mode"}).choices({"inter-chr", "intra-chr", "all"}).required();
 
-        if (name == "--help" || name == "-h") {
-            std::fputs(kUsage, stdout);
-            std::fputs(kHelp, stdout);
-            std::exit(0);
-        } else if (name == "--version") {
-            std::printf("hicAggregateContacts %s\n", hicx::kVersion);
-            std::exit(0);
-        } else if (name == "--matrix" || name == "-m") {
-            args.matrix = take("--matrix/-m");
-            seen_matrix = true;
-        } else if (name == "--outFileName" || name == "-out") {
-            args.out_file_name = take("--outFileName/-out");
-            seen_out = true;
-        } else if (name == "--BED") {
-            args.bed = take(name);
-            seen_bed = true;
-        } else if (name == "--mode") {
-            args.mode = choice(name, take(name), {"inter-chr", "intra-chr", "all"});
-            seen_mode = true;
-        } else if (name == "--range") {
-            args.range = take(name);
-        } else if (name == "--row_wise") {
-            args.row_wise = true;
-        } else if (name == "--BED2") {
-            args.bed2 = take(name);
-        } else if (name == "--numberOfBins") {
-            args.number_of_bins = take_int(name);
-        } else if (name == "--transform") {
-            args.transform =
-                choice(name, take(name), {"total-counts", "z-score", "obs/exp", "none"});
-        } else if (name == "--operationType") {
-            args.operation_type = choice(name, take(name), {"sum", "mean", "median"});
-        } else if (name == "--perChr") {
-            args.per_chr = true;
-        } else if (name == "--considerStrandDirection") {
-            args.consider_strand_direction = true;
-        } else if (name == "--largeRegionsOperation") {
-            args.large_regions_operation = choice(name, take(name), {"first", "last", "center"});
-        } else if (name == "--outFilePrefixMatrix") {
-            args.out_file_prefix_matrix = take(name);
-        } else if (name == "--outFileContactPairs") {
-            args.out_file_contact_pairs = take(name);
-        } else if (name == "--outFileObsExp") {
-            args.out_file_obs_exp = take(name);
-        } else if (name == "--diagnosticHeatmapFile") {
-            args.diagnostic_heatmap_file = take(name);
-        } else if (name == "--kmeans") {
-            args.kmeans = take_int(name);
-        } else if (name == "--hclust") {
-            args.hclust = take_int(name);
-        } else if (name == "--spectral") {
-            take_int(name);  // parsed and never used by main(), defect 1
-        } else if (name == "--howToCluster") {
-            args.how_to_cluster = choice(name, take(name), {"full", "center", "diagonal"});
-        } else if (name == "--keep_outlier") {
-            args.keep_outlier = true;
-        } else if (name == "--max_deviation") {
-            args.max_deviation = take_int(name);
-        } else if (name == "--chromosomes" || name == "-C") {
-            args.chromosomes.clear();
-            if (inline_value.has_value()) {
-                args.chromosomes.push_back(*inline_value);
-            }
-            while (i + 1 < argc && !is_option(argv[i + 1])) {
-                args.chromosomes.emplace_back(argv[++i]);
-            }
-            if (args.chromosomes.empty()) {
-                usage_error("argument --chromosomes/-C: expected at least one argument");
-            }
-        } else if (name == "--colorMap") {
-            take(name);
-        } else if (name == "--plotType") {
-            choice(name, take(name), {"2d", "3d"});
-        } else if (name == "--vMin" || name == "--vMax") {
-            take_float(name);
-        } else if (name == "--disable_bbox_tight") {
-        } else if (name == "--dpi") {
-            take_int(name);
-        } else if (name == "--noPlot") {
-            args.no_plot = true;
-        } else {
-            usage_error("unrecognized arguments: " + std::string(argv[i]));
-        }
-    }
-    std::string missing;
-    const auto require = [&missing](bool seen, const char* text) {
-        if (!seen) {
-            missing += missing.empty() ? text : (std::string(", ") + text);
-        }
-    };
-    require(seen_matrix, "--matrix/-m");
-    require(seen_out, "--outFileName/-out");
-    require(seen_bed, "--BED");
-    require(seen_mode, "--mode");
-    if (!missing.empty()) {
-        usage_error("the following arguments are required: " + missing);
-    }
-    // argparse.FileType('r') opens the BED files while parsing.
-    for (const std::optional<std::string>& path :
-         {std::optional<std::string>(args.bed), args.bed2}) {
-        if (path.has_value() && !std::ifstream(*path)) {
-            usage_error("argument " + std::string(path == args.bed2 && args.bed2 != args.bed
-                                                      ? "--BED2"
-                                                      : "--BED") +
-                        ": can't open '" + *path + "': [Errno 2] No such file or directory: '" +
-                        *path + "'");
-        }
-    }
+    cli::ArgumentGroup& optional = parser.group("Optional arguments");
+    optional.add({"--range"}).help(
+        "Range of contacts considered for the aggregate contacts, as low_range:high_range in bp.");
+    optional.add({"--row_wise"})
+        .action(cli::Action::StoreTrue)
+        .help("Compute the interactions between each row of the BED file and the same row of "
+              "the BED2 file.");
+    optional.add({"--BED2"})
+        .file_type("r")
+        .input({"bed"})
+        .help("Optional second BED file.");
+    optional.add({"--numberOfBins"})
+        .type("int")
+        .default_value("51")
+        .help("Number of bins to include in the submatrix.");
+    optional.add({"--transform"})
+        .choices({"total-counts", "z-score", "obs/exp", "none"})
+        .default_value("none")
+        .help("Type of transformation for the matrix.");
+    optional.add({"--operationType"})
+        .choices({"sum", "mean", "median"})
+        .default_value("median")
+        .help("Operation that summarizes the submatrices into a single matrix.");
+    optional.add({"--perChr"})
+        .action(cli::Action::StoreTrue)
+        .help("Generate a plot per chromosome (intra-chromosomal contacts only).");
+    optional.add({"--considerStrandDirection"})
+        .action(cli::Action::StoreTrue)
+        .help("Take the strand into account: contacts of a reverse strand region are inverted.");
+    optional.add({"--largeRegionsOperation"})
+        .choices({"first", "last", "center"})
+        .default_value("first")
+        .help("Which bin of a region larger than a bin is used: first, last or center.");
+    optional.add({"--help", "-h"}).action(cli::Action::Help).help("show this help message and exit");
+    optional.add({"--version"}).version(std::string("%(prog)s ") + hicx::kVersion);
+
+    cli::ArgumentGroup& output = parser.group("Output options");
+    output.add({"--outFilePrefixMatrix"})
+        .output({"tsv"}, "prefix")
+        .help("Prefix of the tab-delimited tables with the values underlying the output matrix.");
+    output.add({"--outFileContactPairs"})
+        .output({"tsv"}, "prefix")
+        .help("Prefix of the files with the contact positions used for the submatrices.");
+    output.add({"--outFileObsExp"})
+        .output({"h5", "cool"})
+        .help("Writes the obs/exp matrix to a file, if --transform=obs/exp.");
+    output.add({"--diagnosticHeatmapFile"})
+        .file_type("w")
+        .output({"png", "pdf", "svg"})
+        .help("A heatmap (per chromosome) of the diagonals of the submatrices.");
+
+    cli::ArgumentGroup& clustering = parser.group("Clustering options");
+    clustering.add({"--kmeans"}).type("int").help("Number of clusters to compute with k-means.");
+    clustering.add({"--hclust"})
+        .type("int")
+        .help("Number of clusters to compute (per chromosome) with hierarchical clustering.");
+    clustering.add({"--spectral"})
+        .type("int")
+        .help("Number of clusters to compute (per chromosome) with spectral clustering.");
+    clustering.add({"--howToCluster"})
+        .choices({"full", "center", "diagonal"})
+        .default_value("full")
+        .help("Which values of each submatrix are clustered: full, center or diagonal.");
+    clustering.add({"--keep_outlier"})
+        .action(cli::Action::StoreTrue)
+        .help("keep outliers before clustering.");
+    clustering.add({"--max_deviation"})
+        .type("int")
+        .default_value(2)
+        .help("max deviation from mean to be determined as outlier.");
+
+    cli::ArgumentGroup& plotting = parser.group("Plotting options");
+    plotting.add({"--chromosomes", "-C"}).nargs("+").help("List of chromosomes to plot.");
+    plotting.add({"--colorMap"})
+        .default_value("RdYlBu_r")
+        .help("Color map to use for the heatmap.");
+    plotting.add({"--plotType"}).choices({"2d", "3d"}).default_value("2d").help("Plot type.");
+    plotting.add({"--vMin"}).type("float").help("Minimum value of the plotted score.");
+    plotting.add({"--vMax"}).type("float").help("Maximum value of the plotted score.");
+    plotting.add({"--disable_bbox_tight"}).action(cli::Action::StoreTrue).help(cli::kSuppress);
+    plotting.add({"--noPlot"})
+        .action(cli::Action::StoreTrue)
+        .cpp_only("Plotting is not ported yet: writes the numeric outputs without the figure; a "
+                  "run without this flag is refused.")
+        .help("Write the numeric outputs without the figure.");
+    optional.add({"--dpi"})
+        .type("int")
+        .default_value(300)
+        .help("Resolution for the image in case the output is a raster graphics image.");
+
+    const cli::Namespace ns = parser.parse(argc, argv);
+    Arguments args;
+    args.matrix = ns.str("matrix");
+    args.out_file_name = ns.str("outFileName");
+    args.bed = ns.str("BED");
+    args.mode = ns.str("mode");
+    args.range = ns.opt_str("range");
+    args.row_wise = ns.flag("row_wise");
+    args.bed2 = ns.opt_str("BED2");
+    args.number_of_bins = ns.integer("numberOfBins");
+    args.transform = ns.str("transform");
+    args.operation_type = ns.str("operationType");
+    args.per_chr = ns.flag("perChr");
+    args.consider_strand_direction = ns.flag("considerStrandDirection");
+    args.large_regions_operation = ns.str("largeRegionsOperation");
+    args.out_file_prefix_matrix = ns.opt_str("outFilePrefixMatrix");
+    args.out_file_contact_pairs = ns.opt_str("outFileContactPairs");
+    args.out_file_obs_exp = ns.opt_str("outFileObsExp");
+    args.diagnostic_heatmap_file = ns.opt_str("diagnosticHeatmapFile");
+    args.kmeans = ns.opt_integer("kmeans");
+    args.hclust = ns.opt_integer("hclust");
+    args.how_to_cluster = ns.str("howToCluster");
+    args.keep_outlier = ns.flag("keep_outlier");
+    args.max_deviation = ns.integer("max_deviation");
+    args.chromosomes = ns.strs("chromosomes");
+    args.no_plot = ns.flag("noPlot");
     return args;
 }
 
