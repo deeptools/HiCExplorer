@@ -1,0 +1,94 @@
+[
+  {
+    "id": "hicPlotAverageRegions.defaults",
+    "tool": "hicPlotAverageRegions",
+    "tier": 7,
+    "args": ["--matrix", "{data}/hicAverageRegions/result_range_100000.npz", "-o", "{out}/average.png",
+             "--colorMap", "RdYlBu_r"],
+    "outputs": [
+      {"path": "{out}/average.png", "format": "png", "class": "E6"}
+    ],
+    "memory": {"alpha": 0.0, "beta": 0.0},
+    "notes": "test_average_regions. The masters in test_data/hicPlotAverageRegions are xfail in the Python suite (image size); the figure is compared with the one the Python tool draws in the same environment. The input is an npz, not a matrix the budget formula measures; the C++ step only checks the archive, so its budget is the constant C."
+  },
+  {
+    "id": "hicPlotAverageRegions.log",
+    "tool": "hicPlotAverageRegions",
+    "tier": 7,
+    "args": ["--matrix", "{data}/hicAverageRegions/result_range_100000.npz", "-o", "{out}/average.png",
+             "--log", "--colorMap", "RdYlBu_r"],
+    "outputs": [
+      {"path": "{out}/average.png", "format": "png", "class": "E6"}
+    ],
+    "memory": {"alpha": 0.0, "beta": 0.0},
+    "notes": "test_average_regions_plot_log."
+  },
+  {
+    "id": "hicPlotAverageRegions.log1p",
+    "tool": "hicPlotAverageRegions",
+    "tier": 7,
+    "args": ["--matrix", "{data}/hicAverageRegions/result_range_100000.npz", "-o", "{out}/average.png",
+             "--log1p", "--colorMap", "RdYlBu_r"],
+    "outputs": [
+      {"path": "{out}/average.png", "format": "png", "class": "E6"}
+    ],
+    "memory": {"alpha": 0.0, "beta": 0.0},
+    "notes": "test_average_regions_plot_log1p."
+  },
+  {
+    "id": "hicPlotAverageRegions.vmin_vmax_colormap",
+    "tool": "hicPlotAverageRegions",
+    "tier": 7,
+    "args": ["--matrix", "{data}/hicAverageRegions/result_range_100000.npz", "-o", "{out}/average.png",
+             "--vMax", "20", "--vMin", "10", "--colorMap", "plasma"],
+    "outputs": [
+      {"path": "{out}/average.png", "format": "png", "class": "E6"}
+    ],
+    "memory": {"alpha": 0.0, "beta": 0.0},
+    "notes": "test_average_regions_plot_log_vmin_vmax_colormap."
+  },
+  {
+    "id": "hicPlotAverageRegions.log1p_vmin_vmax_dpi",
+    "tool": "hicPlotAverageRegions",
+    "tier": 7,
+    "args": ["--matrix", "{data}/hicAverageRegions/result.npz", "-o", "{out}/average.png",
+             "--log1p", "--vMin", "1", "--vMax", "50", "--dpi", "120"],
+    "outputs": [
+      {"path": "{out}/average.png", "format": "png", "class": "E6"}
+    ],
+    "memory": {"alpha": 0.0, "beta": 0.0},
+    "notes": "--log1p shifts --vMin and --vMax by one; default colour map hot_r."
+  },
+  {
+    "id": "hicPlotAverageRegions.range_in_bins",
+    "tool": "hicPlotAverageRegions",
+    "tier": 7,
+    "args": ["--matrix", "{data}/hicAverageRegions/result_rangeInBins_100.npz", "-o", "{out}/average.png"],
+    "outputs": [
+      {"path": "{out}/average.png", "format": "png", "class": "E6"}
+    ],
+    "memory": {"alpha": 0.0, "beta": 0.0},
+    "notes": "The npz of hicAverageRegions --rangeInBins 100."
+  },
+  {
+    "id": "hicPlotAverageRegions.multi_end",
+    "tool": "hicPlotAverageRegions",
+    "tier": 7,
+    "args": ["--matrix", "{data}/hicAverageRegions/regions_multi_end.npz", "-o", "{out}/average.png", "--log"],
+    "outputs": [
+      {"path": "{out}/average.png", "format": "png", "class": "E6"}
+    ],
+    "memory": {"alpha": 0.0, "beta": 0.0},
+    "notes": "The npz of hicAverageRegions over several chromosomes, anchored at the region ends."
+  },
+  {
+    "id": "hicPlotAverageRegions.missing_matrix",
+    "tool": "hicPlotAverageRegions",
+    "tier": 7,
+    "args": ["--matrix", "{out}/does_not_exist.npz", "-o", "{out}/average.png"],
+    "outputs": [],
+    "memory": {"alpha": 0.0, "beta": 0.0},
+    "expect_exit": 1,
+    "notes": "load_npz of a missing file raises FileNotFoundError; the port exits 1 before drawing."
+  }
+]

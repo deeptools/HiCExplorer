@@ -13,11 +13,15 @@ dependencies = [
     "matplotlib==3.8.4",
     "pyGenomeTracks==3.9",
     "numpy",
+    # hicPlotAverageRegions rotates its image with scipy.ndimage.rotate, an
+    # interpolation that is part of the figure.
+    "scipy==1.14.1",
 ]
 
 [project.scripts]
 hicPlotDistVsCounts = "hicexplorer_plot.tools:hicPlotDistVsCounts"
 hicPlotViewpoint = "hicexplorer_plot.tools:hicPlotViewpoint"
+hicPlotAverageRegions = "hicexplorer_plot.tools:hicPlotAverageRegions"
 
 [tool.setuptools]
 packages = ["hicexplorer_plot"]

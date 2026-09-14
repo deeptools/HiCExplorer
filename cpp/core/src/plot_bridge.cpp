@@ -208,6 +208,14 @@ int draw(const std::string& tool, const std::string& data_json,
     const std::string python =
         configured != nullptr && *configured != '\0' ? configured : "python3";
     prepend_package_path();
+    // The drawing process does no linear algebra, but numpy's OpenBLAS starts
+    // one spinning thread per core at import. Measured on hicPlotAverageRegions
+    // (32 cores), the drawing process used 2.3 s of CPU with the default and
+    // 0.53 s with one thread, for the same bytes and the same wall clock. A
+    // value the user set is kept.
+    for (const char* variable : {"OPENBLAS_NUM_THREADS", "OMP_NUM_THREADS", "MKL_NUM_THREADS"}) {
+        ::setenv(variable, "1", 0);
+    }
 
     std::vector<std::string> args = {python, "-m", "hicexplorer_plot", tool, path, "--remove-data"};
     std::vector<char*> argv;

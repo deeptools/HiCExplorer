@@ -32,3 +32,7 @@ def hicPlotDistVsCounts():
 
 def hicPlotViewpoint():
     return _run("hicPlotViewpoint")
+
+
+def hicPlotAverageRegions():
+    return _run("hicPlotAverageRegions")
