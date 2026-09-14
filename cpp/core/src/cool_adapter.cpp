@@ -4,7 +4,10 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <map>
+#include <optional>
+#include <span>
 #include <utility>
 
 #include "hicx/hdf5_util.hpp"
@@ -18,6 +21,38 @@ namespace {
 // twice while it is converted (about 60 bytes per pixel), so this bounds the
 // transient memory of a read at roughly 12 MB.
 constexpr std::int64_t kChunkPixels = 200000;
+// Rows per column read of a whole-table read. HDF5 sizes its conversion
+// buffers by the request, so one read of a 4 M row slice raised the peak of a
+// 4.2 M pixel load by 20 MB; at this size the transient stays small while the
+// destination arrays are still sized once.
+constexpr std::int64_t kReadRows = kChunkPixels;
+
+// Sorts the columns of a row that is stored out of order, as select_bins
+// returns them (cpp/tests/test_cool_chromosome_cut.cpp).
+void sort_row_columns(CsrMatrix::Arrays& arrays) {
+    std::vector<std::pair<std::int32_t, double>> row_entries;
+    for (std::int64_t row = 0; row < arrays.rows; ++row) {
+        const auto begin = static_cast<std::size_t>(arrays.indptr[static_cast<std::size_t>(row)]);
+        const auto end = static_cast<std::size_t>(arrays.indptr[static_cast<std::size_t>(row) + 1]);
+        bool sorted = true;
+        for (std::size_t k = begin + 1; k < end && sorted; ++k) {
+            sorted = arrays.indices[k - 1] <= arrays.indices[k];
+        }
+        if (sorted) {
+            continue;
+        }
+        row_entries.clear();
+        for (std::size_t k = begin; k < end; ++k) {
+            row_entries.emplace_back(arrays.indices[k], arrays.data[k]);
+        }
+        std::stable_sort(row_entries.begin(), row_entries.end(),
+                         [](const auto& a, const auto& b) { return a.first < b.first; });
+        for (std::size_t k = begin; k < end; ++k) {
+            arrays.indices[k] = row_entries[k - begin].first;
+            arrays.data[k] = row_entries[k - begin].second;
+        }
+    }
+}
 
 // cooler splits a pixel table longer than this into 10,000 parts before
 // handing it to create_cooler (hicmatrix/lib/cool.py:366-368), and the 'sum'
@@ -200,11 +235,112 @@ void CoolFile::for_each_pixel_chunk(std::int64_t row_first, std::int64_t row_las
     });
 }
 
+std::optional<CsrMatrix> CoolFile::read_from_index(std::int64_t first, std::int64_t last,
+                                                  const std::string& dtype) const {
+    const std::int64_t bins = nbins();
+    return guarded([&]() -> std::optional<CsrMatrix> {
+        // indexes/bin1_offset is the CSR row offset array of the pixel table:
+        // with it the pixels of rows [first, last) are two column reads into
+        // arrays sized once, and bin1_id is never read. A missing, short or
+        // inconsistent index leaves the read to the range query, which counts
+        // rows from bin1_id.
+        if (bins < 0 || bins > std::numeric_limits<std::int32_t>::max() || first < 0 ||
+            last > bins || first >= last) {
+            return std::nullopt;
+        }
+        std::optional<coolercpp::DatasetReader> offsets;
+        try {
+            offsets.emplace(*cooler_, "indexes/bin1_offset");
+        } catch (const coolercpp::KeyError&) {
+            return std::nullopt;
+        }
+        const coolercpp::DatasetReader bin2(*cooler_, "pixels/bin2_id");
+        const coolercpp::DatasetReader count(*cooler_, "pixels/count");
+        const std::int64_t pixels = bin2.size();
+        if (offsets->size() != bins + 1 || count.size() != pixels) {
+            return std::nullopt;
+        }
+        std::vector<std::int64_t> index(static_cast<std::size_t>(bins) + 1);
+        offsets->read_into(0, bins + 1, std::span<std::int64_t>(index));
+        if (index.front() != 0 || index.back() != pixels ||
+            !std::is_sorted(index.begin(), index.end())) {
+            return std::nullopt;
+        }
+        const std::int64_t size = last - first;
+        const std::int64_t span_first = index[static_cast<std::size_t>(first)];
+        const std::int64_t span_last = index[static_cast<std::size_t>(last)];
+        CsrMatrix::Arrays arrays;
+        arrays.rows = size;
+        arrays.cols = size;
+        arrays.dtype = dtype;
+        if (first == 0 && last == bins) {
+            // The whole table: every column is inside and the rows stay as
+            // stored, so the columns are read straight into their final
+            // arrays.
+            arrays.indices.resize(static_cast<std::size_t>(pixels));
+            arrays.data.resize(static_cast<std::size_t>(pixels));
+            for (std::int64_t lo = 0; lo < pixels; lo += kReadRows) {
+                const std::int64_t hi = std::min(pixels, lo + kReadRows);
+                const auto at = static_cast<std::size_t>(lo);
+                const auto n = static_cast<std::size_t>(hi - lo);
+                bin2.read_into(lo, hi, std::span<std::int32_t>(arrays.indices.data() + at, n));
+                count.read_into(lo, hi, std::span<double>(arrays.data.data() + at, n));
+            }
+            arrays.indptr = std::move(index);
+            return CsrMatrix::adopt(std::move(arrays));
+        }
+        // A block: the row span also holds the pixels whose column lies past
+        // the block (the other chromosomes of a multi-chromosome file), so it
+        // is read in range query sized slices and only the columns inside
+        // [first, last) are kept, renumbered. The capacity reserved for the
+        // whole span is only resident where it is written, so the peak is the
+        // kept pixels plus one slice. Rows stored out of order are sorted
+        // afterwards.
+        const auto span = static_cast<std::size_t>(span_last - span_first);
+        arrays.indices.reserve(span);
+        arrays.data.reserve(span);
+        arrays.indptr.assign(static_cast<std::size_t>(size) + 1, 0);
+        const auto slice = static_cast<std::size_t>(std::min<std::int64_t>(
+            kChunkPixels, std::max<std::int64_t>(span_last - span_first, 1)));
+        std::vector<std::int32_t> slice_columns(slice);
+        std::vector<double> slice_counts(slice);
+        std::int64_t row = first;
+        for (std::int64_t lo = span_first; lo < span_last; lo += kChunkPixels) {
+            const std::int64_t hi = std::min(span_last, lo + kChunkPixels);
+            const auto n = static_cast<std::size_t>(hi - lo);
+            bin2.read_into(lo, hi, std::span<std::int32_t>(slice_columns.data(), n));
+            count.read_into(lo, hi, std::span<double>(slice_counts.data(), n));
+            for (std::size_t i = 0; i < n; ++i) {
+                const std::int64_t position = lo + static_cast<std::int64_t>(i);
+                while (index[static_cast<std::size_t>(row) + 1] <= position) {
+                    arrays.indptr[static_cast<std::size_t>(row - first) + 1] =
+                        static_cast<std::int64_t>(arrays.indices.size());
+                    ++row;
+                }
+                const std::int32_t column = slice_columns[i];
+                if (column >= first && column < last) {
+                    arrays.indices.push_back(static_cast<std::int32_t>(column - first));
+                    arrays.data.push_back(slice_counts[i]);
+                }
+            }
+        }
+        for (; row < last; ++row) {
+            arrays.indptr[static_cast<std::size_t>(row - first) + 1] =
+                static_cast<std::int64_t>(arrays.indices.size());
+        }
+        sort_row_columns(arrays);
+        return CsrMatrix::adopt(std::move(arrays));
+    });
+}
+
 CsrMatrix CoolFile::read_matrix() const {
-    // The rows of the pixel table in storage order, which is what
-    // indexes/bin1_offset describes: the CSR row offsets of the table.
     const std::int64_t bins = nbins();
     const std::string dtype = count_dtype();
+    if (std::optional<CsrMatrix> matrix = read_from_index(0, bins, dtype)) {
+        return std::move(*matrix);
+    }
+    // Without a usable index: the rows of the pixel table in storage order
+    // through the range query.
     CsrMatrix::Arrays arrays;
     arrays.rows = bins;
     arrays.cols = bins;
@@ -232,6 +368,11 @@ CsrMatrix CoolFile::read_block(std::int64_t first, std::int64_t last) const {
     arrays.rows = size;
     arrays.cols = size;
     arrays.dtype = count_dtype();
+    if (size > 0) {
+        if (std::optional<CsrMatrix> block = read_from_index(first, last, arrays.dtype)) {
+            return std::move(*block);
+        }
+    }
     arrays.indptr.assign(static_cast<std::size_t>(size) + 1, 0);
     if (size > 0) {
         for_each_pixel_chunk(first, last, first, last, [&](const PixelChunk& chunk) {
@@ -245,30 +386,7 @@ CsrMatrix CoolFile::read_block(std::int64_t first, std::int64_t last) const {
     for (std::size_t i = 1; i < arrays.indptr.size(); ++i) {
         arrays.indptr[i] += arrays.indptr[i - 1];
     }
-    // Sort the columns of a row that is stored out of order, as select_bins
-    // returns them (cpp/tests/test_cool_chromosome_cut.cpp).
-    std::vector<std::pair<std::int32_t, double>> row_entries;
-    for (std::int64_t row = 0; row < size; ++row) {
-        const auto begin = static_cast<std::size_t>(arrays.indptr[static_cast<std::size_t>(row)]);
-        const auto end = static_cast<std::size_t>(arrays.indptr[static_cast<std::size_t>(row) + 1]);
-        bool sorted = true;
-        for (std::size_t k = begin + 1; k < end && sorted; ++k) {
-            sorted = arrays.indices[k - 1] <= arrays.indices[k];
-        }
-        if (sorted) {
-            continue;
-        }
-        row_entries.clear();
-        for (std::size_t k = begin; k < end; ++k) {
-            row_entries.emplace_back(arrays.indices[k], arrays.data[k]);
-        }
-        std::stable_sort(row_entries.begin(), row_entries.end(),
-                         [](const auto& a, const auto& b) { return a.first < b.first; });
-        for (std::size_t k = begin; k < end; ++k) {
-            arrays.indices[k] = row_entries[k - begin].first;
-            arrays.data[k] = row_entries[k - begin].second;
-        }
-    }
+    sort_row_columns(arrays);
     return CsrMatrix::adopt(std::move(arrays));
 }
 
@@ -783,6 +901,7 @@ void write_cool(const std::string& uri, MatrixData& data, const CoolSaveOptions&
     const bool integer_sum = kind == DType::Integer && !options.enforce_integer;
     const bool float32_sum = kind == DType::Float32 && !options.enforce_integer;
     bool rows_sorted = true;
+    bool ids_in_bounds = true;
     std::optional<double> float_total;
     {
         std::optional<CountSum> sum;
@@ -794,6 +913,9 @@ void write_cool(const std::string& uri, MatrixData& data, const CoolSaveOptions&
         const auto visit = [&](std::int64_t row, std::int64_t col, double value) {
             if (row == last_row && col <= last_col) {
                 rows_sorted = false;
+            }
+            if (col < 0 || col >= nbins) {
+                ids_in_bounds = false;
             }
             last_row = row;
             last_col = col;
@@ -809,6 +931,21 @@ void write_cool(const std::string& uri, MatrixData& data, const CoolSaveOptions&
         if (sum.has_value()) {
             float_total = sum->total();
         }
+    }
+
+    // create_cooler's boundscheck, dupcheck and triucheck only ever raise;
+    // they never change what is written. The pass above has already
+    // established all three for the entries the cursor yields: rows come in
+    // order with strictly increasing columns (no duplicate pixel), every
+    // column lies inside the bin table (rows do by construction), and the
+    // symmetric case yields the upper triangle only (triucheck applies to
+    // symmetric-upper files alone). When that holds, the checks are skipped,
+    // which is 0.7 s of CPU on the 61.8 M pixel gm12878 matrix; otherwise they
+    // run, and bad input raises as it does in Python.
+    if (rows_sorted && ids_in_bounds) {
+        create.boundscheck = false;
+        create.dupcheck = false;
+        create.triucheck = false;
     }
 
     PixelCursor cursor(matrix, options.symmetric, options.enforce_integer, count_frame);

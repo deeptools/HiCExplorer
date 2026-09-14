@@ -106,6 +106,12 @@ class CoolFile {
                               const std::function<void(const PixelChunk&)>& visit) const;
 
   private:
+    // read_matrix (first = 0, last = nbins) or read_block through
+    // indexes/bin1_offset, or nullopt when the index is missing or does not
+    // describe the pixel table.
+    [[nodiscard]] std::optional<CsrMatrix> read_from_index(std::int64_t first, std::int64_t last,
+                                                           const std::string& dtype) const;
+
     std::shared_ptr<const coolercpp::Cooler> cooler_;
     std::string filename_;
     std::string root_ = "/";
