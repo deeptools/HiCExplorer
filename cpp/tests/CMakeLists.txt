@@ -58,17 +58,15 @@ target_compile_definitions(hicx_tests PRIVATE
 
 add_test(NAME hicx_unit_tests COMMAND hicx_tests)
 
-# hicCompartmentalization draws a matplotlib figure the C++ port cannot draw
-# yet. A run that asks for it has to fail visibly and write nothing, while
-# --noPlot has to write the numeric outputs. The equivalence harness cannot
-# express a case whose exit status differs between Python and C++, so this is
-# checked here.
-add_test(NAME hicCompartmentalization_refuses_plot
+# hicCompartmentalization's C++-only --noPlot writes the numeric outputs
+# without the figure; the equivalence harness cannot compare an option the
+# Python does not have, so this is checked here.
+add_test(NAME hicCompartmentalization_no_plot
          COMMAND ${CMAKE_COMMAND}
                  -DTOOL=$<TARGET_FILE:hicCompartmentalization>
                  -DDATA=${CMAKE_CURRENT_SOURCE_DIR}/../../hicexplorer/test/test_data
-                 -DOUT=${CMAKE_CURRENT_BINARY_DIR}/hicCompartmentalization_refuses_plot
-                 -P ${CMAKE_CURRENT_SOURCE_DIR}/check_compartmentalization_refuses_plot.cmake)
+                 -DOUT=${CMAKE_CURRENT_BINARY_DIR}/hicCompartmentalization_no_plot
+                 -P ${CMAKE_CURRENT_SOURCE_DIR}/check_compartmentalization_no_plot.cmake)
 
 # Command line behaviour that only the finished executables can show: refusals
 # that must leave no output behind, and hicMergeDomains' graphviz rendering.
