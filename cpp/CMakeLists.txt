@@ -22,6 +22,9 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 option(HICX_BUILD_TESTS "Build the C++ unit tests" ON)
 option(HICX_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" OFF)
+# The hicx_matrix Python module (python/, pybind11), off by default because it
+# needs a Python 3.12 with its development headers.
+option(HICX_BUILD_PYTHON "Build the hicx_matrix Python module" OFF)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 include(HicxDependencies)
@@ -35,6 +38,10 @@ target_compile_options(hicx_compile_options INTERFACE
 
 add_subdirectory(core)
 add_subdirectory(tools)
+
+if(HICX_BUILD_PYTHON)
+    add_subdirectory(python)
+endif()
 
 if(HICX_BUILD_TESTS)
     enable_testing()
