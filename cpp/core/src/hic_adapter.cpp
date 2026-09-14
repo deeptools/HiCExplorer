@@ -26,6 +26,8 @@ constexpr const char* kHic2coolVersion = "0.8.3";
 // and MCOOL_FORMAT_VERSION.
 constexpr const char* kHic2coolUrl = "https://github.com/4dn-dcic/hic2cool";
 constexpr std::size_t kChromNameWidth = 32;  // CHROM_DTYPE S32
+// Rows per write of a pixel column.
+constexpr std::size_t kWriteSlice = std::size_t{1} << 20;
 
 std::string lowercase(std::string text) {
     std::transform(text.begin(), text.end(), text.begin(),
@@ -87,6 +89,31 @@ std::int32_t numpy_int32(float value) {
         return std::numeric_limits<std::int32_t>::min();
     }
     return static_cast<std::int32_t>(value);
+}
+
+// The smallest binX a block of a zoom level can hold, from its number alone
+// (hicstraw getBlockNumbersForRegionFromBinPosition and its V9Intra variant,
+// which Juicer's writers follow). Versions 6 to 8 and every inter-chromosomal
+// matrix: number = row * blockColumnCount + column with column = binX /
+// blockBinCount. Version 9 intra: number = depth * blockColumnCount + position,
+// position = (binX + binY) / 2 / blockBinCount, depth = log2(1 + |binX - binY|
+// / sqrt(2) / blockBinCount), so binX >= position * blockBinCount - |binX -
+// binY| / 2 with |binX - binY| < sqrt(2) * blockBinCount * (2^(depth + 1) - 1);
+// the bound below takes one more depth level as margin.
+std::int64_t block_bin1_floor(std::int32_t number, std::int32_t block_bin_count,
+                              std::int32_t block_column_count, bool v9_intra) {
+    if (block_bin_count <= 0 || block_column_count <= 0 || number < 0) {
+        return 0;
+    }
+    const std::int64_t column = number % block_column_count;
+    if (!v9_intra) {
+        return column * block_bin_count;
+    }
+    const std::int64_t depth = std::min<std::int64_t>(number / block_column_count, 40);
+    const double half_span =
+        std::sqrt(2.0) * block_bin_count * (std::ldexp(1.0, static_cast<int>(depth) + 2) - 1.0) / 2.0;
+    const double floor = static_cast<double>(column * block_bin_count) - half_span;
+    return floor <= 0.0 ? 0 : static_cast<std::int64_t>(floor);
 }
 
 struct Chrom {
@@ -289,10 +316,21 @@ void convert(const hicfilecpp::HiCFile& hic, const std::string& outfile,
         writer.set_attribute(group, "creation-date", utc_now_isoformat());
 
         // The pixel loop: every chromosome pair once, grouped by the first
-        // chromosome in file order, each group sorted by (bin1, bin2).
+        // chromosome in file order, each group sorted by (bin1, bin2). hic2cool
+        // concatenates a group's pixels and sorts them in memory; here a group
+        // is streamed. Every block gets a lower bound of the bin1 values it
+        // can hold (block_bin1_floor), blocks are decoded in the order of
+        // those bounds, and before a block is decoded the pending pixels
+        // below its bound are final: they are sorted and appended. The same
+        // rows in the same order reach the file, while memory holds only the
+        // pixels at or above the current bound, about one block column.
+        if (n_bins > static_cast<std::size_t>(std::numeric_limits<std::int32_t>::max())) {
+            throw Hic2coolExit("!!! ERROR. " + std::to_string(n_bins) +
+                               " bins do not fit the 32-bit pixel buffer");
+        }
         struct Pixel {
-            std::int64_t bin1;
-            std::int64_t bin2;
+            std::int32_t bin1;
+            std::int32_t bin2;
             std::int32_t count;
         };
         std::set<std::pair<std::int32_t, std::int32_t>> covered;
@@ -300,11 +338,63 @@ void convert(const hicfilecpp::HiCFile& hic, const std::string& outfile,
         std::size_t nnz = 0;
         std::vector<std::int64_t> column64;
         std::vector<std::int32_t> column32;
+        std::vector<Pixel> pending;
+        const auto append = [&](std::size_t count) {
+            if (count == 0) {
+                return;
+            }
+            std::sort(pending.begin(), pending.begin() + static_cast<std::ptrdiff_t>(count),
+                      [](const Pixel& a, const Pixel& b) {
+                          return a.bin1 != b.bin1 ? a.bin1 < b.bin1 : a.bin2 < b.bin2;
+                      });
+            const std::size_t grown = nnz + count;
+            h5::FileWriter::resize(bin1_dataset.get(), grown);
+            h5::FileWriter::resize(bin2_dataset.get(), grown);
+            h5::FileWriter::resize(count_dataset.get(), grown);
+            // The file columns are written in slices, so the int64 and int32
+            // conversion buffers stay at kWriteSlice rows.
+            for (std::size_t lo = 0; lo < count; lo += kWriteSlice) {
+                const std::size_t n = std::min(kWriteSlice, count - lo);
+                column64.resize(n);
+                for (std::size_t i = 0; i < n; ++i) {
+                    column64[i] = pending[lo + i].bin1;
+                    bin1_counts[static_cast<std::size_t>(pending[lo + i].bin1)]++;
+                }
+                h5::FileWriter::write_block(bin1_dataset.get(), H5T_NATIVE_INT64, nnz + lo, n,
+                                            column64.data());
+                for (std::size_t i = 0; i < n; ++i) {
+                    column64[i] = pending[lo + i].bin2;
+                }
+                h5::FileWriter::write_block(bin2_dataset.get(), H5T_NATIVE_INT64, nnz + lo, n,
+                                            column64.data());
+                column32.resize(n);
+                for (std::size_t i = 0; i < n; ++i) {
+                    column32[i] = pending[lo + i].count;
+                }
+                h5::FileWriter::write_block(count_dataset.get(), H5T_NATIVE_INT32, nnz + lo, n,
+                                            column32.data());
+            }
+            pending.erase(pending.begin(), pending.begin() + static_cast<std::ptrdiff_t>(count));
+            nnz = grown;
+        };
         for (const auto& chr_a : used) {
             if (lowercase(chr_a.name) == "all") {
                 continue;
             }
-            std::vector<Pixel> total;
+            struct PairMatrix {
+                hicfilecpp::MatrixZoomData mzd;
+                std::int64_t bins1;
+                std::int64_t bins2;
+                std::int64_t offset1;
+                std::int64_t offset2;
+            };
+            struct BlockRef {
+                std::int64_t floor;
+                std::size_t pair;
+                hicfilecpp::BlockIndexEntry entry;
+            };
+            std::vector<PairMatrix> pairs;
+            std::vector<BlockRef> blocks;
             for (const auto& chr_b : used) {
                 if (lowercase(chr_b.name) == "all") {
                     continue;
@@ -325,51 +415,56 @@ void convert(const hicfilecpp::HiCFile& hic, const std::string& outfile,
                 if (!present) {
                     continue;
                 }
-                const auto mzd = hic.getMatrixZoomData(name_of[c1], name_of[c2], "observed", "NONE",
-                                                       "BP", binsize);
-                const std::int64_t bins1 = bins_of[c1];
-                const std::int64_t bins2 = bins_of[c2];
-                const std::int64_t offset1 = offset_of[c1];
-                const std::int64_t offset2 = offset_of[c2];
-                for (const auto& entry : mzd.blockIndex()) {
-                    for (const auto& record : mzd.readBlock(entry)) {
-                        if (record.binX >= 0 && record.binX < bins1 && record.binY >= 0 &&
-                            record.binY < bins2) {
-                            total.push_back(Pixel{record.binX + offset1, record.binY + offset2,
-                                                  numpy_int32(record.counts)});
+                const auto zoom = std::find_if(
+                    headers.begin(), headers.end(), [&](const hicfilecpp::ZoomHeader& h) {
+                        return h.unit == "BP" && h.binSize == binsize;
+                    });
+                pairs.push_back(PairMatrix{hic.getMatrixZoomData(name_of[c1], name_of[c2], "observed",
+                                                                 "NONE", "BP", binsize),
+                                           bins_of[c1], bins_of[c2], offset_of[c1], offset_of[c2]});
+                const bool v9_intra = hic.version() > 8 && c1 == c2;
+                for (const auto& entry : pairs.back().mzd.blockIndex()) {
+                    blocks.push_back(BlockRef{
+                        pairs.back().offset1 + block_bin1_floor(entry.number, zoom->blockBinCount,
+                                                                zoom->blockColumnCount, v9_intra),
+                        pairs.size() - 1, entry});
+                }
+            }
+            std::sort(blocks.begin(), blocks.end(), [](const BlockRef& a, const BlockRef& b) {
+                if (a.floor != b.floor) {
+                    return a.floor < b.floor;
+                }
+                return a.pair != b.pair ? a.pair < b.pair : a.entry.number < b.entry.number;
+            });
+            std::int64_t final_below = std::numeric_limits<std::int64_t>::min();
+            for (const BlockRef& block : blocks) {
+                if (block.floor > final_below) {
+                    // Every later block holds bin1 >= block.floor.
+                    const auto split = std::partition(pending.begin(), pending.end(),
+                                                      [&](const Pixel& p) { return p.bin1 < block.floor; });
+                    append(static_cast<std::size_t>(split - pending.begin()));
+                    final_below = block.floor;
+                }
+                const PairMatrix& pair = pairs[block.pair];
+                for (const auto& record : pair.mzd.readBlock(block.entry)) {
+                    if (record.binX >= 0 && record.binX < pair.bins1 && record.binY >= 0 &&
+                        record.binY < pair.bins2) {
+                        const std::int64_t bin1 = record.binX + pair.offset1;
+                        if (bin1 < final_below) {
+                            throw Hic2coolExit(
+                                "!!! ERROR. Block " + std::to_string(block.entry.number) +
+                                " holds bin " + std::to_string(record.binX) +
+                                " outside the bins its block number allows; the hic file is not "
+                                "laid out as Juicer writes it");
                         }
+                        pending.push_back(Pixel{static_cast<std::int32_t>(bin1),
+                                                static_cast<std::int32_t>(record.binY + pair.offset2),
+                                                numpy_int32(record.counts)});
                     }
                 }
             }
-            std::sort(total.begin(), total.end(), [](const Pixel& a, const Pixel& b) {
-                return a.bin1 != b.bin1 ? a.bin1 < b.bin1 : a.bin2 < b.bin2;
-            });
-            if (total.empty()) {
-                continue;
-            }
-            const std::size_t grown = nnz + total.size();
-            h5::FileWriter::resize(bin1_dataset.get(), grown);
-            h5::FileWriter::resize(bin2_dataset.get(), grown);
-            h5::FileWriter::resize(count_dataset.get(), grown);
-            column64.resize(total.size());
-            for (std::size_t i = 0; i < total.size(); ++i) {
-                column64[i] = total[i].bin1;
-                bin1_counts[static_cast<std::size_t>(total[i].bin1)]++;
-            }
-            h5::FileWriter::write_block(bin1_dataset.get(), H5T_NATIVE_INT64, nnz, total.size(),
-                                        column64.data());
-            for (std::size_t i = 0; i < total.size(); ++i) {
-                column64[i] = total[i].bin2;
-            }
-            h5::FileWriter::write_block(bin2_dataset.get(), H5T_NATIVE_INT64, nnz, total.size(),
-                                        column64.data());
-            column32.resize(total.size());
-            for (std::size_t i = 0; i < total.size(); ++i) {
-                column32[i] = total[i].count;
-            }
-            h5::FileWriter::write_block(count_dataset.get(), H5T_NATIVE_INT32, nnz, total.size(),
-                                        column32.data());
-            nnz = grown;
+            append(pending.size());
+            pending.shrink_to_fit();
         }
 
         // finalize_resolution_cool
