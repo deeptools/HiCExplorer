@@ -5,14 +5,14 @@
 // --outFileName), optionally a diagnostic heatmap figure, and three numeric
 // outputs: --outFilePrefixMatrix (np.savetxt '%0.5f' of each aggregate),
 // --outFileContactPairs (the contact positions per cluster) and
-// --outFileObsExp (the obs/exp matrix). No C++ tool draws figures yet
-// (cpp/AGENTS_CONTRACT.md rule 7), so, as for hicCompartmentalization:
-//
-//  * a plain run is a request for the figure and is refused with exit status
-//    1 before any input is read, and nothing is written;
-//  * --noPlot, which only the port has, writes the numeric outputs;
-//  * --diagnosticHeatmapFile names a second figure explicitly and is refused
-//    the same way, with or without --noPlot.
+// --outFileObsExp (the obs/exp matrix). The figures follow cpp/PLAN.md tier 7,
+// option (a): after the tables the aggregate of every cluster, the cluster
+// members and, for --diagnosticHeatmapFile, the diagonal of every kept
+// submatrix go to plot/hicexplorer_plot/hicAggregateContacts.py, which draws
+// them with the reference's plot_aggregated_contacts and
+// plot_diagnostic_heatmaps. The C++-only options: --noPlot writes the numeric
+// outputs without any figure; --plotData writes the figures' data as JSON
+// instead of drawing.
 //
 // Clustering: main() reaches exactly two scikit-learn estimators, KMeans
 // (--kmeans) and AgglomerativeClustering with ward linkage (--hclust). Both are
@@ -96,6 +96,7 @@
 #include "hicx/numpy_compat.hpp"
 #include "hicx/numpy_sort.hpp"
 #include "hicx/obsexp_ops.hpp"
+#include "hicx/plot_bridge.hpp"
 #include "hicx/resource_usage.hpp"
 #include "hicx/tool_matrix.hpp"
 #include "hicx/transform_ops.hpp"
@@ -121,18 +122,22 @@ const char* const kUsage =
     "                            [--max_deviation MAX_DEVIATION]\n"
     "                            [--chromosomes CHROMOSOMES [CHROMOSOMES ...]]\n"
     "                            [--colorMap COLORMAP] [--plotType {2d,3d}]\n"
-    "                            [--vMin VMIN] [--vMax VMAX] [--noPlot]\n";
+    "                            [--vMin VMIN] [--vMax VMAX] [--noPlot]\n"
+    "                            [--plotData FILE]\n";
 
 const char* const kHelp =
     "\n"
     "Takes a list of positions in the Hi-C matrix and makes a pooled image.\n"
     "\n"
-    "The options are those of the Python hicAggregateContacts. Plotting is not yet\n"
-    "available in the C++ port (tier 7 of cpp/PLAN.md):\n"
-    "  --noPlot              C++ port only: write the numeric outputs\n"
-    "                        (--outFilePrefixMatrix, --outFileContactPairs,\n"
-    "                        --outFileObsExp) without the figure. A run without this\n"
-    "                        flag, or with --diagnosticHeatmapFile, is refused.\n";
+    "The options are those of the Python hicAggregateContacts. The tables are\n"
+    "computed in C++, and the figures are drawn by the hicexplorer_plot drawing\n"
+    "layer with the matplotlib calls of the Python tool (HICX_PLOT_PYTHON names the\n"
+    "interpreter). C++ port only:\n"
+    "  --noPlot              write the numeric outputs (--outFilePrefixMatrix,\n"
+    "                        --outFileContactPairs, --outFileObsExp) without any\n"
+    "                        figure.\n"
+    "  --plotData FILE       write the data of the figures as JSON to FILE instead\n"
+    "                        of drawing them.\n";
 
 // A failure the Python reports through exit(message), log.error + exit(1), an
 // assertion or an uncaught exception: all of them end with status 1.
@@ -164,7 +169,14 @@ struct Arguments {
     bool keep_outlier = false;
     std::int64_t max_deviation = 2;
     std::vector<std::string> chromosomes;
+    std::string color_map = "RdYlBu_r";
+    std::string plot_type = "2d";
+    std::optional<double> v_min;
+    std::optional<double> v_max;
+    bool disable_bbox_tight = false;
+    std::int64_t dpi = 300;
     bool no_plot = false;
+    std::optional<std::string> plot_data;
 };
 
 std::optional<std::int64_t> python_int(const std::string& text) {
@@ -323,9 +335,14 @@ Arguments parse_arguments(int argc, char** argv) {
     plotting.add({"--disable_bbox_tight"}).action(cli::Action::StoreTrue).help(cli::kSuppress);
     plotting.add({"--noPlot"})
         .action(cli::Action::StoreTrue)
-        .cpp_only("Plotting is not ported yet: writes the numeric outputs without the figure; a "
-                  "run without this flag is refused.")
+        .cpp_only("Writes the numeric outputs without drawing any figure.")
         .help("Write the numeric outputs without the figure.");
+    plotting.add({"--plotData"})
+        .metavar("FILE")
+        .output({"json"})
+        .cpp_only("The data of the figures as JSON, without drawing them (cpp/PLAN.md tier 7).")
+        .help("Write the data the figures are drawn from as JSON to this file and do not draw "
+              "them.");
     optional.add({"--dpi"})
         .type("int")
         .default_value(300)
@@ -356,7 +373,14 @@ Arguments parse_arguments(int argc, char** argv) {
     args.keep_outlier = ns.flag("keep_outlier");
     args.max_deviation = ns.integer("max_deviation");
     args.chromosomes = ns.strs("chromosomes");
+    args.color_map = ns.str("colorMap");
+    args.plot_type = ns.str("plotType");
+    args.v_min = ns.opt_real("vMin");
+    args.v_max = ns.opt_real("vMax");
+    args.disable_bbox_tight = ns.flag("disable_bbox_tight");
+    args.dpi = ns.integer("dpi");
     args.no_plot = ns.flag("noPlot");
+    args.plot_data = ns.opt_str("plotData");
     return args;
 }
 
@@ -902,21 +926,8 @@ void write_obs_exp(const std::string& path, const hicx::MatrixData& data) {
 int main(int argc, char** argv) {
     const Arguments args = parse_arguments(argc, argv);
 
-    if (!args.no_plot || args.diagnostic_heatmap_file.has_value()) {
-        const std::string figure = args.diagnostic_heatmap_file.has_value()
-                                       ? *args.diagnostic_heatmap_file
-                                       : args.out_file_name;
-        std::fprintf(stderr,
-                     "hicAggregateContacts: the figure '%s' was requested, but plotting is not "
-                     "yet available in the C++ port (tier 7 of cpp/PLAN.md). Nothing was "
-                     "written. Pass --noPlot, without --diagnosticHeatmapFile, to write only the "
-                     "numeric outputs (--outFilePrefixMatrix, --outFileContactPairs, "
-                     "--outFileObsExp), or use the Python hicAggregateContacts for the "
-                     "figures.\n",
-                     figure.c_str());
-        return 1;
-    }
-
+    namespace plot = hicx::plot;
+    std::string plot_json;
     try {
         hicx::ToolMatrix hic = hicx::ToolMatrix::load(args.matrix);
         hicx::MatrixData& data = hic.data();
@@ -1193,41 +1204,56 @@ int main(int argc, char** argv) {
         }
 
         const bool integral_centers = data.matrix.integral_dtype();
+        std::vector<std::string> chroms_json;
         for (const ClusterInput& info : clustered) {
+            const std::size_t cells = info.submatrices[0]->size();
+            const auto w = static_cast<std::size_t>(
+                std::llround(std::sqrt(static_cast<double>(cells))));
+            std::vector<std::string> clusters_json;
             for (std::size_t cluster = 0; cluster < info.clusters.size(); ++cluster) {
                 const std::vector<std::int64_t>& members = info.clusters[cluster];
                 const std::string suffix =
                     num_clusters == 1 ? "_" + info.name + ".tab"
                                       : "_" + info.name + "_cluster_" +
                                             std::to_string(cluster + 1) + ".tab";
-                if (args.out_file_prefix_matrix.has_value()) {
-                    const std::size_t cells = info.submatrices[0]->size();
-                    const auto w = static_cast<std::size_t>(
-                        std::llround(std::sqrt(static_cast<double>(cells))));
-                    std::vector<double> average(cells, 0.0);
-                    if (args.operation_type == "median") {
-                        std::vector<double> column(members.size());
+                // compute_avg (:628-644), for the table and the figure alike.
+                std::vector<double> average(cells, 0.0);
+                if (args.operation_type == "median") {
+                    std::vector<double> column(members.size());
+                    for (std::size_t c = 0; c < cells; ++c) {
+                        for (std::size_t m = 0; m < members.size(); ++m) {
+                            column[m] = (*info.submatrices[static_cast<std::size_t>(members[m])])[c];
+                        }
+                        average[c] = median(column);
+                    }
+                } else {
+                    average = *info.submatrices[static_cast<std::size_t>(members[0])];
+                    for (std::size_t m = 1; m < members.size(); ++m) {
+                        const std::vector<double>& sub =
+                            *info.submatrices[static_cast<std::size_t>(members[m])];
                         for (std::size_t c = 0; c < cells; ++c) {
-                            for (std::size_t m = 0; m < members.size(); ++m) {
-                                column[m] = (*info.submatrices[static_cast<std::size_t>(members[m])])[c];
-                            }
-                            average[c] = median(column);
-                        }
-                    } else {
-                        average = *info.submatrices[static_cast<std::size_t>(members[0])];
-                        for (std::size_t m = 1; m < members.size(); ++m) {
-                            const std::vector<double>& sub =
-                                *info.submatrices[static_cast<std::size_t>(members[m])];
-                            for (std::size_t c = 0; c < cells; ++c) {
-                                average[c] = average[c] + sub[c];
-                            }
-                        }
-                        if (args.operation_type == "mean") {
-                            for (double& value : average) {
-                                value = value / static_cast<double>(members.size());
-                            }
+                            average[c] = average[c] + sub[c];
                         }
                     }
+                    if (args.operation_type == "mean") {
+                        for (double& value : average) {
+                            value = value / static_cast<double>(members.size());
+                        }
+                    }
+                }
+                if (!args.no_plot) {
+                    std::vector<std::string> rows;
+                    for (std::size_t i = 0; i < w; ++i) {
+                        rows.push_back(plot::json_numbers(std::vector<double>(
+                            average.begin() + static_cast<std::ptrdiff_t>(i * w),
+                            average.begin() + static_cast<std::ptrdiff_t>((i + 1) * w))));
+                    }
+                    plot::JsonObject cluster_json;
+                    cluster_json.add("average", plot::json_list(rows));
+                    cluster_json.add("indices", plot::json_ints(members));
+                    clusters_json.push_back(cluster_json.str());
+                }
+                if (args.out_file_prefix_matrix.has_value()) {
                     std::string text;
                     for (std::size_t i = 0; i < w; ++i) {
                         for (std::size_t j = 0; j < w; ++j) {
@@ -1272,6 +1298,44 @@ int main(int argc, char** argv) {
                     write_text(*args.out_file_contact_pairs + suffix, text);
                 }
             }
+            if (!args.no_plot) {
+                // clustered_info[chrom]['diagonal']: mat_to_append.diagonal() of
+                // every kept submatrix, only read by plot_diagnostic_heatmaps.
+                std::vector<std::string> diagonals;
+                if (args.diagnostic_heatmap_file.has_value()) {
+                    for (const std::vector<double>* submatrix : info.submatrices) {
+                        std::vector<double> diagonal(w);
+                        for (std::size_t i = 0; i < w; ++i) {
+                            diagonal[i] = (*submatrix)[i * w + i];
+                        }
+                        diagonals.push_back(plot::json_numbers(diagonal));
+                    }
+                }
+                plot::JsonObject chrom_json;
+                chrom_json.add("name", plot::json_string(info.name));
+                chrom_json.add("clusters", plot::json_list(clusters_json));
+                chrom_json.add("diagonal", plot::json_list(diagonals));
+                chroms_json.push_back(chrom_json.str());
+            }
+        }
+
+        if (!args.no_plot) {
+            plot::JsonObject figure;
+            figure.add("outFileName", plot::json_string(args.out_file_name));
+            figure.add("diagnosticHeatmapFile",
+                       args.diagnostic_heatmap_file.has_value()
+                           ? plot::json_string(*args.diagnostic_heatmap_file)
+                           : "null");
+            figure.add("dpi", plot::json_int(args.dpi));
+            figure.add("vMin", args.v_min.has_value() ? plot::json_number(*args.v_min) : "null");
+            figure.add("vMax", args.v_max.has_value() ? plot::json_number(*args.v_max) : "null");
+            figure.add("colorMap", plot::json_string(args.color_map));
+            figure.add("plotType", plot::json_string(args.plot_type));
+            figure.add("disable_bbox_tight", plot::json_bool(args.disable_bbox_tight));
+            figure.add("M_half", plot::json_int(m_half));
+            figure.add("num_clusters", plot::json_int(num_clusters));
+            figure.add("chroms", plot::json_list(chroms_json));
+            plot_json = figure.str();
         }
     } catch (const ToolError& error) {
         std::fprintf(stderr, "%s\n", error.what());
@@ -1281,5 +1345,8 @@ int main(int argc, char** argv) {
         return 1;
     }
     hicx::report_resource_usage("hicAggregateContacts");
-    return 0;
+    if (args.no_plot) {
+        return 0;
+    }
+    return plot::draw("hicAggregateContacts", plot_json, args.plot_data);
 }

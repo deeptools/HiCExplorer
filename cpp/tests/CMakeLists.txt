@@ -68,7 +68,7 @@ add_test(NAME hicCompartmentalization_no_plot
                  -DOUT=${CMAKE_CURRENT_BINARY_DIR}/hicCompartmentalization_no_plot
                  -P ${CMAKE_CURRENT_SOURCE_DIR}/check_compartmentalization_no_plot.cmake)
 
-# Command line behaviour that only the finished executables can show: refusals
+# Command line behaviour that only the finished executables can show: failures
 # that must leave no output behind, and hicMergeDomains' graphviz rendering.
 find_program(HICX_BASH bash REQUIRED)
 set(HICX_TEST_DATA "${CMAKE_CURRENT_SOURCE_DIR}/../../hicexplorer/test/test_data")
@@ -79,16 +79,15 @@ add_test(NAME hicMergeDomains_cli
          COMMAND ${HICX_BASH} "${CMAKE_CURRENT_SOURCE_DIR}/cli/hicMergeDomains_cli.sh"
                  $<TARGET_FILE:hicMergeDomains> "${HICX_TEST_DATA}" "${HICX_DEPS_ROOT}")
 
-# hicAggregateContacts draws a matplotlib figure the C++ port cannot draw yet,
-# the same situation as hicCompartmentalization: a run that asks for a figure
-# (a plain run, or --diagnosticHeatmapFile) has to fail visibly and write
-# nothing, while --noPlot has to write the numeric outputs.
-add_test(NAME hicAggregateContacts_refuses_plot
+# hicAggregateContacts' C++-only --noPlot writes the numeric outputs without
+# any figure; the equivalence harness cannot compare an option the Python does
+# not have, so this is checked here.
+add_test(NAME hicAggregateContacts_no_plot
          COMMAND ${CMAKE_COMMAND}
                  -DTOOL=$<TARGET_FILE:hicAggregateContacts>
                  -DDATA=${CMAKE_CURRENT_SOURCE_DIR}/../../hicexplorer/test/test_data
-                 -DOUT=${CMAKE_CURRENT_BINARY_DIR}/hicAggregateContacts_refuses_plot
-                 -P ${CMAKE_CURRENT_SOURCE_DIR}/check_aggregate_contacts_refuses_plot.cmake)
+                 -DOUT=${CMAKE_CURRENT_BINARY_DIR}/hicAggregateContacts_no_plot
+                 -P ${CMAKE_CURRENT_SOURCE_DIR}/check_aggregate_contacts_no_plot.cmake)
 
 # Not a HiCExplorer tool: the smallest driver that exercises the tier 0 file
 # layer end to end, used by cpp/scripts/equiv.py against its Python twin

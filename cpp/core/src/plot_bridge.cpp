@@ -11,6 +11,8 @@
 #include <cstring>
 #include <fstream>
 
+#include <hdf5.h>
+
 #include "hicx/npz_file.hpp"
 #include "hicx/numpy_compat.hpp"
 #include "hicx/resource_usage.hpp"
@@ -257,6 +259,11 @@ int draw(const std::string& tool, const std::string& data_json,
         argv.push_back(arg.data());
     }
     argv.push_back(nullptr);
+    // exec skips the atexit handlers, among them the HDF5 library's, which
+    // flushes and closes every file an identifier still holds open. A tool
+    // that wrote an h5 or cool output before drawing would leave it
+    // unreadable, so the library is shut down here, as at a normal exit.
+    H5close();
     std::fflush(nullptr);
     ::execvp(python.c_str(), argv.data());
 
