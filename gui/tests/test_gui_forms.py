@@ -9,6 +9,7 @@ For every ported tool (and every subcommand):
 """
 
 import os
+import re
 
 import pytest
 
@@ -35,10 +36,16 @@ def _spec(tool):
 
 
 def ported_tools():
-    """The tools this revision ports: cpp/tools/<tool>.cpp, as
-    cpp/scripts/tool_specs.py lists them."""
-    names = os.listdir(os.path.join(REPO, "cpp", "tools"))
-    return sorted(os.path.splitext(n)[0] for n in names if n.endswith(".cpp") and n.startswith(("hic", "chic")))
+    """The tools this revision ports: cpp/tools/<tool>.cpp, plus the
+    executables CMake builds from another tool's source under a second name
+    (hicQC from hicPrepareQCreport.cpp), as cpp/scripts/tool_specs.py lists
+    them."""
+    tools_dir = os.path.join(REPO, "cpp", "tools")
+    names = {os.path.splitext(n)[0] for n in os.listdir(tools_dir)
+             if n.endswith(".cpp") and n.startswith(("hic", "chic"))}
+    with open(os.path.join(tools_dir, "CMakeLists.txt")) as handle:
+        names.update(re.findall(r"add_executable\(((?:hic|chic)\w+)", handle.read()))
+    return sorted(names)
 
 
 def test_ported_tools_available_and_the_rest_explained():
