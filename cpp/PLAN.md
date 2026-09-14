@@ -1530,12 +1530,16 @@ reference implementation where no Python exists.
 - *Where:* its own library, `~/src/hicfilecpp`, a C++ implementation of the Juicer
   `.hic` format with no Python or Java dependency, consumed by v4 the way
   coolercpp is. HiCExplorer behaviour stays in v4.
-- *Scope:* read versions 8 and 9 (header, chromosomes, attributes, BP and FRAG
+- *Scope:* read versions 6 to 9 (header, chromosomes, attributes, BP and FRAG
   resolutions, blocks, normalisation vectors NONE, VC, VC_SQRT, KR, SCALE,
   expected-value vectors, observed and observed/expected). Write versions 8 and
   9 from pixels at one or many resolutions, with expected values and the
-  normalisation vectors Juicer's `pre` and `addNorm` compute. Older versions are
-  refused explicitly.
+  normalisation vectors Juicer's `pre` and `addNorm` compute. Versions 6 and 7
+  (older deposits) are read, and written as well wherever a Juicer tools
+  release that writes them can be obtained to validate against. Versions below 6
+  and above 9 are refused explicitly, as straw does. (Extended 2026-09-14: the
+  project owner asked for both the old and the new format; 8 and 9 landed in
+  `8a2fa526`, 6 and 7 are on `v4-hic-legacy`.)
 - *v4:* `hicConvertFormat` reads `.hic` into cool, mcool, h5 and the text formats,
   and writes `.hic` from h5, cool and mcool. Afterwards every matrix-reading
   tool accepts a `.hic` with a resolution and normalisation selector.
@@ -1547,7 +1551,9 @@ reference implementation where no Python exists.
   `pre` and `addNorm` on the same input. Output bytes need not match Juicer's.
 - *Data:* `SRR1791297_30.hic` (in the repository) for cases; the 423 MB
   `GSM6505198` and 5.3 GB `GSE63525_HMEC` files (read-only mounts) for memory
-  and time at scale. All available files are version 8.
+  and time at scale. Those files are version 8. The 40 GB
+  `GSE63525_GM12878_insitu_primary+replicate_combined_30.hic` is version 7, and
+  7 version 7 files are on disk; there is no real version 6 file.
 
 **9.2 `.pairs` input for hicBuildMatrix.** 4DN and pairtools `.pairs`, plain or
 bgzipped. *Validation:* **E2** against `cooler cload pairs` on the same file, and
