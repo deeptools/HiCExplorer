@@ -86,11 +86,15 @@ def test_run_from_form_is_e0_against_the_direct_command(qtbot, window, tmp_path)
     code, text = equiv_compare("h5", out, direct_out)
     assert code == 0, text
 
+    # An output outside the project, where users keep their results.
+    elsewhere = tmp_path / "results elsewhere"
+    elsewhere.mkdir()
     page = window.open_tool_form("hicInfo")
-    info = os.path.join(project.path, "info.txt")
+    info = str(elsewhere / "info.txt")
     page.form.set_values({"matrices": [matrix], "outFileName": info})
     assert page.run()
     assert wait_finished(qtbot, window.controller) == 0
+    assert os.path.isfile(info)
     direct_info = str(direct_dir / "info.txt")
     page.form.set_values({"matrices": [matrix], "outFileName": direct_info})
     assert _direct(page.form.argv(window.loader.executable("hicInfo")), str(direct_dir)).returncode == 0
@@ -102,10 +106,26 @@ def test_run_from_form_is_e0_against_the_direct_command(qtbot, window, tmp_path)
     step = history[0]["steps"][0]
     assert step["status"] == "succeeded" and step["exit_code"] == 0
     assert step["peak_rss_kb"] > 0 and step["cpu_seconds"] is not None
+    # provenance: absolute output paths and the command line in the history
+    assert step["outputs"] == {"outFileName": info}
+    assert info in step["argv"] and os.path.isabs(step["argv"][0])
+    assert history[1]["steps"][0]["outputs"] == {"outFileName": out}
     window.run_view.refresh_history()
     assert window.run_view.history.count() == 2
     window.run_view.history.setCurrentRow(0)
     assert window.run_view.table.item(0, 2).text() == "succeeded"
+
+
+def test_output_in_a_missing_directory_is_refused(qtbot, window, tmp_path):
+    page = window.open_tool_form("hicInfo")
+    missing = str(tmp_path / "no such directory" / "info.txt")
+    page.form.set_values({"matrices": [os.path.join(DATA, "small_test_matrix.h5")], "outFileName": missing})
+    # validation fails at once, so wait for the signal around run()
+    with qtbot.waitSignal(window.controller.finished, timeout=60000) as blocker:
+        assert page.run()
+    assert blocker.args[0] == 1
+    assert "does not exist" in window.run_view.log.toPlainText()
+    assert not os.path.exists(os.path.dirname(missing))
 
 
 def test_cancel_stops_a_run(qtbot, window):

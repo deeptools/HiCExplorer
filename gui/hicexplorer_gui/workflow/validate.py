@@ -143,7 +143,14 @@ def validate_workflow(workflow, loader, check_files=True):
                 absolute = workflow.workdir_path(path)
                 rel = os.path.relpath(absolute, workflow.workdir) if is_under(absolute, workflow.workdir) else None
                 if fileinfo.get("role") == "output":
-                    if not is_under(absolute, workflow.workdir) or absolute == workflow.workdir:
+                    if (workflow.external_outputs and os.path.isabs(path)
+                            and not is_under(absolute, workflow.workdir)):
+                        parent = os.path.dirname(absolute) or os.sep
+                        if not os.path.isdir(parent):
+                            err("{}: {}: the directory of output {} does not exist".format(label, dest, path))
+                        elif not os.access(parent, os.W_OK):
+                            err("{}: {}: output directory {} is not writable".format(label, dest, parent))
+                    elif not is_under(absolute, workflow.workdir) or absolute == workflow.workdir:
                         err("{}: {}: output {} is not under the workdir".format(label, dest, path))
                     elif rel not in step.outputs.values():
                         info("{}: {}: output {} is not declared in outputs and is not tracked".format(

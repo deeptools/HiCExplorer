@@ -25,8 +25,10 @@ STATUS_COLUMNS = ["Step", "Tool", "Status", "Exit", "Peak RSS (MB)", "CPU (s)", 
 def single_tool_workflow(spec, subcommand, values, project_dir, threads=1):
     """A one-step workflow document for a form's values.
 
-    Output files inside the project become declared outputs, so the engine
-    tracks and hashes them; the project directory is the work directory.
+    Every output file becomes a declared output with its absolute path, inside
+    the project or anywhere else the user writes results; the engine hashes
+    them and the run history records the paths. The project directory is the
+    work directory (it holds the engine state).
     """
     args = {}
     outputs = {}
@@ -45,11 +47,9 @@ def single_tool_workflow(spec, subcommand, values, project_dir, threads=1):
             items = value if isinstance(value, list) else [value]
             refs = []
             for index, path in enumerate(items):
-                absolute = os.path.abspath(os.path.join(project_dir, path))
-                inside = os.path.commonpath([absolute, project_dir]) == project_dir and absolute != project_dir
-                if inside and isinstance(path, str) and not path.startswith("${"):
+                if isinstance(path, str) and not path.startswith("${"):
                     name = dest if len(items) == 1 else "{}_{}".format(dest, index + 1)
-                    outputs[name] = os.path.relpath(absolute, project_dir)
+                    outputs[name] = os.path.abspath(os.path.join(project_dir, os.path.expanduser(path)))
                     refs.append("${outputs.%s}" % name)
                 else:
                     refs.append(path)
@@ -89,7 +89,8 @@ class RunController(QtCore.QObject):
         path = os.path.join(history, "workflow.yaml")
         with open(path, "w") as handle:
             yaml.safe_dump(document, handle, sort_keys=False)
-        return self._start(project, loader, path, project.path, document["name"], history, force=True)
+        return self._start(project, loader, path, project.path, document["name"], history, force=True,
+                           external_outputs=True)
 
     def run_workflow(self, project, loader, workflow_path, name, force=False):
         workdir = project.workdir_for(name)
@@ -97,14 +98,14 @@ class RunController(QtCore.QObject):
         shutil.copyfile(workflow_path, os.path.join(history, "workflow.yaml"))
         return self._start(project, loader, workflow_path, workdir, name, history, force=force)
 
-    def _start(self, project, loader, path, workdir, name, history, force):
+    def _start(self, project, loader, path, workdir, name, history, force, external_outputs=False):
         if self.running:
             raise RuntimeError("a run is still in progress")
         self.name = name
         self.history_dir = history
         self.exit_code = None
         try:
-            self.workflow = load_workflow(path, workdir)
+            self.workflow = load_workflow(path, workdir, external_outputs=external_outputs)
         except WorkflowError as exc:
             self.workflow = None
             self._write_summary(1, str(exc), workdir, path)
@@ -163,7 +164,9 @@ class RunController(QtCore.QObject):
                 status = self.runner.status.get(step.id, "not run") if self.runner else "not run"
                 steps.append({"step": step.id, "tool": step.tool, "status": status,
                               "exit_code": record.get("exit_code"), "peak_rss_kb": record.get("peak_rss_kb"),
-                              "cpu_seconds": record.get("cpu_seconds"), "wall_seconds": record.get("wall_seconds")})
+                              "cpu_seconds": record.get("cpu_seconds"), "wall_seconds": record.get("wall_seconds"),
+                              "argv": record.get("argv"), "command": record.get("command"),
+                              "outputs": {n: self.workflow.output_abspath(step, n) for n in step.outputs}})
         summary = {"name": self.name, "exit_code": code, "error": error, "workflow": path, "workdir": workdir,
                    "started": getattr(self, "_started_at", _now()), "finished": _now(), "steps": steps}
         with open(os.path.join(self.history_dir, "summary.json"), "w") as handle:
