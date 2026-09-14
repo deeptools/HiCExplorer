@@ -115,6 +115,9 @@ class Workflow:
         self.inputs = {}       # name -> absolute path
         self.steps = []
         self.errors = []       # structural errors, one message per problem
+        # Absolute output paths outside the workdir are accepted (single tool
+        # runs from the GUI); workflow files keep outputs under the workdir.
+        self.external_outputs = False
 
     # -- lookup ---------------------------------------------------------
     def step(self, step_id):
@@ -242,8 +245,15 @@ class Workflow:
         return order
 
 
-def load_workflow(path, workdir=None):
-    """Parse a workflow file. Structural problems are collected in ``errors``."""
+def load_workflow(path, workdir=None, external_outputs=False):
+    """Parse a workflow file. Structural problems are collected in ``errors``.
+
+    With ``external_outputs`` an output may be an absolute path outside the
+    workdir; it is declared, hashed and resumed like any other output. The GUI
+    uses this for single tool runs, whose results go wherever the user keeps
+    them. Workflow files are loaded without it, so a workflow and its outputs
+    stay together in one relocatable work directory.
+    """
     try:
         with open(path) as handle:
             data = yaml.safe_load(handle)
@@ -254,6 +264,7 @@ def load_workflow(path, workdir=None):
     if not isinstance(data, dict):
         raise WorkflowError("{}: the top level must be a mapping".format(path))
     wf = Workflow(path, workdir)
+    wf.external_outputs = bool(external_outputs)
     err = wf.errors.append
 
     for key in sorted(set(data) - _TOP_KEYS):
@@ -341,6 +352,9 @@ def load_workflow(path, workdir=None):
                 err("{}: output {} must be a path string".format(label, name))
                 continue
             absolute = os.path.normpath(os.path.join(wf.workdir, value))
+            if wf.external_outputs and os.path.isabs(value) and not is_under(absolute, wf.workdir):
+                step.outputs[str(name)] = absolute
+                continue
             if not is_under(absolute, wf.workdir) or absolute == wf.workdir:
                 err("{}: output {} ({}) is not under the workdir".format(label, name, value))
                 continue

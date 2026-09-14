@@ -11,10 +11,18 @@ license = { text = "GPL-3.0-or-later" }
 dependencies = ["pyyaml"]
 
 [project.optional-dependencies]
-test = ["pytest"]
+# The graphical interface (PLAN 10.4 and 10.5). The matrix browser also needs
+# the hicx_matrix module of the C++ build (cpp/python, HICX_BUILD_PYTHON=ON).
+gui = ["PySide6==6.11.2", "pyqtgraph==0.14.0", "numpy"]
+# bigWig tracks in the matrix browser.
+bigwig = ["pyBigWig==0.3.26"]
+test = ["pytest", "pytest-qt==4.5.0"]
 
 [project.scripts]
 hicexplorer-workflow = "hicexplorer_gui.workflow.cli:main"
+
+[project.gui-scripts]
+hicexplorer-gui = "hicexplorer_gui.app:main"
 
 [tool.setuptools.packages.find]
 include = ["hicexplorer_gui*"]

@@ -159,6 +159,35 @@ def test_cli_usage_errors(tmp_path, tools_dir):
     assert run("export", path, "--format", "zip", "-o", "x") == 2
 
 
+def test_external_outputs_only_when_enabled(tmp_path, tools_dir):
+    """Workflow files keep outputs under the workdir; single tool runs from
+    the GUI (external_outputs) may write any existing, writable directory."""
+    work = tmp_path / "work"
+    (work / "data").mkdir(parents=True)
+    (work / "data" / "x.txt").write_text("x")
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    target = str(elsewhere / "out.txt")
+    data = one_step("combine", {"inputs": ["${inputs.x}"], "outFileName": "${outputs.out}"},
+                    outputs={"out": target})
+    path = write_workflow(work, data)
+    loader = SpecLoader(tools_dir)
+
+    plain = load_workflow(path)
+    assert any("output out ({}) is not under the workdir".format(target) in e for e in plain.errors)
+
+    wf = load_workflow(path, external_outputs=True)
+    assert wf.errors == []
+    assert wf.steps[0].outputs == {"out": target}
+    assert wf.output_abspath(wf.steps[0], "out") == target
+    assert [m.text for m in validate_workflow(wf, loader) if m.level == "error"] == []
+
+    data["steps"][0]["outputs"] = {"out": str(tmp_path / "missing" / "out.txt")}
+    wf = load_workflow(write_workflow(work, data), external_outputs=True)
+    errors = [m.text for m in validate_workflow(wf, loader) if m.level == "error"]
+    assert any("does not exist" in e for e in errors), errors
+
+
 def test_unreadable_workflow(tmp_path):
     path = tmp_path / "bad.yaml"
     path.write_text("- just\n- a list\n")

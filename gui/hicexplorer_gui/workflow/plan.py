@@ -24,7 +24,10 @@ class StepPlan:
         by_dest = spec.arguments_by_dest(step.subcommand)
 
         self.output_kinds = {name: None for name in step.outputs}
-        rel_to_name = {rel: name for name, rel in step.outputs.items()}
+        # Declared outputs by absolute path: relative to the workdir, or
+        # absolute outside it for a workflow loaded with external_outputs.
+        path_to_name = {os.path.normpath(os.path.join(workflow.workdir, rel)): name
+                        for name, rel in step.outputs.items()}
         inputs = {}
         output_paths = []
         for dest, value in self.args.items():
@@ -34,9 +37,9 @@ class StepPlan:
                 absolute = workflow.workdir_path(path)
                 if fileinfo.get("role") == "output":
                     output_paths.append(absolute)
-                    rel = os.path.relpath(absolute, workflow.workdir)
-                    if rel in rel_to_name and self.output_kinds[rel_to_name[rel]] is None:
-                        self.output_kinds[rel_to_name[rel]] = kind
+                    key = os.path.normpath(absolute)
+                    if key in path_to_name and self.output_kinds[path_to_name[key]] is None:
+                        self.output_kinds[path_to_name[key]] = kind
                 elif fileinfo.get("role") == "input":
                     inputs.setdefault(workflow.arg_path(absolute), kind)
         # Referenced workflow inputs and upstream outputs count as inputs

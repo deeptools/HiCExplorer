@@ -142,6 +142,46 @@ void check_resolution_listed(const Backend& backend, std::int64_t resolution) {
 
 // ------------------------------------------------------------------ cool, mcool
 
+// Whether a group holds the four tables cooler.Cooler reads.
+bool has_cooler_layout(const h5::File& file, const std::string& group) {
+    const std::string prefix = group == "/" ? "/" : group + "/";
+    for (const char* name : {"chroms", "bins", "pixels", "indexes"}) {
+        if (!file.exists(prefix + name)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool has_cooler_layout(const std::string& path, const std::string& group) {
+    const h5::File file(path);
+    return has_cooler_layout(file, group);
+}
+
+// The /resolutions/<bin size> groups of an mcool that cooler.Cooler can
+// open, by layout rather than by the 'format' attribute (see File).
+std::vector<std::string> resolution_groups(const std::string& path) {
+    const h5::File file(path);
+    std::vector<std::string> out;
+    if (!file.exists("/resolutions")) {
+        return out;
+    }
+    for (std::string name : file.children("/resolutions")) {
+        const std::string::size_type slash = name.find_last_of('/');
+        if (slash != std::string::npos) {
+            name = name.substr(slash + 1);
+        }
+        if (name.empty() || name.find_first_not_of("0123456789") != std::string::npos) {
+            continue;
+        }
+        const std::string group = "/resolutions/" + name;
+        if (has_cooler_layout(file, group)) {
+            out.push_back(group);
+        }
+    }
+    return out;
+}
+
 class CoolBackend final : public Backend {
   public:
     // uri: a plain path, or "file::/group" for one cooler of a container.
@@ -149,16 +189,8 @@ class CoolBackend final : public Backend {
         if (!multi) {
             add(uri, std::nullopt);
         } else {
-            for (const std::string& group : coolercpp::list_coolers(uri)) {
-                const std::string prefix = "/resolutions/";
-                if (group.rfind(prefix, 0) != 0) {
-                    continue;
-                }
-                const std::string number = group.substr(prefix.size());
-                if (number.empty() || number.find_first_not_of("0123456789") != std::string::npos) {
-                    continue;
-                }
-                add(uri + "::" + group, std::stoll(number));
+            for (const std::string& group : resolution_groups(uri)) {
+                add(uri + "::" + group, std::stoll(group.substr(std::string("/resolutions/").size())));
             }
             if (entries_.empty()) {
                 throw py::value_error(uri + " holds coolers, but none under /resolutions/<bin size>");
@@ -567,9 +599,13 @@ class File {
             backend_ = std::make_unique<HicBackend>(path_);
         } else if (!h5::is_hdf5(path_)) {
             throw py::value_error(path_ + " is neither a cool, mcool, h5 nor .hic file");
-        } else if (coolercpp::is_cooler(path_)) {
+        } else if (coolercpp::is_cooler(path_) || has_cooler_layout(path_, "/")) {
+            // cooler.Cooler opens any group that holds the cooler tables;
+            // cooler.fileops.is_cooler also requires the 'format' attribute as
+            // a variable length string and so rejects files written with a
+            // fixed length one (b'HDF5::Cooler'), which the tools read.
             backend_ = std::make_unique<CoolBackend>(path_, false);
-        } else if (!coolercpp::list_coolers(path_).empty()) {
+        } else if (!resolution_groups(path_).empty()) {
             backend_ = std::make_unique<CoolBackend>(path_, true);
         } else if (is_hicexplorer_h5(path_)) {
             backend_ = std::make_unique<H5Backend>(path_);

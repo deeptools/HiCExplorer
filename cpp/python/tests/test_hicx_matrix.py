@@ -19,6 +19,7 @@ KR = "hicCorrectMatrix/gm12878_KR.cool"
 LOOPS = "hicDetectLoops/GSE63525_GM12878_insitu_primary_2_5mb.cool"
 MCOOL = "hicBuildMatrix/multi_small_test_matrix.mcool"
 GSM_H5 = "hicDifferentialTAD/GSM2644945_Untreated-R1.100000_chr1.h5"
+GSM_COOL = "hicDifferentialTAD/GSM2644945_Untreated-R1.100000_chr1_chr2.cool"
 LI_H5 = "Li_et_al_2015.h5"
 SMALL_HIC = "hicHyperoptDetectLoopsHiCCUPS/SRR1791297_30.hic"
 LARGE_HIC = os.environ.get("HICX_LARGE_HIC", "")
@@ -51,6 +52,11 @@ COOL_CASES = [
     ("mcool_20kb_chrom_end", MCOOL, "", 20000, "chrX:21,000,000-22,420,000", None, "none"),
     ("mcool_uri_5kb", MCOOL, "::/resolutions/5000", None, "chr3L:2,000,000-3,000,000",
      "chr3L:2,500,000-4,000,000", "none"),
+    # 'format' stored as a fixed length string: cooler.fileops.is_cooler says
+    # no, cooler.Cooler opens it, and so must hicx_matrix.open.
+    ("gsm_fixed_format_chr1", GSM_COOL, "", None, "chr1:110,000,000-120,000,000", None, "none"),
+    ("gsm_fixed_format_inter", GSM_COOL, "", None, "chr1:0-40,000,000", "chr2", "none"),
+    ("gsm_fixed_format_chrom", GSM_COOL, "", 100000, "chr2", None, "none"),
 ]
 COOL_BY_ID = {case[0]: case for case in COOL_CASES}
 
@@ -76,7 +82,8 @@ def cooler_ref(tmp_path_factory):
             queries.append({"id": case[0], "what": "matrix", "uri": cool_uri(case),
                             "region1": case[4], "region2": case[5],
                             "balance": cool_balance(case[6])})
-    for name, relative in (("gm12878", GM), ("mcool_5kb", MCOOL + "::/resolutions/5000")):
+    for name, relative in (("gm12878", GM), ("mcool_5kb", MCOOL + "::/resolutions/5000"),
+                           ("gsm_fixed_format", GSM_COOL)):
         if os.path.isfile(data(relative.split("::")[0])):
             queries.append({"id": name, "what": "chromosomes", "uri": data(relative)})
     return run_oracle("cooler", queries, tmp_path_factory.mktemp("cooler"))
@@ -114,6 +121,15 @@ def test_cool_metadata(cooler_ref):
     assert gm.chromosomes() == list(zip(reference["names"].tolist(), reference["lengths"].tolist()))
     assert hicx_matrix.open(data(KR)).normalizations() == ["none", "balanced"]
     assert hicx_matrix.open(data(LOOPS)).normalizations() == ["none", "KR", "VC", "VC_SQRT"]
+
+
+def test_cool_with_fixed_length_format_attribute(cooler_ref):
+    need(data(GSM_COOL))
+    matrix = hicx_matrix.open(data(GSM_COOL))
+    assert matrix.format == "cool"
+    assert matrix.resolutions() == [100000]
+    reference = cooler_ref["gsm_fixed_format"]
+    assert matrix.chromosomes() == list(zip(reference["names"].tolist(), reference["lengths"].tolist()))
 
 
 def test_mcool_metadata(cooler_ref):
