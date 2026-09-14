@@ -48,9 +48,11 @@
 // ---------------------------------------------------------------------------
 // Not produced
 // ---------------------------------------------------------------------------
-// As for hicBuildMatrix: the five PNG figures and hicQC.html that
-// hicPrepareQCreport renders into the QC folder are matplotlib and a pandas
-// Styler page, tier 7 of cpp/PLAN.md. QC.log and the five tables are written.
+// As for hicBuildMatrix: QC.log and the five tables are written, and after a
+// successful run the five PNG figures and hicQC.html that hicPrepareQCreport
+// renders into the QC folder are drawn by plot/hicexplorer_plot (cpp/PLAN.md
+// tier 7, option (a)), once the temporary matrix is removed, because drawing
+// replaces the process.
 
 #include <cstdio>
 
@@ -178,5 +180,5 @@ int main(int argc, char** argv) {
     args.out_file_name = temporary;
     const int status = run_build_matrix(args);
     std::filesystem::remove(temporary, ec);  // D2
-    return status;
+    return status != 0 ? status : draw_qc_report(args.qc_folder);
 }

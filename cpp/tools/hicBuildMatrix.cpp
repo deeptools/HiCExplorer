@@ -100,9 +100,11 @@
 // ---------------------------------------------------------------------------
 // The QC folder holds six text artifacts and six rendered ones. The port
 // writes QC.log and the five *_table.txt files that hicPrepareQCreport derives
-// from it; the five PNGs and hicQC.html are matplotlib figures and a pandas
-// Styler HTML table and belong to the tier 7 plot work on hicPrepareQCreport
-// itself. See the report.
+// from it, and once the run has succeeded the five PNGs and hicQC.html are
+// drawn by plot/hicexplorer_plot/hicPrepareQCreport.py, as bin/hicQC draws
+// them (cpp/PLAN.md tier 7, option (a)). The reference renders them before it
+// writes the matrix; the port draws last, because drawing replaces the
+// process.
 
 // The body of the tool lives in build_matrix_impl.hpp, which hicBuildMatrixMicroC
 // shares: the two Python tools differ in their argument parser and call the
@@ -315,5 +317,7 @@ Arguments parse_arguments(int argc, char** argv) {
 
 int main(int argc, char** argv) {
     g_tool = "hicBuildMatrix";
-    return run_build_matrix(parse_arguments(argc, argv));
+    const Arguments args = parse_arguments(argc, argv);
+    const int status = run_build_matrix(args);
+    return status != 0 ? status : draw_qc_report(args.qc_folder);
 }

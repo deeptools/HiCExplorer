@@ -18,10 +18,12 @@
       {"path": "{out}/qc/read_orientation_table.txt", "format": "plain", "class": "E0",
        "options": {"normalise": ["quickqc_temporary_matrix"]}},
       {"path": "{out}/qc/unmapable_table.txt", "format": "plain", "class": "E0",
-       "options": {"normalise": ["quickqc_temporary_matrix"]}}
+       "options": {"normalise": ["quickqc_temporary_matrix"]}},
+      {"path": "{out}/qc/hicQC.html", "format": "text", "class": "E0",
+       "options": {"normalise": ["quickqc_temporary_name", "pandas_styler_uuid"]}}
     ],
     "memory": {"budget_mb": 192},
-    "notes": "The case test_hicQuickQC.py covers: the first 1,000 accepted pairs of the small_test BAMs against DpnII. The Python test compares QC.log alone, skips the File line and stops at the shorter file; here QC.log and the five tables hicPrepareQCreport derives from it are compared byte for byte, with only the NamedTemporaryFile basename normalised (quickqc_temporary_matrix in comparators/text.py). Budget per the hicBuildMatrix formula 2*nnz_out*12 + threads*64 MB + C with nnz_out = 0, because a test run never fills the pixel list, and threads = 2, because hicQuickQC passes --threads 1 and buildMatrixMethods.py:889 raises it to 2."
+    "notes": "The case test_hicQuickQC.py covers: the first 1,000 accepted pairs of the small_test BAMs against DpnII. The Python test compares QC.log alone, skips the File line and stops at the shorter file; here QC.log and the five tables hicPrepareQCreport derives from it are compared byte for byte, with only the NamedTemporaryFile basename normalised (quickqc_temporary_matrix in comparators/text.py). Budget per the hicBuildMatrix formula 2*nnz_out*12 + threads*64 MB + C with nnz_out = 0, because a test run never fills the pixel list, and threads = 2, because hicQuickQC passes --threads 1 and buildMatrixMethods.py:889 raises it to 2. hicQC.html is compared after the named normalisations quickqc_temporary_name and pandas_styler_uuid. The five QC charts are drawn as well but not compared: their legends name the row after the random temporary matrix, and savefig(bbox_inches='tight') sizes each figure to that text, so the width changes from run to run of the same tool (measured 2026-09-14: the C++ determinism rerun of these cases differs by up to 21 pixels, as the Python runs differ from each other)."
   },
   {
     "id": "hicQuickQC.small_test.DpnII.defaultLines",
@@ -42,11 +44,13 @@
       {"path": "{out}/qc/read_orientation_table.txt", "format": "plain", "class": "E0",
        "options": {"normalise": ["quickqc_temporary_matrix"]}},
       {"path": "{out}/qc/unmapable_table.txt", "format": "plain", "class": "E0",
-       "options": {"normalise": ["quickqc_temporary_matrix"]}}
+       "options": {"normalise": ["quickqc_temporary_matrix"]}},
+      {"path": "{out}/qc/hicQC.html", "format": "text", "class": "E0",
+       "options": {"normalise": ["quickqc_temporary_name", "pandas_styler_uuid"]}}
     ],
     "memory": {"budget_mb": 192},
     "large": true,
-    "notes": "--lines left at its default of 1,000,000, which is more than the 99,983 pairs in the files, so the whole library is classified in one buffer. This is the path where the early exit at buildMatrixMethods.py:1191 never fires."
+    "notes": "--lines left at its default of 1,000,000, which is more than the 99,983 pairs in the files, so the whole library is classified in one buffer. This is the path where the early exit at buildMatrixMethods.py:1191 never fires. hicQC.html is compared after the named normalisations quickqc_temporary_name and pandas_styler_uuid. The five QC charts are drawn as well but not compared: their legends name the row after the random temporary matrix, and savefig(bbox_inches='tight') sizes each figure to that text, so the width changes from run to run of the same tool (measured 2026-09-14: the C++ determinism rerun of these cases differs by up to 21 pixels, as the Python runs differ from each other)."
   },
   {
     "id": "hicQuickQC.small_test.twoEnzymes.lines5000",
@@ -70,10 +74,12 @@
       {"path": "{out}/qc/read_orientation_table.txt", "format": "plain", "class": "E0",
        "options": {"normalise": ["quickqc_temporary_matrix"]}},
       {"path": "{out}/qc/unmapable_table.txt", "format": "plain", "class": "E0",
-       "options": {"normalise": ["quickqc_temporary_matrix"]}}
+       "options": {"normalise": ["quickqc_temporary_matrix"]}},
+      {"path": "{out}/qc/hicQC.html", "format": "text", "class": "E0",
+       "options": {"normalise": ["quickqc_temporary_name", "pandas_styler_uuid"]}}
     ],
     "memory": {"budget_mb": 192},
-    "notes": "Two enzymes, two dangling sequences and two cut site files, the nargs='+' path of all three options. QC.log then has one dangling end line per enzyme, and the self circle counter can count a pair once per enzyme (F29)."
+    "notes": "Two enzymes, two dangling sequences and two cut site files, the nargs='+' path of all three options. QC.log then has one dangling end line per enzyme, and the self circle counter can count a pair once per enzyme (F29). hicQC.html is compared after the named normalisations quickqc_temporary_name and pandas_styler_uuid. The five QC charts are drawn as well but not compared: their legends name the row after the random temporary matrix, and savefig(bbox_inches='tight') sizes each figure to that text, so the width changes from run to run of the same tool (measured 2026-09-14: the C++ determinism rerun of these cases differs by up to 21 pixels, as the Python runs differ from each other)."
   },
   {
     "id": "hicQuickQC.R1_1000.hindIII.lines500",
@@ -94,10 +100,12 @@
       {"path": "{out}/qc/read_orientation_table.txt", "format": "plain", "class": "E0",
        "options": {"normalise": ["quickqc_temporary_matrix"]}},
       {"path": "{out}/qc/unmapable_table.txt", "format": "plain", "class": "E0",
-       "options": {"normalise": ["quickqc_temporary_matrix"]}}
+       "options": {"normalise": ["quickqc_temporary_matrix"]}},
+      {"path": "{out}/qc/hicQC.html", "format": "text", "class": "E0",
+       "options": {"normalise": ["quickqc_temporary_name", "pandas_styler_uuid"]}}
     ],
     "memory": {"budget_mb": 192},
-    "notes": "The second BAM pair in test_data, HindIII instead of DpnII, and the short spellings -s, -seq and -rs. With 983 pairs and --lines 500 the line limit is crossed inside the first buffer."
+    "notes": "The second BAM pair in test_data, HindIII instead of DpnII, and the short spellings -s, -seq and -rs. With 983 pairs and --lines 500 the line limit is crossed inside the first buffer. hicQC.html is compared after the named normalisations quickqc_temporary_name and pandas_styler_uuid. The five QC charts are drawn as well but not compared: their legends name the row after the random temporary matrix, and savefig(bbox_inches='tight') sizes each figure to that text, so the width changes from run to run of the same tool (measured 2026-09-14: the C++ determinism rerun of these cases differs by up to 21 pixels, as the Python runs differ from each other)."
   },
   {
     "id": "hicQuickQC.missingCutSiteFile",

@@ -126,8 +126,24 @@ def _normalise_pandas_styler_uuid(raw):
     return normalised, None
 
 
+# quickqc_temporary_name: the same random NamedTemporaryFile basename as in
+# quickqc_temporary_matrix, wherever it occurs, for a file without the QC.log
+# line layout: hicQC.html shows it as the row name of every table. Every
+# `tmp` + 8 characters of [a-z0-9_] + `.h5` becomes `tmpXXXXXXXX.h5`; a file
+# without one fails.
+_QUICKQC_ANY_NAME = re.compile(rb"tmp[a-z0-9_]{8}\.h5")
+
+
+def _normalise_quickqc_temporary_name(raw):
+    normalised, count = _QUICKQC_ANY_NAME.subn(b"tmpXXXXXXXX.h5", raw)
+    if count == 0:
+        return None, "no temporary matrix name (tmp and eight characters, .h5) found"
+    return normalised, None
+
+
 NORMALISATIONS = {
     "quickqc_temporary_matrix": _normalise_quickqc_temporary_matrix,
+    "quickqc_temporary_name": _normalise_quickqc_temporary_name,
     "pandas_styler_uuid": _normalise_pandas_styler_uuid,
 }
 

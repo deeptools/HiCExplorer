@@ -213,8 +213,8 @@ struct QcLogInputs {
                                         const QcCounters& counters);
 
 // The five tab separated tables hicPrepareQCreport writes next to it. The PNGs
-// and hicQC.html of that tool are matplotlib and pandas rendering and are not
-// produced here; see cpp/STATUS.md and the report.
+// and hicQC.html of that tool are matplotlib and pandas rendering, drawn by
+// the tools through hicx::plot::draw("hicPrepareQCreport") after these tables.
 void write_qc_tables(const std::string& folder, const std::string& qc_log_text);
 
 // hicPrepareQCreport.main's tables for one or more QC logs: the rows are

@@ -195,5 +195,7 @@ Arguments parse_micro_c_arguments(int argc, char** argv) {
 
 int main(int argc, char** argv) {
     g_tool = "hicBuildMatrixMicroC";
-    return run_build_matrix(parse_micro_c_arguments(argc, argv));
+    const Arguments args = parse_micro_c_arguments(argc, argv);
+    const int status = run_build_matrix(args);
+    return status != 0 ? status : draw_qc_report(args.qc_folder);
 }
