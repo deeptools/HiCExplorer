@@ -2,18 +2,27 @@
 
 Owner: the orchestrating session. Architecture: `cpp/PLAN.md`. Rules:
 `cpp/AGENTS_CONTRACT.md`. Optimization rules: `cpp/OPTIMIZATION.md`. Last updated
-2026-09-13, at commit `3e30a156`.
+2026-09-14, at commit `8a2fa526`.
 
-**Current state: 30 of 46 tools ported and committed** on `version4-cpp`, and no
-porting branch is open. The last merged-tree regression, on `63dd2424`, passed
-358 cases over 29 tools and the tier 0 round trips (reproduced). hicPCA's 13
-cases pass as well: all 9 that use `--chromosomes` reproduced on `63dd2424`, the
-rest reproduced on `a3c49fd8`, and mm9_reduced_chr1 in the agent's run only.
+**Current state: 30 of 46 tools ported and committed** on `version4-cpp`.
+- **Last regression,** on a clean export of `81dca472`, built out of tree (reproduced):
+  - 370 cases over 29 tools and the tier 0 round trips;
+  - hicPCA 12 of 12, all cases except mm9_reduced_chr1, which passed in an agent's run only;
+  - determinism for hicConvertFormat, roundtrip, hicCorrectMatrix, hicAdjustMatrix and hicSumMatrices.
+- **Open branches:**
+  - `v4-cool-read-speed`: whole-table cool reads back to their pre-coolercpp CPU time.
+  - `v4-difftad-calibrated`: PLAN 9.7 step 1.
 
-Separately, **coolercpp**, an independent C++ library API-compatible with Python
-cooler, is being built in its own repository at `~/src/coolercpp`. HiCExplorer v4
-is to replace its own cool code with it once coolercpp reaches read and write
-parity.
+**Libraries,** each in its own repository with no remote and no licence yet:
+- **coolercpp** (`~/src/coolercpp`): cooler's API in C++. All cool and mcool I/O
+  goes through it since `5da5e074`; `core/src/cool_adapter.cpp` keeps what
+  hicmatrix adds.
+- **hicfilecpp** (`~/src/hicfilecpp`): Juicer `.hic` versions 8 and 9, read and
+  write, merged in `8a2fa526` (PLAN 9.1).
+  - Its harness passes 90 of 90 against hicstraw 1.3.1 and Juicer tools 1.22.01
+    and 2.20.00 (reproduced from a clean export).
+  - Converting the 423 MB GSM6505198 `.hic` to cool is E1 against the Python,
+    at 38 s and 367 MB against 272 s and 462 MB (reproduced).
 
 **Provenance of the facts in this file.** "(reproduced)" marks a result the
 orchestrating session reproduced itself; unmarked results come from an
@@ -48,7 +57,7 @@ mattered repeatedly:
 | Tool | Tier | Class | Mem | Py test | Char. test | Port | Equiv | Notes |
 |---|---|---|---|---|---|---|---|---|
 | hicInfo | 1 | E0 | 0W cool / 1.05W h5 | none | written | done | 25/25 (reproduced) | Byte identical on all 184 cool and h5 matrices in `test_data`, reproduced on six. `--no_metadata` on `gm12878_chr1.cool`: 829.2 MB against 842.9 MB, the tightest budget in the corpus. |
-| hicConvertFormat | 1 | E1 cool / E2 h5 / E0 text | 1.3W | partial | written | done | 17/17 (reproduced) | `.hic` input and `--chromosome` refuse explicitly. Reproduces F15. Open: h5 `extra_list` dtype for hicpro and homer sources. |
+| hicConvertFormat | 1 | E1 cool / E2 h5 / E0 text | 1.3W | partial | written | done | 29/29 (reproduced) | `.hic` read into cool, mcool, h5 and text, and written from h5, cool and mcool, through hicfilecpp. `.hic` to cool is E1 against hic2cool, the new directions EX (F59). `--chromosome` refuses explicitly. Reproduces F15. Open: h5 `extra_list` dtype for hicpro and homer sources. |
 | hicSumMatrices | 1 | E1/E2 | 3.0W | none | written | done | 11/11 (reproduced) | Reproduces F18. |
 | hicCompareMatrices | 1 | E1/E2, ED on `log2ratio` | 3.0W | partial | written | done | 18/18 (reproduced) | |
 | hicAdjustMatrix | 1 | E1/E2 | 1.3W | partial | written | done | 21/21 (reproduced) | Reproduces F14, F28. |
@@ -70,7 +79,7 @@ mattered repeatedly:
 | hicBuildMatrixMicroC | 4 | as hicBuildMatrix | as hicBuildMatrix | weak | **yes, not written** | done | 4/4 (reproduced) | Landed without a characterization test, contrary to rule 1. |
 | hicQuickQC | 4 | E0 | 192 MB | good | written | done | 5/5 (reproduced) | Reproduces F40. |
 | hicFindTADs | 5 | E0 text / E1 / E2 | per case, `2.2 * Wz + C` | partial | written | done | 8/8 (reproduced) | F22. |
-| hicDetectLoops | 5 | E0 text / EN fitted size / E5 calls | 2.2W | partial | written | done | 13/13 (reproduced) | Uses Cephes `betainc` in both its float64 and float32 paths, where scipy 1.14 uses Boost.Math for both (F42, open work). `gm12878_chr1.cool` peak 877 MB against Python's 619 MB. |
+| hicDetectLoops | 5 | E0 text / EN fitted size / E5 calls | 2.2W | partial | written | done | 13/13 (reproduced) | Uses Cephes `betainc` in both its float64 and float32 paths, where scipy 1.14 uses Boost.Math for both (F42, open work). `gm12878_chr1.cool` peak 256 MB against Python's 619 MB since the band is cut while reading through coolercpp (`5da5e074`, identical output), down from 877 MB. |
 | hicDifferentialTAD | 5 | E0, E5 calls | 1.3W x 2 | good | written | done | 12/12 (reproduced) | Jaccard 1.0 on every case. |
 | hicMergeDomains | 5 | E0 text / E7 PDF | none (reads no matrix) | weak | written | done | 11/11 (reproduced) | Its baseline failures were environmental (F41). DOT source byte identical, rendered by the external graphviz `dot`, found through a per-case `path_prepend`. The PDFs are E7 because `dot` embeds a creation date in compressed streams. Reproduces F39 and F49. |
 | hicAggregateContacts | 5 | E0 tables / E2 h5 / E1 cool | 1.3W, z-score 559 MB | weak | written | done | 29/29 (reproduced) | KMeans and ward labels identical in all 108 fits the Python made on real data. z-score case 4.0 GB to 335 MB. Required figure handled with `--noPlot`. Reproduces F52 to F58. |
@@ -152,7 +161,8 @@ not find graphviz `dot` on the venv's `PATH`; one hicBuildMatrix trivial run pas
 | hicBuildMatrix, hicQuickQC | the QC folder lacks the Python's PNGs and `hicQC.html` | part of the plotting decision |
 | packaging | Boost.Math and x86-simd-sort are fetched at configure time; hicMergeDomains needs graphviz `dot` at run time | an offline package build needs vendored tarballs, and the package needs a graphviz dependency |
 | harness | `cpp_args` passes options to the C++ side only; `path_prepend` changes one case's `PATH` | both allowed only where they do not change compared outputs |
-| `core/src/cool_file.cpp` | no hyperslab band read | hicDetectLoops uses more memory than Python on `gm12878_chr1.cool`. To be revisited when coolercpp replaces this code |
+| `core/src/cool_adapter.cpp` | whole-table reads go through coolercpp's chunked range query | about 0.5 s to 6 s more CPU than before on gm12878_chr1 (ICE 26.6 to 32.8 s); still far below Python. Being fixed on `v4-cool-read-speed` |
+| hicDifferentialTAD, chic tools, hicDetectLoops | false positives: per-sample bin filtering and no multiple-testing correction (PLAN 9.7) | 20.5 % of TADs called between replicates; step 1 on `v4-difftad-calibrated` |
 | `core/include/hicx/sparse_matrix.hpp` | values held as double regardless of dtype | int32 and float32 matrices cost twice what they need |
 | budget formula | `--runningWindow` and hicFindTADs do not fit `alpha * W_input` | both need a term in the working set they build |
 | argument parsing | no argparse compatibility layer | prefix abbreviations rejected; `--help` close but not identical |
@@ -226,6 +236,7 @@ unaffected by design.
 | **F56** | hicAggregateContacts | row-wise mode writes coordinates unordered. |
 | **F57** | hicAggregateContacts | with `--perChr`, k stays 1 for every later chromosome once one has fewer submatrices than clusters. |
 | **F58** | hicAggregateContacts | `--chromosomes` on a matrix with NaN bins undoes the masking: 277 submatrices instead of 279 on `Li_et_al_2015`. |
+| **F59** | hicConvertFormat (hic2cool) | the installed hic2cool reports `__version__` 0.8.3 while its pip metadata says 1.0.1, so cool files converted from `.hic` say `generated-by: hic2cool-0.8.3`; the port reproduces the string. |
 
 ## Deliberate deviations from the Python behaviour
 
@@ -242,12 +253,17 @@ unaffected by design.
 | chicViewpointBackgroundModel | fitted parameters judged by per-distribution likelihood and downstream calls, not EN | orchestrating session |
 | hicDetectLoops, hicDifferentialTAD, hicInterIntraTAD | output independent of the thread count (F23, F33) | implementing agents, reported |
 | hicFindTADs | no abort at 12 or more processes (F22) | implementing agent, reported |
-| hicConvertFormat | `.hic` input and `--chromosome` refuse explicitly | implementing agent, reported |
+| hicConvertFormat | `--chromosome` refuses explicitly | implementing agent, reported |
+| hicConvertFormat, hicfilecpp | `.hic` output (new, EX): bytes differ from Juicer tools' while pixels, expected values and VC, VC_SQRT, KR and SCALE vectors match. No FRAG, GW or INTER norms, and none of `pre`'s filters or statistics. Norms are always computed, where Juicer skips them when its heap looks small. The matrix is written as loaded, correction applied unless `--load_raw_values`. A missing norm, chromosome or resolution is an error on reading | implementing agent, reported; recorded in hicfilecpp `docs/DEVIATIONS.md` |
 | hicFindEnrichedContacts | not ported (F12) | plan |
 
 ## Open questions
 
-1. Tiers 7 and 8, including the QC figures of hicBuildMatrix and hicQuickQC:
-   confirm or replace the recommended strategy (project owner).
-2. coolercpp's licence: GPL-3 like HiCExplorer, or BSD-3 like cooler, from whose
-   source some of its components derive (project owner, before publication).
+1. Tier 7 is taken as settled in favour of option (a), C++ computing and
+   matplotlib drawing, by the GUI request of 2026-09-13 (PLAN tier 10). The
+   project owner has not yet confirmed that reading. Tier 8 is still open.
+2. Licences of coolercpp and hicfilecpp: GPL-3 like HiCExplorer, or BSD-3 like
+   cooler, from whose source some of coolercpp's components derive (project
+   owner, before publication).
+3. macOS verification for the GUI and the C++ core on arm64 needs a Mac or a CI
+   runner. CI means pushing, which needs the project owner's approval.

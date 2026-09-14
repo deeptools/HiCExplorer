@@ -59,6 +59,21 @@ It provides: HDF5 (C and C++ API), zlib, bzip2, htslib, Eigen 3, BLAS/LAPACK.
 Configure with `-DCMAKE_PREFIX_PATH=$HICX_DEPS` and make sure the produced
 binaries find the runtime libs (RPATH to `$HICX_DEPS/lib`).
 
+Two own libraries are C++ dependencies, each pinned to a commit in
+`cpp/cmake/HicxCoolercpp.cmake` and `cpp/cmake/HicxHicfilecpp.cmake`:
+- coolercpp, found through `find_package`, or fetched with
+  `-DHICX_COOLERCPP_GIT_REPOSITORY=$HOME/src/coolercpp`;
+- hicfilecpp, found the same way, or fetched with
+  `-DHICX_HICFILECPP_GIT_REPOSITORY=$HOME/src/hicfilecpp`.
+
+`-DHICX_COOLERCPP_FORCE_FETCH=ON` and `-DHICX_HICFILECPP_FORCE_FETCH=ON` skip an
+installed package. Moving a pin is a reviewed commit.
+
+The `.hic` oracles are kept out of the reference venv:
+- hicstraw 1.3.1 and hictkpy live in `$SP/hicfile-oracle-venv`;
+- Juicer tools 1.22.01 and 2.20.00 jars live in `$SP/juicer/` and run on
+  `~/miniconda3/bin/java` (OpenJDK 11).
+
 Toolchain: g++ 13.3 (C++20 available), cmake 4.4, 32 cores. Network reaches
 GitHub and PyPI through the corporate proxy, so CMake `FetchContent` works.
 
