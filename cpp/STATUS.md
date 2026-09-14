@@ -2,19 +2,28 @@
 
 Owner: the orchestrating session. Architecture: `cpp/PLAN.md`. Rules:
 `cpp/AGENTS_CONTRACT.md`. Optimization rules: `cpp/OPTIMIZATION.md`. Last updated
-2026-09-14, at commit `53a9fc91`.
+2026-09-14, at commit `f4c15dc9`.
 
 **Current state: 30 of 46 tools ported and committed** on `version4-cpp`.
-- **Last regression,** on a clean export of `bfcf75fa`, built out of tree
-  (reproduced). That commit merges the cool read speed, hicDifferentialTAD and
-  legacy `.hic` branches.
+- **Last regression,** on a clean export of `f4c15dc9`, built out of tree with
+  the Python module (reproduced). That commit merges the streamed `.hic` to cool
+  and the GUI foundation (PLAN 10.1 to 10.3).
   - 384 cases over 29 tools and the tier 0 round trips;
   - hicPCA 12 of 12, all cases except mm9_reduced_chr1, which passed in an agent's run only;
-  - determinism for hicConvertFormat, roundtrip, hicDifferentialTAD, hicCorrectMatrix, hicPlotSVL, hicAdjustMatrix and hicInterIntraTAD;
-  - the Python tests of hicConvertFormat and hicDifferentialTAD: 49 passed, 2 xfailed.
-- `53a9fc91` then moved both library pins to commits that differ from the
-  verified ones only in the libraries' own consumer tests.
+  - determinism for hicConvertFormat, roundtrip, hicCorrectMatrix, hicDifferentialTAD, hicBuildMatrix, hicPlotSVL and hicAdjustMatrix;
+  - tool specifications: 31 of 31 tests against the Python argparse parsers, and 79 of 79 command lines behaving as argparse does;
+  - bindings 95 of 95; workflow engine 53 passed, 1 skipped (a Snakefile run, snakemake not installed), including the end-to-end workflow E0 against its logged command lines.
+- The earlier merge `bfcf75fa` (cool read speed, hicDifferentialTAD, legacy
+  `.hic`) passed the same regression, and `53a9fc91` moved both library pins to
+  commits that differ only in the libraries' consumer tests.
 - **Open branches:** none.
+
+**GUI foundation (PLAN 10.1 to 10.3), merged in `f4c15dc9`:**
+- `hicx::cli` parses every tool's command line as Python argparse does, and
+  emits `--help-json`.
+- The `hicx_matrix` module (behind `HICX_BUILD_PYTHON`) reads only the
+  requested region.
+- `hicexplorer_gui.workflow` runs YAML workflows headless.
 
 **Libraries,** each in its own repository with no remote and no licence yet:
 - **coolercpp** (`~/src/coolercpp`): cooler's API in C++. All cool and mcool I/O
@@ -174,11 +183,27 @@ not find graphviz `dot` on the venv's `PATH`; one hicBuildMatrix trivial run pas
 | hicBuildMatrix, hicQuickQC | the QC folder lacks the Python's PNGs and `hicQC.html` | part of the plotting decision |
 | packaging | Boost.Math and x86-simd-sort are fetched at configure time; hicMergeDomains needs graphviz `dot` at run time | an offline package build needs vendored tarballs, and the package needs a graphviz dependency |
 | harness | `cpp_args` passes options to the C++ side only; `path_prepend` changes one case's `PATH` | both allowed only where they do not change compared outputs |
-| hicConvertFormat, `.hic` to cool | at 25 kb on the 40 GB version 7 file, peak RSS is 5.42 GB against Python's 5.25 GB | the memory goal is missed at that scale; on the 423 MB and 5.3 GB files C++ stays below Python |
+| hicPCA | dense per-chromosome matrices, needed for the bit-exact eigenvector choice (PLAN 5.4) | memory grows with the square of the largest chromosome's bin count: 269 MB of the 344 MB peak on `small_test_matrix` (5,801 bins), about 5 GB per matrix for human chr1 at 10 kb. A sparse Lanczos option with implicit centering is proposed, pending the project owner |
 | hicDifferentialTAD, chic tools, hicDetectLoops | false positives: per-sample bin filtering and no multiple-testing correction (PLAN 9.7) | 20.5 % of TADs called between replicates. Step 1 is merged in `bfcf75fa` as hicDifferentialTAD options, not defaults; the chic tools and hicDetectLoops still lack a correction |
 | `core/include/hicx/sparse_matrix.hpp` | values held as double regardless of dtype | int32 and float32 matrices cost twice what they need |
 | budget formula | `--runningWindow` and hicFindTADs do not fit `alpha * W_input` | both need a term in the working set they build |
-| argument parsing | no argparse compatibility layer | prefix abbreviations rejected; `--help` close but not identical |
+| usage texts | the stored usage of hicBuildMatrix and hicQuickQC wraps differently from argparse; the usage of hicPCA, hicCompartmentalization and hicDifferentialTAD lists their C++-only options | no case compares usage text |
+
+**Fixed on 2026-09-14, `.hic` to cool memory.** The conversion streams block
+column by block column (`0836d72a`). On the 40 GB version 7 file at 25 kb, peak
+RSS fell from 5,422 MB to 408 MB and CPU from 176 s to 147 s, with identical
+output (reproduced). The Python needs 5.25 GB and 1,951 s.
+
+**Fixed on 2026-09-14, argument parsing.** The shared argument layer
+(`f4c15dc9`) replaced the per-tool parsers.
+- Behaviour changed only where the old C++ parsers differed from argparse:
+  - prefix abbreviations of long options;
+  - Python's `int()` and `float()` rules;
+  - hicCorrectMatrix's subcommand-only options and its no-subcommand exit;
+  - `FileType('r')` inputs checked while parsing.
+- No case depended on any of them.
+- The only spec difference allowed is `hic` among hicConvertFormat's output
+  formats.
 
 Fixed on 2026-09-14: whole-table and chromosome cool reads go through
 `bin1_offset` again (`bfcf75fa`). C++ CPU time on gm12878_chr1 is now below the

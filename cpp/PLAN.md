@@ -1748,7 +1748,13 @@ GUI, and a macOS app bundle later.
 - 10.7 workflow templates;
 - 10.8 macOS.
 
-10.1 to 10.3 can start once 9.1 is merged. The templates grow as tier 6 and
+10.1 to 10.3 are done, merged 2026-09-14 in `f4c15dc9`.
+- 10.1: 30 tools, spec equal to argparse.
+- 10.2: bindings E2 against cooler, hicmatrix and hicstraw, 32 MB for a 2 Mb
+  window on the 40 GB file.
+- 10.3: workflow engine with an end-to-end E0 run.
+
+10.4 follows. The templates grow as tier 6 and
 tier 9 tools land.
 
 ## 7. The state of the Python test suite, honestly
