@@ -33,14 +33,14 @@
 //     range(threads) empty, so no chromosome is evaluated and every data row is
 //     blank; that is reproduced too.
 //
+// The box plot (cpp/PLAN.md tier 7, option (a)): after the p-value and data
+// files, the kept ratios of every matrix go to
+// plot/hicexplorer_plot/hicPlotSVL.py, which draws them with the reference's
+// boxplot calls (hicPlotSVL.py:207-222), under --plotFileName or its default
+// plot.png. The C++-only option --plotData writes that data as JSON instead.
+//
 // Deliberate deviations:
 //
-//  * **The box plot is not drawn** (contract rule 7, confirmed by the
-//    orchestrating session 2026-09-13). matplotlib draws it and plotting waits
-//    on the project owner's decision for tier 7. With --plotFileName the tool
-//    exits 1 before writing anything; without it, the plot the Python would
-//    write to plot.png is skipped with a note on stderr and the two text files
-//    are written.
 //  * **A failing chromosome exits instead of hanging.** Every chromosome is
 //    evaluated in a multiprocessing.Process, and an exception there (a
 //    chromosome that is not in the matrix, a bin size of zero, explicit zeros
@@ -72,6 +72,7 @@
 #include "hicx/bins.hpp"
 #include "hicx/cool_adapter.hpp"
 #include "hicx/numpy_compat.hpp"
+#include "hicx/plot_bridge.hpp"
 #include "hicx/resource_usage.hpp"
 #include "hicx/sparse_matrix.hpp"
 #include "hicx/stats_ops.hpp"
@@ -129,14 +130,16 @@ const char* const kHelp =
     "  --help, -h            show this help message and exit\n"
     "  --version             show program's version number and exit\n"
     "\n"
-    "C++ port: the box plot is not drawn, because plotting is not yet available in\n"
-    "the C++ port. Without --plotFileName the data and p-value files are written\n"
-    "and the plot is skipped with a note; with --plotFileName the tool exits with\n"
-    "an error before writing anything. --dpi and --colorList only affect the plot.\n";
+    "C++ port: the ratios and p-values are computed in C++, and the box plot is\n"
+    "drawn by the hicexplorer_plot drawing layer with the matplotlib calls of the\n"
+    "Python tool (HICX_PLOT_PYTHON names the interpreter). The C++-only option\n"
+    "--plotData FILE writes the data of the plot as JSON to FILE instead of drawing\n"
+    "it.\n";
 
 struct Arguments {
     std::vector<std::string> matrices;
-    std::optional<std::string> plot_file_name;
+    std::string plot_file_name = "plot.png";
+    std::optional<std::string> plot_data;
     std::string out_file_name = "p_values.txt";
     std::string out_file_name_data = "data.txt";
     std::int64_t distance = 2000000;
@@ -167,8 +170,6 @@ Arguments parse_arguments(int argc, char** argv) {
     optional.add({"--plotFileName", "-pfn"})
         .default_value("plot.png")
         .output({"png", "pdf", "svg"})
-        .note("The C++ port does not draw the box plot: given explicitly, the tool exits 1 "
-              "before writing anything.")
         .help("Plot name.");
     optional.add({"--outFileName", "-o"})
         .default_value("p_values.txt")
@@ -200,13 +201,18 @@ Arguments parse_arguments(int argc, char** argv) {
         .help("Colorlist for the boxplots.");
     optional.add({"--help", "-h"}).action(cli::Action::Help).help("show this help message and exit");
     optional.add({"--version"}).version(std::string("%(prog)s ") + hicx::kVersion);
+    optional.add({"--plotData"})
+        .metavar("FILE")
+        .output({"json"})
+        .cpp_only("The data of the box plot as JSON, without drawing it (cpp/PLAN.md tier 7).")
+        .help("Write the data the box plot is drawn from as JSON to this file and do not draw "
+              "the plot.");
 
     const cli::Namespace ns = parser.parse(argc, argv);
     Arguments args;
     args.matrices = ns.strs("matrices");
-    if (ns.given("plotFileName")) {
-        args.plot_file_name = ns.str("plotFileName");
-    }
+    args.plot_file_name = ns.str("plotFileName");
+    args.plot_data = ns.opt_str("plotData");
     args.out_file_name = ns.str("outFileName");
     args.out_file_name_data = ns.str("outFileNameData");
     args.distance = ns.integer("distance");
@@ -229,6 +235,7 @@ class WorkerFailure : public std::runtime_error {
 struct ChromosomeSvl {
     bool kept = false;
     double ratio_value = 0.0;  // the ratio as scipy's ranksums sees it
+    bool float32 = false;      // a numpy float32 in the reference
     std::string ratio;
     std::string smaller;
     std::string greater;
@@ -384,6 +391,7 @@ ChromosomeSvl svl_for_block(const hicx::CsrMatrix& matrix, std::int64_t first,
         }
         result.kept = true;
         result.ratio_value = static_cast<double>(ratio);
+        result.float32 = true;
         // '{}'.format(np.float32(x)) goes through float.__format__, so the
         // file shows the float64 repr of the widened value
         // (48.16666793823242), not numpy's float32 str (48.166668).
@@ -441,17 +449,6 @@ void write_or_throw(const std::string& path, const std::string& content) {
 
 int main(int argc, char** argv) {
     const Arguments args = parse_arguments(argc, argv);
-
-    if (args.plot_file_name.has_value()) {
-        std::fprintf(stderr,
-                     "hicPlotSVL: --plotFileName %s was given, but the box plot cannot be "
-                     "drawn: plotting is not yet available in the C++ port (tier 7 of "
-                     "cpp/PLAN.md). Nothing was written. Omit --plotFileName to write the "
-                     "data and p-value files only, or use the Python hicPlotSVL for the "
-                     "plot.\n",
-                     args.plot_file_name->c_str());
-        return 1;
-    }
 
     std::vector<std::vector<ChromosomeSvl>> per_matrix;
     std::vector<std::string> chromosomes_list;
@@ -533,12 +530,6 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    // plt.savefig(args.plotFileName) at :222, under the default name.
-    std::fputs("hicPlotSVL: the box plot (default name plot.png) is not drawn: plotting is "
-               "not yet available in the C++ port (tier 7 of cpp/PLAN.md). The data and "
-               "p-value files are written.\n",
-               stderr);
-
     const std::string distance = std::to_string(args.distance);
     try {
         if (args.matrices.size() > 1) {
@@ -599,6 +590,27 @@ int main(int argc, char** argv) {
         std::fprintf(stderr, "hicPlotSVL: %s\n", error.what());
         return 1;
     }
+
+    // plt.boxplot(short_v_long_range) at :216, one sample per matrix.
+    std::vector<std::string> samples;
+    for (const auto& values : per_matrix) {
+        std::vector<double> ratios;
+        bool float32 = false;
+        for (const ChromosomeSvl& svl : values) {
+            ratios.push_back(svl.ratio_value);
+            float32 = float32 || svl.float32;
+        }
+        hicx::plot::JsonObject sample;
+        sample.add("values", hicx::plot::json_numbers(ratios));
+        sample.add("float32", hicx::plot::json_bool(float32));
+        samples.push_back(sample.str());
+    }
+    hicx::plot::JsonObject data;
+    data.add("plotFileName", hicx::plot::json_string(args.plot_file_name));
+    data.add("dpi", hicx::plot::json_int(args.dpi));
+    data.add("colorList", hicx::plot::json_strings(args.color_list));
+    data.add("matrices", hicx::plot::json_strings(args.matrices));
+    data.add("samples", hicx::plot::json_list(samples));
     hicx::report_resource_usage("hicPlotSVL");
-    return 0;
+    return hicx::plot::draw("hicPlotSVL", data.str(), args.plot_data);
 }
