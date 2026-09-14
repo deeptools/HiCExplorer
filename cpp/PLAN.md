@@ -1444,6 +1444,11 @@ Recommendation, per tool:
 | `hicPrepareQCreport` / `hicQC` | (a) shell | pandas table aggregation plus five bar charts and a Jinja2 HTML template; port the table aggregation to C++ at E0 and keep the rendering in Python |
 | `chicPlotViewpoint` | (a) shell | as `hicPlotViewpoint` |
 
+**Done, merged 2026-09-15 in `b71510ba`.**
+- All eight tools, plus the figures formerly refused under contract rule 7.
+- E0 against the Python-drawn figures, with one E6 at RMS 1.17.
+- matplotlib 3.8.4 is pinned and checked at run time.
+
 So: **(a) for all eight.** The v4 deliverable is a C++ core plus a thin,
 explicitly-declared Python plotting shell, and `STATUS.md` records every one of
 these as "not a pure C++ port" so that no one later mistakes them for done.
@@ -1757,7 +1762,11 @@ GUI, and a macOS app bundle later.
 
 10.4 and 10.5 are done, merged 2026-09-14 in `0b3b56db`: the PySide6 shell with
 forms for all 30 tools and the matrix browser, reviewed on screenshots at three
-sizes. 10.6 and 10.7 follow; 10.8 needs a Mac or a CI runner.
+sizes.
+- 10.6: the tier 7 shells are done (`b71510ba`); the GUI analysis views and
+  figure export from the GUI remain.
+- 10.7 follows.
+- 10.8 needs a Mac or a CI runner.
 
 ### Tier 11 - sparse eigensolver for hicPCA (added 2026-09-14)
 

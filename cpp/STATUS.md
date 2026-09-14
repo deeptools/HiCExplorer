@@ -2,10 +2,20 @@
 
 Owner: the orchestrating session. Architecture: `cpp/PLAN.md`. Rules:
 `cpp/AGENTS_CONTRACT.md`. Optimization rules: `cpp/OPTIMIZATION.md`. Last updated
-2026-09-14, at commit `0b3b56db`.
+2026-09-15, at commit `b71510ba`.
 
-**Current state: 30 of 46 tools ported and committed** on `version4-cpp`.
-- **Last regression,** on a clean export of `f4c15dc9`, built out of tree with
+**Current state: 38 of 46 tools ported and committed** on `version4-cpp`.
+- **Last regression,** on clean exports of the plotting branch (`6d27fa8e`,
+  then `cedc9f33` for its final fix), built out of tree with the Python module
+  and without `HICX_PLOT_PYTHON` set (reproduced). Merged in `b71510ba`.
+  - 470 cases over 37 tools and the round trips;
+  - hicPCA 13 of 13, now including mm9_reduced_chr1;
+  - determinism for all 15 tools the branch changed;
+  - ctest 6 of 6;
+  - specs 39, argparse 79, gui 117 (1 skipped, snakemake), bindings 99;
+  - a refused drawing environment exits 3 and leaves the output directory
+    unchanged.
+- **Previous regression,** on a clean export of `f4c15dc9`, built out of tree with
   the Python module (reproduced). That commit merges the streamed `.hic` to cool
   and the GUI foundation (PLAN 10.1 to 10.3).
   - 384 cases over 29 tools and the tier 0 round trips;
@@ -112,43 +122,50 @@ mattered repeatedly:
 | hicAverageRegions | 2 | E2 | 1.3W | partial | written | done | 12/12 (reproduced) | |
 | hicNormalize | 2 | E1/E2 | 1.2W | good | written | done | 9/9 (reproduced) | |
 | hicTransform | 3 | ED or better | 1.2W / 1.1W + 1.15D | weak | written | done | 23/23 (reproduced) | pearson on `Li_et_al_2015.h5`: 5,532 to 97 MB (reproduced). |
-| hicCorrectMatrix | 3 | ED ICE / EN KR | 1.2W | weak | written | done | 20/20 (reproduced) | ICE and KR on `gm12878_chr1.cool` from about 9.3 GB to 830 MB (reproduced). |
-| hicPCA | 3 | ED or better | 1.1W + 1.15D | weak | written | done | 13/13 (12 reproduced) | Covariance equal to `np.cov` bit for bit, because eigenvectors are chosen by position from a spectrum with a 169-fold largest eigenvalue (F8, F31). Reproduces F25. |
-| hicCompartmentalization | 3 | E0 `_dat` / E2 npz | 1.3W | weak | written | done | 15/15 (reproduced) | Required figure: a plain run refuses, a C++-only `--noPlot` writes the numeric outputs (reproduced by hand). |
-| hicInterIntraTAD | 3 | E0 | 1.3W | weak | written | done | 5/5 (reproduced) | Explicitly requested ratio plot refused before writing (reproduced by hand). Reproduces F33 to F35. |
-| hicPlotSVL | 3 | E0 text | 1.3W | partial | written | done | 14/14 (reproduced) | `gm12878_chr1.cool`: 3,846 to 829 MB against a 1,028 MB budget, after the single-chromosome cooler load was made to cut in place. The boxplot follows rule 7. Reproduces F37 and F51; F38 is a deviation. |
-| hicBuildMatrix | 4 | E0 BAM and QC / E1 / E2 | `2*nnz_out*12 + threads*64 MB + C` | partial | written | done | 17/17 (reproduced) | QC folder lacks the Python's PNGs and HTML report. Reproduces F29, F30. |
+| hicCorrectMatrix | 3 | ED ICE / EN KR | 1.2W | weak | written | done | 26/26 (reproduced) | `diagnostic_plot` drawn through `hicexplorer_plot`, E0. ICE and KR on `gm12878_chr1.cool` from about 9.3 GB to 830 MB (reproduced). |
+| hicPCA | 3 | ED or better | 1.1W + 1.15D | weak | written | done | 13/13 (reproduced) | Covariance equal to `np.cov` bit for bit, because eigenvectors are chosen by position from a spectrum with a 169-fold largest eigenvalue (F8, F31). Reproduces F25. |
+| hicCompartmentalization | 3 | E0 `_dat` / E2 npz | 1.3W | weak | written | done | 15/15 (reproduced) | The figure is drawn through `hicexplorer_plot`, E0; `--noPlot` is kept as an optional C++-only option. |
+| hicInterIntraTAD | 3 | E0 | 1.3W | weak | written | done | 5/5 (reproduced) | The ratio plot is drawn through `hicexplorer_plot`, E0. Reproduces F33 to F35. |
+| hicPlotSVL | 3 | E0 text | 1.3W | partial | written | done | 14/14 (reproduced) | `gm12878_chr1.cool`: 3,846 to 829 MB against a 1,028 MB budget, after the single-chromosome cooler load was made to cut in place. The boxplot is drawn through `hicexplorer_plot`, E0. Reproduces F37 and F51; F38 is a deviation. |
+| hicBuildMatrix | 4 | E0 BAM and QC / E1 / E2 | `2*nnz_out*12 + threads*64 MB + C` | partial | written | done | 17/17 (reproduced) | QC PNGs and `hicQC.html` drawn through `hicexplorer_plot`, E0 (the HTML after a named normalisation). Reproduces F29, F30. |
 | hicBuildMatrixMicroC | 4 | as hicBuildMatrix | as hicBuildMatrix | weak | **yes, not written** | done | 4/4 (reproduced) | Landed without a characterization test, contrary to rule 1. |
 | hicQuickQC | 4 | E0 | 192 MB | good | written | done | 5/5 (reproduced) | Reproduces F40. |
 | hicFindTADs | 5 | E0 text / E1 / E2 | per case, `2.2 * Wz + C` | partial | written | done | 8/8 (reproduced) | F22. |
 | hicDetectLoops | 5 | E0 text / EN fitted size / E5 calls | 2.2W | partial | written | done | 13/13 (reproduced) | Uses Cephes `betainc` in both its float64 and float32 paths, where scipy 1.14 uses Boost.Math for both (F42, open work). `gm12878_chr1.cool` peak 256 MB against Python's 619 MB since the band is cut while reading through coolercpp (`5da5e074`, identical output), down from 877 MB. |
 | hicDifferentialTAD | 5 | E0, E5 calls | 1.3W x 2 | good | written | done | 22/22 (reproduced) | Jaccard 1.0 on every case. C++-only `--sharedMask` and `--correctForMultipleTesting` (PLAN 9.7 step 1), E0 against a Python reference. On GSE234292 replicates the null drops from 20.5 % of TADs to 0.9 %, and to 0 with FDR (reproduced). |
 | hicMergeDomains | 5 | E0 text / E7 PDF | none (reads no matrix) | weak | written | done | 11/11 (reproduced) | Its baseline failures were environmental (F41). DOT source byte identical, rendered by the external graphviz `dot`, found through a per-case `path_prepend`. The PDFs are E7 because `dot` embeds a creation date in compressed streams. Reproduces F39 and F49. |
-| hicAggregateContacts | 5 | E0 tables / E2 h5 / E1 cool | 1.3W, z-score 559 MB | weak | written | done | 29/29 (reproduced) | KMeans and ward labels identical in all 108 fits the Python made on real data. z-score case 4.0 GB to 335 MB. Required figure handled with `--noPlot`. Reproduces F52 to F58. |
-| chicQualityControl | 6 | E0 text | 1.3W | weak | written | done | 5/5 (reproduced) | Figures follow rule 7. Reproduces F36, F43. |
+| hicAggregateContacts | 5 | E0 tables / E2 h5 / E1 cool | 1.3W, z-score 559 MB | weak | written | done | 33/33 (reproduced) | KMeans and ward labels identical in all 108 fits the Python made on real data. z-score case 4.0 GB to 335 MB. Figures, including the diagnostic heatmap and the 3d plot, drawn through `hicexplorer_plot`, E0; `--noPlot` optional. Reproduces F52 to F58. |
+| chicQualityControl | 6 | E0 text | 1.3W | weak | written | done | 5/5 (reproduced) | Figures drawn through `hicexplorer_plot`, E0. Reproduces F36, F43. |
 | chicViewpointBackgroundModel | 6 | exact columns; fitted size and prob by likelihood and downstream E5 | 1.3W | weak | written | done | 5/5 (reproduced) | EN withdrawn for size and prob (F50). Each fit's likelihood must be no worse than the worst of five reference runs by more than `max(spread_i, T_well)`; downstream calls Jaccard 1.000000 on all four fitted cases. Reproduces F45. |
 | chicViewpoint | 6 | E1 / bit identical values | 1.3W | weak | written | done | 6/6 (reproduced) | Bit identical through Boost.Math `ibeta`, as scipy uses (F42). Reproduces F44, F46, F47; F48 is a deviation. |
 | chicSignificantInteractions | 6 | E5 calls | 1.3W | weak | yes | not started | - | Builds on the chicViewpoint core, now merged. |
 | chicAggregateStatistic | 6 | E1 | 1.3W | weak | yes | not started | - | |
 | chicDifferentialTest | 6 | E3 p-values / E5 calls | 1.3W | weak | yes | not started | - | Needs `fisher_exact`, `chi2_contingency`, `chi2.ppf`. |
 | chicExportData | 6 | E0 text / E1 bigwig | 1.3W | partial | yes | not started | - | |
-| hicPlotMatrix | 7 | E6 | 1.1W + 1.15D | weak | yes | not started | - | |
-| hicPlotTADs | 7 | E7 | n/a | none | no | not started | - | A delegation to pyGenomeTracks. |
-| hicPlotViewpoint | 7 | E0 data / E6 plot | 1.3W | weak | yes | not started | - | |
-| hicPlotAverageRegions | 7 | E6 | n/a | weak | yes | not started | - | |
-| hicPlotDistVsCounts | 7 | E3 data / E6 plot | 1.3W | weak | yes | not started | - | |
-| hicCorrelate | 7 | E3 matrix / E6 plot | 1.3W x n | weak | yes | not started | - | Needs complete-linkage clustering with matching leaf order; `hicx::cluster` has ward only. |
-| hicPrepareQCreport (alias hicQC) | 7 | E0 tables / E6 plots | n/a | none | yes | not started | - | |
-| chicPlotViewpoint | 7 | E6 | 1.3W | weak | yes | not started | - | |
+| hicPlotMatrix | 7 | E0 figures | declared 90 and 130 MB | weak | yes | done | 23/23 (reproduced) | C++ compute plus matplotlib drawing (tier 7 option a). The Li et al. 2015 whole-matrix case, behind a 120 GB `skipif` in the Python tests, runs at 14.0 GB against the Python's 14.6 GB, almost all of it matplotlib. |
+| hicPlotTADs | 7 | E0 | n/a | none | no | done | 4/4 (reproduced) | Delegation to pyGenomeTracks 3.9, checked at run time. |
+| hicPlotViewpoint | 7 | E0 data and figures | 1.3W | weak | yes | done | 9/9 (reproduced) | Exits 1 on a bad region where the Python exits 0. |
+| hicPlotAverageRegions | 7 | E0 | n/a | weak | yes | done | 8/8 (reproduced) | |
+| hicPlotDistVsCounts | 7 | E0 data and figures | 1.3W | weak | yes | done | 7/7 (reproduced) | gm12878_chr1 per chromosome: 934 MB against the Python's 4,410 MB. |
+| hicCorrelate | 7 | E0, one figure E6 (RMS 1.17) | 1.3W x n, three-matrix case alpha 4.5 | weak | yes | done | 11/11 (reproduced) | Complete-linkage clustering with scipy's leaf order. Refuses non-finite values; mixed float32/float64 inputs meet only E3. Exits 1 for labels and range errors where the Python exits 0. |
+| hicPrepareQCreport (alias hicQC) | 7 | E0 tables and charts, HTML E0 after `pandas_styler_uuid` | n/a | none | yes | done | 6/6 (reproduced) | Exits 1 for label-row mismatches where the Python exits 0. |
+| chicPlotViewpoint | 7 | E0 tar members | 1.3W | weak | yes | done | 8/8 (reproduced) | |
 | hicTADClassifier | 8 | E7 | 1.3W | weak | yes | not started | - | |
 | hicTrainTADClassifier | 8 | E7 | 1.3W | weak | yes | not started | - | F13. |
 | hicHyperoptDetectLoops | 8 | E7 | inherits | partial | yes | not started | - | |
 | hicHyperoptDetectLoopsHiCCUPS | 8 | E7 | n/a | weak | yes | not started | - | |
 
-**Tiers 7 and 8 await the project owner's decision.** Until then no C++ tool draws
-figures: an explicitly requested figure is refused before any output is written,
-one written only under a default name is skipped with a note, and a figure that
-is a required output gets a C++-only `--noPlot` (contract rule 7).
+**Tier 7 is done (option a, merged in `b71510ba`).**
+- C++ computes each figure's data, and `hicexplorer_plot` draws it with the
+  Python's matplotlib calls.
+- The drawing interpreter is `HICX_PLOT_PYTHON`, and must have matplotlib 3.8.4
+  (pyGenomeTracks 3.9 for hicPlotTADs).
+  - A wrong or missing package exits 3 before any input is read or output
+    created.
+  - `HICX_PLOT_ALLOW_UNPINNED=1` draws anyway, with a warning.
+- The figures formerly refused under contract rule 7 are drawn.
+
+**Tier 8 awaits the project owner's decision.**
 
 ## Counts
 
@@ -160,9 +177,9 @@ is a required output gets a C++-only `--noPlot` (contract rule 7).
 | 4 | 3 | 3 | 0 |
 | 5 | 5 | 5 | 0 |
 | 6 | 7 | 3 | 4 |
-| 7 | 8 | 0 | 8 |
+| 7 | 8 | 8 | 0 |
 | 8 | 4 | 0 | 4 |
-| **total** | **46** | **30** | **16** |
+| **total** | **46** | **38** | **8** |
 
 ## Baseline of the Python suite
 
@@ -196,11 +213,16 @@ not find graphviz `dot` on the venv's `PATH`; one hicBuildMatrix trivial run pas
 |---|---|---|
 | all tools | `PLAN.md` 5.0.1 v4 provenance and `H5Pset_obj_track_times` are recorded, not implemented | output still names HiCExplorer 3.7.x and embeds object modification times (F27). Now unblocked: every porting branch is merged |
 | hicDetectLoops | Cephes `betainc` in both the float64 path (`nbinom_sf`) and the float32 path; the comment at `detect_loops_impl.cpp:423` calls scipy's float32 loop "single precision cephes incbet", which is outdated, since scipy 1.14 uses Boost.Math `ibeta` for both | no case differs on the corpus; a p-value within an ulp of a threshold could. Switch both paths to Boost, which needs a float32 overload in `scipy_special` |
-| `cpp/tests/` | three bespoke refusal scripts plus a generic one and two shell scripts | consolidate on `refuses_unavailable_output.cmake` |
+| hicPCA | on mm9_reduced_chr1 the C++ takes 312 s of wall time against the Python's 170 s. The Python runs multithreaded OpenBLAS (4,092 s of CPU); the C++ dense eigensolver runs on one thread (314 s of CPU) | the CPU-time gate passes, but wall time is worse. Use a multithreaded LAPACK for the dense path, keeping the covariance bits and the eigenvector choice identical; tier 11 addresses memory |
+| hicQuickQC | its charts are drawn but not compared: their legends carry the random temporary file name, so widths vary by up to 21 px between runs of either tool | E7 for those charts |
+| hicBuildMatrixMicroC | QC figures drawn, but no case compares them | add cases |
+| drawing tools | the C++ saves the matrix and then draws, where the Python renders the QC report before saving | a failed drawing leaves the matrix behind |
+| gui tests | `test_gui_browser` asserts a fetch count that fails, not skips, when `HICX_LARGE_HIC` is unset | make it skip |
+| Python characterization tests of the plotting tools | they call `main()` directly | they cannot run against the C++ entry points |
 | hicAggregateContacts | numpy's argsort fallback for CPUs without AVX-512 was not checked against numpy, because the development machine always takes the AVX-512 path | contact-pair line order could differ on such a CPU |
 | hicAggregateContacts | z-score in modes `all` and `inter-chr` has no harness case | the Python needs a dense matrix of several GB |
 | hicBuildMatrixMicroC | no characterization test | rule 1 not met |
-| hicBuildMatrix, hicQuickQC | the QC folder lacks the Python's PNGs and `hicQC.html` | part of the plotting decision |
+| h5 writer | fixed at the source: attributes on datasets were opened with `H5Oopen` and closed as groups, leaving 27 identifiers open on a small matrix. `H5close()` before the drawing exec remains only as a safety net | a unit test counts open identifiers after a write |
 | packaging | Boost.Math and x86-simd-sort are fetched at configure time; hicMergeDomains needs graphviz `dot` at run time | an offline package build needs vendored tarballs, and the package needs a graphviz dependency |
 | harness | `cpp_args` passes options to the C++ side only; `path_prepend` changes one case's `PATH` | both allowed only where they do not change compared outputs |
 | hicPCA | dense per-chromosome matrices, needed for the bit-exact eigenvector choice (PLAN 5.4) | memory grows with the square of the largest chromosome's bin count: 269 MB of the 344 MB peak on `small_test_matrix` (5,801 bins), about 5 GB per matrix for human chr1 at 10 kb. A sparse Lanczos option with implicit centering is proposed, pending the project owner |
@@ -318,7 +340,8 @@ unaffected by design.
 | acceptance, all tools | three significant digits per item, not byte identity | project owner, 2026-09-01 |
 | implementation, all tools | data structures and algorithms free wherever the result is the same | project owner, 2026-09-13 |
 | provenance, all tools | output is to name HiCExplorer 4 (recorded, not implemented) | project owner, 2026-09-02 |
-| figures, all tools | explicit requests refused, default-named figures skipped, required figures behind a C++-only `--noPlot` (rule 7) | orchestrating session, pending the plotting decision |
+| figures, all tools | drawn by `hicexplorer_plot` with matplotlib 3.8.4 checked at run time. A wrong or missing drawing environment exits 3 before any input is read or output created; `HICX_PLOT_ALLOW_UNPINNED=1` draws anyway with a warning. `--noPlot` remains as a C++-only option | project owner (GUI request, tier 7 option a), 2026-09-15 |
+| hicPlotViewpoint, hicCorrelate, hicPrepareQCreport | exit 1 for a bad region, labels and range errors, and label-row mismatches, where the Python exits 0 | implementing agent, reported |
 | KR | no `exit(0)`; deterministic; class EN; reimplemented, not vendored | orchestrating session |
 | hangs in the reference | hicPlotSVL worker exception (F38), chicViewpoint duplicate gene (F48), hicMergeDomains start coordinate 0 (F49): the port exits 1 with a message | orchestrating session |
 | hicMergeDomains | an unknown `-of` format or a missing `dot` is refused before anything is written, where the Python writes text files first and then crashes | implementing agent, reported |

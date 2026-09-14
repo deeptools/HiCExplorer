@@ -138,15 +138,18 @@ directories would silently not be committed.
 6. **Style.** English only, ISO dates, no em-dashes, no emojis in code,
    comments, docs or commit messages.
 7. **Requested output files.** A tool never exits 0 without writing every file
-   the user explicitly asked for. Until the project owner decides how the
-   plotting and ML tools are handled (`PLAN.md` tiers 7 and 8), no C++ tool
-   draws figures. When a figure file is explicitly requested, the tool exits
-   non-zero before writing any output, with a message that plotting is not yet
-   available in the C++ port. When the Python would write a figure only under a
-   default name the user never gave, the C++ skips it with a note on stderr and
-   exits 0. hicCorrectMatrix's `diagnostic_plot` already refuses this way. A
-   figure that is a required output of a tool is reported to the orchestrator
-   before anything is decided. (Added 2026-09-13.)
+   the user explicitly asked for.
+   - **Figures:** C++ computes the data and `hicexplorer_plot` draws it with
+     the Python's matplotlib calls (tier 7 option a). The interpreter is
+     `HICX_PLOT_PYTHON`, with matplotlib 3.8.4.
+   - **Wrong or missing environment:** the tool checks it right after parsing
+     and exits 3 before reading any input or creating any output, so the output
+     directory is left unchanged.
+   - **Parse-time outputs:** outputs that argparse's `FileType('w')` would
+     create while parsing are created only after that check.
+   - **Tier 8:** tools (ML) still await the project owner's decision; report
+     any figure or model they require before implementing.
+   - (Added 2026-09-13; revised 2026-09-15 when tier 7 landed.)
 8. **Waiting on jobs.** An agent does not end its turn while a job it started
    is still running. A detached job does not wake a stopped agent. Run long
    commands in the foreground, or block on a wait loop within the same turn.
