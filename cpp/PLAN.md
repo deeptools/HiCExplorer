@@ -1535,11 +1535,14 @@ reference implementation where no Python exists.
   expected-value vectors, observed and observed/expected). Write versions 8 and
   9 from pixels at one or many resolutions, with expected values and the
   normalisation vectors Juicer's `pre` and `addNorm` compute. Versions 6 and 7
-  (older deposits) are read, and written as well wherever a Juicer tools
-  release that writes them can be obtained to validate against. Versions below 6
-  and above 9 are refused explicitly, as straw does. (Extended 2026-09-14: the
-  project owner asked for both the old and the new format; 8 and 9 landed in
-  `8a2fa526`, 6 and 7 are on `v4-hic-legacy`.)
+  (older deposits) are read, including version 6 block records. Writing them is
+  refused with the reason, because no obtainable Juicer tools release writes
+  them to validate against: `Preprocessor.java` has written version 8 since its
+  first Juicebox commit (June 2015), and the oldest downloadable jars (1.6.2,
+  1.7.5, 1.7.6) write version 8. Versions below 6 and above 9 are refused
+  explicitly, as straw does. (Extended 2026-09-14: the project owner asked for
+  both the old and the new format; 8 and 9 landed in `8a2fa526`, reading 6 and 7
+  on `v4-hic-legacy`.)
 - *v4:* `hicConvertFormat` reads `.hic` into cool, mcool, h5 and the text formats,
   and writes `.hic` from h5, cool and mcool. Afterwards every matrix-reading
   tool accepts a `.hic` with a resolution and normalisation selector.
@@ -1551,9 +1554,11 @@ reference implementation where no Python exists.
   `pre` and `addNorm` on the same input. Output bytes need not match Juicer's.
 - *Data:* `SRR1791297_30.hic` (in the repository) for cases; the 423 MB
   `GSM6505198` and 5.3 GB `GSE63525_HMEC` files (read-only mounts) for memory
-  and time at scale. Those files are version 8. The 40 GB
-  `GSE63525_GM12878_insitu_primary+replicate_combined_30.hic` is version 7, and
-  7 version 7 files are on disk; there is no real version 6 file.
+  and time at scale. Those files are version 8. Version 7: the 40 GB
+  `GSE63525_GM12878_insitu_primary+replicate_combined_30.hic` (three copies on
+  disk) and `GSE63525_IMR90_combined_30.hic`. There is no real version 6 file, so
+  version 6 is validated on real GM12878 pixels re-encoded into version 6 block
+  records.
 
 **9.2 `.pairs` input for hicBuildMatrix.** 4DN and pairtools `.pairs`, plain or
 bgzipped. *Validation:* **E2** against `cooler cload pairs` on the same file, and
@@ -1590,19 +1595,24 @@ scratchpad, under `fp_calibration.sh` and `fpcal/`.
 | hicDifferentialTAD, defaults (`-m all -mr one`, p 0.05), 50 kb, 2,730 TADs | 561 TADs (20.5 %) wt, 589 (21.6 %) knockout; p <= 0.05 in 11 % of tests instead of 5 % |
 | the same with Benjamini-Hochberg on each test | still 290 TADs (10.6 %) |
 | the same after masking the union of both samples' filtered bins in both matrices | 25 TADs (0.9 %); p <= 0.05 in 0.3 % of tests |
+| the C++ option `--sharedMask` (`74ec19cc`), without and with `--correctForMultipleTesting fdr` | 25 TADs (0.9 %), the same 25; with FDR 0. Knockout replicates: 24 (0.9 %), with FDR 0 |
 | hicDetectLoops, defaults, 10 kb, uncorrected | 79 % of rep1 loops and 83 % of rep2 loops not found in the other replicate (1-bin tolerance) |
 | hicDetectLoops on the ICE matrices (defaults, and `-pit 1`) | 0 loops |
 | hicPCA E1, 100 kb, orientation aligned per chromosome | 1,148 of 24,468 bins (4.7 %) switch A/B; 2.3 % outside the weakest quartile of abs(E1) |
 
 Findings:
 - The dominant false-positive source in hicDifferentialTAD is **asymmetric bin filtering**. ICE filters bins per sample, and a bin removed in one matrix is a zero row against real values in the other. TADs within 500 kb of such a bin were called 63.4 % of the time (n = 816), all others 2.3 % (n = 1,914). TAD size, coverage and local depth ratio barely matter.
-- Wild type against knockout calls 59.0 % of TADs, still 51.4 % with the shared mask, with one replicate per side. That is not an interpretable result without replicates and an effect size.
+- Wild type against knockout calls 59.0 % of TADs. With `--sharedMask` it calls 1,508 (55.2 %), and with FDR as well 955 (35.0 %), with one replicate per side. That is not an interpretable result without replicates and an effect size. An earlier figure of 51.4 % came from masking through `hicAdjustMatrix --regions`, which zeroed 4,970 rows for a BED of 4,067 bins (STATUS F60).
 - Loops: comparing call lists is dominated by threshold instability, since four fifths of calls do not replicate.
 - Compartments: a naive sign switch calls about 115 Mb between replicates of one condition.
 - No differential tool applies a multiple-testing correction. That includes chicDifferentialTest and chicSignificantInteractions; only hicFindTADs has one. hicDetectLoops' docstring promises FDR correction, which the code does not apply.
 
 Work:
-1. **hicDifferentialTAD, dual mode (section 5.8).** Default output stays Python-equivalent. A C++ option masks the union of both matrices' invalid bins in both, and applies Benjamini-Hochberg across TADs.
+1. **hicDifferentialTAD, dual mode (section 5.8).** Done, merged 2026-09-14 (`74ec19cc`).
+   - Default output stays Python-equivalent.
+   - `--sharedMask` masks the union of both matrices' invalid bins in both.
+   - `--correctForMultipleTesting {none,fdr,bonferroni}` adjusts each test across TADs.
+   - Both options are E0 against a Python reference that masks through hicmatrix and adjusts the Python tool's p-values.
 2. **One count-based differential engine** for TADs, loops and compartments.
    - Replicates per condition, with a negative binomial model: dispersion estimated from replicates, offsets for library size and distance decay, a shared bin mask, and Benjamini-Hochberg FDR with a minimum fold change.
    - The tested units: per TAD, aggregated counts per distance stratum plus boundary insulation; per loop, the union of loop positions from all samples, tested against local background; per compartment bin, a GC-oriented compartment score.
@@ -1644,7 +1654,7 @@ against a direct computation of the definition.
 **9.14 Micro-C patterns: fountains and jets.** *Validation:* planted patterns as
 in 9.3, and agreement with a published fountain caller, such as fontanka.
 
-Order: 9.1 now; then 9.7 step 1 (small, removes most measured false positives);
+Order: 9.1 (with reading of versions 6 and 7) and 9.7 step 1 are done (2026-09-14); then
 9.2, 9.3, 9.4, the rest of 9.7, 9.6 and 9.8 to 9.14, interleaved with the
 remaining tier 6 tools. 9.5 follows coolercpp milestone 3.
 
