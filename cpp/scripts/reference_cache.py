@@ -38,11 +38,12 @@ Python result (key_document):
   * the environment the harness sets for the Python side, with the
     repository path written as <repo>, and the inherited PYTHONPATH.
 
-The Python side runs in {tmpdir}/equiv-<id>-XXXXXXXX, a path of constant
-length for a given --tmpdir. A file that embeds that path (a command line in
-a log, an absolute output path in an HDF5 attribute) is restored with the
-new path written over the old one, byte for byte; a restore into a path of a
-different length is a miss.
+The Python side runs in a working directory whose path equiv.py pads to a
+fixed length (make_workdir), whatever --tmpdir is. A file that embeds that
+path (a command line in a log, an absolute output path in an HDF5 attribute)
+is restored with the new path written over the old one, byte for byte; a
+restore into a path of a different length (a --tmpdir too long to pad) is a
+miss.
 
 Layout under the cache directory:
 
@@ -65,7 +66,7 @@ import tempfile
 import time
 from pathlib import Path
 
-CACHE_FORMAT_VERSION = 1
+CACHE_FORMAT_VERSION = 2
 
 # Distribution names whose versions enter every key.
 SCIENTIFIC_PACKAGES = (

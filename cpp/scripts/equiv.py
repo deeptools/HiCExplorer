@@ -262,6 +262,12 @@ _STOPPING = threading.Event()
 # of them at once deadlock: every thread ends up waiting for the GIL (seen with
 # --jobs 16). The tools run in their own processes and stay parallel.
 IN_PROCESS_HDF5_LOCK = threading.RLock()
+
+# Every case's working directory path has this many characters, whatever
+# --tmpdir is (make_workdir), so that a reference output which embeds the path
+# is restored from the cache with the new path written over the old one
+# byte for byte, also into another temporary directory.
+WORKDIR_PATH_LENGTH = 320
 _RUNNING_GROUPS = set()
 _RUNNING_LOCK = threading.Lock()
 
@@ -362,6 +368,32 @@ def cpp_environment(case, options):
     env = dict(case_environment(case) or os.environ)
     env["HICX_PLOT_PYTHON"] = plot_python(options)
     return env
+
+
+def make_workdir(case_id, tmpdir):
+    """(root, workdir): a new directory under tmpdir, and the working directory
+    inside it, padded with directory names to WORKDIR_PATH_LENGTH characters.
+    When tmpdir is too long to pad, workdir is root."""
+    root = Path(tempfile.mkdtemp(prefix=f"equiv-{case_id}-", dir=tmpdir))
+    missing = WORKDIR_PATH_LENGTH - len(str(root))
+    if missing < 2:
+        return root, root
+    components = []
+    while missing > 0:
+        if missing <= 201:
+            components.append("w" * (missing - 1))
+            missing = 0
+        elif missing <= 203:
+            # two short names instead of a 200 character one and an empty one
+            components.append("w" * (missing - 3))
+            components.append("w")
+            missing = 0
+        else:
+            components.append("w" * 200)
+            missing -= 201
+    workdir = root.joinpath(*components)
+    workdir.mkdir(parents=True)
+    return root, workdir
 
 
 def compare_locked(*args, **kwargs):
@@ -1271,8 +1303,7 @@ def check_determinism(case, options, workdir, cpp_tool, data, reference_dir):
 
 
 def run_case(case, options):
-    workdir = Path(tempfile.mkdtemp(prefix=f"equiv-{case['id']}-",
-                                    dir=options.tmpdir))
+    workdir_root, workdir = make_workdir(case["id"], options.tmpdir)
     out_py = workdir / "out_py"
     out_cpp = workdir / "out_cpp"
     out_py.mkdir()
@@ -1498,7 +1529,7 @@ def run_case(case, options):
         result["interrupted"] = True
 
     if not options.keep_workdirs and passed:
-        shutil.rmtree(workdir, ignore_errors=True)
+        shutil.rmtree(workdir_root, ignore_errors=True)
         result["workdir"] = None
     return result
 
@@ -2254,8 +2285,8 @@ def _cache_verify(options, cache):
                                           if not k.startswith("_")})
     fresh_options.cache = "off"
     def verify_one(case, meta):
-        fresh_dir = Path(tempfile.mkdtemp(prefix=f"equiv-{case['id']}-", dir=options.tmpdir))
-        cached_dir = Path(tempfile.mkdtemp(prefix=f"equiv-{case['id']}-", dir=options.tmpdir))
+        fresh_root, fresh_dir = make_workdir(case["id"], options.tmpdir)
+        cached_root, cached_dir = make_workdir(case["id"], options.tmpdir)
         (fresh_dir / "out_cpp").mkdir()
         side = run_python_side(case, fresh_options, fresh_dir, data, env)
         # The cached copy is restored with the fresh run's path written in,
@@ -2304,8 +2335,8 @@ def _cache_verify(options, cache):
               f"{rss_ratio if rss_ratio is None else round(rss_ratio, 3)}")
         for diff in diffs[:5]:
             print(f"       {diff}")
-        shutil.rmtree(fresh_dir, ignore_errors=True)
-        shutil.rmtree(cached_dir, ignore_errors=True)
+        shutil.rmtree(fresh_root, ignore_errors=True)
+        shutil.rmtree(cached_root, ignore_errors=True)
         return None
 
     rows = []

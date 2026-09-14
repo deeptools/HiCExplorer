@@ -83,11 +83,11 @@ class World:
                 "outputs": [{"path": "{out}/out.txt", "format": "text", "class": "E0"}],
                 "large": False, "validators": [], "py_script": None, "path_prepend": []}
 
-    def run(self, name):
+    def run(self, name, tmpdir=None):
         """True when the case's Python side came from the cache."""
         reference_cache.clear_hash_memo()
         case = self.cases[name]
-        workdir = Path(tempfile.mkdtemp(prefix=f"equiv-{case['id']}-", dir=self.tmp))
+        _, workdir = equiv.make_workdir(case["id"], tmpdir or self.tmp)
         (workdir / "out_cpp").mkdir()
         options = argparse.Namespace(**vars(self.options))
         side = equiv.run_python_side(case, options, workdir, str(self.data),
@@ -190,13 +190,26 @@ def test_an_unexpected_exit_status_is_not_cached(world):
         assert side["cached"] is False and side["stored"] is False
 
 
-def test_an_embedded_working_directory_is_rewritten(world):
+def test_an_embedded_working_directory_is_rewritten_into_another_tmpdir(world):
     world.cases["A"]["args"] = ["{data}/a.txt", "{out}/out.txt", "{out}"]
     assert world.run("A") is False
-    assert world.run("A") is True
-    restored_dir = str(Path(world.last_side["noise_dirs"][0]).parent) if world.last_side["noise_dirs"] \
-        else None
-    assert restored_dir is None
-    assert world.last_output.startswith("ALPHA" + str(world.tmp))
-    assert "/out_py" in world.last_output
-    assert os.path.basename(os.path.dirname(world.last_output[len("ALPHA"):])) != ""
+    first = world.last_output
+    longer = world.tmp / "a_much_longer_temporary_directory_name"
+    longer.mkdir()
+    assert world.run("A", tmpdir=longer) is True
+    # the embedded out_py path is the new working directory's, not the old one
+    assert world.last_output != first
+    assert world.last_output.startswith("ALPHA" + str(longer))
+    assert world.last_output.endswith("/out_py")
+
+
+def test_working_directories_have_one_path_length(tmp_path):
+    lengths = set()
+    for name in ("t", "tmp_cold", "tmp_warm2", "x" * 150):
+        directory = tmp_path / name
+        directory.mkdir()
+        for case_id in ("short", "hicPCA.bedgraph.lieberman.geneTrack.mm9_reduced_chr1"):
+            _, workdir = equiv.make_workdir(case_id, directory)
+            assert workdir.is_dir()
+            lengths.add(len(str(workdir)))
+    assert lengths == {equiv.WORKDIR_PATH_LENGTH}
