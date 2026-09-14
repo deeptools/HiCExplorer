@@ -126,6 +126,37 @@ TEST_CASE("the Benjamini-Hochberg cutoff is hicFindTADs' step up rule") {
     CHECK(hicx::stats::benjamini_hochberg_cutoff({}, 0.5) == 0.0);
 }
 
+TEST_CASE("adjusted p-values skip NaN, keep ties equal and cap at one") {
+    const double nan = std::numeric_limits<double>::quiet_NaN();
+    // m = 4: 0.01*4/1 = 0.04, 0.02*4/2 = 0.04, 0.03*4/3 = 0.04, 0.5*4/4 = 0.5
+    const std::vector<double> p{0.5, nan, 0.02, 0.01, 0.03};
+    const std::vector<double> bh = hicx::stats::benjamini_hochberg_adjusted(p);
+    CHECK(bh[0] == 0.5);
+    CHECK(std::isnan(bh[1]));
+    CHECK(bh[2] == 0.02 * 4.0 / 2.0);
+    CHECK(bh[3] == std::min(0.01 * 4.0 / 1.0, 0.02 * 4.0 / 2.0));
+    CHECK(bh[4] == 0.03 * 4.0 / 3.0);
+    // A later smaller ratio pulls the earlier ranks down.
+    const std::vector<double> step_in{0.04, 0.045};
+    const std::vector<double> step = hicx::stats::benjamini_hochberg_adjusted(step_in);
+    CHECK(step[0] == 0.045);
+    CHECK(step[1] == 0.045);
+    // Tied p-values get the same adjusted value.
+    const std::vector<double> tied_in{0.2, 0.2, 0.9};
+    const std::vector<double> tied = hicx::stats::benjamini_hochberg_adjusted(tied_in);
+    CHECK(tied[0] == tied[1]);
+    const std::vector<double> capped_in{0.6, 0.9};
+    CHECK(hicx::stats::benjamini_hochberg_adjusted(capped_in)[0] == 0.9);
+    CHECK(hicx::stats::benjamini_hochberg_adjusted(std::vector<double>{}).empty());
+    const std::vector<double> bonferroni_in{0.01, nan, 0.4};
+    const std::vector<double> bonferroni = hicx::stats::bonferroni_adjusted(bonferroni_in);
+    CHECK(bonferroni[0] == 0.01 * 2.0);
+    CHECK(std::isnan(bonferroni[1]));
+    CHECK(bonferroni[2] == 0.8);
+    const std::vector<double> clamp_in{0.7, 0.9};
+    CHECK(hicx::stats::bonferroni_adjusted(clamp_in)[1] == 1.0);
+}
+
 TEST_CASE("the Bonferroni scaling clamps at one and leaves NaN alone") {
     std::vector<double> pvalues{0.01, 0.2, 0.5,
                                 std::numeric_limits<double>::quiet_NaN()};

@@ -198,5 +198,170 @@
     "expect_exit": 1,
     "memory": {"budget_mb": 64},
     "notes": "A cool target with an h5 control: 'Matrices are not given in the same format!' and exit status 1, with nothing written, before any matrix is loaded."
+  },
+  {
+    "id": "hicDifferentialTAD.v4.cool.chr1.sharedMask.all_one",
+    "tool": "hicDifferentialTAD",
+    "tier": 5,
+    "py_script": "cpp/scripts/py_hicDifferentialTAD_calibrated.py",
+    "args": ["-tm", "{data}/hicDifferentialTAD/GSM2644945_Untreated-R1.100000_chr1.cool",
+             "-cm", "{data}/hicDifferentialTAD/GSM2644947_Auxin2days-R1.100000_chr1.cool",
+             "-td", "{data}/hicDifferentialTAD/untreated_R1_domains.bed",
+             "-m", "all", "-mr", "one", "-t", "1", "-o", "{out}/diff",
+             "--sharedMask"],
+    "outputs": [
+      {"path": "{out}/diff_accepted.diff_tad", "format": "text", "class": "E0"},
+      {"path": "{out}/diff_rejected.diff_tad", "format": "text", "class": "E0"}
+    ],
+    "threads_arg": "--threads",
+    "notes": "C++ only option (PLAN.md 9.7 step 1, dual mode as in 5.8). The reference is cpp/scripts/py_hicDifferentialTAD_calibrated.py: the unmodified Python tool on matrices masked and saved through hicmatrix, with the p-value adjustment applied to its output. The shared mask alone. The untreated matrix has 83 all-zero bins and the auxin matrix 81 of them, so 2 bins are masked in the auxin matrix only."
+  },
+  {
+    "id": "hicDifferentialTAD.v4.cool.chr1.fdr.all_all",
+    "tool": "hicDifferentialTAD",
+    "tier": 5,
+    "py_script": "cpp/scripts/py_hicDifferentialTAD_calibrated.py",
+    "args": ["-tm", "{data}/hicDifferentialTAD/GSM2644945_Untreated-R1.100000_chr1.cool",
+             "-cm", "{data}/hicDifferentialTAD/GSM2644947_Auxin2days-R1.100000_chr1.cool",
+             "-td", "{data}/hicDifferentialTAD/untreated_R1_domains.bed",
+             "-m", "all", "-mr", "all", "-t", "1", "-o", "{out}/diff",
+             "--correctForMultipleTesting", "fdr"],
+    "outputs": [
+      {"path": "{out}/diff_accepted.diff_tad", "format": "text", "class": "E0"},
+      {"path": "{out}/diff_rejected.diff_tad", "format": "text", "class": "E0"}
+    ],
+    "threads_arg": "--threads",
+    "notes": "C++ only option (PLAN.md 9.7 step 1, dual mode as in 5.8). The reference is cpp/scripts/py_hicDifferentialTAD_calibrated.py: the unmodified Python tool on matrices masked and saved through hicmatrix, with the p-value adjustment applied to its output. Benjamini-Hochberg alone, per test across the 140 TADs, rejection by the adjusted p-values."
+  },
+  {
+    "id": "hicDifferentialTAD.v4.cool.chr1.sharedMask_fdr.intra_one",
+    "tool": "hicDifferentialTAD",
+    "tier": 5,
+    "py_script": "cpp/scripts/py_hicDifferentialTAD_calibrated.py",
+    "args": ["-tm", "{data}/hicDifferentialTAD/GSM2644945_Untreated-R1.100000_chr1.cool",
+             "-cm", "{data}/hicDifferentialTAD/GSM2644947_Auxin2days-R1.100000_chr1.cool",
+             "-td", "{data}/hicDifferentialTAD/untreated_R1_domains.bed",
+             "-m", "intra-TAD", "-mr", "one", "-t", "1", "-o", "{out}/diff",
+             "--sharedMask", "--correctForMultipleTesting", "fdr"],
+    "outputs": [
+      {"path": "{out}/diff_accepted.diff_tad", "format": "text", "class": "E0"},
+      {"path": "{out}/diff_rejected.diff_tad", "format": "text", "class": "E0"}
+    ],
+    "threads_arg": "--threads",
+    "notes": "C++ only option (PLAN.md 9.7 step 1, dual mode as in 5.8). The reference is cpp/scripts/py_hicDifferentialTAD_calibrated.py: the unmodified Python tool on matrices masked and saved through hicmatrix, with the p-value adjustment applied to its output. Both options, intra-TAD only."
+  },
+  {
+    "id": "hicDifferentialTAD.v4.cool.chr1.sharedMask_bonferroni.left_all",
+    "tool": "hicDifferentialTAD",
+    "tier": 5,
+    "py_script": "cpp/scripts/py_hicDifferentialTAD_calibrated.py",
+    "args": ["-tm", "{data}/hicDifferentialTAD/GSM2644945_Untreated-R1.100000_chr1.cool",
+             "-cm", "{data}/hicDifferentialTAD/GSM2644947_Auxin2days-R1.100000_chr1.cool",
+             "-td", "{data}/hicDifferentialTAD/untreated_R1_domains.bed",
+             "-m", "left-inter-TAD", "-mr", "all", "-p", "0.2", "-t", "1", "-o", "{out}/diff",
+             "--sharedMask", "--correctForMultipleTesting", "bonferroni"],
+    "outputs": [
+      {"path": "{out}/diff_accepted.diff_tad", "format": "text", "class": "E0"},
+      {"path": "{out}/diff_rejected.diff_tad", "format": "text", "class": "E0"}
+    ],
+    "threads_arg": "--threads",
+    "notes": "C++ only option (PLAN.md 9.7 step 1, dual mode as in 5.8). The reference is cpp/scripts/py_hicDifferentialTAD_calibrated.py: the unmodified Python tool on matrices masked and saved through hicmatrix, with the p-value adjustment applied to its output. Both options with Bonferroni, left inter-TAD with modeReject all, at --pValue 0.2."
+  },
+  {
+    "id": "hicDifferentialTAD.v4.cool.chr1.bonferroni.right_one",
+    "tool": "hicDifferentialTAD",
+    "tier": 5,
+    "py_script": "cpp/scripts/py_hicDifferentialTAD_calibrated.py",
+    "args": ["-tm", "{data}/hicDifferentialTAD/GSM2644945_Untreated-R1.100000_chr1.cool",
+             "-cm", "{data}/hicDifferentialTAD/GSM2644947_Auxin2days-R1.100000_chr1.cool",
+             "-td", "{data}/hicDifferentialTAD/untreated_R1_domains.bed",
+             "-m", "right-inter-TAD", "-mr", "one", "-p", "0.2", "-t", "1", "-o", "{out}/diff",
+             "--correctForMultipleTesting", "bonferroni"],
+    "outputs": [
+      {"path": "{out}/diff_accepted.diff_tad", "format": "text", "class": "E0"},
+      {"path": "{out}/diff_rejected.diff_tad", "format": "text", "class": "E0"}
+    ],
+    "threads_arg": "--threads",
+    "notes": "C++ only option (PLAN.md 9.7 step 1, dual mode as in 5.8). The reference is cpp/scripts/py_hicDifferentialTAD_calibrated.py: the unmodified Python tool on matrices masked and saved through hicmatrix, with the p-value adjustment applied to its output. Bonferroni alone, right inter-TAD with modeReject one, at --pValue 0.2."
+  },
+  {
+    "id": "hicDifferentialTAD.v4.cool.chr1_chr2.sharedMask_fdr.all_one",
+    "tool": "hicDifferentialTAD",
+    "tier": 5,
+    "py_script": "cpp/scripts/py_hicDifferentialTAD_calibrated.py",
+    "args": ["-tm", "{data}/hicDifferentialTAD/GSM2644945_Untreated-R1.100000_chr1_chr2.cool",
+             "-cm", "{data}/hicDifferentialTAD/GSM2644947_Auxin2days-R1.100000_chr1_chr2.cool",
+             "-td", "{data}/hicDifferentialTAD/untreated_R1_domains_chr1_chr2.bed",
+             "-m", "all", "-mr", "one", "-t", "1", "-o", "{out}/diff",
+             "--sharedMask", "--correctForMultipleTesting", "fdr"],
+    "outputs": [
+      {"path": "{out}/diff_accepted.diff_tad", "format": "text", "class": "E0"},
+      {"path": "{out}/diff_rejected.diff_tad", "format": "text", "class": "E0"}
+    ],
+    "threads_arg": "--threads",
+    "notes": "C++ only option (PLAN.md 9.7 step 1, dual mode as in 5.8). The reference is cpp/scripts/py_hicDifferentialTAD_calibrated.py: the unmodified Python tool on matrices masked and saved through hicmatrix, with the p-value adjustment applied to its output. Two chromosomes: the adjustment runs across the TADs of both, and the mask is the union over the whole matrix."
+  },
+  {
+    "id": "hicDifferentialTAD.v4.h5.chr1.sharedMask_fdr.all_one",
+    "tool": "hicDifferentialTAD",
+    "tier": 5,
+    "py_script": "cpp/scripts/py_hicDifferentialTAD_calibrated.py",
+    "args": ["-tm", "{data}/hicDifferentialTAD/GSM2644945_Untreated-R1.100000_chr1.h5",
+             "-cm", "{data}/hicDifferentialTAD/GSM2644947_Auxin2days-R1.100000_chr1.h5",
+             "-td", "{data}/hicDifferentialTAD/untreated_R1_domains.bed",
+             "-m", "all", "-mr", "one", "-t", "1", "-o", "{out}/diff",
+             "--sharedMask", "--correctForMultipleTesting", "fdr"],
+    "outputs": [
+      {"path": "{out}/diff_accepted.diff_tad", "format": "text", "class": "E0"},
+      {"path": "{out}/diff_rejected.diff_tad", "format": "text", "class": "E0"}
+    ],
+    "threads_arg": "--threads",
+    "notes": "C++ only option (PLAN.md 9.7 step 1, dual mode as in 5.8). The reference is cpp/scripts/py_hicDifferentialTAD_calibrated.py: the unmodified Python tool on matrices masked and saved through hicmatrix, with the p-value adjustment applied to its output. The h5 path: the invalid bins are the files' nan_bins, and the blocks are sliced from the whole matrix."
+  },
+  {
+    "id": "hicDifferentialTAD.v4.cool.chr1.correction_none.all_one",
+    "tool": "hicDifferentialTAD",
+    "tier": 5,
+    "py_script": "cpp/scripts/py_hicDifferentialTAD_calibrated.py",
+    "args": ["-tm", "{data}/hicDifferentialTAD/GSM2644945_Untreated-R1.100000_chr1.cool",
+             "-cm", "{data}/hicDifferentialTAD/GSM2644947_Auxin2days-R1.100000_chr1.cool",
+             "-td", "{data}/hicDifferentialTAD/untreated_R1_domains.bed",
+             "-m", "all", "-mr", "one", "-t", "1", "-o", "{out}/diff",
+             "--correctForMultipleTesting", "none"],
+    "outputs": [
+      {"path": "{out}/diff_accepted.diff_tad", "format": "text", "class": "E0"},
+      {"path": "{out}/diff_rejected.diff_tad", "format": "text", "class": "E0"}
+    ],
+    "threads_arg": "--threads",
+    "notes": "C++ only option (PLAN.md 9.7 step 1, dual mode as in 5.8). The reference is cpp/scripts/py_hicDifferentialTAD_calibrated.py: the unmodified Python tool on matrices masked and saved through hicmatrix, with the p-value adjustment applied to its output. An explicit none is the Python output byte for byte."
+  },
+  {
+    "id": "hicDifferentialTAD.v4.error.sharedMask_different_bins",
+    "tool": "hicDifferentialTAD",
+    "tier": 5,
+    "py_script": "cpp/scripts/py_hicDifferentialTAD_calibrated.py",
+    "args": ["-tm", "{data}/hicDifferentialTAD/GSM2644945_Untreated-R1.100000_chr1.cool",
+             "-cm", "{data}/hicDifferentialTAD/GSM2644947_Auxin2days-R1.100000_chr1_chr2.cool",
+             "-td", "{data}/hicDifferentialTAD/untreated_R1_domains.bed",
+             "-m", "all", "-mr", "one", "-t", "1", "-o", "{out}/diff",
+             "--sharedMask"],
+    "outputs": [],
+    "expect_exit": 1,
+    "notes": "C++ only option (PLAN.md 9.7 step 1, dual mode as in 5.8). The reference is cpp/scripts/py_hicDifferentialTAD_calibrated.py: the unmodified Python tool on matrices masked and saved through hicmatrix, with the p-value adjustment applied to its output. A chr1 target with a chr1_chr2 control: one mask cannot describe two bin tables, so --sharedMask refuses with exit status 1 and writes nothing (contract rule 7). Without the option the Python runs this pair region by region."
+  },
+  {
+    "id": "hicDifferentialTAD.v4.error.correction_invalid_choice",
+    "tool": "hicDifferentialTAD",
+    "tier": 5,
+    "py_script": "cpp/scripts/py_hicDifferentialTAD_calibrated.py",
+    "args": ["-tm", "{data}/hicDifferentialTAD/GSM2644945_Untreated-R1.100000_chr1.cool",
+             "-cm", "{data}/hicDifferentialTAD/GSM2644947_Auxin2days-R1.100000_chr1.cool",
+             "-td", "{data}/hicDifferentialTAD/untreated_R1_domains.bed",
+             "-m", "all", "-mr", "one", "-t", "1", "-o", "{out}/diff",
+             "--correctForMultipleTesting", "BH"],
+    "outputs": [],
+    "expect_exit": 2,
+    "memory": {"budget_mb": 64},
+    "notes": "C++ only option (PLAN.md 9.7 step 1, dual mode as in 5.8). The reference is cpp/scripts/py_hicDifferentialTAD_calibrated.py: the unmodified Python tool on matrices masked and saved through hicmatrix, with the p-value adjustment applied to its output. An unknown correction is an argparse invalid choice, exit status 2, before any file is read."
   }
 ]

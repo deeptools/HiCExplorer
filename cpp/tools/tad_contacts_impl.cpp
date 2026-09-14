@@ -289,6 +289,7 @@ ContactMatrix load_contact_matrix(const std::string& path, bool is_cooler) {
             data = read_cool(path).data;
         }
         data.matrix.symmetrize_in_place();
+        result.nan_bins = std::move(data.nan_bins);
         result.bins = BinTable(std::move(data.cut_intervals));
         result.matrix = std::move(data.matrix);
     }
@@ -346,6 +347,90 @@ std::pair<std::int64_t, std::int64_t> normalise_slice(std::int64_t start, std::i
     const std::int64_t first = clamp(start);
     const std::int64_t last = std::max(first, clamp(stop));
     return {first, last};
+}
+
+std::vector<std::int64_t> invalid_bins(const ContactMatrix& matrix) {
+    if (matrix.format == Format::H5) {
+        std::vector<std::int64_t> bins = matrix.nan_bins;
+        std::sort(bins.begin(), bins.end());
+        bins.erase(std::unique(bins.begin(), bins.end()), bins.end());
+        return bins;
+    }
+    const CsrMatrix& m = matrix.matrix;
+    const std::int64_t n = m.rows();
+    const std::vector<std::int64_t>& indptr = m.indptr();
+    const std::vector<std::int32_t>& indices = m.indices();
+    const std::vector<double>& data = m.data();
+    // A whole-file load balances under the same condition as a region load
+    // (point 5 of the header comment), with the region being the whole matrix.
+    const std::vector<double>* weights = nullptr;
+    if (matrix.weights.has_value() && more_than_one_stored(matrix, 0, n) &&
+        !std::all_of(matrix.weights->begin(), matrix.weights->end(),
+                     [](double w) { return std::isnan(w); })) {
+        weights = &*matrix.weights;
+    }
+    std::vector<char> touched(static_cast<std::size_t>(n), 0);
+    for (std::int64_t row = 0; row < n; ++row) {
+        for (auto k = static_cast<std::size_t>(indptr[static_cast<std::size_t>(row)]);
+             k < static_cast<std::size_t>(indptr[static_cast<std::size_t>(row) + 1]); ++k) {
+            const auto column = static_cast<std::size_t>(indices[k]);
+            double value = data[k];
+            if (weights != nullptr) {
+                value *= (*weights)[static_cast<std::size_t>(row)] * (*weights)[column];
+            }
+            if (!std::isnan(value) && value != 0.0) {
+                touched[static_cast<std::size_t>(row)] = 1;
+                touched[column] = 1;
+            }
+        }
+    }
+    std::vector<std::int64_t> bins;
+    for (std::int64_t bin = 0; bin < n; ++bin) {
+        if (touched[static_cast<std::size_t>(bin)] == 0) {
+            bins.push_back(bin);
+        }
+    }
+    return bins;
+}
+
+bool same_bins(const ContactMatrix& a, const ContactMatrix& b) {
+    const std::vector<CutInterval>& x = a.bins.intervals();
+    const std::vector<CutInterval>& y = b.bins.intervals();
+    if (x.size() != y.size()) {
+        return false;
+    }
+    for (std::size_t i = 0; i < x.size(); ++i) {
+        if (x[i].chrom != y[i].chrom || x[i].start != y[i].start || x[i].end != y[i].end) {
+            return false;
+        }
+    }
+    return true;
+}
+
+void mask_bins(ContactMatrix& matrix, const std::vector<std::int64_t>& bins) {
+    if (bins.empty()) {
+        return;
+    }
+    CsrMatrix& m = matrix.matrix;
+    std::vector<char> masked(static_cast<std::size_t>(m.rows()), 0);
+    for (const std::int64_t bin : bins) {
+        if (bin >= 0 && bin < m.rows()) {
+            masked[static_cast<std::size_t>(bin)] = 1;
+        }
+    }
+    const std::vector<std::int64_t>& indptr = m.indptr();
+    const std::vector<std::int32_t>& indices = m.indices();
+    std::vector<double>& data = m.mutable_data();
+    for (std::int64_t row = 0; row < m.rows(); ++row) {
+        const bool row_masked = masked[static_cast<std::size_t>(row)] != 0;
+        for (auto k = static_cast<std::size_t>(indptr[static_cast<std::size_t>(row)]);
+             k < static_cast<std::size_t>(indptr[static_cast<std::size_t>(row) + 1]); ++k) {
+            if (row_masked || masked[static_cast<std::size_t>(indices[k])] != 0) {
+                data[k] = 0.0;
+            }
+        }
+    }
+    m.eliminate_zeros();
 }
 
 TadGeometry tad_geometry(const ContactMatrix& matrix, const std::vector<Domain>& chromosome,
