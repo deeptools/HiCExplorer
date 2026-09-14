@@ -316,6 +316,23 @@ def expand(value, mapping):
     return value
 
 
+def plot_python(options):
+    """The interpreter the C++ tools draw their figures with.
+
+    --plot-python, else the reference interpreter --py-python. The harness sets
+    HICX_PLOT_PYTHON itself for every C++ run and records the value in the
+    report, so no verdict depends on whether the caller exported it."""
+    return str(getattr(options, "plot_python", None)
+               or getattr(options, "py_python", None) or DEFAULT_PY_PYTHON)
+
+
+def cpp_environment(case, options):
+    """case_environment for a C++ run, with HICX_PLOT_PYTHON set."""
+    env = dict(case_environment(case) or os.environ)
+    env["HICX_PLOT_PYTHON"] = plot_python(options)
+    return env
+
+
 def case_environment(case, base=None):
     """The environment of one case's processes.
 
@@ -1018,7 +1035,7 @@ def check_determinism(case, options, workdir, cpp_tool, data, reference_dir):
             + list(extra_args)
         return run_measured([str(cpp_tool)] + argv, workdir,
                             directory / "stdout.txt", directory / "stderr.txt",
-                            env=case_environment(case))
+                            env=cpp_environment(case, options))
 
     for index in range(1, max(1, options.noise_runs)):
         repeat_dir = workdir / f"out_cpp_repeat{index}"
@@ -1117,7 +1134,7 @@ def run_case(case, options):
                               workdir, out_py / "stdout.txt", out_py / "stderr.txt",
                               case_environment(case, env), trace_path=trace_py)
     compute_rss_file = workdir / "cpp_compute_rss_kb.txt"
-    env_cpp = dict(case_environment(case) or os.environ)
+    env_cpp = cpp_environment(case, options)
     env_cpp["HICX_COMPUTE_RSS_FILE"] = str(compute_rss_file)
     measure_cpp = run_measured([str(cpp_tool)] + args_cpp, workdir,
                                out_cpp / "stdout.txt", out_cpp / "stderr.txt",
@@ -1342,7 +1359,7 @@ def run_determinism_case(case, options):
                 for arg in case["args"] + case.get("cpp_args", [])]
     measure = run_measured([str(cpp_tool)] + args_cpp, workdir,
                            out_cpp / "stdout.txt", out_cpp / "stderr.txt",
-                           env=case_environment(case))
+                           env=cpp_environment(case, options))
     result["cpp_seconds"] = measure["seconds"]
     result["cpp_cpu_seconds"] = measure["cpu_seconds"]
     result["cpp_peak_rss_kb"] = measure["peak_rss_kb"]
@@ -1678,6 +1695,7 @@ def _report_skeleton(options, results, mode):
         "host": platform.node(),
         "cpp_bin": str(options.cpp_bin),
         "py_python": str(getattr(options, "py_python", "")),
+        "plot_python": plot_python(options),
         "budget_constant_mb": BUDGET_CONSTANT_BYTES / MB,
         "time_floor_seconds": TIME_FLOOR_SECONDS,
         "cases": results,
@@ -1821,6 +1839,8 @@ def main(argv=None):
     run_parser = subparsers.add_parser("run", help="run cases and compare")
     add_selection(run_parser)
     run_parser.add_argument("--py-python", default=str(DEFAULT_PY_PYTHON))
+    run_parser.add_argument("--plot-python", default=None,
+                            help="HICX_PLOT_PYTHON for the C++ runs (default: --py-python)")
     run_parser.add_argument("--skip-memory-gate", action="store_true",
                             help="development only; the report is marked and "
                                  "cannot record a pass")
@@ -1834,6 +1854,9 @@ def main(argv=None):
     determinism_parser = subparsers.add_parser(
         "determinism", help="C++ against itself: repeat runs and thread counts")
     add_selection(determinism_parser)
+    determinism_parser.add_argument("--plot-python", default=None,
+                                    help="HICX_PLOT_PYTHON for the C++ runs (default: the "
+                                         "reference interpreter)")
     determinism_parser.set_defaults(handler=command_determinism, determinism=True,
                                     skip_memory_gate=False, skip_time_gate=False,
                                     py_python=str(DEFAULT_PY_PYTHON))
