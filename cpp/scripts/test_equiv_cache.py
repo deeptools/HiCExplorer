@@ -213,3 +213,15 @@ def test_working_directories_have_one_path_length(tmp_path):
             assert workdir.is_dir()
             lengths.add(len(str(workdir)))
     assert lengths == {equiv.WORKDIR_PATH_LENGTH}
+
+
+def test_scheduler_runs_thin_margin_cases_alone_and_auto_uses_half_the_physical_cores():
+    options = argparse.Namespace(noise_runs=5, determinism=False)
+    case = {"id": "x", "outputs": [], "large": False, "memory": {}}
+    measured = {"py_peak_rss_kb": 100_000, "py_seconds": 10.0, "py_cpu_seconds": 10.0,
+                "cpp_peak_rss_kb": 50_000, "cpp_seconds": 2.0, "cpp_cpu_seconds": 2.0}
+    assert equiv._demand(case, options, dict(measured, time_ratio=0.2), 8, False)[1] == 1
+    assert equiv._demand(case, options, dict(measured, time_ratio=0.6), 8, False)[1] == 8
+    assert equiv._demand(case, options, dict(measured, time_ratio=0.6), 8, True)[1] == 8
+    assert equiv.resolve_jobs("auto") == max(1, equiv.physical_cores() // 2)
+    assert equiv.resolve_jobs("3") == 3

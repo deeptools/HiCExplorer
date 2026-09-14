@@ -246,6 +246,15 @@ PYTHON_SIDE_ENVIRONMENT = {"COLUMNS": "80"}
 # so no measurement is taken under memory pressure. Without a measurement of
 # a case, its declared budget, or these.
 MEMORY_FRACTION = 0.5
+# CPU time is not independent of load here: with neighbours, SMT siblings and
+# frequency scaling make the same work cost more CPU. Measured on 40 cases
+# chosen for thin gate margins, both sides fresh (Ryzen 9 7950X, 16 cores,
+# 32 threads): against --jobs 1 the time-gate ratio moved by a median 1.13 and
+# at most 1.68 at 8 jobs, by a median 1.44 and at most 2.80 at 16 jobs; peak
+# RSS within 3 % at both. So --jobs auto is half the physical cores, and a case
+# whose recorded C++/Python CPU ratio is at least THIN_TIME_MARGIN runs alone,
+# a factor of 2 from the gate, above the largest shift seen at that load.
+THIN_TIME_MARGIN = 0.5
 UNKNOWN_PEAK_KB = 2 * 1024 * 1024
 UNKNOWN_LARGE_PEAK_KB = 8 * 1024 * 1024
 UNKNOWN_SECONDS = 60.0
@@ -1872,10 +1881,21 @@ def _is_memory_gated(case, options):  # pylint: disable=W0613
     return not getattr(options, "skip_memory_gate", False)
 
 
+def physical_cores():
+    """Distinct cores, counting SMT siblings once."""
+    siblings = set()
+    for path in Path("/sys/devices/system/cpu").glob("cpu[0-9]*/topology/thread_siblings_list"):
+        try:
+            siblings.add(path.read_text().strip())
+        except OSError:
+            continue
+    return len(siblings) or max(1, (os.cpu_count() or 2) // 2)
+
+
 def resolve_jobs(value):
-    """--jobs: a positive number, or auto for half the cores."""
+    """--jobs: a positive number, or auto for half the physical cores."""
     if value in (None, "auto"):
-        return max(1, (os.cpu_count() or 2) // 2)
+        return max(1, physical_cores() // 2)
     jobs = int(value)
     if jobs < 1:
         raise ValueError("--jobs must be at least 1")
@@ -1894,9 +1914,11 @@ def _available_memory_kb():
 
 
 def _history_record(result):
-    return {name: result.get(name) for name in
-            ("py_peak_rss_kb", "py_seconds", "py_cpu_seconds",
-             "cpp_peak_rss_kb", "cpp_seconds", "cpp_cpu_seconds")}
+    record = {name: result.get(name) for name in
+              ("py_peak_rss_kb", "py_seconds", "py_cpu_seconds",
+               "cpp_peak_rss_kb", "cpp_seconds", "cpp_cpu_seconds")}
+    record["time_ratio"] = (result.get("time_gate") or {}).get("ratio")
+    return record
 
 
 def _expectations(options):
@@ -1925,7 +1947,8 @@ def _threads(cpu, wall):
 
 
 def _demand(case, options, record, jobs, python_cached):
-    """(expected peak kB, CPU slots, expected seconds) of one case."""
+    """(expected peak kB, CPU slots, expected seconds) of one case. A case
+    with a thin time-gate margin takes every slot, so it runs alone."""
     large = bool(case.get("large"))
     record = record or {}
     budget_mb = (case.get("memory") or {}).get("budget_mb")
@@ -1951,6 +1974,8 @@ def _demand(case, options, record, jobs, python_cached):
     if large and not known:
         # Nothing measured: a large case may use many threads and much time.
         slots = max(slots, jobs // 2)
+    if (record.get("time_ratio") or 0.0) >= THIN_TIME_MARGIN:
+        slots = jobs
     return max(peaks), min(jobs, slots), seconds
 
 
@@ -1983,10 +2008,16 @@ def _execute(cases, options, runner, on_result=None):
             except Exception:  # pylint: disable=W0718
                 cached = False
         demands[case["id"]] = _demand(case, options, records.get(case["id"]), jobs, cached)
-    pending = sorted(cases, key=lambda case: -demands[case["id"]][2])
+    # Cases that run alone come last, when the others have drained, longest
+    # first within each group.
+    pending = sorted(cases, key=lambda case: (demands[case["id"]][1] >= jobs > 1,
+                                              -demands[case["id"]][2]))
     results, deferred = [], []
 
     def finish(result):
+        peak_kb, slots, seconds = demands.get(result["id"], (None, None, None))
+        result["scheduled"] = {"jobs": jobs, "slots": slots, "alone": bool(slots and slots >= jobs),
+                               "expected_peak_kb": peak_kb, "expected_seconds": seconds}
         results.append(result)
         if on_result is not None:
             on_result(result)
@@ -2010,6 +2041,8 @@ def _execute(cases, options, runner, on_result=None):
                         deferred.append(case["id"])
                         continue
                     if running and (used_kb + peak_kb > limit_kb or used_slots + slots > jobs):
+                        if slots >= jobs:
+                            break  # a case that runs alone waits for the others to drain
                         continue
                     future = pool.submit(runner, case, options)
                     running[future] = (peak_kb, slots)
