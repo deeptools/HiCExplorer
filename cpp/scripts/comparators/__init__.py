@@ -5,7 +5,8 @@ compare(path_a, path_b, cls, opts) -> Result and registering it below.
 """
 from __future__ import annotations
 
-from . import chic_background, chic_hdf5, cool, h5, hic, image, interval, npz, rendered, text
+from . import (chic_background, chic_hdf5, cool, h5, hic, image, interval, npz, rendered,
+               tar_images, text)
 from .base import CLASSES, Result, fail
 
 _REGISTRY = {
@@ -41,6 +42,9 @@ _REGISTRY = {
     # matplotlib, class E6; see comparators/image.py.
     "png": image,
     "image": image,
+    # A tar or tar.gz of figures (chicPlotViewpoint): member names in order,
+    # each member through the image comparator; see comparators/tar_images.py.
+    "tar_images": tar_images,
 }
 
 # Default text schema per format name, so a case can just say format: bedgraph.

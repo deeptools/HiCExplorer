@@ -22,6 +22,7 @@ dependencies = [
 hicPlotDistVsCounts = "hicexplorer_plot.tools:hicPlotDistVsCounts"
 hicPlotViewpoint = "hicexplorer_plot.tools:hicPlotViewpoint"
 hicPlotAverageRegions = "hicexplorer_plot.tools:hicPlotAverageRegions"
+chicPlotViewpoint = "hicexplorer_plot.tools:chicPlotViewpoint"
 
 [tool.setuptools]
 packages = ["hicexplorer_plot"]

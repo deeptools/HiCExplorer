@@ -763,7 +763,11 @@ def _declared_output_class(case, name):
 REQUIRED_VALIDATOR_BY_FORMAT = {"chic_background_model": "chic_background_likelihood"}
 
 STRICTEST_CLASS_BY_FORMAT = {"cool": "E1", "mcool": "E1", "h5": "E2",
-                             "chic_hdf5": "E2", "hdf5-chic": "E2"}
+                             "chic_hdf5": "E2", "hdf5-chic": "E2",
+                             # An archive of figures (chicPlotViewpoint): tarfile
+                             # and gzip stamp the time of writing, so repeats are
+                             # compared by member names and byte-identical images.
+                             "tar_images": "E0"}
 
 # An HDF5 object header carries an optional modification time (message type
 # 0x12, H5O_MTIME_NEW): four reserved bytes, then a 4-byte Unix time. It is
