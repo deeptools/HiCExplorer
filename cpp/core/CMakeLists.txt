@@ -30,6 +30,7 @@ add_library(hicx4core
     src/fasta_reader.cpp
     src/h5_file.cpp
     src/hdf5_util.cpp
+    src/hic_adapter.cpp
     src/hic_matrix.cpp
     src/json_lite.cpp
     src/lbfgsb.cpp
@@ -61,7 +62,7 @@ target_include_directories(hicx4core PUBLIC
 
 target_link_libraries(hicx4core
     PUBLIC hicx::hdf5
-    PRIVATE hicx::blosc hicx::zlib hicx::hts hicx::lapack coolercpp::coolercpp
+    PRIVATE hicx::blosc hicx::zlib hicx::hts hicx::lapack coolercpp::coolercpp hicfilecpp::hicfilecpp
             hicx_compile_options)
 
 # np.argsort's tie order on a CPU with AVX512_SKX comes from x86-simd-sort, at
