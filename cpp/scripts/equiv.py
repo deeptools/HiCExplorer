@@ -161,6 +161,8 @@ import json
 import os
 import platform
 import shlex
+import random
+import signal
 import shutil
 import subprocess
 import sys
@@ -172,9 +174,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import comparators  # noqa: E402  pylint: disable=C0413
+import reference_cache
 import validators  # noqa: E402  pylint: disable=C0413
 
-HARNESS_VERSION = "1.2"
+HARNESS_VERSION = "1.3"
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 REPO_ROOT = SCRIPT_DIR.parent.parent
@@ -233,6 +236,34 @@ LOAD_AVERAGE_LIMIT = 2.0              # PLAN.md 10
 # --- determinism -----------------------------------------------------------
 DEFAULT_NOISE_RUNS = 5                # PLAN.md 9.1
 DEFAULT_THREADS_HIGH = 16             # PLAN.md 4.1: --threads 1 versus 16
+
+# The environment the harness sets for every Python reference run, besides
+# PYTHONPATH (python_environment). Part of the reference cache key.
+PYTHON_SIDE_ENVIRONMENT = {"COLUMNS": "80"}
+
+# The scheduler of --jobs (_execute): the expected peak RSS of the running
+# cases stays below this share of the memory available when the run starts,
+# so no measurement is taken under memory pressure. Without a measurement of
+# a case, its declared budget, or these.
+MEMORY_FRACTION = 0.5
+UNKNOWN_PEAK_KB = 2 * 1024 * 1024
+UNKNOWN_LARGE_PEAK_KB = 8 * 1024 * 1024
+UNKNOWN_SECONDS = 60.0
+UNKNOWN_LARGE_SECONDS = 600.0
+
+# Set by SIGTERM or SIGINT: no new process starts, running ones are stopped,
+# and cases that were cut short are neither persisted nor cached.
+_STOPPING = threading.Event()
+
+# The harness's own HDF5 reading (the memory gate's matrix_info, the h5, cool
+# and chic comparators, the validators) runs one thread at a time. h5py and
+# PyTables call the HDF5 library from threads holding the GIL, and h5py's
+# visititems calls back into Python while it holds HDF5's global lock, so two
+# of them at once deadlock: every thread ends up waiting for the GIL (seen with
+# --jobs 16). The tools run in their own processes and stay parallel.
+IN_PROCESS_HDF5_LOCK = threading.RLock()
+_RUNNING_GROUPS = set()
+_RUNNING_LOCK = threading.Lock()
 
 RSS_TRACE_INTERVAL = 0.1              # PLAN.md 10, for large: true cases
 
@@ -333,6 +364,148 @@ def cpp_environment(case, options):
     return env
 
 
+def compare_locked(*args, **kwargs):
+    """comparators.compare under IN_PROCESS_HDF5_LOCK."""
+    with IN_PROCESS_HDF5_LOCK:
+        return comparators.compare(*args, **kwargs)
+
+
+def python_environment():
+    """The environment of the Python reference runs."""
+    env = dict(os.environ)
+    env["PYTHONPATH"] = str(REPO_ROOT) + os.pathsep + env.get("PYTHONPATH", "")
+    env.update(PYTHON_SIDE_ENVIRONMENT)
+    return env
+
+
+def cache_for(options):
+    cache = getattr(options, "_reference_cache", None)
+    if cache is None:
+        directory = getattr(options, "cache_dir", None) or reference_cache.default_cache_dir()
+        cache = reference_cache.Cache(directory)
+        options._reference_cache = cache
+    return cache
+
+
+def noise_runs_of(case, options):
+    """The number of reference runs of a class EN case, 0 for any other."""
+    if case.get("noise") or any(declared.get("class") == "EN"
+                                for declared in case["outputs"]):
+        return max(2, options.noise_runs)
+    return 0
+
+
+def python_tool_of(case):
+    return (REPO_ROOT / case["py_script"]) if case.get("py_script") else (PY_BIN / case["tool"])
+
+
+def _path_prepend_stamps(case):
+    stamps = []
+    for entry in case.get("path_prepend") or []:
+        directory = Path(expand(entry, {"deps": HICX_DEPS})).expanduser()
+        listing = []
+        if directory.is_dir():
+            for item in sorted(directory.iterdir()):
+                try:
+                    stat = item.stat()
+                except OSError:
+                    continue
+                listing.append([item.name, stat.st_size, stat.st_mtime_ns])
+        stamps.append([entry, listing])
+    return stamps
+
+
+def python_side_key(case, options, data, env):
+    """(key document, key) of the case's reference side, memoised per run."""
+    memo = getattr(options, "_python_side_keys", None)
+    if memo is None:
+        memo = options._python_side_keys = {}
+    if case["id"] not in memo:
+        cache = cache_for(options)
+        fingerprint = reference_cache.interpreter_fingerprint(
+            str(options.py_python), env, cache.directory, REPO_ROOT)
+        inherited = os.environ.get("PYTHONPATH", "").replace(str(REPO_ROOT), "<repo>")
+        environment = {"PYTHONPATH": "<repo>" + os.pathsep + inherited,
+                       "set": dict(PYTHON_SIDE_ENVIRONMENT),
+                       "path_prepend": _path_prepend_stamps(case)}
+        document = reference_cache.key_document(
+            case=case, runs=noise_runs_of(case, options), data=data, repo_root=REPO_ROOT,
+            entry_script=python_tool_of(case), fingerprint=fingerprint,
+            environment=environment)
+        memo[case["id"]] = (document, reference_cache.key_of(document))
+    return memo[case["id"]]
+
+
+def run_python_side(case, options, workdir, data, env):
+    """The Python reference side of a case: from the cache, or run and stored.
+
+    Returns {"measurement", "noise_record", "noise_dirs", "cached", "key",
+    "mode", "stored", "processes", "fresh_cpu_seconds"}. Only a run whose
+    exit status, and every noise run's, is the expected one is stored."""
+    workdir = Path(workdir)
+    out_py = workdir / "out_py"
+    out_py.mkdir(exist_ok=True)
+    runs = noise_runs_of(case, options)
+    mode = getattr(options, "cache", "off")
+    python_tool = python_tool_of(case)
+    argv = [str(options.py_python), str(python_tool)] + [
+        expand(arg, {"data": data, "out": out_py}) for arg in case["args"]]
+    side = {"cached": False, "key": None, "mode": mode, "stored": False, "processes": 0,
+            "fresh_cpu_seconds": 0.0, "noise_record": None, "noise_dirs": []}
+    document = None
+    if mode != "off":
+        document, side["key"] = python_side_key(case, options, data, env)
+        if mode == "use":
+            meta = cache_for(options).lookup(side["key"])
+            if meta is not None and cache_for(options).restore(meta, workdir):
+                measurement = Measurement(meta["measurement"])
+                measurement["command"] = " ".join(shlex.quote(part) for part in argv)
+                side.update(cached=True, measurement=measurement,
+                            noise_record=meta.get("noise"),
+                            noise_dirs=[workdir / f"out_py_noise{index}"
+                                        for index in range(1, runs)])
+                return side
+
+    trace_py = (workdir / "rss_py.tsv") if case.get("large") else None
+    measurement = run_measured(argv, workdir, out_py / "stdout.txt", out_py / "stderr.txt",
+                               case_environment(case, env), trace_path=trace_py)
+    side["processes"] = 1
+    side["fresh_cpu_seconds"] = measurement["cpu_seconds"]
+    healthy = measurement["exit_code"] == case["expect_exit"]
+
+    # Class EN: the envelope is measured from N runs of the reference (PLAN.md
+    # 5.7). The first run is the one just made; the others go through
+    # noise_runner.py with the case's declared noise source, if it declares
+    # one. N is --noise-runs; a case cannot set its own.
+    if runs:
+        noise = case.get("noise") or {}
+        record = {"runs": runs, "shim": noise.get("shim"), "exit_codes": []}
+        for index in range(1, runs):
+            noise_dir = workdir / f"out_py_noise{index}"
+            noise_dir.mkdir(exist_ok=True)
+            args_noise = [expand(arg, {"data": data, "out": noise_dir})
+                          for arg in case["args"]]
+            env_noise = dict(env)
+            env_noise["HICX_NOISE_RUN"] = str(index)
+            if noise.get("shim"):
+                env_noise["HICX_NOISE_SHIM"] = noise["shim"]
+            measure_noise = run_measured(
+                [str(options.py_python), str(NOISE_RUNNER), str(python_tool)] + args_noise,
+                workdir, noise_dir / "stdout.txt", noise_dir / "stderr.txt", env_noise)
+            record["exit_codes"].append(measure_noise["exit_code"])
+            side["processes"] += 1
+            side["fresh_cpu_seconds"] += measure_noise["cpu_seconds"]
+            healthy = healthy and measure_noise["exit_code"] == case["expect_exit"]
+            side["noise_dirs"].append(noise_dir)
+        side["noise_record"] = record
+    side["measurement"] = measurement
+    if mode != "off" and healthy and not _STOPPING.is_set():
+        cache_for(options).store(side["key"], document, workdir, measurement,
+                                 side["noise_record"])
+        side["stored"] = True
+    return side
+
+
 def case_environment(case, base=None):
     """The environment of one case's processes.
 
@@ -359,6 +532,11 @@ _MATRIX_INFO_CACHE = {}
 
 
 def matrix_info(path):
+    with IN_PROCESS_HDF5_LOCK:
+        return _matrix_info_locked(path)
+
+
+def _matrix_info_locked(path):
     """(nbins, nnz_stored, max_chromosome_bins) of a matrix file, or None.
 
     Accepts a cooler URI (`file.mcool::/resolutions/10000`). Without a `::`
@@ -710,9 +888,15 @@ def run_measured(argv, cwd, stdout_path, stderr_path, env=None, trace_path=None)
     if not Path(wrapper[0]).exists():
         wrapper = []
     start = time.perf_counter()
+    if _STOPPING.is_set():
+        return Measurement(seconds=0.0, peak_rss_kb=0, user_seconds=0.0, sys_seconds=0.0,
+                           cpu_seconds=0.0, exit_code=-signal.SIGTERM,
+                           command=" ".join(shlex.quote(part) for part in argv))
     with open(stdout_path, "wb") as out, open(stderr_path, "wb") as err:
         popen = subprocess.Popen(wrapper + list(argv), cwd=str(cwd), stdout=out,
-                                 stderr=err, env=env)
+                                 stderr=err, env=env, start_new_session=True)
+        with _RUNNING_LOCK:
+            _RUNNING_GROUPS.add(popen.pid)
         tracer, stop = None, None
         if trace_path is not None:
             stop = threading.Event()
@@ -720,6 +904,8 @@ def run_measured(argv, cwd, stdout_path, stderr_path, env=None, trace_path=None)
                                       args=(popen, trace_path, stop), daemon=True)
             tracer.start()
         returncode = popen.wait()
+        with _RUNNING_LOCK:
+            _RUNNING_GROUPS.discard(popen.pid)
         if tracer is not None:
             stop.set()
             tracer.join(timeout=1.0)
@@ -891,7 +1077,7 @@ def _compare_run_outputs(case, reference_dir, other_dir):
             # A declared deviation, whose reason is in the case notes (a pdf
             # rendered by graphviz embeds its creation date). The structure is
             # still checked; the bytes are not expected to repeat.
-            checked = comparators.compare(fmt, str(left), str(right), "E7", None)
+            checked = compare_locked(fmt, str(left), str(right), "E7", None)
             if not checked.passed:
                 diffs.append(f"{name}: " + "; ".join(checked.diffs[:3]))
             else:
@@ -910,7 +1096,7 @@ def _compare_run_outputs(case, reference_dir, other_dir):
         # qualification, any other byte is a failure.
         normalise = _declared_options(case, name).get("normalise")
         if normalise and fmt in ("plain", "text"):
-            comparison = comparators.compare(fmt, str(left), str(right), "E0",
+            comparison = compare_locked(fmt, str(left), str(right), "E0",
                                              {"normalise": normalise})
             if comparison.passed:
                 qualified.append(f"{name}: identical after the named normalisation "
@@ -923,7 +1109,7 @@ def _compare_run_outputs(case, reference_dir, other_dir):
         strictest = STRICTEST_CLASS_BY_FORMAT.get(fmt)
         content_identical = None
         if strictest is not None:
-            comparison = comparators.compare(fmt, str(left), str(right),
+            comparison = compare_locked(fmt, str(left), str(right),
                                              strictest, None)
             content_identical = comparison.passed
             if not content_identical:
@@ -1097,9 +1283,7 @@ def run_case(case, options):
     args_cpp = [expand(arg, {"data": data, "out": out_cpp})
                 for arg in case["args"] + case["cpp_args"]]
 
-    env = dict(os.environ)
-    env["PYTHONPATH"] = str(REPO_ROOT) + os.pathsep + env.get("PYTHONPATH", "")
-    env["COLUMNS"] = "80"
+    env = python_environment()
 
     # A tool case runs bin/<tool> against <cpp-bin>/<tool>. A tier 0 case has
     # no tool and names the two programs itself; that is how the file layer is
@@ -1128,11 +1312,17 @@ def run_case(case, options):
                       error=f"missing C++ binary {cpp_tool}")
         return result
 
-    trace_py = (workdir / "rss_py.tsv") if case.get("large") else None
     trace_cpp = (workdir / "rss_cpp.tsv") if case.get("large") else None
-    measure_py = run_measured([str(options.py_python), str(python_tool)] + args_py,
-                              workdir, out_py / "stdout.txt", out_py / "stderr.txt",
-                              case_environment(case, env), trace_path=trace_py)
+    # The reference side first, all of its runs, so that what the cache stores
+    # never contains a C++ output.
+    python_side = run_python_side(case, options, workdir, data, env)
+    measure_py = python_side["measurement"]
+    noise_dirs = python_side["noise_dirs"]
+    result["python_side"] = {name: python_side[name] for name in
+                             ("cached", "key", "mode", "stored", "processes",
+                              "fresh_cpu_seconds")}
+    if python_side["noise_record"] is not None:
+        result["noise_envelope"] = python_side["noise_record"]
     compute_rss_file = workdir / "cpp_compute_rss_kb.txt"
     env_cpp = cpp_environment(case, options)
     env_cpp["HICX_COMPUTE_RSS_FILE"] = str(compute_rss_file)
@@ -1167,36 +1357,12 @@ def run_case(case, options):
 
     passed = True
     errors = []
-
-    # Class EN: the envelope is measured from N runs of the reference (PLAN.md
-    # 5.7). The first run is the one already made; the others go through
-    # noise_runner.py with the case's declared noise source, if it declares
-    # one. N is --noise-runs; a case cannot set its own.
-    noise_dirs = []
-    if case.get("noise") or any(declared.get("class") == "EN"
-                                for declared in case["outputs"]):
-        noise = case.get("noise") or {}
-        runs = max(2, options.noise_runs)
-        noise_record = {"runs": runs, "shim": noise.get("shim"), "exit_codes": []}
-        for index in range(1, runs):
-            noise_dir = workdir / f"out_py_noise{index}"
-            noise_dir.mkdir()
-            args_noise = [expand(arg, {"data": data, "out": noise_dir})
-                          for arg in case["args"]]
-            env_noise = dict(env)
-            env_noise["HICX_NOISE_RUN"] = str(index)
-            if noise.get("shim"):
-                env_noise["HICX_NOISE_SHIM"] = noise["shim"]
-            measure_noise = run_measured(
-                [str(options.py_python), str(NOISE_RUNNER), str(python_tool)] + args_noise,
-                workdir, noise_dir / "stdout.txt", noise_dir / "stderr.txt", env_noise)
-            noise_record["exit_codes"].append(measure_noise["exit_code"])
-            if measure_noise["exit_code"] != case["expect_exit"]:
-                passed = False
-                errors.append(f"reference noise run {index} exited "
-                              f"{measure_noise['exit_code']}, expected {case['expect_exit']}")
-            noise_dirs.append(noise_dir)
-        result["noise_envelope"] = noise_record
+    for index, code in enumerate((python_side["noise_record"] or {}).get("exit_codes", []),
+                                 start=1):
+        if code != case["expect_exit"]:
+            passed = False
+            errors.append(f"reference noise run {index} exited {code}, "
+                          f"expected {case['expect_exit']}")
 
     if measure_py["exit_code"] != case["expect_exit"]:
         passed = False
@@ -1228,7 +1394,7 @@ def run_case(case, options):
             compare_options["noise_paths"] = [str(path_py)] + [
                 expand(declared["path"], {"data": data, "out": noise_dir})
                 for noise_dir in noise_dirs]
-        comparison = comparators.compare(declared["format"], str(path_py),
+        comparison = compare_locked(declared["format"], str(path_py),
                                          str(path_cpp), entry["class"],
                                          compare_options)
         entry.update(comparison.to_json())
@@ -1265,7 +1431,8 @@ def run_case(case, options):
                 "repo_root": str(REPO_ROOT),
             }
             try:
-                validation = validators.run(entry.get("name"), context)
+                with IN_PROCESS_HDF5_LOCK:
+                    validation = validators.run(entry.get("name"), context)
                 record.update(validation.to_json())
             except Exception as error:  # pylint: disable=W0718
                 record.update(passed=False, class_met=None, metrics={},
@@ -1275,6 +1442,9 @@ def run_case(case, options):
 
     result["outputs"] = outputs
     result["class_met"] = result["class_declared"] if passed else None
+    if case["validators"] and python_side["key"] and not _STOPPING.is_set():
+        cache_for(options).add_artefacts(python_side["key"], workdir,
+                                         reference_cache.VALIDATOR_ARTEFACTS)
 
     # --- the gates ---------------------------------------------------------
     gated_peak_kb = compute_peak_kb if compute_peak_kb is not None else measure_cpp["peak_rss_kb"]
@@ -1324,6 +1494,8 @@ def run_case(case, options):
     result["passed"] = passed
     if errors:
         result["error"] = "; ".join(errors)
+    if _STOPPING.is_set():
+        result["interrupted"] = True
 
     if not options.keep_workdirs and passed:
         shutil.rmtree(workdir, ignore_errors=True)
@@ -1657,7 +1829,7 @@ def git_commit():
 # entry points
 
 
-def _is_memory_gated(case, options):
+def _is_memory_gated(case, options):  # pylint: disable=W0613
     """Is this case's peak RSS a gate rather than a report line?
 
     Every case is, unless the gate is switched off for development: the budget
@@ -1669,19 +1841,161 @@ def _is_memory_gated(case, options):
     return not getattr(options, "skip_memory_gate", False)
 
 
-def _execute(cases, options, runner):
-    """Gated cases serially, the rest in the pool."""
-    serial = [case for case in cases if _is_memory_gated(case, options)]
-    serial_ids = {case["id"] for case in serial}
-    parallel = [case for case in cases if case["id"] not in serial_ids]
-    results = [runner(case, options) for case in serial]
-    if parallel:
-        if options.jobs > 1:
-            with concurrent.futures.ThreadPoolExecutor(max_workers=options.jobs) as pool:
-                futures = [pool.submit(runner, case, options) for case in parallel]
-                results.extend(future.result() for future in futures)
-        else:
-            results.extend(runner(case, options) for case in parallel)
+def resolve_jobs(value):
+    """--jobs: a positive number, or auto for half the cores."""
+    if value in (None, "auto"):
+        return max(1, (os.cpu_count() or 2) // 2)
+    jobs = int(value)
+    if jobs < 1:
+        raise ValueError("--jobs must be at least 1")
+    return jobs
+
+
+def _available_memory_kb():
+    try:
+        with open("/proc/meminfo", encoding="ascii") as handle:
+            for line in handle:
+                if line.startswith("MemAvailable:"):
+                    return int(line.split()[1])
+    except OSError:
+        pass
+    return 8 * 1024 * 1024
+
+
+def _history_record(result):
+    return {name: result.get(name) for name in
+            ("py_peak_rss_kb", "py_seconds", "py_cpu_seconds",
+             "cpp_peak_rss_kb", "cpp_seconds", "cpp_cpu_seconds")}
+
+
+def _expectations(options):
+    """{case id: measurements} from --expect-from reports and the history the
+    cache directory keeps; the history wins, it is the newer."""
+    records = {}
+    for source in getattr(options, "expect_from", None) or []:
+        source = Path(source)
+        reports = sorted(source.rglob("report.json")) if source.is_dir() else [source]
+        for report in reports:
+            try:
+                payload = json.loads(report.read_text())
+            except (OSError, ValueError):
+                continue
+            for case in payload.get("cases", []):
+                if case.get("py_seconds") is not None or case.get("cpp_seconds") is not None:
+                    records[case["id"]] = _history_record(case)
+    records.update(cache_for(options).history())
+    return records
+
+
+def _threads(cpu, wall):
+    if not cpu or not wall or wall < 1.0:
+        return 1
+    return max(1, int(round(cpu / wall)))
+
+
+def _demand(case, options, record, jobs, python_cached):
+    """(expected peak kB, CPU slots, expected seconds) of one case."""
+    large = bool(case.get("large"))
+    record = record or {}
+    budget_mb = (case.get("memory") or {}).get("budget_mb")
+    fallback_kb = (budget_mb * MB / 1024 if budget_mb
+                   else UNKNOWN_LARGE_PEAK_KB if large else UNKNOWN_PEAK_KB)
+    peaks, threads, seconds = [], [1], 0.0
+    known = False
+    if not python_cached and record.get("py_peak_rss_kb"):
+        known = True
+        peaks.append(record["py_peak_rss_kb"])
+        threads.append(_threads(record.get("py_cpu_seconds"), record.get("py_seconds")))
+        seconds += (record.get("py_seconds") or 0.0) * max(1, noise_runs_of(case, options))
+    if record.get("cpp_peak_rss_kb"):
+        known = known or python_cached
+        peaks.append(record["cpp_peak_rss_kb"])
+        threads.append(_threads(record.get("cpp_cpu_seconds"), record.get("cpp_seconds")))
+        repeats = 1 + (max(1, options.noise_runs) if getattr(options, "determinism", False) else 0)
+        seconds += (record.get("cpp_seconds") or 0.0) * repeats
+    if not known:
+        peaks.append(fallback_kb)
+        seconds = UNKNOWN_LARGE_SECONDS if large else UNKNOWN_SECONDS
+    slots = max(threads)
+    if large:
+        slots = max(slots, jobs // 2)
+    return max(peaks), min(jobs, slots), seconds
+
+
+def _execute(cases, options, runner, on_result=None):
+    """Runs the cases, in parallel as --jobs allows.
+
+    A case's peak RSS is measured per process (wait4), which neighbours do
+    not change as long as the machine is not short of memory, and its CPU
+    time is its own. So cases share the machine under two limits: the
+    expected peak RSS of the running cases stays below MEMORY_FRACTION of
+    the memory available at the start, and their expected CPU threads stay
+    within --jobs, which gives a heavily threaded or a large case fewer
+    neighbours. Expected values come from the cache history or --expect-from
+    reports, otherwise from the declared budget. --stop-after starts no case
+    that is not expected to finish in time, except the first; the others are
+    returned as deferred for --resume."""
+    jobs = resolve_jobs(options.jobs)
+    options.jobs_resolved = jobs
+    started = time.monotonic()
+    stop_after = getattr(options, "stop_after", None)
+    records = _expectations(options)
+    limit_kb = _available_memory_kb() * MEMORY_FRACTION
+    demands = {}
+    for case in cases:
+        cached = False
+        if getattr(options, "cache", "off") == "use" and runner is run_case:
+            try:
+                _, key = python_side_key(case, options, str(options.data), python_environment())
+                cached = cache_for(options).lookup(key) is not None
+            except Exception:  # pylint: disable=W0718
+                cached = False
+        demands[case["id"]] = _demand(case, options, records.get(case["id"]), jobs, cached)
+    pending = sorted(cases, key=lambda case: -demands[case["id"]][2])
+    results, deferred = [], []
+
+    def finish(result):
+        results.append(result)
+        if on_result is not None:
+            on_result(result)
+
+    def in_time(case, anything_started):
+        if stop_after is None or not anything_started:
+            return True
+        return time.monotonic() - started + demands[case["id"]][2] <= stop_after
+
+    launched = 0
+    with concurrent.futures.ThreadPoolExecutor(max_workers=jobs) as pool:
+        running = {}
+        while pending or running:
+            if not _STOPPING.is_set():
+                used_kb = sum(entry[0] for entry in running.values())
+                used_slots = sum(entry[1] for entry in running.values())
+                for case in list(pending):
+                    peak_kb, slots, _ = demands[case["id"]]
+                    if not in_time(case, launched > 0):
+                        pending.remove(case)
+                        deferred.append(case["id"])
+                        continue
+                    if running and (used_kb + peak_kb > limit_kb or used_slots + slots > jobs):
+                        continue
+                    future = pool.submit(runner, case, options)
+                    running[future] = (peak_kb, slots)
+                    used_kb += peak_kb
+                    used_slots += slots
+                    launched += 1
+                    pending.remove(case)
+            else:
+                deferred.extend(case["id"] for case in pending)
+                pending = []
+            if not running:
+                continue
+            done, _ = concurrent.futures.wait(list(running),
+                                              return_when=concurrent.futures.FIRST_COMPLETED)
+            for future in done:
+                del running[future]
+                finish(future.result())
+    options.deferred = deferred
     results.sort(key=lambda item: (item["tier"], item["id"]))
     return results
 
@@ -1698,6 +2012,9 @@ def _report_skeleton(options, results, mode):
         "plot_python": plot_python(options),
         "budget_constant_mb": BUDGET_CONSTANT_BYTES / MB,
         "time_floor_seconds": TIME_FLOOR_SECONDS,
+        "jobs": getattr(options, "jobs_resolved", None),
+        "cache": _cache_summary(options, results),
+        "deferred": list(getattr(options, "deferred", []) or []),
         "cases": results,
     }
     if getattr(options, "skip_memory_gate", False):
@@ -1707,12 +2024,70 @@ def _report_skeleton(options, results, mode):
     return report
 
 
+def _cache_summary(options, results):
+    sides = [case.get("python_side") for case in results if case.get("python_side")]
+    return {
+        "mode": getattr(options, "cache", None),
+        "directory": str(cache_for(options).directory) if getattr(options, "cache", "off") != "off" else None,
+        "cached_cases": sum(1 for side in sides if side["cached"]),
+        "fresh_cases": sum(1 for side in sides if not side["cached"]),
+        "python_processes": sum(side["processes"] for side in sides),
+        "python_cpu_seconds_spent": sum(side["fresh_cpu_seconds"] for side in sides),
+    }
+
+
+RESUME_OPTIONS = ("cpp_bin", "data", "py_python", "determinism", "noise_runs", "cache",
+                  "skip_memory_gate", "skip_time_gate", "threads_high")
+
+
 def command_run(options):
     cases = load_cases(options.tool, options.tier, options.case)
     if not cases:
         print("no cases selected", file=sys.stderr)
         return 1
-    results = _execute(cases, options, run_case)
+    if options.resume:
+        options.out = options.resume
+    out = Path(options.out)
+    cases_dir = out / "cases"
+    settings = {name: str(getattr(options, name, None)) for name in RESUME_OPTIONS}
+    settings["plot_python"] = plot_python(options)
+    settings_path = out / "run_options.json"
+    completed = []
+    if options.resume and settings_path.is_file():
+        previous = json.loads(settings_path.read_text())
+        changed = [name for name in settings if previous.get(name) != settings[name]]
+        if changed:
+            print(f"--resume {out}: the run was started with different {', '.join(changed)}",
+                  file=sys.stderr)
+            return 2
+        selected = {case["id"] for case in cases}
+        for path in sorted(cases_dir.glob("*.json")):
+            try:
+                result = json.loads(path.read_text())
+            except (OSError, ValueError):
+                continue
+            if result.get("id") in selected:
+                completed.append(result)
+        done = {result["id"] for result in completed}
+        cases = [case for case in cases if case["id"] not in done]
+        print(f"resuming {out}: {len(completed)} cases done, {len(cases)} to run")
+    else:
+        shutil.rmtree(cases_dir, ignore_errors=True)
+    cases_dir.mkdir(parents=True, exist_ok=True)
+    settings_path.write_text(json.dumps(settings, indent=1))
+
+    def persist(result):
+        if result.get("interrupted"):
+            return
+        (cases_dir / f"{result['id']}.json").write_text(json.dumps(result, indent=1))
+        try:
+            cache_for(options).update_history({result["id"]: _history_record(result)})
+        except OSError:
+            pass
+
+    results = _execute(cases, options, run_case, on_result=persist)
+    results = sorted(completed + [case for case in results if not case.get("interrupted")],
+                     key=lambda item: (item["tier"], item["id"]))
     report = _report_skeleton(options, results, "run")
     json_path, markdown_path = write_report(report, options.out)
 
@@ -1742,7 +2117,15 @@ def command_run(options):
             print(f"       warning: {warning}")
     if report.get("memory_gate") == "skipped":
         print("\nthe memory gate was skipped: this run cannot record a pass")
-    print(f"\nreport: {json_path}\n        {markdown_path}")
+    summary = report["cache"]
+    print(f"\ncache {summary['mode']}: {summary['cached_cases']} cases from the cache, "
+          f"{summary['fresh_cases']} run, {summary['python_processes']} Python reference "
+          f"processes, {summary['python_cpu_seconds_spent']:.1f} s of Python CPU")
+    print(f"report: {json_path}\n        {markdown_path}")
+    if getattr(options, "deferred", None) or _STOPPING.is_set():
+        print(f"incomplete: {len(options.deferred or [])} cases deferred; continue with "
+              f"--resume {options.out}")
+        return 3
     return 0 if all(case.get("passed") for case in results) else 1
 
 
@@ -1784,7 +2167,7 @@ def command_compare(options):
     compare_options = None
     if options.reference_runs:
         compare_options = {"noise_paths": [options.a] + list(options.reference_runs)}
-    result = comparators.compare(options.format, options.a, options.b,
+    result = compare_locked(options.format, options.a, options.b,
                                  getattr(options, "class"), compare_options)
     print(json.dumps(result.to_json(), indent=2))
     return 0 if result.passed else 1
@@ -1815,6 +2198,155 @@ def command_list(options):
     return 0
 
 
+def command_cache(options):
+    cache = cache_for(options)
+    if options.action == "stats":
+        entries = list(cache.entries())
+        size = sum(entry.get("size_bytes", 0) for entry in entries)
+        by_tool = {}
+        for entry in entries:
+            tool = entry["document"].get("tool")
+            by_tool[tool] = by_tool.get(tool, 0) + 1
+        cpu = sum(entry["measurement"].get("cpu_seconds", 0.0) for entry in entries)
+        print(f"cache {cache.directory}: {len(entries)} entries, {size / 1e9:.2f} GB, "
+              f"{cpu / 3600:.2f} h of Python CPU stored, "
+              f"{sum(1 for e in entries if e.get('embedded_workdir_files'))} entries rewrite an "
+              f"embedded working directory path")
+        for tool, count in sorted(by_tool.items(), key=lambda item: str(item[0])):
+            print(f"  {tool}: {count}")
+        return 0
+    if options.action == "prune":
+        entries = list(cache.entries())
+        current = set()
+        if options.stale:
+            env = python_environment()
+            for case in load_cases():
+                current.add(python_side_key(case, options, str(options.data), env)[1])
+        removed = 0
+        limit = time.time() - options.older_than_days * 86400 if options.older_than_days else None
+        for entry in entries:
+            meta_path = cache.entry_dir(entry["key"]) / "meta.json"
+            old = limit is not None and meta_path.stat().st_mtime < limit
+            stale = options.stale and entry["key"] not in current
+            if options.all or old or stale:
+                cache.remove(entry["key"])
+                removed += 1
+        print(f"removed {removed} of {len(entries)} entries")
+        return 0
+    return _cache_verify(options, cache)
+
+
+def _cache_verify(options, cache):
+    """Reruns a random sample of cached reference sides and compares."""
+    options.cache = "use"
+    cases = load_cases(options.tool, None, options.case)
+    env = python_environment()
+    data = str(options.data)
+    candidates = []
+    for case in cases:
+        _, key = python_side_key(case, options, data, env)
+        meta = cache.lookup(key)
+        if meta is not None:
+            candidates.append((case, meta))
+    sample = random.Random(options.seed).sample(candidates, min(options.sample, len(candidates)))
+    fresh_options = argparse.Namespace(**{k: v for k, v in vars(options).items()
+                                          if not k.startswith("_")})
+    fresh_options.cache = "off"
+    def verify_one(case, meta):
+        fresh_dir = Path(tempfile.mkdtemp(prefix=f"equiv-{case['id']}-", dir=options.tmpdir))
+        cached_dir = Path(tempfile.mkdtemp(prefix=f"equiv-{case['id']}-", dir=options.tmpdir))
+        (fresh_dir / "out_cpp").mkdir()
+        side = run_python_side(case, fresh_options, fresh_dir, data, env)
+        # The cached copy is restored with the fresh run's path written in,
+        # so both embed the same working directory.
+        restored = cache.restore(dict(meta), cached_dir) and _rewrite(meta, cached_dir, fresh_dir)
+        diffs = []
+        if not restored:
+            diffs.append("the cached entry could not be restored")
+        if side["measurement"]["exit_code"] != meta["measurement"]["exit_code"]:
+            diffs.append(f"exit {side['measurement']['exit_code']} against the cached "
+                         f"{meta['measurement']['exit_code']}")
+        runs = noise_runs_of(case, options)
+        for declared in case["outputs"] if restored else []:
+            fresh = Path(expand(declared["path"], {"data": data, "out": fresh_dir / "out_py"}))
+            cached = Path(expand(declared["path"], {"data": data, "out": cached_dir / "out_py"}))
+            if fresh.exists() != cached.exists():
+                diffs.append(f"{declared['path']}: exists fresh={fresh.exists()} cached={cached.exists()}")
+                continue
+            if not fresh.exists():
+                continue
+            if declared.get("class") == "EN":
+                noise = [str(cached)] + [expand(declared["path"], {"data": data, "out": cached_dir / f"out_py_noise{i}"})
+                                         for i in range(1, runs)]
+                compare_options = dict(declared.get("options") or {})
+                compare_options["noise_paths"] = noise
+                comparison = compare_locked(declared["format"], str(cached), str(fresh), "EN",
+                                                 compare_options)
+                if not comparison.passed:
+                    diffs.append(f"{declared['path']}: outside the cached EN envelope: "
+                                 + "; ".join(comparison.to_json().get("diffs", [])[:2]))
+            elif fresh.is_file() and fresh.read_bytes() != cached.read_bytes():
+                diffs.append(f"{declared['path']}: not byte-identical")
+            elif fresh.is_dir() and reference_cache.hash_path(fresh) != reference_cache.hash_path(cached):
+                diffs.append(f"{declared['path']}: directory content differs")
+        cpu_ratio = _ratio(side["measurement"]["cpu_seconds"], meta["measurement"]["cpu_seconds"])
+        rss_ratio = _ratio(side["measurement"]["peak_rss_kb"], meta["measurement"]["peak_rss_kb"])
+        rows.append({"id": case["id"], "passed": not diffs, "diffs": diffs,
+                     "fresh_cpu_seconds": side["measurement"]["cpu_seconds"],
+                     "cached_cpu_seconds": meta["measurement"]["cpu_seconds"],
+                     "cpu_ratio": cpu_ratio,
+                     "fresh_peak_rss_kb": side["measurement"]["peak_rss_kb"],
+                     "cached_peak_rss_kb": meta["measurement"]["peak_rss_kb"],
+                     "rss_ratio": rss_ratio})
+        print(f"{'pass' if not diffs else 'FAIL'} {case['id']:<60} cpu fresh/cached "
+              f"{cpu_ratio if cpu_ratio is None else round(cpu_ratio, 3)}  rss fresh/cached "
+              f"{rss_ratio if rss_ratio is None else round(rss_ratio, 3)}")
+        for diff in diffs[:5]:
+            print(f"       {diff}")
+        shutil.rmtree(fresh_dir, ignore_errors=True)
+        shutil.rmtree(cached_dir, ignore_errors=True)
+        return None
+
+    rows = []
+    jobs = resolve_jobs(getattr(options, "jobs", "auto"))
+    with concurrent.futures.ThreadPoolExecutor(max_workers=jobs) as pool:
+        for future in [pool.submit(verify_one, case, meta) for case, meta in sample]:
+            future.result()
+    rows.sort(key=lambda row: row["id"])
+    failures = sum(1 for row in rows if not row["passed"])
+    if options.out:
+        Path(options.out).mkdir(parents=True, exist_ok=True)
+        (Path(options.out) / "cache_verify.json").write_text(json.dumps(
+            {"sample": len(sample), "candidates": len(candidates), "failures": failures,
+             "cases": rows}, indent=1))
+    print(f"\n{len(sample)} of {len(candidates)} cached cases rerun, {failures} failed")
+    return 0 if failures == 0 and sample else 1
+
+
+def _rewrite(meta, restored_dir, as_dir):
+    old, new = str(restored_dir).encode(), str(as_dir).encode()
+    if len(old) != len(new):
+        return False
+    for relative in meta["embedded_workdir_files"]:
+        path = Path(restored_dir) / relative
+        path.write_bytes(path.read_bytes().replace(old, new))
+    return True
+
+
+def _stop_on_signal(signum, _frame):
+    if _STOPPING.is_set():
+        return
+    _STOPPING.set()
+    with _RUNNING_LOCK:
+        groups = list(_RUNNING_GROUPS)
+    for group in groups:
+        try:
+            os.killpg(group, signal.SIGTERM)
+        except OSError:
+            pass
+    print(f"\nsignal {signum}: stopping the running cases", file=sys.stderr)
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -1828,7 +2360,19 @@ def main(argv=None):
         target.add_argument("--data", default=str(DEFAULT_DATA))
         target.add_argument("--out", default=str(DEFAULT_OUT))
         target.add_argument("--tmpdir", default=tempfile.gettempdir())
-        target.add_argument("--jobs", type=int, default=1)
+        target.add_argument("--jobs", default="auto",
+                            help="parallel cases: a number, or auto for half the cores "
+                                 "(default); see _execute for the memory limit")
+        target.add_argument("--cache-dir", default=None,
+                            help="the reference cache and the measurement history "
+                                 "(default: $HICX_EQUIV_CACHE, else "
+                                 "$XDG_CACHE_HOME/hicexplorer-equiv)")
+        target.add_argument("--expect-from", action="append", default=None,
+                            help="reports (report.json or directories of them) whose "
+                                 "measurements seed the scheduler's expectations")
+        target.add_argument("--stop-after", type=float, default=None,
+                            help="seconds after which no case starts that is not expected "
+                                 "to finish; the rest is deferred for --resume")
         target.add_argument("--keep-workdirs", action="store_true")
         target.add_argument("--noise-runs", type=int, default=DEFAULT_NOISE_RUNS,
                             help="repeat runs for the determinism check and for "
@@ -1849,6 +2393,11 @@ def main(argv=None):
     run_parser.add_argument("--determinism", action="store_true",
                             help="also run the determinism check of PLAN.md "
                                  "8.3 criterion 3 inside the run")
+    run_parser.add_argument("--cache", choices=("use", "refresh", "off"), default="use",
+                            help="the Python reference cache: use cached results (default), "
+                                 "refresh them by running the reference and storing, or off")
+    run_parser.add_argument("--resume", metavar="OUT", default=None,
+                            help="continue the run in OUT from its completed case reports")
     run_parser.set_defaults(handler=command_run)
 
     determinism_parser = subparsers.add_parser(
@@ -1859,7 +2408,27 @@ def main(argv=None):
                                          "reference interpreter)")
     determinism_parser.set_defaults(handler=command_determinism, determinism=True,
                                     skip_memory_gate=False, skip_time_gate=False,
-                                    py_python=str(DEFAULT_PY_PYTHON))
+                                    py_python=str(DEFAULT_PY_PYTHON), cache="off")
+
+    cache_parser = subparsers.add_parser("cache", help="the Python reference cache")
+    cache_parser.add_argument("action", choices=("stats", "prune", "verify"))
+    cache_parser.add_argument("--cache-dir", default=None)
+    cache_parser.add_argument("--py-python", default=str(DEFAULT_PY_PYTHON))
+    cache_parser.add_argument("--data", default=str(DEFAULT_DATA))
+    cache_parser.add_argument("--tmpdir", default=tempfile.gettempdir())
+    cache_parser.add_argument("--noise-runs", type=int, default=DEFAULT_NOISE_RUNS)
+    cache_parser.add_argument("--tool", action="append")
+    cache_parser.add_argument("--case", action="append")
+    cache_parser.add_argument("--sample", type=int, default=20, help="verify: cases to rerun")
+    cache_parser.add_argument("--jobs", default="auto", help="verify: cases rerun in parallel")
+    cache_parser.add_argument("--seed", type=int, default=None, help="verify: sample seed")
+    cache_parser.add_argument("--out", default=None, help="verify: directory for cache_verify.json")
+    cache_parser.add_argument("--all", action="store_true", help="prune: every entry")
+    cache_parser.add_argument("--stale", action="store_true",
+                              help="prune: entries no current case key matches")
+    cache_parser.add_argument("--older-than-days", type=float, default=None,
+                              help="prune: entries older than this")
+    cache_parser.set_defaults(handler=command_cache)
 
     compare_parser = subparsers.add_parser("compare", help="compare two files")
     compare_parser.add_argument("--format", required=True,
@@ -1884,6 +2453,8 @@ def main(argv=None):
     options = parser.parse_args(argv)
     if not hasattr(options, "determinism"):
         options.determinism = False
+    signal.signal(signal.SIGTERM, _stop_on_signal)
+    signal.signal(signal.SIGINT, _stop_on_signal)
     return options.handler(options)
 
 

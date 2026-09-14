@@ -1,0 +1,202 @@
+"""pytest over the reference cache of equiv.py (reference_cache.py).
+
+    python -m pytest cpp/scripts/test_equiv_cache.py
+
+Runs the Python side of two synthetic cases in a throwaway repository, data
+directory and cache: case A runs hicexplorer.toolA, which imports
+hicexplorer.helper, on a.txt; case B runs hicexplorer.toolB, which imports
+hicexplorer.other_helper, on b.txt. Every test first shows both cases run
+fresh and then come from the cache, then changes one thing that can change a
+Python result and checks that the affected case runs fresh again while an
+unaffected one stays cached. The interpreter fingerprint is replaced by a
+dictionary the tests control, so a package version can be faked.
+"""
+
+import argparse
+import json
+import os
+import sys
+import tempfile
+from pathlib import Path
+
+import pytest
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+import equiv  # noqa: E402
+import reference_cache  # noqa: E402
+
+TOOL = '''import sys
+from hicexplorer.{helper} import transform
+
+
+def main():
+    source, target = sys.argv[1], sys.argv[2]
+    with open(source) as handle:
+        text = handle.read()
+    with open(target, "w") as handle:
+        handle.write(transform(text) + " ".join(sys.argv[3:]))
+'''
+
+LAUNCHER = '''#!/usr/bin/env python
+from hicexplorer.{tool} import main
+
+main()
+'''
+
+
+class World:
+    def __init__(self, root, monkeypatch):
+        self.repo = root / "repo"
+        package = self.repo / "hicexplorer"
+        package.mkdir(parents=True)
+        (self.repo / "bin").mkdir()
+        (package / "__init__.py").write_text("")
+        (package / "helper.py").write_text("def transform(text):\n    return text.upper()\n")
+        (package / "other_helper.py").write_text("def transform(text):\n    return text[::-1]\n")
+        for tool, helper in (("toolA", "helper"), ("toolB", "other_helper")):
+            (package / f"{tool}.py").write_text(TOOL.format(helper=helper))
+            (self.repo / "bin" / tool).write_text(LAUNCHER.format(tool=tool))
+        self.data = root / "data"
+        self.data.mkdir()
+        (self.data / "a.txt").write_text("alpha")
+        (self.data / "b.txt").write_text("beta")
+        self.tmp = root / "tmp"
+        self.tmp.mkdir()
+        self.fingerprint = {"python": "3.12.test", "packages": {"numpy": "1.26.4"},
+                            "modules": {"fit_nbinom": None}, "path": []}
+        monkeypatch.setattr(equiv, "REPO_ROOT", self.repo)
+        monkeypatch.setattr(equiv, "PY_BIN", self.repo / "bin")
+        monkeypatch.setattr(reference_cache, "interpreter_fingerprint",
+                            lambda python, env, cache_dir, repo_root:
+                            json.loads(json.dumps(self.fingerprint)))
+        self.options = argparse.Namespace(py_python=sys.executable, noise_runs=5, cache="use",
+                                          cache_dir=str(root / "cache"), tmpdir=str(self.tmp))
+        self.cases = {
+            "A": self._case("synthetic.A", "toolA", ["{data}/a.txt", "{out}/out.txt"]),
+            "B": self._case("synthetic.B", "toolB", ["{data}/b.txt", "{out}/out.txt"]),
+        }
+
+    @staticmethod
+    def _case(identifier, tool, args):
+        return {"id": identifier, "tool": tool, "tier": 0, "args": args, "expect_exit": 0,
+                "outputs": [{"path": "{out}/out.txt", "format": "text", "class": "E0"}],
+                "large": False, "validators": [], "py_script": None, "path_prepend": []}
+
+    def run(self, name):
+        """True when the case's Python side came from the cache."""
+        reference_cache.clear_hash_memo()
+        case = self.cases[name]
+        workdir = Path(tempfile.mkdtemp(prefix=f"equiv-{case['id']}-", dir=self.tmp))
+        (workdir / "out_cpp").mkdir()
+        options = argparse.Namespace(**vars(self.options))
+        side = equiv.run_python_side(case, options, workdir, str(self.data),
+                                     equiv.python_environment())
+        assert side["measurement"]["exit_code"] == 0, (workdir / "out_py" / "stderr.txt").read_text()
+        output = workdir / "out_py" / "out.txt"
+        assert output.is_file()
+        self.last_output = output.read_text()
+        self.last_side = side
+        return side["cached"]
+
+    def both_cached_after_first_run(self):
+        assert self.run("A") is False
+        assert self.run("B") is False
+        assert self.run("A") is True
+        assert self.run("B") is True
+
+
+@pytest.fixture
+def world(tmp_path, monkeypatch):
+    return World(tmp_path, monkeypatch)
+
+
+def test_a_cached_side_restores_the_outputs_and_the_measurement(world):
+    assert world.run("A") is False
+    fresh_output, fresh_measurement = world.last_output, dict(world.last_side["measurement"])
+    assert world.run("A") is True
+    assert world.last_output == fresh_output == "ALPHA"
+    for name in ("cpu_seconds", "peak_rss_kb", "seconds", "exit_code"):
+        assert world.last_side["measurement"][name] == fresh_measurement[name]
+    assert world.last_side["processes"] == 0
+
+
+def test_one_changed_input_byte(world):
+    world.both_cached_after_first_run()
+    (world.data / "a.txt").write_text("alphb")
+    assert world.run("A") is False
+    assert world.last_output == "ALPHB"
+    assert world.run("B") is True
+
+
+def test_one_changed_line_in_an_imported_source_file(world):
+    world.both_cached_after_first_run()
+    helper = world.repo / "hicexplorer" / "helper.py"
+    # A different size and a later mtime, so the interpreter does not reuse
+    # the bytecode it cached for the old line (it checks size and mtime).
+    helper.write_text("def transform(text):\n    return text.lower()  # lower case\n")
+    stat = helper.stat()
+    os.utime(helper, ns=(stat.st_atime_ns, stat.st_mtime_ns + 5_000_000_000))
+    assert world.run("A") is False
+    assert world.last_output == "alpha"
+    assert world.run("B") is True
+
+
+def test_a_changed_argument(world):
+    world.both_cached_after_first_run()
+    world.cases["A"]["args"] = world.cases["A"]["args"] + ["extra"]
+    assert world.run("A") is False
+    assert world.last_output == "ALPHAextra"
+    assert world.run("B") is True
+
+
+def test_a_faked_package_version(world):
+    world.both_cached_after_first_run()
+    world.fingerprint["packages"]["numpy"] = "9.9.9"
+    assert world.run("A") is False
+    assert world.run("A") is True
+    world.fingerprint["packages"]["numpy"] = "1.26.4"
+    assert world.run("B") is True
+
+
+def test_a_changed_harness_environment_variable(world, monkeypatch):
+    world.both_cached_after_first_run()
+    monkeypatch.setattr(equiv, "PYTHON_SIDE_ENVIRONMENT", {"COLUMNS": "81"})
+    assert world.run("A") is False
+    assert world.run("A") is True
+    monkeypatch.setattr(equiv, "PYTHON_SIDE_ENVIRONMENT", {"COLUMNS": "80"})
+    assert world.run("B") is True
+
+
+def test_refresh_reruns_and_off_neither_reads_nor_writes(world):
+    world.both_cached_after_first_run()
+    world.options.cache = "refresh"
+    assert world.run("A") is False
+    world.options.cache = "off"
+    assert world.run("B") is False
+    assert world.last_side["key"] is None
+    world.options.cache = "use"
+    assert world.run("A") is True
+
+
+def test_an_unexpected_exit_status_is_not_cached(world):
+    world.cases["A"]["expect_exit"] = 1
+    reference_cache.clear_hash_memo()
+    case = world.cases["A"]
+    for _ in range(2):
+        workdir = Path(tempfile.mkdtemp(prefix=f"equiv-{case['id']}-", dir=world.tmp))
+        side = equiv.run_python_side(case, argparse.Namespace(**vars(world.options)), workdir,
+                                     str(world.data), equiv.python_environment())
+        assert side["cached"] is False and side["stored"] is False
+
+
+def test_an_embedded_working_directory_is_rewritten(world):
+    world.cases["A"]["args"] = ["{data}/a.txt", "{out}/out.txt", "{out}"]
+    assert world.run("A") is False
+    assert world.run("A") is True
+    restored_dir = str(Path(world.last_side["noise_dirs"][0]).parent) if world.last_side["noise_dirs"] \
+        else None
+    assert restored_dir is None
+    assert world.last_output.startswith("ALPHA" + str(world.tmp))
+    assert "/out_py" in world.last_output
+    assert os.path.basename(os.path.dirname(world.last_output[len("ALPHA"):])) != ""
