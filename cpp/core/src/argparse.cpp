@@ -1062,9 +1062,11 @@ void Parser::parse_into(const std::vector<std::string>& tokens, std::size_t begi
                 std::exit(0);
             case Action::Version: {
                 std::string text = a.version_template;
+                // %(prog)s is the prog of the parser that holds the action:
+                // "tool command" inside a subcommand, as argparse prints it.
                 const std::size_t at = text.find("%(prog)s");
                 if (at != std::string::npos) {
-                    text.replace(at, 8, root.prog_);
+                    text.replace(at, 8, error_prog_.empty() ? prog_ : error_prog_);
                 }
                 std::fputs((text + "\n").c_str(), stdout);
                 std::exit(0);
@@ -1112,9 +1114,12 @@ void Parser::parse_into(const std::vector<std::string>& tokens, std::size_t begi
                         error("argument " + a.display_name() + ": expected at least one argument");
                     }
                 } else {
+                    // Python 3.12.7 matches a fixed count of values with
+                    // [AO]{N}: the next N strings are taken even when they
+                    // look like options; only "--" stops them.
                     const int count = std::stoi(n);
                     for (int k = 0; k < count; ++k) {
-                        if (!consumable(i)) {
+                        if (i >= tokens.size() || (!only_positionals && tokens[i] == "--")) {
                             error("argument " + a.display_name() + ": expected " + n + " argument" +
                                   (count == 1 ? "" : "s"));
                         }

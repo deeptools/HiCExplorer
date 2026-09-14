@@ -33,6 +33,7 @@ def main_parser():
     g.add_argument("--list", type=int, nargs="+")
     g.add_argument("--star", nargs="*")
     g.add_argument("--pair", type=float, nargs=2)
+    g.add_argument("--single", nargs=1)
     g.add_argument("--opt", nargs="?", const="C", default="D")
     g.add_argument("--flag", action="store_true")
     g.add_argument("--no-thing", action="store_false")
@@ -57,6 +58,7 @@ def sub_parser():
     r.add_argument("--x", type=int, required=True)
     r.add_argument("--mode", choices=["fast", "slow"], default="fast")
     r.add_argument("--help", "-h", action="help")
+    r.add_argument("--version", action="version", version="%(prog)s 2.0")
     show = subparsers.add_parser("show", usage="argdriver show [options]", add_help=False)
     show.add_argument_group("Show options").add_argument("--y", action="store_true")
     return parser
@@ -102,12 +104,15 @@ MAIN_CASES = [
     ["--", "--flag"], ["--int"], ["--int", "--flag"],
     ["--star", "a", "--", "b"],
     ["-h"], ["--help", "--bogus"], ["--bogus", "--help"], ["-v"], ["--vers"],
+    ["--pair", "1", "--flag"], ["--pair", "--flag", "2"], ["--pair", "1", "--"], ["--pair", "1"],
+    ["--single", "--flag"], ["--single", "x"], ["--single", "--"], ["--single"],
 ]
 
 SUB_CASES = [
     [], ["run", "--x", "3"], ["run"], ["run", "--x", "3", "--mode", "slow"], ["run", "--x", "q"],
     ["show", "--y"], ["show"], ["nope"], ["--verbose", "show"], ["run", "-h"],
     ["run", "--x", "1", "--mode", "medium"], ["show", "--bogus"], ["--bogus", "show"],
+    ["run", "--version"],
 ]
 
 

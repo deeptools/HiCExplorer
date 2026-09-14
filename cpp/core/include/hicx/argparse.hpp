@@ -215,10 +215,11 @@ class Parser {
     // The version string --help-json reports (the tools pass hicx::kVersion).
     Parser& set_version_string(std::string version);
 
-    // The prog that error messages name. A sub-parser's prog in argparse is
-    // built from the parent's usage ("hicCorrectMatrix correct" without a
-    // custom usage; "<the usage text> correct" with one); set it when it is
-    // not "<tool> <command>". The spec keeps the tool name.
+    // argparse's prog, which error messages and a version action's %(prog)s
+    // name. A sub-parser's prog in argparse is built from the parent's usage
+    // ("hicCorrectMatrix correct" without a custom usage; "<the usage text>
+    // correct" with one); set it when it is not "<tool> <command>". The spec
+    // keeps the tool name.
     Parser& set_prog(std::string prog);
 
   private:

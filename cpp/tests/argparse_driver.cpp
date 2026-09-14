@@ -105,6 +105,7 @@ int main_mode(int argc, char** argv) {
     g.add({"--list"}).type("int").nargs("+");
     g.add({"--star"}).nargs("*");
     g.add({"--pair"}).type("float").nargs(2);
+    g.add({"--single"}).nargs(1);
     g.add({"--opt"}).nargs("?").const_value(Value::string("C")).default_value("D");
     g.add({"--flag"}).action(cli::Action::StoreTrue);
     g.add({"--no-thing"}).action(cli::Action::StoreFalse);
@@ -125,6 +126,7 @@ int main_mode(int argc, char** argv) {
     f["list"] = list(ns, "list", "int");
     f["star"] = list(ns, "star", "str");
     f["pair"] = list(ns, "pair", "float");
+    f["single"] = list(ns, "single", "str");
     f["opt"] = opt_string(ns, "opt");
     f["flag"] = boolean(ns, "flag");
     f["no_thing"] = boolean(ns, "no_thing");
@@ -151,6 +153,7 @@ int sub_mode(int argc, char** argv) {
     r.add({"--x"}).type("int").required();
     r.add({"--mode"}).choices({"fast", "slow"}).default_value("fast");
     r.add({"--help", "-h"}).action(cli::Action::Help);
+    r.add({"--version"}).version("%(prog)s 2.0");
     cli::Parser& show = parser.add_subcommand("show", "Show.");
     show.set_usage("usage: argdriver show [options]\n").set_help("\nshow help\n");
     show.set_prog("argdriver {run,show} ... show");
