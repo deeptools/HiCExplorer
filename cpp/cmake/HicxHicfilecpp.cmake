@@ -5,10 +5,10 @@
 # How hicfilecpp is obtained, in this order:
 #
 #  1. An installed hicfilecpp, found through its CMake package:
-#       find_package(hicfilecpp 0.2 CONFIG)
+#       find_package(hicfilecpp 0.3 CONFIG)
 #     Point CMAKE_PREFIX_PATH (or hicfilecpp_DIR) at the install prefix. The
 #     package must be built from the commit pinned below; hicfilecpp raises its
-#     minor version whenever its API grows, so 0.2 is the API this tree needs.
+#     minor version whenever its API grows, so 0.3 is the API this tree needs.
 #
 #  2. Otherwise FetchContent, from a git repository given at configure time
 #     and checked out at the pinned commit, so that every build of this
@@ -24,8 +24,8 @@
 
 include_guard(GLOBAL)
 
-set(HICX_HICFILECPP_COMMIT 40705af16e0b27728e71536945478c752a85ae67)
-set(HICX_HICFILECPP_VERSION 0.2)
+set(HICX_HICFILECPP_COMMIT 99615bd06e949b7a9d26398965b8247de93aba07)
+set(HICX_HICFILECPP_VERSION 0.3)
 
 set(HICX_HICFILECPP_GIT_REPOSITORY "" CACHE STRING
     "Git repository (URL or local path) hicfilecpp is fetched from when no installed hicfilecpp is found")

@@ -393,6 +393,14 @@ Arguments parse_arguments(int argc, char** argv) {
         argument_error(
             choice_error("--outputFormat", args.output_format, kOutputFormats));
     }
+    if (args.hic_version == "6" || args.hic_version == "7") {
+        // .hic input of versions 6 to 9 is read; writing 6 or 7 is refused
+        // because no Juicer tools release that writes them can be obtained to
+        // validate against (hicfilecpp docs/PROVENANCE.md).
+        argument_error("argument --hicVersion: writing .hic version " + args.hic_version +
+                       " is not supported: no Juicer tools release that writes it can be "
+                       "obtained to validate against (choose from '8', '9')");
+    }
     if (!one_of(args.hic_version, kHicVersions)) {
         argument_error(choice_error("--hicVersion", args.hic_version, kHicVersions));
     }
