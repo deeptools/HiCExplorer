@@ -29,8 +29,11 @@
 //  4. --outFileData: one DataFrame.to_csv(sep='\t') per curve, with header and
 //     index, appended to the same handle (:398-406).
 //  5. --skipDiagonal is accepted and has no effect, as in the reference.
-//  6. The FileType('w') arguments --plotFile and --outFileData are created at
-//     parse time, as argparse opens them.
+//  6. The FileType('w') arguments --plotFile and --outFileData are created as
+//     argparse opens them, with its error message, right after the command
+//     line is parsed, but only once the drawing environment check has passed:
+//     a refused environment (which has no Python counterpart) leaves no file
+//     behind and truncates none.
 //
 // Threading: none. The time goes into reading the matrix; the reduction is a
 // single pass over the stored upper triangle.
@@ -242,11 +245,6 @@ Arguments parse_arguments(int argc, char** argv) {
         args.plotsize = ns.reals("plotsize");
     }
     args.plot_data = ns.opt_str("plotData");
-
-    open_like_filetype_w(args.plot_file, "--plotFile/-o");
-    if (args.out_file_data.has_value()) {
-        open_like_filetype_w(*args.out_file_data, "--outFileData");
-    }
     return args;
 }
 
@@ -766,6 +764,11 @@ int main(int argc, char** argv) {
     const Arguments args = parse_arguments(argc, argv);
     if (const int refused = hicx::plot::preflight("hicPlotDistVsCounts", !args.plot_data.has_value()); refused != 0) {
         return refused;
+    }
+    // argparse.FileType('w') while parsing, after the check (point 6).
+    open_like_filetype_w(args.plot_file, "--plotFile/-o");
+    if (args.out_file_data.has_value()) {
+        open_like_filetype_w(*args.out_file_data, "--outFileData");
     }
 
     // labels = OrderedDict(...) keyed by matrix path.

@@ -11,6 +11,12 @@
 #     for hicPlotTADs.
 #  4. HICX_PLOT_ALLOW_UNPINNED=1 accepts a wrong version with a warning.
 #  5. --plotData draws nothing and therefore checks nothing.
+#  5b. For every drawing tool that has FileType('w') outputs or creates an
+#     output folder (hicPlotDistVsCounts, hicPlotMatrix, hicAggregateContacts,
+#     hicBuildMatrix, hicBuildMatrixMicroC, hicQuickQC), a refusal leaves the
+#     output directory
+#     byte for byte as it was: an existing output keeps its content and no new
+#     file or folder appears.
 #  6. With the pinned interpreter the figure is drawn without a warning, and
 #     the pins equal those of plot/pyproject.toml. Needs the pinned
 #     interpreter (CMake HICX_PLOT_TEST_PYTHON); without it this part is
@@ -113,6 +119,78 @@ HICX_PLOT_PYTHON=$python PYTHONPATH=$wrong "$tools/hicInterIntraTAD" "${iit[@]}"
 status=$?
 expect "--plotData runs without the check" [ "$status" -eq 0 ]
 expect "--plotData writes the table and the data" [ -s table.txt ] && [ -s data.json ]
+
+# 5b
+snapshot() {
+    (cd "$1" && find . -printf '%y %p %s\n' | sort && find . -type f -exec sha256sum {} + | sort)
+}
+
+unchanged_after_refusal() {
+    local name=$1
+    shift
+    local dir="$work/untouched_$name"
+    "$@" > "$work/untouched_$name.out" 2> "$work/untouched_$name.err"
+    local status=$?
+    expect "$name: a refusal exits 3" [ "$status" -eq 3 ]
+    expect "$name: the refusal names the versions" \
+        grep -q "matplotlib 3.11.0 is installed, but matplotlib 3.8.4 is required" \
+        "$work/untouched_$name.err"
+    snapshot "$dir" > "$work/untouched_$name.after"
+    expect "$name: the output directory is byte for byte unchanged" \
+        cmp -s "$work/untouched_$name.before" "$work/untouched_$name.after"
+}
+
+prepare() {
+    local dir="$work/untouched_$1"
+    shift
+    mkdir -p "$dir"
+    local file
+    for file in "$@"; do
+        mkdir -p "$(dirname "$dir/$file")"
+        printf 'existing content of %s\n' "$file" > "$dir/$file"
+    done
+    snapshot "$dir" > "$work/untouched_$(basename "$dir" | sed 's/^untouched_//').before"
+    echo "$dir"
+}
+
+refused() {
+    HICX_PLOT_PYTHON=$python PYTHONPATH=$wrong "$@"
+}
+
+d=$(prepare hicPlotDistVsCounts dist_vs_counts.png)
+unchanged_after_refusal hicPlotDistVsCounts refused "$tools/hicPlotDistVsCounts" \
+    --matrices "$data/small_test_matrix_50kb_res.h5" --plotFile "$d/dist_vs_counts.png" \
+    --outFileData "$d/data.txt" --plotsize 8 4
+
+d=$(prepare hicAggregateContacts aggregate.png m_genome.tab)
+unchanged_after_refusal hicAggregateContacts refused "$tools/hicAggregateContacts" \
+    --matrix "$data/Li_et_al_2015.h5" --BED "$data/hicAggregateContacts/test_regions.bed" \
+    --mode intra-chr --range 50000:900000 --numberOfBins 30 --outFileName "$d/aggregate.png" \
+    --outFilePrefixMatrix "$d/m" --outFileContactPairs "$d/p" \
+    --diagnosticHeatmapFile "$d/heatmap.png"
+
+d=$(prepare hicBuildMatrix matrix.h5 qc/QC.log)
+unchanged_after_refusal hicBuildMatrix refused "$tools/hicBuildMatrix" \
+    -s "$data/R1_1000.bam" "$data/R2_1000.bam" --outFileName "$d/matrix.h5" -bs 100000 \
+    --QCfolder "$d/qc" --restrictionSequence AAGCTT --danglingSequence AGCT \
+    -rs "$data/hicFindRestSite/hindIII.bed" --outBam "$d/valid.bam"
+
+d=$(prepare hicBuildMatrixMicroC valid.bam)
+unchanged_after_refusal hicBuildMatrixMicroC refused "$tools/hicBuildMatrixMicroC" \
+    -s "$data/R1_1000.bam" "$data/R2_1000.bam" --outFileName "$d/matrix.h5" \
+    --QCfolder "$d/qc" --binSize 100000 --outBam "$d/valid.bam"
+
+d=$(prepare hicPlotMatrix matrix.png)
+unchanged_after_refusal hicPlotMatrix refused "$tools/hicPlotMatrix" \
+    --matrix "$data/small_test_matrix_50kb_res.h5" --outFileName "$d/matrix.png" --log1p
+d=$(prepare hicPlotMatrix_new)
+unchanged_after_refusal hicPlotMatrix_new refused "$tools/hicPlotMatrix" \
+    --matrix "$data/small_test_matrix_50kb_res.h5" --outFileName "$d/matrix.png"
+
+d=$(prepare hicQuickQC)
+unchanged_after_refusal hicQuickQC refused "$tools/hicQuickQC" \
+    -s "$data/R1_1000.bam" "$data/R2_1000.bam" --QCfolder "$d/qc" -seq AAGCTT \
+    --danglingSequence AGCT -rs "$data/hicFindRestSite/hindIII.bed" --lines 500
 
 # 6
 if [ -z "$pinned" ]; then

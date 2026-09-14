@@ -35,6 +35,10 @@
 // here and written to .npy files; the sparse matrix is freed before the
 // drawing process starts.
 
+#include <sys/stat.h>
+#include <unistd.h>
+
+#include <cerrno>
 #include <algorithm>
 #include <cerrno>
 #include <cmath>
@@ -545,6 +549,30 @@ std::string region_json(const Region& region) {
 
 }  // namespace
 
+namespace {
+
+// Whether fopen(path, "w") would succeed, decided without creating or
+// truncating anything: an existing file that is not a directory must be
+// writable, otherwise its directory must be.
+bool writable_without_creating(const std::string& path) {
+    if (path.empty() || path.back() == '/') {
+        return false;
+    }
+    struct stat status {};
+    if (::stat(path.c_str(), &status) == 0) {
+        return !S_ISDIR(status.st_mode) && ::access(path.c_str(), W_OK) == 0;
+    }
+    if (errno != ENOENT) {
+        return false;
+    }
+    const std::size_t slash = path.rfind('/');
+    const std::string directory =
+        slash == std::string::npos ? "." : (slash == 0 ? "/" : path.substr(0, slash));
+    return ::access(directory.c_str(), W_OK | X_OK) == 0;
+}
+
+}  // namespace
+
 int main(int argc, char** argv) {
     cli::Parser parser("hicPlotMatrix", "Creates a heatmap of a Hi-C matrix.");
     parser.set_usage(kUsage).set_help(kHelp).set_version_string(hicx::kVersion);
@@ -557,11 +585,13 @@ int main(int argc, char** argv) {
     required.add({"--outFileName", "-out"})
         .type("writableFile")
         .check([](const std::string& value) -> std::optional<std::string> {
-            std::FILE* handle = std::fopen(value.c_str(), "w");
-            if (handle == nullptr) {
+            // hicexplorer.utilities.writableFile opens the file with 'w' while
+            // parsing. The probe decides the same way without creating or
+            // truncating it; the file is opened after the drawing environment
+            // check, so a refused environment leaves it as it was.
+            if (!writable_without_creating(value)) {
                 return value + " file can be opened for writing";
             }
-            std::fclose(handle);
             return std::nullopt;
         })
         .required()
@@ -659,6 +689,21 @@ int main(int argc, char** argv) {
     const cli::Namespace ns = parser.parse(argc, argv);
     if (const int refused = hicx::plot::preflight("hicPlotMatrix", !ns.given("plotData")); refused != 0) {
         return refused;
+    }
+    // writableFile's open(string, 'w').close(), now that drawing was accepted.
+    {
+        const std::string out_file = ns.str("outFileName");
+        std::FILE* handle = std::fopen(out_file.c_str(), "w");
+        if (handle == nullptr) {
+            // The argparse error the check above reports while parsing.
+            std::fputs(kUsage, stderr);
+            std::fprintf(stderr,
+                         "hicPlotMatrix: error: argument --outFileName/-out: %s file can be "
+                         "opened for writing\n",
+                         out_file.c_str());
+            return 2;
+        }
+        std::fclose(handle);
     }
     const std::string matrix_path = ns.str("matrix");
     std::optional<std::string> region = ns.opt_str("region");
