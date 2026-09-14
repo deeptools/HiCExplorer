@@ -151,8 +151,10 @@ def test_large_hic_region_and_zoom_resolution_switching(qtbot, browser, tmp_path
 
 
 def test_side_by_side_and_difference(qtbot, browser):
-    a = os.path.join(DATA, "hicDifferentialTAD", "GSM2644945_Untreated-R1.100000_chr1.cool")
-    b = os.path.join(DATA, "hicDifferentialTAD", "GSM2644947_Auxin2days-R1.100000_chr1.cool")
+    # The chr1_chr2 coolers store their 'format' attribute as a fixed length
+    # string, which cooler.fileops.is_cooler rejects and cooler.Cooler opens.
+    a = os.path.join(DATA, "hicDifferentialTAD", "GSM2644945_Untreated-R1.100000_chr1_chr2.cool")
+    b = os.path.join(DATA, "hicDifferentialTAD", "GSM2644947_Auxin2days-R1.100000_chr1_chr2.cool")
     browser.open_matrix(a, 0)
     browser.open_matrix(b, 1)
     browser.mode.setCurrentText("side by side")
@@ -224,6 +226,75 @@ def test_tracks_overlay_and_signal(qtbot, browser, tmp_path):
     assert len(curves["bedgraph"].yData) > 0 and np.nanmax(curves["bedgraph"].yData) == 6
     assert np.nanmax(curves["bigwig"].yData) == 3.0
     assert Track(wig, "bigwig").signal("1", 112000000, 113000000, 4)[1].tolist() == [1.0, 1.0, 1.0, 1.0]
+
+
+def assert_view_is_region(widget, start, end):
+    """Axis ranges of every view and of the track equal the region, views are
+    square, and no overlay or track item lies outside the region."""
+    for panel in widget.panels:
+        (x0, x1), (y0, y1) = panel.plot.vb.viewRange()
+        assert (x0, x1) == pytest.approx((start, end), abs=1.0)
+        assert (y0, y1) == pytest.approx((start, end), abs=1.0)
+        vb = panel.plot.vb
+        assert abs(vb.width() - vb.height()) <= 2, (vb.width(), vb.height())
+        # the view lies inside its own plot, so neighbouring views never overlap
+        inner = vb.mapToScene(vb.rect()).boundingRect()
+        outer = panel.plot.geometry()
+        assert outer.left() - 1 <= inner.left() and inner.right() <= outer.right() + 1, (inner, outer)
+        xs, ys = panel.tads.xData, panel.tads.yData
+        if xs is not None and len(xs):
+            finite = np.isfinite(xs)
+            assert start <= xs[finite].min() and xs[finite].max() <= end
+            assert start <= ys[finite].min() and ys[finite].max() <= end
+        for spot in panel.loops.points():
+            assert start <= spot.pos().x() <= end and start <= spot.pos().y() <= end
+    if widget.track_plot is not None:
+        assert tuple(widget.track_plot.vb.viewRange()[0]) == pytest.approx((start, end), abs=1.0)
+        track_vb, matrix_vb = widget.track_plot.vb, widget.panels[0].plot.vb
+        left_track = track_vb.mapToScene(track_vb.rect().topLeft()).x()
+        left_matrix = matrix_vb.mapToScene(matrix_vb.rect().topLeft()).x()
+        assert abs(left_track - left_matrix) <= 2 and abs(track_vb.width() - matrix_vb.width()) <= 2
+        for _track, curve in widget.track_curves:
+            if curve.xData is not None and len(curve.xData):
+                assert start <= curve.xData.min() and curve.xData.max() <= end
+
+
+@pytest.mark.parametrize("mode", ["single", "side by side", "difference"])
+def test_axes_and_track_follow_the_region_in_every_mode(qtbot, tmp_path, mode):
+    widget = MatrixBrowser()
+    qtbot.addWidget(widget)
+    widget.resize(1280, 720)
+    widget.show()
+    tads = tmp_path / "tads.bed"
+    tads.write_text("1\t108000000\t111000000\n1\t111000000\t114000000\n1\t118000000\t121000000\n")
+    graph = tmp_path / "signal.bedgraph"
+    graph.write_text("".join("1\t{}\t{}\t{}\n".format(s, s + 250000, (s // 250000) % 5)
+                             for s in range(100000000, 130000000, 250000)))
+    # a file name wider than a small view: titles must not widen the views
+    cool = str(tmp_path / "a_matrix_file_name_much_wider_than_a_small_view_gm12878_chr1.cool")
+    os.symlink(os.path.join(DATA, "hicTADClassifier", "gm12878_chr1.cool"), cool)
+    widget.open_matrix(cool, 0)
+    widget.open_matrix(cool, 1)
+    for path in (str(tads), os.path.join(DATA, "hicDetectLoops", "loops.bedgraph"), str(graph)):
+        assert widget.add_track(path) is not None
+    widget.mode.setCurrentText(mode)
+    assert widget.goto("1:110,000,000-120,000,000")
+    settle(qtbot, widget)
+    qtbot.wait(100)
+    assert not widget.error, widget.error
+    assert widget.shown_request.view_cols == (110000000, 120000000)
+    assert_view_is_region(widget, 110000000, 120000000)
+    widget.zoom(0.5)
+    settle(qtbot, widget)
+    assert_view_is_region(widget, 112500000, 117500000)
+    widget.pan(0.4)
+    settle(qtbot, widget)
+    assert_view_is_region(widget, 114500000, 119500000)
+    for size in ((1920, 1080), (960, 520)):
+        widget.resize(*size)
+        settle(qtbot, widget)
+        qtbot.wait(100)
+        assert_view_is_region(widget, 114500000, 119500000)
 
 
 def test_scripted_session_peak_rss(tmp_path):

@@ -8,6 +8,12 @@ and never shows a stale region. For mcool and .hic files the resolution is
 chosen from the span on screen: the finest one that keeps the view within
 MAX_BINS bins. A single-resolution file (cool, h5) whose view would exceed
 MAX_BINS is not fetched; the browser asks to zoom in instead.
+
+The axis ranges of every matrix view and of the track under it are the
+region, in every mode: the views are sized square instead of locking the
+aspect ratio (which would widen one axis), their ranges are synchronised
+explicitly, navigation stays inside the chromosome, and overlays are clipped
+to the region.
 """
 
 import math
@@ -16,13 +22,15 @@ import threading
 
 import numpy as np
 import pyqtgraph as pg
-from PySide6 import QtCore, QtWidgets
+from PySide6 import QtCore, QtGui, QtWidgets
 
 import hicx_matrix
 
 MAX_BINS = 1200
 MODES = ("single", "side by side", "difference")
 COLORMAPS = ("white-red", "viridis", "inferno", "magma", "cividis")
+AXIS_WIDTH = 72
+TRACK_HEIGHT = 130
 
 
 def colormap(name):
@@ -82,12 +90,14 @@ class MatrixSource:
 
 
 class Request:
-    def __init__(self, generation, fetches, chrom, rows, cols):
+    def __init__(self, generation, fetches, chrom, rows, cols, view_rows, view_cols):
         self.generation = generation
         self.fetches = fetches    # [(source, region1, region2, resolution, normalization)]
         self.chrom = chrom
         self.rows = rows          # (start, end) bp of the fetched rows, bin aligned
         self.cols = cols
+        self.view_rows = view_rows  # (start, end) bp of the region on screen
+        self.view_cols = view_cols
 
 
 class Fetcher(QtCore.QObject):
@@ -104,9 +114,9 @@ class Fetcher(QtCore.QObject):
         self.stale = 0
         self._finished.connect(self._on_finished)
 
-    def submit(self, fetches, chrom, rows, cols):
+    def submit(self, fetches, chrom, rows, cols, view_rows, view_cols):
         self.generation += 1
-        request = Request(self.generation, fetches, chrom, rows, cols)
+        request = Request(self.generation, fetches, chrom, rows, cols, view_rows, view_cols)
         if self.running is None:
             self._start(request)
         else:
@@ -131,7 +141,11 @@ class Fetcher(QtCore.QObject):
                                                 normalization=normalization))
         except Exception as exc:  # noqa: BLE001 - shown inline in the browser
             arrays, error = [], str(exc)
-        self._finished.emit(request, arrays, error)
+        try:
+            self._finished.emit(request, arrays, error)
+        except RuntimeError:
+            # The browser was closed while this fetch ran; nobody needs it.
+            pass
 
     def _on_finished(self, request, arrays, error):
         self.running = None
@@ -220,24 +234,50 @@ class Track:
                 self.data.setdefault(fields[0], []).append(item)
 
     def signal(self, chrom, start, end, bins):
-        """(x, y) of a 1D track over [start, end)."""
+        """(edges, values) of a 1D track over [start, end): len(edges) is
+        len(values) + 1 and every edge lies inside the interval."""
         if self.kind == "bigwig":
             if chrom not in self.handle.chroms():
                 return np.array([]), np.array([])
             end = min(end, self.handle.chroms()[chrom])
             if end <= start:
                 return np.array([]), np.array([])
-            bins = max(1, min(bins, end - start))
+            bins = max(1, min(bins, int(end - start)))
             values = np.array(self.handle.stats(chrom, int(start), int(end), nBins=bins), dtype=float)
-            edges = np.linspace(start, end, bins + 1)
-            return edges, values
-        items = [i for i in self.data.get(chrom, []) if i[1] > start and i[0] < end]
+            return np.linspace(start, end, bins + 1), values
+        items = sorted(i for i in self.data.get(chrom, []) if i[1] > start and i[0] < end)
         if not items:
             return np.array([]), np.array([])
-        items.sort()
-        x = np.array([v for i in items for v in (i[0], i[1])], dtype=float)
-        y = np.array([i[2] for i in items for _ in (0, 1)], dtype=float)
-        return x, y
+        edges = np.array([i[0] for i in items] + [items[-1][1]], dtype=float)
+        return np.clip(edges, start, end), np.array([i[2] for i in items], dtype=float)
+
+
+def clipped_tad_lines(domains, rows, cols):
+    """(x, y) with NaN breaks of the domain squares' edges inside the region."""
+    r0, r1 = rows
+    c0, c1 = cols
+    x, y = [], []
+
+    def horizontal(at, a, b):
+        if r0 <= at <= r1:
+            a, b = max(a, c0), min(b, c1)
+            if a < b:
+                x.extend([a, b, np.nan])
+                y.extend([at, at, np.nan])
+
+    def vertical(at, a, b):
+        if c0 <= at <= c1:
+            a, b = max(a, r0), min(b, r1)
+            if a < b:
+                x.extend([at, at, np.nan])
+                y.extend([a, b, np.nan])
+
+    for start, end in domains:
+        horizontal(start, start, end)
+        horizontal(end, start, end)
+        vertical(start, start, end)
+        vertical(end, start, end)
+    return np.array(x, dtype=float), np.array(y, dtype=float)
 
 
 class GenomeAxis(pg.AxisItem):
@@ -254,18 +294,25 @@ class GenomeAxis(pg.AxisItem):
         return out
 
 
-def genome_axes():
-    return {"left": GenomeAxis("left"), "bottom": GenomeAxis("bottom")}
+def _plot_item(title=None, left=True):
+    axes = {"bottom": GenomeAxis("bottom")}
+    if left:
+        axes["left"] = GenomeAxis("left")
+    plot = pg.PlotItem(title=title, axisItems=axes)
+    plot.hideButtons()
+    plot.setMenuEnabled(False)
+    plot.getAxis("left").setWidth(AXIS_WIDTH)
+    plot.vb.setDefaultPadding(0.0)
+    return plot
 
 
 class Panel:
     """One matrix view: a plot with the image and the overlays."""
 
-    def __init__(self, layout, title):
-        self.plot = layout.addPlot(title=title, axisItems=genome_axes())
-        self.plot.setAspectLocked(True)
+    def __init__(self, title):
+        self.title = title
+        self.plot = _plot_item(title)
         self.plot.invertY(True)
-        self.plot.showGrid(False, False)
         self.image = pg.ImageItem(axisOrder="row-major")
         self.plot.addItem(self.image)
         self.tads = pg.PlotDataItem(pen=pg.mkPen((0, 90, 200), width=1.5), connect="finite")
@@ -273,8 +320,6 @@ class Panel:
                                         brush=None, pxMode=True)
         self.plot.addItem(self.tads)
         self.plot.addItem(self.loops)
-        self.message = pg.TextItem("", color=(180, 0, 30), anchor=(0, 0))
-        self.plot.addItem(self.message)
 
 
 class MatrixBrowser(QtWidgets.QWidget):
@@ -285,12 +330,15 @@ class MatrixBrowser(QtWidgets.QWidget):
         self.sources = [None, None]
         self.tracks = []
         self.chrom = None
+        self.view_x = None        # (start, end) bp of the columns on screen
+        self.view_y = None        # (start, end) bp of the rows on screen
         self.shown = []           # the arrays of the last applied fetch, as fetched
         self.shown_request = None
         self.error = ""
         self.fetcher = Fetcher(self)
         self.fetcher.done.connect(self._fetched)
         self._navigating = False
+        self._fit_attempts = 0
 
         outer = QtWidgets.QVBoxLayout(self)
         outer.setContentsMargins(4, 4, 4, 4)
@@ -320,16 +368,15 @@ class MatrixBrowser(QtWidgets.QWidget):
         self.cmap = QtWidgets.QComboBox()
         self.cmap.addItems(COLORMAPS)
         self.cmap.currentTextChanged.connect(lambda _t: self._redraw())
-        row1 = [self.open_a, self.open_b, self.add_track_button, QtWidgets.QLabel("Mode"), self.mode]
-        row2 = [QtWidgets.QLabel("Region"), self.region, self.go, QtWidgets.QLabel("Normalization"),
-                self.normalization, self.log_scale, QtWidgets.QLabel("Colors"), self.cmap]
-        for column, widget in enumerate(row1):
+        for column, widget in enumerate([self.open_a, self.open_b, self.add_track_button,
+                                         QtWidgets.QLabel("Mode"), self.mode]):
             controls.addWidget(widget, 0, column)
+        controls.addWidget(QtWidgets.QLabel("Region"), 1, 0)
         controls.addWidget(self.region, 1, 1, 1, 3)
-        controls.addWidget(row2[0], 1, 0)
         controls.addWidget(self.go, 1, 4)
         second = QtWidgets.QHBoxLayout()
-        for widget in row2[3:]:
+        for widget in (QtWidgets.QLabel("Normalization"), self.normalization, self.log_scale,
+                       QtWidgets.QLabel("Colors"), self.cmap):
             second.addWidget(widget)
         second.addStretch(1)
         outer.addLayout(controls)
@@ -340,15 +387,16 @@ class MatrixBrowser(QtWidgets.QWidget):
 
         self.graphics = pg.GraphicsLayoutWidget()
         self.graphics.setBackground("w")
+        self.graphics.installEventFilter(self)
         outer.addWidget(self.graphics, 1)
         self.panels = []
         self.track_plot = None
         self.track_curves = []
-        self._build_panels()
         self.timer = QtCore.QTimer(self)
         self.timer.setSingleShot(True)
         self.timer.setInterval(150)
         self.timer.timeout.connect(self._view_changed)
+        self._build_panels()
 
     # -- files ----------------------------------------------------------
     def _pick_matrix(self, slot):
@@ -377,6 +425,7 @@ class MatrixBrowser(QtWidgets.QWidget):
             self.normalization.blockSignals(False)
             if self.chrom is None or self.chrom not in source.lengths:
                 chrom, length = source.chromosomes[0]
+                self.chrom, self.view_x, self.view_y = None, None, None
                 self.region.setText("{}:0-{}".format(chrom, length))
         self._build_panels()
         if self.region.text():
@@ -417,29 +466,105 @@ class MatrixBrowser(QtWidgets.QWidget):
         for column, title in enumerate(titles):
             source = self.sources[0 if title != "B" else 1]
             label = title + (": " + source.name if source is not None and title != "A - B" else "")
-            panel = Panel(self.graphics, label)
-            panel.plot.sigRangeChanged.connect(self._range_changed)
-            if self.panels:
-                panel.plot.setXLink(self.panels[0].plot)
-                panel.plot.setYLink(self.panels[0].plot)
+            panel = Panel(label)
+            self.graphics.addItem(panel.plot, row=0, col=column)
+            panel.plot.sigRangeChanged.connect(lambda *_args, p=panel: self._range_changed(p))
             self.panels.append(panel)
         one_d = [t for t in self.tracks if t.kind in ("bedgraph", "bigwig")]
         self.track_plot = None
         self.track_curves = []
         if one_d:
-            self.graphics.nextRow()
-            self.track_plot = self.graphics.addPlot(colspan=len(self.panels),
-                                                    axisItems={"bottom": GenomeAxis("bottom")})
-            self.track_plot.setMaximumHeight(140)
-            self.track_plot.setXLink(self.panels[0].plot)
+            self.track_plot = _plot_item(left=False)
+            self.graphics.addItem(self.track_plot, row=1, col=0)
+            self.track_plot.setMouseEnabled(x=False, y=False)
             self.track_plot.addLegend(offset=(5, 5))
             palette = [(200, 60, 0), (0, 100, 180), (60, 140, 60), (120, 60, 160)]
             for index, track in enumerate(one_d):
                 curve = self.track_plot.plot(stepMode="center", pen=pg.mkPen(palette[index % 4], width=1.2),
                                              name=track.name)
                 self.track_curves.append((track, curve))
+        self._apply_limits()
+        if self.view_x is not None:
+            self._set_view(self.view_x, self.view_y)
         if self.shown_request is not None:
             self._redraw()
+        self._fit_attempts = 0
+        QtCore.QTimer.singleShot(0, self._fit)
+
+    def eventFilter(self, watched, event):
+        if watched is self.graphics and event.type() == QtCore.QEvent.Resize:
+            self._fit_attempts = 0
+            QtCore.QTimer.singleShot(0, self._fit)
+        return False
+
+    def _fit(self):
+        """Sizes the matrix views square and the track as wide as view A."""
+        if not self.panels:
+            return
+        width = self.graphics.width() - 16
+        height = self.graphics.height() - 16
+        if width < 60 or height < 60:
+            return
+        plot = self.panels[0].plot
+        # Space the axes and the title take around the view. A view wider than
+        # its plot (a title not yet elided) would make the measure too small,
+        # so it never goes below the fixed left axis width.
+        dw, dh = AXIS_WIDTH + 12, 64
+        if plot.vb.width() > 1 and plot.vb.height() > 1:
+            dw = max(AXIS_WIDTH + 2, plot.size().width() - plot.vb.width())
+            dh = max(40, plot.size().height() - plot.vb.height())
+        n = len(self.panels)
+        track = TRACK_HEIGHT + 10 if self.track_plot is not None else 0
+        side = int(max(40, min(width / n - dw - 6 * n, height - track - dh)))
+        for panel in self.panels:
+            self._elide_title(panel, side)
+            size = QtCore.QSizeF(side + dw, side + dh)
+            panel.plot.setMinimumSize(size)
+            panel.plot.setMaximumSize(size)
+        if self.track_plot is not None:
+            size = QtCore.QSizeF(side + dw, TRACK_HEIGHT)
+            self.track_plot.setMinimumSize(size)
+            self.track_plot.setMaximumSize(size)
+        self._fit_attempts += 1
+        if self._fit_attempts < 4:
+            QtCore.QTimer.singleShot(0, self._check_square)
+
+    @staticmethod
+    def _elide_title(panel, width):
+        """A plot title is the minimum width of its layout column, so a long
+        file name would widen the view past the square. The title is elided
+        until its rendered width fits; the tooltip keeps the full name."""
+        label = panel.plot.titleLabel
+        label.item.setToolTip(panel.title)
+        metrics = QtGui.QFontMetrics(label.item.font())
+        budget = int(width * 0.95)
+        while True:
+            text = metrics.elidedText(panel.title, QtCore.Qt.ElideMiddle, max(budget, 1))
+            if text != label.text:
+                panel.plot.setTitle(text)
+            if label.itemRect().width() <= width or budget <= 20:
+                return
+            budget = int(budget * 0.85)
+
+    def _check_square(self):
+        if self.panels:
+            vb = self.panels[0].plot.vb
+            if abs(vb.width() - vb.height()) > 1:
+                self._fit()
+
+    def _apply_limits(self):
+        if self.chrom is None or self.sources[0] is None or self.chrom not in self.sources[0].lengths:
+            return
+        length = self.sources[0].lengths[self.chrom]
+        self._navigating = True
+        try:
+            for panel in self.panels:
+                panel.plot.vb.setLimits(xMin=0, xMax=length, yMin=0, yMax=length,
+                                        maxXRange=length, maxYRange=length)
+            if self.track_plot is not None:
+                self.track_plot.vb.setLimits(xMin=0, xMax=length, maxXRange=length)
+        finally:
+            self._navigating = False
 
     # -- navigation -----------------------------------------------------
     def goto(self, text):
@@ -453,70 +578,70 @@ class MatrixBrowser(QtWidgets.QWidget):
             self._set_status(str(exc), error=True)
             return False
         self.chrom = chrom
-        self._goto_target = (chrom, start, end)
-        self._apply_goto()
-        # Panels that were just built are laid out later; apply the region
-        # again then, so the view shows what was typed at any window size.
-        QtCore.QTimer.singleShot(0, self._apply_goto)
-        self._schedule(chrom, (start, end), (start, end))
+        self._apply_limits()
+        self._set_view((start, end), (start, end))
+        self._view_changed()
         return True
 
-    def _apply_goto(self):
-        target = getattr(self, "_goto_target", None)
-        if target is None or not self.panels or target[0] != self.chrom:
-            return
-        _, start, end = target
+    def _clamp(self, lo, hi):
+        length = float(self.sources[0].lengths[self.chrom])
+        span = min(max(hi - lo, 1.0), length)
+        lo = min(max(0.0, lo), length - span)
+        return (lo, lo + span)
+
+    def _set_view(self, x_range, y_range):
+        """Shows exactly this region in every matrix view and on the track."""
+        x_range = self._clamp(*x_range)
+        y_range = self._clamp(*y_range)
+        self.view_x, self.view_y = x_range, y_range
         self._navigating = True
-        self.panels[0].plot.setRange(xRange=(start, end), yRange=(start, end), padding=0)
-        self._navigating = False
+        try:
+            for panel in self.panels:
+                panel.plot.vb.setRange(xRange=x_range, yRange=y_range, padding=0)
+            if self.track_plot is not None:
+                self.track_plot.vb.setXRange(*x_range, padding=0)
+        finally:
+            self._navigating = False
+        self.region.setText("{}:{:,}-{:,}".format(self.chrom, int(round(x_range[0])), int(round(x_range[1]))))
 
     def zoom(self, factor):
         """Zooms the view about its centre (factor < 1 zooms in)."""
-        if self.chrom is None:
+        if self.view_x is None:
             return
-        self._goto_target = None
-        (x0, x1), (y0, y1) = self.panels[0].plot.viewRange()
-        cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
-        hw, hh = (x1 - x0) * factor / 2, (y1 - y0) * factor / 2
-        self.panels[0].plot.setRange(xRange=(cx - hw, cx + hw), yRange=(cy - hh, cy + hh), padding=0)
+        cx, cy = sum(self.view_x) / 2, sum(self.view_y) / 2
+        hx = (self.view_x[1] - self.view_x[0]) * factor / 2
+        hy = (self.view_y[1] - self.view_y[0]) * factor / 2
+        self._set_view((cx - hx, cx + hx), (cy - hy, cy + hy))
         self._view_changed()
 
     def pan(self, fraction):
-        if self.chrom is None:
+        if self.view_x is None:
             return
-        self._goto_target = None
-        (x0, x1), (y0, y1) = self.panels[0].plot.viewRange()
-        dx, dy = (x1 - x0) * fraction, (y1 - y0) * fraction
-        self.panels[0].plot.setRange(xRange=(x0 + dx, x1 + dx), yRange=(y0 + dy, y1 + dy), padding=0)
+        dx = (self.view_x[1] - self.view_x[0]) * fraction
+        dy = (self.view_y[1] - self.view_y[0]) * fraction
+        self._set_view((self.view_x[0] + dx, self.view_x[1] + dx), (self.view_y[0] + dy, self.view_y[1] + dy))
         self._view_changed()
 
-    def _range_changed(self, *_):
-        if not self._navigating and self.chrom is not None:
-            if QtWidgets.QApplication.mouseButtons() != QtCore.Qt.NoButton:
-                self._goto_target = None  # the user drags: follow the view
-            self.timer.start()
+    def _range_changed(self, panel):
+        """Mouse zoom or pan in one view: every view and the track follow."""
+        if self._navigating or self.chrom is None or self.sources[0] is None:
+            return
+        (x0, x1), (y0, y1) = panel.plot.vb.viewRange()
+        self._set_view((x0, x1), (y0, y1))
+        self.timer.start()
 
     def _view_changed(self):
-        if self.chrom is None or self.sources[0] is None:
+        if self.chrom is None or self.sources[0] is None or self.view_x is None:
             return
         length = self.sources[0].lengths[self.chrom]
-        (x0, x1), (y0, y1) = self.panels[0].plot.viewRange()
-        # The aspect ratio is locked, so a panel that is wider (or taller)
-        # than square shows more of one axis. Fetch the centred square whose
-        # side is the shorter axis: the region the user navigated to.
-        side = min(x1 - x0, y1 - y0)
-        cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
-        x0, x1, y0, y1 = cx - side / 2, cx + side / 2, cy - side / 2, cy + side / 2
-        cols = (int(max(0, math.floor(x0))), int(min(length, math.ceil(x1))))
-        rows = (int(max(0, math.floor(y0))), int(min(length, math.ceil(y1))))
+        cols = (int(max(0, math.floor(self.view_x[0]))), int(min(length, math.ceil(self.view_x[1]))))
+        rows = (int(max(0, math.floor(self.view_y[0]))), int(min(length, math.ceil(self.view_y[1]))))
         if cols[1] <= cols[0] or rows[1] <= rows[0]:
             return
-        self.region.setText("{}:{:,}-{:,}".format(self.chrom, cols[0], cols[1]))
         self._schedule(self.chrom, rows, cols)
 
     def refresh(self):
-        if self.shown_request is not None or self.chrom is not None:
-            self._view_changed()
+        self._view_changed()
 
     def resolution_for(self, source, span, others=()):
         resolutions = source.resolutions
@@ -542,8 +667,7 @@ class MatrixBrowser(QtWidgets.QWidget):
                     source.name, normalization, ", ".join(source.normalizations)), error=True)
                 return None
         fetches = []
-        resolution_used = None
-        for index, source in enumerate(involved):
+        for source in involved:
             others = [s for s in involved if s is not source] if mode == "difference" else []
             resolution = self.resolution_for(source, span, others)
             if mode == "difference" and not resolution and (a.resolutions or b.resolutions):
@@ -557,24 +681,25 @@ class MatrixBrowser(QtWidgets.QWidget):
                 self._set_status("Zoom in: this view needs {:,} bins at {} bp, the browser reads at most {:,}."
                                  .format(int(span / resolution), resolution, MAX_BINS), error=True)
                 return None
+            length = source.lengths[chrom]
             r0, r1 = (rows[0] // resolution) * resolution, -(-rows[1] // resolution) * resolution
             c0, c1 = (cols[0] // resolution) * resolution, -(-cols[1] // resolution) * resolution
-            length = source.lengths[chrom]
             region1 = "{}:{}-{}".format(chrom, r0, min(r1, length))
             region2 = "{}:{}-{}".format(chrom, c0, min(c1, length))
             fetches.append((source, region1, region2, resolution, normalization))
-            resolution_used = resolution
         resolution = fetches[0][3]
-        aligned_rows = ((rows[0] // resolution) * resolution, min(-(-rows[1] // resolution) * resolution,
-                                                                  a.lengths[chrom]))
-        aligned_cols = ((cols[0] // resolution) * resolution, min(-(-cols[1] // resolution) * resolution,
-                                                                  a.lengths[chrom]))
-        if (self.shown_request is not None and not self.error and self.shown_request.chrom == chrom
-                and [f[1:] for f in self.shown_request.fetches] == [f[1:] for f in fetches]
-                and [f[0] for f in self.shown_request.fetches] == [f[0] for f in fetches]):
-            return self.shown_request
-        self._set_status("Loading {} at {} bp".format(fetches[0][1], resolution_used))
-        return self.fetcher.submit(fetches, chrom, aligned_rows, aligned_cols)
+        length = a.lengths[chrom]
+        aligned_rows = ((rows[0] // resolution) * resolution, min(-(-rows[1] // resolution) * resolution, length))
+        aligned_cols = ((cols[0] // resolution) * resolution, min(-(-cols[1] // resolution) * resolution, length))
+        current = self.shown_request
+        if (current is not None and not self.error and current.chrom == chrom
+                and [f[1:] for f in current.fetches] == [f[1:] for f in fetches]
+                and [f[0] for f in current.fetches] == [f[0] for f in fetches]):
+            current.view_rows, current.view_cols = rows, cols
+            self._redraw()
+            return current
+        self._set_status("Loading {} at {:,} bp".format(fetches[0][1], resolution))
+        return self.fetcher.submit(fetches, chrom, aligned_rows, aligned_cols, rows, cols)
 
     # -- results --------------------------------------------------------
     def _fetched(self, request, arrays, error):
@@ -585,7 +710,7 @@ class MatrixBrowser(QtWidgets.QWidget):
             return
         self.shown = arrays
         self.shown_request = request
-        source, region1, region2, resolution, normalization = request.fetches[0]
+        _, region1, region2, resolution, normalization = request.fetches[0]
         shape = arrays[0].shape
         self._set_status("{} x {} at {:,} bp ({} bins x {} bins, {})".format(
             region1, region2, resolution, shape[0], shape[1], normalization))
@@ -599,15 +724,14 @@ class MatrixBrowser(QtWidgets.QWidget):
         mode = self.mode.currentText()
         images = list(self.shown)
         cmap_name = self.cmap.currentText()
+        transform_log = self.log_scale.isChecked()
         if mode == "difference" and len(images) == 2 and images[0].shape == images[1].shape:
             left, right = images
-            if self.log_scale.isChecked():
+            if transform_log:
                 left, right = np.log1p(np.clip(left, 0, None)), np.log1p(np.clip(right, 0, None))
             images = [left - right]
             cmap_name = "blue-white-red"
             transform_log = False
-        else:
-            transform_log = self.log_scale.isChecked()
         for index, panel in enumerate(self.panels):
             if index >= len(images):
                 break
@@ -621,57 +745,55 @@ class MatrixBrowser(QtWidgets.QWidget):
                     levels = (-bound, bound)
                 else:
                     high = float(np.percentile(finite, 99.5))
-                    levels = (float(finite.min()), high if high > finite.min() else float(finite.min()) + 1)
+                    low = float(finite.min())
+                    levels = (low, high if high > low else low + 1)
             else:
                 levels = (0, 1)
             panel.image.setImage(display, levels=levels, autoLevels=False)
             panel.image.setColorMap(colormap(cmap_name))
-            _, region1, region2, resolution, _ = request.fetches[min(index, len(request.fetches) - 1)]
-            r0, c0 = request.rows[0], request.cols[0]
-            panel.image.setRect(QtCore.QRectF(c0, r0, array.shape[1] * resolution, array.shape[0] * resolution))
-            panel.message.setText("")
+            resolution = request.fetches[min(index, len(request.fetches) - 1)][3]
+            panel.image.setRect(QtCore.QRectF(request.cols[0], request.rows[0],
+                                              array.shape[1] * resolution, array.shape[0] * resolution))
             self._draw_overlays(panel, request)
         self._draw_tracks(request)
 
     def _draw_overlays(self, panel, request):
-        chrom = request.chrom
-        x, y, lx, ly = [], [], [], []
+        rows, cols = request.view_rows, request.view_cols
+        domains, lx, ly = [], [], []
         for track in self.tracks:
             if track.kind == "tads":
-                for start, end in track.data.get(chrom, []):
-                    if end < request.cols[0] or start > request.cols[1]:
-                        continue
-                    x += [start, end, end, start, start, np.nan]
-                    y += [start, start, end, end, start, np.nan]
+                domains.extend(track.data.get(request.chrom, []))
             elif track.kind == "loops":
-                for s1, e1, s2, e2 in track.data.get(chrom, []):
+                for s1, e1, s2, e2 in track.data.get(request.chrom, []):
                     for cx, cy in (((s2 + e2) / 2, (s1 + e1) / 2), ((s1 + e1) / 2, (s2 + e2) / 2)):
-                        if request.cols[0] <= cx <= request.cols[1] and request.rows[0] <= cy <= request.rows[1]:
+                        if cols[0] <= cx <= cols[1] and rows[0] <= cy <= rows[1]:
                             lx.append(cx)
                             ly.append(cy)
-        panel.tads.setData(np.array(x, dtype=float), np.array(y, dtype=float))
+        x, y = clipped_tad_lines(domains, rows, cols)
+        panel.tads.setData(x, y)
         panel.loops.setData(lx, ly)
 
     def _draw_tracks(self, request):
         if self.track_plot is None:
             return
-        start, end = request.cols
-        width = max(50, int(self.graphics.width()))
+        start, end = request.view_cols
+        width = max(50, int(self.track_plot.vb.width()) or 50)
         for track, curve in self.track_curves:
-            x, values = track.signal(request.chrom, start, end, width)
+            edges, values = track.signal(request.chrom, start, end, width)
             if len(values):
-                if track.kind == "bedgraph":
-                    xs = x.reshape(-1, 2)
-                    edges = np.concatenate([xs[:, 0], xs[-1:, 1]])
-                    curve.setData(edges, values.reshape(-1, 2)[:, 0])
-                else:
-                    curve.setData(x, np.nan_to_num(values))
+                curve.setData(edges, np.nan_to_num(values))
             else:
                 curve.setData([], [])
+        if self.view_x is not None:
+            self._navigating = True
+            try:
+                self.track_plot.vb.setXRange(*self.view_x, padding=0)
+            finally:
+                self._navigating = False
 
     def _set_status(self, text, error=False):
         self.status.setText(text)
-        self.status.setStyleSheet("color: #b00020;" if error else "")
+        self.status.setStyleSheet("color: #d0314b;" if error else "")
         if error:
             self.error = text
             self.fetch_finished.emit()
