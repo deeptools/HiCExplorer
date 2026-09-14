@@ -25,18 +25,12 @@
 //    test_hicInterIntraTAD.py::test_h5_input_raises_zero_division and
 //    reproduced here.
 //
-// Not ported: the scatter plot. It is a matplotlib figure and belongs to the
-// tier 7 plotting shell (cpp/PLAN.md, tier 7, option (a)). The Python writes
-// it on every run, to ratio.png when --outFileNameRatioPlot is not given
-// (hicInterIntraTAD.py:39-42, :513). The interim policy until plotting is
-// decided, set by the project owner on 2026-09-13: a tool never exits 0
-// without writing every file the user explicitly asked for, so
-//
-//  * --outFileNameRatioPlot / -op given explicitly: the tool exits 1 before it
-//    reads or writes anything;
-//  * -op not given: the default ratio.png is a side effect nobody asked for,
-//    so it is skipped with a note on stderr and the table is written;
-//  * --fontsize and --dpi request no file and are accepted and ignored.
+// The scatter plot (cpp/PLAN.md tier 7, option (a)): the Python writes it on
+// every run, to ratio.png when --outFileNameRatioPlot is not given
+// (hicInterIntraTAD.py:39-42, :509-514). After the table the two ratio
+// columns go to plot/hicexplorer_plot/hicInterIntraTAD.py, which draws them
+// with the reference's matplotlib calls. The C++-only option --plotData
+// writes that data as JSON instead of drawing.
 //
 // Threading: one independent problem per TAD, hicx::parallel_for into
 // preallocated slots, written in file order, so the output does not depend on
@@ -53,6 +47,7 @@
 #include "hicx/cool_adapter.hpp"
 #include "hicx/argparse.hpp"
 #include "hicx/parallel.hpp"
+#include "hicx/plot_bridge.hpp"
 #include "hicx/resource_usage.hpp"
 #include "hicx/version.hpp"
 #include "tad_contacts_impl.hpp"
@@ -81,28 +76,29 @@ const char* const kHelp =
     "Optional arguments:\n"
     "  --outFileNameRatioPlot OUTFILENAMERATIOPLOT, -op OUTFILENAMERATIOPLOT\n"
     "                        Outfile name for the inter-left/intra vs inter-\n"
-    "                        right/intra ratio plot. The plot is not yet\n"
-    "                        available in the C++ port: giving this option makes\n"
-    "                        the tool exit with status 1 before writing anything.\n"
-    "                        Without it no plot is written.\n"
-    "  --fontsize FONTSIZE   Fontsize in the plot for x and y axis. Accepted and\n"
-    "                        ignored by the C++ port.\n"
-    "  --dpi DPI             The dpi of the scatter plot. Accepted and ignored by\n"
-    "                        the C++ port.\n"
+    "                        right/intra ratio plot\n"
+    "  --fontsize FONTSIZE   Fontsize in the plot for x and y axis.\n"
+    "  --dpi DPI             The dpi of the scatter plot.\n"
     "  --threads THREADS, -t THREADS\n"
     "                        Number of threads to use, the parallelization is\n"
     "                        implemented per chromosome (Default: 4).\n"
     "  --help, -h            show this help message and exit\n"
-    "  --version             show program's version number and exit\n";
+    "  --version             show program's version number and exit\n"
+    "\n"
+    "C++ port: the table and the ratios are computed in C++, and the ratio plot is\n"
+    "drawn by the hicexplorer_plot drawing layer with the matplotlib calls of the\n"
+    "Python tool (HICX_PLOT_PYTHON names the interpreter). The C++-only option\n"
+    "--plotData FILE writes the data of the plot as JSON to FILE instead of drawing\n"
+    "it.\n";
 
 struct Arguments {
     std::optional<std::string> matrix;
     std::optional<std::string> domains;
     std::string out_file = "output_interintra_tad.tzt";
     std::string plot_file = "ratio.png";
-    // Whether --outFileNameRatioPlot / -op appeared on the command line, as
-    // opposed to plot_file holding the argparse default.
-    bool plot_requested = false;
+    double fontsize = 15;
+    long long dpi = 300;
+    std::optional<std::string> plot_data;
     long long threads = 4;
 };
 
@@ -127,18 +123,14 @@ Arguments parse_arguments(int argc, char** argv) {
     optional.add({"--outFileNameRatioPlot", "-op"})
         .default_value("ratio.png")
         .output({"png", "pdf", "svg"})
-        .note("The C++ port draws no plot: giving this option makes the tool exit with status 1 "
-              "before writing anything.")
         .help("Outfile name for the inter-left/intra vs inter-right/intra ratio plot");
     optional.add({"--fontsize"})
         .type("float")
         .default_value(15)
-        .note("Accepted and ignored by the C++ port, which draws no plot.")
         .help("Fontsize in the plot for x and y axis.");
     optional.add({"--dpi"})
         .type("int")
         .default_value(300)
-        .note("Accepted and ignored by the C++ port, which draws no plot.")
         .help("The dpi of the scatter plot.");
     optional.add({"--threads", "-t"})
         .type("int")
@@ -146,6 +138,12 @@ Arguments parse_arguments(int argc, char** argv) {
         .help("Number of threads to use, the parallelization is implemented per chromosome.");
     optional.add({"--help", "-h"}).action(cli::Action::Help).help("show this help message and exit");
     optional.add({"--version"}).version(std::string("%(prog)s ") + hicx::kVersion);
+    optional.add({"--plotData"})
+        .metavar("FILE")
+        .output({"json"})
+        .cpp_only("The data of the figure as JSON, without drawing it (cpp/PLAN.md tier 7).")
+        .help("Write the data the ratio plot is drawn from as JSON to this file and do not "
+              "draw the plot.");
 
     const cli::Namespace ns = parser.parse(argc, argv);
     Arguments args;
@@ -153,7 +151,9 @@ Arguments parse_arguments(int argc, char** argv) {
     args.domains = ns.opt_str("tadDomains");
     args.out_file = ns.str("outFileName");
     args.plot_file = ns.str("outFileNameRatioPlot");
-    args.plot_requested = ns.given("outFileNameRatioPlot");
+    args.fontsize = ns.real("fontsize");
+    args.dpi = ns.integer("dpi");
+    args.plot_data = ns.opt_str("plotData");
     args.threads = ns.integer("threads");
     return args;
 }
@@ -207,20 +207,7 @@ int main(int argc, char** argv) {
     const Arguments args = parse_arguments(argc, argv);
     namespace tads = hicx::tads;
 
-    if (args.plot_requested) {
-        // Before anything is read or written: the user named a file this port
-        // cannot produce, so it must not report success, and it must not leave
-        // a table behind that looks like a completed run.
-        std::fprintf(stderr,
-                     "hicInterIntraTAD: error: --outFileNameRatioPlot '%s' was requested, "
-                     "but the ratio plot is not yet available in the C++ port (it is a "
-                     "matplotlib figure, see cpp/PLAN.md tier 7). Nothing was written. "
-                     "Run without --outFileNameRatioPlot to get the table, or use the "
-                     "Python hicInterIntraTAD for the plot.\n",
-                     args.plot_file.c_str());
-        return 1;
-    }
-
+    std::string plot_json;
     try {
         if (!args.domains.has_value() || !args.matrix.has_value()) {
             throw std::runtime_error("--matrix and --tadDomains must both be given");
@@ -323,15 +310,26 @@ int main(int argc, char** argv) {
         if (!write_file(args.out_file, text)) {
             throw std::runtime_error("cannot write '" + args.out_file + "'");
         }
-        std::fprintf(stderr,
-                     "hicInterIntraTAD: no ratio plot was written; the plot is a matplotlib "
-                     "figure and is not yet available in the C++ port. The table in '%s' "
-                     "holds its data.\n",
-                     args.out_file.c_str());
+        // plt.scatter(inter_left_intra_ratio_list, inter_right_intra_ratio_list)
+        std::vector<double> left_ratios;
+        std::vector<double> right_ratios;
+        left_ratios.reserve(results.size());
+        right_ratios.reserve(results.size());
+        for (const TadResult& r : results) {
+            left_ratios.push_back(r.left_ratio.as_double());
+            right_ratios.push_back(r.right_ratio.as_double());
+        }
+        hicx::plot::JsonObject data;
+        data.add("plotFile", hicx::plot::json_string(args.plot_file));
+        data.add("fontsize", hicx::plot::json_number(args.fontsize));
+        data.add("dpi", hicx::plot::json_int(args.dpi));
+        data.add("x", hicx::plot::json_numbers(left_ratios));
+        data.add("y", hicx::plot::json_numbers(right_ratios));
+        plot_json = data.str();
     } catch (const std::exception& error) {
         std::fprintf(stderr, "hicInterIntraTAD: %s\n", error.what());
         return 1;
     }
     hicx::report_resource_usage("hicInterIntraTAD");
-    return 0;
+    return hicx::plot::draw("hicInterIntraTAD", plot_json, args.plot_data);
 }

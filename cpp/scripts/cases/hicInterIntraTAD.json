@@ -6,12 +6,14 @@
     "args": ["-m", "{data}/hicInterIntraTAD/GSM2644947_Auxin2days-R1.100000_chr1_chr2.cool",
              "--tadDomains", "{data}/hicInterIntraTAD/untreated_R1_domains_chr1_chr2.bed",
              "--threads", "4",
-             "-o", "{out}/interintra.txt"],
+             "-o", "{out}/interintra.txt",
+             "-op", "{out}/ratio.png"],
     "outputs": [
-      {"path": "{out}/interintra.txt", "format": "text", "class": "E0"}
+      {"path": "{out}/interintra.txt", "format": "text", "class": "E0"},
+      {"path": "{out}/ratio.png", "format": "png", "class": "E6"}
     ],
     "threads_arg": "--threads",
-    "notes": "The matrix and TAD file of test_main, whose text comparison was never asserted. 225 TADs. Byte identical: the gate is ED, E0 is what is met, because scipy's sum order (row sums in column order, then numpy's pairwise sum) is reproduced and the mixed int and float columns are printed from the Python type each value has. No case passes --outFileNameRatioPlot: the plot is a matplotlib figure not yet available in the port (tier 7), and under the 2026-09-13 policy an explicit -op makes the C++ exit 1 before writing anything, which ctest pins (hicInterIntraTAD_refuses_ratio_plot). Without -op the Python still writes its default ratio.png into its current directory, which equiv.py sets to the per-case work directory under the system temp directory (tempfile.mkdtemp, cwd=workdir), never the worktree; the C++ writes no plot and notes that on stderr."
+    "notes": "The matrix and TAD file of test_main, whose text comparison was never asserted. 225 TADs. Byte identical: the gate is ED, E0 is what is met, because scipy's sum order (row sums in column order, then numpy's pairwise sum) is reproduced and the mixed int and float columns are printed from the Python type each value has. Every successful case also compares the ratio plot, drawn by plot/hicexplorer_plot/hicInterIntraTAD.py from the ratios the C++ computes."
   },
   {
     "id": "hicInterIntraTAD.cool.chr1_chr2.t1",
@@ -20,9 +22,11 @@
     "args": ["-m", "{data}/hicInterIntraTAD/GSM2644947_Auxin2days-R1.100000_chr1_chr2.cool",
              "--tadDomains", "{data}/hicInterIntraTAD/untreated_R1_domains_chr1_chr2.bed",
              "--threads", "1",
-             "-o", "{out}/interintra.txt"],
+             "-o", "{out}/interintra.txt",
+             "-op", "{out}/ratio.png"],
     "outputs": [
-      {"path": "{out}/interintra.txt", "format": "text", "class": "E0"}
+      {"path": "{out}/interintra.txt", "format": "text", "class": "E0"},
+      {"path": "{out}/ratio.png", "format": "png", "class": "E6"}
     ],
     "threads_arg": "--threads",
     "notes": "The same input through the Python's single process branch, which skips no list element at all."
@@ -34,9 +38,11 @@
     "args": ["-m", "{data}/hicDifferentialTAD/GSM2644945_Untreated-R1.100000_chr1.cool",
              "--tadDomains", "{data}/hicDifferentialTAD/untreated_R1_domains.bed",
              "--threads", "3",
-             "-o", "{out}/interintra.txt"],
+             "-o", "{out}/interintra.txt",
+             "-op", "{out}/ratio.png"],
     "outputs": [
-      {"path": "{out}/interintra.txt", "format": "text", "class": "E0"}
+      {"path": "{out}/interintra.txt", "format": "text", "class": "E0"},
+      {"path": "{out}/ratio.png", "format": "png", "class": "E6"}
     ],
     "threads_arg": "--threads",
     "notes": "A second matrix, single chromosome, 140 TADs; 43 rows hold a density below 1."
@@ -48,9 +54,11 @@
     "args": ["-m", "{data}/hicInterIntraTAD/GSM2644947_Auxin2days-R1.100000_chr1_chr2.cool",
              "--tadDomains", "{data}/hicDifferentialTAD/domains_chr1_10_chr2_3.bed",
              "--threads", "1",
-             "-o", "{out}/interintra.txt"],
+             "-o", "{out}/interintra.txt",
+             "-op", "{out}/ratio.png"],
     "outputs": [
-      {"path": "{out}/interintra.txt", "format": "text", "class": "E0"}
+      {"path": "{out}/interintra.txt", "format": "text", "class": "E0"},
+      {"path": "{out}/ratio.png", "format": "png", "class": "E6"}
     ],
     "threads_arg": "--threads",
     "notes": "Compared at --threads 1 on purpose: at --threads 4 the Python writes eight chr1 rows twice from stale result slots, the same partitioning defect as hicDifferentialTAD, pinned by test_hicInterIntraTAD.py::test_threads_small_chromosome_last_duplicates_rows."
@@ -62,7 +70,8 @@
     "args": ["-m", "{data}/hicDifferentialTAD/GSM2644945_Untreated-R1.100000_chr1.h5",
              "--tadDomains", "{data}/hicDifferentialTAD/untreated_R1_domains.bed",
              "--threads", "1",
-             "-o", "{out}/interintra.txt"],
+             "-o", "{out}/interintra.txt",
+             "-op", "{out}/ratio.png"],
     "outputs": [],
     "expect_exit": 1,
     "notes": "The Python tool cannot process an h5 matrix: the last TAD's left block has no columns (the stale absolute right_boundary_index, tad_contacts_impl.hpp point 3) and its density is a ZeroDivisionError, so it exits 1 and writes nothing. Pinned by test_h5_input_raises_zero_division and reproduced, not fixed."
