@@ -29,7 +29,8 @@ set(HICX_TOOLS
     hicPlotDistVsCounts
     hicPlotViewpoint
     hicPlotAverageRegions
-    chicPlotViewpoint)
+    chicPlotViewpoint
+    hicCorrelate)
 
 foreach(tool IN LISTS HICX_TOOLS)
     add_executable(${tool} "${tool}.cpp")

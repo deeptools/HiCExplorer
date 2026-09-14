@@ -92,6 +92,18 @@ namespace detail {
 // scipy.cluster.hierarchy.ward(X): the (n - 1) by 4 linkage matrix, row major.
 [[nodiscard]] std::vector<double> ward_linkage(const Samples& X);
 
+// scipy.cluster.hierarchy.linkage(X, method='complete') for hicCorrelate: the
+// same pdist, nn_chain, stable sort and label() as ward_linkage, with the
+// complete linkage update max(d_xi, d_yi). Throws ClusteringError for fewer
+// than two observations or a non-finite value, as scipy raises.
+[[nodiscard]] std::vector<double> complete_linkage(const Samples& X);
+
+// scipy.cluster.hierarchy.dendrogram(Z)['leaves'] with its defaults
+// (count_sort and distance_sort off): every merge lists its first child's
+// leaves before its second child's.
+[[nodiscard]] std::vector<std::int64_t> dendrogram_leaves(const std::vector<double>& Z,
+                                                          std::int64_t n);
+
 // sklearn.cluster._agglomerative._hc_cut(n_clusters, children, n_leaves), with
 // children the first two columns of the linkage matrix.
 [[nodiscard]] std::vector<std::int64_t> hc_cut(std::int64_t n_clusters,

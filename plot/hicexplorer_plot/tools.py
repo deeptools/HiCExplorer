@@ -40,3 +40,7 @@ def hicPlotAverageRegions():
 
 def chicPlotViewpoint():
     return _run("chicPlotViewpoint")
+
+
+def hicCorrelate():
+    return _run("hicCorrelate")

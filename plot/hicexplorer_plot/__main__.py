@@ -34,7 +34,17 @@ def main(argv=None):
                 os.remove(data_path)
             except OSError:
                 pass
-    result = module.draw(data)
+    # Arrays too large for JSON travel in files the document names; with
+    # --remove-data they are temporary too and go once the figure is drawn.
+    try:
+        result = module.draw(data)
+    finally:
+        if remove:
+            for path in data.get("temporary_files", []):
+                try:
+                    os.remove(path)
+                except OSError:
+                    pass
     return 0 if result is None else int(result)
 
 

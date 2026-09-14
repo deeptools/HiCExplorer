@@ -23,6 +23,7 @@ hicPlotDistVsCounts = "hicexplorer_plot.tools:hicPlotDistVsCounts"
 hicPlotViewpoint = "hicexplorer_plot.tools:hicPlotViewpoint"
 hicPlotAverageRegions = "hicexplorer_plot.tools:hicPlotAverageRegions"
 chicPlotViewpoint = "hicexplorer_plot.tools:chicPlotViewpoint"
+hicCorrelate = "hicexplorer_plot.tools:hicCorrelate"
 
 [tool.setuptools]
 packages = ["hicexplorer_plot"]
