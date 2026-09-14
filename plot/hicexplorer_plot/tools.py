@@ -52,3 +52,7 @@ def hicPrepareQCreport():
 
 def hicQC():
     return _run("hicQC")
+
+
+def hicPlotTADs():
+    return _run("hicPlotTADs")

@@ -30,6 +30,7 @@ chicPlotViewpoint = "hicexplorer_plot.tools:chicPlotViewpoint"
 hicCorrelate = "hicexplorer_plot.tools:hicCorrelate"
 hicPrepareQCreport = "hicexplorer_plot.tools:hicPrepareQCreport"
 hicQC = "hicexplorer_plot.tools:hicQC"
+hicPlotTADs = "hicexplorer_plot.tools:hicPlotTADs"
 
 [tool.setuptools]
 packages = ["hicexplorer_plot"]

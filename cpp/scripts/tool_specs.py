@@ -196,8 +196,14 @@ def load_cpp_spec(cpp_bin, tool):
     return spec
 
 
+# Tools whose Python module has no parse_arguments of its own. hicPlotTADs is
+# `pygenometracks.plotTracks.main(args)` (hicexplorer/hicPlotTADs.py), so its
+# parser is pyGenomeTracks'.
+PARSER_MODULES = {"hicPlotTADs": "pygenometracks.plotTracks"}
+
+
 def load_python_parser(tool):
-    module = importlib.import_module("hicexplorer." + tool)
+    module = importlib.import_module(PARSER_MODULES.get(tool, "hicexplorer." + tool))
     return module.parse_arguments()
 
 
