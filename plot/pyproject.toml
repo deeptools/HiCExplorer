@@ -16,6 +16,10 @@ dependencies = [
     # hicPlotAverageRegions rotates its image with scipy.ndimage.rotate, an
     # interpolation that is part of the figure.
     "scipy==1.14.1",
+    # hicQC.html is pandas Styler.to_html through Jinja2, and the QC charts
+    # are pandas plotting calls.
+    "pandas==2.2.3",
+    "jinja2==3.1.4",
 ]
 
 [project.scripts]
@@ -24,6 +28,11 @@ hicPlotViewpoint = "hicexplorer_plot.tools:hicPlotViewpoint"
 hicPlotAverageRegions = "hicexplorer_plot.tools:hicPlotAverageRegions"
 chicPlotViewpoint = "hicexplorer_plot.tools:chicPlotViewpoint"
 hicCorrelate = "hicexplorer_plot.tools:hicCorrelate"
+hicPrepareQCreport = "hicexplorer_plot.tools:hicPrepareQCreport"
+hicQC = "hicexplorer_plot.tools:hicQC"
 
 [tool.setuptools]
 packages = ["hicexplorer_plot"]
+
+[tool.setuptools.package-data]
+hicexplorer_plot = ["qc_template.html"]

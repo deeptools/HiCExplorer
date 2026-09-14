@@ -44,3 +44,11 @@ def chicPlotViewpoint():
 
 def hicCorrelate():
     return _run("hicCorrelate")
+
+
+def hicPrepareQCreport():
+    return _run("hicPrepareQCreport")
+
+
+def hicQC():
+    return _run("hicQC")

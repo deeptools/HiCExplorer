@@ -1,0 +1,113 @@
+[
+  {
+    "id": "hicQC.single_log",
+    "tool": "hicQC",
+    "tier": 7,
+    "args": ["--logfiles", "{data}/QC/QC.log", "--outputFolder", "{out}/qc"],
+    "outputs": [
+      {"path": "{out}/qc/QC_table.txt", "format": "text", "class": "E0"},
+      {"path": "{out}/qc/unmapable_table.txt", "format": "text", "class": "E0"},
+      {"path": "{out}/qc/discarded_table.txt", "format": "text", "class": "E0"},
+      {"path": "{out}/qc/distance_table.txt", "format": "text", "class": "E0"},
+      {"path": "{out}/qc/read_orientation_table.txt", "format": "text", "class": "E0"},
+      {"path": "{out}/qc/pairs_sequenced.png", "format": "png", "class": "E6"},
+      {"path": "{out}/qc/unmappable_and_non_unique.png", "format": "png", "class": "E6"},
+      {"path": "{out}/qc/pairs_discarded.png", "format": "png", "class": "E6"},
+      {"path": "{out}/qc/distance.png", "format": "png", "class": "E6"},
+      {"path": "{out}/qc/read_orientation.png", "format": "png", "class": "E6"},
+      {"path": "{out}/qc/hicQC.html", "format": "text", "class": "E0",
+       "options": {"normalise": ["pandas_styler_uuid"]}}
+    ],
+    "memory": {"alpha": 0.0, "beta": 0.0},
+    "notes": "bin/hicQC (hicPrepareQCreport.main) on the checked-in QC.log: the rows are named by the File entry. The tables are aggregated in C++ at E0; the five charts and hicQC.html are drawn by plot/hicexplorer_plot. hicQC.html is compared after the named normalisation pandas_styler_uuid: Styler.to_html names each table after a random five character uuid, and two runs of the reference differ there and nowhere else."
+  },
+  {
+    "id": "hicQC.two_labelled_logs",
+    "tool": "hicQC",
+    "tier": 7,
+    "args": ["--logfiles", "{data}/QC/QC.log", "{data}/QC/QC.log", "--labels", "sample 1", "sample 2",
+             "--outputFolder", "{out}/qc", "--dpi", "100"],
+    "outputs": [
+      {"path": "{out}/qc/QC_table.txt", "format": "text", "class": "E0"},
+      {"path": "{out}/qc/unmapable_table.txt", "format": "text", "class": "E0"},
+      {"path": "{out}/qc/discarded_table.txt", "format": "text", "class": "E0"},
+      {"path": "{out}/qc/distance_table.txt", "format": "text", "class": "E0"},
+      {"path": "{out}/qc/read_orientation_table.txt", "format": "text", "class": "E0"},
+      {"path": "{out}/qc/pairs_sequenced.png", "format": "png", "class": "E6"},
+      {"path": "{out}/qc/unmappable_and_non_unique.png", "format": "png", "class": "E6"},
+      {"path": "{out}/qc/pairs_discarded.png", "format": "png", "class": "E6"},
+      {"path": "{out}/qc/distance.png", "format": "png", "class": "E6"},
+      {"path": "{out}/qc/read_orientation.png", "format": "png", "class": "E6"},
+      {"path": "{out}/qc/hicQC.html", "format": "text", "class": "E0",
+       "options": {"normalise": ["pandas_styler_uuid"]}}
+    ],
+    "memory": {"alpha": 0.0, "beta": 0.0},
+    "notes": "Two logs named by --labels (the usage example of the tool): the index is Labels and File becomes a column; dpi 100."
+  },
+  {
+    "id": "hicQC.multi_restriction_log",
+    "tool": "hicQC",
+    "tier": 7,
+    "args": ["--logfiles", "{data}/QC_multi_restriction/QC.log", "--outputFolder", "{out}/qc"],
+    "outputs": [
+      {"path": "{out}/qc/QC_table.txt", "format": "text", "class": "E0"},
+      {"path": "{out}/qc/unmapable_table.txt", "format": "text", "class": "E0"},
+      {"path": "{out}/qc/discarded_table.txt", "format": "text", "class": "E0"},
+      {"path": "{out}/qc/distance_table.txt", "format": "text", "class": "E0"},
+      {"path": "{out}/qc/read_orientation_table.txt", "format": "text", "class": "E0"},
+      {"path": "{out}/qc/pairs_sequenced.png", "format": "png", "class": "E6"},
+      {"path": "{out}/qc/unmappable_and_non_unique.png", "format": "png", "class": "E6"},
+      {"path": "{out}/qc/pairs_discarded.png", "format": "png", "class": "E6"},
+      {"path": "{out}/qc/distance.png", "format": "png", "class": "E6"},
+      {"path": "{out}/qc/read_orientation.png", "format": "png", "class": "E6"},
+      {"path": "{out}/qc/hicQC.html", "format": "text", "class": "E0",
+       "options": {"normalise": ["pandas_styler_uuid"]}}
+    ],
+    "memory": {"alpha": 0.0, "beta": 0.0},
+    "notes": "A log of several restriction enzymes: every 'dangling end <sequence>' column matches the prefix only, so the discarded table carries a percentage and no count for each."
+  },
+  {
+    "id": "hicQC.same_log_twice_without_labels",
+    "tool": "hicQC",
+    "tier": 7,
+    "args": ["--logfiles", "{data}/QC/QC.log", "{data}/QC/QC.log", "--outputFolder", "{out}/qc"],
+    "outputs": [
+      {"path": "{out}/qc/QC_table.txt", "format": "text", "class": "E0"},
+      {"path": "{out}/qc/unmapable_table.txt", "format": "text", "class": "E0"},
+      {"path": "{out}/qc/discarded_table.txt", "format": "text", "class": "E0"},
+      {"path": "{out}/qc/distance_table.txt", "format": "text", "class": "E0"},
+      {"path": "{out}/qc/read_orientation_table.txt", "format": "text", "class": "E0"},
+      {"path": "{out}/qc/pairs_sequenced.png", "format": "png", "class": "E6"},
+      {"path": "{out}/qc/hicQC.html", "format": "text", "class": "E0",
+       "options": {"normalise": ["pandas_styler_uuid"]}}
+    ],
+    "memory": {"alpha": 0.0, "beta": 0.0},
+    "notes": "Pins reference behaviour: two rows share the File name, and the joins of make_figure_* on that non-unique index give every row with every row of the same name, so the four derived tables have four rows and QC_table.txt two."
+  },
+  {
+    "id": "hicQC.label_count_differs",
+    "tool": "hicQC",
+    "tier": 7,
+    "args": ["--logfiles", "{data}/QC/QC.log", "--labels", "a", "b", "--outputFolder", "{out}/qc"],
+    "outputs": [
+      {"path": "{out}/qc/QC_table.txt", "format": "text", "class": "E0"},
+      {"path": "{out}/qc/discarded_table.txt", "format": "text", "class": "E0"},
+      {"path": "{out}/qc/distance.png", "format": "png", "class": "E6"},
+      {"path": "{out}/qc/hicQC.html", "format": "text", "class": "E0",
+       "options": {"normalise": ["pandas_styler_uuid"]}}
+    ],
+    "memory": {"alpha": 0.0, "beta": 0.0},
+    "notes": "Two labels for one log: the reference ignores --labels and names the row by File."
+  },
+  {
+    "id": "hicQC.logs_with_different_lines",
+    "tool": "hicQC",
+    "tier": 7,
+    "args": ["--logfiles", "{data}/QC/QC.log", "{data}/QC_multi_restriction/QC.log", "--labels", "a", "b",
+             "--outputFolder", "{out}/qc"],
+    "outputs": [],
+    "memory": {"alpha": 0.0, "beta": 0.0},
+    "expect_exit": 1,
+    "notes": "The two logs hold different dangling end lines, so pandas.DataFrame(params) raises ValueError('All arrays must be of the same length'); the port exits 1 at the same point."
+  }
+]

@@ -30,7 +30,14 @@ set(HICX_TOOLS
     hicPlotViewpoint
     hicPlotAverageRegions
     chicPlotViewpoint
-    hicCorrelate)
+    hicCorrelate
+    hicPrepareQCreport)
+
+# hicQC is hicPrepareQCreport under the name bin/hicQC gives the same main();
+# only the program name in its usage and messages differs.
+add_executable(hicQC hicPrepareQCreport.cpp)
+target_link_libraries(hicQC PRIVATE hicx::core hicx_compile_options)
+target_compile_definitions(hicQC PRIVATE HICX_QC_PROG="hicQC")
 
 foreach(tool IN LISTS HICX_TOOLS)
     add_executable(${tool} "${tool}.cpp")

@@ -109,8 +109,26 @@ def _normalise_quickqc_temporary_matrix(raw):
     return normalised, None
 
 
+# pandas_styler_uuid: hicPrepareQCreport's hicQC.html holds five tables
+# rendered by pandas.io.formats.style.Styler.to_html. Each Styler names its
+# table and cells after a random uuid, `T_` and five hexadecimal characters
+# (uuid_len=5 in pandas 2.2), so two runs on the same logs differ in those
+# ids and nowhere else (measured 2026-09-14 on test_data/QC/QC.log). Every id
+# is replaced by `T_xxxxx`; a file without any is a failure, because then
+# the normalisation was declared for the wrong output.
+_STYLER_UUID = re.compile(rb"T_[0-9a-f]{5}")
+
+
+def _normalise_pandas_styler_uuid(raw):
+    normalised, count = _STYLER_UUID.subn(b"T_xxxxx", raw)
+    if count == 0:
+        return None, "no pandas Styler table id (T_ and five hexadecimal characters) found"
+    return normalised, None
+
+
 NORMALISATIONS = {
     "quickqc_temporary_matrix": _normalise_quickqc_temporary_matrix,
+    "pandas_styler_uuid": _normalise_pandas_styler_uuid,
 }
 
 

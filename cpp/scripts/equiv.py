@@ -74,9 +74,16 @@ harness passes HICX_COMPUTE_RSS_FILE to every C++ run; a tool that hands a
 figure to hicx::plot::draw writes the peak RSS of its C++ step there before the
 exec. When that file exists, the budget above gates the C++ step's own peak,
 and the peak /usr/bin/time reports, which is the larger of the C++ step and
-the drawing process, must not exceed the Python tool's peak. Both numbers are
-recorded, so the fixed cost of the drawing interpreter is visible instead of
-being folded into a raised budget.
+the drawing process, must not exceed the Python tool's peak by more than
+PAIR_RSS_TOLERANCE. Both numbers are recorded, so the fixed cost of the
+drawing interpreter is visible instead of being folded into a raised budget.
+The tolerance exists because for a tool whose work is only drawing
+(hicPrepareQCreport, hicPlotAverageRegions) the drawing process is the
+reference's own interpreter running the reference's own calls, and the two
+peaks coincide to within run-to-run noise: measured on hicQC with two logs,
+three runs each, 149.7 to 151.8 MB for the pair against 150.7 to 151.3 MB for
+the Python tool. 5 % absorbs that and still fails a drawing layer that costs
+measurably more than the tool it replaces.
 
 The time gate
 -------------
@@ -179,6 +186,9 @@ DEFAULT_OUT = REPO_ROOT / "cpp" / "build" / "equivalence"
 # --- memory budget (PLAN.md 4.5) ------------------------------------------
 MB = 1_000_000.0                      # SI, as in PLAN.md and STATUS.md
 BUDGET_CONSTANT_BYTES = 64 * MB       # C: process, HDF5, buffers, output staging
+# Plotting tools: how far the peak of the C++ step and its drawing process may
+# lie above the Python tool's peak (module docstring, "Plotting tools").
+PAIR_RSS_TOLERANCE = 0.05
 VALUE_BYTES = 8                       # float64 values
 INDEX_BYTES = 4                       # int32 while nbins <= INT32_MAX, rule 3
 INDPTR_BYTES = 8
@@ -1259,7 +1269,8 @@ def run_case(case, options):
         # A plotting tool: the budget gated the C++ step; the pair with the
         # drawing process must stay within the Python tool (module docstring).
         pair_within_python = (not measure_py["peak_rss_kb"]
-                              or measure_cpp["peak_rss_kb"] <= measure_py["peak_rss_kb"])
+                              or measure_cpp["peak_rss_kb"]
+                              <= measure_py["peak_rss_kb"] * (1.0 + PAIR_RSS_TOLERANCE))
         memory_gate.update(drawing=True,
                            compute_peak_rss_mb=compute_peak_kb * 1024 / MB,
                            pair_peak_rss_mb=(measure_cpp["peak_rss_kb"] or 0) * 1024 / MB,
@@ -1268,7 +1279,8 @@ def run_case(case, options):
             memory_gate["passed"] = False
             memory_gate["reason"] = (
                 f"the C++ step and the drawing process peak at "
-                f"{measure_cpp['peak_rss_kb'] * 1024 / MB:.1f} MB, above the Python tool's "
+                f"{measure_cpp['peak_rss_kb'] * 1024 / MB:.1f} MB, more than "
+                f"{PAIR_RSS_TOLERANCE:.0%} above the Python tool's "
                 f"{measure_py['peak_rss_kb'] * 1024 / MB:.1f} MB")
     result["cpp_compute_peak_rss_kb"] = compute_peak_kb
     result["memory_gate"] = memory_gate
