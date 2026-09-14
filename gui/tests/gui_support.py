@@ -5,6 +5,10 @@ Environment:
     HICX_REFERENCE_PYTHON   interpreter with the Python HiCExplorer dependencies
                             (argparse namespaces, equiv.py comparisons)
     HICX_PYTHON_MODULE_DIR  directory holding the hicx_matrix module
+    HICX_PLOT_PYTHON        interpreter the C++ plotting tools draw with; it must
+                            have the pinned matplotlib (the tools refuse anything
+                            else), so it defaults to HICX_REFERENCE_PYTHON
+    HICX_LARGE_HIC          a large .hic file for the browser session tests
 """
 
 import json
@@ -20,6 +24,10 @@ DATA = os.path.join(REPO, "hicexplorer", "test", "test_data")
 EQUIV = os.path.join(REPO, "cpp", "scripts", "equiv.py")
 CPP_BIN = os.environ.get("HICX_CPP_BIN")
 REFERENCE_PYTHON = os.environ.get("HICX_REFERENCE_PYTHON")
+if REFERENCE_PYTHON:
+    # Workflows run from the tests (hicBuildMatrix draws its QC report) inherit
+    # this environment.
+    os.environ.setdefault("HICX_PLOT_PYTHON", REFERENCE_PYTHON)
 
 needs_tools = pytest.mark.skipif(not CPP_BIN, reason="HICX_CPP_BIN is not set")
 needs_reference = pytest.mark.skipif(not REFERENCE_PYTHON, reason="HICX_REFERENCE_PYTHON is not set")

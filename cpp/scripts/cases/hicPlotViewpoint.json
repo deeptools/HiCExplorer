@@ -1,0 +1,107 @@
+[
+  {
+    "id": "hicPlotViewpoint.single_point",
+    "tool": "hicPlotViewpoint",
+    "tier": 7,
+    "args": ["--matrix", "{data}/Li_et_al_2015.h5", "--region", "X:3000000-3500000", "-rp", "X:3200000",
+             "--outFileName", "{out}/viewpoint.png", "--dpi", "300"],
+    "outputs": [
+      {"path": "{out}/viewpoint.png", "format": "png", "class": "E6"}
+    ],
+    "notes": "test_plot_single_point. Its master li_viewpoint_32Mb.png is xfail in the Python suite (different image size under matplotlib 3.8); the figure is compared with the one the Python tool draws in the same environment."
+  },
+  {
+    "id": "hicPlotViewpoint.single_point_two_matrices",
+    "tool": "hicPlotViewpoint",
+    "tier": 7,
+    "args": ["--matrix", "{data}/Li_et_al_2015.h5", "{data}/Li_et_al_2015_twice.h5", "--region", "X:3000000-3500000",
+             "-rp", "X:3200000", "--outFileName", "{out}/viewpoint.png", "--dpi", "300"],
+    "outputs": [
+      {"path": "{out}/viewpoint.png", "format": "png", "class": "E6"}
+    ],
+    "notes": "test_plot_single_point_two_matrices."
+  },
+  {
+    "id": "hicPlotViewpoint.single_point_interactions",
+    "tool": "hicPlotViewpoint",
+    "tier": 7,
+    "args": ["--matrix", "{data}/Li_et_al_2015.h5", "--region", "X:3000000-3500000", "-rp", "X:3200000",
+             "--outFileName", "{out}/viewpoint.png", "-i", "{out}/interactions", "--dpi", "300"],
+    "outputs": [
+      {"path": "{out}/viewpoint.png", "format": "png", "class": "E6"},
+      {"path": "{out}/interactions_Li_et_al_2015.h5.bedgraph", "format": "text", "class": "E0"}
+    ],
+    "notes": "test_plot_single_point_interaction_file: the interactions of every viewpoint bin with every region bin, written as <-i>_<matrix basename>.bedgraph with '{:.12f}' values."
+  },
+  {
+    "id": "hicPlotViewpoint.single_point_interactions_two_matrices",
+    "tool": "hicPlotViewpoint",
+    "tier": 7,
+    "args": ["--matrix", "{data}/Li_et_al_2015.h5", "{data}/Li_et_al_2015_twice.h5", "--region", "X:3000000-3500000",
+             "-rp", "X:3200000", "--outFileName", "{out}/viewpoint.png", "-i", "{out}/viewpoint_interactons",
+             "--dpi", "300"],
+    "outputs": [
+      {"path": "{out}/viewpoint.png", "format": "png", "class": "E6"},
+      {"path": "{out}/viewpoint_interactons_Li_et_al_2015.h5.bedgraph", "format": "text", "class": "E0"},
+      {"path": "{out}/viewpoint_interactons_Li_et_al_2015_twice.h5.bedgraph", "format": "text", "class": "E0"}
+    ],
+    "notes": "test_plot_single_point_interaction_file_two_matrices."
+  },
+  {
+    "id": "hicPlotViewpoint.region",
+    "tool": "hicPlotViewpoint",
+    "tier": 7,
+    "args": ["--matrix", "{data}/Li_et_al_2015.h5", "--region", "X:3000000-3500000", "-rp", "X:3200000-3300000",
+             "--outFileName", "{out}/viewpoint.png", "--dpi", "300"],
+    "outputs": [
+      {"path": "{out}/viewpoint.png", "format": "png", "class": "E6"}
+    ],
+    "notes": "test_plot_region: a reference region, four ticks."
+  },
+  {
+    "id": "hicPlotViewpoint.region_interactions",
+    "tool": "hicPlotViewpoint",
+    "tier": 7,
+    "args": ["--matrix", "{data}/Li_et_al_2015.h5", "--region", "X:3000000-3500000", "-rp", "X:3200000-3300000",
+             "--outFileName", "{out}/viewpoint.png", "-i", "{out}/interactions", "--dpi", "300"],
+    "outputs": [
+      {"path": "{out}/viewpoint.png", "format": "png", "class": "E6"},
+      {"path": "{out}/interactions_Li_et_al_2015.h5.bedgraph", "format": "text", "class": "E0"}
+    ],
+    "notes": "test_plot_region_interaction_file."
+  },
+  {
+    "id": "hicPlotViewpoint.chromosome_option",
+    "tool": "hicPlotViewpoint",
+    "tier": 7,
+    "args": ["--matrix", "{data}/Li_et_al_2015.h5", "--region", "X:3,000,000-3,400,000", "-rp", "X:3100000",
+             "--outFileName", "{out}/viewpoint.png", "-C", "X", "-i", "{out}/interactions", "--dpi", "100"],
+    "outputs": [
+      {"path": "{out}/viewpoint.png", "format": "png", "class": "E6"},
+      {"path": "{out}/interactions_Li_et_al_2015.h5.bedgraph", "format": "text", "class": "E0"}
+    ],
+    "notes": "--chromosome reaches keepOnlyTheseChr as a string, which iterates its characters; for the one-letter name X that keeps X. Commas in the region are removed."
+  },
+  {
+    "id": "hicPlotViewpoint.chromosome_option_iterated_as_characters",
+    "tool": "hicPlotViewpoint",
+    "tier": 7,
+    "args": ["--matrix", "{data}/hicTADClassifier/gm12878_chr1.cool", "--region", "1:10000000-11000000",
+             "-rp", "1:10500000", "--outFileName", "{out}/viewpoint.png", "-C", "12"],
+    "outputs": [],
+    "expect_exit": 1,
+    "notes": "Pins reference behaviour: keepOnlyTheseChr('12') looks up the chromosomes '1' and '2', and gm12878_chr1.cool has no chromosome 2, so the reference raises ValueError('Chromosome name not in matrix')."
+  },
+  {
+    "id": "hicPlotViewpoint.gm12878_chr1",
+    "tool": "hicPlotViewpoint",
+    "tier": 7,
+    "args": ["--matrix", "{data}/hicTADClassifier/gm12878_chr1.cool", "--region", "1:10000000-12000000",
+             "-rp", "1:11000000-11050000", "--outFileName", "{out}/viewpoint.png", "-i", "{out}/interactions"],
+    "outputs": [
+      {"path": "{out}/viewpoint.png", "format": "png", "class": "E6"},
+      {"path": "{out}/interactions_gm12878_chr1.cool.bedgraph", "format": "text", "class": "E0"}
+    ],
+    "notes": "Real data: GM12878 chr1 at 10 kb, a 50 kb reference region over a 2 Mb window."
+  }
+]

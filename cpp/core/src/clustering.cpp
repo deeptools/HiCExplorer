@@ -597,7 +597,56 @@ double einsum_row_norm_squared(const double* row, std::int64_t features) {
     return 0.0 + (lane0 + lane1);
 }
 
+namespace {
+
+enum class LinkageMethod { Ward, Complete };
+
+std::vector<double> nn_chain_linkage(const Samples& X, LinkageMethod method);
+
+}  // namespace
+
 std::vector<double> ward_linkage(const Samples& X) {
+    return nn_chain_linkage(X, LinkageMethod::Ward);
+}
+
+std::vector<double> complete_linkage(const Samples& X) {
+    if (X.samples < 2) {
+        throw ClusteringError("The number of observations cannot be determined on an empty "
+                              "distance matrix. (scipy.cluster.hierarchy.linkage needs at least "
+                              "two observations)");
+    }
+    require_finite(X, "linkage");
+    return nn_chain_linkage(X, LinkageMethod::Complete);
+}
+
+std::vector<std::int64_t> dendrogram_leaves(const std::vector<double>& Z, std::int64_t n) {
+    std::vector<std::int64_t> leaves;
+    if (n <= 0) {
+        return leaves;
+    }
+    if (n == 1) {
+        leaves.push_back(0);
+        return leaves;
+    }
+    std::vector<std::int64_t> stack = {2 * n - 2};
+    while (!stack.empty()) {
+        const std::int64_t id = stack.back();
+        stack.pop_back();
+        if (id < n) {
+            leaves.push_back(id);
+            continue;
+        }
+        const auto row = static_cast<std::size_t>(id - n);
+        // The second child goes on the stack first, so the first is visited first.
+        stack.push_back(static_cast<std::int64_t>(Z[row * 4 + 1]));
+        stack.push_back(static_cast<std::int64_t>(Z[row * 4]));
+    }
+    return leaves;
+}
+
+namespace {
+
+std::vector<double> nn_chain_linkage(const Samples& X, LinkageMethod method) {
     const std::int64_t n = X.samples;
     const std::int64_t d = X.features;
     // pdist(X, 'euclidean'): sequential sum of squared differences, sqrt.
@@ -677,9 +726,12 @@ std::vector<double> ward_linkage(const Samples& X) {
             if (ni == 0 || i == y) {
                 continue;
             }
-            D[static_cast<std::size_t>(condensed_index(n, i, y))] = ward_update(
-                D[static_cast<std::size_t>(condensed_index(n, i, x))],
-                D[static_cast<std::size_t>(condensed_index(n, i, y))], current_min, nx, ny, ni);
+            const double d_xi = D[static_cast<std::size_t>(condensed_index(n, i, x))];
+            const double d_yi = D[static_cast<std::size_t>(condensed_index(n, i, y))];
+            // _complete in _hierarchy_distance_update.pxi: max(d_xi, d_yi).
+            D[static_cast<std::size_t>(condensed_index(n, i, y))] =
+                method == LinkageMethod::Complete ? std::max(d_xi, d_yi)
+                                                  : ward_update(d_xi, d_yi, current_min, nx, ny, ni);
         }
     }
 
@@ -714,6 +766,8 @@ std::vector<double> ward_linkage(const Samples& X) {
     }
     return sorted;
 }
+
+}  // namespace
 
 std::vector<std::int64_t> hc_cut(std::int64_t n_clusters, const std::vector<std::int64_t>& children,
                                  std::int64_t n_leaves) {

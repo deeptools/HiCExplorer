@@ -40,8 +40,11 @@ void register_blosc_filter();
 // Owning handle that closes with the right H5*close function.
 class Handle {
   public:
+    // Object is what H5Oopen hands back, a group or a dataset, closed through
+    // H5Oclose. Group and Dataset close through H5Gclose and H5Dclose, which
+    // reject the other kind of identifier and would leave it open.
     enum class Kind {
-        File, Group, Dataset, DataType, DataSpace, Attribute, PropertyList
+        File, Group, Dataset, DataType, DataSpace, Attribute, PropertyList, Object
     };
 
     Handle() = default;

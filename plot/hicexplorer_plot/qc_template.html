@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+		<title>HiCExplorer QC report</title>
+		<style type="text/css">
+		
+			body{
+				margin:0;
+				padding:0;
+				font-family: Sans-Serif;
+				line-height: 1.5em;
+			}
+			
+			main {
+				padding-bottom: 10010px;
+				margin-bottom: -10000px;
+				float: left;
+				width: 100%;
+			}
+			
+			#nav {
+				float: left;
+				width: 230px;
+				background: #eee;
+                position: fixed;
+                height: 100%;
+			}
+			
+			#wrapper {
+				overflow: hidden;
+			}
+			
+			#content {
+				margin-left: 230px;
+			}
+			
+			.sidebar{
+				margin: 15px;
+				margin-top: 0;
+                #position: fixed;
+
+			}
+
+	        dt {
+                font-weight: bold;
+            }
+            img {
+                width: 800px;
+            }
+            table{
+                width: 100%;
+                border-collapse: collapse;
+                text-align: left;
+                overflow: hidden;
+            }
+            td, th{
+                border-top: 1px solid #ECF0F1;
+                padding: 10px;
+            }
+
+            td{
+                border-left: 1px solid #ECF0F1;
+                border-right: 1px solid #ECF0F1;
+                text-align: right
+            }
+
+            th{
+                background-color: rgb(238, 238, 238);
+            }
+            tr:nth-of-type(even) td {
+                background-color: lighten(#4ECDC4, 35%);
+            }
+
+		</style>
+        
+	
+</head>
+
+<body>
+        <nav id="nav">
+            <div class="sidebar">
+                <h3><a href="#considered">Pairs considered</a></h3>
+                <h3><a href="#unmappable">Unmappable and non-unique pairs</a></h3>
+                <h3><a href="#table_unmappable">Unmappable and non-unique table</h3>
+                <h3><a href="#discarded">Pairs discarded</a></h3>
+                <h3><a href="#table_discarded">Discarded pairs table</h3>
+                <h3><a href="#distance">Contact distance</a></h3>
+                <h3><a href="#table_distance">Contact distance table</h3>
+                <h3><a href="#readorientation">Read orientation</a></h3>
+                <h3><a href="#table_orientation">Read orientation table</h3>
+                <h3><a href="#table">Number of reads table</a></h3>
+            </div>
+        </nav>
+        <main>
+            <div id="content">
+                <div class="sidebar">
+                    <h1>HiCExplorer QC report</h1>
+                    <br/>
+
+                    <h2 id="considered">Pairs sequenced</h2>
+                    <img src="pairs_sequenced.png" alt="Pairs sequenced" />
+
+                    <h2 id="unmappable">Unmappable and non-unique pairs</h2>
+                    <img src="unmappable_and_non_unique.png" alt="Unmappable and non-unique" />
+
+                    <p>This figure contains the fraction of reads, with respect to the total number of reads,
+                    that did not map, that have a low quality score or that didn't map uniquely to the genome.
+
+                    <h2 id="table_unmappable">Unmappable and non-unique table</h2>
+                    %%TABLE_UNMAP%%
+                    <a href="unmapable_table.txt">Download table (tab separated)</a>
+
+                    <h2 id="discarded">Pairs discarded</h2>
+                    <img src="pairs_discarded.png" alt="Pairs discarded" />
+
+                    <p>This figure contains the fraction read pairs (with respect to mappable reads) that were discarded
+                    when building the Hi-C matrix. </p>
+                    <dl>
+                      <dt>Dangling ends</dt>
+                      <dd>These are reads that start with the restriction site and constitute reads that were digested but no ligated.</dd>
+                      <dt>Same fragment</dt>
+                      <dd>These are read mates, facing inward, separated by up to 800 bp that do not have a restriction enzyme in
+                      between. These read pairs are not valid Hi-C pairs</dd>
+                      <dt>Self circle</dt>
+                      <dd>self circles are defined as pairs within 25kb with 'outward' read orientation</dd>
+                      <dt>Self ligation</dt>
+                      <dd>These are read pairs with a restriction site in between that are within 800 bp.</dd>
+                    </dl>
+
+                    <h2 id="table_discarded">Discarded pairs table</h2>
+                    %%TABLE_DISCARDED%%
+                    <a href="discarded_table.txt">Download table (tab separated)</a>
+
+                    <h2 id="distance">Contact distance </h2>
+                        <img src="distance.png" alt="Contact distance" />
+
+                    <h2 id="table_distance">Contact distance table</h2>
+                    %%TABLE_DISTANCE%%
+                    <a href="distance_table.txt">Download table (tab separated)</a>
+
+                    <h2 id="readorientation">Read orientation</h2>
+                        <img src="read_orientation.png" alt="Contact distance" />
+
+                    <h2 id="table_orientation">Read orientation table</h2>
+                    %%TABLE_ORIENTATION%%
+                    <a href="read_orientation_table.txt">Download table (tab separated)</a>
+
+                    <h2 id="table">Number of reads table</h2>
+                    %%TABLE%%
+
+                    <a href="QC_table.txt">Download table (tab separated)</a>
+                </div>
+            </div>
+        </main>
+	</body>
+</html>

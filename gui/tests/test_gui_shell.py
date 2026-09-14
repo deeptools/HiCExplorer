@@ -5,6 +5,7 @@ outputs are E0 against invoking the same command directly.
 """
 
 import os
+import re
 import subprocess
 
 import pytest
@@ -14,7 +15,7 @@ pytest.importorskip("pytestqt")
 
 from PySide6 import QtCore  # noqa: E402
 
-from gui_support import DATA, equiv_compare, needs_reference, needs_tools  # noqa: E402
+from gui_support import DATA, REPO, equiv_compare, needs_reference, needs_tools  # noqa: E402
 from hicexplorer_gui.catalog import PLANNED_TOOLS  # noqa: E402
 from hicexplorer_gui.main_window import MainWindow  # noqa: E402
 from hicexplorer_gui.project import Project  # noqa: E402
@@ -41,13 +42,20 @@ def wait_finished(qtbot, controller, timeout=300000):
 def test_tool_browser_lists_available_and_unavailable(window):
     tree = window.tool_tree
     available, missing = tree.topLevelItem(0), tree.topLevelItem(1)
-    assert available.text(0) == "Available (30)"
-    assert missing.childCount() == len(PLANNED_TOOLS) - 30
+    # cpp/tools/<tool>.cpp plus the executables CMake builds from another
+    # tool's source under a second name (hicQC from hicPrepareQCreport.cpp).
+    tools_dir = os.path.join(REPO, "cpp", "tools")
+    ported = {os.path.splitext(n)[0] for n in os.listdir(tools_dir)
+              if n.endswith(".cpp") and n.startswith(("hic", "chic"))}
+    with open(os.path.join(tools_dir, "CMakeLists.txt")) as handle:
+        ported.update(re.findall(r"add_executable\(((?:hic|chic)\w+)", handle.read()))
+    assert available.text(0) == "Available ({})".format(len(ported))
+    assert missing.childCount() == len(PLANNED_TOOLS) - len(ported)
     names = [missing.child(i).text(0) for i in range(missing.childCount())]
-    assert "hicPlotMatrix" in names
-    item = missing.child(names.index("hicPlotMatrix"))
-    assert "not ported to C++ yet, PLAN tier 7" in item.toolTip(0)
-    assert window.open_tool_form("hicPlotMatrix") is None
+    assert "hicTADClassifier" in names
+    item = missing.child(names.index("hicTADClassifier"))
+    assert "not ported to C++ yet, PLAN tier 8" in item.toolTip(0)
+    assert window.open_tool_form("hicTADClassifier") is None
 
 
 def test_settings_reject_a_missing_directory_inline(window, tmp_path):

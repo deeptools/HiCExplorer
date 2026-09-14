@@ -1,0 +1,111 @@
+[
+  {
+    "id": "chicPlotViewpoint.one_gene",
+    "tool": "chicPlotViewpoint",
+    "tier": 7,
+    "args": ["-if", "{data}/cHi-C/chicViewpoint/two_matrices.hdf5", "--range", "200000", "200000",
+             "-o", "{out}/plots.tar.gz", "-t", "1", "--combinationMode", "oneGene", "--combinationName", "Eya1"],
+    "outputs": [
+      {"path": "{out}/plots.tar.gz", "format": "tar_images", "class": "E6"}
+    ],
+    "memory": {"alpha": 0.0, "beta": 0.0},
+    "notes": "test_one_gene: every matrix's Eya1 viewpoint on its own, then both together (three images). The masters are xfail in the Python suite (image size); every member is compared with the Python tool's figure in the same environment."
+  },
+  {
+    "id": "chicPlotViewpoint.dual_background_differential_significant",
+    "tool": "chicPlotViewpoint",
+    "tier": 7,
+    "args": ["-if", "{data}/cHi-C/chicViewpoint/two_matrices.hdf5", "--range", "200000", "200000",
+             "-o", "{out}/plots.tar.gz", "-t", "1", "--combinationMode", "dual",
+             "--backgroundModelFile", "{data}/cHi-C/background.txt",
+             "--differentialTestResult", "{data}/cHi-C/chicDifferentialTest/differential.hdf5",
+             "--significantInteractions", "{data}/cHi-C/chicSignificantInteractions/significantInteractions_dual.hdf5",
+             "--plotSignificantInteractions"],
+    "outputs": [
+      {"path": "{out}/plots.tar.gz", "format": "tar_images", "class": "E6"}
+    ],
+    "memory": {"alpha": 0.0, "beta": 0.0},
+    "notes": "test_one_gene_background_differential_significant: dual mode with the background model, the rejected regions of chicDifferentialTest and the significant regions highlighted."
+  },
+  {
+    "id": "chicPlotViewpoint.single_significant_pvalue",
+    "tool": "chicPlotViewpoint",
+    "tier": 7,
+    "args": ["-if", "{data}/cHi-C/chicViewpoint/two_matrices.hdf5", "--range", "200000", "200000",
+             "-o", "{out}/plots.tar.gz", "-t", "1", "--combinationMode", "single",
+             "--backgroundModelFile", "{data}/cHi-C/background.txt",
+             "--significantInteractions", "{data}/cHi-C/chicSignificantInteractions/significantInteractions_dual.hdf5",
+             "--pValue", "--plotSignificantInteractions"],
+    "outputs": [
+      {"path": "{out}/plots.tar.gz", "format": "tar_images", "class": "E6"}
+    ],
+    "memory": {"alpha": 0.0, "beta": 0.0},
+    "notes": "test_single_significant_pvalue: one plot per viewpoint with the p-value bar, the significant p-values written into it and clipped to [0, 0.1] in float32."
+  },
+  {
+    "id": "chicPlotViewpoint.all_genes",
+    "tool": "chicPlotViewpoint",
+    "tier": 7,
+    "args": ["-if", "{data}/cHi-C/chicViewpoint/two_matrices.hdf5", "--range", "200000", "200000",
+             "-o", "{out}/plots.tar.gz", "-t", "1", "--combinationMode", "allGenes",
+             "--backgroundModelFile", "{data}/cHi-C/background.txt",
+             "--significantInteractions", "{data}/cHi-C/chicSignificantInteractions/significantInteractions_dual.hdf5",
+             "--pValue", "--plotSignificantInteractions"],
+    "outputs": [
+      {"path": "{out}/plots.tar.gz", "format": "tar_images", "class": "E6"}
+    ],
+    "memory": {"alpha": 0.0, "beta": 0.0},
+    "notes": "test_allGenes: the genes group of the first sample, all samples per gene."
+  },
+  {
+    "id": "chicPlotViewpoint.single_two_workers_xfold_truncate",
+    "tool": "chicPlotViewpoint",
+    "tier": 7,
+    "args": ["-if", "{data}/cHi-C/chicViewpoint/two_matrices.hdf5", "--range", "100000", "150000",
+             "-o", "{out}/plots.tar.gz", "-t", "2", "--combinationMode", "single",
+             "--backgroundModelFile", "{data}/cHi-C/background.txt", "--xFold", "1.5",
+             "--truncateZeroPvalues", "--pValue", "--colorList", "r", "k", "--dpi", "100",
+             "--maxPValue", "0.5", "--minPValue", "0.01"],
+    "outputs": [
+      {"path": "{out}/plots.tar.gz", "format": "tar_images", "class": "E6"}
+    ],
+    "memory": {"alpha": 0.0, "beta": 0.0},
+    "notes": "Two worker chunks of three groups each, an asymmetric range, the x-fold band of the background model, zero p-values set to one and custom clip bounds."
+  },
+  {
+    "id": "chicPlotViewpoint.dual_default_workers_no_background",
+    "tool": "chicPlotViewpoint",
+    "tier": 7,
+    "args": ["-if", "{data}/cHi-C/chicViewpoint/two_matrices.hdf5", "--range", "200000", "200000",
+             "-o", "{out}/plots.tar.gz",
+             "--significantInteractions", "{data}/cHi-C/chicSignificantInteractions/significantInteractions_single.hdf5"],
+    "outputs": [
+      {"path": "{out}/plots.tar.gz", "format": "tar_images", "class": "E6"}
+    ],
+    "memory": {"alpha": 0.0, "beta": 0.0},
+    "notes": "Dual mode with the default four workers (three groups, all in the last chunk), no background model, so the viewpoint index comes from the interaction keys; significant regions update only the p-values, which are not plotted."
+  },
+  {
+    "id": "chicPlotViewpoint.differential_needs_dual",
+    "tool": "chicPlotViewpoint",
+    "tier": 7,
+    "args": ["-if", "{data}/cHi-C/chicViewpoint/two_matrices.hdf5", "--range", "200000", "200000",
+             "-o", "{out}/plots.tar.gz", "--combinationMode", "single",
+             "--differentialTestResult", "{data}/cHi-C/chicDifferentialTest/differential.hdf5"],
+    "outputs": [],
+    "memory": {"alpha": 0.0, "beta": 0.0},
+    "expect_exit": 1,
+    "notes": "Differential regions outside dual mode: the reference exits 1 before plotting."
+  },
+  {
+    "id": "chicPlotViewpoint.levels_must_increase",
+    "tool": "chicPlotViewpoint",
+    "tier": 7,
+    "args": ["-if", "{data}/cHi-C/chicViewpoint/two_matrices.hdf5", "--range", "200000", "200000",
+             "-o", "{out}/plots.tar.gz", "-psl", "0.05", "0.01"],
+    "outputs": [],
+    "memory": {"alpha": 0.0, "beta": 0.0},
+    "expect_exit": 1,
+    "notes": "--pValueSignificanceLevels must increase; the reference exits 1."
+  }
+]

@@ -46,6 +46,7 @@ add_library(hicx4core
     src/numpy_sort.cpp
     src/numpy_sort_avx512.cpp
     src/obsexp_ops.cpp
+    src/plot_bridge.cpp
     src/reduce_matrix.cpp
     src/resource_usage.cpp
     src/simd_reduce.cpp

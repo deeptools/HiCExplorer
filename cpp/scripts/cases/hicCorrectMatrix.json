@@ -523,5 +523,136 @@
       "beta": 0.0
     },
     "notes": "The slowest run in the corpus: 711 s and 9,064 MB in the Python. Numeric comparison blocked by the comparators/cool.py gap and performed by cpp/scripts/hicCorrectMatrix_validate.py."
+  },
+  {
+    "id": "hicCorrectMatrix.diagnostic_plot.small_test_matrix.chromosomes",
+    "tool": "hicCorrectMatrix",
+    "tier": 7,
+    "args": [
+      "diagnostic_plot",
+      "--matrix",
+      "{data}/small_test_matrix.h5",
+      "--chromosomes",
+      "chrUextra",
+      "chr3LHet",
+      "--plotName",
+      "{out}/diagnostic.png"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/diagnostic.png",
+        "format": "png",
+        "class": "E6"
+      }
+    ],
+    "notes": "The invocation of test_correct_matrix_diagnostic_plot: --chromosomes reorders the h5 matrix to two chromosomes, the zero coverage bins are masked, and the histogram of the coverage without the diagonal is drawn with the modified z-score axis and the first local minimum line."
+  },
+  {
+    "id": "hicCorrectMatrix.diagnostic_plot.small_test_matrix.xMax",
+    "tool": "hicCorrectMatrix",
+    "tier": 7,
+    "args": [
+      "diagnostic_plot",
+      "--matrix",
+      "{data}/small_test_matrix.h5",
+      "--chromosomes",
+      "chrUextra",
+      "chr3LHet",
+      "--xMax",
+      "500",
+      "--plotName",
+      "{out}/diagnostic.png"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/diagnostic.png",
+        "format": "png",
+        "class": "E6"
+      }
+    ],
+    "notes": "test_char_diagnostic_plot_xMax: --xMax cuts the x axis and the values the histogram counts."
+  },
+  {
+    "id": "hicCorrectMatrix.diagnostic_plot.small_test_matrix.perchr.nan_axis_limits",
+    "tool": "hicCorrectMatrix",
+    "tier": 7,
+    "args": [
+      "diagnostic_plot",
+      "--matrix",
+      "{data}/small_test_matrix.h5",
+      "--perchr",
+      "--plotName",
+      "{out}/diagnostic.png"
+    ],
+    "outputs": [],
+    "notes": "--perchr over all 15 chromosomes of small_test_matrix: a chromosome whose MAD makes the modified z-score axis limits NaN or infinite, and ax2.set_xlim raises ValueError ('Axis limits cannot be NaN or Inf'), so the reference exits 1 without a figure. Reproduced: the C++ computes the same MAD and the drawing layer raises the same error.",
+    "expect_exit": 1
+  },
+  {
+    "id": "hicCorrectMatrix.diagnostic_plot.small_test_matrix.perchr.two_chromosomes",
+    "tool": "hicCorrectMatrix",
+    "tier": 7,
+    "args": [
+      "diagnostic_plot",
+      "--matrix",
+      "{data}/small_test_matrix.h5",
+      "--chromosomes",
+      "chrUextra",
+      "chr3LHet",
+      "--perchr",
+      "--plotName",
+      "{out}/diagnostic.png"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/diagnostic.png",
+        "format": "png",
+        "class": "E6"
+      }
+    ],
+    "notes": "--perchr on the two chromosomes of the upstream test: two panels on the five column grid, each with its own MAD and local minimum line."
+  },
+  {
+    "id": "hicCorrectMatrix.diagnostic_plot.Li_et_al_2015.h5",
+    "tool": "hicCorrectMatrix",
+    "tier": 7,
+    "args": [
+      "diagnostic_plot",
+      "--matrix",
+      "{data}/Li_et_al_2015.h5",
+      "--plotName",
+      "{out}/diagnostic.png"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/diagnostic.png",
+        "format": "png",
+        "class": "E6"
+      }
+    ],
+    "notes": "The whole Li et al. 2015 matrix, a single histogram over 10,249 bins."
+  },
+  {
+    "id": "hicCorrectMatrix.diagnostic_plot.gm12878_chr1.cool.one_chromosome",
+    "tool": "hicCorrectMatrix",
+    "tier": 7,
+    "args": [
+      "diagnostic_plot",
+      "--matrix",
+      "{data}/hicTADClassifier/gm12878_chr1.cool",
+      "--chromosomes",
+      "1",
+      "--perchr",
+      "--plotName",
+      "{out}/diagnostic.png"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/diagnostic.png",
+        "format": "png",
+        "class": "E6"
+      }
+    ],
+    "notes": "A cool matrix with one --chromosomes entry (its chromosome is named 1), which the reference loads through cooler's fetch of that chromosome instead of reordering, drawn per chromosome."
   }
 ]

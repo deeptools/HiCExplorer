@@ -52,8 +52,13 @@
 //    deterministic where the reference is not.
 //  * --threads does not exist in the Python either. Any thread count produces
 //    the same bytes, see cpp/OPTIMIZATION.md section 3.
-//  * `diagnostic_plot` is a matplotlib subcommand and belongs to tier 7. It
-//    fails with an explicit message rather than half working.
+//  * `diagnostic_plot` (cpp/PLAN.md tier 7, option (a)): the matrix is loaded
+//    and its zero coverage bins masked as for ICE, and the coverage per bin
+//    without the diagonal, its MAD and the modified z-score filter below 5
+//    are computed here per panel (whole matrix, or per chromosome with
+//    --perchr). plot/hicexplorer_plot/hicCorrectMatrix.py draws them with the
+//    reference's plot_total_contact_dist. The C++-only option --plotData
+//    writes that data as JSON instead.
 //
 // Reproduced faithfully, including the failures:
 //
@@ -91,6 +96,7 @@
 #include "hicx/math/sparse_kernels.hpp"
 #include "hicx/matrix_ops.hpp"
 #include "hicx/numpy_compat.hpp"
+#include "hicx/plot_bridge.hpp"
 #include "hicx/resource_usage.hpp"
 #include "hicx/tool_matrix.hpp"
 #include "hicx/version.hpp"
@@ -190,6 +196,7 @@ struct Arguments {
     std::optional<double> trans_cutoff;
     std::optional<double> sequenced_count_cutoff;
     std::optional<double> x_max;
+    std::optional<std::string> plot_data;
     std::vector<std::string> chromosomes;
     bool has_chromosomes = false;
     bool skip_diagonal = false;
@@ -228,7 +235,13 @@ const char* const kDiagnosticHelp =
     "                        translocations it is advisable to check the histograms\n"
     "                        per chromosome to find the most conservative\n"
     "                        `filterThreshold`. (default: False)\n"
-    "  --verbose             Print processing status. (default: False)\n";
+    "  --verbose             Print processing status. (default: False)\n"
+    "\n"
+    "C++ port: the coverage per bin and its MAD are computed in C++, and the\n"
+    "histogram is drawn by the hicexplorer_plot drawing layer with the matplotlib\n"
+    "calls of the Python tool (HICX_PLOT_PYTHON names the interpreter). The C++-only\n"
+    "option --plotData FILE writes the data of the figure as JSON to FILE instead of\n"
+    "drawing it.\n";
 
 [[noreturn]] void fail(const std::string& message) {
     std::fputs(kCorrectUsage, stderr);
@@ -280,6 +293,12 @@ Arguments parse_arguments(int argc, char** argv) {
     plot_optional.add({"--verbose"})
         .action(cli::Action::StoreTrue)
         .help("Print processing status.");
+    plot_optional.add({"--plotData"})
+        .metavar("FILE")
+        .output({"json"})
+        .cpp_only("The data of the figure as JSON, without drawing it (cpp/PLAN.md tier 7).")
+        .help("Write the data the diagnostic plot is drawn from as JSON to this file and do "
+              "not draw the plot.");
 
     cli::Parser& correct = parser.add_subcommand(
         "correct",
@@ -373,6 +392,7 @@ Arguments parse_arguments(int argc, char** argv) {
     if (args.command == "diagnostic_plot") {
         args.plot_name = ns.str("plotName");
         args.x_max = ns.opt_real("xMax");
+        args.plot_data = ns.opt_str("plotData");
         return args;
     }
     args.out_file_name = ns.str("outFileName");
@@ -501,17 +521,11 @@ void materialise_kr_matrix(hicx::CsrMatrix& matrix, double addend, bool round_fl
 
 int main(int argc, char** argv) {
     const Arguments args = parse_arguments(argc, argv);
+    if (const int refused = hicx::plot::preflight("hicCorrectMatrix", args.command == "diagnostic_plot" && !args.plot_data.has_value()); refused != 0) {
+        return refused;
+    }
     try {
-        if (args.command == "diagnostic_plot") {
-            std::fputs(
-                "hicCorrectMatrix: diagnostic_plot is not implemented in the C++ port. It "
-                "draws a matplotlib histogram of the per bin coverage with a modified "
-                "z-score axis, which belongs to tier 7 of cpp/PLAN.md and stays a Python "
-                "plotting shell over the C++ core. Use the Python hicCorrectMatrix for "
-                "this subcommand.\n",
-                stderr);
-            return 1;
-        }
+        const bool diagnostic = args.command == "diagnostic_plot";
         if (args.method == Method::Kr && args.compat_v3 && args.perchr) {
             // Nothing forbids it; the note is here so that the mode is not
             // silently taken to be a whole matrix only feature.
@@ -561,8 +575,9 @@ int main(int argc, char** argv) {
 
         MaskChain chain;
 
-        // ICE masks the zero coverage bins before anything else (:613-617).
-        if (args.method == Method::Ice) {
+        // ICE masks the zero coverage bins before anything else (:613-617), and
+        // so does diagnostic_plot (:618-622).
+        if (diagnostic || args.method == Method::Ice) {
             const std::vector<std::int64_t> zero_bins =
                 hicx::correct::zero_coverage_bins(data.matrix, threads);
             log_info(args.verbose,
@@ -585,6 +600,55 @@ int main(int argc, char** argv) {
 
         drop_non_finite(data.matrix);
         data.matrix.set_dtype("float64");
+
+        if (diagnostic) {
+            // plot_total_contact_dist (:425-545): per panel the coverage without
+            // the diagonal, its MAD, and the values with a modified z-score
+            // below 5.
+            namespace plot = hicx::plot;
+            std::vector<std::string> panels;
+            const auto add_panel = [&](std::int64_t first, std::int64_t last,
+                                       const std::string* title) {
+                const std::vector<double> coverage =
+                    hicx::correct::coverage_without_diagonal(data.matrix, first, last, threads);
+                const hicx::correct::Mad mad(coverage);
+                const std::vector<double>& z = mad.modified_z_scores();
+                std::vector<double> kept;
+                for (std::size_t i = 0; i < coverage.size(); ++i) {
+                    if (z[i] < 5.0) {
+                        kept.push_back(coverage[i]);
+                    }
+                }
+                plot::JsonObject panel;
+                panel.add("title", title != nullptr ? plot::json_string(*title) : "null");
+                panel.add("row_sum", plot::json_numbers(kept));
+                panel.add("median", plot::json_number(mad.median()));
+                panel.add("med_abs_deviation", plot::json_number(mad.median_absolute_deviation()));
+                panels.push_back(panel.str());
+                return kept.size();
+            };
+            if (args.perchr) {
+                for (const auto& entry : hic.boundaries()) {
+                    if (add_panel(entry.second.first, entry.second.last, &entry.first) == 0) {
+                        std::fprintf(stderr,
+                                     "ERROR:hicexplorer.hicCorrectMatrix:No data for chromosome "
+                                     "%s. Continue with next chromosome.\n",
+                                     entry.first.c_str());
+                    }
+                }
+            } else if (add_panel(0, data.matrix.rows(), nullptr) == 0) {
+                std::fputs("ERROR:hicexplorer.hicCorrectMatrix:No data available, exit.\n",
+                           stderr);
+                return 1;
+            }
+            plot::JsonObject figure;
+            figure.add("plotName", plot::json_string(args.plot_name));
+            figure.add("xMax", args.x_max.has_value() ? plot::json_number(*args.x_max) : "null");
+            figure.add("perchr", plot::json_bool(args.perchr));
+            figure.add("panels", plot::json_list(panels));
+            hicx::report_resource_usage("hicCorrectMatrix");
+            return plot::draw("hicCorrectMatrix", figure.str(), args.plot_data);
+        }
 
         if (args.skip_diagonal) {
             hicx::correct::remove_diagonal(data.matrix);

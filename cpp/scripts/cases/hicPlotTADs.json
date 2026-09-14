@@ -1,0 +1,51 @@
+[
+  {
+    "id": "hicPlotTADs.browser_tracks_h5",
+    "tool": "hicPlotTADs",
+    "tier": 7,
+    "args": ["--tracks", "{data}/browser_tracks.ini", "--region", "X:3000000-3500000",
+             "--outFileName", "{out}/tads.png"],
+    "outputs": [
+      {"path": "{out}/tads.png", "format": "png", "class": "E6"}
+    ],
+    "memory": {"alpha": 0.0, "beta": 0.0},
+    "notes": "browser_tracks.ini (Li et al. 2015 h5 matrix, domains, a TAD score matrix, bedgraph, bigwig in fill, line and point styles, genes, vertical lines). hicPlotTADs is pygenometracks.plotTracks.main; the C++ binary checks the command line with the same parser and delegates. The input is a tracks file, not a matrix the budget formula measures, so the C++ step is budgeted at the constant C."
+  },
+  {
+    "id": "hicPlotTADs.browser_tracks_cool_options",
+    "tool": "hicPlotTADs",
+    "tier": 7,
+    "args": ["--tracks", "{data}/browser_tracks_cool.ini", "--region", "X:3,000,000-3,400,000",
+             "--outFileName", "{out}/tads.png", "--width", "25", "--dpi", "100",
+             "--title", "Li et al. 2015 cool", "--trackLabelHAlign", "right", "--fontSize", "8"],
+    "outputs": [
+      {"path": "{out}/tads.png", "format": "png", "class": "E6"}
+    ],
+    "memory": {"alpha": 0.0, "beta": 0.0},
+    "notes": "The cool variant of the tracks file, with width, dpi, title, label alignment and font size."
+  },
+  {
+    "id": "hicPlotTADs.plot_width_height_decreasing",
+    "tool": "hicPlotTADs",
+    "tier": 7,
+    "args": ["--tracks", "{data}/browser_tracks.ini", "--region", "X:3100000-3300000",
+             "--outFileName", "{out}/tads.png", "--plotWidth", "20", "--height", "30",
+             "--decreasingXAxis", "--trackLabelFraction", "0.2"],
+    "outputs": [
+      {"path": "{out}/tads.png", "format": "png", "class": "E6"}
+    ],
+    "memory": {"alpha": 0.0, "beta": 0.0},
+    "notes": "--plotWidth (mutually exclusive with --width), a fixed figure height, a decreasing x axis and a wider label column."
+  },
+  {
+    "id": "hicPlotTADs.region_and_bed_exclusive",
+    "tool": "hicPlotTADs",
+    "tier": 7,
+    "args": ["--tracks", "{data}/browser_tracks.ini", "--region", "X:3100000-3300000",
+             "--BED", "{data}/domains.bed", "--outFileName", "{out}/tads.png"],
+    "outputs": [],
+    "memory": {"alpha": 0.0, "beta": 0.0},
+    "expect_exit": 2,
+    "notes": "--region and --BED together: argparse's mutually exclusive group error, exit 2, from the C++ parser as from pyGenomeTracks'."
+  }
+]

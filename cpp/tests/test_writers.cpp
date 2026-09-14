@@ -10,6 +10,8 @@
 
 #include <doctest/doctest.h>
 
+#include <hdf5.h>
+
 #include <cmath>
 #include <cstdio>
 #include <filesystem>
@@ -397,4 +399,54 @@ TEST_CASE("a cool file written from a real matrix reads back unchanged") {
     CHECK(same_bins(again.data.cut_intervals, bins));
     CHECK(again.data.matrix.data() == loaded.data.matrix.data());
     CHECK(again.data.matrix.indices() == loaded.data.matrix.indices());
+}
+
+namespace {
+
+// Identifiers still open on any HDF5 file, with their names, for the message
+// of a failing check. An identifier left open keeps its file open until the
+// library shuts down, so a tool that execs the drawing process afterwards
+// would leave an unflushed, unreadable file behind.
+std::string open_hdf5_objects() {
+    const ssize_t count = H5Fget_obj_count(static_cast<hid_t>(H5F_OBJ_ALL), H5F_OBJ_ALL);
+    std::string text = std::to_string(count);
+    if (count <= 0) {
+        return text;
+    }
+    std::vector<hid_t> ids(static_cast<std::size_t>(count));
+    const ssize_t listed =
+        H5Fget_obj_ids(static_cast<hid_t>(H5F_OBJ_ALL), H5F_OBJ_ALL, ids.size(), ids.data());
+    for (ssize_t i = 0; i < listed; ++i) {
+        char name[512] = {0};
+        H5Iget_name(ids[static_cast<std::size_t>(i)], name, sizeof(name));
+        text += " [type " + std::to_string(H5Iget_type(ids[static_cast<std::size_t>(i)])) +
+                " " + name + "]";
+    }
+    return text;
+}
+
+}  // namespace
+
+TEST_CASE("the h5 and cool writers leave no HDF5 identifier open") {
+    // Compared against the count before the write, so an identifier another
+    // test left open does not fail this one, and without REQUIRE, which would
+    // abort doctest's re-entry for the second subcase.
+    const std::string before = open_hdf5_objects();
+    SUBCASE("h5") {
+        hicx::MatrixData data = toy_matrix();
+        data.correction_factors = std::vector<double>{1.0, 2.0, 4.0};
+        const TempFile output(".h5");
+        hicx::H5SaveOptions options;
+        options.symmetric = true;
+        hicx::write_hicexplorer_h5(output.path(), data, options);
+        CHECK(open_hdf5_objects() == before);
+    }
+    SUBCASE("cool") {
+        hicx::MatrixData data = toy_matrix();
+        const TempFile output(".cool");
+        hicx::CoolSaveOptions options;
+        options.symmetric = true;
+        hicx::write_cool(output.path(), data, options);
+        CHECK(open_hdf5_objects() == before);
+    }
 }

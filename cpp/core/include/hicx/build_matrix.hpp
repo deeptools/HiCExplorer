@@ -213,9 +213,18 @@ struct QcLogInputs {
                                         const QcCounters& counters);
 
 // The five tab separated tables hicPrepareQCreport writes next to it. The PNGs
-// and hicQC.html of that tool are matplotlib and pandas rendering and are not
-// produced here; see cpp/STATUS.md and the report.
+// and hicQC.html of that tool are matplotlib and pandas rendering, drawn by
+// the tools through hicx::plot::draw("hicPrepareQCreport") after these tables.
 void write_qc_tables(const std::string& folder, const std::string& qc_log_text);
+
+// hicPrepareQCreport.main's tables for one or more QC logs: the rows are
+// named by --labels when there are as many labels as logs, and by each log's
+// File entry otherwise. Throws std::runtime_error with the reference's error
+// where pandas raises (logs of different lengths, a missing or text column,
+// duplicate row names). write_qc_tables is this function for one log and no
+// labels.
+void write_qc_report_tables(const std::string& folder, const std::vector<std::string>& log_texts,
+                            const std::optional<std::vector<std::string>>& labels);
 
 }  // namespace hicx
 

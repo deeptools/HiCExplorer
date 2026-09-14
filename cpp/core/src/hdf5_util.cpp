@@ -180,6 +180,7 @@ void Handle::close() noexcept {
         case Kind::DataSpace: H5Sclose(id_); break;
         case Kind::Attribute: H5Aclose(id_); break;
         case Kind::PropertyList: H5Pclose(id_); break;
+        case Kind::Object: H5Oclose(id_); break;
     }
     id_ = -1;
 }
@@ -218,7 +219,8 @@ std::map<std::string, AttributeValue> File::attributes(const std::string& object
     if (obj < 0) {
         throw Error("cannot open object " + object_path + " in " + path_);
     }
-    const Handle obj_handle(obj, Handle::Kind::Group);
+    // A group or a dataset; see Handle::Kind::Object.
+    const Handle obj_handle(obj, Handle::Kind::Object);
 
     H5O_info2_t info{};
     if (H5Oget_info3(obj, &info, H5O_INFO_NUM_ATTRS) < 0) {
@@ -558,7 +560,10 @@ void FileWriter::set_attribute(const std::string& object_path, const std::string
     if (object < 0) {
         throw Error("cannot open object " + object_path + " in " + path_);
     }
-    const Handle object_handle(object, Handle::Kind::Group);
+    // H5Oopen returns a dataset identifier for a dataset, which H5Gclose
+    // does not close: every attribute written on a dataset used to leave one
+    // open, and the file with it, until the library shut down.
+    const Handle object_handle(object, Handle::Kind::Object);
     const Handle space(H5Screate(H5S_SCALAR), Handle::Kind::DataSpace);
 
     Handle type;
@@ -613,7 +618,10 @@ void FileWriter::set_bytes_attribute(const std::string& object_path,
     if (object < 0) {
         throw Error("cannot open object " + object_path + " in " + path_);
     }
-    const Handle object_handle(object, Handle::Kind::Group);
+    // H5Oopen returns a dataset identifier for a dataset, which H5Gclose
+    // does not close: every attribute written on a dataset used to leave one
+    // open, and the file with it, until the library shut down.
+    const Handle object_handle(object, Handle::Kind::Object);
     const Handle type = fixed_string_type(std::max<std::size_t>(value.size(), 1));
     // numpy byte strings are NUL terminated when they are shorter than the
     // type, which is the padding PyTables writes for these markers.

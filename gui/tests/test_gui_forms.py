@@ -9,13 +9,14 @@ For every ported tool (and every subcommand):
 """
 
 import os
+import re
 
 import pytest
 
 pytest.importorskip("PySide6")
 pytest.importorskip("pytestqt")
 
-from gui_support import CPP_BIN, REFERENCE_PYTHON, needs_reference, needs_tools, python_namespaces  # noqa: E402
+from gui_support import CPP_BIN, REFERENCE_PYTHON, REPO, needs_reference, needs_tools, python_namespaces  # noqa: E402
 from hicexplorer_gui.catalog import tool_entries  # noqa: E402
 from hicexplorer_gui.forms import ChoiceField, FileField, FlagField, ToolForm, is_list_arg  # noqa: E402
 from hicexplorer_gui.workflow.spec import NON_SETTABLE_ACTIONS  # noqa: E402
@@ -34,10 +35,23 @@ def _spec(tool):
     return next(e.spec for e in ENTRIES if e.name == tool)
 
 
-def test_thirty_tools_available_and_the_rest_explained():
+def ported_tools():
+    """The tools this revision ports: cpp/tools/<tool>.cpp, plus the
+    executables CMake builds from another tool's source under a second name
+    (hicQC from hicPrepareQCreport.cpp), as cpp/scripts/tool_specs.py lists
+    them."""
+    tools_dir = os.path.join(REPO, "cpp", "tools")
+    names = {os.path.splitext(n)[0] for n in os.listdir(tools_dir)
+             if n.endswith(".cpp") and n.startswith(("hic", "chic"))}
+    with open(os.path.join(tools_dir, "CMakeLists.txt")) as handle:
+        names.update(re.findall(r"add_executable\(((?:hic|chic)\w+)", handle.read()))
+    return sorted(names)
+
+
+def test_ported_tools_available_and_the_rest_explained():
     available = [e for e in ENTRIES if e.available]
     missing = [e for e in ENTRIES if not e.available]
-    assert len(available) == 30, [e.name for e in available]
+    assert sorted(e.name for e in available) == ported_tools()
     assert missing and all(e.reason.startswith("not ported to C++ yet, PLAN tier") for e in missing), \
         [(e.name, e.reason) for e in missing]
 

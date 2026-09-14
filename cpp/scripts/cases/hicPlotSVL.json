@@ -10,7 +10,9 @@
       "-o",
       "{out}/p_values.txt",
       "-od",
-      "{out}/data.txt"
+      "{out}/data.txt",
+      "-pfn",
+      "{out}/plot.png"
     ],
     "outputs": [
       {
@@ -22,6 +24,11 @@
         "path": "{out}/p_values.txt",
         "format": "text",
         "class": "E0"
+      },
+      {
+        "path": "{out}/plot.png",
+        "format": "png",
+        "class": "E6"
       }
     ],
     "memory": {
@@ -42,7 +49,9 @@
       "-o",
       "{out}/p_values.txt",
       "-od",
-      "{out}/data.txt"
+      "{out}/data.txt",
+      "-pfn",
+      "{out}/plot.png"
     ],
     "outputs": [
       {
@@ -54,6 +63,11 @@
         "path": "{out}/p_values.txt",
         "format": "text",
         "class": "E0"
+      },
+      {
+        "path": "{out}/plot.png",
+        "format": "png",
+        "class": "E6"
       }
     ],
     "memory": {
@@ -74,7 +88,9 @@
       "-o",
       "{out}/p_values.txt",
       "-od",
-      "{out}/data.txt"
+      "{out}/data.txt",
+      "-pfn",
+      "{out}/plot.png"
     ],
     "outputs": [
       {
@@ -86,6 +102,11 @@
         "path": "{out}/p_values.txt",
         "format": "text",
         "class": "E0"
+      },
+      {
+        "path": "{out}/plot.png",
+        "format": "png",
+        "class": "E6"
       }
     ],
     "memory": {
@@ -108,13 +129,20 @@
       "-o",
       "{out}/p_values.txt",
       "-od",
-      "{out}/data.txt"
+      "{out}/data.txt",
+      "-pfn",
+      "{out}/plot.png"
     ],
     "outputs": [
       {
         "path": "{out}/data.txt",
         "format": "text",
         "class": "E0"
+      },
+      {
+        "path": "{out}/plot.png",
+        "format": "png",
+        "class": "E6"
       }
     ],
     "memory": {
@@ -140,13 +168,20 @@
       "-o",
       "{out}/p_values.txt",
       "-od",
-      "{out}/data.txt"
+      "{out}/data.txt",
+      "-pfn",
+      "{out}/plot.png"
     ],
     "outputs": [
       {
         "path": "{out}/data.txt",
         "format": "text",
         "class": "E0"
+      },
+      {
+        "path": "{out}/plot.png",
+        "format": "png",
+        "class": "E6"
       }
     ],
     "memory": {
@@ -168,13 +203,20 @@
       "-o",
       "{out}/p_values.txt",
       "-od",
-      "{out}/data.txt"
+      "{out}/data.txt",
+      "-pfn",
+      "{out}/plot.png"
     ],
     "outputs": [
       {
         "path": "{out}/data.txt",
         "format": "text",
         "class": "E0"
+      },
+      {
+        "path": "{out}/plot.png",
+        "format": "png",
+        "class": "E6"
       }
     ],
     "memory": {
@@ -195,13 +237,20 @@
       "-o",
       "{out}/p_values.txt",
       "-od",
-      "{out}/data.txt"
+      "{out}/data.txt",
+      "-pfn",
+      "{out}/plot.png"
     ],
     "outputs": [
       {
         "path": "{out}/data.txt",
         "format": "text",
         "class": "E0"
+      },
+      {
+        "path": "{out}/plot.png",
+        "format": "png",
+        "class": "E6"
       }
     ],
     "memory": {
@@ -222,13 +271,20 @@
       "-o",
       "{out}/p_values.txt",
       "-od",
-      "{out}/data.txt"
+      "{out}/data.txt",
+      "-pfn",
+      "{out}/plot.png"
     ],
     "outputs": [
       {
         "path": "{out}/data.txt",
         "format": "text",
         "class": "E0"
+      },
+      {
+        "path": "{out}/plot.png",
+        "format": "png",
+        "class": "E6"
       }
     ],
     "memory": {
@@ -250,7 +306,9 @@
       "-o",
       "{out}/p_values.txt",
       "-od",
-      "{out}/data.txt"
+      "{out}/data.txt",
+      "-pfn",
+      "{out}/plot.png"
     ],
     "outputs": [
       {
@@ -262,6 +320,11 @@
         "path": "{out}/p_values.txt",
         "format": "text",
         "class": "E0"
+      },
+      {
+        "path": "{out}/plot.png",
+        "format": "png",
+        "class": "E6"
       }
     ],
     "memory": {
@@ -280,13 +343,20 @@
       "-o",
       "{out}/p_values.txt",
       "-od",
-      "{out}/data.txt"
+      "{out}/data.txt",
+      "-pfn",
+      "{out}/plot.png"
     ],
     "outputs": [
       {
         "path": "{out}/data.txt",
         "format": "text",
         "class": "E0"
+      },
+      {
+        "path": "{out}/plot.png",
+        "format": "png",
+        "class": "E6"
       }
     ],
     "memory": {
@@ -309,7 +379,9 @@
       "-o",
       "{out}/p_values.txt",
       "-od",
-      "{out}/data.txt"
+      "{out}/data.txt",
+      "-pfn",
+      "{out}/plot.png"
     ],
     "outputs": [
       {
@@ -321,6 +393,11 @@
         "path": "{out}/p_values.txt",
         "format": "text",
         "class": "E0"
+      },
+      {
+        "path": "{out}/plot.png",
+        "format": "png",
+        "class": "E6"
       }
     ],
     "memory": {
@@ -340,7 +417,9 @@
       "-o",
       "{out}/p_values.txt",
       "-od",
-      "{out}/data.txt"
+      "{out}/data.txt",
+      "-pfn",
+      "{out}/plot.png"
     ],
     "outputs": [
       {
@@ -352,6 +431,11 @@
         "path": "{out}/p_values.txt",
         "format": "text",
         "class": "E0"
+      },
+      {
+        "path": "{out}/plot.png",
+        "format": "png",
+        "class": "E6"
       }
     ],
     "memory": {
@@ -372,13 +456,20 @@
       "-o",
       "{out}/p_values.txt",
       "-od",
-      "{out}/data.txt"
+      "{out}/data.txt",
+      "-pfn",
+      "{out}/plot.png"
     ],
     "outputs": [
       {
         "path": "{out}/data.txt",
         "format": "text",
         "class": "E0"
+      },
+      {
+        "path": "{out}/plot.png",
+        "format": "png",
+        "class": "E6"
       }
     ],
     "memory": {
@@ -400,7 +491,9 @@
       "-o",
       "{out}/p_values.txt",
       "-od",
-      "{out}/data.txt"
+      "{out}/data.txt",
+      "-pfn",
+      "{out}/plot.png"
     ],
     "outputs": [
       {
@@ -412,6 +505,11 @@
         "path": "{out}/p_values.txt",
         "format": "text",
         "class": "E0"
+      },
+      {
+        "path": "{out}/plot.png",
+        "format": "png",
+        "class": "E6"
       }
     ],
     "memory": {

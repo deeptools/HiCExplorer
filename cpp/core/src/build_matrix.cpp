@@ -1,15 +1,19 @@
 #include "hicx/build_matrix.hpp"
 
+#include "hicx/argparse.hpp"
+
 #include <algorithm>
 #include <cctype>
 #include <charconv>
 #include <cstdlib>
 #include <limits>
+#include <optional>
 #include <cmath>
 #include <cstdio>
 #include <fstream>
 #include <sstream>
 #include <stdexcept>
+#include <unordered_map>
 
 namespace hicx {
 namespace {
@@ -630,192 +634,356 @@ std::string format_qc_log(const QcLogInputs& inputs, const QcCounters& counters)
 
 namespace {
 
-// hicPrepareQCreport.main's parser: from the first line starting with "File",
-// every non empty, non comment line with at least two tab separated fields
-// becomes one column.
-struct QcTable {
-    std::vector<std::string> columns;  // in insertion order, "File" first
-    std::unordered_map<std::string, std::string> text;
-    std::unordered_map<std::string, double> number;
+// A cell of hicPrepareQCreport's DataFrame: int(fields[1]) where Python's
+// int() accepts the text, the text otherwise.
+struct QcCell {
+    bool is_int = false;
+    std::int64_t integer = 0;
+    std::string text;
 
-    [[nodiscard]] bool has(const std::string& column) const {
-        return number.find(column) != number.end() ||
-               text.find(column) != text.end();
+    [[nodiscard]] std::string str() const { return is_int ? std::to_string(integer) : text; }
+};
+
+// The DataFrame of hicPrepareQCreport.main after set_index: named columns of
+// cells in insertion order, and the index.
+struct QcFrame {
+    std::string index_name;
+    std::vector<std::string> index;
+    std::vector<std::string> columns;
+    std::vector<std::vector<QcCell>> cells;  // per column, per row
+
+    [[nodiscard]] std::ptrdiff_t find(const std::string& name) const {
+        const auto it = std::find(columns.begin(), columns.end(), name);
+        return it == columns.end() ? -1 : it - columns.begin();
+    }
+    [[nodiscard]] bool has(const std::string& name) const { return find(name) >= 0; }
+    [[nodiscard]] const std::vector<QcCell>& column(const std::string& name) const {
+        const std::ptrdiff_t position = find(name);
+        if (position < 0) {
+            throw std::runtime_error("KeyError: \"['" + name + "'] not in index\"");
+        }
+        return cells[static_cast<std::size_t>(position)];
+    }
+    // A value of a column as the number pandas divides with.
+    [[nodiscard]] double number(const std::string& name, std::size_t row) const {
+        const QcCell& cell = column(name)[row];
+        if (!cell.is_int) {
+            throw std::runtime_error("TypeError: unsupported operand type(s) for /: 'str' and "
+                                     "'int' (the QC column '" + name + "' holds text)");
+        }
+        return static_cast<double>(cell.integer);
     }
 };
 
-QcTable parse_qc_log(const std::string& log_text) {
-    QcTable table;
-    bool in_log_part = false;
-    for (const auto& raw : split(log_text, '\n')) {
-        std::string line = trim(raw);
-        if (line.rfind("File", 0) == 0) {
-            in_log_part = true;
-        }
-        if (!in_log_part) {
-            continue;
-        }
-        if (line.empty() || line.rfind('#', 0) == 0) {
-            continue;
-        }
-        const std::vector<std::string> fields = split(line, '\t');
-        if (fields.size() == 1) {
-            continue;
-        }
-        const std::string& key = fields[0];
-        if (!table.has(key)) {
-            table.columns.push_back(key);
-        }
-        const std::string& value = fields[1];
-        char* stop = nullptr;
-        const long long parsed = std::strtoll(value.c_str(), &stop, 10);
-        if (stop != nullptr && *stop == '\0' && !value.empty()) {
-            table.number[key] = static_cast<double>(parsed);
-        } else {
-            table.text[key] = value;
+// pandas.DataFrame.to_csv quotes a field that holds the separator, a quote or
+// a line break.
+std::string csv_field(const std::string& text) {
+    if (text.find_first_of("\t\"\n\r") == std::string::npos) {
+        return text;
+    }
+    std::string out = "\"";
+    for (const char c : text) {
+        out += c;
+        if (c == '"') {
+            out += '"';
         }
     }
-    return table;
+    return out + "\"";
 }
 
-void write_table(const std::string& path, const std::string& index_value,
-                 const std::vector<std::string>& columns,
-                 const std::vector<std::string>& values) {
+// hicPrepareQCreport.main from reading the logs to set_index and the two
+// derived columns.
+QcFrame build_qc_frame(const std::vector<std::string>& log_texts,
+                       const std::optional<std::vector<std::string>>& labels) {
+    std::vector<std::string> order;
+    std::unordered_map<std::string, std::vector<QcCell>> params;
+    for (const std::string& log_text : log_texts) {
+        bool in_log_part = false;
+        std::vector<std::string> lines = split(log_text, '\n');
+        // readlines() yields no empty element after a final newline.
+        if (!lines.empty() && lines.back().empty()) {
+            lines.pop_back();
+        }
+        for (const std::string& raw : lines) {
+            std::string line = trim(raw);
+            if (line.rfind("File", 0) == 0) {
+                in_log_part = true;
+            }
+            if (!in_log_part) {
+                continue;
+            }
+            if (line.empty() || line.rfind('#', 0) == 0) {
+                continue;
+            }
+            const std::vector<std::string> fields = split(line, '\t');
+            if (fields.size() == 1) {
+                continue;
+            }
+            auto [entry, inserted] = params.try_emplace(fields[0]);
+            if (inserted) {
+                order.push_back(fields[0]);
+            }
+            QcCell cell;
+            std::int64_t value = 0;
+            if (cli::python_int(fields[1], &value)) {
+                cell.is_int = true;
+                cell.integer = value;
+            } else {
+                cell.text = fields[1];
+            }
+            entry->second.push_back(std::move(cell));
+        }
+    }
+
+    QcFrame frame;
+    std::size_t rows = 0;
+    for (std::size_t i = 0; i < order.size(); ++i) {
+        const std::size_t length = params[order[i]].size();
+        if (i == 0) {
+            rows = length;
+        } else if (length != rows) {
+            throw std::runtime_error("ValueError: All arrays must be of the same length (the QC "
+                                     "logs do not hold the same lines)");
+        }
+    }
+    for (const std::string& name : order) {
+        frame.columns.push_back(name);
+        frame.cells.push_back(std::move(params[name]));
+    }
+
+    if (labels.has_value() && labels->size() == log_texts.size()) {
+        if (labels->size() != rows) {
+            throw std::runtime_error(
+                "*ERROR* Some log files may not be valid. Please check that the log files "
+                "contain at the end the summary information. The reference exits 0 here "
+                "without writing anything; the C++ port exits 1 (cpp/AGENTS_CONTRACT.md rule 7).");
+        }
+        frame.index_name = "Labels";
+        frame.index = *labels;
+    } else {
+        const std::ptrdiff_t position = frame.find("File");
+        if (position < 0) {
+            throw std::runtime_error("KeyError: \"None of ['File'] are in the columns\"");
+        }
+        frame.index_name = "File";
+        for (const QcCell& cell : frame.cells[static_cast<std::size_t>(position)]) {
+            frame.index.push_back(cell.str());
+        }
+        frame.columns.erase(frame.columns.begin() + position);
+        frame.cells.erase(frame.cells.begin() + position);
+    }
+    const std::string mappable = "Pairs mappable, unique and high quality";
+    if (!frame.has(mappable)) {
+        std::vector<QcCell> derived(rows);
+        for (std::size_t row = 0; row < rows; ++row) {
+            auto integer_of = [&](const char* name) {
+                const QcCell& cell = frame.column(name)[row];
+                if (!cell.is_int) {
+                    throw std::runtime_error(std::string("TypeError: the QC column '") + name +
+                                             "' holds text");
+                }
+                return cell.integer;
+            };
+            derived[row].is_int = true;
+            derived[row].integer =
+                integer_of("Sequenced reads") -
+                (integer_of("One mate unmapped") + integer_of("One mate not unique") +
+                 integer_of("Low mapping quality"));
+        }
+        frame.columns.push_back(mappable);
+        frame.cells.push_back(std::move(derived));
+    }
+    if (frame.has("same fragment (800 bp)")) {
+        std::vector<QcCell> copy = frame.column("same fragment (800 bp)");
+        const std::ptrdiff_t position = frame.find("same fragment");
+        if (position >= 0) {
+            frame.cells[static_cast<std::size_t>(position)] = std::move(copy);
+        } else {
+            frame.columns.push_back("same fragment");
+            frame.cells.push_back(std::move(copy));
+        }
+    }
+    return frame;
+}
+
+// One output table: its columns, each already rendered per output row.
+struct QcOutputTable {
+    std::vector<std::string> columns;
+    std::vector<std::vector<std::string>> values;  // per column, per output row
+
+    void add(std::string name, std::vector<std::string> column) {
+        columns.push_back(std::move(name));
+        values.push_back(std::move(column));
+    }
+};
+
+// The rows of table[counts].join(prc_table.T, rsuffix=...), a left join on
+// the index: for every row, in order, every row with the same name, in order.
+// With unique names that is every row once; the same log twice without
+// labels gives four rows.
+std::vector<std::pair<std::size_t, std::size_t>> joined_rows(const QcFrame& frame) {
+    std::vector<std::pair<std::size_t, std::size_t>> rows;
+    for (std::size_t left = 0; left < frame.index.size(); ++left) {
+        for (std::size_t right = 0; right < frame.index.size(); ++right) {
+            if (frame.index[right] == frame.index[left]) {
+                rows.emplace_back(left, right);
+            }
+        }
+    }
+    return rows;
+}
+
+std::vector<std::pair<std::size_t, std::size_t>> plain_rows(const QcFrame& frame) {
+    std::vector<std::pair<std::size_t, std::size_t>> rows;
+    for (std::size_t row = 0; row < frame.index.size(); ++row) {
+        rows.emplace_back(row, row);
+    }
+    return rows;
+}
+
+void write_qc_output(const std::string& path, const QcFrame& frame, const QcOutputTable& table,
+                     const std::vector<std::pair<std::size_t, std::size_t>>& rows) {
     std::ofstream out(path, std::ios::binary);
     if (!out) {
         throw std::runtime_error("could not write " + path);
     }
-    out << "File";
-    for (const auto& column : columns) {
-        out << '\t' << column;
-    }
-    out << '\n' << index_value;
-    for (const auto& value : values) {
-        out << '\t' << value;
+    out << csv_field(frame.index_name);
+    for (const std::string& column : table.columns) {
+        out << '\t' << csv_field(column);
     }
     out << '\n';
+    for (std::size_t row = 0; row < rows.size(); ++row) {
+        out << csv_field(frame.index[rows[row].first]);
+        for (const auto& column : table.values) {
+            out << '\t' << csv_field(column[row]);
+        }
+        out << '\n';
+    }
+    if (!out) {
+        throw std::runtime_error("could not write " + path);
+    }
 }
 
-std::string integer_field(double value) {
-    return std::to_string(static_cast<long long>(value));
+// The counts of the left rows.
+std::vector<std::string> count_column(const QcFrame& frame, const std::string& name,
+                                      const std::vector<std::pair<std::size_t, std::size_t>>& rows) {
+    std::vector<std::string> out;
+    const std::vector<QcCell>& cells = frame.column(name);
+    for (const auto& row : rows) {
+        out.push_back(cells[row.first].str());
+    }
+    return out;
+}
+
+// The fractions of the right rows, each over its own row's denominator.
+std::vector<std::string> ratio_column(const QcFrame& frame, const std::string& name,
+                                      const std::vector<double>& denominators,
+                                      const std::vector<std::pair<std::size_t, std::size_t>>& rows) {
+    std::vector<std::string> out;
+    for (const auto& row : rows) {
+        out.push_back(python_float_repr(frame.number(name, row.second) / denominators[row.second]));
+    }
+    return out;
+}
+
+std::vector<double> numbers(const QcFrame& frame, const std::string& name) {
+    std::vector<double> out;
+    for (std::size_t row = 0; row < frame.index.size(); ++row) {
+        out.push_back(frame.number(name, row));
+    }
+    return out;
 }
 
 }  // namespace
 
-void write_qc_tables(const std::string& folder, const std::string& qc_log_text) {
-    const QcTable table = parse_qc_log(qc_log_text);
-    const auto file_entry = table.text.find("File");
-    if (file_entry == table.text.end()) {
-        throw std::runtime_error("the QC log has no File line");
-    }
-    const std::string index_value = file_entry->second;
+void write_qc_report_tables(const std::string& folder, const std::vector<std::string>& log_texts,
+                            const std::optional<std::vector<std::string>>& labels) {
+    const QcFrame frame = build_qc_frame(log_texts, labels);
+    const auto plain = plain_rows(frame);
+    const auto joined = joined_rows(frame);
 
-    auto value_of = [&table](const std::string& column) -> double {
-        const auto found = table.number.find(column);
-        return found == table.number.end() ? 0.0 : found->second;
-    };
-
-    // QC_table.txt: every column, in the order of the log.
+    // QC_table.txt: table.to_csv, every column.
     {
-        std::vector<std::string> columns;
-        std::vector<std::string> values;
-        for (const auto& column : table.columns) {
-            if (column == "File") {
-                continue;
-            }
-            columns.push_back(column);
-            values.push_back(integer_field(value_of(column)));
+        QcOutputTable table;
+        for (const std::string& column : frame.columns) {
+            table.add(column, count_column(frame, column, plain));
         }
-        write_table(folder + "/QC_table.txt", index_value, columns, values);
+        write_qc_output(folder + "/QC_table.txt", frame, table, plain);
     }
 
-    const double sequenced = value_of("Sequenced reads");
-    const double mappable = value_of("Pairs mappable, unique and high quality");
-    const double contacts = value_of("Hi-C contacts");
-
-    // unmapable_table.txt
+    // make_figure_umappable_non_unique_reads: counts and '_%' over the
+    // sequenced reads.
     {
-        static const char* const names[] = {"Hi-C contacts", "Low mapping quality",
-                                            "One mate not unique",
-                                            "One mate unmapped"};
-        std::vector<std::string> columns;
-        std::vector<std::string> values;
-        for (const char* name : names) {
-            columns.emplace_back(name);
-            values.push_back(integer_field(value_of(name)));
-            columns.emplace_back(std::string(name) + "_%");
-            values.push_back(python_float_repr(value_of(name) / sequenced));
+        const std::vector<double> sequenced = numbers(frame, "Sequenced reads");
+        QcOutputTable table;
+        for (const char* name : {"Hi-C contacts", "Low mapping quality", "One mate not unique",
+                                 "One mate unmapped"}) {
+            table.add(name, count_column(frame, name, joined));
+            table.add(std::string(name) + "_%", ratio_column(frame, name, sequenced, joined));
         }
-        write_table(folder + "/unmapable_table.txt", index_value, columns, values);
+        write_qc_output(folder + "/unmapable_table.txt", frame, table, joined);
     }
 
-    // discarded_table.txt, with the prefix matching of
-    // hicPrepareQCreport.make_figure_pairs_discarded: an exact column match
-    // emits the count and the percentage, a substring match emits only the
-    // percentage.
+    // make_figure_pairs_discarded: an exact column match gives the count and
+    // ' %', every column that only contains the prefix gives ' %' alone.
     {
-        static const char* const prefixes[] = {
-            "One mate not close to rest site", "dangling end", "duplicated pairs",
-            "same fragment", "self circle", "self ligation (removed)"};
-        std::vector<std::string> columns;
-        std::vector<std::string> values;
-        for (const char* prefix : prefixes) {
+        const std::vector<double> mappable =
+            numbers(frame, "Pairs mappable, unique and high quality");
+        QcOutputTable table;
+        for (const char* prefix : {"One mate not close to rest site", "dangling end",
+                                   "duplicated pairs", "same fragment", "self circle",
+                                   "self ligation (removed)"}) {
             const std::string name(prefix);
-            if (table.has(name)) {
-                columns.push_back(name);
-                values.push_back(integer_field(value_of(name)));
-                columns.push_back(name + " %");
-                values.push_back(python_float_repr(value_of(name) / mappable));
+            if (frame.has(name)) {
+                table.add(name, count_column(frame, name, joined));
+                table.add(name + " %", ratio_column(frame, name, mappable, joined));
                 continue;
             }
-            for (const auto& column : table.columns) {
+            for (const std::string& column : frame.columns) {
                 if (column.find(name) != std::string::npos) {
-                    columns.push_back(column + " %");
-                    values.push_back(python_float_repr(value_of(column) / mappable));
+                    table.add(column + " %", ratio_column(frame, column, mappable, joined));
                 }
             }
         }
-        write_table(folder + "/discarded_table.txt", index_value, columns, values);
+        write_qc_output(folder + "/discarded_table.txt", frame, table, joined);
     }
 
-    // distance_table.txt
+    // make_figure_distance: over the Hi-C contacts.
     {
-        static const char* const names[] = {"inter chromosomal",
-                                            "Intra short range (< 20kb)",
-                                            "Intra long range (>= 20kb)"};
-        std::vector<std::string> columns;
-        std::vector<std::string> values;
-        for (const char* name : names) {
-            columns.emplace_back(name);
-            values.push_back(integer_field(value_of(name)));
-            columns.emplace_back(std::string(name) + " %");
-            values.push_back(python_float_repr(value_of(name) / contacts));
+        const std::vector<double> contacts = numbers(frame, "Hi-C contacts");
+        QcOutputTable table;
+        for (const char* name : {"inter chromosomal", "Intra short range (< 20kb)",
+                                 "Intra long range (>= 20kb)"}) {
+            table.add(name, count_column(frame, name, joined));
+            table.add(std::string(name) + " %", ratio_column(frame, name, contacts, joined));
         }
-        write_table(folder + "/distance_table.txt", index_value, columns, values);
+        write_qc_output(folder + "/distance_table.txt", frame, table, joined);
     }
 
-    // read_orientation_table.txt, whose percentages are relative to the sum of
-    // the four orientations rather than to the contact count.
+    // make_figure_read_orientation: over the sum of the four orientations.
     {
         static const char* const names[] = {"Read pair type: inward pairs",
                                             "Read pair type: outward pairs",
                                             "Read pair type: left pairs",
                                             "Read pair type: right pairs"};
-        double total = 0.0;
+        std::vector<double> totals(frame.index.size(), 0.0);
         for (const char* name : names) {
-            total += value_of(name);
+            const std::vector<double> values = numbers(frame, name);
+            for (std::size_t row = 0; row < totals.size(); ++row) {
+                totals[row] += values[row];
+            }
         }
-        std::vector<std::string> columns;
-        std::vector<std::string> values;
+        QcOutputTable table;
         for (const char* name : names) {
-            columns.emplace_back(name);
-            values.push_back(integer_field(value_of(name)));
-            columns.emplace_back(std::string(name) + " %");
-            values.push_back(python_float_repr(value_of(name) / total));
+            table.add(name, count_column(frame, name, joined));
+            table.add(std::string(name) + " %", ratio_column(frame, name, totals, joined));
         }
-        write_table(folder + "/read_orientation_table.txt", index_value, columns,
-                    values);
+        write_qc_output(folder + "/read_orientation_table.txt", frame, table, joined);
     }
+}
+
+void write_qc_tables(const std::string& folder, const std::string& qc_log_text) {
+    write_qc_report_tables(folder, {qc_log_text}, std::nullopt);
 }
 
 }  // namespace hicx

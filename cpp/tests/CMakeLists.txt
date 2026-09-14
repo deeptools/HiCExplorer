@@ -58,34 +58,17 @@ target_compile_definitions(hicx_tests PRIVATE
 
 add_test(NAME hicx_unit_tests COMMAND hicx_tests)
 
-# hicInterIntraTAD cannot draw its matplotlib ratio plot. When the user names
-# the plot file explicitly it must exit non-zero before writing anything,
-# neither the plot nor the table, and leave its working directory empty.
-set(_refusal_dir "${CMAKE_CURRENT_BINARY_DIR}/hicInterIntraTAD_refuses_ratio_plot")
-set(_refusal_data "${CMAKE_CURRENT_SOURCE_DIR}/../../hicexplorer/test/test_data")
-foreach(_option IN ITEMS --outFileNameRatioPlot -op)
-    add_test(NAME hicInterIntraTAD_refuses_ratio_plot${_option}
-        COMMAND ${CMAKE_COMMAND}
-            "-DTOOL=$<TARGET_FILE:hicInterIntraTAD>"
-            "-DWORKDIR=${_refusal_dir}${_option}"
-            "-DARGS=-m;${_refusal_data}/hicInterIntraTAD/GSM2644947_Auxin2days-R1.100000_chr1_chr2.cool;--tadDomains;${_refusal_data}/hicInterIntraTAD/untreated_R1_domains_chr1_chr2.bed;${_option};${_refusal_dir}${_option}/ratio.png;-o;${_refusal_dir}${_option}/table.txt"
-            "-DMUST_NOT_EXIST=${_refusal_dir}${_option}/ratio.png;${_refusal_dir}${_option}/table.txt"
-            -P "${CMAKE_CURRENT_SOURCE_DIR}/refuses_unavailable_output.cmake")
-endforeach()
-
-# hicCompartmentalization draws a matplotlib figure the C++ port cannot draw
-# yet. A run that asks for it has to fail visibly and write nothing, while
-# --noPlot has to write the numeric outputs. The equivalence harness cannot
-# express a case whose exit status differs between Python and C++, so this is
-# checked here.
-add_test(NAME hicCompartmentalization_refuses_plot
+# hicCompartmentalization's C++-only --noPlot writes the numeric outputs
+# without the figure; the equivalence harness cannot compare an option the
+# Python does not have, so this is checked here.
+add_test(NAME hicCompartmentalization_no_plot
          COMMAND ${CMAKE_COMMAND}
                  -DTOOL=$<TARGET_FILE:hicCompartmentalization>
                  -DDATA=${CMAKE_CURRENT_SOURCE_DIR}/../../hicexplorer/test/test_data
-                 -DOUT=${CMAKE_CURRENT_BINARY_DIR}/hicCompartmentalization_refuses_plot
-                 -P ${CMAKE_CURRENT_SOURCE_DIR}/check_compartmentalization_refuses_plot.cmake)
+                 -DOUT=${CMAKE_CURRENT_BINARY_DIR}/hicCompartmentalization_no_plot
+                 -P ${CMAKE_CURRENT_SOURCE_DIR}/check_compartmentalization_no_plot.cmake)
 
-# Command line behaviour that only the finished executables can show: refusals
+# Command line behaviour that only the finished executables can show: failures
 # that must leave no output behind, and hicMergeDomains' graphviz rendering.
 find_program(HICX_BASH bash REQUIRED)
 set(HICX_TEST_DATA "${CMAKE_CURRENT_SOURCE_DIR}/../../hicexplorer/test/test_data")
@@ -96,16 +79,28 @@ add_test(NAME hicMergeDomains_cli
          COMMAND ${HICX_BASH} "${CMAKE_CURRENT_SOURCE_DIR}/cli/hicMergeDomains_cli.sh"
                  $<TARGET_FILE:hicMergeDomains> "${HICX_TEST_DATA}" "${HICX_DEPS_ROOT}")
 
-# hicAggregateContacts draws a matplotlib figure the C++ port cannot draw yet,
-# the same situation as hicCompartmentalization: a run that asks for a figure
-# (a plain run, or --diagnosticHeatmapFile) has to fail visibly and write
-# nothing, while --noPlot has to write the numeric outputs.
-add_test(NAME hicAggregateContacts_refuses_plot
+# The drawing environment check of the plotting tools: a wrong or missing
+# matplotlib or pyGenomeTracks is refused before anything is written, and the
+# pinned interpreter draws. HICX_PLOT_TEST_PYTHON names a Python with the
+# pinned versions; without it the pinned part is skipped (status 77).
+set(HICX_PLOT_TEST_PYTHON "" CACHE FILEPATH
+    "Python with matplotlib 3.8.4 and pyGenomeTracks 3.9 for plot_environment_cli")
+add_test(NAME plot_environment_cli
+         COMMAND ${HICX_BASH} "${CMAKE_CURRENT_SOURCE_DIR}/cli/plot_environment_cli.sh"
+                 "$<TARGET_FILE_DIR:hicInterIntraTAD>" "${HICX_TEST_DATA}"
+                 "${HICX_PLOT_TEST_PYTHON}"
+                 "${CMAKE_CURRENT_SOURCE_DIR}/../../plot/pyproject.toml")
+set_tests_properties(plot_environment_cli PROPERTIES SKIP_RETURN_CODE 77)
+
+# hicAggregateContacts' C++-only --noPlot writes the numeric outputs without
+# any figure; the equivalence harness cannot compare an option the Python does
+# not have, so this is checked here.
+add_test(NAME hicAggregateContacts_no_plot
          COMMAND ${CMAKE_COMMAND}
                  -DTOOL=$<TARGET_FILE:hicAggregateContacts>
                  -DDATA=${CMAKE_CURRENT_SOURCE_DIR}/../../hicexplorer/test/test_data
-                 -DOUT=${CMAKE_CURRENT_BINARY_DIR}/hicAggregateContacts_refuses_plot
-                 -P ${CMAKE_CURRENT_SOURCE_DIR}/check_aggregate_contacts_refuses_plot.cmake)
+                 -DOUT=${CMAKE_CURRENT_BINARY_DIR}/hicAggregateContacts_no_plot
+                 -P ${CMAKE_CURRENT_SOURCE_DIR}/check_aggregate_contacts_no_plot.cmake)
 
 # Not a HiCExplorer tool: the smallest driver that exercises the tier 0 file
 # layer end to end, used by cpp/scripts/equiv.py against its Python twin

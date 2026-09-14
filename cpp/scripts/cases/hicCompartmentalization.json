@@ -7,12 +7,12 @@
              "--pca", "{data}/hicCompartmentalization/pca1.bedgraph",
              "-o", "{out}/ratio.png", "--outliers", "0.0", "--quantile", "30",
              "--outputMatrix", "{out}/matrix.npz"],
-    "cpp_args": ["--noPlot"],
     "outputs": [
       {"path": "{out}/ratio.png_dat", "format": "plain", "class": "E0"},
-      {"path": "{out}/matrix.npz", "format": "npz", "class": "E2"}
+      {"path": "{out}/matrix.npz", "format": "npz", "class": "E2"},
+      {"path": "{out}/ratio.png", "format": "png", "class": "E6"}
     ],
-    "notes": "The case of the original, image only test, with both numeric outputs compared. cpp_args: --noPlot exists only in the port, which refuses a run that asks for the figure (tier 7 is undecided); the Python draws ratio.png, which is not compared. The _dat file is byte identical, which requires numpy's buffered pairwise sums, nanquantile's two sided lerp and savetxt's %.18e. The npz is E2 rather than E0 because np.savez writes zip64 local headers and hicx::npz::write_npz does not; the array bytes are identical. 4,526 bins of 5 kb against 449 pca rows of 50 kb over chrX and chrXHet."
+    "notes": "The case of the original, image only test, with both numeric outputs compared. The figure ratio.png is compared too, drawn by plot/hicexplorer_plot/hicCompartmentalization.py from the ratios the C++ computes. The _dat file is byte identical, which requires numpy's buffered pairwise sums, nanquantile's two sided lerp and savetxt's %.18e. The npz is E2 rather than E0 because np.savez writes zip64 local headers and hicx::npz::write_npz does not; the array bytes are identical. 4,526 bins of 5 kb against 449 pca rows of 50 kb over chrX and chrXHet."
   },
   {
     "id": "hicCompartmentalization.cool.quantile30",
@@ -21,12 +21,12 @@
     "args": ["-m", "{data}/hicPCA/obsexp_norm.cool",
              "--pca", "{data}/hicCompartmentalization/pca1.bedgraph",
              "-o", "{out}/ratio.png", "--outputMatrix", "{out}/matrix.npz"],
-    "cpp_args": ["--noPlot"],
     "outputs": [
       {"path": "{out}/ratio.png_dat", "format": "plain", "class": "E0"},
-      {"path": "{out}/matrix.npz", "format": "npz", "class": "E2"}
+      {"path": "{out}/matrix.npz", "format": "npz", "class": "E2"},
+      {"path": "{out}/ratio.png", "format": "png", "class": "E6"}
     ],
-    "notes": "The same matrix as cool, through the cool loader, with --quantile and --outliers at their defaults. cpp_args: --noPlot, see the first case."
+    "notes": "The same matrix as cool, through the cool loader, with --quantile and --outliers at their defaults."
   },
   {
     "id": "hicCompartmentalization.h5.offset_0_1",
@@ -36,12 +36,12 @@
              "--pca", "{data}/hicCompartmentalization/pca1.bedgraph",
              "-o", "{out}/ratio.png", "--offset", "0", "1",
              "--outputMatrix", "{out}/matrix.npz"],
-    "cpp_args": ["--noPlot"],
     "outputs": [
       {"path": "{out}/ratio.png_dat", "format": "plain", "class": "E0"},
-      {"path": "{out}/matrix.npz", "format": "npz", "class": "E2"}
+      {"path": "{out}/matrix.npz", "format": "npz", "class": "E2"},
+      {"path": "{out}/ratio.png", "format": "png", "class": "E6"}
     ],
-    "notes": "--offset with two distances: the main diagonal and the first off diagonal become NaN in both triangles before the blocks are summed, which removes them from both the sum and the bin count. cpp_args: --noPlot, see the first case."
+    "notes": "--offset with two distances: the main diagonal and the first off diagonal become NaN in both triangles before the blocks are summed, which removes them from both the sum and the bin count."
   },
   {
     "id": "hicCompartmentalization.h5.quantile10",
@@ -54,7 +54,7 @@
     "outputs": [
       {"path": "{out}/ratio.png_dat", "format": "plain", "class": "E0"}
     ],
-    "notes": "A quantile count other than 30, which changes the boundaries and not only the length. No --outputMatrix, the path in which the normalised matrices are not kept. cpp_args: --noPlot, see the first case."
+    "notes": "A quantile count other than 30, which changes the boundaries and not only the length. No --outputMatrix, the path in which the normalised matrices are not kept. cpp_args: --noPlot, the C++-only option that writes the numeric outputs without the figure, so this case compares no figure."
   },
   {
     "id": "hicCompartmentalization.h5.outliers5",
@@ -64,12 +64,12 @@
              "--pca", "{data}/hicCompartmentalization/pca1.bedgraph",
              "-o", "{out}/ratio.png", "--outliers", "5.0",
              "--outputMatrix", "{out}/matrix.npz"],
-    "cpp_args": ["--noPlot"],
     "outputs": [
       {"path": "{out}/ratio.png_dat", "format": "plain", "class": "E0"},
-      {"path": "{out}/matrix.npz", "format": "npz", "class": "E2"}
+      {"path": "{out}/matrix.npz", "format": "npz", "class": "E2"},
+      {"path": "{out}/ratio.png", "format": "png", "class": "E6"}
     ],
-    "notes": "The other boundary branch: np.linspace between the 5th and 95th percentile instead of the empirical quantiles, so bins above the upper boundary fall outside the range and are dropped. cpp_args: --noPlot, see the first case."
+    "notes": "The other boundary branch: np.linspace between the 5th and 95th percentile instead of the empirical quantiles, so bins above the upper boundary fall outside the range and are dropped."
   },
   {
     "id": "hicCompartmentalization.twoMatrices.h5_cool",
@@ -78,12 +78,12 @@
     "args": ["-m", "{data}/hicPCA/obsexp_norm.h5", "{data}/hicPCA/obsexp_norm.cool",
              "--pca", "{data}/hicCompartmentalization/pca1.bedgraph",
              "-o", "{out}/ratio.png", "--outputMatrix", "{out}/matrix.npz"],
-    "cpp_args": ["--noPlot"],
     "outputs": [
       {"path": "{out}/ratio.png_dat", "format": "plain", "class": "E0"},
-      {"path": "{out}/matrix.npz", "format": "npz", "class": "E2"}
+      {"path": "{out}/matrix.npz", "format": "npz", "class": "E2"},
+      {"path": "{out}/ratio.png", "format": "png", "class": "E6"}
     ],
-    "notes": "-m takes several matrices: one row of ratios each, and a single npz entry arr_0 of shape (2, 30, 30). cpp_args: --noPlot, see the first case."
+    "notes": "-m takes several matrices: one row of ratios each, and a single npz entry arr_0 of shape (2, 30, 30)."
   },
   {
     "id": "hicCompartmentalization.h5.outputMatrixWithoutSuffix.quantile6",
@@ -93,12 +93,12 @@
              "--pca", "{data}/hicCompartmentalization/pca1.bedgraph",
              "-o", "{out}/ratio.png", "--quantile", "6", "--offset", "0",
              "--outputMatrix", "{out}/matrix"],
-    "cpp_args": ["--noPlot"],
     "outputs": [
       {"path": "{out}/ratio.png_dat", "format": "plain", "class": "E0"},
-      {"path": "{out}/matrix.npz", "format": "npz", "class": "E2"}
+      {"path": "{out}/matrix.npz", "format": "npz", "class": "E2"},
+      {"path": "{out}/ratio.png", "format": "png", "class": "E6"}
     ],
-    "notes": "np.savez appends .npz to a name that lacks it, so --outputMatrix matrix writes matrix.npz (quirk 6 in hicCompartmentalization.cpp). Six quantiles and --offset 0, the combination the characterization test recomputes independently. cpp_args: --noPlot, see the first case."
+    "notes": "np.savez appends .npz to a name that lacks it, so --outputMatrix matrix writes matrix.npz (quirk 6 in hicCompartmentalization.cpp). Six quantiles and --offset 0, the combination the characterization test recomputes independently."
   },
   {
     "id": "hicCompartmentalization.wholeGenome.dm3_50kb",
@@ -107,12 +107,12 @@
     "args": ["-m", "{data}/hicTransform/obs_exp_norm.h5",
              "--pca", "{data}/hicPCA/pca1.bedgraph",
              "-o", "{out}/ratio.png", "--outputMatrix", "{out}/matrix.npz"],
-    "cpp_args": ["--noPlot"],
     "outputs": [
       {"path": "{out}/ratio.png_dat", "format": "plain", "class": "E0"},
-      {"path": "{out}/matrix.npz", "format": "npz", "class": "E2"}
+      {"path": "{out}/matrix.npz", "format": "npz", "class": "E2"},
+      {"path": "{out}/ratio.png", "format": "png", "class": "E6"}
     ],
-    "notes": "A whole genome obs/exp matrix, 2,794 bins of 50 kb over 12 dm3 chromosomes with 139 NaN bins, against a pca track of the same bins. The chromosome loop that ignores its variable (quirk 3) repeats the count 12 times here, and each block mixes cis and trans contacts. cpp_args: --noPlot, see the first case."
+    "notes": "A whole genome obs/exp matrix, 2,794 bins of 50 kb over 12 dm3 chromosomes with 139 NaN bins, against a pca track of the same bins. The chromosome loop that ignores its variable (quirk 3) repeats the count 12 times here, and each block mixes cis and trans contacts."
   },
   {
     "id": "hicCompartmentalization.ignoredMaskedBins.dm3_50kb",
@@ -122,12 +122,12 @@
              "--pca", "{data}/hicPCA/pca1_ignoredMaskedBins.bedgraph",
              "-o", "{out}/ratio.png", "--quantile", "20",
              "--outputMatrix", "{out}/matrix.npz"],
-    "cpp_args": ["--noPlot"],
     "outputs": [
       {"path": "{out}/ratio.png_dat", "format": "plain", "class": "E0"},
-      {"path": "{out}/matrix.npz", "format": "npz", "class": "E2"}
+      {"path": "{out}/matrix.npz", "format": "npz", "class": "E2"},
+      {"path": "{out}/ratio.png", "format": "png", "class": "E6"}
     ],
-    "notes": "A pca track with gaps, 2,655 rows against 2,794 bins, so part of the matrix belongs to no quantile. cpp_args: --noPlot, see the first case."
+    "notes": "A pca track with gaps, 2,655 rows against 2,794 bins, so part of the matrix belongs to no quantile."
   },
   {
     "id": "hicCompartmentalization.dense.pearson_norm",
@@ -136,10 +136,10 @@
     "args": ["-m", "{data}/hicPCA/pearson_norm.h5",
              "--pca", "{data}/hicCompartmentalization/pca1.bedgraph",
              "-o", "{out}/ratio.png", "--outputMatrix", "{out}/matrix.npz"],
-    "cpp_args": ["--noPlot"],
     "outputs": [
       {"path": "{out}/ratio.png_dat", "format": "plain", "class": "E0"},
-      {"path": "{out}/matrix.npz", "format": "npz", "class": "E2"}
+      {"path": "{out}/matrix.npz", "format": "npz", "class": "E2"},
+      {"path": "{out}/ratio.png", "format": "png", "class": "E6"}
     ],
     "large": true,
     "notes": "A dense matrix with negative values: the Pearson matrix of the same 4,526 bins, 4.8 M nonzeros, so every block of the dense view is full and the lower triangle is reached through the column index rather than through a materialised copy."
@@ -151,13 +151,13 @@
     "args": ["-m", "{data}/small_test_matrix.h5",
              "--pca", "{data}/find_TADs/FDR/multiFDR_score.bedgraph",
              "-o", "{out}/ratio.png", "--outputMatrix", "{out}/matrix.npz"],
-    "cpp_args": ["--noPlot"],
     "outputs": [
       {"path": "{out}/ratio.png_dat", "format": "plain", "class": "E0"},
-      {"path": "{out}/matrix.npz", "format": "npz", "class": "E2"}
+      {"path": "{out}/matrix.npz", "format": "npz", "class": "E2"},
+      {"path": "{out}/ratio.png", "format": "png", "class": "E6"}
     ],
     "large": true,
-    "notes": "The largest input the corpus pairs with a four column bedgraph of its own bins: 33,754 bins of 5 kb, all 15 dm3 chromosomes, against a 23,814 row TAD score track standing in for a pc1 (the tool reads any float track). The score has long runs of ties, which exercises searchsorted on repeated boundaries, and one row spans 657 bins. Measured before the case was added: Python 168.5 s CPU and 2,474 MB, C++ 3.07 s and 25.7 MB. cpp_args: --noPlot, see the first case."
+    "notes": "The largest input the corpus pairs with a four column bedgraph of its own bins: 33,754 bins of 5 kb, all 15 dm3 chromosomes, against a 23,814 row TAD score track standing in for a pc1 (the tool reads any float track). The score has long runs of ties, which exercises searchsorted on repeated boundaries, and one row spans 657 bins. Measured before the case was added: Python 168.5 s CPU and 2,474 MB, C++ 3.07 s and 25.7 MB."
   },
   {
     "id": "hicCompartmentalization.quantile0",
@@ -167,12 +167,12 @@
              "--pca", "{data}/hicCompartmentalization/pca1.bedgraph",
              "-o", "{out}/ratio.png", "--quantile", "0",
              "--outputMatrix", "{out}/matrix.npz"],
-    "cpp_args": ["--noPlot"],
     "outputs": [
       {"path": "{out}/ratio.png_dat", "format": "plain", "class": "E0"},
-      {"path": "{out}/matrix.npz", "format": "npz", "class": "E2"}
+      {"path": "{out}/matrix.npz", "format": "npz", "class": "E2"},
+      {"path": "{out}/ratio.png", "format": "png", "class": "E6"}
     ],
-    "notes": "--quantile 0 succeeds: no boundaries, no blocks, an empty ratio list written by np.savetxt as one empty line, and an npz array of shape (1, 0, 0). cpp_args: --noPlot, see the first case."
+    "notes": "--quantile 0 succeeds: no boundaries, no blocks, an empty ratio list written by np.savetxt as one empty line, and an npz array of shape (1, 0, 0)."
   },
   {
     "id": "hicCompartmentalization.quantile1.outliers",
@@ -181,11 +181,11 @@
     "args": ["-m", "{data}/hicPCA/obsexp_norm.h5",
              "--pca", "{data}/hicCompartmentalization/pca1.bedgraph",
              "-o", "{out}/ratio.png", "--quantile", "1", "--outliers", "2.5"],
-    "cpp_args": ["--noPlot"],
     "outputs": [
-      {"path": "{out}/ratio.png_dat", "format": "plain", "class": "E0"}
+      {"path": "{out}/ratio.png_dat", "format": "plain", "class": "E0"},
+      {"path": "{out}/ratio.png", "format": "png", "class": "E6"}
     ],
-    "notes": "--quantile 1 is a ZeroDivisionError only on the empirical branch; with --outliers the boundary is np.linspace(a, b, 1) and the run succeeds with no ratios. cpp_args: --noPlot, see the first case."
+    "notes": "--quantile 1 is a ZeroDivisionError only on the empirical branch; with --outliers the boundary is np.linspace(a, b, 1) and the run succeeds with no ratios."
   },
   {
     "id": "hicCompartmentalization.quantile1.fails",
@@ -194,10 +194,9 @@
     "args": ["-m", "{data}/hicPCA/obsexp_norm.h5",
              "--pca", "{data}/hicCompartmentalization/pca1.bedgraph",
              "-o", "{out}/ratio.png", "--quantile", "1"],
-    "cpp_args": ["--noPlot"],
     "expect_exit": 1,
     "outputs": [],
-    "notes": "hicCompartmentalization.py:192 divides by args.quantile - 1: ZeroDivisionError, exit 1, nothing written. cpp_args: --noPlot, see the first case."
+    "notes": "hicCompartmentalization.py:192 divides by args.quantile - 1: ZeroDivisionError, exit 1, nothing written."
   },
   {
     "id": "hicCompartmentalization.negativeOffset.fails",
@@ -206,9 +205,8 @@
     "args": ["-m", "{data}/hicPCA/obsexp_norm.h5",
              "--pca", "{data}/hicCompartmentalization/pca1.bedgraph",
              "-o", "{out}/ratio.png", "--offset", "-1"],
-    "cpp_args": ["--noPlot"],
     "expect_exit": 1,
     "outputs": [],
-    "notes": "assert (dist >= 0) at :102: a negative --offset is an AssertionError, exit 1, and argparse accepts -1 as a value because the parser defines no option that looks like a negative number. cpp_args: --noPlot, see the first case."
+    "notes": "assert (dist >= 0) at :102: a negative --offset is an AssertionError, exit 1, and argparse accepts -1 as a value because the parser defines no option that looks like a negative number."
   }
 ]

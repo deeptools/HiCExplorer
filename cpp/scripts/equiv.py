@@ -68,6 +68,23 @@ otherwise from ALPHA_BETA_BY_TOOL, which is PLAN.md 4.5's table; the report
 records which. Raising a budget is a reviewed edit to the case file and
 STATUS.md, never an inline exemption (PLAN.md 9.5).
 
+Plotting tools (PLAN.md tier 7, option (a)) compute in C++ and then replace
+themselves with a Python process that draws the figure with matplotlib. The
+harness passes HICX_COMPUTE_RSS_FILE to every C++ run; a tool that hands a
+figure to hicx::plot::draw writes the peak RSS of its C++ step there before the
+exec. When that file exists, the budget above gates the C++ step's own peak,
+and the peak /usr/bin/time reports, which is the larger of the C++ step and
+the drawing process, must not exceed the Python tool's peak by more than
+PAIR_RSS_TOLERANCE. Both numbers are recorded, so the fixed cost of the
+drawing interpreter is visible instead of being folded into a raised budget.
+The tolerance exists because for a tool whose work is only drawing
+(hicPrepareQCreport, hicPlotAverageRegions) the drawing process is the
+reference's own interpreter running the reference's own calls, and the two
+peaks coincide to within run-to-run noise: measured on hicQC with two logs,
+three runs each, 149.7 to 151.8 MB for the pair against 150.7 to 151.3 MB for
+the Python tool. 5 % absorbs that and still fails a drawing layer that costs
+measurably more than the tool it replaces.
+
 The time gate
 -------------
 Design decision, 2026-09-01, in answer to the project owner's request that time
@@ -169,6 +186,9 @@ DEFAULT_OUT = REPO_ROOT / "cpp" / "build" / "equivalence"
 # --- memory budget (PLAN.md 4.5) ------------------------------------------
 MB = 1_000_000.0                      # SI, as in PLAN.md and STATUS.md
 BUDGET_CONSTANT_BYTES = 64 * MB       # C: process, HDF5, buffers, output staging
+# Plotting tools: how far the peak of the C++ step and its drawing process may
+# lie above the Python tool's peak (module docstring, "Plotting tools").
+PAIR_RSS_TOLERANCE = 0.05
 VALUE_BYTES = 8                       # float64 values
 INDEX_BYTES = 4                       # int32 while nbins <= INT32_MAX, rule 3
 INDPTR_BYTES = 8
@@ -294,6 +314,23 @@ def expand(value, mapping):
     for key, replacement in mapping.items():
         value = value.replace("{" + key + "}", str(replacement))
     return value
+
+
+def plot_python(options):
+    """The interpreter the C++ tools draw their figures with.
+
+    --plot-python, else the reference interpreter --py-python. The harness sets
+    HICX_PLOT_PYTHON itself for every C++ run and records the value in the
+    report, so no verdict depends on whether the caller exported it."""
+    return str(getattr(options, "plot_python", None)
+               or getattr(options, "py_python", None) or DEFAULT_PY_PYTHON)
+
+
+def cpp_environment(case, options):
+    """case_environment for a C++ run, with HICX_PLOT_PYTHON set."""
+    env = dict(case_environment(case) or os.environ)
+    env["HICX_PLOT_PYTHON"] = plot_python(options)
+    return env
 
 
 def case_environment(case, base=None):
@@ -753,7 +790,11 @@ def _declared_output_class(case, name):
 REQUIRED_VALIDATOR_BY_FORMAT = {"chic_background_model": "chic_background_likelihood"}
 
 STRICTEST_CLASS_BY_FORMAT = {"cool": "E1", "mcool": "E1", "h5": "E2",
-                             "chic_hdf5": "E2", "hdf5-chic": "E2"}
+                             "chic_hdf5": "E2", "hdf5-chic": "E2",
+                             # An archive of figures (chicPlotViewpoint): tarfile
+                             # and gzip stamp the time of writing, so repeats are
+                             # compared by member names and byte-identical images.
+                             "tar_images": "E0"}
 
 # An HDF5 object header carries an optional modification time (message type
 # 0x12, H5O_MTIME_NEW): four reserved bytes, then a 4-byte Unix time. It is
@@ -994,7 +1035,7 @@ def check_determinism(case, options, workdir, cpp_tool, data, reference_dir):
             + list(extra_args)
         return run_measured([str(cpp_tool)] + argv, workdir,
                             directory / "stdout.txt", directory / "stderr.txt",
-                            env=case_environment(case))
+                            env=cpp_environment(case, options))
 
     for index in range(1, max(1, options.noise_runs)):
         repeat_dir = workdir / f"out_cpp_repeat{index}"
@@ -1092,9 +1133,18 @@ def run_case(case, options):
     measure_py = run_measured([str(options.py_python), str(python_tool)] + args_py,
                               workdir, out_py / "stdout.txt", out_py / "stderr.txt",
                               case_environment(case, env), trace_path=trace_py)
+    compute_rss_file = workdir / "cpp_compute_rss_kb.txt"
+    env_cpp = cpp_environment(case, options)
+    env_cpp["HICX_COMPUTE_RSS_FILE"] = str(compute_rss_file)
     measure_cpp = run_measured([str(cpp_tool)] + args_cpp, workdir,
                                out_cpp / "stdout.txt", out_cpp / "stderr.txt",
-                               env=case_environment(case), trace_path=trace_cpp)
+                               env=env_cpp, trace_path=trace_cpp)
+    compute_peak_kb = None
+    if compute_rss_file.exists():
+        try:
+            compute_peak_kb = int(compute_rss_file.read_text().split()[0])
+        except (ValueError, IndexError):
+            compute_peak_kb = None
 
     result.update({
         "py_seconds": measure_py["seconds"],
@@ -1227,11 +1277,29 @@ def run_case(case, options):
     result["class_met"] = result["class_declared"] if passed else None
 
     # --- the gates ---------------------------------------------------------
-    memory_gate = evaluate_memory_gate(case, options, measure_cpp["peak_rss_kb"],
-                                       out_py, data)
+    gated_peak_kb = compute_peak_kb if compute_peak_kb is not None else measure_cpp["peak_rss_kb"]
+    memory_gate = evaluate_memory_gate(case, options, gated_peak_kb, out_py, data)
     memory_gate["ratio_to_python"] = (
         measure_cpp["peak_rss_kb"] / measure_py["peak_rss_kb"]
         if measure_py["peak_rss_kb"] else None)
+    if compute_peak_kb is not None:
+        # A plotting tool: the budget gated the C++ step; the pair with the
+        # drawing process must stay within the Python tool (module docstring).
+        pair_within_python = (not measure_py["peak_rss_kb"]
+                              or measure_cpp["peak_rss_kb"]
+                              <= measure_py["peak_rss_kb"] * (1.0 + PAIR_RSS_TOLERANCE))
+        memory_gate.update(drawing=True,
+                           compute_peak_rss_mb=compute_peak_kb * 1024 / MB,
+                           pair_peak_rss_mb=(measure_cpp["peak_rss_kb"] or 0) * 1024 / MB,
+                           pair_within_python=pair_within_python)
+        if not options.skip_memory_gate and not pair_within_python:
+            memory_gate["passed"] = False
+            memory_gate["reason"] = (
+                f"the C++ step and the drawing process peak at "
+                f"{measure_cpp['peak_rss_kb'] * 1024 / MB:.1f} MB, more than "
+                f"{PAIR_RSS_TOLERANCE:.0%} above the Python tool's "
+                f"{measure_py['peak_rss_kb'] * 1024 / MB:.1f} MB")
+    result["cpp_compute_peak_rss_kb"] = compute_peak_kb
     result["memory_gate"] = memory_gate
     result["budget_kb"] = memory_gate.get("budget_kb")
     if not memory_gate["passed"]:
@@ -1291,7 +1359,7 @@ def run_determinism_case(case, options):
                 for arg in case["args"] + case.get("cpp_args", [])]
     measure = run_measured([str(cpp_tool)] + args_cpp, workdir,
                            out_cpp / "stdout.txt", out_cpp / "stderr.txt",
-                           env=case_environment(case))
+                           env=cpp_environment(case, options))
     result["cpp_seconds"] = measure["seconds"]
     result["cpp_cpu_seconds"] = measure["cpu_seconds"]
     result["cpp_peak_rss_kb"] = measure["peak_rss_kb"]
@@ -1627,6 +1695,7 @@ def _report_skeleton(options, results, mode):
         "host": platform.node(),
         "cpp_bin": str(options.cpp_bin),
         "py_python": str(getattr(options, "py_python", "")),
+        "plot_python": plot_python(options),
         "budget_constant_mb": BUDGET_CONSTANT_BYTES / MB,
         "time_floor_seconds": TIME_FLOOR_SECONDS,
         "cases": results,
@@ -1661,6 +1730,7 @@ def command_run(options):
               f"rss {case.get('py_peak_rss_kb', 0) * 1024 / MB:7.1f} / "
               f"{case.get('cpp_peak_rss_kb', 0) * 1024 / MB:7.1f} MB  "
               f"budget {budget} MB {share}"
+              f"{'  compute %.1f MB' % gate['compute_peak_rss_mb'] if gate.get('drawing') else ''}"
               f"{'  time gate not applied' if not time_gate.get('applied') else ''}")
         if not case.get("passed"):
             if case.get("error"):
@@ -1769,6 +1839,8 @@ def main(argv=None):
     run_parser = subparsers.add_parser("run", help="run cases and compare")
     add_selection(run_parser)
     run_parser.add_argument("--py-python", default=str(DEFAULT_PY_PYTHON))
+    run_parser.add_argument("--plot-python", default=None,
+                            help="HICX_PLOT_PYTHON for the C++ runs (default: --py-python)")
     run_parser.add_argument("--skip-memory-gate", action="store_true",
                             help="development only; the report is marked and "
                                  "cannot record a pass")
@@ -1782,6 +1854,9 @@ def main(argv=None):
     determinism_parser = subparsers.add_parser(
         "determinism", help="C++ against itself: repeat runs and thread counts")
     add_selection(determinism_parser)
+    determinism_parser.add_argument("--plot-python", default=None,
+                                    help="HICX_PLOT_PYTHON for the C++ runs (default: the "
+                                         "reference interpreter)")
     determinism_parser.set_defaults(handler=command_determinism, determinism=True,
                                     skip_memory_gate=False, skip_time_gate=False,
                                     py_python=str(DEFAULT_PY_PYTHON))

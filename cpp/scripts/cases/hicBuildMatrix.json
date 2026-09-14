@@ -201,7 +201,14 @@
       {"path": "{out}/qc/unmapable_table.txt", "format": "plain", "class": "E0"},
       {"path": "{out}/qc/discarded_table.txt", "format": "plain", "class": "E0"},
       {"path": "{out}/qc/distance_table.txt", "format": "plain", "class": "E0"},
-      {"path": "{out}/qc/read_orientation_table.txt", "format": "plain", "class": "E0"}
+      {"path": "{out}/qc/read_orientation_table.txt", "format": "plain", "class": "E0"},
+      {"path": "{out}/qc/pairs_sequenced.png", "format": "png", "class": "E6"},
+      {"path": "{out}/qc/unmappable_and_non_unique.png", "format": "png", "class": "E6"},
+      {"path": "{out}/qc/pairs_discarded.png", "format": "png", "class": "E6"},
+      {"path": "{out}/qc/distance.png", "format": "png", "class": "E6"},
+      {"path": "{out}/qc/read_orientation.png", "format": "png", "class": "E6"},
+      {"path": "{out}/qc/hicQC.html", "format": "text", "class": "E0",
+       "options": {"normalise": ["pandas_styler_uuid"]}}
     ],
     "threads_arg": "--threads",
     "memory": {"budget_mb": 321},
@@ -220,7 +227,14 @@
     "outputs": [
       {"path": "{out}/qc/QC.log", "format": "plain", "class": "E0"},
       {"path": "{out}/qc/QC_table.txt", "format": "plain", "class": "E0"},
-      {"path": "{out}/qc/discarded_table.txt", "format": "plain", "class": "E0"}
+      {"path": "{out}/qc/discarded_table.txt", "format": "plain", "class": "E0"},
+      {"path": "{out}/qc/pairs_sequenced.png", "format": "png", "class": "E6"},
+      {"path": "{out}/qc/unmappable_and_non_unique.png", "format": "png", "class": "E6"},
+      {"path": "{out}/qc/pairs_discarded.png", "format": "png", "class": "E6"},
+      {"path": "{out}/qc/distance.png", "format": "png", "class": "E6"},
+      {"path": "{out}/qc/read_orientation.png", "format": "png", "class": "E6"},
+      {"path": "{out}/qc/hicQC.html", "format": "text", "class": "E0",
+       "options": {"normalise": ["pandas_styler_uuid"]}}
     ],
     "memory": {"budget_mb": 321},
     "large": true,
@@ -238,7 +252,14 @@
              "--doTestRun", "--doTestRunLines", "500"],
     "outputs": [
       {"path": "{out}/qc/QC.log", "format": "plain", "class": "E0"},
-      {"path": "{out}/qc/QC_table.txt", "format": "plain", "class": "E0"}
+      {"path": "{out}/qc/QC_table.txt", "format": "plain", "class": "E0"},
+      {"path": "{out}/qc/pairs_sequenced.png", "format": "png", "class": "E6"},
+      {"path": "{out}/qc/unmappable_and_non_unique.png", "format": "png", "class": "E6"},
+      {"path": "{out}/qc/pairs_discarded.png", "format": "png", "class": "E6"},
+      {"path": "{out}/qc/distance.png", "format": "png", "class": "E6"},
+      {"path": "{out}/qc/read_orientation.png", "format": "png", "class": "E6"},
+      {"path": "{out}/qc/hicQC.html", "format": "text", "class": "E0",
+       "options": {"normalise": ["pandas_styler_uuid"]}}
     ],
     "memory": {"budget_mb": 320},
     "notes": "--doTestRun and --doTestRunLines were never exercised with an assertion. The whole QC log is produced but no matrix file is written at all, and the pixel arrays are never filled, which is the only thing the quick QC mode saves. With 983 pairs in the file the 500 line limit is reached on the first buffer and the counters cover the whole file anyway."
@@ -256,7 +277,14 @@
              "--keepSelfCircles"],
     "outputs": [
       {"path": "{out}/qc/QC.log", "format": "plain", "class": "E0"},
-      {"path": "{out}/qc/discarded_table.txt", "format": "plain", "class": "E0"}
+      {"path": "{out}/qc/discarded_table.txt", "format": "plain", "class": "E0"},
+      {"path": "{out}/qc/pairs_sequenced.png", "format": "png", "class": "E6"},
+      {"path": "{out}/qc/unmappable_and_non_unique.png", "format": "png", "class": "E6"},
+      {"path": "{out}/qc/pairs_discarded.png", "format": "png", "class": "E6"},
+      {"path": "{out}/qc/distance.png", "format": "png", "class": "E6"},
+      {"path": "{out}/qc/read_orientation.png", "format": "png", "class": "E6"},
+      {"path": "{out}/qc/hicQC.html", "format": "text", "class": "E0",
+       "options": {"normalise": ["pandas_styler_uuid"]}}
     ],
     "memory": {"budget_mb": 321},
     "large": true,

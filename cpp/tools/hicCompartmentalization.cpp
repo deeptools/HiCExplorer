@@ -12,15 +12,12 @@
 // ---------------------------------------------------------------------------
 // The plot
 // ---------------------------------------------------------------------------
-// The figure belongs to tier 7 of cpp/PLAN.md, whose strategy the project owner
-// has not decided yet, so the port draws nothing. Because --outputFileName is
-// required and the Python always draws it, a plain invocation is a request for
-// the figure, and the port refuses it with exit status 1 before reading any
-// input, rather than writing the two numeric files and quietly leaving the
-// figure out. --noPlot, which the Python does not have, is the explicit way to
-// ask for the numeric outputs alone; --outputFileName then only names the
-// _dat file. Both files are produced by exactly the computation the figure
-// would plot.
+// cpp/PLAN.md tier 7, option (a): after --outputMatrix and the _dat file the
+// ratios of every matrix and its label go to
+// plot/hicexplorer_plot/hicCompartmentalization.py, which draws them with the
+// reference's plot_polarization_ratio. The C++-only options: --noPlot writes
+// the numeric outputs alone, and --outputFileName then only names the _dat
+// file; --plotData writes the data of the figure as JSON instead of drawing.
 //
 // ---------------------------------------------------------------------------
 // Reproduced quirks, pinned by hicexplorer/test/general/test_hicCompartmentalization.py
@@ -87,6 +84,7 @@
 #include "hicx/argparse.hpp"
 #include "hicx/bins.hpp"
 #include "hicx/npz_file.hpp"
+#include "hicx/plot_bridge.hpp"
 #include "hicx/resource_usage.hpp"
 #include "hicx/tool_matrix.hpp"
 #include "hicx/version.hpp"
@@ -133,10 +131,14 @@ const char* const kHelp =
     "                        diagonal, only positive values are accepted!\n"
     "  --noPlot              C++ port only: write the numeric outputs\n"
     "                        (OUTPUTFILENAME_dat and --outputMatrix) without the plot.\n"
-    "                        Plotting is not yet available in the C++ port, so a run\n"
-    "                        without this flag is refused.\n"
+    "  --plotData FILE       C++ port only: write the data of the plot as JSON to FILE\n"
+    "                        instead of drawing it.\n"
     "  -h                    show the help message and exit.\n"
-    "  --version             show program's version number and exit\n";
+    "  --version             show program's version number and exit\n"
+    "\n"
+    "C++ port: the ratios and matrices are computed in C++, and the plot is drawn by\n"
+    "the hicexplorer_plot drawing layer with the matplotlib calls of the Python tool\n"
+    "(HICX_PLOT_PYTHON names the interpreter).\n";
 
 struct Arguments {
     std::vector<std::string> matrices;
@@ -147,6 +149,7 @@ struct Arguments {
     std::optional<std::string> output_matrix;
     std::vector<std::int64_t> offset;
     bool no_plot = false;
+    std::optional<std::string> plot_data;
 };
 
 // hicCompartmentalization.py parse_arguments, plus the C++-only --noPlot.
@@ -185,9 +188,14 @@ Arguments parse_arguments(int argc, char** argv) {
         .help("set nan for the distances mentioned as offset from main diagonal.");
     optional.add({"--noPlot"})
         .action(cli::Action::StoreTrue)
-        .cpp_only("Plotting is not yet available in the C++ port; the flag writes the numeric "
-                  "outputs without the required figure.")
+        .cpp_only("Writes the numeric outputs without drawing the figure.")
         .help("write the numeric outputs without the plot.");
+    optional.add({"--plotData"})
+        .metavar("FILE")
+        .output({"json"})
+        .cpp_only("The data of the figure as JSON, without drawing it (cpp/PLAN.md tier 7).")
+        .help("Write the data the plot is drawn from as JSON to this file and do not draw "
+              "the plot.");
     optional.add({"-h"}).action(cli::Action::Help).help("show the help message and exit.");
     optional.add({"--version"}).version(std::string("%(prog)s ") + hicx::kVersion);
 
@@ -201,6 +209,7 @@ Arguments parse_arguments(int argc, char** argv) {
     args.output_matrix = ns.opt_str("outputMatrix");
     args.offset = ns.integers("offset");
     args.no_plot = ns.flag("noPlot");
+    args.plot_data = ns.opt_str("plotData");
     return args;
 }
 
@@ -226,19 +235,11 @@ void write_text_file(const std::string& path, const std::string& content) {
 
 int main(int argc, char** argv) {
     const Arguments args = parse_arguments(argc, argv);
-
-    if (!args.no_plot) {
-        std::fprintf(
-            stderr,
-            "hicCompartmentalization: the polarization plot '%s' was requested, but "
-            "plotting is not yet available in the C++ port (tier 7 of cpp/PLAN.md). "
-            "Nothing was written. Pass --noPlot to write only the numeric outputs, "
-            "'%s_dat' and --outputMatrix, or use the Python hicCompartmentalization "
-            "for the figure.\n",
-            args.output_file_name.c_str(), args.output_file_name.c_str());
-        return 1;
+    if (const int refused = hicx::plot::preflight("hicCompartmentalization", !args.no_plot && !args.plot_data.has_value()); refused != 0) {
+        return refused;
     }
 
+    std::string plot_json;
     try {
         const std::vector<cm::PcaRow> rows = cm::read_pca_bedgraph(args.pca);
         const std::vector<double> boundaries =
@@ -326,10 +327,32 @@ int main(int argc, char** argv) {
             dat += cm::savetxt_line(ratios);
         }
         write_text_file(args.output_file_name + "_dat", dat);
+
+        // plot_polarization_ratio(polarization_ratio, args.outputFileName, labels, args.quantile)
+        std::vector<std::string> labels;
+        std::vector<std::string> ratios_json;
+        for (std::size_t i = 0; i < args.matrices.size(); ++i) {
+            // ".".join(matrix.split("/")[-1].split(".")[0:-1])
+            const std::string& path = args.matrices[i];
+            const std::size_t slash = path.rfind('/');
+            const std::string file = slash == std::string::npos ? path : path.substr(slash + 1);
+            const std::size_t dot = file.rfind('.');
+            labels.push_back(dot == std::string::npos ? std::string() : file.substr(0, dot));
+            ratios_json.push_back(hicx::plot::json_numbers(polarization_ratio[i]));
+        }
+        hicx::plot::JsonObject data;
+        data.add("outputFileName", hicx::plot::json_string(args.output_file_name));
+        data.add("labels", hicx::plot::json_strings(labels));
+        data.add("quantile", hicx::plot::json_int(args.quantile));
+        data.add("ratios", hicx::plot::json_list(ratios_json));
+        plot_json = data.str();
     } catch (const std::exception& error) {
         std::fprintf(stderr, "hicCompartmentalization: %s\n", error.what());
         return 1;
     }
     hicx::report_resource_usage("hicCompartmentalization");
-    return 0;
+    if (args.no_plot) {
+        return 0;
+    }
+    return hicx::plot::draw("hicCompartmentalization", plot_json, args.plot_data);
 }

@@ -85,6 +85,10 @@ class CoolFile {
     [[nodiscard]] std::vector<std::string> bin_columns() const;
     [[nodiscard]] std::int64_t nbins() const;
     [[nodiscard]] std::int64_t nnz() const;
+    // Cooler.extent(region): the bin range [first, last) of a region such as
+    // "chrX:3000000-3500000" (cooler.util.parse_region against the chromosome
+    // sizes, then region_to_extent).
+    [[nodiscard]] std::pair<std::int64_t, std::int64_t> extent(const std::string& region) const;
 
     // The bin table as cut intervals with hicmatrix's constant extra 1.0.
     [[nodiscard]] std::vector<CutInterval> read_bins() const;
