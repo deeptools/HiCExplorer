@@ -112,3 +112,8 @@ add_test(NAME hicAggregateContacts_refuses_plot
 # cpp/scripts/py_roundtrip.py.
 add_executable(hicx_roundtrip hicx_roundtrip.cpp)
 target_link_libraries(hicx_roundtrip PRIVATE hicx::core hicx_compile_options)
+
+# Declares the parsers of cpp/scripts/test_argparse_layer.py with hicx::cli,
+# which compares its behaviour with Python's argparse.
+add_executable(hicx_argparse_driver argparse_driver.cpp)
+target_link_libraries(hicx_argparse_driver PRIVATE hicx::core hicx_compile_options)

@@ -35,6 +35,7 @@
 #include <string>
 #include <vector>
 
+#include "hicx/argparse.hpp"
 #include "hicx/matrix_ops.hpp"
 #include "hicx/resource_usage.hpp"
 #include "hicx/tool_matrix.hpp"
@@ -76,111 +77,42 @@ struct Arguments {
     bool no_norm = false;
 };
 
-[[noreturn]] void fail(const std::string& message) {
-    std::fputs(kUsage, stderr);
-    std::fprintf(stderr, "hicCompareMatrices: error: %s\n", message.c_str());
-    std::exit(2);
-}
-
+// hicCompareMatrices.py parse_arguments.
 Arguments parse_arguments(int argc, char** argv) {
+    namespace cli = hicx::cli;
+    cli::Parser parser("hicCompareMatrices",
+                       "Takes two matrices as input, normalizes them and applies the given "
+                       "operation. To normalize the matrices each element is divided by the sum "
+                       "of the matrix.");
+    parser.set_usage(kUsage).set_help(kHelp).set_version_string(hicx::kVersion);
+    cli::ArgumentGroup& required = parser.group("Required arguments");
+    required.add({"--matrices", "-m"})
+        .metavar("matrix.h5")
+        .nargs(2)
+        .required()
+        .input({"h5", "cool", "mcool"})
+        .help("Name of the matrices in .h5 format to use, separated by a space.");
+    required.add({"--outFileName", "-o"})
+        .required()
+        .output({"h5", "cool"})
+        .help("File name to save the resulting matrix.");
+    cli::ArgumentGroup& optional = parser.group("Optional arguments");
+    optional.add({"--operation"})
+        .choices({"diff", "ratio", "log2ratio"})
+        .default_value("log2ratio")
+        .help("Operation to apply to the matrices.");
+    optional.add({"--noNorm"})
+        .action(cli::Action::StoreTrue)
+        .help("Do not apply normalisation before computing the operation.");
+    optional.add({"--help", "-h"}).action(cli::Action::Help).help("show this help message and exit");
+    optional.add({"--version"}).version(std::string("%(prog)s ") + hicx::kVersion);
+
+    const cli::Namespace ns = parser.parse(argc, argv);
     Arguments args;
-    bool matrices_seen = false;
-    bool out_seen = false;
-    std::string* pending_value = nullptr;
-    int matrices_remaining = 0;
-
-    for (int i = 1; i < argc; ++i) {
-        const std::string token(argv[i]);
-
-        if (pending_value != nullptr) {
-            *pending_value = token;
-            pending_value = nullptr;
-            continue;
-        }
-
-        const bool is_option =
-            token.size() > 1 && token[0] == '-' &&
-            std::isdigit(static_cast<unsigned char>(token[1])) == 0;
-        if (!is_option) {
-            if (matrices_remaining > 0) {
-                args.matrices.push_back(token);
-                --matrices_remaining;
-                continue;
-            }
-            fail("unrecognized arguments: " + token);
-        }
-
-        matrices_remaining = 0;
-        std::string name = token;
-        std::optional<std::string> inline_value;
-        const std::size_t equals = token.find('=');
-        if (equals != std::string::npos && token.rfind("--", 0) == 0) {
-            name = token.substr(0, equals);
-            inline_value = token.substr(equals + 1);
-        }
-
-        if (name == "-h" || name == "--help") {
-            std::fputs(kUsage, stdout);
-            std::fputs(kHelp, stdout);
-            std::exit(0);
-        }
-        if (name == "--version") {
-            std::printf("hicCompareMatrices %s\n", hicx::kVersion);
-            std::exit(0);
-        }
-        if (name == "--noNorm") {
-            args.no_norm = true;
-            continue;
-        }
-        if (name == "-m" || name == "--matrices") {
-            matrices_seen = true;
-            args.matrices.clear();
-            matrices_remaining = 2;
-            if (inline_value.has_value()) {
-                fail("argument --matrices/-m: expected 2 arguments");
-            }
-            continue;
-        }
-        if (name == "-o" || name == "--outFileName") {
-            out_seen = true;
-            if (inline_value.has_value()) {
-                args.out_file_name = *inline_value;
-            } else {
-                pending_value = &args.out_file_name;
-            }
-            continue;
-        }
-        if (name == "--operation") {
-            if (inline_value.has_value()) {
-                args.operation = *inline_value;
-            } else {
-                pending_value = &args.operation;
-            }
-            continue;
-        }
-        fail("unrecognized arguments: " + token);
-    }
-
-    if (pending_value != nullptr) {
-        fail("expected one argument");
-    }
-    if (!matrices_seen && !out_seen) {
-        fail("the following arguments are required: --matrices/-m, --outFileName/-o");
-    }
-    if (!matrices_seen) {
-        fail("the following arguments are required: --matrices/-m");
-    }
-    if (!out_seen) {
-        fail("the following arguments are required: --outFileName/-o");
-    }
-    if (args.matrices.size() != 2) {
-        fail("argument --matrices/-m: expected 2 arguments");
-    }
-    if (args.operation != "diff" && args.operation != "ratio" &&
-        args.operation != "log2ratio") {
-        fail("argument --operation: invalid choice: '" + args.operation +
-             "' (choose from 'diff', 'ratio', 'log2ratio')");
-    }
+    args.matrices = ns.strs("matrices");
+    args.out_file_name = ns.str("outFileName");
+    args.operation = ns.str("operation");
+    args.no_norm = ns.flag("noNorm");
     return args;
 }
 

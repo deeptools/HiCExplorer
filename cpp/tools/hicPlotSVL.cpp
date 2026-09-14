@@ -68,6 +68,7 @@
 #include <string>
 #include <vector>
 
+#include "hicx/argparse.hpp"
 #include "hicx/bins.hpp"
 #include "hicx/cool_adapter.hpp"
 #include "hicx/numpy_compat.hpp"
@@ -145,153 +146,76 @@ struct Arguments {
     std::vector<std::string> color_list = {"g", "b", "c", "m", "y", "k"};
 };
 
-[[noreturn]] void fail(const std::string& message) {
-    std::fputs(kUsage, stderr);
-    std::fprintf(stderr, "hicPlotSVL: error: %s\n", message.c_str());
-    std::exit(2);
-}
-
-bool is_space(char c) {
-    const auto u = static_cast<unsigned char>(c);
-    return u == ' ' || (u >= 0x09 && u <= 0x0d) || (u >= 0x1c && u <= 0x1f);
-}
-
-// int(text): surrounding whitespace, a sign, digits with single underscores
-// between them.
-std::optional<std::int64_t> parse_python_int(const std::string& text) {
-    std::size_t begin = 0;
-    std::size_t end = text.size();
-    while (begin < end && is_space(text[begin])) {
-        ++begin;
-    }
-    while (end > begin && is_space(text[end - 1])) {
-        --end;
-    }
-    std::string body;
-    bool negative = false;
-    std::size_t i = begin;
-    if (i < end && (text[i] == '+' || text[i] == '-')) {
-        negative = text[i] == '-';
-        ++i;
-    }
-    for (; i < end; ++i) {
-        const char c = text[i];
-        if (std::isdigit(static_cast<unsigned char>(c)) != 0) {
-            body.push_back(c);
-        } else if (c == '_' && !body.empty() && i + 1 < end &&
-                   std::isdigit(static_cast<unsigned char>(text[i + 1])) != 0 &&
-                   std::isdigit(static_cast<unsigned char>(text[i - 1])) != 0) {
-            continue;
-        } else {
-            return std::nullopt;
-        }
-    }
-    if (body.empty() || body.size() > 18) {
-        return std::nullopt;
-    }
-    const std::int64_t value = std::stoll(body);
-    return negative ? -value : value;
-}
-
-bool looks_like_option(const std::string& token) {
-    if (token.size() < 2 || token[0] != '-') {
-        return false;
-    }
-    std::size_t i = 1;
-    bool digits = false;
-    while (i < token.size() && std::isdigit(static_cast<unsigned char>(token[i])) != 0) {
-        ++i;
-        digits = true;
-    }
-    if (i < token.size() && token[i] == '.') {
-        ++i;
-        digits = false;
-        while (i < token.size() && std::isdigit(static_cast<unsigned char>(token[i])) != 0) {
-            ++i;
-            digits = true;
-        }
-    }
-    const bool negative_number = digits && i == token.size();
-    return !negative_number && token.find(' ') == std::string::npos;
-}
-
+// hicPlotSVL.py parse_arguments.
 Arguments parse_arguments(int argc, char** argv) {
+    namespace cli = hicx::cli;
+    namespace json = hicx::json;
+    cli::Parser parser("hicPlotSVL",
+                       "Plots the relation between short and long range interactions as boxplots "
+                       "and if more than one matrix is given, p-values of the distributions are "
+                       "computed.");
+    parser.set_usage(kUsage).set_help(kHelp).set_version_string(hicx::kVersion);
+
+    cli::ArgumentGroup& required = parser.group("Required arguments");
+    required.add({"--matrices", "-m"})
+        .nargs("+")
+        .required()
+        .input({"h5", "cool"})
+        .help("The matrix (or multiple matrices) to use for the comparison");
+
+    cli::ArgumentGroup& optional = parser.group("Optional arguments");
+    optional.add({"--plotFileName", "-pfn"})
+        .default_value("plot.png")
+        .output({"png", "pdf", "svg"})
+        .note("The C++ port does not draw the box plot: given explicitly, the tool exits 1 "
+              "before writing anything.")
+        .help("Plot name.");
+    optional.add({"--outFileName", "-o"})
+        .default_value("p_values.txt")
+        .output({"txt"})
+        .help("File the p-values are written to, p-values are only computed if at least two "
+              "matrices are given.");
+    optional.add({"--outFileNameData", "-od"})
+        .default_value("data.txt")
+        .output({"txt"})
+        .help("File the computed ratios are written to.");
+    optional.add({"--distance", "-d"})
+        .default_value(2000000)
+        .type("int")
+        .help("Distance (in bp) which should be considered as short range.");
+    optional.add({"--chromosomes"})
+        .nargs("+")
+        .help("Chromosomes to include in the analysis. If not set, all chromosomes are included.");
+    optional.add({"--threads", "-t"}).default_value(4).type("int").help("Number of threads.");
+    optional.add({"--dpi"})
+        .type("int")
+        .default_value(300)
+        .help("Resolution for the image in case the output is a raster graphics image.");
+    optional.add({"--colorList", "-cl"})
+        .default_value(json::Value::array({json::Value::string("g"), json::Value::string("b"),
+                                           json::Value::string("c"), json::Value::string("m"),
+                                           json::Value::string("y"), json::Value::string("k")}))
+        .type("str")
+        .nargs("+")
+        .help("Colorlist for the boxplots.");
+    optional.add({"--help", "-h"}).action(cli::Action::Help).help("show this help message and exit");
+    optional.add({"--version"}).version(std::string("%(prog)s ") + hicx::kVersion);
+
+    const cli::Namespace ns = parser.parse(argc, argv);
     Arguments args;
-    bool matrices_seen = false;
-    const std::vector<std::string> tokens(argv + 1, argv + argc);
-    for (std::size_t i = 0; i < tokens.size(); ++i) {
-        std::string name = tokens[i];
-        std::optional<std::string> inline_value;
-        const std::size_t equals = name.find('=');
-        if (name.rfind("--", 0) == 0 && equals != std::string::npos) {
-            inline_value = name.substr(equals + 1);
-            name = name.substr(0, equals);
-        }
-        if (name == "-h" || name == "--help") {
-            std::fputs(kUsage, stdout);
-            std::fputs(kHelp, stdout);
-            std::exit(0);
-        }
-        if (name == "--version") {
-            std::printf("hicPlotSVL %s\n", hicx::kVersion);
-            std::exit(0);
-        }
-        const auto single = [&](const std::string& display) -> std::string {
-            if (inline_value.has_value()) {
-                return *inline_value;
-            }
-            if (i + 1 >= tokens.size() || looks_like_option(tokens[i + 1])) {
-                fail("argument " + display + ": expected one argument");
-            }
-            return tokens[++i];
-        };
-        const auto many = [&](const std::string& display) {
-            std::vector<std::string> values;
-            if (inline_value.has_value()) {
-                values.push_back(*inline_value);
-            }
-            while (i + 1 < tokens.size() && !looks_like_option(tokens[i + 1])) {
-                values.push_back(tokens[++i]);
-            }
-            if (values.empty()) {
-                fail("argument " + display + ": expected at least one argument");
-            }
-            return values;
-        };
-        const auto integer = [&](const std::string& display) {
-            const std::string text = single(display);
-            const std::optional<std::int64_t> value = parse_python_int(text);
-            if (!value.has_value()) {
-                fail("argument " + display + ": invalid int value: '" + text + "'");
-            }
-            return *value;
-        };
-        if (name == "-m" || name == "--matrices") {
-            args.matrices = many("--matrices/-m");
-            matrices_seen = true;
-        } else if (name == "-pfn" || name == "--plotFileName") {
-            args.plot_file_name = single("--plotFileName/-pfn");
-        } else if (name == "-o" || name == "--outFileName") {
-            args.out_file_name = single("--outFileName/-o");
-        } else if (name == "-od" || name == "--outFileNameData") {
-            args.out_file_name_data = single("--outFileNameData/-od");
-        } else if (name == "-d" || name == "--distance") {
-            args.distance = integer("--distance/-d");
-        } else if (name == "--chromosomes") {
-            args.chromosomes = many("--chromosomes");
-        } else if (name == "-t" || name == "--threads") {
-            args.threads = integer("--threads/-t");
-        } else if (name == "--dpi") {
-            args.dpi = integer("--dpi");
-        } else if (name == "-cl" || name == "--colorList") {
-            args.color_list = many("--colorList/-cl");
-        } else {
-            fail("unrecognized arguments: " + tokens[i]);
-        }
+    args.matrices = ns.strs("matrices");
+    if (ns.given("plotFileName")) {
+        args.plot_file_name = ns.str("plotFileName");
     }
-    if (!matrices_seen) {
-        fail("the following arguments are required: --matrices/-m");
+    args.out_file_name = ns.str("outFileName");
+    args.out_file_name_data = ns.str("outFileNameData");
+    args.distance = ns.integer("distance");
+    if (ns.given("chromosomes")) {
+        args.chromosomes = ns.strs("chromosomes");
     }
+    args.threads = ns.integer("threads");
+    args.dpi = ns.integer("dpi");
+    args.color_list = ns.strs("colorList");
     return args;
 }
 

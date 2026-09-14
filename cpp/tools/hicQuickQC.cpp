@@ -52,11 +52,10 @@
 // hicPrepareQCreport renders into the QC folder are matplotlib and a pandas
 // Styler page, tier 7 of cpp/PLAN.md. QC.log and the five tables are written.
 
-#include <cerrno>
 #include <cstdio>
-#include <cstring>
 
 #include "build_matrix_impl.hpp"
+#include "hicx/argparse.hpp"
 #include "quick_qc_impl.hpp"
 
 namespace {
@@ -92,107 +91,64 @@ const char* const kHelp =
     "  --help, -h            show this help message and exit\n"
     "  --version             show program's version number and exit\n";
 
-// argparse.FileType('r') opens the file while parsing, so a missing cut site
-// file is an argument error with exit status 2.
-void require_readable(const std::string& option, const std::string& path) {
-    std::FILE* handle = std::fopen(path.c_str(), "r");
-    if (handle == nullptr) {
-        fail("argument " + option + ": can't open '" + path + "': [Errno " +
-             std::to_string(errno) + "] " + std::strerror(errno) + ": '" + path + "'");
-    }
-    std::fclose(handle);
-}
-
+// hicQuickQC.py parse_arguments.
 Arguments parse_arguments(int argc, char** argv) {
+    namespace cli = hicx::cli;
+    cli::Parser parser("hicQuickQC",
+                       "The tool hicQuickQC considers the first n lines of two bam/sam files to get "
+                       "a first estimate of the quality of the data. It is highly recommended to set "
+                       "the restriction enzyme and dangling end parameter to get a good quality "
+                       "report.");
+    parser.set_usage(kUsage).set_help(kHelp).set_version_string(hicx::kVersion);
+
+    cli::ArgumentGroup& required = parser.group("Required arguments");
+    required.add({"--samFiles", "-s"})
+        .metavar("two sam files")
+        .nargs(2)
+        .required()
+        .input({"bam", "sam"})
+        .help("The two PE alignment sam files to process.");
+    required.add({"--QCfolder"})
+        .metavar("FOLDER")
+        .required()
+        .output({}, "directory")
+        .help("Path of folder to save the quality control data of the matrix.");
+    // argparse.FileType('r') opens the file while parsing, so a missing cut
+    // site file is an argument error with exit status 2.
+    required.add({"--restrictionCutFile", "-rs"})
+        .file_type("r")
+        .metavar("BED file")
+        .nargs("+")
+        .required()
+        .input({"bed"})
+        .help("BED file(s) with all restriction cut places.");
+    required.add({"--restrictionSequence", "-seq"})
+        .type("str")
+        .nargs("+")
+        .required()
+        .help("Sequence of the restriction site.");
+    required.add({"--danglingSequence"})
+        .type("str")
+        .nargs("+")
+        .required()
+        .help("Sequence left by the restriction enzyme after cutting.");
+
+    cli::ArgumentGroup& optional = parser.group("Optional arguments");
+    optional.add({"--lines"})
+        .default_value(1000000)
+        .type("int")
+        .help("Number of lines to consider for the QC test run.");
+    optional.add({"--help", "-h"}).action(cli::Action::Help).help("show this help message and exit");
+    optional.add({"--version"}).version(std::string("%(prog)s ") + hicx::kVersion);
+
+    const cli::Namespace ns = parser.parse(argc, argv);
     Arguments args;
-    bool sam_seen = false;
-    bool qc_seen = false;
-    bool cut_seen = false;
-    bool seq_seen = false;
-    bool dangling_seen = false;
-
-    for (int i = 1; i < argc; ++i) {
-        std::string name(argv[i]);
-        std::optional<std::string> inline_value;
-        const std::size_t equals = name.find('=');
-        if (equals != std::string::npos && name.rfind("--", 0) == 0) {
-            inline_value = name.substr(equals + 1);
-            name = name.substr(0, equals);
-        }
-        auto take_one = [&](const std::string& option) -> std::string {
-            if (inline_value.has_value()) {
-                return *inline_value;
-            }
-            if (i + 1 >= argc) {
-                fail("argument " + option + ": expected one argument");
-            }
-            return std::string(argv[++i]);
-        };
-        auto take_many = [&](const std::string& option) -> std::vector<std::string> {
-            std::vector<std::string> values;
-            if (inline_value.has_value()) {
-                values.push_back(*inline_value);
-            }
-            while (i + 1 < argc && !is_option(argv[i + 1])) {
-                values.emplace_back(argv[++i]);
-            }
-            if (values.empty()) {
-                fail("argument " + option + ": expected at least one argument");
-            }
-            return values;
-        };
-
-        if (name == "-h" || name == "--help") {
-            std::fputs(kUsage, stdout);
-            std::fputs(kHelp, stdout);
-            std::exit(0);
-        }
-        if (name == "--version") {
-            std::printf("hicQuickQC %s\n", hicx::kVersion);
-            std::exit(0);
-        }
-        if (name == "-s" || name == "--samFiles") {
-            args.sam_files = take_many("--samFiles/-s");
-            if (args.sam_files.size() != 2) {
-                fail("argument --samFiles/-s: expected 2 arguments");
-            }
-            sam_seen = true;
-        } else if (name == "--QCfolder") {
-            args.qc_folder = take_one("--QCfolder");
-            qc_seen = true;
-        } else if (name == "-rs" || name == "--restrictionCutFile") {
-            args.restriction_cut_files = take_many("--restrictionCutFile/-rs");
-            for (const auto& path : args.restriction_cut_files) {
-                require_readable("--restrictionCutFile/-rs", path);
-            }
-            cut_seen = true;
-        } else if (name == "-seq" || name == "--restrictionSequence") {
-            args.restriction_sequences = take_many("--restrictionSequence/-seq");
-            seq_seen = true;
-        } else if (name == "--danglingSequence") {
-            args.dangling_sequences = take_many("--danglingSequence");
-            dangling_seen = true;
-        } else if (name == "--lines") {
-            args.do_test_run_lines = parse_int(name, take_one(name));
-        } else {
-            fail("unrecognized arguments: " + name);
-        }
-    }
-
-    std::string missing;
-    auto require = [&missing](bool seen, const char* text) {
-        if (!seen) {
-            missing += missing.empty() ? text : (std::string(", ") + text);
-        }
-    };
-    require(sam_seen, "--samFiles/-s");
-    require(qc_seen, "--QCfolder");
-    require(cut_seen, "--restrictionCutFile/-rs");
-    require(seq_seen, "--restrictionSequence/-seq");
-    require(dangling_seen, "--danglingSequence");
-    if (!missing.empty()) {
-        fail("the following arguments are required: " + missing);
-    }
+    args.sam_files = ns.strs("samFiles");
+    args.qc_folder = ns.str("QCfolder");
+    args.restriction_cut_files = ns.strs("restrictionCutFile");
+    args.restriction_sequences = ns.strs("restrictionSequence");
+    args.dangling_sequences = ns.strs("danglingSequence");
+    args.do_test_run_lines = ns.integer("lines");
 
     // hicQuickQC.py:101-123, the fixed part of the hicBuildMatrix command line.
     args.do_test_run = true;
@@ -205,7 +161,6 @@ Arguments parse_arguments(int argc, char** argv) {
 
 int main(int argc, char** argv) {
     g_tool = "hicQuickQC";
-    g_usage = kUsage;
     Arguments args = parse_arguments(argc, argv);
 
     // hicQuickQC.py:94-99 creates the QC folder before anything else.

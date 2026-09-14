@@ -109,6 +109,7 @@
 // same lib/buildMatrixMethods.createMatrix.
 
 #include "build_matrix_impl.hpp"
+#include "hicx/argparse.hpp"
 
 namespace {
 
@@ -182,132 +183,131 @@ const char* const kHelp =
     "  --help, -h            show this help message and exit\n"
     "  --version             show program's version number and exit\n";
 
+// hicBuildMatrix.py parse_arguments.
 Arguments parse_arguments(int argc, char** argv) {
+    namespace cli = hicx::cli;
+    cli::Parser parser("hicBuildMatrix",
+                       "Using an alignment from a program that supports local alignment (eg. "
+                       "Bowtie2) where both PE reads are mapped using the --local option, this "
+                       "program reads such file and creates a matrix of interactions.");
+    parser.set_usage(kUsage).set_help(kHelp).set_version_string(hicx::kVersion);
+
+    cli::ArgumentGroup& required = parser.group("Required arguments");
+    required.add({"--samFiles", "-s"})
+        .metavar("two sam files")
+        .nargs(2)
+        .file_type("r")
+        .required()
+        .input({"bam", "sam"})
+        .help("The two PE alignment sam files to process");
+    required.add({"--outFileName", "-o"})
+        .metavar("FILENAME")
+        .file_type("w")
+        .required()
+        .output({"h5", "cool", "mcool"})
+        .help("Output file name for the Hi-C matrix.");
+    required.add({"--QCfolder"})
+        .metavar("FOLDER")
+        .required()
+        .output({}, "directory")
+        .help("Path of folder to save the quality control data for the matrix.");
+    required.add({"--restrictionCutFile", "-rs"})
+        .file_type("r")
+        .metavar("BED file")
+        .nargs("+")
+        .required()
+        .input({"bed"})
+        .help("BED file(s) with all restriction cut sites.");
+    required.add({"--restrictionSequence", "-seq"})
+        .type("str")
+        .nargs("+")
+        .required()
+        .help("Sequence of the restriction site.");
+    required.add({"--danglingSequence"})
+        .type("str")
+        .nargs("+")
+        .required()
+        .help("Sequence left by the restriction enzyme after cutting.");
+
+    cli::ArgumentGroup& optional = parser.group("Optional arguments");
+    optional.add({"--outBam", "-b"})
+        .metavar("bam file")
+        .file_type("w")
+        .output({"bam"})
+        .help("Output bam file with all valid Hi-C reads.");
+    optional.add({"--binSize", "-bs"}).type("int").nargs("+").help("Size in bp for the bins.");
+    optional.add({"--minDistance"})
+        .type("int")
+        .default_value(300)
+        .help("Minimum distance between restriction sites.");
+    optional.add({"--maxDistance"})
+        .type("int")
+        .help("Obsolete. Use --maxLibraryInsertSize instead.");
+    optional.add({"--maxLibraryInsertSize"})
+        .type("int")
+        .default_value(1000)
+        .help("The maximum library insert size.");
+    optional.add({"--genomeAssembly", "-ga"}).help("The genome the reads were mapped to.");
+    optional.add({"--region", "-r"})
+        .metavar("CHR:START-END")
+        .type("genomicRegion")
+        .check(genomic_region_check)
+        .help("Region of the genome to limit the operation to.");
+    optional.add({"--keepSelfLigation"})
+        .action(cli::Action::StoreTrue)
+        .help("Keep self ligations.");
+    optional.add({"--keepSelfCircles"}).action(cli::Action::StoreTrue).help("Keep self circles.");
+    optional.add({"--minMappingQuality"})
+        .default_value(15)
+        .type("int")
+        .help("Minimum mapping quality.");
+    optional.add({"--threads"}).default_value(4).type("int").help("Number of threads.");
+    optional.add({"--inputBufferSize"})
+        .default_value(400000)
+        .type("int")
+        .help("Size of the input buffer of each thread.");
+    optional.add({"--doTestRun"})
+        .action(cli::Action::StoreTrue)
+        .help("Test only --doTestRunLines reads.");
+    optional.add({"--doTestRunLines"})
+        .default_value(1000000)
+        .type("int")
+        .help("Number of lines for the qc test run.");
+    optional.add({"--skipDuplicationCheck"})
+        .action(cli::Action::StoreTrue)
+        .help("Skip the identification of duplicated read pairs.");
+    optional.add({"--chromosomeSizes", "-cs"})
+        .file_type("r")
+        .metavar("txt file")
+        .input({"txt"})
+        .help("File with the chromosome sizes for your genome.");
+    optional.add({"--help", "-h"}).action(cli::Action::Help).help("show this help message and exit");
+    optional.add({"--version"}).version(std::string("%(prog)s ") + hicx::kVersion);
+
+    const cli::Namespace ns = parser.parse(argc, argv);
     Arguments args;
-    bool sam_seen = false;
-    bool out_seen = false;
-    bool qc_seen = false;
-    bool cut_seen = false;
-    bool seq_seen = false;
-    bool dangling_seen = false;
-
-    for (int i = 1; i < argc; ++i) {
-        std::string name(argv[i]);
-        std::optional<std::string> inline_value;
-        const std::size_t equals = name.find('=');
-        if (equals != std::string::npos && name.rfind("--", 0) == 0) {
-            inline_value = name.substr(equals + 1);
-            name = name.substr(0, equals);
-        }
-        auto take_one = [&](const std::string& option) -> std::string {
-            if (inline_value.has_value()) {
-                return *inline_value;
-            }
-            if (i + 1 >= argc) {
-                fail("argument " + option + ": expected one argument");
-            }
-            return std::string(argv[++i]);
-        };
-        auto take_many = [&](const std::string& option,
-                             int minimum) -> std::vector<std::string> {
-            std::vector<std::string> values;
-            if (inline_value.has_value()) {
-                values.push_back(*inline_value);
-            }
-            while (i + 1 < argc && !is_option(argv[i + 1])) {
-                values.emplace_back(argv[++i]);
-            }
-            if (static_cast<int>(values.size()) < minimum) {
-                fail("argument " + option + ": expected at least " +
-                     std::to_string(minimum) + " arguments");
-            }
-            return values;
-        };
-
-        if (name == "-h" || name == "--help") {
-            std::fputs(kUsage, stdout);
-            std::fputs(kHelp, stdout);
-            std::exit(0);
-        }
-        if (name == "--version") {
-            std::printf("hicBuildMatrix %s\n", hicx::kVersion);
-            std::exit(0);
-        }
-        if (name == "-s" || name == "--samFiles") {
-            args.sam_files = take_many("--samFiles/-s", 2);
-            if (args.sam_files.size() != 2) {
-                fail("argument --samFiles/-s: expected 2 arguments");
-            }
-            sam_seen = true;
-        } else if (name == "-o" || name == "--outFileName") {
-            args.out_file_name = take_one("--outFileName/-o");
-            out_seen = true;
-        } else if (name == "--QCfolder") {
-            args.qc_folder = take_one("--QCfolder");
-            qc_seen = true;
-        } else if (name == "-rs" || name == "--restrictionCutFile") {
-            args.restriction_cut_files = take_many("--restrictionCutFile/-rs", 1);
-            cut_seen = true;
-        } else if (name == "-seq" || name == "--restrictionSequence") {
-            args.restriction_sequences = take_many("--restrictionSequence/-seq", 1);
-            seq_seen = true;
-        } else if (name == "--danglingSequence") {
-            args.dangling_sequences = take_many("--danglingSequence", 1);
-            dangling_seen = true;
-        } else if (name == "-b" || name == "--outBam") {
-            args.out_bam = take_one("--outBam/-b");
-        } else if (name == "-bs" || name == "--binSize") {
-            for (const auto& value : take_many("--binSize/-bs", 1)) {
-                args.bin_size.push_back(parse_int("--binSize/-bs", value));
-            }
-        } else if (name == "--minDistance") {
-            args.min_distance = parse_int(name, take_one(name));
-        } else if (name == "--maxDistance") {
-            args.max_distance = parse_int(name, take_one(name));
-        } else if (name == "--maxLibraryInsertSize") {
-            args.max_library_insert_size = parse_int(name, take_one(name));
-        } else if (name == "-ga" || name == "--genomeAssembly") {
-            args.genome_assembly = take_one("--genomeAssembly/-ga");
-        } else if (name == "-r" || name == "--region") {
-            args.region = hicx::normalise_region(take_one("--region/-r"));
-        } else if (name == "--keepSelfLigation") {
-            args.keep_self_ligation = true;
-        } else if (name == "--keepSelfCircles") {
-            args.keep_self_circles = true;
-        } else if (name == "--minMappingQuality") {
-            args.min_mapping_quality = parse_int(name, take_one(name));
-        } else if (name == "--threads") {
-            args.threads = parse_int(name, take_one(name));
-        } else if (name == "--inputBufferSize") {
-            args.input_buffer_size = parse_int(name, take_one(name));
-        } else if (name == "--doTestRun") {
-            args.do_test_run = true;
-        } else if (name == "--doTestRunLines") {
-            args.do_test_run_lines = parse_int(name, take_one(name));
-        } else if (name == "--skipDuplicationCheck") {
-            args.skip_duplication_check = true;
-        } else if (name == "-cs" || name == "--chromosomeSizes") {
-            args.chromosome_sizes = take_one("--chromosomeSizes/-cs");
-        } else {
-            fail("unrecognized arguments: " + name);
-        }
-    }
-
-    std::string missing;
-    auto require = [&missing](bool seen, const char* text) {
-        if (!seen) {
-            missing += missing.empty() ? text : (std::string(", ") + text);
-        }
-    };
-    require(sam_seen, "--samFiles/-s");
-    require(out_seen, "--outFileName/-o");
-    require(qc_seen, "--QCfolder");
-    require(cut_seen, "--restrictionCutFile/-rs");
-    require(seq_seen, "--restrictionSequence/-seq");
-    require(dangling_seen, "--danglingSequence");
-    if (!missing.empty()) {
-        fail("the following arguments are required: " + missing);
-    }
+    args.sam_files = ns.strs("samFiles");
+    args.out_file_name = ns.str("outFileName");
+    args.qc_folder = ns.str("QCfolder");
+    args.restriction_cut_files = ns.strs("restrictionCutFile");
+    args.restriction_sequences = ns.strs("restrictionSequence");
+    args.dangling_sequences = ns.strs("danglingSequence");
+    args.out_bam = ns.opt_str("outBam").value_or("");
+    args.bin_size = ns.integers("binSize");
+    args.min_distance = ns.integer("minDistance");
+    args.max_distance = ns.opt_integer("maxDistance");
+    args.max_library_insert_size = ns.integer("maxLibraryInsertSize");
+    args.genome_assembly = ns.opt_str("genomeAssembly").value_or("");
+    args.region = hicx::normalise_region(ns.opt_str("region").value_or(""));
+    args.keep_self_ligation = ns.flag("keepSelfLigation");
+    args.keep_self_circles = ns.flag("keepSelfCircles");
+    args.min_mapping_quality = ns.integer("minMappingQuality");
+    args.threads = ns.integer("threads");
+    args.input_buffer_size = ns.integer("inputBufferSize");
+    args.do_test_run = ns.flag("doTestRun");
+    args.do_test_run_lines = ns.integer("doTestRunLines");
+    args.skip_duplication_check = ns.flag("skipDuplicationCheck");
+    args.chromosome_sizes = ns.opt_str("chromosomeSizes").value_or("");
     return args;
 }
 
@@ -315,6 +315,5 @@ Arguments parse_arguments(int argc, char** argv) {
 
 int main(int argc, char** argv) {
     g_tool = "hicBuildMatrix";
-    g_usage = kUsage;
     return run_build_matrix(parse_arguments(argc, argv));
 }

@@ -19,6 +19,7 @@
 #include <string>
 #include <vector>
 
+#include "hicx/argparse.hpp"
 #include "hicx/cool_adapter.hpp"
 #include "hicx/hic_matrix.hpp"
 #include "hicx/numpy_compat.hpp"
@@ -63,88 +64,34 @@ struct Arguments {
     bool use_metadata = true;
 };
 
-[[noreturn]] void fail(const std::string& message) {
-    std::fputs(kUsage, stderr);
-    std::fprintf(stderr, "hicInfo: error: %s\n", message.c_str());
-    std::exit(2);
-}
-
+// hicInfo.py parse_arguments.
 Arguments parse_arguments(int argc, char** argv) {
+    namespace cli = hicx::cli;
+    cli::Parser parser("hicInfo",
+                       "Prints information about a matrix or matrices including matrix size, number "
+                       "of elements, sum of elements, etc.");
+    parser.set_usage(kUsage).set_help(kHelp).set_version_string(hicx::kVersion);
+    cli::ArgumentGroup& required = parser.group("Required arguments");
+    required.add({"--matrices", "-m"})
+        .nargs("+")
+        .required()
+        .input({"h5", "cool", "mcool"})
+        .help("The matrix (or multiple matrices) to get information about.");
+    cli::ArgumentGroup& optional = parser.group("Optional arguments");
+    optional.add({"--outFileName", "-o"})
+        .output({"txt"})
+        .help("File name to save information of the matrix instead of writing it to the bash.");
+    optional.add({"--no_metadata", "-nm"})
+        .action(cli::Action::StoreFalse)
+        .help("Do not use meta data from cooler file to display information.");
+    optional.add({"--help", "-h"}).action(cli::Action::Help).help("Show this help message and exit.");
+    optional.add({"--version", "-v"}).version(std::string("%(prog)s ") + hicx::kVersion);
+
+    const cli::Namespace ns = parser.parse(argc, argv);
     Arguments args;
-    bool matrices_seen = false;
-    std::string* pending_value = nullptr;
-    bool collecting_matrices = false;
-
-    for (int i = 1; i < argc; ++i) {
-        std::string token(argv[i]);
-
-        if (pending_value != nullptr) {
-            *pending_value = token;
-            pending_value = nullptr;
-            continue;
-        }
-
-        const bool is_option = token.size() > 1 && token[0] == '-' &&
-                               !(token.size() > 1 && std::isdigit(static_cast<unsigned char>(token[1])) != 0);
-        if (!is_option) {
-            if (collecting_matrices) {
-                args.matrices.push_back(token);
-                continue;
-            }
-            fail("unrecognized arguments: " + token);
-        }
-
-        collecting_matrices = false;
-        std::string name = token;
-        std::optional<std::string> inline_value;
-        const std::size_t equals = token.find('=');
-        if (equals != std::string::npos && token.rfind("--", 0) == 0) {
-            name = token.substr(0, equals);
-            inline_value = token.substr(equals + 1);
-        }
-
-        if (name == "-h" || name == "--help") {
-            std::fputs(kUsage, stdout);
-            std::fputs(kHelp, stdout);
-            std::exit(0);
-        }
-        if (name == "-v" || name == "--version") {
-            std::printf("hicInfo %s\n", hicx::kVersion);
-            std::exit(0);
-        }
-        if (name == "-nm" || name == "--no_metadata") {
-            args.use_metadata = false;
-            continue;
-        }
-        if (name == "-m" || name == "--matrices") {
-            matrices_seen = true;
-            collecting_matrices = true;
-            if (inline_value.has_value()) {
-                args.matrices.push_back(*inline_value);
-                collecting_matrices = false;
-            }
-            continue;
-        }
-        if (name == "-o" || name == "--outFileName") {
-            if (inline_value.has_value()) {
-                args.out_file_name = *inline_value;
-            } else {
-                pending_value = &args.out_file_name;
-            }
-            continue;
-        }
-        fail("unrecognized arguments: " + token);
-    }
-
-    if (pending_value != nullptr) {
-        fail("expected one argument");
-    }
-    if (!matrices_seen) {
-        fail("the following arguments are required: --matrices/-m");
-    }
-    if (args.matrices.empty()) {
-        fail("argument --matrices/-m: expected at least one argument");
-    }
+    args.matrices = ns.strs("matrices");
+    args.out_file_name = ns.opt_str("outFileName").value_or("");
+    args.use_metadata = ns.flag("no_metadata");
     return args;
 }
 

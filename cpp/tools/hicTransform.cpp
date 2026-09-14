@@ -87,6 +87,7 @@
 #include "hicx/h5_file.hpp"
 #include "hicx/matrix_ops.hpp"
 #include "hicx/resource_usage.hpp"
+#include "hicx/argparse.hpp"
 #include "hicx/sparse_matrix.hpp"
 #include "hicx/tool_matrix.hpp"
 #include "hicx/transform_ops.hpp"
@@ -156,141 +157,59 @@ bool ends_with(const std::string& text, const std::string& suffix) {
            text.compare(text.size() - suffix.size(), suffix.size(), suffix) == 0;
 }
 
+// hicTransform.py parse_arguments, plus the C++-only --threads.
 Arguments parse_arguments(int argc, char** argv) {
+    namespace cli = hicx::cli;
+    cli::Parser parser("hicTransform",
+                       "Converts the (interaction) matrix to different types of obs/exp, pearson "
+                       "or covariance matrix.");
+    parser.set_usage(kUsage).set_help(kHelp).set_version_string(hicx::kVersion);
+    cli::ArgumentGroup& required = parser.group("Required arguments");
+    required.add({"--matrix", "-m"})
+        .required()
+        .input({"h5", "cool", "mcool"})
+        .help("input file. The computation is done per chromosome.");
+    required.add({"--outFileName", "-o"})
+        .required()
+        .output({"h5", "cool"})
+        .help("File name to save the exported matrix.");
+    cli::ArgumentGroup& optional = parser.group("Optional arguments");
+    optional.add({"--method", "-me"})
+        .choices({"obs_exp", "obs_exp_lieberman", "obs_exp_non_zero", "pearson", "covariance"})
+        .default_value("obs_exp")
+        .help("Transformation methods to use for input matrix.");
+    optional.add({"--ligation_factor"})
+        .action(cli::Action::StoreTrue)
+        .help("Multiply a scaling factor to each entry of the expected matrix (obs_exp_non_zero).");
+    optional.add({"--chromosomes"})
+        .nargs("+")
+        .help("List of chromosomes to be included in the computation.");
+    optional.add({"--perChromosome", "-pc"})
+        .action(cli::Action::StoreTrue)
+        .help("Each chromosome is processed individually, inter-chromosomal interactions are "
+              "ignored.");
+    optional.add({"--help", "-h"}).action(cli::Action::Help).help("Show this help message and exit.");
+    optional.add({"--version"}).version(std::string("%(prog)s ") + hicx::kVersion);
+    optional.add({"--threads", "-t"})
+        .type("int")
+        .default_value(4)
+        .cpp_only("Worker threads for the dense pearson and covariance rows; the output is "
+                  "byte-identical for any value.")
+        .help("Workers the dense pearson and covariance rows are split over.");
+
+    const cli::Namespace ns = parser.parse(argc, argv);
     Arguments args;
-    bool matrix_seen = false;
-    bool output_seen = false;
-
-    std::vector<std::string>* collecting = nullptr;
-    std::string* pending_string = nullptr;
-    int* pending_int = nullptr;
-
-    // argparse nargs='+' keeps consuming tokens until the next option.
-    const auto looks_like_option = [](const std::string& token) {
-        return token.size() > 1 && token[0] == '-' &&
-               (std::isdigit(static_cast<unsigned char>(token[1])) == 0);
-    };
-
-    for (int i = 1; i < argc; ++i) {
-        const std::string token(argv[i]);
-        if (pending_string != nullptr) {
-            *pending_string = token;
-            pending_string = nullptr;
-            continue;
-        }
-        if (pending_int != nullptr) {
-            try {
-                *pending_int = std::stoi(token);
-            } catch (const std::exception&) {
-                fail("argument --threads: invalid int value: '" + token + "'");
-            }
-            pending_int = nullptr;
-            continue;
-        }
-        if (collecting != nullptr && !looks_like_option(token)) {
-            collecting->push_back(token);
-            continue;
-        }
-        collecting = nullptr;
-
-        std::string name = token;
-        std::optional<std::string> inline_value;
-        const std::size_t equals = token.find('=');
-        if (equals != std::string::npos && token.rfind("--", 0) == 0) {
-            name = token.substr(0, equals);
-            inline_value = token.substr(equals + 1);
-        }
-
-        if (name == "-h" || name == "--help") {
-            std::fputs(kUsage, stdout);
-            std::fputs(kHelp, stdout);
-            std::exit(0);
-        }
-        if (name == "--version") {
-            std::printf("hicTransform %s\n", hicx::kVersion);
-            std::exit(0);
-        }
-        if (name == "--ligation_factor") {
-            args.ligation_factor = true;
-            continue;
-        }
-        if (name == "--perChromosome" || name == "-pc") {
-            args.per_chromosome = true;
-            continue;
-        }
-        if (name == "-m" || name == "--matrix") {
-            matrix_seen = true;
-            if (inline_value) {
-                args.matrix = *inline_value;
-            } else {
-                pending_string = &args.matrix;
-            }
-            continue;
-        }
-        if (name == "-o" || name == "--outFileName") {
-            output_seen = true;
-            if (inline_value) {
-                args.out_file_name = *inline_value;
-            } else {
-                pending_string = &args.out_file_name;
-            }
-            continue;
-        }
-        if (name == "-me" || name == "--method") {
-            if (inline_value) {
-                args.method = *inline_value;
-            } else {
-                pending_string = &args.method;
-            }
-            continue;
-        }
-        if (name == "--chromosomes") {
-            if (inline_value) {
-                args.chromosomes.push_back(*inline_value);
-            } else {
-                collecting = &args.chromosomes;
-            }
-            continue;
-        }
-        if (name == "--threads" || name == "-t") {
-            if (inline_value) {
-                try {
-                    args.threads = std::stoi(*inline_value);
-                } catch (const std::exception&) {
-                    fail("argument --threads: invalid int value: '" + *inline_value + "'");
-                }
-            } else {
-                pending_int = &args.threads;
-            }
-            continue;
-        }
-        fail("unrecognized arguments: " + token);
-    }
-    if (pending_string != nullptr || pending_int != nullptr) {
-        fail("expected one argument");
-    }
-
-    std::string missing;
-    if (!matrix_seen) {
-        missing = "--matrix/-m";
-    }
-    if (!output_seen) {
-        missing += missing.empty() ? "--outFileName/-o" : ", --outFileName/-o";
-    }
-    if (!missing.empty()) {
-        fail("the following arguments are required: " + missing);
-    }
-    static const char* const kMethods[] = {"obs_exp", "obs_exp_lieberman",
-                                           "obs_exp_non_zero", "pearson", "covariance"};
-    if (std::find(std::begin(kMethods), std::end(kMethods), args.method) ==
-        std::end(kMethods)) {
-        fail("argument --method/-me: invalid choice: '" + args.method +
-             "' (choose from 'obs_exp', 'obs_exp_lieberman', 'obs_exp_non_zero', "
-             "'pearson', 'covariance')");
-    }
-    if (args.threads < 1) {
+    args.matrix = ns.str("matrix");
+    args.out_file_name = ns.str("outFileName");
+    args.method = ns.str("method");
+    args.ligation_factor = ns.flag("ligation_factor");
+    args.chromosomes = ns.strs("chromosomes");
+    args.per_chromosome = ns.flag("perChromosome");
+    const std::int64_t threads = ns.integer("threads");
+    if (threads < 1) {
         fail("argument --threads: must be at least 1");
     }
+    args.threads = static_cast<int>(threads);
     return args;
 }
 

@@ -36,6 +36,7 @@
 #include <string>
 #include <vector>
 
+#include "hicx/argparse.hpp"
 #include "hicx/adjust_ops.hpp"
 #include "hicx/bins.hpp"
 #include "hicx/reduce_matrix.hpp"
@@ -72,77 +73,36 @@ struct Arguments {
     std::string out_file;
 };
 
-[[noreturn]] void fail(const std::string& message) {
-    std::fputs(kUsage, stderr);
-    std::fprintf(stderr, "hicMergeTADbins: error: %s\n", message.c_str());
-    std::exit(2);
-}
-
+// hicMergeTADbins.py parse_arguments: no argument groups, argparse's own
+// -h/--help first.
 Arguments parse_arguments(int argc, char** argv) {
-    Arguments args;
-    bool matrix_seen = false;
-    bool domains_seen = false;
-    bool out_seen = false;
-    std::string* pending = nullptr;
+    namespace cli = hicx::cli;
+    cli::Parser parser("hicMergeTADbins",
+                       "Uses a BED file of domains or TAD boundaries to merge the bin counts of a "
+                       "Hi-C matrix per TAD.");
+    parser.set_usage(kUsage).set_help(kHelp).set_version_string(hicx::kVersion);
+    cli::ArgumentGroup& options = parser.group("options");
+    options.add({"-h", "--help"}).action(cli::Action::Help).help("show this help message and exit");
+    options.add({"--matrix", "-m"})
+        .required()
+        .input({"h5", "cool", "mcool"})
+        .help("Path to Hi-C matrix to use.");
+    options.add({"--domains"})
+        .file_type("r")
+        .required()
+        .input({"bed"})
+        .help("Path to a bed file containing the domains.");
+    options.add({"--outFile", "-o"})
+        .required()
+        .output({"h5", "cool"})
+        .help("Name for the resulting matrix file.");
+    options.add({"--version"}).version(std::string("%(prog)s ") + hicx::kVersion);
 
-    for (int i = 1; i < argc; ++i) {
-        const std::string token(argv[i]);
-        if (pending != nullptr) {
-            *pending = token;
-            pending = nullptr;
-            continue;
-        }
-        std::string name = token;
-        std::optional<std::string> inline_value;
-        const std::size_t equals = token.find('=');
-        if (equals != std::string::npos && token.rfind("--", 0) == 0) {
-            name = token.substr(0, equals);
-            inline_value = token.substr(equals + 1);
-        }
-        if (name == "-h" || name == "--help") {
-            std::fputs(kUsage, stdout);
-            std::fputs(kHelp, stdout);
-            std::exit(0);
-        }
-        if (name == "--version") {
-            std::printf("hicMergeTADbins %s\n", hicx::kVersion);
-            std::exit(0);
-        }
-        std::string* target = nullptr;
-        if (name == "-m" || name == "--matrix") {
-            target = &args.matrix;
-            matrix_seen = true;
-        } else if (name == "--domains") {
-            target = &args.domains;
-            domains_seen = true;
-        } else if (name == "-o" || name == "--outFile") {
-            target = &args.out_file;
-            out_seen = true;
-        } else {
-            fail("unrecognized arguments: " + token);
-        }
-        if (inline_value.has_value()) {
-            *target = *inline_value;
-        } else {
-            pending = target;
-        }
-    }
-    if (pending != nullptr) {
-        fail("expected one argument");
-    }
-    std::string missing;
-    if (!matrix_seen) {
-        missing += "--matrix/-m";
-    }
-    if (!domains_seen) {
-        missing += missing.empty() ? "--domains" : ", --domains";
-    }
-    if (!out_seen) {
-        missing += missing.empty() ? "--outFile/-o" : ", --outFile/-o";
-    }
-    if (!missing.empty()) {
-        fail("the following arguments are required: " + missing);
-    }
+    const cli::Namespace ns = parser.parse(argc, argv);
+    Arguments args;
+    args.matrix = ns.str("matrix");
+    args.domains = ns.str("domains");
+    args.out_file = ns.str("outFile");
     return args;
 }
 

@@ -38,7 +38,6 @@
 
 #include <algorithm>
 #include <array>
-#include <cctype>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -47,6 +46,7 @@
 #include <string>
 #include <vector>
 
+#include "hicx/argparse.hpp"
 #include "hicx/cool_adapter.hpp"
 #include "hicx/numpy_compat.hpp"
 #include "hicx/parallel.hpp"
@@ -137,130 +137,75 @@ struct Arguments {
     std::string correction = "none";
 };
 
-[[noreturn]] void fail(const std::string& message) {
-    std::fputs(kUsage, stderr);
-    std::fprintf(stderr, "hicDifferentialTAD: error: %s\n", message.c_str());
-    std::exit(2);
-}
-
-std::string trim(const std::string& text) {
-    std::size_t begin = 0;
-    std::size_t end = text.size();
-    while (begin < end && std::isspace(static_cast<unsigned char>(text[begin])) != 0) {
-        ++begin;
-    }
-    while (end > begin && std::isspace(static_cast<unsigned char>(text[end - 1])) != 0) {
-        --end;
-    }
-    return text.substr(begin, end - begin);
-}
-
-// float(text) and int(text), which is what argparse's type= calls.
-bool python_float(const std::string& text, double* value) {
-    const std::string trimmed = trim(text);
-    if (trimmed.empty()) {
-        return false;
-    }
-    char* end = nullptr;
-    *value = std::strtod(trimmed.c_str(), &end);
-    return end == trimmed.c_str() + trimmed.size();
-}
-
-bool python_int(const std::string& text, long long* value) {
-    const std::string trimmed = trim(text);
-    if (trimmed.empty()) {
-        return false;
-    }
-    char* end = nullptr;
-    *value = std::strtoll(trimmed.c_str(), &end, 10);
-    return end == trimmed.c_str() + trimmed.size();
-}
-
-bool looks_like_option(const std::string& token) {
-    return token.size() > 1 && token[0] == '-' &&
-           std::isdigit(static_cast<unsigned char>(token[1])) == 0 && token[1] != '.';
-}
-
+// hicDifferentialTAD.py parse_arguments, plus the two C++ only options.
 Arguments parse_arguments(int argc, char** argv) {
+    namespace cli = hicx::cli;
+    cli::Parser parser("hicDifferentialTAD",
+                       "Computes differential TADs by comparing the precomputed TAD regions of the "
+                       "target matrix with the same regions of the control matrix.");
+    parser.set_usage(kUsage).set_help(kHelp).set_version_string(hicx::kVersion);
+    cli::ArgumentGroup& required = parser.group("Required arguments");
+    required.add({"--targetMatrix", "-tm"})
+        .input({"cool", "h5"})
+        .help("The matrix which was used to compute the TADs");
+    required.add({"--controlMatrix", "-cm"})
+        .input({"cool", "h5"})
+        .help("The control matrix to test the TADs for a differential interaction pattern.");
+    required.add({"--tadDomains", "-td"})
+        .input({"bed"})
+        .help("The TADs domain file computed by hicFindTADs.");
+    required.add({"--outFileNamePrefix", "-o"})
+        .default_value("output_differential_tad")
+        .output({"txt"}, "prefix")
+        .help("Outfile name prefix to store the accepted / rejected H0 TADs.");
+    cli::ArgumentGroup& optional = parser.group("Optional arguments");
+    optional.add({"--pValue", "-p"})
+        .type("float")
+        .default_value(0.05)
+        .help("Regions with a test result of <= p-value are rejected and considered as "
+              "differential.");
+    optional.add({"--mode", "-m"})
+        .choices({"intra-TAD", "left-inter-TAD", "right-inter-TAD", "all"})
+        .default_value("all")
+        .help("Consider only intra-TAD interactions, or additional left inter-TAD, right "
+              "inter-TAD or all.");
+    optional.add({"--modeReject", "-mr"})
+        .choices({"all", "one"})
+        .default_value("one")
+        .help("All tests of a mode must be rejected (all), or one rejected test rejects the "
+              "region (one).");
+    optional.add({"--threads", "-t"})
+        .type("int")
+        .default_value(4)
+        .help("Number of threads to use, the parallelization is implemented per chromosome.");
+    optional.add({"--sharedMask"})
+        .action(cli::Action::StoreTrue)
+        .cpp_only("Masks in both matrices every bin invalid in either (PLAN.md 9.7); without it "
+                  "the output is the Python output.")
+        .help("Before any test, mask in both matrices every bin that is invalid in either of "
+              "them.");
+    optional.add({"--correctForMultipleTesting"})
+        .choices({"none", "fdr", "bonferroni"})
+        .default_value("none")
+        .cpp_only("Multiple testing correction of the p-values across all TADs (PLAN.md 9.7); "
+                  "none gives the Python output.")
+        .help("Adjust the p-values of each test across all TADs, Benjamini-Hochberg (fdr) or "
+              "Bonferroni, and apply --pValue to the adjusted values.");
+    optional.add({"--help", "-h"}).action(cli::Action::Help).help("show this help message and exit");
+    optional.add({"--version"}).version(std::string("%(prog)s ") + hicx::kVersion);
+
+    const cli::Namespace ns = parser.parse(argc, argv);
     Arguments args;
-    const std::vector<std::string> tokens(argv + 1, argv + argc);
-    for (std::size_t i = 0; i < tokens.size(); ++i) {
-        const std::string& token = tokens[i];
-        std::string name = token;
-        std::optional<std::string> inline_value;
-        if (token.rfind("--", 0) == 0) {
-            const std::size_t equals = token.find('=');
-            if (equals != std::string::npos) {
-                name = token.substr(0, equals);
-                inline_value = token.substr(equals + 1);
-            }
-        }
-        if (name == "-h" || name == "--help") {
-            std::fputs(kUsage, stdout);
-            std::fputs(kHelp, stdout);
-            std::exit(0);
-        }
-        if (name == "--version") {
-            std::printf("hicDifferentialTAD %s\n", hicx::kVersion);
-            std::exit(0);
-        }
-        const auto value = [&](const char* label) {
-            if (inline_value.has_value()) {
-                return *inline_value;
-            }
-            if (i + 1 >= tokens.size() || looks_like_option(tokens[i + 1])) {
-                fail(std::string("argument ") + label + ": expected one argument");
-            }
-            return tokens[++i];
-        };
-        if (name == "--targetMatrix" || name == "-tm") {
-            args.target = value("--targetMatrix/-tm");
-        } else if (name == "--controlMatrix" || name == "-cm") {
-            args.control = value("--controlMatrix/-cm");
-        } else if (name == "--tadDomains" || name == "-td") {
-            args.domains = value("--tadDomains/-td");
-        } else if (name == "--outFileNamePrefix" || name == "-o") {
-            args.prefix = value("--outFileNamePrefix/-o");
-        } else if (name == "--pValue" || name == "-p") {
-            const std::string text = value("--pValue/-p");
-            if (!python_float(text, &args.p_value)) {
-                fail("argument --pValue/-p: invalid float value: '" + text + "'");
-            }
-        } else if (name == "--mode" || name == "-m") {
-            args.mode = value("--mode/-m");
-            if (args.mode != "intra-TAD" && args.mode != "left-inter-TAD" &&
-                args.mode != "right-inter-TAD" && args.mode != "all") {
-                fail("argument --mode/-m: invalid choice: '" + args.mode +
-                     "' (choose from 'intra-TAD', 'left-inter-TAD', 'right-inter-TAD', "
-                     "'all')");
-            }
-        } else if (name == "--modeReject" || name == "-mr") {
-            args.mode_reject = value("--modeReject/-mr");
-            if (args.mode_reject != "all" && args.mode_reject != "one") {
-                fail("argument --modeReject/-mr: invalid choice: '" + args.mode_reject +
-                     "' (choose from 'all', 'one')");
-            }
-        } else if (name == "--threads" || name == "-t") {
-            const std::string text = value("--threads/-t");
-            if (!python_int(text, &args.threads)) {
-                fail("argument --threads/-t: invalid int value: '" + text + "'");
-            }
-        } else if (name == "--sharedMask") {
-            if (inline_value.has_value()) {
-                fail("argument --sharedMask: ignored explicit argument '" + *inline_value + "'");
-            }
-            args.shared_mask = true;
-        } else if (name == "--correctForMultipleTesting") {
-            args.correction = value("--correctForMultipleTesting");
-            if (args.correction != "none" && args.correction != "fdr" &&
-                args.correction != "bonferroni") {
-                fail("argument --correctForMultipleTesting: invalid choice: '" + args.correction +
-                     "' (choose from 'none', 'fdr', 'bonferroni')");
-            }
-        } else {
-            fail("unrecognized arguments: " + token);
-        }
-    }
+    args.target = ns.opt_str("targetMatrix");
+    args.control = ns.opt_str("controlMatrix");
+    args.domains = ns.opt_str("tadDomains");
+    args.prefix = ns.str("outFileNamePrefix");
+    args.p_value = ns.real("pValue");
+    args.mode = ns.str("mode");
+    args.mode_reject = ns.str("modeReject");
+    args.threads = ns.integer("threads");
+    args.shared_mask = ns.flag("sharedMask");
+    args.correction = ns.str("correctForMultipleTesting");
     return args;
 }
 

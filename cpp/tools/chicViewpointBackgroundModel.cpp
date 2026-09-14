@@ -57,7 +57,7 @@
 #include <string>
 #include <vector>
 
-#include "chic_arguments.hpp"
+#include "hicx/argparse.hpp"
 #include "hicx/chic_viewpoint.hpp"
 #include "hicx/lbfgsb_scipy.hpp"
 #include "hicx/numpy_compat.hpp"
@@ -72,10 +72,56 @@ const char* const kUsage =
     "usage: chicViewpointBackgroundModel --matrices MATRICES [MATRICES ...]\n"
     "                                    --referencePoints REFERENCEPOINTS\n"
     "                                    [--averageContactBin AVERAGECONTACTBIN]\n"
-    "                                    [--truncateZeros] [--outFileName OUTFILENAME]\n"
+    "                                    [--truncateZeros]\n"
+    "                                    [--outFileName OUTFILENAME]\n"
     "                                    [--threads THREADS]\n"
     "                                    [--fixateRange FIXATERANGE] [--help]\n"
     "                                    [--version]\n";
+
+const char* const kHelp =
+    "\n"
+    "chicViewpointBackgroundModel computes a background model for all given samples with all "
+    "reference points. For all relative distances to a reference point\n"
+    "a negative binomial distribution is fitted. In addition, for each relative distance to "
+    "a reference point the average value for this location is computed. Both\n"
+    "background models are used, the first one for p-value and significance computation, the "
+    "second one to filter out interactions with a smaller x-fold over the mean.\n"
+    "\n"
+    "The background distributions are fixed at `--fixateRange`, i.e. all distances lower or "
+    "higher than this value use the fixed background distribution.\n"
+    "\n"
+    "An example usage is:\n"
+    "\n"
+    "$ chicViewpointBackgroundModel --matrices matrix1.cool matrix2.cool matrix3.cool "
+    "--referencePoints referencePointsFile.bed --range 20000 40000 --outFileName "
+    "background_model.bed\n"
+    "\n"
+    "Required arguments:\n"
+    "  --matrices MATRICES [MATRICES ...], -m MATRICES [MATRICES ...]\n"
+    "                        The input matrices (samples) to build the background\n"
+    "                        model on.\n"
+    "  --referencePoints REFERENCEPOINTS, -rp REFERENCEPOINTS\n"
+    "                        Bed file contains all reference points which should be\n"
+    "                        used to build the background model.\n"
+    "\n"
+    "Optional arguments:\n"
+    "  --averageContactBin AVERAGECONTACTBIN\n"
+    "                        Average the contacts of n bins via a sliding window\n"
+    "                        approach (Default: 5).\n"
+    "  --truncateZeros, -tz  Truncates the zeros before the distributions are\n"
+    "                        fitted. Use it in case you observe an over dispersion.\n"
+    "  --outFileName OUTFILENAME, -o OUTFILENAME\n"
+    "                        The name of the background model file (Default:\n"
+    "                        background_model.txt).\n"
+    "  --threads THREADS, -t THREADS\n"
+    "                        Number of threads (uses the python multiprocessing\n"
+    "                        module) (Default: 4).\n"
+    "  --fixateRange FIXATERANGE, -fs FIXATERANGE\n"
+    "                        Fixate score of backgroundmodel starting at distance\n"
+    "                        x. E.g. all values greater 500kb are set to the value\n"
+    "                        of the 500kb bin (Default: 500000).\n"
+    "  --help, -h            show this help message and exit\n"
+    "  --version             show program's version number and exit\n";
 
 struct ReferencePointSlot {
     std::vector<std::pair<std::int64_t, double>> values;
@@ -93,32 +139,48 @@ struct PositionResult {
 }  // namespace
 
 int main(int argc, char** argv) {
-    using hicx::chic_cli::Arity;
-    using hicx::chic_cli::Option;
-    using hicx::chic_cli::Type;
+    namespace cli = hicx::cli;
+    cli::Parser parser("chicViewpointBackgroundModel",
+                       "chicViewpointBackgroundModel computes a background model for all given "
+                       "samples with all reference points.");
+    parser.set_usage(kUsage).set_help(kHelp).set_version_string(hicx::kVersion);
+    cli::ArgumentGroup& required = parser.group("Required arguments");
+    required.add({"--matrices", "-m"})
+        .nargs("+")
+        .required()
+        .input({"cool", "h5"})
+        .help("The input matrices (samples) to build the background model on.");
+    required.add({"--referencePoints", "-rp"})
+        .type("str")
+        .required()
+        .input({"bed"})
+        .help("Bed file contains all reference points which should be used to build the "
+              "background model.");
+    cli::ArgumentGroup& optional = parser.group("Optional arguments");
+    optional.add({"--averageContactBin"})
+        .type("int")
+        .default_value(5)
+        .help("Average the contacts of n bins via a sliding window approach.");
+    optional.add({"--truncateZeros", "-tz"})
+        .action(cli::Action::StoreTrue)
+        .help("Truncates the zeros before the distributions are fitted.");
+    optional.add({"--outFileName", "-o"})
+        .default_value("background_model.txt")
+        .output({"txt"})
+        .help("The name of the background model file");
+    optional.add({"--threads", "-t"})
+        .type("int")
+        .default_value(4)
+        .help("Number of threads.");
+    optional.add({"--fixateRange", "-fs"})
+        .type("int")
+        .default_value(500000)
+        .help("Fixate score of backgroundmodel starting at distance x.");
+    optional.add({"--help", "-h"}).action(cli::Action::Help).help("show this help message and exit");
+    optional.add({"--version"}).version(std::string("%(prog)s ") + hicx::kVersion);
+    const cli::Namespace args = parser.parse(argc, argv);
 
-    hicx::chic_cli::Parser parser(
-        "chicViewpointBackgroundModel", kUsage,
-        "chicViewpointBackgroundModel computes a background model for all given samples with "
-        "all reference points.",
-        hicx::kVersion);
-    parser.add(Option{{"--matrices", "-m"}, "matrices", Arity::OneOrMore, Type::String, true, {},
-                      "The input matrices (samples) to build the background model on."});
-    parser.add(Option{{"--referencePoints", "-rp"}, "referencePoints", Arity::One, Type::String,
-                      true, {}, "Bed file with the reference points."});
-    parser.add(Option{{"--averageContactBin"}, "averageContactBin", Arity::One, Type::Int, false,
-                      {"5"}, "Average the contacts of n bins via a sliding window approach."});
-    parser.add(Option{{"--truncateZeros", "-tz"}, "truncateZeros", Arity::Flag, Type::String,
-                      false, {}, "Truncates the zeros before the distributions are fitted."});
-    parser.add(Option{{"--outFileName", "-o"}, "outFileName", Arity::One, Type::String, false,
-                      {"background_model.txt"}, "The name of the background model file."});
-    parser.add(Option{{"--threads", "-t"}, "threads", Arity::One, Type::Int, false, {"4"},
-                      "Number of threads."});
-    parser.add(Option{{"--fixateRange", "-fs"}, "fixateRange", Arity::One, Type::Int, false,
-                      {"500000"}, "Fixate the background model starting at distance x."});
-    const hicx::chic_cli::Parsed args = parser.parse(argc, argv);
-
-    const std::vector<std::string>& matrices = args.list("matrices");
+    const std::vector<std::string> matrices = args.strs("matrices");
     const std::int64_t average_contact_bin = args.integer("averageContactBin");
     const bool truncate_zeros = args.flag("truncateZeros");
     const std::string out_file_name = args.str("outFileName");

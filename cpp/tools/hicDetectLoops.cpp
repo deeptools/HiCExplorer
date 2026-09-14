@@ -64,6 +64,7 @@
 
 #include "detect_loops_impl.hpp"
 #include "hicx/adjust_ops.hpp"
+#include "hicx/argparse.hpp"
 #include "hicx/bins.hpp"
 #include "hicx/cool_adapter.hpp"
 #include "hicx/h5_file.hpp"
@@ -152,142 +153,90 @@ struct Arguments {
     std::string expected = "mean";
 };
 
-[[noreturn]] void fail(const std::string& message) {
-    std::fputs(kUsage, stderr);
-    std::fprintf(stderr, "hicDetectLoops: error: %s\n", message.c_str());
-    std::exit(2);
-}
-
-std::int64_t parse_int(const std::string& name, const std::string& text) {
-    try {
-        std::size_t consumed = 0;
-        const long long value = std::stoll(text, &consumed);
-        if (consumed != text.size()) {
-            throw std::invalid_argument("trailing");
-        }
-        return value;
-    } catch (const std::exception&) {
-        fail("argument " + name + ": invalid int value: '" + text + "'");
-    }
-}
-
-double parse_double(const std::string& name, const std::string& text) {
-    try {
-        std::size_t consumed = 0;
-        const double value = std::stod(text, &consumed);
-        if (consumed != text.size()) {
-            throw std::invalid_argument("trailing");
-        }
-        return value;
-    } catch (const std::exception&) {
-        fail("argument " + name + ": invalid float value: '" + text + "'");
-    }
-}
-
+// hicDetectLoops.py parse_arguments.
 Arguments parse_arguments(int argc, char** argv) {
+    namespace cli = hicx::cli;
+    cli::Parser parser("hicDetectLoops",
+                       "Computes enriched regions (peaks) or long range contacts on the given "
+                       "contact matrix.");
+    parser.set_usage(kUsage).set_help(kHelp).set_version_string(hicx::kVersion);
+    cli::ArgumentGroup& required = parser.group("Required arguments");
+    required.add({"--matrix", "-m"})
+        .required()
+        .input({"h5", "cool", "mcool"})
+        .help("The matrix to compute the loop detection on.");
+    required.add({"--outFileName", "-o"})
+        .required()
+        .output({"bedgraph"})
+        .help("Outfile name to store the detected loops. The file will in bedgraph format.");
+    cli::ArgumentGroup& optional = parser.group("Optional arguments");
+    optional.add({"--peakWidth", "-pw"})
+        .type("int")
+        .default_value(2)
+        .help("The width of the peak region in bins.");
+    optional.add({"--windowSize", "-w"})
+        .type("int")
+        .default_value(5)
+        .help("The window size for the neighborhood region the peak is located in.");
+    optional.add({"--pValuePreselection", "-pp"})
+        .default_value(0.1)
+        .note("Either a p-value threshold or a threshold file created by hicCreateThresholdFile.")
+        .help("Only candidates with p-values less the given threshold will be considered as "
+              "candidates.");
+    optional.add({"--peakInteractionsThreshold", "-pit"})
+        .type("float")
+        .default_value(10)
+        .help("The minimum number of interactions a detected peaks needs to have to be "
+              "considered.");
+    optional.add({"--obsExpThreshold", "-oet"})
+        .type("float")
+        .default_value(1.5)
+        .help("The minimum number of obs/exp interactions a detected peaks needs to have to be "
+              "considered.");
+    optional.add({"--pValue", "-p"})
+        .type("float")
+        .default_value(0.025)
+        .help("Rejection level for Anderson-Darling or Wilcoxon-rank sum test for H0.");
+    optional.add({"--maxLoopDistance"})
+        .type("int")
+        .default_value(2000000)
+        .help("Maximum genomic distance of a loop.");
+    optional.add({"--chromosomes"})
+        .nargs("+")
+        .help("Chromosomes to include in the analysis. If not set, all chromosomes are included.");
+    optional.add({"--threads", "-t"})
+        .type("int")
+        .default_value(4)
+        .help("Number of threads to use, the parallelization is implemented per chromosome.");
+    optional.add({"--threadsPerChromosome", "-tpc"})
+        .type("int")
+        .default_value(4)
+        .help("Number of threads to use per parallel thread processing a chromosome.");
+    optional.add({"--expected", "-exp"})
+        .type("str")
+        .default_value("mean")
+        .choices({"mean", "mean_nonzero", "mean_nonzero_ligation"})
+        .help("Method to compute the expected value per distance.");
+    optional.add({"--help", "-h"}).action(cli::Action::Help).help("show this help message and exit");
+    optional.add({"--version"}).version(std::string("%(prog)s ") + hicx::kVersion);
+
+    const cli::Namespace ns = parser.parse(argc, argv);
     Arguments args;
-    bool matrix_seen = false;
-    bool out_seen = false;
-
-    std::vector<std::string> tokens;
-    tokens.reserve(static_cast<std::size_t>(argc));
-    for (int i = 1; i < argc; ++i) {
-        tokens.emplace_back(argv[i]);
+    args.matrix = ns.str("matrix");
+    args.out_file_name = ns.str("outFileName");
+    args.peak_width = ns.integer("peakWidth");
+    args.window_size = ns.integer("windowSize");
+    args.p_value_preselection = ns.str("pValuePreselection");
+    args.peak_interactions_threshold = ns.real("peakInteractionsThreshold");
+    args.obs_exp_threshold = ns.real("obsExpThreshold");
+    args.p_value = ns.real("pValue");
+    args.max_loop_distance = ns.integer("maxLoopDistance");
+    if (ns.given("chromosomes")) {
+        args.chromosomes = ns.strs("chromosomes");
     }
-
-    for (std::size_t i = 0; i < tokens.size(); ++i) {
-        std::string name = tokens[i];
-        std::optional<std::string> inline_value;
-        const std::size_t equals = name.find('=');
-        if (equals != std::string::npos && name.rfind("--", 0) == 0) {
-            inline_value = name.substr(equals + 1);
-            name = name.substr(0, equals);
-        }
-        const auto next_value = [&](const char* option) -> std::string {
-            if (inline_value.has_value()) {
-                return *inline_value;
-            }
-            if (i + 1 >= tokens.size()) {
-                fail(std::string("argument ") + option + ": expected one argument");
-            }
-            return tokens[++i];
-        };
-
-        if (name == "-h" || name == "--help") {
-            std::fputs(kUsage, stdout);
-            std::fputs(kHelp, stdout);
-            std::exit(0);
-        }
-        if (name == "--version") {
-            std::printf("hicDetectLoops %s\n", hicx::kVersion);
-            std::exit(0);
-        }
-        if (name == "-m" || name == "--matrix") {
-            args.matrix = next_value("--matrix/-m");
-            matrix_seen = true;
-        } else if (name == "-o" || name == "--outFileName") {
-            args.out_file_name = next_value("--outFileName/-o");
-            out_seen = true;
-        } else if (name == "-pw" || name == "--peakWidth") {
-            args.peak_width = parse_int("--peakWidth/-pw", next_value("--peakWidth/-pw"));
-        } else if (name == "-w" || name == "--windowSize") {
-            args.window_size =
-                parse_int("--windowSize/-w", next_value("--windowSize/-w"));
-        } else if (name == "-pp" || name == "--pValuePreselection") {
-            args.p_value_preselection = next_value("--pValuePreselection/-pp");
-        } else if (name == "-pit" || name == "--peakInteractionsThreshold") {
-            args.peak_interactions_threshold =
-                parse_double("--peakInteractionsThreshold/-pit",
-                             next_value("--peakInteractionsThreshold/-pit"));
-        } else if (name == "-oet" || name == "--obsExpThreshold") {
-            args.obs_exp_threshold = parse_double("--obsExpThreshold/-oet",
-                                                  next_value("--obsExpThreshold/-oet"));
-        } else if (name == "-p" || name == "--pValue") {
-            args.p_value = parse_double("--pValue/-p", next_value("--pValue/-p"));
-        } else if (name == "--maxLoopDistance") {
-            args.max_loop_distance =
-                parse_int("--maxLoopDistance", next_value("--maxLoopDistance"));
-        } else if (name == "--chromosomes") {
-            std::vector<std::string> names;
-            if (inline_value.has_value()) {
-                names.push_back(*inline_value);
-            }
-            while (i + 1 < tokens.size() && tokens[i + 1].rfind("-", 0) != 0) {
-                names.push_back(tokens[++i]);
-            }
-            if (names.empty()) {
-                fail("argument --chromosomes: expected at least one argument");
-            }
-            args.chromosomes = std::move(names);
-        } else if (name == "-t" || name == "--threads") {
-            args.threads =
-                static_cast<int>(parse_int("--threads/-t", next_value("--threads/-t")));
-        } else if (name == "-tpc" || name == "--threadsPerChromosome") {
-            args.threads_per_chromosome = static_cast<int>(parse_int(
-                "--threadsPerChromosome/-tpc", next_value("--threadsPerChromosome/-tpc")));
-        } else if (name == "-exp" || name == "--expected") {
-            args.expected = next_value("--expected/-exp");
-            if (args.expected != "mean" && args.expected != "mean_nonzero" &&
-                args.expected != "mean_nonzero_ligation") {
-                fail("argument --expected/-exp: invalid choice: '" + args.expected +
-                     "' (choose from 'mean', 'mean_nonzero', 'mean_nonzero_ligation')");
-            }
-        } else {
-            fail("unrecognized arguments: " + tokens[i]);
-        }
-    }
-
-    std::string missing;
-    const auto require = [&missing](bool seen, const char* option) {
-        if (!seen) {
-            missing += missing.empty() ? option : std::string(", ") + option;
-        }
-    };
-    require(matrix_seen, "--matrix/-m");
-    require(out_seen, "--outFileName/-o");
-    if (!missing.empty()) {
-        fail("the following arguments are required: " + missing);
-    }
+    args.threads = static_cast<int>(ns.integer("threads"));
+    args.threads_per_chromosome = static_cast<int>(ns.integer("threadsPerChromosome"));
+    args.expected = ns.str("expected");
     return args;
 }
 

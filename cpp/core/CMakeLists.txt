@@ -18,6 +18,7 @@ configure_file(include/hicx/version.hpp.in
 
 add_library(hicx4core
     src/adjust_ops.cpp
+    src/argparse.cpp
     src/bam_file.cpp
     src/bedtools_ops.cpp
     src/bins.cpp

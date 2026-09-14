@@ -66,6 +66,7 @@
 #include <vector>
 
 #include "hicx/adjust_ops.hpp"
+#include "hicx/argparse.hpp"
 #include "hicx/bins.hpp"
 #include "hicx/matrix_ops.hpp"
 #include "hicx/numpy_compat.hpp"
@@ -147,141 +148,77 @@ struct Arguments {
     int processors = 1;
 };
 
-[[noreturn]] void fail(const std::string& message) {
-    std::fputs(kUsage, stderr);
-    std::fprintf(stderr, "hicFindTADs: error: %s\n", message.c_str());
-    std::exit(2);
-}
-
-std::int64_t parse_int(const std::string& name, const std::string& text) {
-    try {
-        std::size_t consumed = 0;
-        const long long value = std::stoll(text, &consumed);
-        if (consumed != text.size()) {
-            throw std::invalid_argument("trailing");
-        }
-        return value;
-    } catch (const std::exception&) {
-        fail("argument " + name + ": invalid int value: '" + text + "'");
-    }
-}
-
-double parse_double(const std::string& name, const std::string& text) {
-    try {
-        std::size_t consumed = 0;
-        const double value = std::stod(text, &consumed);
-        if (consumed != text.size()) {
-            throw std::invalid_argument("trailing");
-        }
-        return value;
-    } catch (const std::exception&) {
-        fail("argument " + name + ": invalid float value: '" + text + "'");
-    }
-}
-
+// hicFindTADs.py parse_arguments.
 Arguments parse_arguments(int argc, char** argv) {
+    namespace cli = hicx::cli;
+    cli::Parser parser("hicFindTADs",
+                       "Uses a measure called TAD-separation score to identify the degree of "
+                       "separation between the left and right regions at each Hi-C matrix bin.");
+    parser.set_usage(kUsage).set_help(kHelp).set_version_string(hicx::kVersion);
+    cli::ArgumentGroup& required = parser.group("Required arguments");
+    required.add({"--matrix", "-m"})
+        .required()
+        .input({"h5", "cool", "mcool"})
+        .help("Corrected Hi-C matrix to use for the computations.");
+    required.add({"--outPrefix"})
+        .required()
+        .output({"bm", "h5", "cool", "bed", "gff", "bedgraph"}, "prefix")
+        .help("File prefix to save the resulting files.");
+    required.add({"--correctForMultipleTesting"})
+        .type("str")
+        .default_value("fdr")
+        .choices({"fdr", "bonferroni", "None"})
+        .required()
+        .help("Select the bonferroni or false discovery rate for a multiple comparison.");
+    cli::ArgumentGroup& optional = parser.group("Optional arguments");
+    optional.add({"--minDepth"}).type("int").metavar("INT bp").help("Minimum window length (in bp).");
+    optional.add({"--maxDepth"}).type("int").metavar("INT bp").help("Maximum window length (in bp).");
+    optional.add({"--step"})
+        .type("int")
+        .metavar("INT bp")
+        .help("Step size when moving from --minDepth to --maxDepth.");
+    optional.add({"--TAD_sep_score_prefix"})
+        .required(false)
+        .input({"bm", "h5", "cool"}, "prefix")
+        .help("Prefix of an existing TAD-separation score and z-score matrix.");
+    optional.add({"--thresholdComparisons"})
+        .type("float")
+        .default_value(0.01)
+        .help("P-value threshold for the Bonferroni correction / q-value for FDR.");
+    optional.add({"--delta"})
+        .type("float")
+        .default_value(0.01)
+        .help("Minimum threshold of the difference between the TAD-separation score of a "
+              "putative boundary and the mean of the TAD-sep. score of surrounding bins.");
+    optional.add({"--minBoundaryDistance"})
+        .type("int")
+        .help("Minimum distance between boundaries (in bp).");
+    optional.add({"--chromosomes"})
+        .nargs("+")
+        .help("Chromosomes and order in which the chromosomes should be plotted.");
+    optional.add({"--numberOfProcessors", "-p"})
+        .type("int")
+        .default_value(1)
+        .help("Number of processors to use.");
+    optional.add({"--help", "-h"}).action(cli::Action::Help).help("show this help message and exit.");
+    optional.add({"--version"}).version(std::string("%(prog)s ") + hicx::kVersion);
+
+    const cli::Namespace ns = parser.parse(argc, argv);
     Arguments args;
-    bool matrix_seen = false;
-    bool prefix_seen = false;
-    bool correction_seen = false;
-
-    std::vector<std::string> tokens;
-    tokens.reserve(static_cast<std::size_t>(argc));
-    for (int i = 1; i < argc; ++i) {
-        tokens.emplace_back(argv[i]);
+    args.matrix = ns.str("matrix");
+    args.out_prefix = ns.str("outPrefix");
+    args.correct_for_multiple_testing = ns.str("correctForMultipleTesting");
+    args.min_depth = ns.opt_integer("minDepth");
+    args.max_depth = ns.opt_integer("maxDepth");
+    args.step = ns.opt_integer("step");
+    args.tad_sep_score_prefix = ns.opt_str("TAD_sep_score_prefix");
+    args.threshold_comparisons = ns.real("thresholdComparisons");
+    args.delta = ns.real("delta");
+    args.min_boundary_distance = ns.opt_integer("minBoundaryDistance");
+    if (ns.given("chromosomes")) {
+        args.chromosomes = ns.strs("chromosomes");
     }
-
-    for (std::size_t i = 0; i < tokens.size(); ++i) {
-        std::string name = tokens[i];
-        std::optional<std::string> inline_value;
-        const std::size_t equals = name.find('=');
-        if (equals != std::string::npos && name.rfind("--", 0) == 0) {
-            inline_value = name.substr(equals + 1);
-            name = name.substr(0, equals);
-        }
-        const auto next_value = [&](const char* option) -> std::string {
-            if (inline_value.has_value()) {
-                return *inline_value;
-            }
-            if (i + 1 >= tokens.size()) {
-                fail(std::string("argument ") + option + ": expected one argument");
-            }
-            return tokens[++i];
-        };
-
-        if (name == "-h" || name == "--help") {
-            std::fputs(kUsage, stdout);
-            std::fputs(kHelp, stdout);
-            std::exit(0);
-        }
-        if (name == "--version") {
-            std::printf("hicFindTADs %s\n", hicx::kVersion);
-            std::exit(0);
-        }
-        if (name == "-m" || name == "--matrix") {
-            args.matrix = next_value("--matrix/-m");
-            matrix_seen = true;
-        } else if (name == "--outPrefix") {
-            args.out_prefix = next_value("--outPrefix");
-            prefix_seen = true;
-        } else if (name == "--correctForMultipleTesting") {
-            args.correct_for_multiple_testing = next_value("--correctForMultipleTesting");
-            if (args.correct_for_multiple_testing != "fdr" &&
-                args.correct_for_multiple_testing != "bonferroni" &&
-                args.correct_for_multiple_testing != "None") {
-                fail("argument --correctForMultipleTesting: invalid choice: '" +
-                     args.correct_for_multiple_testing +
-                     "' (choose from 'fdr', 'bonferroni', 'None')");
-            }
-            correction_seen = true;
-        } else if (name == "--minDepth") {
-            args.min_depth = parse_int("--minDepth", next_value("--minDepth"));
-        } else if (name == "--maxDepth") {
-            args.max_depth = parse_int("--maxDepth", next_value("--maxDepth"));
-        } else if (name == "--step") {
-            args.step = parse_int("--step", next_value("--step"));
-        } else if (name == "--TAD_sep_score_prefix") {
-            args.tad_sep_score_prefix = next_value("--TAD_sep_score_prefix");
-        } else if (name == "--thresholdComparisons") {
-            args.threshold_comparisons =
-                parse_double("--thresholdComparisons", next_value("--thresholdComparisons"));
-        } else if (name == "--delta") {
-            args.delta = parse_double("--delta", next_value("--delta"));
-        } else if (name == "--minBoundaryDistance") {
-            args.min_boundary_distance =
-                parse_int("--minBoundaryDistance", next_value("--minBoundaryDistance"));
-        } else if (name == "--chromosomes") {
-            std::vector<std::string> names;
-            if (inline_value.has_value()) {
-                names.push_back(*inline_value);
-            }
-            while (i + 1 < tokens.size() && tokens[i + 1].rfind("-", 0) != 0) {
-                names.push_back(tokens[++i]);
-            }
-            if (names.empty()) {
-                fail("argument --chromosomes: expected at least one argument");
-            }
-            args.chromosomes = std::move(names);
-        } else if (name == "-p" || name == "--numberOfProcessors") {
-            args.processors = static_cast<int>(
-                parse_int("--numberOfProcessors", next_value("--numberOfProcessors")));
-        } else {
-            fail("unrecognized arguments: " + tokens[i]);
-        }
-    }
-
-    std::string missing;
-    const auto require = [&missing](bool seen, const char* option) {
-        if (!seen) {
-            missing += missing.empty() ? option : std::string(", ") + option;
-        }
-    };
-    require(matrix_seen, "--matrix/-m");
-    require(prefix_seen, "--outPrefix");
-    require(correction_seen, "--correctForMultipleTesting");
-    if (!missing.empty()) {
-        fail("the following arguments are required: " + missing);
-    }
+    args.processors = static_cast<int>(ns.integer("numberOfProcessors"));
     return args;
 }
 

@@ -59,6 +59,7 @@
 #include <string>
 #include <vector>
 
+#include "hicx/argparse.hpp"
 #include "hicx/fasta_reader.hpp"
 #include "hicx/resource_usage.hpp"
 #include "hicx/version.hpp"
@@ -104,95 +105,39 @@ struct Arguments {
     std::exit(2);
 }
 
+// hicFindRestSite.py parse_arguments.
 Arguments parse_arguments(int argc, char** argv) {
-    Arguments args;
-    bool fasta_seen = false;
-    bool pattern_seen = false;
-    bool out_seen = false;
-    bool collecting_patterns = false;
-    std::string* pending = nullptr;
+    namespace cli = hicx::cli;
+    cli::Parser parser("hicFindRestSite", "Identifies the genomic locations of restriction sites. ");
+    parser.set_usage(kUsage).set_help(kHelp).set_version_string(hicx::kVersion);
 
-    for (int i = 1; i < argc; ++i) {
-        const std::string token(argv[i]);
-        if (pending != nullptr) {
-            *pending = token;
-            pending = nullptr;
-            continue;
-        }
-        const bool is_option = token.size() > 1 && token[0] == '-' &&
-                               std::isdigit(static_cast<unsigned char>(token[1])) == 0;
-        if (!is_option) {
-            if (collecting_patterns) {
-                args.patterns.push_back(token);
-                continue;
-            }
-            fail("unrecognized arguments: " + token);
-        }
-        collecting_patterns = false;
-        std::string name = token;
-        std::optional<std::string> inline_value;
-        const std::size_t equals = token.find('=');
-        if (equals != std::string::npos && token.rfind("--", 0) == 0) {
-            name = token.substr(0, equals);
-            inline_value = token.substr(equals + 1);
-        }
-        if (name == "-h" || name == "--help") {
-            std::fputs(kUsage, stdout);
-            std::fputs(kHelp, stdout);
-            std::exit(0);
-        }
-        if (name == "--version") {
-            std::printf("hicFindRestSite %s\n", hicx::kVersion);
-            std::exit(0);
-        }
-        if (name == "-f" || name == "--fasta") {
-            fasta_seen = true;
-            if (inline_value.has_value()) {
-                args.fasta = *inline_value;
-            } else {
-                pending = &args.fasta;
-            }
-            continue;
-        }
-        if (name == "-o" || name == "--outFile") {
-            out_seen = true;
-            if (inline_value.has_value()) {
-                args.out_file = *inline_value;
-            } else {
-                pending = &args.out_file;
-            }
-            continue;
-        }
-        if (name == "-p" || name == "--searchPattern") {
-            pattern_seen = true;
-            if (inline_value.has_value()) {
-                args.patterns.push_back(*inline_value);
-            } else {
-                collecting_patterns = true;
-            }
-            continue;
-        }
-        fail("unrecognized arguments: " + token);
-    }
-    if (pending != nullptr) {
-        fail("expected one argument");
-    }
-    std::string missing;
-    const auto add_missing = [&missing](const char* name) {
-        missing += missing.empty() ? name : std::string(", ") + name;
-    };
-    if (!fasta_seen) {
-        add_missing("--fasta/-f");
-    }
-    if (!pattern_seen || args.patterns.empty()) {
-        add_missing("--searchPattern/-p");
-    }
-    if (!out_seen) {
-        add_missing("--outFile/-o");
-    }
-    if (!missing.empty()) {
-        fail("the following arguments are required: " + missing);
-    }
+    cli::ArgumentGroup& required = parser.group("Required arguments");
+    // argparse.FileType('r') opens the fasta while parsing, so a missing file
+    // is an exit 2 from the parser and not a later error.
+    required.add({"--fasta", "-f"})
+        .file_type("r")
+        .required()
+        .input({"fasta"})
+        .help("Path to fasta file for the organism genome.");
+    required.add({"--searchPattern", "-p"})
+        .required()
+        .nargs("+")
+        .help("Search pattern, a regular expression; both strands are searched.");
+    required.add({"--outFile", "-o"})
+        .file_type("w")
+        .required()
+        .output({"bed"})
+        .help("Name for the resulting bed file.");
+
+    cli::ArgumentGroup& optional = parser.group("Optional arguments");
+    optional.add({"--help", "-h"}).action(cli::Action::Help).help("show this help message and exit");
+    optional.add({"--version"}).version(std::string("%(prog)s ") + hicx::kVersion);
+
+    const cli::Namespace ns = parser.parse(argc, argv);
+    Arguments args;
+    args.fasta = ns.str("fasta");
+    args.patterns = ns.strs("searchPattern");
+    args.out_file = ns.str("outFile");
     return args;
 }
 
@@ -272,15 +217,6 @@ void find_all(const std::string& pattern, const std::string& sequence,
 int main(int argc, char** argv) {
     const Arguments args = parse_arguments(argc, argv);
 
-    // argparse.FileType('r') opens the fasta while parsing, so a missing file
-    // is an exit 2 from the parser and not a later error.
-    {
-        std::ifstream probe(args.fasta, std::ios::binary);
-        if (!probe) {
-            fail("argument --fasta/-f: can't open '" + args.fasta +
-                 "': [Errno 2] No such file or directory: '" + args.fasta + "'");
-        }
-    }
     // argparse.FileType('w') creates and truncates the output before anything
     // is computed. Reproduced so that a failing run leaves the same trace.
     {

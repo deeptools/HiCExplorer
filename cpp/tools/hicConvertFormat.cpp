@@ -61,6 +61,7 @@
 #include <string>
 #include <vector>
 
+#include "hicx/argparse.hpp"
 #include "hicx/bins.hpp"
 #include "hicx/cool_adapter.hpp"
 #include "hicx/h5_file.hpp"
@@ -187,248 +188,127 @@ bool one_of(const std::string& value, const std::vector<std::string>& choices) {
     return std::find(choices.begin(), choices.end(), value) != choices.end();
 }
 
-std::string choice_error(const std::string& option, const std::string& value,
-                         const std::vector<std::string>& choices) {
-    std::string text = "argument " + option + ": invalid choice: '" + value +
-                       "' (choose from ";
-    for (std::size_t i = 0; i < choices.size(); ++i) {
-        text += "'" + choices[i] + "'";
-        if (i + 1 < choices.size()) {
-            text += ", ";
-        }
-    }
-    return text + ")";
-}
-
-const std::vector<std::string> kInputFormats{"h5",    "cool",   "hic",
-                                             "homer", "hicpro", "2D-text"};
-const std::vector<std::string> kOutputFormats{"cool",          "h5",    "homer",
-                                              "ginteractions", "mcool", "hicpro",
-                                              "hic"};
-const std::vector<std::string> kHicVersions{"8", "9"};
-const std::vector<std::string> kHicNormalizations{"VC", "VC_SQRT", "KR", "SCALE", "none"};
-
+// hicConvertFormat.py parse_arguments, plus the options of the .hic writer.
 Arguments parse_arguments(int argc, char** argv) {
-    Arguments args;
-    bool matrices_seen = false;
-    bool out_files_seen = false;
-    bool input_format_seen = false;
-    bool output_format_seen = false;
+    namespace cli = hicx::cli;
+    namespace json = hicx::json;
+    cli::Parser parser(
+        "hicConvertFormat",
+        "Conversion of Hi-C matrices of different file formats: hic, homer, HicPro, 2D-text, h5 "
+        "and cool to h5, cool, mcool, homer, ginteractions or hicpro. Several input files of "
+        "different resolutions can be combined into one mcool file, and a batch of inputs is "
+        "converted into as many outputs.");
+    parser.set_usage(kUsage).set_help(kHelp).set_version_string(hicx::kVersion);
 
-    // The option that is currently collecting values, for nargs='+'.
-    std::vector<std::string>* collecting = nullptr;
-    // The option that still needs exactly one value.
-    std::string* pending = nullptr;
-    std::string pending_name;
+    cli::ArgumentGroup& required = parser.group("Required arguments");
+    required.add({"--matrices", "-m"})
+        .nargs("+")
+        .required()
+        .input({"h5", "cool", "mcool", "hic", "homer", "hicpro", "txt"})
+        .help("input file(s). Could be one or many files.");
+    required.add({"--outFileName", "-o"})
+        .required()
+        .nargs("+")
+        .output({"cool", "mcool", "h5", "hic", "homer", "hicpro", "tsv"})
+        .help("File name to save the exported matrix.");
+    required.add({"--inputFormat"})
+        .choices({"h5", "cool", "hic", "homer", "hicpro", "2D-text"})
+        .required()
+        .help("File format of the input matrix file.");
+    required.add({"--outputFormat"})
+        .default_value("cool")
+        .choices({"cool", "h5", "homer", "ginteractions", "mcool", "hicpro", "hic"})
+        .required()
+        .note("The choice 'hic' exists only in the C++ port, which writes Juicer .hic files.")
+        .help("Output format.");
 
-    for (int i = 1; i < argc; ++i) {
-        std::string token(argv[i]);
-        const bool looks_like_option =
-            token.size() > 1 && token[0] == '-' &&
-            std::isdigit(static_cast<unsigned char>(token[1])) == 0;
-
-        if (pending != nullptr && !looks_like_option) {
-            *pending = token;
-            pending = nullptr;
-            continue;
-        }
-        if (!looks_like_option) {
-            if (collecting != nullptr) {
-                collecting->push_back(token);
-                continue;
-            }
-            argument_error("unrecognized arguments: " + token);
-        }
-        if (pending != nullptr) {
-            argument_error("argument " + pending_name + ": expected one argument");
-        }
-        collecting = nullptr;
-
-        std::string name = token;
-        std::optional<std::string> inline_value;
-        if (const std::size_t equals = token.find('=');
-            equals != std::string::npos && token.rfind("--", 0) == 0) {
-            name = token.substr(0, equals);
-            inline_value = token.substr(equals + 1);
-        }
-
-        const auto take_list = [&](std::vector<std::string>& target, bool& seen) {
-            seen = true;
-            if (inline_value.has_value()) {
-                target.push_back(*inline_value);
-            } else {
-                collecting = &target;
-            }
-        };
-        const auto take_value = [&](std::string& target, const std::string& option) {
-            if (inline_value.has_value()) {
-                target = *inline_value;
-            } else {
-                pending = &target;
-                pending_name = option;
-            }
-        };
-
-        if (name == "-h" || name == "--help") {
-            std::fputs(kUsage, stdout);
-            std::fputs(kHelp, stdout);
-            std::exit(0);
-        }
-        if (name == "--version") {
-            std::printf("hicConvertFormat %s\n", hicx::kVersion);
-            std::exit(0);
-        }
-        if (name == "-m" || name == "--matrices") {
-            take_list(args.matrices, matrices_seen);
-            continue;
-        }
-        if (name == "-o" || name == "--outFileName") {
-            take_list(args.out_file_names, out_files_seen);
-            continue;
-        }
-        if (name == "-r" || name == "--resolutions") {
-            bool seen = false;
-            take_list(args.resolutions, seen);
-            continue;
-        }
-        if (name == "-bf" || name == "--bedFileHicpro") {
-            bool seen = false;
-            take_list(args.bed_file_hicpro, seen);
-            continue;
-        }
-        if (name == "--inputFormat") {
-            input_format_seen = true;
-            take_value(args.input_format, "--inputFormat");
-            continue;
-        }
-        if (name == "--outputFormat") {
-            output_format_seen = true;
-            take_value(args.output_format, "--outputFormat");
-            continue;
-        }
-        if (name == "--correction_name") {
-            take_value(args.correction_name, "--correction_name");
-            continue;
-        }
-        if (name == "--chromosome") {
-            take_value(args.chromosome, "--chromosome");
-            continue;
-        }
-        if (name == "-cs" || name == "--chromosomeSizes") {
-            take_value(args.chromosome_sizes, "--chromosomeSizes");
-            continue;
-        }
-        if (name == "--hicVersion") {
-            take_value(args.hic_version, "--hicVersion");
-            continue;
-        }
-        if (name == "--hicNormalizations") {
-            if (!args.hic_normalizations_seen) {
-                args.hic_normalizations.clear();
-                args.hic_normalizations_seen = true;
-            }
-            bool seen = false;
-            take_list(args.hic_normalizations, seen);
-            continue;
-        }
-        if (name == "--threads") {
-            take_value(args.threads, "--threads");
-            continue;
-        }
-        if (name == "--correction_division") {
-            args.correction_division = true;
-            continue;
-        }
-        if (name == "--store_applied_correction") {
-            args.store_applied_correction = true;
-            continue;
-        }
-        if (name == "--enforce_integer") {
-            args.enforce_integer = true;
-            continue;
-        }
-        if (name == "--load_raw_values") {
-            args.load_raw_values = true;
-            continue;
-        }
-        argument_error("unrecognized arguments: " + token);
-    }
-    if (pending != nullptr) {
-        argument_error("argument " + pending_name + ": expected one argument");
-    }
-
-    std::vector<std::string> missing;
-    if (!matrices_seen) {
-        missing.push_back("--matrices/-m");
-    }
-    if (!out_files_seen) {
-        missing.push_back("--outFileName/-o");
-    }
-    if (!input_format_seen) {
-        missing.push_back("--inputFormat");
-    }
-    if (!output_format_seen) {
-        missing.push_back("--outputFormat");
-    }
-    if (!missing.empty()) {
-        std::string text = "the following arguments are required: ";
-        for (std::size_t i = 0; i < missing.size(); ++i) {
-            text += missing[i];
-            if (i + 1 < missing.size()) {
-                text += ", ";
-            }
-        }
-        argument_error(text);
-    }
-    if (args.matrices.empty()) {
-        argument_error("argument --matrices/-m: expected at least one argument");
-    }
-    if (args.out_file_names.empty()) {
-        argument_error("argument --outFileName/-o: expected at least one argument");
-    }
-    if (!one_of(args.input_format, kInputFormats)) {
-        argument_error(choice_error("--inputFormat", args.input_format, kInputFormats));
-    }
-    if (!one_of(args.output_format, kOutputFormats)) {
-        argument_error(
-            choice_error("--outputFormat", args.output_format, kOutputFormats));
-    }
-    if (args.hic_version == "6" || args.hic_version == "7") {
-        // .hic input of versions 6 to 9 is read; writing 6 or 7 is refused
-        // because no Juicer tools release that writes them can be obtained to
-        // validate against (hicfilecpp docs/PROVENANCE.md).
-        argument_error("argument --hicVersion: writing .hic version " + args.hic_version +
+    cli::ArgumentGroup& optional = parser.group("Optional arguments");
+    optional.add({"--correction_name"})
+        .default_value("weight")
+        .help("Name of the column which stores the correction factors. Option only for cool "
+              "input files.");
+    optional.add({"--correction_division"})
+        .action(cli::Action::StoreTrue)
+        .help("If set, division is applied for correction. Default is a multiplication.");
+    optional.add({"--store_applied_correction"})
+        .action(cli::Action::StoreTrue)
+        .help("Store the applied correction and do not set correction factors.");
+    optional.add({"--chromosome"}).help("Load only one chromosome. Option only for cool input files.");
+    optional.add({"--enforce_integer"})
+        .action(cli::Action::StoreTrue)
+        .help("Enforce datatype of counts to integer. Option only for cool input files.");
+    optional.add({"--load_raw_values"})
+        .action(cli::Action::StoreTrue)
+        .help("Load only 'count' data and do not apply a correction.");
+    optional.add({"--resolutions", "-r"})
+        .nargs("+")
+        .help("List of resolutions that should be added.");
+    optional.add({"--help", "-h"})
+        .action(cli::Action::Help)
+        .help("show this help message and exit.");
+    optional.add({"--chromosomeSizes", "-cs"})
+        .file_type("r")
+        .metavar("txt file")
+        .input({"txt"})
+        .help("File with the chromosome sizes, for the input format `2D-text` only.");
+    optional.add({"--version"}).version(std::string("%(prog)s ") + hicx::kVersion);
+    optional.add({"--bedFileHicpro", "-bf"})
+        .nargs("+")
+        .input({"bed"})
+        .help("Bed file(s) of hicpro file format.");
+    optional.add({"--hicVersion"})
+        .choices({"8", "9"})
+        .default_value("8")
+        .check([](const std::string& value) -> std::optional<std::string> {
+            if (value == "6" || value == "7") {
+                // .hic input of versions 6 to 9 is read; writing 6 or 7 is
+                // refused because no Juicer tools release that writes them can
+                // be obtained to validate against (hicfilecpp
+                // docs/PROVENANCE.md).
+                return "writing .hic version " + value +
                        " is not supported: no Juicer tools release that writes it can be "
-                       "obtained to validate against (choose from '8', '9')");
+                       "obtained to validate against (choose from '8', '9')";
+            }
+            return std::nullopt;
+        })
+        .cpp_only("The Python cannot write .hic files.")
+        .help("Version of a .hic output file.");
+    optional.add({"--hicNormalizations"})
+        .nargs("+")
+        .choices({"VC", "VC_SQRT", "KR", "SCALE", "none"})
+        .default_value(json::Value::array({json::Value::string("VC"), json::Value::string("VC_SQRT"),
+                                           json::Value::string("KR"), json::Value::string("SCALE")}))
+        .cpp_only("The Python cannot write .hic files.")
+        .help("Normalizations a .hic output file stores, computed as Juicer tools addNorm does.");
+    optional.add({"--threads"})
+        .type("int")
+        .default_value(1)
+        .cpp_only("Threads for compressing a .hic output file, which the Python cannot write.")
+        .help("Threads for compressing a .hic output file; the file does not depend on the number.");
+
+    const cli::Namespace ns = parser.parse(argc, argv);
+    Arguments args;
+    args.matrices = ns.strs("matrices");
+    args.out_file_names = ns.strs("outFileName");
+    args.resolutions = ns.strs("resolutions");
+    args.bed_file_hicpro = ns.strs("bedFileHicpro");
+    args.input_format = ns.str("inputFormat");
+    args.output_format = ns.str("outputFormat");
+    args.correction_name = ns.str("correction_name");
+    args.chromosome = ns.opt_str("chromosome").value_or("");
+    args.chromosome_sizes = ns.opt_str("chromosomeSizes").value_or("");
+    args.correction_division = ns.flag("correction_division");
+    args.store_applied_correction = ns.flag("store_applied_correction");
+    args.enforce_integer = ns.flag("enforce_integer");
+    args.load_raw_values = ns.flag("load_raw_values");
+    args.hic_version = ns.str("hicVersion");
+    args.hic_normalizations = ns.strs("hicNormalizations");
+    args.hic_normalizations_seen = ns.given("hicNormalizations");
+    const std::int64_t threads = ns.integer("threads");
+    if (threads < 1 || threads > 1024) {
+        argument_error("argument --threads: invalid value: '" + ns.str("threads") + "'");
     }
-    if (!one_of(args.hic_version, kHicVersions)) {
-        argument_error(choice_error("--hicVersion", args.hic_version, kHicVersions));
-    }
-    if (args.hic_normalizations_seen && args.hic_normalizations.empty()) {
-        argument_error("argument --hicNormalizations: expected at least one argument");
-    }
-    for (const auto& norm : args.hic_normalizations) {
-        if (!one_of(norm, kHicNormalizations)) {
-            argument_error(choice_error("--hicNormalizations", norm, kHicNormalizations));
-        }
-    }
-    {
-        const bool digits = !args.threads.empty() &&
-                            std::all_of(args.threads.begin(), args.threads.end(),
-                                        [](unsigned char c) { return std::isdigit(c) != 0; });
-        if (!digits || std::stoll(args.threads) < 1 || std::stoll(args.threads) > 1024) {
-            argument_error("argument --threads: invalid value: '" + args.threads + "'");
-        }
-    }
-    if (!args.chromosome_sizes.empty()) {
-        // argparse.FileType('r') opens the file while parsing.
-        std::FILE* handle = std::fopen(args.chromosome_sizes.c_str(), "r");
-        if (handle == nullptr) {
-            argument_error("argument --chromosomeSizes/-cs: can't open '" +
-                           args.chromosome_sizes + "'");
-        }
-        std::fclose(handle);
-    }
+    args.threads = std::to_string(threads);
     return args;
 }
 

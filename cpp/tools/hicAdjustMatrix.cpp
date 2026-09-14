@@ -57,6 +57,7 @@
 #include "hicx/cool_adapter.hpp"
 #include "hicx/matrix_ops.hpp"
 #include "hicx/resource_usage.hpp"
+#include "hicx/argparse.hpp"
 #include "hicx/tool_matrix.hpp"
 #include "hicx/version.hpp"
 
@@ -118,142 +119,61 @@ struct Arguments {
     std::optional<hicx::InterIntra> inter_intra;
 };
 
-[[noreturn]] void fail(const std::string& message) {
-    std::fputs(kUsage, stderr);
-    std::fprintf(stderr, "hicAdjustMatrix: error: %s\n", message.c_str());
-    std::exit(2);
-}
-
+// hicAdjustMatrix.py parse_arguments. The mutually exclusive group hangs off
+// the parser itself, so argparse lists its options under the parser's own
+// "options" group.
 Arguments parse_arguments(int argc, char** argv) {
+    namespace cli = hicx::cli;
+    cli::Parser parser("hicAdjustMatrix",
+                       "This tool adjusts hic matrices by keeping, removing or masking a given list "
+                       "of regions or chromosmes.");
+    parser.set_usage(kUsage).set_help(kHelp).set_version_string(hicx::kVersion);
+    cli::ArgumentGroup& required = parser.group("Required arguments");
+    required.add({"--matrix", "-m"})
+        .required()
+        .input({"h5", "cool", "mcool"})
+        .help("The Hi-C matrix to adjust.");
+    required.add({"--outFileName", "-o"})
+        .required()
+        .output({"h5", "cool"})
+        .help("File name to save the adjusted matrix.");
+    cli::ArgumentGroup& optional = parser.group("Optional arguments");
+    cli::ArgumentGroup& options = parser.group("options");
+    cli::MutuallyExclusiveGroup& selection = parser.mutually_exclusive(options);
+    selection.add({"--chromosomes", "-c"})
+        .nargs("+")
+        .help("List of chromosomes to keep/remove.");
+    selection.add({"--regions", "-r"})
+        .input({"bed"})
+        .help("BED file which stores a list of regions to keep/remove.");
+    selection.add({"--maskBadRegions", "-mbr"})
+        .input({"bed"})
+        .help("Bad regions are identified and masked.");
+    optional.add({"--action", "-a"})
+        .default_value("keep")
+        .choices({"keep", "remove", "mask"})
+        .help("Keep, remove or mask the list of specified chromosomes/regions.");
+    optional.add({"--interIntraHandling", "-iih"})
+        .choices({hicx::json::Value::null(), hicx::json::Value::string("inter"),
+                  hicx::json::Value::string("intra")})
+        .help("Remove the inter- or intra-chromosomal contacts of the given chromosomes.");
+    optional.add({"--help", "-h"}).action(cli::Action::Help).help("show this help message and exit");
+    optional.add({"--version"}).version(std::string("%(prog)s ") + hicx::kVersion);
+
+    const cli::Namespace ns = parser.parse(argc, argv);
     Arguments args;
-    bool matrix_seen = false;
-    bool out_seen = false;
-    std::string* pending = nullptr;
-    bool collecting_chromosomes = false;
-    std::string exclusive_seen;
-
-    const auto claim_exclusive = [&](const std::string& option) {
-        if (!exclusive_seen.empty() && exclusive_seen != option) {
-            fail("argument " + option + ": not allowed with argument " + exclusive_seen);
-        }
-        exclusive_seen = option;
-    };
-
-    for (int i = 1; i < argc; ++i) {
-        const std::string token(argv[i]);
-        if (pending != nullptr) {
-            *pending = token;
-            pending = nullptr;
-            continue;
-        }
-        const bool is_option = token.size() > 1 && token[0] == '-' &&
-                               std::isdigit(static_cast<unsigned char>(token[1])) == 0;
-        if (!is_option) {
-            if (collecting_chromosomes) {
-                args.chromosomes.push_back(token);
-                continue;
-            }
-            fail("unrecognized arguments: " + token);
-        }
-        collecting_chromosomes = false;
-
-        std::string name = token;
-        std::optional<std::string> inline_value;
-        const std::size_t equals = token.find('=');
-        if (equals != std::string::npos && token.rfind("--", 0) == 0) {
-            name = token.substr(0, equals);
-            inline_value = token.substr(equals + 1);
-        }
-        if (name == "-h" || name == "--help") {
-            std::fputs(kUsage, stdout);
-            std::fputs(kHelp, stdout);
-            std::exit(0);
-        }
-        if (name == "--version") {
-            std::printf("hicAdjustMatrix %s\n", hicx::kVersion);
-            std::exit(0);
-        }
-        if (name == "-c" || name == "--chromosomes") {
-            claim_exclusive("--chromosomes/-c");
-            args.has_chromosomes = true;
-            if (inline_value.has_value()) {
-                args.chromosomes.push_back(*inline_value);
-            } else {
-                collecting_chromosomes = true;
-            }
-            continue;
-        }
-        std::string value_text;
-        std::string* target = nullptr;
-        if (name == "-m" || name == "--matrix") {
-            target = &args.matrix;
-            matrix_seen = true;
-        } else if (name == "-o" || name == "--outFileName") {
-            target = &args.out_file_name;
-            out_seen = true;
-        } else if (name == "-r" || name == "--regions") {
-            claim_exclusive("--regions/-r");
-            target = &value_text;
-        } else if (name == "-mbr" || name == "--maskBadRegions") {
-            claim_exclusive("--maskBadRegions/-mbr");
-            target = &value_text;
-        } else if (name == "-a" || name == "--action") {
-            target = &value_text;
-        } else if (name == "-iih" || name == "--interIntraHandling") {
-            target = &value_text;
-        } else {
-            fail("unrecognized arguments: " + token);
-        }
-
-        if (inline_value.has_value()) {
-            *target = *inline_value;
-        } else {
-            if (i + 1 >= argc) {
-                fail("argument " + name + ": expected one argument");
-            }
-            *target = std::string(argv[++i]);
-        }
-        if (name == "-r" || name == "--regions") {
-            args.regions = value_text;
-        } else if (name == "-mbr" || name == "--maskBadRegions") {
-            args.mask_bad_regions = value_text;
-        } else if (name == "-a" || name == "--action") {
-            if (value_text == "keep") {
-                args.action = Action::Keep;
-            } else if (value_text == "remove") {
-                args.action = Action::Remove;
-            } else if (value_text == "mask") {
-                args.action = Action::Mask;
-            } else {
-                fail("argument --action/-a: invalid choice: '" + value_text +
-                     "' (choose from 'keep', 'remove', 'mask')");
-            }
-        } else if (name == "-iih" || name == "--interIntraHandling") {
-            if (value_text == "inter") {
-                args.inter_intra = hicx::InterIntra::Inter;
-            } else if (value_text == "intra") {
-                args.inter_intra = hicx::InterIntra::Intra;
-            } else {
-                fail("argument --interIntraHandling/-iih: invalid choice: '" +
-                     value_text + "' (choose from None, 'inter', 'intra')");
-            }
-        }
-    }
-    if (pending != nullptr) {
-        fail("expected one argument");
-    }
-    std::string missing;
-    if (!matrix_seen) {
-        missing += "--matrix/-m";
-    }
-    if (!out_seen) {
-        missing += missing.empty() ? "--outFileName/-o" : ", --outFileName/-o";
-    }
-    if (!missing.empty()) {
-        fail("the following arguments are required: " + missing);
-    }
-    if (args.has_chromosomes && args.chromosomes.empty()) {
-        fail("argument --chromosomes/-c: expected at least one argument");
+    args.matrix = ns.str("matrix");
+    args.out_file_name = ns.str("outFileName");
+    args.has_chromosomes = ns.given("chromosomes");
+    args.chromosomes = ns.strs("chromosomes");
+    args.regions = ns.opt_str("regions");
+    args.mask_bad_regions = ns.opt_str("maskBadRegions");
+    const std::string action = ns.str("action");
+    args.action = action == "remove" ? Action::Remove
+                  : action == "mask" ? Action::Mask
+                                     : Action::Keep;
+    if (const std::optional<std::string> handling = ns.opt_str("interIntraHandling")) {
+        args.inter_intra = *handling == "inter" ? hicx::InterIntra::Inter : hicx::InterIntra::Intra;
     }
     return args;
 }

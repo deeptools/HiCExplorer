@@ -60,6 +60,7 @@
 #include <string>
 #include <vector>
 
+#include "hicx/argparse.hpp"
 #include "hicx/bins.hpp"
 #include "hicx/npz_file.hpp"
 #include "hicx/resource_usage.hpp"
@@ -132,115 +133,67 @@ struct Arguments {
     bool consider_strand_direction = false;
 };
 
-[[noreturn]] void fail(const std::string& message) {
-    std::fputs(kUsage, stderr);
-    std::fprintf(stderr, "hicAverageRegions: error: %s\n", message.c_str());
-    std::exit(2);
-}
-
-std::int64_t parse_int(const std::string& text, const std::string& option) {
-    try {
-        std::size_t used = 0;
-        const long long value = std::stoll(text, &used);
-        if (used != text.size()) {
-            throw std::invalid_argument("trailing characters");
-        }
-        return value;
-    } catch (const std::exception&) {
-        fail("argument " + option + ": invalid int value: '" + text + "'");
-    }
-}
-
+// hicAverageRegions.py parse_arguments. The required mutually exclusive group
+// hangs off the parser itself, so argparse lists it under "options".
 Arguments parse_arguments(int argc, char** argv) {
+    namespace cli = hicx::cli;
+    cli::Parser parser("hicAverageRegions",
+                       "Sums Hi-C contacts around given reference points and computes their "
+                       "average.");
+    parser.set_usage(kUsage).set_help(kHelp).set_version_string(hicx::kVersion);
+    cli::ArgumentGroup& required = parser.group("Required arguments");
+    cli::ArgumentGroup& options = parser.group("options");
+    cli::ArgumentGroup& optional = parser.group("Optional arguments");
+    required.add({"--matrix", "-m"})
+        .required()
+        .input({"h5", "cool", "mcool"})
+        .help("The matrix to use for the average of TAD regions.");
+    required.add({"--regions", "-r"})
+        .required()
+        .input({"bed"})
+        .help("BED file which stores a list of regions that are summed and averaged");
+    cli::MutuallyExclusiveGroup& range = parser.mutually_exclusive(options, true);
+    range.add({"--range", "-ra"})
+        .nargs(2)
+        .type("int")
+        .help("Range of region up- and downstream of each region to include in genomic units.");
+    range.add({"--rangeInBins", "-rib"})
+        .nargs(2)
+        .type("int")
+        .help("Range of region up- and downstream of each region to include in bin units.");
+    required.add({"--outFileName", "-o"})
+        .required()
+        .output({"npz"})
+        .help("File name to save the average regions TADs matrix.");
+    optional.add({"--help", "-h"}).action(cli::Action::Help).help("show this help message and exit");
+    optional.add({"--coordinatesToBinMapping", "-cb"})
+        .choices({"start", "center", "end"})
+        .default_value("start")
+        .help("Whether the start, center or end bin of a region is the start for the range.");
+    optional.add({"--considerStrandDirection"})
+        .action(cli::Action::StoreTrue)
+        .help("Take the strand into account: contacts of a reverse strand region are inverted.");
+    optional.add({"--version"}).version(std::string("%(prog)s ") + hicx::kVersion);
+
+    const cli::Namespace ns = parser.parse(argc, argv);
     Arguments args;
-    bool matrix_seen = false;
-    bool regions_seen = false;
-    bool out_seen = false;
-
-    std::vector<std::string> tokens;
-    for (int i = 1; i < argc; ++i) {
-        const std::string token(argv[i]);
-        const std::size_t equals = token.find('=');
-        if (equals != std::string::npos && token.rfind("--", 0) == 0) {
-            tokens.push_back(token.substr(0, equals));
-            tokens.push_back(token.substr(equals + 1));
-        } else {
-            tokens.push_back(token);
-        }
+    args.matrix = ns.str("matrix");
+    args.regions = ns.str("regions");
+    args.out_file_name = ns.str("outFileName");
+    args.has_range = ns.given("range");
+    if (args.has_range) {
+        const std::vector<std::int64_t> values = ns.integers("range");
+        args.range_up = values[0];
+        args.range_down = values[1];
     }
-
-    for (std::size_t i = 0; i < tokens.size(); ++i) {
-        const std::string& token = tokens[i];
-        const auto next = [&]() -> std::string {
-            if (i + 1 >= tokens.size()) {
-                fail("argument " + token + ": expected one argument");
-            }
-            return tokens[++i];
-        };
-        if (token == "-h" || token == "--help") {
-            std::fputs(kUsage, stdout);
-            std::fputs(kHelp, stdout);
-            std::exit(0);
-        }
-        if (token == "--version") {
-            std::printf("hicAverageRegions %s\n", hicx::kVersion);
-            std::exit(0);
-        }
-        if (token == "-m" || token == "--matrix") {
-            args.matrix = next();
-            matrix_seen = true;
-        } else if (token == "-r" || token == "--regions") {
-            args.regions = next();
-            regions_seen = true;
-        } else if (token == "-o" || token == "--outFileName") {
-            args.out_file_name = next();
-            out_seen = true;
-        } else if (token == "-ra" || token == "--range") {
-            args.range_up = parse_int(next(), "--range/-ra");
-            args.range_down = parse_int(next(), "--range/-ra");
-            args.has_range = true;
-        } else if (token == "-rib" || token == "--rangeInBins") {
-            args.bins_up = parse_int(next(), "--rangeInBins/-rib");
-            args.bins_down = parse_int(next(), "--rangeInBins/-rib");
-            args.has_range_in_bins = true;
-        } else if (token == "-cb" || token == "--coordinatesToBinMapping") {
-            args.coordinates_to_bin_mapping = next();
-        } else if (token == "--considerStrandDirection") {
-            args.consider_strand_direction = true;
-        } else {
-            fail("unrecognized arguments: " + token);
-        }
+    args.has_range_in_bins = ns.given("rangeInBins");
+    if (args.has_range_in_bins) {
+        const std::vector<std::int64_t> values = ns.integers("rangeInBins");
+        args.bins_up = values[0];
+        args.bins_down = values[1];
     }
-
-    std::string missing;
-    const auto add_missing = [&missing](const char* name) {
-        missing += missing.empty() ? name : std::string(", ") + name;
-    };
-    if (!matrix_seen) {
-        add_missing("--matrix/-m");
-    }
-    if (!regions_seen) {
-        add_missing("--regions/-r");
-    }
-    if (!out_seen) {
-        add_missing("--outFileName/-o");
-    }
-    if (!missing.empty()) {
-        fail("the following arguments are required: " + missing);
-    }
-    if (args.has_range && args.has_range_in_bins) {
-        fail("argument --rangeInBins/-rib: not allowed with argument --range/-ra");
-    }
-    if (!args.has_range && !args.has_range_in_bins) {
-        fail("one of the arguments --range/-ra --rangeInBins/-rib is required");
-    }
-    if (args.coordinates_to_bin_mapping != "start" &&
-        args.coordinates_to_bin_mapping != "center" &&
-        args.coordinates_to_bin_mapping != "end") {
-        fail("argument --coordinatesToBinMapping/-cb: invalid choice: '" +
-             args.coordinates_to_bin_mapping +
-             "' (choose from 'start', 'center', 'end')");
-    }
+    args.coordinates_to_bin_mapping = ns.str("coordinatesToBinMapping");
+    args.consider_strand_direction = ns.flag("considerStrandDirection");
     return args;
 }
 

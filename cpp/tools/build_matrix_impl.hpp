@@ -46,7 +46,6 @@ namespace {
 // Set by main before anything else, so that the shared code can name the tool
 // the user invoked in its usage and error messages.
 const char* g_tool = "hicBuildMatrix";
-const char* g_usage = "";
 
 struct Arguments {
     std::vector<std::string> sam_files;
@@ -73,28 +72,21 @@ struct Arguments {
     std::string chromosome_sizes;
 };
 
-[[noreturn]] void fail(const std::string& message) {
-    std::fputs(g_usage, stderr);
-    std::fprintf(stderr, "%s: error: %s\n", g_tool, message.c_str());
-    std::exit(2);
-}
-
-std::int64_t parse_int(const std::string& option, const std::string& text) {
-    try {
-        std::size_t consumed = 0;
-        const std::int64_t value = std::stoll(text, &consumed);
-        if (consumed != text.size()) {
-            throw std::invalid_argument("trailing characters");
+// hicexplorer.utilities.genomicRegion as an argparse type: a value that is
+// only whitespace becomes None, one that is only separators is an error.
+// hicQuickQC includes this file and has no --region.
+[[maybe_unused]] std::optional<std::string> genomic_region_check(const std::string& text) {
+    bool blank = true;
+    for (const char c : text) {
+        if (std::isspace(static_cast<unsigned char>(c)) == 0) {
+            blank = false;
+            break;
         }
-        return value;
-    } catch (const std::exception&) {
-        fail("argument " + option + ": invalid int value: '" + text + "'");
     }
-}
-
-bool is_option(const std::string& token) {
-    return token.size() > 1 && token[0] == '-' &&
-           !(std::isdigit(static_cast<unsigned char>(token[1])) != 0);
+    if (!blank && hicx::normalise_region(text).empty()) {
+        return text + " is not a valid region";
+    }
+    return std::nullopt;
 }
 
 bool ends_with(const std::string& text, const std::string& suffix) {

@@ -79,12 +79,12 @@
 #include <cstring>
 #include <fstream>
 #include <optional>
-#include <regex>
 #include <set>
 #include <string>
 #include <vector>
 
 #include "compartmentalization_impl.hpp"
+#include "hicx/argparse.hpp"
 #include "hicx/bins.hpp"
 #include "hicx/npz_file.hpp"
 #include "hicx/resource_usage.hpp"
@@ -149,131 +149,58 @@ struct Arguments {
     bool no_plot = false;
 };
 
-[[noreturn]] void fail(const std::string& message) {
-    std::fputs(kUsage, stderr);
-    std::fprintf(stderr, "hicCompartmentalization: error: %s\n", message.c_str());
-    std::exit(2);
-}
-
-// argparse's _negative_number_matcher: '^-\d+$|^-\d*\.\d+$'.
-bool is_option(const std::string& token) {
-    static const std::regex negative_number(R"(^-\d+$|^-\d*\.\d+$)");
-    return token.size() > 1 && token[0] == '-' && !std::regex_match(token, negative_number);
-}
-
-std::string strip(const std::string& text) {
-    const auto begin = text.find_first_not_of(" \t\n\r\f\v");
-    if (begin == std::string::npos) {
-        return {};
-    }
-    const auto end = text.find_last_not_of(" \t\n\r\f\v");
-    return text.substr(begin, end - begin + 1);
-}
-
-std::int64_t parse_int(const std::string& option, const std::string& text) {
-    const std::string value = strip(text);
-    errno = 0;
-    char* end = nullptr;
-    const long long parsed = std::strtoll(value.c_str(), &end, 10);
-    if (value.empty() || end != value.c_str() + value.size() || errno != 0) {
-        fail("argument " + option + ": invalid int value: '" + text + "'");
-    }
-    return static_cast<std::int64_t>(parsed);
-}
-
-double parse_float(const std::string& option, const std::string& text) {
-    const std::string value = strip(text);
-    char* end = nullptr;
-    const double parsed = std::strtod(value.c_str(), &end);
-    if (value.empty() || end != value.c_str() + value.size()) {
-        fail("argument " + option + ": invalid float value: '" + text + "'");
-    }
-    return parsed;
-}
-
+// hicCompartmentalization.py parse_arguments, plus the C++-only --noPlot.
 Arguments parse_arguments(int argc, char** argv) {
-    Arguments args;
-    bool matrices_seen = false;
-    bool pca_seen = false;
-    bool output_seen = false;
-    for (int i = 1; i < argc; ++i) {
-        std::string name(argv[i]);
-        std::optional<std::string> inline_value;
-        const std::size_t equals = name.find('=');
-        if (equals != std::string::npos && name.rfind("--", 0) == 0) {
-            inline_value = name.substr(equals + 1);
-            name = name.substr(0, equals);
-        }
-        auto take_one = [&](const std::string& option) -> std::string {
-            if (inline_value.has_value()) {
-                return *inline_value;
-            }
-            if (i + 1 >= argc || is_option(argv[i + 1])) {
-                fail("argument " + option + ": expected one argument");
-            }
-            return std::string(argv[++i]);
-        };
-        auto take_many = [&](const std::string& option) -> std::vector<std::string> {
-            std::vector<std::string> values;
-            if (inline_value.has_value()) {
-                values.push_back(*inline_value);
-            }
-            while (i + 1 < argc && !is_option(argv[i + 1])) {
-                values.emplace_back(argv[++i]);
-            }
-            if (values.empty()) {
-                fail("argument " + option + ": expected at least one argument");
-            }
-            return values;
-        };
+    namespace cli = hicx::cli;
+    cli::Parser parser("hicCompartmentalization",
+                       "Rearrange the average interaction frequencies using the first PC values to "
+                       "represent the global compartmentalization signal.");
+    parser.set_usage(kUsage).set_help(kHelp).set_version_string(hicx::kVersion);
+    cli::ArgumentGroup& required = parser.group("Required arguments");
+    required.add({"--obsexp_matrices", "-m"})
+        .nargs("+")
+        .required()
+        .input({"h5", "cool", "mcool"})
+        .help("HiCExplorer matrices in h5/cool format.");
+    required.add({"--pca"})
+        .required()
+        .input({"bedgraph"})
+        .help("a PCA vector as a bedgraph file with no header.");
+    required.add({"--outputFileName", "-o"})
+        .required()
+        .output({"png", "pdf", "svg"})
+        .help("Plot to represent the polarization of A/B compartments.");
+    cli::ArgumentGroup& optional = parser.group("Optional arguments");
+    optional.add({"--quantile", "-q"}).type("int").default_value(30).help("number of quantiles.");
+    optional.add({"--outliers"})
+        .type("float")
+        .default_value(0)
+        .help("precentage of outlier to remove.");
+    optional.add({"--outputMatrix"})
+        .output({"npz"})
+        .help("output .npz file includes all the generated matrices");
+    optional.add({"--offset"})
+        .nargs("+")
+        .type("int")
+        .help("set nan for the distances mentioned as offset from main diagonal.");
+    optional.add({"--noPlot"})
+        .action(cli::Action::StoreTrue)
+        .cpp_only("Plotting is not yet available in the C++ port; the flag writes the numeric "
+                  "outputs without the required figure.")
+        .help("write the numeric outputs without the plot.");
+    optional.add({"-h"}).action(cli::Action::Help).help("show the help message and exit.");
+    optional.add({"--version"}).version(std::string("%(prog)s ") + hicx::kVersion);
 
-        if (name == "-h") {
-            std::fputs(kUsage, stdout);
-            std::fputs(kHelp, stdout);
-            std::exit(0);
-        }
-        if (name == "--version") {
-            std::printf("hicCompartmentalization %s\n", hicx::kVersion);
-            std::exit(0);
-        }
-        if (name == "-m" || name == "--obsexp_matrices") {
-            args.matrices = take_many("--obsexp_matrices/-m");
-            matrices_seen = true;
-        } else if (name == "--pca") {
-            args.pca = take_one("--pca");
-            pca_seen = true;
-        } else if (name == "-o" || name == "--outputFileName") {
-            args.output_file_name = take_one("--outputFileName/-o");
-            output_seen = true;
-        } else if (name == "-q" || name == "--quantile") {
-            args.quantile = parse_int("--quantile/-q", take_one("--quantile/-q"));
-        } else if (name == "--outliers") {
-            args.outliers = parse_float(name, take_one(name));
-        } else if (name == "--outputMatrix") {
-            args.output_matrix = take_one(name);
-        } else if (name == "--offset") {
-            args.offset.clear();
-            for (const auto& value : take_many(name)) {
-                args.offset.push_back(parse_int(name, value));
-            }
-        } else if (name == "--noPlot") {
-            args.no_plot = true;
-        } else {
-            fail("unrecognized arguments: " + name);
-        }
-    }
-    std::string missing;
-    auto require = [&missing](bool seen, const char* text) {
-        if (!seen) {
-            missing += missing.empty() ? text : (std::string(", ") + text);
-        }
-    };
-    require(matrices_seen, "--obsexp_matrices/-m");
-    require(pca_seen, "--pca");
-    require(output_seen, "--outputFileName/-o");
-    if (!missing.empty()) {
-        fail("the following arguments are required: " + missing);
-    }
+    const cli::Namespace ns = parser.parse(argc, argv);
+    Arguments args;
+    args.matrices = ns.strs("obsexp_matrices");
+    args.pca = ns.str("pca");
+    args.output_file_name = ns.str("outputFileName");
+    args.quantile = ns.integer("quantile");
+    args.outliers = ns.real("outliers");
+    args.output_matrix = ns.opt_str("outputMatrix");
+    args.offset = ns.integers("offset");
+    args.no_plot = ns.flag("noPlot");
     return args;
 }
 
