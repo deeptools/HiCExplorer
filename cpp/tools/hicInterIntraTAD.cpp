@@ -205,6 +205,9 @@ bool write_file(const std::string& path, const std::string& content) {
 
 int main(int argc, char** argv) {
     const Arguments args = parse_arguments(argc, argv);
+    if (const int refused = hicx::plot::preflight("hicInterIntraTAD", !args.plot_data.has_value()); refused != 0) {
+        return refused;
+    }
     namespace tads = hicx::tads;
 
     std::string plot_json;

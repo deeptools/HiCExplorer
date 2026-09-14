@@ -925,6 +925,9 @@ void write_obs_exp(const std::string& path, const hicx::MatrixData& data) {
 
 int main(int argc, char** argv) {
     const Arguments args = parse_arguments(argc, argv);
+    if (const int refused = hicx::plot::preflight("hicAggregateContacts", !args.no_plot && !args.plot_data.has_value()); refused != 0) {
+        return refused;
+    }
 
     namespace plot = hicx::plot;
     std::string plot_json;

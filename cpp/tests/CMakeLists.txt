@@ -79,6 +79,19 @@ add_test(NAME hicMergeDomains_cli
          COMMAND ${HICX_BASH} "${CMAKE_CURRENT_SOURCE_DIR}/cli/hicMergeDomains_cli.sh"
                  $<TARGET_FILE:hicMergeDomains> "${HICX_TEST_DATA}" "${HICX_DEPS_ROOT}")
 
+# The drawing environment check of the plotting tools: a wrong or missing
+# matplotlib or pyGenomeTracks is refused before anything is written, and the
+# pinned interpreter draws. HICX_PLOT_TEST_PYTHON names a Python with the
+# pinned versions; without it the pinned part is skipped (status 77).
+set(HICX_PLOT_TEST_PYTHON "" CACHE FILEPATH
+    "Python with matplotlib 3.8.4 and pyGenomeTracks 3.9 for plot_environment_cli")
+add_test(NAME plot_environment_cli
+         COMMAND ${HICX_BASH} "${CMAKE_CURRENT_SOURCE_DIR}/cli/plot_environment_cli.sh"
+                 "$<TARGET_FILE_DIR:hicInterIntraTAD>" "${HICX_TEST_DATA}"
+                 "${HICX_PLOT_TEST_PYTHON}"
+                 "${CMAKE_CURRENT_SOURCE_DIR}/../../plot/pyproject.toml")
+set_tests_properties(plot_environment_cli PROPERTIES SKIP_RETURN_CODE 77)
+
 # hicAggregateContacts' C++-only --noPlot writes the numeric outputs without
 # any figure; the equivalence harness cannot compare an option the Python does
 # not have, so this is checked here.

@@ -318,6 +318,10 @@ Arguments parse_arguments(int argc, char** argv) {
 int main(int argc, char** argv) {
     g_tool = "hicBuildMatrix";
     const Arguments args = parse_arguments(argc, argv);
+    // The QC report is drawn after every successful run.
+    if (const int refused = hicx::plot::preflight("hicPrepareQCreport", true); refused != 0) {
+        return refused;
+    }
     const int status = run_build_matrix(args);
     return status != 0 ? status : draw_qc_report(args.qc_folder);
 }

@@ -617,6 +617,9 @@ int main(int argc, char** argv) {
               "them.");
 
     const cli::Namespace ns = parser.parse(argc, argv);
+    if (const int refused = hicx::plot::preflight("hicCorrelate", !ns.given("plotData")); refused != 0) {
+        return refused;
+    }
     const std::vector<std::string> matrices = ns.strs("matrices");
     std::vector<std::string> labels;
     if (ns.given("labels")) {

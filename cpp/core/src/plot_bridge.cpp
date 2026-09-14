@@ -1,6 +1,8 @@
 #include "hicx/plot_bridge.hpp"
 
 #include <sys/stat.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 #include <cerrno>
@@ -197,6 +199,74 @@ void write_npy_float64(const std::string& path, const std::vector<double>& value
     }
 }
 
+namespace {
+
+// HICX_PLOT_PYTHON or python3, with the package directory on PYTHONPATH and
+// the BLAS thread caps set in this process's environment, which the checking
+// and the drawing process inherit.
+std::string prepare_drawing_environment() {
+    const char* configured = std::getenv("HICX_PLOT_PYTHON");
+    std::string python = configured != nullptr && *configured != '\0' ? configured : "python3";
+    prepend_package_path();
+    // The drawing process does no linear algebra, but numpy's OpenBLAS starts
+    // one spinning thread per core at import. Measured on hicPlotAverageRegions
+    // (32 cores), the drawing process used 2.3 s of CPU with the default and
+    // 0.53 s with one thread, for the same bytes and the same wall clock; the
+    // check's import of matplotlib alone 1.9 s against 0.24 s. A value the
+    // user set is kept.
+    for (const char* variable : {"OPENBLAS_NUM_THREADS", "OMP_NUM_THREADS", "MKL_NUM_THREADS"}) {
+        ::setenv(variable, "1", 0);
+    }
+    return python;
+}
+
+}  // namespace
+
+int preflight(const std::string& tool, bool draws) {
+    if (!draws) {
+        return 0;
+    }
+    const std::string python = prepare_drawing_environment();
+    std::fflush(nullptr);
+    const pid_t child = ::fork();
+    if (child < 0) {
+        std::fprintf(stderr, "%s: cannot start the drawing environment check: %s\n",
+                     tool.c_str(), std::strerror(errno));
+        return 1;
+    }
+    if (child == 0) {
+        std::vector<std::string> args = {python, "-m", "hicexplorer_plot", "--check", tool};
+        std::vector<char*> argv;
+        for (std::string& arg : args) {
+            argv.push_back(arg.data());
+        }
+        argv.push_back(nullptr);
+        ::execvp(python.c_str(), argv.data());
+        std::fprintf(stderr,
+                     "%s: cannot start the drawing interpreter '%s': %s. Set HICX_PLOT_PYTHON to "
+                     "a Python with matplotlib 3.8.4 and the hicexplorer_plot package (plot/ in "
+                     "the repository).\n",
+                     tool.c_str(), python.c_str(), std::strerror(errno));
+        ::_exit(127);
+    }
+    int status = 0;
+    while (::waitpid(child, &status, 0) < 0) {
+        if (errno != EINTR) {
+            std::fprintf(stderr, "%s: the drawing environment check was lost: %s\n",
+                         tool.c_str(), std::strerror(errno));
+            return 1;
+        }
+    }
+    if (WIFEXITED(status) && WEXITSTATUS(status) == 0) {
+        ::setenv("HICX_PLOT_CHECKED", "1", 1);
+        return 0;
+    }
+    std::fprintf(stderr,
+                 "%s: nothing was read or written, because the drawing environment was refused.\n",
+                 tool.c_str());
+    return WIFEXITED(status) && WEXITSTATUS(status) != 127 ? WEXITSTATUS(status) : 1;
+}
+
 int draw(const std::string& tool, const std::string& data_json,
          const std::optional<std::string>& data_file) {
     // The peak of the C++ step alone, for the harness's memory gate: VmHWM
@@ -239,18 +309,7 @@ int draw(const std::string& tool, const std::string& data_json,
         return 1;
     }
 
-    const char* configured = std::getenv("HICX_PLOT_PYTHON");
-    const std::string python =
-        configured != nullptr && *configured != '\0' ? configured : "python3";
-    prepend_package_path();
-    // The drawing process does no linear algebra, but numpy's OpenBLAS starts
-    // one spinning thread per core at import. Measured on hicPlotAverageRegions
-    // (32 cores), the drawing process used 2.3 s of CPU with the default and
-    // 0.53 s with one thread, for the same bytes and the same wall clock. A
-    // value the user set is kept.
-    for (const char* variable : {"OPENBLAS_NUM_THREADS", "OMP_NUM_THREADS", "MKL_NUM_THREADS"}) {
-        ::setenv(variable, "1", 0);
-    }
+    const std::string python = prepare_drawing_environment();
 
     std::vector<std::string> args = {python, "-m", "hicexplorer_plot", tool, path, "--remove-data"};
     std::vector<char*> argv;
@@ -259,10 +318,11 @@ int draw(const std::string& tool, const std::string& data_json,
         argv.push_back(arg.data());
     }
     argv.push_back(nullptr);
-    // exec skips the atexit handlers, among them the HDF5 library's, which
-    // flushes and closes every file an identifier still holds open. A tool
-    // that wrote an h5 or cool output before drawing would leave it
-    // unreadable, so the library is shut down here, as at a normal exit.
+    // A safety net only: exec skips the atexit handlers, among them the HDF5
+    // library's, which flushes and closes every file an identifier still holds
+    // open. The writers close all their identifiers (test_writers.cpp checks
+    // it with H5Fget_obj_count); should one ever be left open, the output it
+    // belongs to is still flushed here, as at a normal exit.
     H5close();
     std::fflush(nullptr);
     ::execvp(python.c_str(), argv.data());

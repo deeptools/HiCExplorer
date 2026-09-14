@@ -521,6 +521,9 @@ void materialise_kr_matrix(hicx::CsrMatrix& matrix, double addend, bool round_fl
 
 int main(int argc, char** argv) {
     const Arguments args = parse_arguments(argc, argv);
+    if (const int refused = hicx::plot::preflight("hicCorrectMatrix", args.command == "diagnostic_plot" && !args.plot_data.has_value()); refused != 0) {
+        return refused;
+    }
     try {
         const bool diagnostic = args.command == "diagnostic_plot";
         if (args.method == Method::Kr && args.compat_v3 && args.perchr) {

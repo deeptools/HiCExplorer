@@ -739,6 +739,9 @@ int main(int argc, char** argv) {
               "them.");
 
     const cli::Namespace ns = parser.parse(argc, argv);
+    if (const int refused = hicx::plot::preflight("chicPlotViewpoint", !ns.given("plotData")); refused != 0) {
+        return refused;
+    }
     const std::string interaction_path = ns.str("interactionFile");
     const std::vector<std::int64_t> range = ns.integers("range");
     const std::int64_t upstream = range[0];

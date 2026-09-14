@@ -164,6 +164,10 @@ Arguments parse_arguments(int argc, char** argv) {
 int main(int argc, char** argv) {
     g_tool = "hicQuickQC";
     Arguments args = parse_arguments(argc, argv);
+    // The QC report is drawn after every successful run.
+    if (const int refused = hicx::plot::preflight("hicPrepareQCreport", true); refused != 0) {
+        return refused;
+    }
 
     // hicQuickQC.py:94-99 creates the QC folder before anything else.
     std::error_code ec;

@@ -657,6 +657,9 @@ int main(int argc, char** argv) {
         .help("Write the data the figure is drawn from as JSON to this file and do not draw it.");
 
     const cli::Namespace ns = parser.parse(argc, argv);
+    if (const int refused = hicx::plot::preflight("hicPlotMatrix", !ns.given("plotData")); refused != 0) {
+        return refused;
+    }
     const std::string matrix_path = ns.str("matrix");
     std::optional<std::string> region = ns.opt_str("region");
     std::optional<std::string> region2 = ns.opt_str("region2");

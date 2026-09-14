@@ -187,6 +187,9 @@ int main(int argc, char** argv) {
         .help("Write the data the two figures are drawn from as JSON to this file and do not "
               "draw them.");
     const cli::Namespace args = parser.parse(argc, argv);
+    if (const int refused = hicx::plot::preflight("chicQualityControl", !args.given("plotData")); refused != 0) {
+        return refused;
+    }
     std::string plot_json;
 
     const std::vector<std::string>& matrices = args.strs("matrices");

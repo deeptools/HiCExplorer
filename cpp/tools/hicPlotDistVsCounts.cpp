@@ -764,6 +764,9 @@ std::string csv_field(const std::string& text) {
 
 int main(int argc, char** argv) {
     const Arguments args = parse_arguments(argc, argv);
+    if (const int refused = hicx::plot::preflight("hicPlotDistVsCounts", !args.plot_data.has_value()); refused != 0) {
+        return refused;
+    }
 
     // labels = OrderedDict(...) keyed by matrix path.
     std::map<std::string, std::string> labels;

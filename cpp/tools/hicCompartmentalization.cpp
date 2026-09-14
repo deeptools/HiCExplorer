@@ -235,6 +235,9 @@ void write_text_file(const std::string& path, const std::string& content) {
 
 int main(int argc, char** argv) {
     const Arguments args = parse_arguments(argc, argv);
+    if (const int refused = hicx::plot::preflight("hicCompartmentalization", !args.no_plot && !args.plot_data.has_value()); refused != 0) {
+        return refused;
+    }
 
     std::string plot_json;
     try {

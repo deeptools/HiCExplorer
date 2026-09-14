@@ -70,6 +70,15 @@ void write_npy_float64(const std::string& path, const std::vector<double>& value
 [[nodiscard]] int draw(const std::string& tool, const std::string& data_json,
                        const std::optional<std::string>& data_file);
 
+// The drawing environment check, `python -m hicexplorer_plot --check TOOL`
+// with the interpreter and environment draw() uses, when `draws` is true (not
+// for --plotData, --noPlot or a run without a figure). The tools call it
+// right after parsing, before any input is read or any output written, so a
+// refused matplotlib or pyGenomeTracks version leaves nothing behind.
+// Returns 0 to go on, otherwise the status to exit with (3 for a refusal, 1
+// when the interpreter cannot be started).
+[[nodiscard]] int preflight(const std::string& tool, bool draws);
+
 }  // namespace hicx::plot
 
 #endif  // HICX_PLOT_BRIDGE_HPP

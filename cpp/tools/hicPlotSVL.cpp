@@ -449,6 +449,9 @@ void write_or_throw(const std::string& path, const std::string& content) {
 
 int main(int argc, char** argv) {
     const Arguments args = parse_arguments(argc, argv);
+    if (const int refused = hicx::plot::preflight("hicPlotSVL", !args.plot_data.has_value()); refused != 0) {
+        return refused;
+    }
 
     std::vector<std::vector<ChromosomeSvl>> per_matrix;
     std::vector<std::string> chromosomes_list;

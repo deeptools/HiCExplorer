@@ -356,6 +356,9 @@ std::string basename_of(const std::string& path) {
 
 int main(int argc, char** argv) {
     const Arguments args = parse_arguments(argc, argv);
+    if (const int refused = hicx::plot::preflight("hicPlotViewpoint", !args.plot_data.has_value()); refused != 0) {
+        return refused;
+    }
     std::fputs("This tool is deprecated. Please use chicViewpoint, chicViewpointBackgroundModel and "
                "chicPlotViewpoint.\n",
                stderr);

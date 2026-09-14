@@ -159,6 +159,9 @@ int main(int argc, char** argv) {
         .help("Write the checked command line as JSON to this file and do not plot.");
 
     const cli::Namespace ns = parser.parse(argc, argv);
+    if (const int refused = hicx::plot::preflight("hicPlotTADs", !ns.given("plotData")); refused != 0) {
+        return refused;
+    }
 
     // The tokens for plotTracks.main, without the C++-only option.
     std::vector<std::string> tokens;
