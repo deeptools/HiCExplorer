@@ -53,6 +53,16 @@ class JsonObject {
     std::vector<std::pair<std::string, std::string>> fields_;
 };
 
+// A new, empty file for data that is too large for the JSON document, in
+// $TMPDIR (else /tmp). The document lists it under "temporary_files" so the
+// drawing process removes it.
+[[nodiscard]] std::string temporary_file();
+
+// A float64, C order .npy file of rows by cols values, which numpy.load
+// reads as a two dimensional array.
+void write_npy_float64(const std::string& path, const std::vector<double>& values,
+                       std::int64_t rows, std::int64_t cols);
+
 // Hands the figure to the drawing layer, see the file comment. Returns the
 // exit status the tool should return: 0 after writing the --plotData file, 1
 // when the data could not be written or the interpreter could not be started.

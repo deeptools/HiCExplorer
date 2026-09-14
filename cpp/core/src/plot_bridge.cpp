@@ -11,8 +11,11 @@
 #include <cstring>
 #include <fstream>
 
+#include "hicx/npz_file.hpp"
 #include "hicx/numpy_compat.hpp"
 #include "hicx/resource_usage.hpp"
+
+#include <stdexcept>
 
 namespace hicx::plot {
 
@@ -161,6 +164,36 @@ void prepend_package_path() {
 }
 
 }  // namespace
+
+std::string temporary_file() {
+    const char* tmpdir = std::getenv("TMPDIR");
+    std::string pattern = std::string(tmpdir != nullptr && *tmpdir != '\0' ? tmpdir : "/tmp") +
+                          "/hicx-plot-XXXXXX";
+    std::vector<char> name(pattern.begin(), pattern.end());
+    name.push_back('\0');
+    const int fd = ::mkstemp(name.data());
+    if (fd < 0) {
+        throw std::runtime_error("cannot create a temporary file in " + pattern + ": " +
+                                 std::strerror(errno));
+    }
+    ::close(fd);
+    return name.data();
+}
+
+void write_npy_float64(const std::string& path, const std::vector<double>& values,
+                       std::int64_t rows, std::int64_t cols) {
+    const std::string header = npz::npy_header("<f8", {rows, cols});
+    std::FILE* file = std::fopen(path.c_str(), "wb");
+    if (file == nullptr) {
+        throw std::runtime_error("cannot write " + path);
+    }
+    bool ok = std::fwrite(header.data(), 1, header.size(), file) == header.size();
+    ok = ok && std::fwrite(values.data(), sizeof(double), values.size(), file) == values.size();
+    ok = (std::fclose(file) == 0) && ok;
+    if (!ok) {
+        throw std::runtime_error("cannot write " + path);
+    }
+}
 
 int draw(const std::string& tool, const std::string& data_json,
          const std::optional<std::string>& data_file) {

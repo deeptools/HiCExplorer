@@ -56,3 +56,7 @@ def hicQC():
 
 def hicPlotTADs():
     return _run("hicPlotTADs")
+
+
+def hicPlotMatrix():
+    return _run("hicPlotMatrix")

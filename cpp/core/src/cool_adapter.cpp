@@ -181,6 +181,10 @@ std::int64_t CoolFile::nnz() const {
         [&] { return static_cast<std::int64_t>(cooler_->pixels()["bin1_id"].all().num_rows()); });
 }
 
+std::pair<std::int64_t, std::int64_t> CoolFile::extent(const std::string& region) const {
+    return guarded([&] { return cooler_->extent(coolercpp::Region(region)); });
+}
+
 std::vector<CutInterval> CoolFile::read_bins() const {
     return guarded([&] {
         const coolercpp::Table table =
@@ -405,20 +409,27 @@ CoolLoadResult read_cool(const std::string& uri, const CoolLoadOptions& options)
     std::int64_t first = 0;
     std::int64_t last = static_cast<std::int64_t>(result.data.cut_intervals.size());
     if (options.chrom_name.has_value()) {
-        first = -1;
-        last = -1;
-        for (std::size_t bin = 0; bin < result.data.cut_intervals.size(); ++bin) {
-            if (result.data.cut_intervals[bin].chrom != *options.chrom_name) {
-                continue;
+        if (options.chrom_name->find(':') != std::string::npos) {
+            // hicmatrix hands the name to cooler's fetch, which also takes a
+            // region string (hicPlotMatrix --region on a cool): the bins that
+            // overlap the region, by cooler's region_to_extent.
+            std::tie(first, last) = cool.extent(*options.chrom_name);
+        } else {
+            first = -1;
+            last = -1;
+            for (std::size_t bin = 0; bin < result.data.cut_intervals.size(); ++bin) {
+                if (result.data.cut_intervals[bin].chrom != *options.chrom_name) {
+                    continue;
+                }
+                if (first < 0) {
+                    first = static_cast<std::int64_t>(bin);
+                }
+                last = static_cast<std::int64_t>(bin) + 1;
             }
             if (first < 0) {
-                first = static_cast<std::int64_t>(bin);
+                first = 0;
+                last = 0;
             }
-            last = static_cast<std::int64_t>(bin) + 1;
-        }
-        if (first < 0) {
-            first = 0;
-            last = 0;
         }
         result.data.matrix = cool.read_block(first, last);
     } else {

@@ -1,0 +1,562 @@
+[
+  {
+    "id": "hicPlotMatrix.h5_region_region2_log1p_clear_bigwig",
+    "tool": "hicPlotMatrix",
+    "tier": 7,
+    "args": [
+      "--matrix",
+      "{data}/Li_et_al_2015.h5",
+      "--region",
+      "chrX:3000000-3500000",
+      "--region2",
+      "chrX:3100000-3600000",
+      "--outFileName",
+      "{out}/matrix.png",
+      "--log1p",
+      "--clearMaskedBins",
+      "--bigwig",
+      "{data}/bigwig_chrx_2e6_5e6.bw"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/matrix.png",
+        "format": "png",
+        "class": "E6"
+      }
+    ],
+    "notes": "test_hicPlotMatrix_region_region2_log1p_clearMaskedBins_and_bigwig. The dense matrices, positions and extents are computed in C++; the masters in test_data/hicPlotMatrix are xfail in the Python suite and the figure is compared with the one the Python tool draws in the same environment."
+  },
+  {
+    "id": "hicPlotMatrix.li_cut_full_log1p_bigwig",
+    "tool": "hicPlotMatrix",
+    "tier": 7,
+    "args": [
+      "--matrix",
+      "{data}/Li_cut.h5",
+      "--dpi",
+      "100",
+      "--outFileName",
+      "{out}/matrix.png",
+      "--log1p",
+      "--bigwig",
+      "{data}/bigwig_chrx_2e6_5e6.bw"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/matrix.png",
+        "format": "png",
+        "class": "E6"
+      }
+    ],
+    "notes": "test_hicPlotMatrix_region_region2_log1p_and_bigwig: the whole matrix through getMatrix, whose NaN bins become NaN rows and columns and then take the smallest value for --log1p."
+  },
+  {
+    "id": "hicPlotMatrix.li_cut_region_log1p_bigwig",
+    "tool": "hicPlotMatrix",
+    "tier": 7,
+    "args": [
+      "--matrix",
+      "{data}/Li_cut.h5",
+      "--dpi",
+      "100",
+      "--region",
+      "chrX:3000000-3500000",
+      "--outFileName",
+      "{out}/matrix.png",
+      "--log1p",
+      "--bigwig",
+      "{data}/bigwig_chrx_2e6_5e6.bw"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/matrix.png",
+        "format": "png",
+        "class": "E6"
+      }
+    ],
+    "notes": "test_hicPlotMatrix_region_region2_log1p_and_bigwig2."
+  },
+  {
+    "id": "hicPlotMatrix.h5_region_region2_clear_bigwig_vmin_vmax_vertical",
+    "tool": "hicPlotMatrix",
+    "tier": 7,
+    "args": [
+      "--matrix",
+      "{data}/Li_et_al_2015.h5",
+      "--region",
+      "chrX:3000000-3500000",
+      "--region2",
+      "chrX:3100000-3600000",
+      "--outFileName",
+      "{out}/matrix.png",
+      "--log1p",
+      "--clearMaskedBins",
+      "--bigwig",
+      "{data}/bigwig_chrx_2e6_5e6.bw",
+      "--vMinBigwig",
+      "0",
+      "--vMaxBigwig",
+      "1",
+      "--bigwigAdditionalVerticalAxis"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/matrix.png",
+        "format": "png",
+        "class": "E6"
+      }
+    ],
+    "notes": "test_hicPlotMatrix_region_region2_log1p_clearMaskedBins_and_bigwig_vmin_vmax_vertical."
+  },
+  {
+    "id": "hicPlotMatrix.h5_region_region2_log_bigwig",
+    "tool": "hicPlotMatrix",
+    "tier": 7,
+    "args": [
+      "--matrix",
+      "{data}/Li_et_al_2015.h5",
+      "--region",
+      "chrX:3000000-3500000",
+      "--region2",
+      "chrX:3100000-3600000",
+      "--outFileName",
+      "{out}/matrix.png",
+      "--log",
+      "--bigwig",
+      "{data}/bigwig_chrx_2e6_5e6.bw"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/matrix.png",
+        "format": "png",
+        "class": "E6"
+      }
+    ],
+    "notes": "test_hicPlotMatrix_region_region2_log_no_clearMaskedBins_and_bigwig."
+  },
+  {
+    "id": "hicPlotMatrix.h5_region_region2_clear_title",
+    "tool": "hicPlotMatrix",
+    "tier": 7,
+    "args": [
+      "--matrix",
+      "{data}/Li_et_al_2015.h5",
+      "--region",
+      "chrX:3000000-3500000",
+      "--region2",
+      "chrX:3100000-3600000",
+      "--outFileName",
+      "{out}/matrix.png",
+      "--clearMaskedBins",
+      "--title",
+      "Li_chrX:3000000-3500000_chrX:3100000-3600000"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/matrix.png",
+        "format": "png",
+        "class": "E6"
+      }
+    ],
+    "notes": "test_hicPlotMatrix_region_region2_no_clearMaskedBins_title."
+  },
+  {
+    "id": "hicPlotMatrix.cool_region_region2",
+    "tool": "hicPlotMatrix",
+    "tier": 7,
+    "args": [
+      "--matrix",
+      "{data}/Li_et_al_2015.cool",
+      "--region",
+      "chrX:3000000-3500000",
+      "--region2",
+      "chrX:3100000-3600000",
+      "--outFileName",
+      "{out}/matrix.png"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/matrix.png",
+        "format": "png",
+        "class": "E6"
+      }
+    ],
+    "notes": "test_hicPlotMatrix_cool_region1_region2: a cool with --region2 takes the whole-matrix path, and getRegion's cool bin conditions."
+  },
+  {
+    "id": "hicPlotMatrix.cool_region_fetch",
+    "tool": "hicPlotMatrix",
+    "tier": 7,
+    "args": [
+      "--matrix",
+      "{data}/Li_et_al_2015.cool",
+      "--region",
+      "X:3000000-3500000",
+      "--outFileName",
+      "{out}/matrix.png"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/matrix.png",
+        "format": "png",
+        "class": "E6"
+      }
+    ],
+    "notes": "test_hicPlotMatrix_cool_region1: a cool without --region2 loads only the bins cooler's fetch returns for the region."
+  },
+  {
+    "id": "hicPlotMatrix.h5_region",
+    "tool": "hicPlotMatrix",
+    "tier": 7,
+    "args": [
+      "--matrix",
+      "{data}/Li_et_al_2015.h5",
+      "--region",
+      "X:3000000-3500000",
+      "--outFileName",
+      "{out}/matrix.png"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/matrix.png",
+        "format": "png",
+        "class": "E6"
+      }
+    ],
+    "notes": "test_hicPlotMatrix_h5_region1."
+  },
+  {
+    "id": "hicPlotMatrix.cool_log_region_region2_without_suffix",
+    "tool": "hicPlotMatrix",
+    "tier": 7,
+    "args": [
+      "--matrix",
+      "{data}/Li_et_al_2015",
+      "--region",
+      "chrX:3000000-3500000",
+      "--region2",
+      "chrX:3100000-3600000",
+      "--outFileName",
+      "{out}/matrix.png",
+      "--log"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/matrix.png",
+        "format": "png",
+        "class": "E6"
+      }
+    ],
+    "notes": "test_hicPlotMatrix_cool_log_region1_region2_without_cool_suffix: cooler.fileops.is_cooler recognises the file without the suffix. Budget: the harness recognises matrices by their suffix, so this input is not measured; the declared 90 MB is the budget the same file receives as Li_et_al_2015.cool in hicPlotMatrix.cool_region_region2.",
+    "memory": {
+      "budget_mb": 90
+    }
+  },
+  {
+    "id": "hicPlotMatrix.cool_log1p_region_region2",
+    "tool": "hicPlotMatrix",
+    "tier": 7,
+    "args": [
+      "--matrix",
+      "{data}/Li_et_al_2015.cool",
+      "--region",
+      "chrX:3000000-3500000",
+      "--region2",
+      "chrX:3100000-3600000",
+      "--outFileName",
+      "{out}/matrix.png",
+      "--log1p"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/matrix.png",
+        "format": "png",
+        "class": "E6"
+      }
+    ],
+    "notes": "test_hicPlotMatrix_cool_log1p_region1_region2."
+  },
+  {
+    "id": "hicPlotMatrix.h5_per_chromosome",
+    "tool": "hicPlotMatrix",
+    "tier": 7,
+    "args": [
+      "--matrix",
+      "{data}/small_test_matrix_50kb_res.h5",
+      "--perChr",
+      "--disable_tight_layout",
+      "--outFileName",
+      "{out}/matrix.png"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/matrix.png",
+        "format": "png",
+        "class": "E6"
+      }
+    ],
+    "notes": "test_hicPlotMatrix_perChr (--perChr abbreviates --perChromosome)."
+  },
+  {
+    "id": "hicPlotMatrix.cool_per_chromosome_log_vmax",
+    "tool": "hicPlotMatrix",
+    "tier": 7,
+    "args": [
+      "--matrix",
+      "{data}/small_test_matrix_50kb_res.cool",
+      "--perChr",
+      "--disable_tight_layout",
+      "--outFileName",
+      "{out}/matrix.png",
+      "--log1",
+      "--vMax",
+      "10"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/matrix.png",
+        "format": "png",
+        "class": "E6"
+      }
+    ],
+    "notes": "test_hicPlotMatrix_cool_perChr_log1p (--log1 abbreviates --log1p)."
+  },
+  {
+    "id": "hicPlotMatrix.h5_per_chromosome_log_order",
+    "tool": "hicPlotMatrix",
+    "tier": 7,
+    "args": [
+      "--matrix",
+      "{data}/small_test_matrix_50kb_res.h5",
+      "--perChr",
+      "--disable_tight_layout",
+      "--outFileName",
+      "{out}/matrix.png",
+      "--log",
+      "--chromosomeOrder",
+      "chr2L",
+      "chr3L",
+      "chr3R",
+      "chr2R"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/matrix.png",
+        "format": "png",
+        "class": "E6"
+      }
+    ],
+    "notes": "test_hicPlotMatrix_h5_perChr_log1p_chromosomeOrder: reorderChromosomes on the whole-matrix path."
+  },
+  {
+    "id": "hicPlotMatrix.cool_per_chromosome_log1p_order",
+    "tool": "hicPlotMatrix",
+    "tier": 7,
+    "args": [
+      "--matrix",
+      "{data}/small_test_matrix_50kb_res.cool",
+      "--perChr",
+      "--outFileName",
+      "{out}/matrix.png",
+      "--log1p",
+      "--chromosomeOrder",
+      "chr2L",
+      "chr3L",
+      "chr3R",
+      "chr2R"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/matrix.png",
+        "format": "png",
+        "class": "E6"
+      }
+    ],
+    "notes": "test_hicPlotMatrix_cool_perChr_log1p_chromosomeOrder, with tight_layout."
+  },
+  {
+    "id": "hicPlotMatrix.per_chromosome_pca_bigwig",
+    "tool": "hicPlotMatrix",
+    "tier": 7,
+    "args": [
+      "--matrix",
+      "{data}/hicTransform/pearson_perChromosome.h5",
+      "--perChr",
+      "--disable_tight_layout",
+      "--outFileName",
+      "{out}/matrix.png",
+      "--bigwig",
+      "{data}/hicPCA/pca1.bw"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/matrix.png",
+        "format": "png",
+        "class": "E6"
+      }
+    ],
+    "notes": "test_hicPlotMatrix_perChr_pca1_bigwig."
+  },
+  {
+    "id": "hicPlotMatrix.per_chromosome_two_bigwig_vertical",
+    "tool": "hicPlotMatrix",
+    "tier": 7,
+    "args": [
+      "--matrix",
+      "{data}/hicTransform/pearson_perChromosome.h5",
+      "--perChr",
+      "--disable_tight_layout",
+      "--bigwigAdditionalVerticalAxis",
+      "--outFileName",
+      "{out}/matrix.png",
+      "--bigwig",
+      "{data}/hicPCA/pca1.bw",
+      "{data}/hicPCA/pca1.bw"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/matrix.png",
+        "format": "png",
+        "class": "E6"
+      }
+    ],
+    "notes": "test_hicPlotMatrix_perChr_pca1_bigwig_vertical."
+  },
+  {
+    "id": "hicPlotMatrix.region_chromosome_colormap_bigwig",
+    "tool": "hicPlotMatrix",
+    "tier": 7,
+    "args": [
+      "--matrix",
+      "{data}/hicTransform/pearson_perChromosome.h5",
+      "--region",
+      "chr2L",
+      "--outFileName",
+      "{out}/matrix.png",
+      "--bigwig",
+      "{data}/hicPCA/pca1.bw",
+      "--colorMap",
+      "hot"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/matrix.png",
+        "format": "png",
+        "class": "E6"
+      }
+    ],
+    "notes": "test_hicPlotMatrix_region_pca1_colormap_bigwig: a region of a whole chromosome."
+  },
+  {
+    "id": "hicPlotMatrix.bigwig_chromosome_order",
+    "tool": "hicPlotMatrix",
+    "tier": 7,
+    "args": [
+      "--matrix",
+      "{data}/hicTransform/pearson_perChromosome.h5",
+      "--disable_tight_layout",
+      "--outFileName",
+      "{out}/matrix.png",
+      "--bigwig",
+      "{data}/hicPCA/pca1.bw",
+      "--chromosomeOrder",
+      "chr2L",
+      "chr3L",
+      "chr3R",
+      "chr2R"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/matrix.png",
+        "format": "png",
+        "class": "E6"
+      }
+    ],
+    "notes": "test_hicPlotMatrix_bigwig_multiple_chr: four chromosomes reordered, getMatrix with NaN bins."
+  },
+  {
+    "id": "hicPlotMatrix.bigwig_pruned_matrix",
+    "tool": "hicPlotMatrix",
+    "tier": 7,
+    "args": [
+      "--matrix",
+      "{data}/hicPlotMatrix/start_end_cut2.h5",
+      "--disable_tight_layout",
+      "--outFileName",
+      "{out}/matrix.png",
+      "--bigwig",
+      "{data}/hicPCA/pca1.bw"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/matrix.png",
+        "format": "png",
+        "class": "E6"
+      }
+    ],
+    "notes": "test_hicPlotMatrix_bigwig_multiple_chr_matrix_pruned: chromosomes that do not start at 0, so make_start_pos_array shifts them."
+  },
+  {
+    "id": "hicPlotMatrix.plot_tads",
+    "tool": "hicPlotMatrix",
+    "tier": 7,
+    "args": [
+      "--matrix",
+      "{data}/small_test_matrix.h5",
+      "--disable_tight_layout",
+      "--outFileName",
+      "{out}/matrix.png",
+      "--tads",
+      "{data}/find_TADs/None/multiNone_domains.bed",
+      "--region",
+      "chr3L:1300000-4220000"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/matrix.png",
+        "format": "png",
+        "class": "E6"
+      }
+    ],
+    "notes": "test_hicPlotMatrix_plot_tads."
+  },
+  {
+    "id": "hicPlotMatrix.whole_h5_nan_bins",
+    "tool": "hicPlotMatrix",
+    "tier": 7,
+    "args": [
+      "--matrix",
+      "{data}/small_test_matrix_50kb_res.h5",
+      "--outFileName",
+      "{out}/matrix.png"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/matrix.png",
+        "format": "png",
+        "class": "E6"
+      }
+    ],
+    "notes": "The whole 2,794 bin matrix through getMatrix, 139 NaN bins drawn black. Budget: the figure is the whole matrix, so its dense float64 array (8 n^2 bytes, 62.4 MB for n = 2,794) is part of the working set; the formula's D term sizes the largest chromosome only. 1.3 W + 8 n^2 + C = 127 MB, declared 130 MB.",
+    "memory": {
+      "budget_mb": 130
+    }
+  },
+  {
+    "id": "hicPlotMatrix.per_chromosome_with_region_fails",
+    "tool": "hicPlotMatrix",
+    "tier": 7,
+    "args": [
+      "--matrix",
+      "{data}/small_test_matrix_50kb_res.h5",
+      "--perChromosome",
+      "--region",
+      "chr2L",
+      "--outFileName",
+      "{out}/matrix.png"
+    ],
+    "outputs": [],
+    "expect_exit": 1,
+    "notes": "--perChromosome with --region: the reference logs an error and exits 1."
+  }
+]

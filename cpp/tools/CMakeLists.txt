@@ -32,7 +32,8 @@ set(HICX_TOOLS
     chicPlotViewpoint
     hicCorrelate
     hicPrepareQCreport
-    hicPlotTADs)
+    hicPlotTADs
+    hicPlotMatrix)
 
 # hicQC is hicPrepareQCreport under the name bin/hicQC gives the same main();
 # only the program name in its usage and messages differs.
