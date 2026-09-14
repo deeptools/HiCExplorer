@@ -75,6 +75,28 @@ std::vector<double> row_sums(CsrMatrix& matrix, int threads) {
     return sums;
 }
 
+namespace {
+
+std::vector<double> block_coverage_without_diagonal(const kernels::DiagonalBlock& block,
+                                                    int threads) {
+    const std::size_t size = static_cast<std::size_t>(block.size());
+    std::vector<double> coverage(size, 0.0);
+    kernels::symmetric_marginals(block, coverage.data(), threads);
+    const std::vector<double> diagonal = block_diagonal(block);
+    for (std::size_t i = 0; i < size; ++i) {
+        coverage[i] -= diagonal[i];
+    }
+    return coverage;
+}
+
+}  // namespace
+
+std::vector<double> coverage_without_diagonal(CsrMatrix& matrix, std::int64_t first,
+                                              std::int64_t last, int threads) {
+    const kernels::DiagonalBlock block(matrix, first, last);
+    return block_coverage_without_diagonal(block, threads);
+}
+
 std::vector<std::int64_t> zero_coverage_bins(CsrMatrix& matrix, int threads) {
     const std::vector<double> sums = row_sums(matrix, threads);
     std::vector<std::int64_t> bins;
@@ -95,12 +117,7 @@ std::vector<std::int64_t> filter_by_zscore(
     const auto collect = [&](const kernels::DiagonalBlock& block, std::int64_t offset,
                              const std::string* chromosome) {
         const std::size_t size = static_cast<std::size_t>(block.size());
-        std::vector<double> coverage(size, 0.0);
-        kernels::symmetric_marginals(block, coverage.data(), threads);
-        const std::vector<double> diagonal = block_diagonal(block);
-        for (std::size_t i = 0; i < size; ++i) {
-            coverage[i] -= diagonal[i];
-        }
+        const std::vector<double> coverage = block_coverage_without_diagonal(block, threads);
         const Mad mad(coverage);
         const std::vector<double>& z = mad.modified_z_scores();
         std::size_t found = 0;

@@ -78,6 +78,12 @@ class Mad {
 // Row sums of the symmetric matrix, matrix.sum(axis=1).
 [[nodiscard]] std::vector<double> row_sums(CsrMatrix& matrix, int threads);
 
+// The coverage per bin without self contacts of rows and columns [first, last):
+// block.sum(axis=1) - block.diagonal(), the vector filter_by_zscore and
+// hicCorrectMatrix's diagnostic plot compute the MAD of.
+[[nodiscard]] std::vector<double> coverage_without_diagonal(CsrMatrix& matrix, std::int64_t first,
+                                                            std::int64_t last, int threads);
+
 // hiCMatrix.diagflat(value=0): drops every stored entry on the main diagonal.
 // The Python subtracts the diagonal and adds a zero one, and the CSR addition
 // drops the exactly zero results, so the entries disappear rather than becoming
