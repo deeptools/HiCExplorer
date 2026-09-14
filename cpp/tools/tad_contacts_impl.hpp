@@ -121,7 +121,23 @@ struct ContactMatrix {
     std::optional<std::vector<double>> weights;
     // cool only: the 'bin-size' attribute, 0 for a variable bin size.
     std::int64_t bin_size = 0;
+    // h5 only: the nan_bins hicmatrix loads with the matrix.
+    std::vector<std::int64_t> nan_bins;
 };
+
+// The bins hicmatrix reports as nan_bins after loading the whole matrix, the
+// "invalid" bins of hicDifferentialTAD --sharedMask (C++ only). h5: the
+// file's nan_bins. cool: the bins that no nonzero pixel touches, in row or
+// column, after the weights are applied the way a whole-file load applies
+// them (cool.py:236-253). Sorted, without duplicates.
+[[nodiscard]] std::vector<std::int64_t> invalid_bins(const ContactMatrix& matrix);
+
+// Whether both matrices have the same bin table (chromosome, start, end).
+[[nodiscard]] bool same_bins(const ContactMatrix& a, const ContactMatrix& b);
+
+// Removes every stored pixel in a row or column of `bins`, so that those bins
+// read as zero in every block cut from the matrix.
+void mask_bins(ContactMatrix& matrix, const std::vector<std::int64_t>& bins);
 
 // hm.hiCMatrix(path) for h5, and the state the per-region cool loads need.
 // `is_cooler` is hicexplorer.utilities.check_cooler(path).

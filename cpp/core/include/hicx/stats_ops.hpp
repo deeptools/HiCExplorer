@@ -101,6 +101,18 @@ struct RanksumsResult {
 // because `e > 1 if ~np.isnan(e) else False` selects nothing for NaN.
 void bonferroni_in_place(std::vector<double>& pvalues);
 
+// Adjusted p-values over the m values that are not NaN, for the C++ only
+// corrections (hicDifferentialTAD --correctForMultipleTesting). NaN stays NaN
+// and does not count towards m. Both are written out operation by operation so
+// that cpp/scripts/py_hicDifferentialTAD_calibrated.py computes the same bits.
+//
+// Benjamini-Hochberg step-up: the values sorted ascending (ties keep their
+// input order), p_(k) * m / k at rank k, then the running minimum from the
+// largest rank down, capped at 1.
+[[nodiscard]] std::vector<double> benjamini_hochberg_adjusted(std::span<const double> pvalues);
+// Bonferroni: min(p * m, 1).
+[[nodiscard]] std::vector<double> bonferroni_adjusted(std::span<const double> pvalues);
+
 // --------------------------------------------------------------------------
 // L-BFGS-B and the negative binomial fit
 

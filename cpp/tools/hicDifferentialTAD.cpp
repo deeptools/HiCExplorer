@@ -51,6 +51,7 @@
 #include "hicx/numpy_compat.hpp"
 #include "hicx/parallel.hpp"
 #include "hicx/resource_usage.hpp"
+#include "hicx/stats_ops.hpp"
 #include "hicx/version.hpp"
 #include "tad_contacts_impl.hpp"
 
@@ -63,8 +64,10 @@ const char* const kUsage =
     "                          [--outFileNamePrefix OUTFILENAMEPREFIX]\n"
     "                          [--pValue PVALUE]\n"
     "                          [--mode {intra-TAD,left-inter-TAD,right-inter-TAD,all}]\n"
-    "                          [--modeReject {all,one}] [--threads THREADS] [--help]\n"
-    "                          [--version]\n";
+    "                          [--modeReject {all,one}] [--threads THREADS]\n"
+    "                          [--sharedMask]\n"
+    "                          [--correctForMultipleTesting {none,fdr,bonferroni}]\n"
+    "                          [--help] [--version]\n";
 
 const char* const kHelp =
     "\n"
@@ -105,6 +108,17 @@ const char* const kHelp =
     "  --threads THREADS, -t THREADS\n"
     "                        Number of threads to use, the parallelization is\n"
     "                        implemented per chromosome (Default: 4).\n"
+    "  --sharedMask          Before any test, mask in both matrices every bin that\n"
+    "                        is invalid in either of them: the NaN bins after\n"
+    "                        loading, for a cool file the bins whose row is all\n"
+    "                        zero. Not in the Python HiCExplorer; without it the\n"
+    "                        output is the Python output.\n"
+    "  --correctForMultipleTesting {none,fdr,bonferroni}\n"
+    "                        Adjust the p-values of each test across all TADs,\n"
+    "                        Benjamini-Hochberg (fdr) or Bonferroni, and apply\n"
+    "                        --pValue to the adjusted values; the output files\n"
+    "                        gain the adjusted p-values. Not in the Python\n"
+    "                        HiCExplorer (Default: none).\n"
     "  --help, -h            show this help message and exit\n"
     "  --version             show program's version number and exit\n";
 
@@ -117,6 +131,10 @@ struct Arguments {
     std::string mode = "all";
     std::string mode_reject = "one";
     long long threads = 4;
+    // C++ only (PLAN.md 9.7 step 1, dual mode as in 5.8). Neither given: the
+    // output is the Python output.
+    bool shared_mask = false;
+    std::string correction = "none";
 };
 
 [[noreturn]] void fail(const std::string& message) {
@@ -227,6 +245,18 @@ Arguments parse_arguments(int argc, char** argv) {
             if (!python_int(text, &args.threads)) {
                 fail("argument --threads/-t: invalid int value: '" + text + "'");
             }
+        } else if (name == "--sharedMask") {
+            if (inline_value.has_value()) {
+                fail("argument --sharedMask: ignored explicit argument '" + *inline_value + "'");
+            }
+            args.shared_mask = true;
+        } else if (name == "--correctForMultipleTesting") {
+            args.correction = value("--correctForMultipleTesting");
+            if (args.correction != "none" && args.correction != "fdr" &&
+                args.correction != "bonferroni") {
+                fail("argument --correctForMultipleTesting: invalid choice: '" + args.correction +
+                     "' (choose from 'none', 'fdr', 'bonferroni')");
+            }
         } else {
             fail("unrecognized arguments: " + token);
         }
@@ -242,7 +272,7 @@ struct TadResult {
     std::optional<std::string> error;
 };
 
-std::string header(bool accepted, const Arguments& args) {
+std::string header(bool accepted, const Arguments& args, std::optional<std::size_t> masked_bins) {
     std::string text = "# Created with HiCExplorer's hicDifferentialTAD version ";
     text += hicx::kVersion;
     text += "\n";
@@ -259,9 +289,23 @@ std::string header(bool accepted, const Arguments& args) {
     }
     text += hicx::npy::float_repr(args.p_value) + "  with used mode: " + args.mode +
             " and modeReject: " + args.mode_reject + " \n";
+    if (masked_bins.has_value()) {
+        text += "# Shared bin mask: " + std::to_string(*masked_bins) +
+                " bins invalid in the target or the control matrix are masked in both\n";
+    }
+    if (args.correction != "none") {
+        text += "# Multiple testing correction: " + args.correction +
+                ", across all TADs and separately for each test; the p-value threshold "
+                "applies to the adjusted p-values\n";
+    }
     text += "# Chromosome\tstart\tend\tname\tscore\tstrand\tp-value left-inter-TAD\t"
             "p-value right-inter-TAD\tp-value intra-TAD\tW left-inter-TAD\t"
-            "W right-inter-TAD\tW intra-TAD\n";
+            "W right-inter-TAD\tW intra-TAD";
+    if (args.correction != "none") {
+        text += "\tadjusted p-value left-inter-TAD\tadjusted p-value right-inter-TAD"
+                "\tadjusted p-value intra-TAD";
+    }
+    text += "\n";
     return text;
 }
 
@@ -306,10 +350,29 @@ int main(int argc, char** argv) {
             throw std::runtime_error("integer division or modulo by zero");
         }
 
-        const tads::ContactMatrix target =
-            tads::load_contact_matrix(*args.target, target_is_cooler);
-        const tads::ContactMatrix control =
-            tads::load_contact_matrix(*args.control, control_is_cooler);
+        tads::ContactMatrix target = tads::load_contact_matrix(*args.target, target_is_cooler);
+        tads::ContactMatrix control = tads::load_contact_matrix(*args.control, control_is_cooler);
+
+        // --sharedMask: a bin filtered in only one sample is a zero row against
+        // real contacts in the other, which the rank sum test reads as a
+        // difference. Masking the union in both removes that source of calls.
+        std::optional<std::size_t> masked_bins;
+        if (args.shared_mask) {
+            if (!tads::same_bins(target, control)) {
+                std::fputs("ERROR:hicexplorer.hicDifferentialTAD:--sharedMask needs the target "
+                           "and the control matrix on the same bins\n",
+                           stderr);
+                return 1;
+            }
+            std::vector<std::int64_t> invalid = tads::invalid_bins(target);
+            const std::vector<std::int64_t> invalid_control = tads::invalid_bins(control);
+            invalid.insert(invalid.end(), invalid_control.begin(), invalid_control.end());
+            std::sort(invalid.begin(), invalid.end());
+            invalid.erase(std::unique(invalid.begin(), invalid.end()), invalid.end());
+            tads::mask_bins(target, invalid);
+            tads::mask_bins(control, invalid);
+            masked_bins = invalid.size();
+        }
 
         struct Item {
             std::size_t chromosome = 0;
@@ -378,9 +441,29 @@ int main(int argc, char** argv) {
             }
         }
 
+        // --correctForMultipleTesting: each test's p-values adjusted across all
+        // TADs, and --pValue applied to the adjusted values. A test that did
+        // not run stays NaN and never rejects.
+        std::array<std::vector<double>, 3> adjusted;
+        if (args.correction != "none") {
+            for (std::size_t t = 0; t < 3; ++t) {
+                std::vector<double> column(results.size());
+                for (std::size_t k = 0; k < results.size(); ++k) {
+                    column[k] = results[k].pvalue[t];
+                }
+                adjusted[t] = args.correction == "fdr"
+                                  ? hicx::stats::benjamini_hochberg_adjusted(column)
+                                  : hicx::stats::bonferroni_adjusted(column);
+                for (std::size_t k = 0; k < results.size(); ++k) {
+                    results[k].rejected[t] =
+                        !std::isnan(adjusted[t][k]) && adjusted[t][k] <= args.p_value;
+                }
+            }
+        }
+
         const bool reject_all = args.mode_reject == "all";
-        std::string accepted = header(true, args);
-        std::string rejected = header(false, args);
+        std::string accepted = header(true, args, masked_bins);
+        std::string rejected = header(false, args, masked_bins);
         for (std::size_t k = 0; k < items.size(); ++k) {
             const TadResult& result = results[k];
             const bool left = result.rejected[0];
@@ -409,8 +492,17 @@ int main(int argc, char** argv) {
             }
             for (std::size_t t = 0; t < 3; ++t) {
                 line += hicx::npy::float_repr(result.statistic[t]);
-                line += t + 1 < 3 ? '\t' : '\n';
+                if (t + 1 < 3) {
+                    line += '\t';
+                }
             }
+            if (args.correction != "none") {
+                for (std::size_t t = 0; t < 3; ++t) {
+                    line += '\t';
+                    line += hicx::npy::float_repr(adjusted[t][k]);
+                }
+            }
+            line += '\n';
             (mask ? rejected : accepted) += line;
         }
 

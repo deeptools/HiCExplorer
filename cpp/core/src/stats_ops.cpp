@@ -582,6 +582,43 @@ double benjamini_hochberg_cutoff(std::vector<double> pvalues, double q) {
     return largest;
 }
 
+std::vector<double> benjamini_hochberg_adjusted(std::span<const double> pvalues) {
+    std::vector<double> out(pvalues.begin(), pvalues.end());
+    std::vector<std::size_t> order;
+    order.reserve(pvalues.size());
+    for (std::size_t i = 0; i < pvalues.size(); ++i) {
+        if (!std::isnan(pvalues[i])) {
+            order.push_back(i);
+        }
+    }
+    std::stable_sort(order.begin(), order.end(),
+                     [&](std::size_t a, std::size_t b) { return pvalues[a] < pvalues[b]; });
+    const double m = static_cast<double>(order.size());
+    std::vector<double> adjusted(order.size());
+    for (std::size_t k = 0; k < order.size(); ++k) {
+        adjusted[k] = pvalues[order[k]] * m / static_cast<double>(k + 1);
+    }
+    for (std::size_t k = adjusted.size(); k > 1; --k) {
+        adjusted[k - 2] = std::min(adjusted[k - 2], adjusted[k - 1]);
+    }
+    for (std::size_t k = 0; k < order.size(); ++k) {
+        out[order[k]] = std::min(adjusted[k], 1.0);
+    }
+    return out;
+}
+
+std::vector<double> bonferroni_adjusted(std::span<const double> pvalues) {
+    std::vector<double> out(pvalues.begin(), pvalues.end());
+    const double m = static_cast<double>(
+        std::count_if(pvalues.begin(), pvalues.end(), [](double p) { return !std::isnan(p); }));
+    for (double& p : out) {
+        if (!std::isnan(p)) {
+            p = std::min(p * m, 1.0);
+        }
+    }
+    return out;
+}
+
 // --------------------------------------------------------------------------
 // The float32 flavour of fit_nbinom. See the comment on NBinomPrecision for
 // why this exists; the float64 flavour lives beside the optimiser in
