@@ -1513,6 +1513,7 @@ The situation is different for each:
 | | **total** | **46 + 1 alias (`hicQC`)** |
 | 9 | beyond the Python: new features and a differential redesign | 14 items (9.1 to 9.14) |
 | 10 | Python GUI (PySide6) with workflows and visualisation, Linux and macOS | 8 items (10.1 to 10.8) |
+| 11 | sparse Lanczos eigensolver for hicPCA, C++-only option | 1 item |
 
 Tiers 2, 6 and 7 are independent of tiers 3-5 after tier 0 lands, so up to three
 workers can proceed in parallel from that point.
@@ -1754,7 +1755,46 @@ GUI, and a macOS app bundle later.
   window on the 40 GB file.
 - 10.3: workflow engine with an end-to-end E0 run.
 
-10.4 follows. The templates grow as tier 6 and
+10.4 follows.
+
+### Tier 11 - sparse eigensolver for hicPCA (added 2026-09-14)
+
+Requested by the project owner, to follow the GUI (tier 10).
+
+**Problem.** hicPCA's port holds dense per-chromosome matrices, because the
+Python chooses eigenvectors by their position in LAPACK `dgeev`'s unsorted
+output and only a covariance bit-identical to `np.cov` reproduces that choice
+(section 5.4). Memory therefore grows with the square of the largest
+chromosome's bin count:
+- 269 MB of the 344 MB peak on `small_test_matrix` (5,801 bins);
+- about 0.8 GB per dense matrix for human chr1 at 25 kb, and about 5 GB at 10 kb.
+
+**Method.** A C++-only option `--eigenSolver {dense,lanczos}`. The default,
+`dense`, stays Python-equivalent.
+- **`lanczos`** computes only the requested eigenvectors with a Krylov solver
+  (Spectra, header-only on Eigen, MPL-2.0) and never builds the dense matrix.
+- **Implicit centering.** Every product with the Pearson matrix, and with its
+  covariance as hicPCA takes it, is evaluated from the sparse obs/exp matrix,
+  a rank-one centering term and a diagonal scaling.
+- **Memory** is then the sparse input plus a few vectors per chromosome.
+- **Eigenvectors** are returned ordered by eigenvalue. Where LAPACK's order is
+  not by eigenvalue, `lanczos` picks a different first eigenvector than the
+  Python. That is a documented deviation, reported per case, never presented as
+  equal.
+- **Sign** follows the same gene or histone track rule as the default.
+
+**Validation** (class ED against `dense`, fixed before implementation):
+- On every hicPCA case whose eigenvalue order is unambiguous, each requested
+  eigenvector agrees with `dense` to three significant digits after sign
+  alignment. Cases where the order differs are listed individually with both
+  spectra.
+- **Real large data:** GSE234292 mouse chromosomes at 25 kb and 10 kb, and
+  human GM12878 chr1 at 25 kb. Report peak RSS and CPU time for the Python,
+  C++ `dense` and C++ `lanczos`, plus the agreement of `lanczos` with `dense`
+  wherever `dense` fits in memory.
+- **Gates:** `lanczos` peak RSS at most the sparse input plus a stated
+  per-chromosome vector bound. Determinism at `-t1` and `-tN`, with a fixed
+  starting vector. The templates grow as tier 6 and
 tier 9 tools land.
 
 ## 7. The state of the Python test suite, honestly
