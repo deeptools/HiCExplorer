@@ -1917,7 +1917,8 @@ def _demand(case, options, record, jobs, python_cached):
         peaks.append(fallback_kb)
         seconds = UNKNOWN_LARGE_SECONDS if large else UNKNOWN_SECONDS
     slots = max(threads)
-    if large:
+    if large and not known:
+        # Nothing measured: a large case may use many threads and much time.
         slots = max(slots, jobs // 2)
     return max(peaks), min(jobs, slots), seconds
 
