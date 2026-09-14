@@ -484,5 +484,95 @@
       }
     ],
     "notes": "Class EX, a multi resolution cool file given to --inputFormat cool: every resolution group (5, 10 and 20 kb) is written as its own .hic resolution."
+  },
+  {
+    "id": "hicConvertFormat.hic_to_cool.GM12878_chr21_chr22.v7.250000",
+    "tier": 1,
+    "args": [
+      "--matrices",
+      "{data}/hicConvertFormat/GM12878_combined_30.chr21_chr22.v7.hic",
+      "--outFileName",
+      "{out}/matrix.cool",
+      "--inputFormat",
+      "hic",
+      "--outputFormat",
+      "cool",
+      "--resolutions",
+      "250000"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/matrix_250000.cool",
+        "format": "cool",
+        "class": "E1"
+      }
+    ],
+    "notes": "A version 7 .hic file (hicfilecpp reads versions 6 to 9): chromosomes 21 and 22 of GSE63525 GM12878 combined_30 at 2.5 Mb, 1 Mb, 500 kb and 250 kb, cut out of the deposited version 7 file byte for byte by hicfilecpp tests/data/extract_legacy_subset.py. 399 bins, 39,771 pixels, the VC, VC_SQRT, KR and GW_/INTER_ vectors as bin columns. Pinned by test_hic_input_versions_7_and_6_write_the_same_cool_file."
+  },
+  {
+    "id": "hicConvertFormat.hic_to_cool.GM12878_chr21_chr22.v6.250000",
+    "tier": 1,
+    "args": [
+      "--matrices",
+      "{data}/hicConvertFormat/GM12878_combined_30.chr21_chr22.v6.hic",
+      "--outFileName",
+      "{out}/matrix.cool",
+      "--inputFormat",
+      "hic",
+      "--outputFormat",
+      "cool",
+      "--resolutions",
+      "250000"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/matrix_250000.cool",
+        "format": "cool",
+        "class": "E1"
+      }
+    ],
+    "notes": "The same pixels in version 6 block records (int32 binX, int32 binY, float32 counts), the one layout where version 6 differs; hic2cool reads it through read_block with version < 7."
+  },
+  {
+    "id": "hicConvertFormat.hic_to_cool.GM12878_chr21_chr22.v7.every_resolution",
+    "tier": 1,
+    "args": [
+      "--matrices",
+      "{data}/hicConvertFormat/GM12878_combined_30.chr21_chr22.v7.hic",
+      "--outFileName",
+      "{out}/matrix.cool",
+      "--inputFormat",
+      "hic",
+      "--outputFormat",
+      "cool"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/matrix.mcool",
+        "format": "mcool",
+        "class": "E1"
+      }
+    ],
+    "notes": "Every resolution of the version 7 file into matrix.mcool: 528, 2,775, 10,525 and 39,771 pixels at 2.5 Mb, 1 Mb, 500 kb and 250 kb."
+  },
+  {
+    "id": "hicConvertFormat.cool_to_hic.refuse_version_7",
+    "tier": 1,
+    "args": [
+      "--matrices",
+      "{data}/hicCorrectMatrix/gm12878_raw_values.cool",
+      "--outFileName",
+      "{out}/matrix.hic",
+      "--inputFormat",
+      "cool",
+      "--outputFormat",
+      "hic",
+      "--hicVersion",
+      "7"
+    ],
+    "outputs": [],
+    "expect_exit": 2,
+    "memory": {"budget_mb": 64},
+    "notes": "Writing .hic version 7 is refused with exit status 2 and the reason: no Juicer tools release that writes it can be obtained to validate against. The Python has no --hicVersion and exits 2 on the unrecognized argument."
   }
 ]

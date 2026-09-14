@@ -602,3 +602,65 @@ def test_hic_input_to_any_format_but_cool_is_refused():
     else:
         raise AssertionError('hic to h5 did not exit')
     assert os.listdir(directory) == []
+
+
+# ---------------------------------------------------------------------------
+# Characterization tests for .hic versions 7 and 6, added before the C++ port
+# reads them (cpp/PLAN.md tier 9, item 9.1: read versions 6 to 9). The files
+# are chromosomes 21 and 22 of GEO GSE63525's
+# GSM12878_insitu_primary+replicate_combined_30.hic (version 7) at 2.5 Mb,
+# 1 Mb, 500 kb and 250 kb with its VC, VC_SQRT, KR and GW_/INTER_ vectors, cut
+# out byte for byte by hicfilecpp's tests/data/extract_legacy_subset.py; the
+# version 6 file holds the same pixels in version 6 block records. hic2cool
+# reads both (hic2cool_utils.read_block, version < 7).
+# ---------------------------------------------------------------------------
+LEGACY_HIC = {version: os.path.join(DATA_ROOT, 'hicConvertFormat',
+                                    'GM12878_combined_30.chr21_chr22.v{}.hic'.format(version))
+              for version in (7, 6)}
+
+
+def test_hic_input_versions_7_and_6_write_the_same_cool_file():
+    """--resolutions 250000 on the version 7 file writes hic2cool's layout with
+    every normalization of the file as a bin column; the version 6 file gives
+    the same datasets."""
+    import h5py
+    datasets = {}
+    for version, path in LEGACY_HIC.items():
+        directory = mkdtemp()
+        hicConvertFormat.main(['--matrices', path, '--outFileName', os.path.join(directory, 'matrix.cool'),
+                               '--inputFormat', 'hic', '--outputFormat', 'cool', '--resolutions', '250000'])
+        assert os.listdir(directory) == ['matrix_250000.cool']
+        with h5py.File(os.path.join(directory, 'matrix_250000.cool'), 'r') as handle:
+            attrs = handle.attrs
+            assert attrs['bin-size'] == 250000
+            assert attrs['nbins'] == 399
+            assert attrs['nchroms'] == 2
+            assert attrs['nnz'] == 39771
+            assert attrs['genome-assembly'] == 'hg19'
+            assert attrs['storage-mode'] == 'symmetric-upper'
+            assert sorted(handle['bins'].keys()) == ['GW_KR', 'GW_VC', 'INTER_KR', 'INTER_VC', 'KR', 'VC',
+                                                     'VC_SQRT', 'chrom', 'end', 'start']
+            assert [x.decode() for x in handle['chroms/name'][:]] == ['21', '22']
+            nt.assert_array_equal(handle['chroms/length'][:], [48129895, 51304566])
+            assert handle['pixels/count'].dtype == np.int32
+            pixels = list(zip(handle['pixels/bin1_id'][:4], handle['pixels/bin2_id'][:4],
+                              handle['pixels/count'][:4]))
+            assert pixels == [(37, 37, 278), (37, 38, 7), (37, 39, 2), (37, 41, 6)]
+            assert int(handle['pixels/count'][:].sum()) == 67749579
+            assert np.isnan(handle['bins/KR'][:3]).all()
+            nt.assert_array_equal(handle['indexes/chrom_offset'][:], [0, 193, 399])
+            datasets[version] = {name: handle[name][:] for name in
+                                 ['pixels/bin1_id', 'pixels/bin2_id', 'pixels/count', 'bins/KR', 'bins/VC',
+                                  'bins/VC_SQRT', 'bins/GW_KR', 'indexes/bin1_offset']}
+    for name, values in datasets[7].items():
+        nt.assert_array_equal(datasets[6][name], values)
+
+
+def test_hic_input_version_7_without_resolutions_writes_an_mcool_file():
+    import h5py
+    directory = mkdtemp()
+    hicConvertFormat.main(['--matrices', LEGACY_HIC[7], '--outFileName', os.path.join(directory, 'matrix.cool'),
+                           '--inputFormat', 'hic', '--outputFormat', 'cool'])
+    with h5py.File(os.path.join(directory, 'matrix.mcool'), 'r') as handle:
+        nnz = {int(r): int(handle['resolutions'][r].attrs['nnz']) for r in handle['resolutions'].keys()}
+    assert nnz == {250000: 39771, 500000: 10525, 1000000: 2775, 2500000: 528}
