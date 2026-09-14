@@ -22,12 +22,12 @@
 //     point whose start lies after its end is a ValueError there, which is not
 //     caught, and aborts the run with exit 1.
 //
-// Figures. The Python also draws sparsity.png and histogram.png with
-// matplotlib. The C++ port draws no figures (tiers 7 and 8 await the project
-// owner's decision). Under the project rule, a figure file named explicitly
-// with --outFileNameHistogram or --outFileNameSparsity makes the tool refuse
-// before it writes anything; a figure the user did not name is skipped with a
-// note on stderr.
+// Figures (cpp/PLAN.md tier 7, option (a)). The Python also draws
+// sparsity.png and histogram.png with matplotlib (chicQualityControl.py:262-307).
+// After the report the sparsity of every reference point that is faulty in
+// no matrix goes, per matrix, to plot/hicexplorer_plot/chicQualityControl.py,
+// which draws both figures with the reference's calls. The C++-only option
+// --plotData writes that data as JSON instead.
 //
 // Threading: measured, and not used. Spreading the 45 reference points of
 // the test data over worker threads does not shorten the run (0.090 s of wall
@@ -49,6 +49,7 @@
 #include "hicx/argparse.hpp"
 #include "hicx/chic_viewpoint.hpp"
 #include "hicx/numpy_compat.hpp"
+#include "hicx/plot_bridge.hpp"
 #include "hicx/version.hpp"
 
 namespace {
@@ -112,7 +113,13 @@ const char* const kHelp =
     "                        theoutput is a raster graphics image (e.g png, jpg)\n"
     "                        (Default: 300).\n"
     "  --help, -h            show this help message and exit\n"
-    "  --version             show program's version number and exit\n";
+    "  --version             show program's version number and exit\n"
+    "\n"
+    "C++ port: the sparsity and the reference point files are computed in C++, and\n"
+    "the two figures are drawn by the hicexplorer_plot drawing layer with the\n"
+    "matplotlib calls of the Python tool (HICX_PLOT_PYTHON names the interpreter).\n"
+    "The C++-only option --plotData FILE writes the data of the figures as JSON to\n"
+    "FILE instead of drawing them.\n";
 
 std::string basename(const std::string& path) {
     const std::size_t slash = path.find_last_of('/');
@@ -157,14 +164,10 @@ int main(int argc, char** argv) {
     optional.add({"--outFileNameHistogram", "-oh"})
         .default_value("histogram.png")
         .output({"png", "pdf", "svg"})
-        .note("The C++ port draws no figures: naming this file makes the tool exit with status 1 "
-              "before writing anything.")
         .help("The output file for the histogram plot");
     optional.add({"--outFileNameSparsity", "-os"})
         .default_value("sparsity.png")
         .output({"png", "pdf", "svg"})
-        .note("The C++ port draws no figures: naming this file makes the tool exit with status 1 "
-              "before writing anything.")
         .help("The output file for the sparsity distribution plot");
     optional.add({"--threads", "-t"}).type("int").default_value(4).help("Number of threads");
     optional.add({"--fixateRange", "-fs"})
@@ -174,24 +177,17 @@ int main(int argc, char** argv) {
     optional.add({"--dpi"})
         .type("int")
         .default_value(300)
-        .note("Accepted and ignored by the C++ port, which draws no figures.")
         .help("Resolution for the image if the output is a raster graphics image.");
     optional.add({"--help", "-h"}).action(cli::Action::Help).help("show this help message and exit");
     optional.add({"--version"}).version(std::string("%(prog)s ") + hicx::kVersion);
+    optional.add({"--plotData"})
+        .metavar("FILE")
+        .output({"json"})
+        .cpp_only("The data of the figures as JSON, without drawing them (cpp/PLAN.md tier 7).")
+        .help("Write the data the two figures are drawn from as JSON to this file and do not "
+              "draw them.");
     const cli::Namespace args = parser.parse(argc, argv);
-
-    // The project rule for figures: refuse before writing anything when one
-    // was requested by name.
-    for (const char* dest : {"outFileNameHistogram", "outFileNameSparsity"}) {
-        if (args.given(dest)) {
-            std::fprintf(stderr,
-                         "chicQualityControl: error: --%s %s was requested, but plotting is not "
-                         "yet available in the C++ port of HiCExplorer. No output was written. "
-                         "Use the Python chicQualityControl for the figures.\n",
-                         dest, args.str(dest).c_str());
-            return 1;
-        }
-    }
+    std::string plot_json;
 
     const std::vector<std::string>& matrices = args.strs("matrices");
     const std::string reference_point_file = args.str("referencePoints");
@@ -339,14 +335,38 @@ int main(int argc, char** argv) {
                       "region, especially at the chromosome ends.\n";
             report << "Please check the results of hicInfo to validate this for your data.\n";
         }
+
+        // chicQualityControl.py:262-281: the reference points faulty in no
+        // matrix, then x[i] = the sparsity column of matrix i.
+        std::vector<std::string> labels;
+        std::vector<std::string> columns;
+        for (std::size_t j = 0; j < sparsity.size(); ++j) {
+            std::vector<double> kept;
+            for (std::size_t i = 0; i < count; ++i) {
+                bool faulty = false;
+                for (const auto& other : sparsity) {
+                    faulty = faulty || other[i] == -1.0;
+                }
+                if (!faulty) {
+                    kept.push_back(sparsity[j][i]);
+                }
+            }
+            columns.push_back(hicx::plot::json_numbers(kept));
+            labels.push_back(basename(matrices[j]));
+        }
+        hicx::plot::JsonObject data;
+        data.add("outFileNameSparsity", hicx::plot::json_string(args.str("outFileNameSparsity")));
+        data.add("outFileNameHistogram",
+                 hicx::plot::json_string(args.str("outFileNameHistogram")));
+        data.add("dpi", hicx::plot::json_int(args.integer("dpi")));
+        data.add("sparsity", hicx::plot::json_number(sparsity_threshold));
+        data.add("labels", hicx::plot::json_strings(labels));
+        data.add("x", hicx::plot::json_list(columns));
+        plot_json = data.str();
     } catch (const std::exception& error) {
         std::fprintf(stderr, "chicQualityControl: %s\n", error.what());
         return 1;
     }
 
-    std::fprintf(stderr,
-                 "chicQualityControl: note: the sparsity and histogram figures (%s, %s) were not "
-                 "drawn; plotting is not yet available in the C++ port of HiCExplorer.\n",
-                 args.str("outFileNameSparsity").c_str(), args.str("outFileNameHistogram").c_str());
-    return 0;
+    return hicx::plot::draw("chicQualityControl", plot_json, args.opt_str("plotData"));
 }
