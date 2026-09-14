@@ -2,7 +2,7 @@
 
 Owner: the orchestrating session. Architecture: `cpp/PLAN.md`. Rules:
 `cpp/AGENTS_CONTRACT.md`. Optimization rules: `cpp/OPTIMIZATION.md`. Last updated
-2026-09-14, at commit `f4c15dc9`.
+2026-09-14, at commit `0b3b56db`.
 
 **Current state: 30 of 46 tools ported and committed** on `version4-cpp`.
 - **Last regression,** on a clean export of `f4c15dc9`, built out of tree with
@@ -24,6 +24,26 @@ Owner: the orchestrating session. Architecture: `cpp/PLAN.md`. Rules:
 - The `hicx_matrix` module (behind `HICX_BUILD_PYTHON`) reads only the
   requested region.
 - `hicexplorer_gui.workflow` runs YAML workflows headless.
+
+**GUI shell and matrix browser (PLAN 10.4 and 10.5), merged in `0b3b56db`.**
+Verified on a clean export of `b87172c2` (reproduced): gui suite 108 passed, 1
+skipped (snakemake not installed), bindings 99 of 99; C++ outside `cpp/python`
+unchanged.
+- Generated forms for all 30 tools; each filled form's command line is parsed
+  by the Python tool's `parse_arguments()` into the namespace the form values
+  mean.
+- Runs go through the workflow engine; form runs may write anywhere, and the
+  history records absolute paths.
+- The matrix browser matches the oracles exactly: cooler, hicmatrix, and
+  hicstraw including the 40 GB version 7 file. It peaks at 257 MB over a
+  scripted session on gm12878_chr1.cool and that file.
+- Screenshots at 1280x720, 1920x1080 and 3840x2160 were reviewed.
+  - Side-by-side tracks and axis ranges past the data were fixed before the
+    merge.
+  - Left open, cosmetic: the track legend overlaps the signal, and the square
+    view leaves empty space in wide windows.
+- Browser limits: one chromosome at a time, and h5 files with variable bin
+  sizes are refused inline.
 
 **Libraries,** each in its own repository with no remote and no licence yet:
 - **coolercpp** (`~/src/coolercpp`): cooler's API in C++. All cool and mcool I/O
@@ -289,6 +309,7 @@ unaffected by design.
 | **F58** | hicAggregateContacts | `--chromosomes` on a matrix with NaN bins undoes the masking: 277 submatrices instead of 279 on `Li_et_al_2015`. |
 | **F59** | hicConvertFormat (hic2cool) | the installed hic2cool reports `__version__` 0.8.3 while its pip metadata says 1.0.1, so cool files converted from `.hic` say `generated-by: hic2cool-0.8.3`; the port reproduces the string. |
 | **F60** | hicAdjustMatrix | `--action mask --regions` zeroed 4,970 rows at 50 kb on GSE234292 for a BED of 4,067 bins. Measured with the C++ port, which matches the Python on all 21 hicAdjustMatrix cases; not rerun on the Python, and the cause is not yet examined. It inflated an early calibration figure (PLAN 9.7). |
+| **F61** | cooler (reference library) | `cooler.fileops.is_cooler` returns False for `hicDifferentialTAD/GSM2644945_Untreated-R1.100000_chr1_chr2.cool`, whose `format` attribute is a fixed-length byte string, while `cooler.Cooler` opens it (3,790 bins, 3,202,457 pixels, reproduced). `hicx_matrix` follows `cooler.Cooler`. `test_data/matrix.mcool` has no `/resolutions/` groups, so it is not an mcool to cooler's layout. |
 
 ## Deliberate deviations from the Python behaviour
 

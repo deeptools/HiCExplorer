@@ -1755,7 +1755,9 @@ GUI, and a macOS app bundle later.
   window on the 40 GB file.
 - 10.3: workflow engine with an end-to-end E0 run.
 
-10.4 follows.
+10.4 and 10.5 are done, merged 2026-09-14 in `0b3b56db`: the PySide6 shell with
+forms for all 30 tools and the matrix browser, reviewed on screenshots at three
+sizes. 10.6 and 10.7 follow; 10.8 needs a Mac or a CI runner.
 
 ### Tier 11 - sparse eigensolver for hicPCA (added 2026-09-14)
 
