@@ -26,8 +26,16 @@ FORMAT_GLOBS = {
     "ginteractions": ["*.tsv", "*.ginteractions"], "broadpeak": ["*.broadPeak"], "narrowpeak": ["*.narrowPeak"],
 }
 
-ERROR_STYLE = "color: #b00020;"
-HELP_STYLE = "color: palette(mid);"
+ERROR_STYLE = "color: #d0314b;"
+HELP_STYLE = "color: palette(placeholder-text);"
+
+
+def quote_token(text):
+    """A token as typed in a value list: quoted only when it holds white
+    space or quotes, so references such as ${steps.a.outputs.b} stay readable."""
+    if text and not any(c.isspace() or c in "'\"\\" for c in text):
+        return text
+    return shlex.quote(text)
 
 
 def name_filter(formats):
@@ -251,7 +259,7 @@ class TextField(Field):
         if value is None:
             self.edit.clear()
         elif isinstance(value, list):
-            self.edit.setText(" ".join(shlex.quote(display(v)) for v in value))
+            self.edit.setText(" ".join(quote_token(display(v)) for v in value))
         else:
             self.edit.setText(display(value))
 

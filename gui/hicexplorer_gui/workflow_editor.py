@@ -119,6 +119,8 @@ class WorkflowEditor(QtWidgets.QWidget):
         left_layout.addWidget(QtWidgets.QLabel("Steps"))
         self.step_list = QtWidgets.QListWidget()
         self.step_list.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+        self.step_list.setWordWrap(True)
+        self.step_list.setTextElideMode(QtCore.Qt.ElideNone)
         self.step_list.currentRowChanged.connect(self._select_step)
         left_layout.addWidget(self.step_list, 1)
         self.tool_combo = QtWidgets.QComboBox()

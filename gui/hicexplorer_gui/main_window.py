@@ -265,6 +265,11 @@ class MainWindow(QtWidgets.QMainWindow):
         self.tool_tree.addTopLevelItems([available, missing])
         available.setExpanded(True)
         missing.setExpanded(True)
+        # Wide enough for the longest tool name, so no name is elided.
+        metrics = self.tool_tree.fontMetrics()
+        longest = max([metrics.horizontalAdvance(e.name) for e in self.entries] or [0])
+        scroll = self.tool_tree.verticalScrollBar().sizeHint().width()
+        self.tool_tree.setMinimumWidth(longest + 2 * self.tool_tree.indentation() + scroll + 16)
 
     def entry(self, name):
         for entry in self.entries:
