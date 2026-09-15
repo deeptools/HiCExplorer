@@ -2037,9 +2037,20 @@ cpp/scripts/equiv.py list     [--tool NAME]
   in the contract; `PYTHONPATH` is set to the repo root so the *repo* Python
   runs, not the installed 3.7.6 package.
 - `--jobs` runs cases in parallel, each in its own temporary work directory
-  under `$TMPDIR`, never under the repo. **Memory-gated cases run serially**
-  regardless of `--jobs`, because a peak-RSS measurement taken while other cases
-  compete for memory is not a measurement.
+  under `$TMPDIR`, never under the repo. (Revised 2026-09-15, contract rule 13.)
+  - **Default:** `--jobs auto`, half the physical cores.
+  - **Memory:** cases run in parallel only while their expected peaks fit under
+    a fraction of available memory.
+  - **CPU time grows with parallel load,** so these run alone:
+    - cases with a recorded time-gate ratio of at least 0.5;
+    - cases without history that draw figures or belong to hicMergeDomains or
+      hicTransform;
+    - large unmeasured cases.
+  - **Reruns:** a time-gate failure beside other cases is rerun alone with both
+    sides fresh.
+- `--cache {use,refresh,off}` reuses Python reference results keyed by case,
+  arguments, input contents, reference code, package versions and harness
+  environment. Merge verification uses `refresh` or `off`.
 - `--noise-runs` (default 5) sets `N` for class EN and for the determinism check.
 - `--skip-memory-gate` is for development only and marks the whole report
   `memory_gate: skipped`; a report with that flag can never record a `pass`.
@@ -2190,7 +2201,8 @@ The report's per-tool row carries `speedup = py_seconds / cpp_seconds`,
 `memory_headroom = 1 - cpp_peak_rss / budget` (the gate). Measurements are only
 comparable when the machine is otherwise idle; the harness records the 1-minute
 load average at the start of each case and marks a case `timing_unreliable` if it
-exceeded 2.0. Memory-gated cases run serially (section 9.1).
+exceeded 2.0. Gated cases run in parallel under the scheduling rules of section 9.1 (revised
+2026-09-15).
 
 The baseline numbers in section 4.2 were taken while the Python test suite was
 running concurrently, so the wall times are upper bounds; the peak RSS figures

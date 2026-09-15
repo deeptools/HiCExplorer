@@ -172,3 +172,22 @@ directories would silently not be committed.
     by the task is still running, including mutation-test and noise runs. An
     agent cut off by a usage limit once left a mutation-test run that consumed a
     CPU core and 4.4 GB for eleven days. (Added 2026-09-13.)
+13. **Reference cache and parallel runs.**
+    - **Day to day:** regressions run `equiv.py run` with the defaults
+      `--cache use` and `--jobs auto`.
+    - **Merge verification:** runs `--cache refresh` (or `--cache off`) on a
+      clean export, with `--jobs auto`.
+    - **Runs alone:**
+      - cases with a recorded time-gate ratio of at least 0.5;
+      - cases without a C++ measurement in the cache that draw figures or
+        belong to hicMergeDomains or hicTransform;
+      - large cases without any measurement.
+    - **Time-gate reruns:** a case that fails only its time gate while other
+      cases ran beside it is rerun alone with both sides fresh, and that verdict
+      counts; `report.json` records both attempts.
+    - **Failures:** a case that fails alone, or fails any other gate, fails.
+    - **A clean machine:** a verdict counts only from a run with nothing else,
+      such as a tracer or another heavy job, loading the machine.
+    - (Added 2026-09-15: C++ CPU time on the development machine grows with
+      parallel load, by a median of 1.13 to 1.44 at 8 to 16 jobs on a
+      thin-margin sample.)

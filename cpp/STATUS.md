@@ -2,7 +2,7 @@
 
 Owner: the orchestrating session. Architecture: `cpp/PLAN.md`. Rules:
 `cpp/AGENTS_CONTRACT.md`. Optimization rules: `cpp/OPTIMIZATION.md`. Last updated
-2026-09-15, at commit `b71510ba`.
+2026-09-15, at commit `04f948ce`.
 
 **Current state: 38 of 46 tools ported and committed** on `version4-cpp`.
 - **Last regression,** on clean exports of the plotting branch (`6d27fa8e`,
@@ -27,6 +27,24 @@ Owner: the orchestrating session. Architecture: `cpp/PLAN.md`. Rules:
   `.hic`) passed the same regression, and `53a9fc91` moved both library pins to
   commits that differ only in the libraries' consumer tests.
 - **Open branches:** none.
+
+**Harness: Python reference cache and parallel scheduling, merged in
+`04f948ce` (contract rule 13).**
+Verified on clean exports of `86efecba` and `c34f0d7d` (reproduced).
+
+| Run | Cases | Wall | Python |
+|---|---|---|---|
+| Cold, into an empty cache | 483 of 483 | 2,472 s | 499 reference processes |
+| Warm | 483 of 483 | 385 s | none |
+
+- The warm run's verdicts are identical to the cold run's. A shim around the
+  reference interpreter logged only the 8 validator calls that depend on C++
+  output.
+- `cache verify --sample 20`: 0 failures.
+- Invalidation tests pass, but one assertion is flaky (open work).
+- No case needed the rerun-alone rule in either run.
+- Before the no-history rule, a cold run failed two `hicPlotAverageRegions`
+  time gates under parallel load.
 
 **GUI foundation (PLAN 10.1 to 10.3), merged in `f4c15dc9`:**
 - `hicx::cli` parses every tool's command line as Python argparse does, and
@@ -218,6 +236,8 @@ not find graphviz `dot` on the venv's `PATH`; one hicBuildMatrix trivial run pas
 | hicBuildMatrixMicroC | QC figures drawn, but no case compares them | add cases |
 | drawing tools | the C++ saves the matrix and then draws, where the Python renders the QC report before saving | a failed drawing leaves the matrix behind |
 | gui tests | `test_gui_browser` asserts a fetch count that fails, not skips, when `HICX_LARGE_HIC` is unset | make it skip |
+| harness tests | `test_equiv_cache.py::test_a_time_gate_failure_beside_other_cases_is_rerun_alone` failed once (a fake memory-gate case passed its gate) right after two full regressions, then passed 3 of 3 on an idle machine | the fake case depends on a real RSS measurement; make it deterministic |
+| time gate | C++ CPU time grows with parallel load, and drawing tools sit near a ratio of 1.0 because matplotlib dominates both sides | contract rule 13 schedules and reruns such cases alone; the rerun rule is proven only by a fake case so far |
 | Python characterization tests of the plotting tools | they call `main()` directly | they cannot run against the C++ entry points |
 | hicAggregateContacts | numpy's argsort fallback for CPUs without AVX-512 was not checked against numpy, because the development machine always takes the AVX-512 path | contact-pair line order could differ on such a CPU |
 | hicAggregateContacts | z-score in modes `all` and `inter-chr` has no harness case | the Python needs a dense matrix of several GB |
