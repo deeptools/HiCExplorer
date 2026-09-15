@@ -1522,6 +1522,7 @@ The situation is different for each:
 | 9 | beyond the Python: new features and a differential redesign | 14 items (9.1 to 9.14) |
 | 10 | Python GUI (PySide6) with workflows and visualisation, Linux and macOS | 8 items (10.1 to 10.8) |
 | 11 | sparse Lanczos eigensolver for hicPCA, C++-only option | 1 item |
+| 12 | hicmatrixcpp: the hicmatrix API as an independent C++ library, then v4 on it | 2 phases |
 
 Tiers 2, 6 and 7 are independent of tiers 3-5 after tier 0 lands, so up to three
 workers can proceed in parallel from that point.
@@ -1812,7 +1813,65 @@ chromosome's bin count:
   wherever `dense` fits in memory.
 - **Gates:** `lanczos` peak RSS at most the sparse input plus a stated
   per-chromosome vector bound. Determinism at `-t1` and `-tN`, with a fixed
-  starting vector. The templates grow as tier 6 and
+  starting vector.
+
+### Tier 12 - hicmatrixcpp, an independent C++ hicmatrix (added 2026-09-15)
+
+The project owner asked that hicmatrix, like cooler and the `.hic` format,
+become its own independent C++ library with the Python version's API. v4's
+core already reimplements much of it internally: `cool_adapter.cpp` (what
+hicmatrix adds on top of cooler), `h5_file.cpp`, `text_formats.cpp`,
+`tool_matrix.cpp`, `hic_matrix.cpp`, and parts of `hdf5_util.cpp` and
+`matrix_ops.cpp`, used by 18 tools. This tier turns that into a library and
+makes v4 consume it.
+
+**Target:** hicmatrix 17.2 (the reference installed in the oracle
+environment), about 2,000 lines.
+- **`hiCMatrix`:** every public method, including:
+  - loading with region cuts, `restoreMaskedBins`, `pUpperTriangleOnly` and
+    the matrix format;
+  - `save`, `fillLowerTriangle`, `setMatrix`, `getBinSize`,
+    `getChrBinRange`, `getRegionBinRange`, `getDistList`;
+  - `convert_to_obs_exp_matrix`, `convert_to_zscore_matrix`;
+  - `keepOnlyTheseChr`, `maskBins`, `maskChromosomes`, `restoreMaskedBins`,
+    `reorderChromosomes`, `reorderBins`;
+  - `setCorrectionFactors`, `truncTrans`, `filterOutInterChrCounts`,
+    `get_chromosome_sizes`.
+- **`lib/`:** `MatrixFileHandler`, and the formats h5 (PyTables layout), cool
+  and mcool (correction-factor handling, the hic2cool and hicmatrix version
+  logic, metadata), homer, hicpro, ginteractions and scool.
+- **`utilities`.**
+
+**Where:** its own repository, `~/src/hicmatrixcpp`, laid out like coolercpp
+and hicfilecpp: harness, `docs/API_MAPPING.md`, `DEVIATIONS.md`,
+`PROVENANCE.md`, and a CMake package.
+- Depends on HDF5 and coolercpp, at a pinned commit.
+- Provides the scipy-compatible CSR matrix type the API returns.
+- Every hicmatrix quirk v4 reproduces today (for example the correction-factor
+  swap, NaN bins rebuilt from empty rows, the part split and sum) belongs in
+  the library, as the Python behaviour.
+- **Licence:** hicmatrix is GPL-3, so the owner decides together with the
+  licences of coolercpp and hicfilecpp.
+
+**Phase 1, the library,** independent of v4.
+- **Harness against Python hicmatrix,** method by method and format by format,
+  on real matrices (the committed h5, cool, mcool, scool, homer, hicpro and
+  ginteractions test data, plus gm12878_chr1.cool). Classes are E0 for written
+  files (after the named provenance normalisations), E2 for loaded arrays and
+  intervals, and ED only where the Python itself computes in floating point
+  (obs/exp, z-score).
+- **Mutation checks,** as in coolercpp.
+- **Memory and CPU** against the Python for load, save and the transforms.
+- **Clean-export build,** ctest including a consumer test that reads the
+  project version (see the coolercpp consumer fix), and determinism.
+
+**Phase 2, v4 integration,** after the open branches merge.
+- v4's core replaces its internal implementations with hicmatrixcpp. Only
+  v4-specific code stays: streaming paths, memory-budgeted readers and tool
+  glue.
+- **Pinning** is like `HicxCoolercpp.cmake`.
+- **Gates:** a merge-style full regression (contract rule 13), determinism,
+  memory and CPU no worse than before, and the gui and bindings suites. The templates grow as tier 6 and
 tier 9 tools land.
 
 ## 7. The state of the Python test suite, honestly
