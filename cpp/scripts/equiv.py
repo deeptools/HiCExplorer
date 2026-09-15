@@ -255,6 +255,16 @@ MEMORY_FRACTION = 0.5
 # whose recorded C++/Python CPU ratio is at least THIN_TIME_MARGIN runs alone,
 # a factor of 2 from the gate, above the largest shift seen at that load.
 THIN_TIME_MARGIN = 0.5
+# Without a C++ measurement of a case, a history ratio cannot say that its
+# margin is thin, so these run alone too. In the last serial full run (477
+# cases with a time-gate ratio), the cases whose C++ run draws figures had a
+# median ratio of 0.17 (most CPU on both sides is matplotlib), against 0.008
+# for all others; among the others only hicMergeDomains (graphviz, up to 0.68)
+# and hicTransform (up to 0.72) reached 0.4.
+THIN_MARGIN_TOOLS = ("hicMergeDomains", "hicTransform")
+# Tools whose C++ binary draws through plot/hicexplorer_plot besides the tools
+# with a drawing module there: the QC report of the matrix builders.
+QC_DRAWING_TOOLS = ("hicBuildMatrix", "hicBuildMatrixMicroC", "hicQuickQC", "hicQC")
 UNKNOWN_PEAK_KB = 2 * 1024 * 1024
 UNKNOWN_LARGE_PEAK_KB = 8 * 1024 * 1024
 UNKNOWN_SECONDS = 60.0
@@ -1342,6 +1352,7 @@ def run_case(case, options):
         "class_declared": _declared_class(case),
         "notes": case["notes"],
         "workdir": str(workdir),
+        "workdir_root": str(workdir_root),
         "timing_unreliable": load_average > LOAD_AVERAGE_LIMIT,
         "load_average": load_average,
         "large": bool(case.get("large")),
@@ -1531,6 +1542,25 @@ def run_case(case, options):
             passed = False
             errors.append("determinism: " + "; ".join(determinism["diffs"][:3]))
 
+    failed_gates = []
+    if measure_py["exit_code"] != case["expect_exit"] or \
+            measure_cpp["exit_code"] != case["expect_exit"]:
+        failed_gates.append("exit")
+    if any(code != case["expect_exit"]
+           for code in (python_side["noise_record"] or {}).get("exit_codes", [])):
+        failed_gates.append("noise")
+    if any(not entry.get("passed") for entry in outputs):
+        failed_gates.append("outputs")
+    if any("requires the validator" in error for error in errors):
+        failed_gates.append("validators")
+    if not memory_gate["passed"]:
+        failed_gates.append("memory")
+    if not time_gate["passed"]:
+        failed_gates.append("time")
+    if options.determinism and not result["determinism"]["passed"]:
+        failed_gates.append("determinism")
+    result["failed_gates"] = failed_gates
+
     result["passed"] = passed
     if errors:
         result["error"] = "; ".join(errors)
@@ -1540,6 +1570,7 @@ def run_case(case, options):
     if not options.keep_workdirs and passed:
         shutil.rmtree(workdir_root, ignore_errors=True)
         result["workdir"] = None
+        result["workdir_root"] = None
     return result
 
 
@@ -1892,6 +1923,18 @@ def physical_cores():
     return len(siblings) or max(1, (os.cpu_count() or 2) // 2)
 
 
+def case_draws(case):
+    """Does the case's C++ run draw figures through plot/hicexplorer_plot?"""
+    tool = case.get("tool") or ""
+    if "--noPlot" in (case.get("cpp_args") or []):
+        return False
+    if tool == "hicCorrectMatrix":
+        return bool(case.get("args")) and case["args"][0] == "diagnostic_plot"
+    if tool in QC_DRAWING_TOOLS:
+        return True
+    return (REPO_ROOT / "plot" / "hicexplorer_plot" / f"{tool}.py").is_file()
+
+
 def resolve_jobs(value):
     """--jobs: a positive number, or auto for half the physical cores."""
     if value in (None, "auto"):
@@ -1911,6 +1954,32 @@ def _available_memory_kb():
     except OSError:
         pass
     return 8 * 1024 * 1024
+
+
+def _attempt_summary(result):
+    gate = result.get("time_gate") or {}
+    return {"passed": bool(result.get("passed")),
+            "failed_gates": result.get("failed_gates"),
+            "time_gate_ratio": gate.get("ratio"),
+            "py_cpu_seconds": result.get("py_cpu_seconds"),
+            "cpp_cpu_seconds": result.get("cpp_cpu_seconds"),
+            "neighbours": (result.get("scheduled") or {}).get("neighbours"),
+            "python_cached": (result.get("python_side") or {}).get("cached"),
+            "error": result.get("error")}
+
+
+def _merge_rerun(first, rerun, options):
+    """The rerun's result, which counts, with both attempts recorded."""
+    rerun["rerun_alone"] = {
+        "reason": "the first attempt failed only the time gate while other cases ran beside it",
+        "first_attempt": _attempt_summary(first),
+        "rerun": _attempt_summary(rerun),
+        "counted": "rerun",
+    }
+    if rerun.get("passed") and not getattr(options, "keep_workdirs", False) \
+            and first.get("workdir_root"):
+        shutil.rmtree(first["workdir_root"], ignore_errors=True)
+    return rerun
 
 
 def _history_record(result):
@@ -1948,7 +2017,9 @@ def _threads(cpu, wall):
 
 def _demand(case, options, record, jobs, python_cached):
     """(expected peak kB, CPU slots, expected seconds) of one case. A case
-    with a thin time-gate margin takes every slot, so it runs alone."""
+    with a thin time-gate margin takes every slot, so it runs alone: a recorded
+    ratio of at least THIN_TIME_MARGIN, or, with no C++ measurement, a case
+    that draws figures or belongs to THIN_MARGIN_TOOLS."""
     large = bool(case.get("large"))
     record = record or {}
     budget_mb = (case.get("memory") or {}).get("budget_mb")
@@ -1975,6 +2046,9 @@ def _demand(case, options, record, jobs, python_cached):
         # Nothing measured: a large case may use many threads and much time.
         slots = max(slots, jobs // 2)
     if (record.get("time_ratio") or 0.0) >= THIN_TIME_MARGIN:
+        slots = jobs
+    if not record.get("cpp_cpu_seconds") and (case_draws(case)
+                                               or case.get("tool") in THIN_MARGIN_TOOLS):
         slots = jobs
     return max(peaks), min(jobs, slots), seconds
 
@@ -2009,15 +2083,17 @@ def _execute(cases, options, runner, on_result=None):
                 cached = False
         demands[case["id"]] = _demand(case, options, records.get(case["id"]), jobs, cached)
     # Cases that run alone come last, when the others have drained, longest
-    # first within each group.
-    pending = sorted(cases, key=lambda case: (demands[case["id"]][1] >= jobs > 1,
-                                              -demands[case["id"]][2]))
+    # first within each group. A pending entry is (case, is a rerun alone).
+    pending = [(case, False) for case in
+               sorted(cases, key=lambda case: (demands[case["id"]][1] >= jobs > 1,
+                                               -demands[case["id"]][2]))]
     results, deferred = [], []
+    reruns = getattr(runner, "reruns_time_gate", False) or runner is run_case
+    rerun_options = argparse.Namespace(**vars(options))
+    rerun_options.cache = "off" if getattr(options, "cache", "off") == "off" else "refresh"
+    first_attempts = {}
 
     def finish(result):
-        peak_kb, slots, seconds = demands.get(result["id"], (None, None, None))
-        result["scheduled"] = {"jobs": jobs, "slots": slots, "alone": bool(slots and slots >= jobs),
-                               "expected_peak_kb": peak_kb, "expected_seconds": seconds}
         results.append(result)
         if on_result is not None:
             on_result(result)
@@ -2029,37 +2105,58 @@ def _execute(cases, options, runner, on_result=None):
 
     launched = 0
     with concurrent.futures.ThreadPoolExecutor(max_workers=jobs) as pool:
+        # future -> [expected peak kB, slots, case, is a rerun, neighbours]
         running = {}
         while pending or running:
             if not _STOPPING.is_set():
                 used_kb = sum(entry[0] for entry in running.values())
                 used_slots = sum(entry[1] for entry in running.values())
-                for case in list(pending):
+                for item in list(pending):
+                    case, is_rerun = item
                     peak_kb, slots, _ = demands[case["id"]]
-                    if not in_time(case, launched > 0):
-                        pending.remove(case)
+                    if is_rerun:
+                        slots = jobs
+                    elif not in_time(case, launched > 0):
+                        pending.remove(item)
                         deferred.append(case["id"])
                         continue
                     if running and (used_kb + peak_kb > limit_kb or used_slots + slots > jobs):
                         if slots >= jobs:
                             break  # a case that runs alone waits for the others to drain
                         continue
-                    future = pool.submit(runner, case, options)
-                    running[future] = (peak_kb, slots)
+                    future = pool.submit(runner, case, rerun_options if is_rerun else options)
+                    for entry in running.values():
+                        entry[4] += 1
+                    running[future] = [peak_kb, slots, case, is_rerun, len(running)]
                     used_kb += peak_kb
                     used_slots += slots
                     launched += 1
-                    pending.remove(case)
+                    pending.remove(item)
             else:
-                deferred.extend(case["id"] for case in pending)
+                deferred.extend(case["id"] for case, is_rerun in pending if not is_rerun)
                 pending = []
             if not running:
                 continue
             done, _ = concurrent.futures.wait(list(running),
                                               return_when=concurrent.futures.FIRST_COMPLETED)
             for future in done:
-                del running[future]
-                finish(future.result())
+                peak_kb, slots, case, is_rerun, neighbours = running.pop(future)
+                result = future.result()
+                result["scheduled"] = {"jobs": jobs, "slots": slots, "neighbours": neighbours,
+                                       "alone": neighbours == 0, "rerun": is_rerun,
+                                       "expected_peak_kb": peak_kb,
+                                       "expected_seconds": demands[case["id"]][2]}
+                if (reruns and not is_rerun and neighbours > 0 and not _STOPPING.is_set()
+                        and result.get("failed_gates") == ["time"]):
+                    # CPU time grows with neighbours on this machine: a case that
+                    # failed nothing but the time gate beside other cases runs
+                    # again alone, both sides fresh, and that verdict counts.
+                    first_attempts[case["id"]] = result
+                    pending.append((case, True))
+                    continue
+                if is_rerun:
+                    result = _merge_rerun(first_attempts.pop(case["id"]), result, options)
+                finish(result)
     options.deferred = deferred
     results.sort(key=lambda item: (item["tier"], item["id"]))
     return results
@@ -2080,6 +2177,13 @@ def _report_skeleton(options, results, mode):
         "jobs": getattr(options, "jobs_resolved", None),
         "cache": _cache_summary(options, results),
         "deferred": list(getattr(options, "deferred", []) or []),
+        "reruns_alone": [
+            {"id": case["id"], "passed": bool(case.get("passed")),
+             "first_ratio": case["rerun_alone"]["first_attempt"]["time_gate_ratio"],
+             "first_neighbours": case["rerun_alone"]["first_attempt"]["neighbours"],
+             "rerun_ratio": case["rerun_alone"]["rerun"]["time_gate_ratio"],
+             "counted": case["rerun_alone"]["counted"]}
+            for case in results if case.get("rerun_alone")],
         "cases": results,
     }
     if getattr(options, "skip_memory_gate", False):
@@ -2180,6 +2284,12 @@ def command_run(options):
                     print(f"       {diff}")
         for warning in gate.get("warnings", []):
             print(f"       warning: {warning}")
+        if case.get("rerun_alone"):
+            first, rerun = case["rerun_alone"]["first_attempt"], case["rerun_alone"]["rerun"]
+            print(f"       rerun alone: the time gate failed at ratio "
+                  f"{first['time_gate_ratio']:.3f} beside {first['neighbours']} cases; alone "
+                  f"{rerun['time_gate_ratio'] if rerun['time_gate_ratio'] is None else round(rerun['time_gate_ratio'], 3)}"
+                  f", {'passed' if rerun['passed'] else 'failed'}; the rerun counts")
     if report.get("memory_gate") == "skipped":
         print("\nthe memory gate was skipped: this run cannot record a pass")
     summary = report["cache"]

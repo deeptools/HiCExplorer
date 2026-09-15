@@ -225,3 +225,88 @@ def test_scheduler_runs_thin_margin_cases_alone_and_auto_uses_half_the_physical_
     assert equiv._demand(case, options, dict(measured, time_ratio=0.6), 8, True)[1] == 8
     assert equiv.resolve_jobs("auto") == max(1, equiv.physical_cores() // 2)
     assert equiv.resolve_jobs("3") == 3
+
+
+def test_no_history_drawing_and_thin_margin_tools_run_alone():
+    options = argparse.Namespace(noise_runs=5, determinism=False)
+    def case(tool, args=("x",), cpp_args=()):
+        return {"id": tool, "tool": tool, "args": list(args), "cpp_args": list(cpp_args),
+                "outputs": [], "large": False, "memory": {}}
+    measured = {"py_peak_rss_kb": 100_000, "py_seconds": 10.0, "py_cpu_seconds": 10.0,
+                "cpp_peak_rss_kb": 50_000, "cpp_seconds": 2.0, "cpp_cpu_seconds": 2.0,
+                "time_ratio": 0.2}
+    assert equiv._demand(case("hicPlotMatrix"), options, None, 8, False)[1] == 8
+    assert equiv._demand(case("hicPlotMatrix"), options, measured, 8, False)[1] == 1
+    assert equiv._demand(case("hicBuildMatrix"), options, None, 8, False)[1] == 8
+    assert equiv._demand(case("hicTransform"), options, None, 8, False)[1] == 8
+    assert equiv._demand(case("hicInfo"), options, None, 8, False)[1] == 1
+    assert equiv._demand(case("hicCorrectMatrix", ["correct"]), options, None, 8, False)[1] == 1
+    assert equiv._demand(case("hicCorrectMatrix", ["diagnostic_plot"]), options, None, 8, False)[1] == 8
+    assert equiv._demand(case("hicCompartmentalization", cpp_args=["--noPlot"]), options, None, 8,
+                         False)[1] == 1
+
+
+def test_a_time_gate_failure_beside_other_cases_is_rerun_alone(tmp_path):
+    """A fake runner: case "flaky" fails the time gate only while another case
+    runs, "slow" fails it alone too, "memory" fails a different gate beside
+    others. Every other case passes and keeps the machine busy."""
+    import threading
+    import time as time_module
+
+    active = set()
+    lock = threading.Lock()
+
+    def runner(case, options):
+        with lock:
+            active.add(case["id"])
+        time_module.sleep(0.4)
+        with lock:
+            others = len(active - {case["id"]})
+            active.discard(case["id"])
+        crowded = others > 0
+        gates = []
+        ratio = 0.6
+        if case["id"] == "flaky" and crowded:
+            gates, ratio = ["time"], 1.3
+        elif case["id"] == "slow":
+            gates, ratio = ["time"], 1.2
+        elif case["id"] == "memory" and crowded:
+            gates = ["memory"]
+        return {"id": case["id"], "tier": 0, "passed": not gates, "failed_gates": gates,
+                "time_gate": {"ratio": ratio}, "py_cpu_seconds": 1.0,
+                "cpp_cpu_seconds": ratio, "cache_mode_seen": options.cache}
+    runner.reruns_time_gate = True
+
+    ids = ["flaky", "slow", "memory"] + [f"filler{i}" for i in range(6)]
+    cases = [{"id": i, "tool": "hicInfo", "tier": 0, "args": ["x"], "outputs": [],
+              "large": False, "memory": {}} for i in ids]
+    options = argparse.Namespace(jobs="4", stop_after=None, cache="use", noise_runs=5,
+                                 determinism=False, data=str(tmp_path), keep_workdirs=False,
+                                 cache_dir=str(tmp_path / "cache"), expect_from=None)
+    persisted = []
+    results = {r["id"]: r for r in equiv._execute(cases, options, runner, on_result=persisted.append)}
+    assert len(persisted) == len(ids)
+
+    flaky = results["flaky"]
+    assert flaky["passed"] is True
+    record = flaky["rerun_alone"]
+    assert record["counted"] == "rerun"
+    assert record["first_attempt"]["passed"] is False
+    assert record["first_attempt"]["time_gate_ratio"] == 1.3
+    assert record["first_attempt"]["neighbours"] > 0
+    assert record["rerun"]["passed"] is True and record["rerun"]["neighbours"] == 0
+    assert flaky["scheduled"]["rerun"] is True and flaky["scheduled"]["alone"] is True
+    assert flaky["cache_mode_seen"] == "refresh"
+
+    slow = results["slow"]
+    assert slow["passed"] is False
+    assert slow["rerun_alone"]["rerun"]["passed"] is False
+    assert slow["rerun_alone"]["rerun"]["neighbours"] == 0
+
+    assert results["memory"]["passed"] is False and "rerun_alone" not in results["memory"]
+    for i in ids[3:]:
+        assert results[i]["passed"] is True and "rerun_alone" not in results[i]
+    report = equiv._report_skeleton(argparse.Namespace(cpp_bin="b", py_python="p", cache="off",
+                                                       jobs_resolved=4, deferred=[]),
+                                    list(results.values()), "run")
+    assert {entry["id"] for entry in report["reruns_alone"]} == {"flaky", "slow"}
