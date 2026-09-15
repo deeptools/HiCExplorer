@@ -1584,6 +1584,29 @@ real matrices recovered at a recall and precision fixed in this plan before the
 method is chosen, and agreement with Stripenn on GM12878 reported as a Jaccard
 index with the disagreeing calls examined.
 
+*Gate for 9.3, fixed 2026-09-15 before any method is chosen:*
+- **Data:** GM12878 at 10 kb, from the read-only `.hic` or cool
+  sources under `~/data`, autosomes, KR or ICE balanced.
+- **Plants:** 60 stripes, half vertical and half horizontal, planted into the
+  real matrix with count-preserving thinning of the background or added counts
+  drawn from the local expected distribution. Their lengths are 300 kb, 1 Mb and
+  2 Mb, their anchors lie outside stripes the tool calls on the unplanted
+  matrix, and their enrichment over the local background (the neighbouring
+  columns or rows at the same distances) is 1.5-fold and 2-fold. The plant
+  seed is fixed.
+- **A planted stripe counts as recovered** when a call on the same orientation
+  overlaps its anchor within 2 bins and covers at least half of its length.
+- **Recall:** at least 0.8 for 2-fold stripes of 1 Mb or longer. Recall at
+  1.5-fold and for 300 kb stripes is reported, without a gate.
+- **Precision:** among calls present on the planted matrix but not on the
+  unplanted one, at least 0.9 must be recovered plants.
+- **Reproducibility (reported):** calls on the GSE234292 wild-type replicates
+  at 10 kb, as a Jaccard index between rep1 and rep2.
+- **Agreement with Stripenn (reported):** Jaccard index on GM12878, with a
+  sample of disagreeing calls examined by eye in the matrix browser.
+- **Determinism, memory and CPU gates** as for every tool; Stripenn's run on the
+  same input is the CPU and memory reference.
+
 **9.4 SCALE normalisation in hicCorrectMatrix.** *Validation:* **ED** against the
 SCALE vector Juicer tools `addNorm` computes on the same matrix.
 
