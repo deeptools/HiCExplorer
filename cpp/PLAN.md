@@ -1698,6 +1698,63 @@ against a direct computation of the definition.
 **9.14 Micro-C patterns: fountains and jets.** *Validation:* planted patterns as
 in 9.3, and agreement with a published fountain caller, such as fontanka.
 
+**9.15 CHiCAGO scoring as an additional method in the chic tools** (requested
+2026-09-15). HiCExplorer's capture Hi-C tools score interactions against their
+own negative binomial background per distance. CHiCAGO (Cairns et al. 2016,
+Genome Biology 17:127) is added as an option. The defaults stay unchanged and
+Python-equivalent.
+
+The CHiCAGO model:
+- **Brownian collisions:** a negative binomial whose mean is a distance
+  function, scaled by bait-specific and other-end-specific factors, with its
+  dispersion estimated from the data.
+- **Technical noise:** a Poisson term estimated from trans counts per bait and
+  per other-end class.
+- **P-values:** from the convolution of the two (the Delaporte distribution).
+- **Weighting:** p-values are weighted by a distance-based prior and turned into
+  a score. Calls are scores of at least 5 by default.
+
+*Design (C++-only options):*
+- **chicViewpointBackgroundModel** `--backgroundModel {hicexplorer,chicago}`
+  estimates CHiCAGO's parameters: distance function, bait and other-end
+  factors, dispersion, technical-noise tables.
+- **chicViewpoint** `--scoring {hicexplorer,chicago}` writes CHiCAGO p-values
+  and scores per interaction.
+- **chicSignificantInteractions** accepts a CHiCAGO score threshold.
+- **Other chic tools** pass the extra columns through where they read them.
+- **Input:** CHiCAGO's own `.chinput`, `.baitmap` and `.rmap` files, so the
+  same input can be scored by both implementations, next to the cool
+  matrices and reference points the chic tools use.
+- **GUI:** the options reach the GUI through `--help-json`, and the capture
+  Hi-C template offers the method as a parameter.
+
+*Reference implementation:* R Chicago from Bioconductor, with PCHiCdata's real
+promoter capture Hi-C inputs: GM12878 chr20 and chr21, and mouse ES cells
+chr19.
+- **Provisioning:** the local R environments are R 3.4.3 without packages, and
+  local conda installs are broken. The reference therefore runs from a private
+  R 4.x installation under the scratchpad (a container, a standalone
+  micromamba environment, or a source build), never modifying an existing
+  environment. Record the R, Chicago and PCHiCdata versions.
+- **Not a reference:** the published GM12878 table on disk
+  (`TS5_GM12878_promoter-other_significant_interactions.txt`) holds raw counts
+  and log observed/expected, not CHiCAGO scores.
+
+*Gate, fixed before implementation:*
+- **Parameters** (distance function, factors, dispersion, technical-noise
+  estimates): ED against R Chicago on each PCHiCdata input.
+- **P-values and scores:** ED against R Chicago, when computed from R's own
+  parameters.
+- **End-to-end calls at score 5 or more:** Jaccard index of at least 0.99
+  against R Chicago on each input, with every disagreeing call within 1 % of
+  the threshold.
+- **Defaults:** the Python-equivalent harness cases of all chic tools still
+  pass.
+- **Determinism** at `-t1` and `-tN`.
+- **Memory and CPU** no worse than R Chicago on the same input.
+- **Reported, without a gate:** agreement between HiCExplorer's and CHiCAGO's
+  calls on the committed mouse cHi-C test data.
+
 Order: 9.1 (with reading of versions 6 and 7) and 9.7 step 1 are done (2026-09-14); then
 9.2, 9.3, 9.4, the rest of 9.7, 9.6 and 9.8 to 9.14, interleaved with the
 remaining tier 6 tools. 9.5 follows coolercpp milestone 3.
