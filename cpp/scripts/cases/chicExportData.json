@@ -1,0 +1,242 @@
+[
+  {
+    "id": "chicExportData.interactions.txt",
+    "tool": "chicExportData",
+    "tier": 6,
+    "args": ["-f", "{data}/cHi-C/chicViewpoint/two_matrices.hdf5", "-o", "{out}/data.tar.gz", "-om", "all", "-t", "1"],
+    "outputs": [
+      {"path": "{out}/data.tar.gz", "format": "tar_members", "class": "E0"}
+    ],
+    "threads_arg": "--threads",
+    "notes": "test_chicExportData.py::test_interactions_all. Six text members with 12 decimal places; the member names in order and every member byte for byte. The tar and gzip headers carry time stamps and are not compared."
+  },
+  {
+    "id": "chicExportData.interactions.decimalPlaces3.t3",
+    "tool": "chicExportData",
+    "tier": 6,
+    "args": ["-f", "{data}/cHi-C/chicViewpoint/two_matrices.hdf5", "-o", "{out}/data.tar.gz", "--decimalPlaces", "3", "-t", "3"],
+    "outputs": [
+      {"path": "{out}/data.tar.gz", "format": "tar_members", "class": "E0"}
+    ],
+    "threads_arg": "--threads",
+    "notes": "Not in the Python tests: --decimalPlaces 3, three processes."
+  },
+  {
+    "id": "chicExportData.interactions.bigwig",
+    "tool": "chicExportData",
+    "tier": 6,
+    "args": ["-f", "{data}/cHi-C/chicViewpoint/two_matrices.hdf5", "-o", "{out}/data.tar.gz", "-om", "all", "-oft", "bigwig",
+             "--range", "20000", "200000", "--backgroundModelFile", "{data}/cHi-C/background.txt",
+             "--chromosomeSizes", "{data}/cHi-C/hg19.chrom.sizes", "-t", "1"],
+    "outputs": [
+      {"path": "{out}/data.tar.gz", "format": "tar_members", "class": "E1", "options": {"ordered": false}}
+    ],
+    "threads_arg": "--threads",
+    "notes": "test_chicExportData.py::test_interaction_bigwig_all. Twelve bigWig members, a viewpoint and a background model file per viewpoint, written through libBigWig 0.4.6 as pyBigWig 0.3.22 vendors it and compared through pyBigWig: chromosomes, header, every interval and value, and the zoom level summaries. The Python adds the members in os.walk order of a temporary directory, so the names are compared as a set."
+  },
+  {
+    "id": "chicExportData.interactions.bigwig.raw.t2",
+    "tool": "chicExportData",
+    "tier": 6,
+    "args": ["-f", "{data}/cHi-C/chicViewpoint/two_matrices.hdf5", "-o", "{out}/data", "-oft", "bigwig",
+             "--range", "200000", "200000", "--backgroundModelFile", "{data}/cHi-C/background.txt",
+             "--chromosomeSizes", "{data}/cHi-C/hg19.chrom.sizes", "-ovb", "raw", "-t", "2"],
+    "outputs": [
+      {"path": "{out}/data.tar.gz", "format": "tar_members", "class": "E1", "options": {"ordered": false}}
+    ],
+    "threads_arg": "--threads",
+    "notes": "Not in the Python tests: --outputValueBigwig raw, and an --outFileName without .tar.gz, which the bigWig archive appends."
+  },
+  {
+    "id": "chicExportData.interactions.bigwig.geneName.pvalue",
+    "tool": "chicExportData",
+    "tier": 6,
+    "args": ["-f", "{data}/cHi-C/chicViewpoint/two_matrices.hdf5", "-o", "{out}/data.tar.gz", "-om", "geneName", "-omn", "Eya1",
+             "-oft", "bigwig", "--range", "20000", "200000", "--backgroundModelFile", "{data}/cHi-C/background.txt",
+             "--chromosomeSizes", "{data}/cHi-C/hg19.chrom.sizes", "-ovb", "p-value", "-t", "1"],
+    "outputs": [
+      {"path": "{out}/FL-E13-5_chr1_genes_Eya1.bigwig", "format": "bigwig", "class": "E1"},
+      {"path": "{out}/MB-E10-5_chr1_genes_Eya1.bigwig", "format": "bigwig", "class": "E1"},
+      {"path": "{out}/background_FL-E13-5_chr1_genes_Eya1_interactions.bigwig", "format": "bigwig", "class": "E1"},
+      {"path": "{out}/background_MB-E10-5_chr1_genes_Eya1_interactions.bigwig", "format": "bigwig", "class": "E1"}
+    ],
+    "threads_arg": "--threads",
+    "notes": "test_chicExportData.py::test_interaction_bigwig_oneGene with the p-values instead of the relative interactions: the four files go to the directory of --outFileName."
+  },
+  {
+    "id": "chicExportData.significant.txt",
+    "tool": "chicExportData",
+    "tier": 6,
+    "args": ["-f", "{data}/cHi-C/chicSignificantInteractions/significantInteractions_dual.hdf5", "-o", "{out}/data.tar.gz", "-om", "all", "-t", "2"],
+    "outputs": [
+      {"path": "{out}/data.tar.gz", "format": "tar_members", "class": "E0"}
+    ],
+    "threads_arg": "--threads",
+    "notes": "test_chicExportData.py::test_significant_all."
+  },
+  {
+    "id": "chicExportData.significant.geneName",
+    "tool": "chicExportData",
+    "tier": 6,
+    "args": ["-f", "{data}/cHi-C/chicSignificantInteractions/significantInteractions_dual.hdf5", "-o", "{out}/data.tar.gz", "-om", "geneName", "-omn", "Eya1", "-t", "1"],
+    "outputs": [
+      {"path": "{out}/FL-E13-5_chr1_genes_Eya1_significant.txt", "format": "text", "class": "E0"},
+      {"path": "{out}/MB-E10-5_chr1_genes_Eya1_significant.txt", "format": "text", "class": "E0"}
+    ],
+    "threads_arg": "--threads",
+    "notes": "test_chicExportData.py::test_significant_oneGene."
+  },
+  {
+    "id": "chicExportData.target.txt",
+    "tool": "chicExportData",
+    "tier": 6,
+    "args": ["-f", "{data}/cHi-C/chicSignificantInteractions/targetFile_dual.hdf5", "-o", "{out}/data.tar.gz", "-om", "all", "-t", "1"],
+    "outputs": [
+      {"path": "{out}/data.tar.gz", "format": "tar_members", "class": "E0"}
+    ],
+    "threads_arg": "--threads",
+    "notes": "test_chicExportData.py::test_target_all."
+  },
+  {
+    "id": "chicExportData.target.geneName",
+    "tool": "chicExportData",
+    "tier": 6,
+    "args": ["-f", "{data}/cHi-C/chicSignificantInteractions/targetFile_dual.hdf5", "-o", "{out}/data.tar.gz", "-om", "geneName", "-omn", "Eya1", "-t", "1"],
+    "outputs": [
+      {"path": "{out}/FL-E13-5_chr1_MB-E10-5_chr1_genes_Eya1_target.txt", "format": "text", "class": "E0"}
+    ],
+    "threads_arg": "--threads",
+    "notes": "test_chicExportData.py::test_target_oneGene."
+  },
+  {
+    "id": "chicExportData.target.single.oneTargetFile",
+    "tool": "chicExportData",
+    "tier": 6,
+    "args": ["-f", "{data}/cHi-C/chicSignificantInteractions/targetFile_single.hdf5", "-o", "{out}/data.tar.gz", "--oneTargetFile", "-t", "2"],
+    "outputs": [
+      {"path": "{out}/data.tar.gz", "format": "tar_members", "class": "E0"}
+    ],
+    "threads_arg": "--threads",
+    "notes": "Not in the Python tests: a single-mode target file with --oneTargetFile, one member targets.tsv."
+  },
+  {
+    "id": "chicExportData.aggregate.txt",
+    "tool": "chicExportData",
+    "tier": 6,
+    "args": ["-f", "{data}/cHi-C/chicAggregateStatistic/aggregate.hdf5", "-o", "{out}/data.tar.gz", "-om", "all", "-t", "1"],
+    "outputs": [
+      {"path": "{out}/data.tar.gz", "format": "tar_members", "class": "E0"}
+    ],
+    "threads_arg": "--threads",
+    "notes": "test_chicExportData.py::test_aggregate_all."
+  },
+  {
+    "id": "chicExportData.aggregate.geneName",
+    "tool": "chicExportData",
+    "tier": 6,
+    "args": ["-f", "{data}/cHi-C/chicAggregateStatistic/aggregate.hdf5", "-o", "{out}/data.tar.gz", "-om", "geneName", "-omn", "Eya1", "-t", "1"],
+    "outputs": [
+      {"path": "{out}/FL-E13-5_chr1_MB-E10-5_chr1_FL-E13-5_chr1_genes_Eya1_aggregate.txt", "format": "text", "class": "E0"},
+      {"path": "{out}/FL-E13-5_chr1_MB-E10-5_chr1_MB-E10-5_chr1_genes_Eya1_aggregate.txt", "format": "text", "class": "E0"}
+    ],
+    "threads_arg": "--threads",
+    "notes": "test_chicExportData.py::test_aggregate_oneGene."
+  },
+  {
+    "id": "chicExportData.differential.txt",
+    "tool": "chicExportData",
+    "tier": 6,
+    "args": ["-f", "{data}/cHi-C/chicDifferentialTest/differential.hdf5", "-o", "{out}/data.tar.gz", "-om", "all", "-t", "1"],
+    "outputs": [
+      {"path": "{out}/data.tar.gz", "format": "tar_members", "class": "E0"}
+    ],
+    "threads_arg": "--threads",
+    "notes": "test_chicExportData.py::test_differential_all."
+  },
+  {
+    "id": "chicExportData.differential.geneName",
+    "tool": "chicExportData",
+    "tier": 6,
+    "args": ["-f", "{data}/cHi-C/chicDifferentialTest/differential.hdf5", "-o", "{out}/data.tar.gz", "-om", "geneName", "-omn", "Eya1", "-t", "1"],
+    "outputs": [
+      {"path": "{out}/FL-E13-5_chr1_MB-E10-5_chr1_genes_Eya1_accepted_differential.txt", "format": "text", "class": "E0"},
+      {"path": "{out}/FL-E13-5_chr1_MB-E10-5_chr1_genes_Eya1_all_differential.txt", "format": "text", "class": "E0"},
+      {"path": "{out}/FL-E13-5_chr1_MB-E10-5_chr1_genes_Eya1_rejected_differential.txt", "format": "text", "class": "E0"}
+    ],
+    "threads_arg": "--threads",
+    "notes": "test_chicExportData.py::test_differential_one_gene."
+  },
+  {
+    "id": "chicExportData.geneNameWithoutName.fails",
+    "tool": "chicExportData",
+    "tier": 6,
+    "args": ["-f", "{data}/cHi-C/chicViewpoint/two_matrices.hdf5", "-o", "{out}/data.tar.gz", "-om", "geneName", "-t", "1"],
+    "expect_exit": 1,
+    "outputs": [],
+    "notes": "--outputMode geneName without --outputModeName exits 1."
+  },
+  {
+    "id": "chicExportData.bigwigSignificant.fails",
+    "tool": "chicExportData",
+    "tier": 6,
+    "args": ["-f", "{data}/cHi-C/chicSignificantInteractions/significantInteractions_dual.hdf5", "-o", "{out}/data.tar.gz", "-om", "geneName", "-omn", "Eya1", "-oft", "bigwig", "-t", "1"],
+    "expect_exit": 1,
+    "outputs": [],
+    "notes": "test_chicExportData.py::test_significant_one_gene_bigwig_fail: only interaction files go to bigWig."
+  },
+  {
+    "id": "chicExportData.bigwigWithoutRange.fails",
+    "tool": "chicExportData",
+    "tier": 6,
+    "args": ["-f", "{data}/cHi-C/chicViewpoint/two_matrices.hdf5", "-o", "{out}/data.tar.gz", "-om", "all", "-oft", "bigwig", "-t", "1"],
+    "expect_exit": 1,
+    "outputs": [],
+    "notes": "test_chicExportData.py::test_interaction_bigwig_fail."
+  },
+  {
+    "id": "chicExportData.bigwigWithoutBackground.fails",
+    "tool": "chicExportData",
+    "tier": 6,
+    "args": ["-f", "{data}/cHi-C/chicViewpoint/two_matrices.hdf5", "-o", "{out}/data.tar.gz", "-om", "all", "-oft", "bigwig", "--range", "20000", "200000", "-t", "1"],
+    "expect_exit": 1,
+    "outputs": [],
+    "notes": "test_chicExportData.py::test_interaction_bigwig_fail_range."
+  },
+  {
+    "id": "chicExportData.bigwigWithoutChromosomeSizes.fails",
+    "tool": "chicExportData",
+    "tier": 6,
+    "args": ["-f", "{data}/cHi-C/chicViewpoint/two_matrices.hdf5", "-o", "{out}/data.tar.gz", "-oft", "bigwig", "--range", "20000", "200000",
+             "--backgroundModelFile", "{data}/cHi-C/background.txt", "-t", "1"],
+    "expect_exit": 1,
+    "outputs": [],
+    "notes": "Not in the Python tests: bigWig output without --chromosomeSizes exits 1."
+  },
+  {
+    "id": "chicExportData.unknownGene.fails",
+    "tool": "chicExportData",
+    "tier": 6,
+    "args": ["-f", "{data}/cHi-C/chicViewpoint/two_matrices.hdf5", "-o", "{out}/data.tar.gz", "-om", "geneName", "-omn", "Nope", "-t", "1"],
+    "expect_exit": 1,
+    "outputs": [],
+    "notes": "A gene name that is not present leaves nothing to export: 'Contains not the requested data!' and exit 1."
+  },
+  {
+    "id": "chicExportData.threads0.fails",
+    "tool": "chicExportData",
+    "tier": 6,
+    "args": ["-f", "{data}/cHi-C/chicViewpoint/two_matrices.hdf5", "-o", "{out}/data.tar.gz", "-t", "0"],
+    "expect_exit": 1,
+    "outputs": [],
+    "notes": "--threads 0: ZeroDivisionError."
+  },
+  {
+    "id": "chicExportData.threadsNegative.fails",
+    "tool": "chicExportData",
+    "tier": 6,
+    "args": ["-f", "{data}/cHi-C/chicViewpoint/two_matrices.hdf5", "-o", "{out}/data.tar.gz", "-t", "-1"],
+    "expect_exit": 1,
+    "outputs": [],
+    "notes": "A negative --threads starts no worker: 'Contains not the requested data!' and exit 1."
+  }
+]

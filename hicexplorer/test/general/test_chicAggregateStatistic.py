@@ -153,6 +153,47 @@ def test_regular_mode_threads():
     aggregateFileH5Object.close()
 
 
+def test_characterization_failures_and_thread_counts(tmp_path):
+    # Characterization (cpp/AGENTS_CONTRACT.md rule 1) of paths the tests
+    # above do not reach, pinned before the C++ port.
+    out = str(tmp_path / 'aggregate.hdf5')
+    base = ["--interactionFile", ROOT + 'chicViewpoint/two_matrices.hdf5', "--outFileName", out]
+    # A target file of chicSignificantInteractions in single mode has no genes
+    # group below its matrix groups.
+    with pytest.raises(KeyError):
+        chicAggregateStatistic.main(base + ["--targetFile", ROOT + 'chicSignificantInteractions/targetFile_single.hdf5',
+                                            "-t", "1"])
+    # A four column BED is filed under the fixed names c_adj_norm/t_adj_norm.
+    with pytest.raises(KeyError):
+        chicAggregateStatistic.main(base + ["--targetFile", ROOT + 'chicAggregateStatistic/target_list_4col.bed',
+                                            "-t", "1"])
+    assert not os.path.exists(out)
+    target = ["--targetFile", ROOT + 'chicSignificantInteractions/targetFile_dual.hdf5']
+    with pytest.raises(ZeroDivisionError):
+        chicAggregateStatistic.main(base + target + ["-t", "0"])
+    chicAggregateStatistic.main(base + target + ["-t", "-1"])
+    with h5py.File(out, 'r') as handle:
+        assert len(handle) == 0
+        assert sorted(handle.attrs.keys()) == ['type', 'version']
+
+
+def test_characterization_aggregated_values(tmp_path):
+    # The values of one aggregated line: the positions of a target region are
+    # summed, the line keeps the first position's start and takes the last
+    # position's end and relative distance.
+    out = str(tmp_path / 'aggregate.hdf5')
+    chicAggregateStatistic.main(["--interactionFile", ROOT + 'chicViewpoint/two_matrices.hdf5',
+                                 "--targetFile", ROOT + 'chicSignificantInteractions/targetFile_dual.hdf5',
+                                 "--outFileName", out, "-t", "1"])
+    with h5py.File(out, 'r') as handle:
+        group = handle['FL-E13-5_chr1_MB-E10-5_chr1']['FL-E13-5_chr1']['chr1']['Sox17']
+        assert list(group['start_list'][:4]) == [4481000, 4499000, 4509000, 4561000]
+        assert list(group['end_list'][:4]) == [4488000, 4502000, 4515000, 4567000]
+        assert list(group['relative_distance_list'][:4]) == [0, 14000, 27000, 79000]
+        assert group['raw_target_list'][0] == pytest.approx(297.8)
+        assert group['sum_of_interactions'][()] == 810.0
+
+
 def test_target_list_bed3():
     outfile_aggregate = NamedTemporaryFile(suffix='.hdf5', delete=False)
     outfile_aggregate.close()

@@ -102,6 +102,52 @@ def test_interactions_all():
         assert are_files_equal(output_folder_new + '/' + file_new, output_folder_test_data + '/' + file_test_data, skip=1)
 
 
+def test_characterization_options_and_failures(tmp_path):
+    # Characterization (cpp/AGENTS_CONTRACT.md rule 1) of options and exits
+    # the tests do not reach, pinned before the C++ port.
+    out = str(tmp_path / 'targets.tar.gz')
+    chicExportData.main(['-f', ROOT + 'chicSignificantInteractions/targetFile_dual.hdf5', '-o', out,
+                         '--oneTargetFile', '-t', '2'])
+    with tarfile.open(out, 'r') as archive:
+        assert archive.getnames() == ['targets.tsv']
+        assert archive.extractfile('targets.tsv').read().decode().startswith('chr1\t14274000\t14278000\n')
+
+    out = str(tmp_path / 'aggregate.tar.gz')
+    chicExportData.main(['-f', ROOT + 'chicAggregateStatistic/aggregate.hdf5', '-o', out, '--decimalPlaces', '3',
+                         '-t', '3'])
+    with tarfile.open(out, 'r') as archive:
+        name = archive.getnames()[0]
+        assert name == 'FL-E13-5_chr1_MB-E10-5_chr1_FL-E13-5_chr1_chr1_Eya1_aggregate.txt'
+        lines = archive.extractfile(name).read().decode().split('\n')
+        assert lines[1] == 'chr1\t14274000\t14278000\tEya1\t673.000\t-23000\t5.600'
+
+    out = str(tmp_path / 'raw')
+    chicExportData.main(['-f', ROOT + 'chicViewpoint/two_matrices.hdf5', '-o', out, '-oft', 'bigwig',
+                         '--range', '200000', '200000', '--backgroundModelFile', ROOT + 'background.txt',
+                         '--chromosomeSizes', ROOT + 'hg19.chrom.sizes', '-ovb', 'raw', '-t', '2'])
+    folder = mkdtemp(prefix="output_")
+    with tarfile.open(out + '.tar.gz', 'r') as archive:
+        assert len(archive.getnames()) == 12
+        archive.extractall(folder)
+    bw = pyBigWig.open(folder + '/FL-E13-5_chr1_chr1_Tfap2d.bigwig')
+    intervals = bw.intervals('chr1')
+    assert len(intervals) == 401
+    assert intervals[0] == (18893000, 18894000, pytest.approx(0.6666666865348816))
+    bw.close()
+
+    base = ['-f', ROOT + 'chicViewpoint/two_matrices.hdf5', '-o', str(tmp_path / 'data.tar.gz')]
+    for extra in (['-om', 'geneName', '-t', '1'],
+                  ['-om', 'geneName', '-omn', 'Nope', '-t', '1'],
+                  ['-oft', 'bigwig', '--range', '20000', '200000', '--backgroundModelFile',
+                   ROOT + 'background.txt', '-t', '1'],
+                  ['-t', '-1']):
+        with pytest.raises(SystemExit):
+            chicExportData.main(base + extra)
+    with pytest.raises(ZeroDivisionError):
+        chicExportData.main(base + ['-t', '0'])
+    assert not os.path.exists(str(tmp_path / 'data.tar.gz'))
+
+
 # must fail
 @pytest.mark.xfail(reason='Test case should fail because of wrong input.')
 def test_interaction_bigwig_fail():

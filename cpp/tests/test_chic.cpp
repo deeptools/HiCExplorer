@@ -20,6 +20,7 @@
 #include "hicx/chic_viewpoint.hpp"
 #include "hicx/lbfgsb_scipy.hpp"
 #include "hicx/scipy_special.hpp"
+#include "hicx/scipy_stats.hpp"
 #include "hicx/stats_ops.hpp"
 
 namespace {
@@ -298,4 +299,30 @@ TEST_CASE("chic_hdf5 writes h5py's layout") {
     H5Dclose(gene);
     H5Fclose(file);
     std::remove(path.c_str());
+}
+
+TEST_CASE("scipy_stats: fisher_exact, chi2_contingency and chi2.ppf as scipy 1.14.1") {
+    // Values printed with repr() by scipy 1.14.1 (the reference environment).
+    const auto fisher = [](std::int64_t a, std::int64_t b, std::int64_t c, std::int64_t d) {
+        return hicx::scipy::fisher_exact_pvalue(a, b, c, d).value();
+    };
+    CHECK(fisher(673, 6, 832, 10) == 0.6217650076416404);
+    CHECK(fisher(810, 298, 978, 401) == 0.24331170304805208);
+    CHECK(fisher(5, 0, 0, 5) == 0.007936507936507938);
+    CHECK(fisher(20, 3, 900, 150) == 1.0);
+    CHECK_FALSE(hicx::scipy::fisher_exact_pvalue(-1, 3, 4, 5).has_value());
+
+    const auto first = hicx::scipy::chi2_contingency_2x2(673.0, 5.6, 832.0, 0.0).value();
+    CHECK(first.statistic == 6.891447919451126);
+    CHECK(first.pvalue == 0.00866090872217125);
+    const auto second = hicx::scipy::chi2_contingency_2x2(810.0, 297.8, 978.0, 400.4).value();
+    CHECK(second.statistic == 1.4268145854722973);
+    CHECK(second.pvalue == 0.23228500408601602);
+    // An expected frequency of zero is scipy's ValueError.
+    CHECK_FALSE(hicx::scipy::chi2_contingency_2x2(673.0, 0.0, 832.0, 0.0).has_value());
+
+    CHECK(hicx::scipy::chi2_ppf(0.5, 1.0) == 0.454936423119572);
+    CHECK(hicx::scipy::chi2_ppf(0.95, 1.0) == 3.841458820694124);
+    CHECK(hicx::scipy::chi2_ppf(0.999, 1.0) == 10.827566170662733);
+    CHECK(hicx::scipy::chi2_ppf(1.0, 1.0) == std::numeric_limits<double>::infinity());
 }

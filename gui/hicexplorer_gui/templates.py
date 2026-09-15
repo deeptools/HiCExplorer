@@ -16,9 +16,9 @@ A template file (``templates/<name>.yaml``) holds a version 1 workflow
           default: 100000
           description: bin size in bp
       unavailable:                   # analyses of the template's purpose that
-        - tool: chicSignificantInteractions   # the port does not provide: shown
-          purpose: significant interactions   # with the catalog's reason (or the
-          reason: ...                         # given one for a tool the catalog
+        - tool: differential loops            # the port does not provide: shown
+          purpose: loops that differ          # with the catalog's reason (or the
+          reason: not implemented, PLAN 9.7   # given one for a tool the catalog
                                               # does not plan), never run
     workflow:
       version: 1

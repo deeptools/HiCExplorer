@@ -661,6 +661,11 @@ std::vector<std::string> File::read_strings(const std::string& dataset_path) con
         std::vector<char*> raw(length, nullptr);
         const Handle mem_type(H5Tcopy(H5T_C_S1), Handle::Kind::DataType);
         H5Tset_size(mem_type.get(), H5T_VARIABLE);
+        // The memory type takes the file type's character set, as the
+        // attribute reader does: HDF5 has no conversion between an ASCII and
+        // a UTF-8 variable length string until one has been registered by an
+        // earlier read, so a UTF-8 dataset read first failed.
+        H5Tset_cset(mem_type.get(), H5Tget_cset(type.get()));
         if (H5Dread(dataset.get(), mem_type.get(), H5S_ALL, H5S_ALL, H5P_DEFAULT,
                     raw.data()) < 0) {
             throw Error("cannot read string dataset " + dataset_path);

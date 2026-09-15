@@ -1,0 +1,109 @@
+[
+  {
+    "id": "chicDifferentialTest.fisher",
+    "tool": "chicDifferentialTest",
+    "tier": 6,
+    "args": ["--aggregatedFile", "{data}/cHi-C/chicAggregateStatistic/aggregate.hdf5",
+             "--alpha", "0.5", "--statisticTest", "fisher", "--outFileName", "{out}/differential.hdf5", "-t", "1"],
+    "outputs": [
+      {"path": "{out}/differential.hdf5", "format": "chic_hdf5", "class": "E3"}
+    ],
+    "threads_arg": "--threads",
+    "notes": "test_chicDifferentialTest.py::test_regular_mode_fisher. scipy.stats.fisher_exact on the rounded up tables, on Boost's hypergeometric distribution under scipy's StatsPolicy (scipy/special/functions.json at v1.14.1). The accepted and rejected groups are compared exactly, which is E5 on the calls and more."
+  },
+  {
+    "id": "chicDifferentialTest.chi2",
+    "tool": "chicDifferentialTest",
+    "tier": 6,
+    "args": ["--aggregatedFile", "{data}/cHi-C/chicAggregateStatistic/aggregate.hdf5",
+             "--alpha", "0.5", "--statisticTest", "chi2", "--outFileName", "{out}/differential.hdf5", "-t", "1"],
+    "outputs": [
+      {"path": "{out}/differential.hdf5", "format": "chic_hdf5", "class": "E3"}
+    ],
+    "threads_arg": "--threads",
+    "notes": "test_chicDifferentialTest.py::test_regular_mode_chi2. chi2_contingency without Yates' correction: the p-value is the Cephes chdtrc and the rejection compares the statistic with chi2.ppf(1 - alpha, 1), the Cephes igami, both from scipy's C++ headers at v1.14.1."
+  },
+  {
+    "id": "chicDifferentialTest.fisher.aggregate_target.t4",
+    "tool": "chicDifferentialTest",
+    "tier": 6,
+    "args": ["--aggregatedFile", "{data}/cHi-C/chicAggregateStatistic/aggregate_target.hdf",
+             "--alpha", "0.05", "--statisticTest", "fisher", "--outFileName", "{out}/differential.hdf5", "-t", "4"],
+    "outputs": [
+      {"path": "{out}/differential.hdf5", "format": "chic_hdf5", "class": "E3"}
+    ],
+    "threads_arg": "--threads",
+    "notes": "The committed aggregate file of two genes on chr10 and chr19 (c_adj_norm, t_adj_norm), with four processes for two reference points."
+  },
+  {
+    "id": "chicDifferentialTest.chi2.aggregate_target",
+    "tool": "chicDifferentialTest",
+    "tier": 6,
+    "args": ["--aggregatedFile", "{data}/cHi-C/chicAggregateStatistic/aggregate_target.hdf",
+             "--alpha", "0.05", "--statisticTest", "chi2", "--outFileName", "{out}/differential.hdf5", "-t", "2"],
+    "outputs": [
+      {"path": "{out}/differential.hdf5", "format": "chic_hdf5", "class": "E3"}
+    ],
+    "threads_arg": "--threads"
+  },
+  {
+    "id": "chicDifferentialTest.threads0.fails",
+    "tool": "chicDifferentialTest",
+    "tier": 6,
+    "args": ["--aggregatedFile", "{data}/cHi-C/chicAggregateStatistic/aggregate.hdf5",
+             "--alpha", "0.5", "--outFileName", "{out}/differential.hdf5", "-t", "0"],
+    "expect_exit": 1,
+    "outputs": [],
+    "notes": "--threads 0: ZeroDivisionError before any output."
+  },
+  {
+    "id": "chicDifferentialTest.threadsNegative.fails",
+    "tool": "chicDifferentialTest",
+    "tier": 6,
+    "args": ["--aggregatedFile", "{data}/cHi-C/chicAggregateStatistic/aggregate.hdf5",
+             "--alpha", "0.5", "--outFileName", "{out}/differential.hdf5", "-t", "-1"],
+    "expect_exit": 1,
+    "outputs": [
+      {"path": "{out}/differential.hdf5", "format": "chic_hdf5", "class": "E3"}
+    ],
+    "notes": "A negative --threads starts no worker, and writeResultHDF raises IndexError at the first reference point after creating its groups: exit 1 with that partial file. Reproduced."
+  },
+  {
+    "id": "chicDifferentialTest.notAggregate.fails",
+    "tool": "chicDifferentialTest",
+    "tier": 6,
+    "args": ["--aggregatedFile", "{data}/cHi-C/chicViewpoint/two_matrices.hdf5",
+             "--alpha", "0.5", "--outFileName", "{out}/differential.hdf5", "-t", "1"],
+    "expect_exit": 1,
+    "outputs": [],
+    "notes": "An interaction file instead of an aggregate file: the type check exits 1 before any output."
+  },
+  {
+    "id": "chicDifferentialTest.v4.fisher.aggregate_target.fdr",
+    "tool": "chicDifferentialTest",
+    "tier": 6,
+    "py_script": "cpp/scripts/py_chicDifferentialTest_calibrated.py",
+    "args": ["--aggregatedFile", "{data}/cHi-C/chicAggregateStatistic/aggregate_target.hdf",
+             "--alpha", "0.05", "--statisticTest", "fisher", "--outFileName", "{out}/differential.hdf5", "-t", "1",
+             "--correctForMultipleTesting", "fdr"],
+    "outputs": [
+      {"path": "{out}/differential.hdf5", "format": "chic_hdf5", "class": "E3"}
+    ],
+    "threads_arg": "--threads",
+    "notes": "C++ only option (PLAN.md 9.7 work item 3). The reference is cpp/scripts/py_chicDifferentialTest_calibrated.py: the unmodified tool's p-values of every test, adjusted by Benjamini-Hochberg across all reference points, and a location rejected where the adjusted value is at most --alpha."
+  },
+  {
+    "id": "chicDifferentialTest.v4.chi2.bonferroni",
+    "tool": "chicDifferentialTest",
+    "tier": 6,
+    "py_script": "cpp/scripts/py_chicDifferentialTest_calibrated.py",
+    "args": ["--aggregatedFile", "{data}/cHi-C/chicAggregateStatistic/aggregate.hdf5",
+             "--alpha", "0.5", "--statisticTest", "chi2", "--outFileName", "{out}/differential.hdf5", "-t", "1",
+             "--correctForMultipleTesting", "bonferroni"],
+    "outputs": [
+      {"path": "{out}/differential.hdf5", "format": "chic_hdf5", "class": "E3"}
+    ],
+    "threads_arg": "--threads",
+    "notes": "C++ only option, Bonferroni with the chi-squared test: the rejection uses the adjusted p-value instead of the statistic against the critical value."
+  }
+]

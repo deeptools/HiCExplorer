@@ -215,6 +215,97 @@ def test_loose_pvalue():
     targetFileH5Object.close()
 
 
+def _common_args():
+    return ["--interactionFile", ROOT + 'chicViewpoint/two_matrices.hdf5',
+            "--backgroundModelFile", ROOT + 'background.txt', "--range", "200000", "200000",
+            "--outFileNameSignificant", "significant.hdf5", "--outFileNameTarget", "target.hdf5"]
+
+
+def _relative_positions(path):
+    with h5py.File(path, 'r') as handle:
+        return {sample: {gene: list(handle[sample]['chr1'][gene]['relative_position_list'][:])
+                         for gene in handle[sample]['chr1']}
+                for sample in handle}
+
+
+def test_characterization_truncate_zero_pvalues(tmp_path, monkeypatch):
+    # Characterization (cpp/AGENTS_CONTRACT.md rule 1): --truncateZeroPvalues
+    # and a peak threshold on the merged raw sums, pinned before the C++ port.
+    monkeypatch.chdir(tmp_path)
+    chicSignificantInteractions.main(_common_args() + [
+        "--loosePValue", "0.5", "--pValue", "0.2", "-t", "2", "--combinationMode", "single",
+        "--truncateZeroPvalues", "--peakInteractionsThreshold", "10"])
+    assert _relative_positions("significant.hdf5") == {
+        'FL-E13-5_chr1': {'Eya1': [-1000], 'Sox17': [0], 'Tfap2d': [-1000]},
+        'MB-E10-5_chr1': {'Eya1': [-1000], 'Sox17': [0], 'Tfap2d': [-15000, 0]}}
+    with h5py.File("significant.hdf5", 'r') as handle:
+        raw = handle['MB-E10-5_chr1']['chr1']['Tfap2d']['raw'][:]
+        assert raw[0] == pytest.approx(15.0) and raw[1] == pytest.approx(276.4)
+        assert handle.attrs['truncateZeroPvalues']
+    with h5py.File("target.hdf5", 'r') as handle:
+        assert [x.decode() for x in handle['MB-E10-5_chr1']['chr1']['Tfap2d']['start_list'][:]] == ['19077000']
+    assert not os.path.exists("errorLog.txt")
+
+
+def test_characterization_without_preselection(tmp_path, monkeypatch):
+    # Without --xFoldBackground and --loosePValue every position is accepted
+    # on its stored p-value, and --peakInteractionsThreshold is compared with
+    # the x-fold (filter_by_pvalue), so positions with fewer than 5 raw
+    # interactions are accepted. Sox17 has no accepted position, which
+    # appends to errorLog.txt in the working directory.
+    monkeypatch.chdir(tmp_path)
+    chicSignificantInteractions.main(_common_args() + [
+        "--pValue", "0.2", "-t", "1", "--combinationMode", "single"])
+    positions = _relative_positions("significant.hdf5")
+    assert positions['FL-E13-5_chr1']['Eya1'] == [-156000, -103000, -102000, -101000, 192000, 193000,
+                                                   194000, 195000, 196000, 199000, 200000]
+    assert positions['MB-E10-5_chr1'] == {'Eya1': [199000, 200000],
+                                          'Tfap2d': [105000, 124000, 125000, 126000, 130000]}
+    with h5py.File("significant.hdf5", 'r') as handle:
+        assert max(handle['FL-E13-5_chr1']['chr1']['Eya1']['raw'][:]) < 5
+    with open("errorLog.txt") as log:
+        assert log.read() == ("Failed for: [['FL-E13-5_chr1', 'chr1', 'Sox17']].\n"
+                              "Failed for: [['MB-E10-5_chr1', 'chr1', 'Sox17']].\n")
+
+
+def test_characterization_reference_points_follow_computation_order(tmp_path, monkeypatch):
+    # The significant file is written in np.unique order of the sample
+    # triplets, but the reference points are indexed in computation order.
+    monkeypatch.chdir(tmp_path)
+    chicSignificantInteractions.main(_common_args() + [
+        "--xFoldBackground", "1.5", "--pValue", "0.2", "-t", "1", "--combinationMode", "dual"])
+    with h5py.File("significant.hdf5", 'r') as handle:
+        sox17 = handle['FL-E13-5_chr1']['chr1']['Sox17']
+        assert sox17['reference_point_start'][()] == 14300280
+    with h5py.File("target.hdf5", 'r') as handle:
+        sox17 = handle['FL-E13-5_chr1']['MB-E10-5_chr1']['chr1']['Sox17']
+        assert sox17['reference_point_start'][()] == 4487435
+
+
+def test_characterization_threshold_file_fails_when_written(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    with pytest.raises(TypeError):
+        chicSignificantInteractions.main(_common_args() + [
+            "--pValue", ROOT + 'thresholdFile_pValue.txt',
+            "--loosePValue", ROOT + 'thresholdFile_loose_pValue.txt', "-t", "1"])
+    with h5py.File("significant.hdf5", 'r') as handle:
+        assert sorted(handle.attrs.keys()) == ['type', 'version']
+        assert len(handle) == 0
+    assert not os.path.exists("target.hdf5")
+
+
+def test_characterization_thread_counts(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    with pytest.raises(ZeroDivisionError):
+        chicSignificantInteractions.main(_common_args() + [
+            "--xFoldBackground", "1.5", "--pValue", "0.2", "-t", "0"])
+    chicSignificantInteractions.main(_common_args() + [
+        "--xFoldBackground", "1.5", "--pValue", "0.2", "-t", "-1"])
+    for name in ("significant.hdf5", "target.hdf5"):
+        with h5py.File(name, 'r') as handle:
+            assert len(handle) == 0 and handle.attrs['pvalue'] == 0.2
+
+
 def test_loose_pvalue_single():
     outfile_significant = NamedTemporaryFile(suffix='.hdf5', delete=False)
     outfile_target = NamedTemporaryFile(suffix='.hdf5', delete=False)
