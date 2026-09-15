@@ -19,10 +19,21 @@ namespace {
 constexpr std::size_t kBlock = 512;
 constexpr std::size_t kRecord = 20 * kBlock;
 
-// An octal field of `width` bytes: width - 1 digits and a terminating NUL.
+// An octal field of `width` bytes: width - 1 zero-padded digits and a
+// terminating NUL. A value that needs more digits is refused, because a
+// truncated field (a size of 8 GiB or more in the 12-byte size field) would
+// silently corrupt the archive.
 void octal(char* field, std::size_t width, std::uint64_t value) {
-    std::snprintf(field, width, "%0*llo", static_cast<int>(width - 1),
-                  static_cast<unsigned long long>(value));
+    const std::size_t digits = width - 1;
+    if (digits < 22 && (value >> (3 * digits)) != 0) {
+        throw std::runtime_error("tar header field of " + std::to_string(width) +
+                                 " bytes cannot hold " + std::to_string(value));
+    }
+    for (std::size_t i = digits; i-- > 0;) {
+        field[i] = static_cast<char>('0' + (value & 7u));
+        value >>= 3;
+    }
+    field[digits] = '\0';
 }
 
 }  // namespace
