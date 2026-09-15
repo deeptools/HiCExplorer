@@ -2332,7 +2332,32 @@ def _cache_verify(options, cache):
             diffs.append(f"exit {side['measurement']['exit_code']} against the cached "
                          f"{meta['measurement']['exit_code']}")
         runs = noise_runs_of(case, options)
+        qualified = []
+        if restored:
+            # Everything but class EN: the identity rule the determinism check
+            # applies to two runs of the same program. Byte-identical, or
+            # identical at the format's strictest class with the difference
+            # confined to HDF5 object modification times or provenance fields,
+            # or identical after the output's declared normalisation.
+            exact_outputs = []
+            for declared in case["outputs"]:
+                if declared.get("class") == "EN":
+                    continue
+                name = declared["path"].replace("{out}/", "")
+                note = _gzip_header_time_only(cached_dir / "out_py" / name,
+                                              fresh_dir / "out_py" / name)
+                if note:
+                    qualified.append(f"{name}: {note}")
+                    continue
+                exact_outputs.append(declared)
+            exact_case = dict(case, outputs=exact_outputs)
+            output_diffs, exact_qualified = _compare_run_outputs(
+                exact_case, cached_dir / "out_py", fresh_dir / "out_py")
+            qualified.extend(exact_qualified)
+            diffs.extend(output_diffs)
         for declared in case["outputs"] if restored else []:
+            if declared.get("class") != "EN":
+                continue
             fresh = Path(expand(declared["path"], {"data": data, "out": fresh_dir / "out_py"}))
             cached = Path(expand(declared["path"], {"data": data, "out": cached_dir / "out_py"}))
             if fresh.exists() != cached.exists():
@@ -2340,23 +2365,19 @@ def _cache_verify(options, cache):
                 continue
             if not fresh.exists():
                 continue
-            if declared.get("class") == "EN":
-                noise = [str(cached)] + [expand(declared["path"], {"data": data, "out": cached_dir / f"out_py_noise{i}"})
-                                         for i in range(1, runs)]
-                compare_options = dict(declared.get("options") or {})
-                compare_options["noise_paths"] = noise
-                comparison = compare_locked(declared["format"], str(cached), str(fresh), "EN",
-                                                 compare_options)
-                if not comparison.passed:
-                    diffs.append(f"{declared['path']}: outside the cached EN envelope: "
-                                 + "; ".join(comparison.to_json().get("diffs", [])[:2]))
-            elif fresh.is_file() and fresh.read_bytes() != cached.read_bytes():
-                diffs.append(f"{declared['path']}: not byte-identical")
-            elif fresh.is_dir() and reference_cache.hash_path(fresh) != reference_cache.hash_path(cached):
-                diffs.append(f"{declared['path']}: directory content differs")
-        cpu_ratio = _ratio(side["measurement"]["cpu_seconds"], meta["measurement"]["cpu_seconds"])
-        rss_ratio = _ratio(side["measurement"]["peak_rss_kb"], meta["measurement"]["peak_rss_kb"])
+            noise = [str(cached)] + [expand(declared["path"], {"data": data, "out": cached_dir / f"out_py_noise{i}"})
+                                     for i in range(1, runs)]
+            compare_options = dict(declared.get("options") or {})
+            compare_options["noise_paths"] = noise
+            comparison = compare_locked(declared["format"], str(cached), str(fresh), "EN",
+                                        compare_options)
+            if not comparison.passed:
+                diffs.append(f"{declared['path']}: outside the cached EN envelope: "
+                             + "; ".join(comparison.to_json().get("diffs", [])[:2]))
+        cpu_ratio = _float_ratio(side["measurement"]["cpu_seconds"], meta["measurement"]["cpu_seconds"])
+        rss_ratio = _float_ratio(side["measurement"]["peak_rss_kb"], meta["measurement"]["peak_rss_kb"])
         rows.append({"id": case["id"], "passed": not diffs, "diffs": diffs,
+                     "qualifications": qualified,
                      "fresh_cpu_seconds": side["measurement"]["cpu_seconds"],
                      "cached_cpu_seconds": meta["measurement"]["cpu_seconds"],
                      "cpu_ratio": cpu_ratio,
@@ -2368,6 +2389,8 @@ def _cache_verify(options, cache):
               f"{rss_ratio if rss_ratio is None else round(rss_ratio, 3)}")
         for diff in diffs[:5]:
             print(f"       {diff}")
+        for note in qualified[:3]:
+            print(f"       qualified: {note}")
         shutil.rmtree(fresh_root, ignore_errors=True)
         shutil.rmtree(cached_root, ignore_errors=True)
         return None
@@ -2386,6 +2409,31 @@ def _cache_verify(options, cache):
              "cases": rows}, indent=1))
     print(f"\n{len(sample)} of {len(candidates)} cached cases rerun, {failures} failed")
     return 0 if failures == 0 and sample else 1
+
+
+def _gzip_header_time_only(left, right):
+    """A note when two gzip files differ only in the header's modification
+    time (bytes 4 to 7) and decompress to the same content, else None. Used by
+    cache verify for reference outputs such as hicConvertFormat's homer
+    matrix, which gzip stamps with the time of the run."""
+    import gzip  # pylint: disable=C0415
+    left, right = Path(left), Path(right)
+    if not left.is_file() or not right.is_file():
+        return None
+    a, b = left.read_bytes(), right.read_bytes()
+    if a == b or len(a) != len(b) or a[:2] != b"\x1f\x8b":
+        return None
+    offsets = [index for index in range(len(a)) if a[index] != b[index]]
+    if not offsets or any(offset < 4 or offset > 7 for offset in offsets):
+        return None
+    if gzip.decompress(a) != gzip.decompress(b):
+        return None
+    return (f"identical after decompression; {len(offsets)} differing bytes, all in the "
+            f"gzip header modification time")
+
+
+def _float_ratio(numerator, denominator):
+    return numerator / denominator if numerator and denominator else None
 
 
 def _rewrite(meta, restored_dir, as_dir):
