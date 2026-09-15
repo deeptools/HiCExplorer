@@ -3,12 +3,14 @@ template:
   title: Capture Hi-C
   description: >-
     Capture Hi-C viewpoints: the quality control of the reference points, the
-    background model of the accepted ones, the viewpoints with their p-values,
-    and the viewpoint plots.
+    background model of the accepted ones, the viewpoints with their p-values
+    and plots, the significant interactions per sample, their statistics
+    aggregated over two samples, the differential test between the samples,
+    and the export of the differential results as text.
   parameters:
     - name: matrices
       kind: files
-      description: capture Hi-C matrices (cool), one per sample
+      description: capture Hi-C matrices (cool), one per sample; the differential test needs two
     - name: referencePoints
       kind: file
       description: BED file of the reference points (captured regions)
@@ -28,15 +30,29 @@ template:
       kind: value
       default: Eya1
       description: the reference point (gene) whose viewpoints are plotted
-  unavailable:
-    - tool: chicSignificantInteractions
-      purpose: significant interactions
-    - tool: chicAggregateStatistic
-      purpose: aggregated statistics of the significant interactions
-    - tool: chicDifferentialTest
-      purpose: differential interactions between samples
-    - tool: chicExportData
-      purpose: export of the results as text
+    - name: xFoldBackground
+      kind: value
+      default: 1.5
+      description: x-fold over the background model that preselects candidate peaks
+    - name: pValue
+      kind: value
+      default: 0.2
+      description: p-value threshold for the merged peaks of a viewpoint
+    - name: alpha
+      kind: value
+      default: 0.05
+      description: significance level of the differential test
+    - name: statisticTest
+      kind: value
+      default: fisher
+      description: differential test, fisher or chi2
+    - name: correction
+      kind: value
+      default: fdr
+      description: >-
+        multiple testing correction of the significant interactions and of the
+        differential test, none, fdr or bonferroni (a C++ option, PLAN 9.7;
+        none gives the Python tools' results)
 workflow:
   version: 1
   name: capture_hic
@@ -88,3 +104,48 @@ workflow:
         combinationName: "@{plotGene}"
         outFileName: "${outputs.plots}"
       outputs: {plots: plots/viewpoints.tar.gz}
+    - id: significant
+      threads: 1
+      tool: chicSignificantInteractions
+      description: significant interactions per sample, and the target regions per pair of samples
+      args:
+        interactionFile: "${steps.viewpoints.outputs.interactions}"
+        backgroundModelFile: "${steps.background.outputs.model}"
+        range: "@{range}"
+        fixateRange: "@{fixateRange}"
+        xFoldBackground: "@{xFoldBackground}"
+        pValue: "@{pValue}"
+        combinationMode: dual
+        correctForMultipleTesting: "@{correction}"
+        outFileNameSignificant: "${outputs.significant}"
+        outFileNameTarget: "${outputs.target}"
+      outputs: {significant: significant/significant.hdf5, target: significant/target.hdf5}
+    - id: aggregate
+      threads: 1
+      tool: chicAggregateStatistic
+      description: the interactions of both samples aggregated over the target regions
+      args:
+        interactionFile: "${steps.viewpoints.outputs.interactions}"
+        targetFile: "${steps.significant.outputs.target}"
+        outFileName: "${outputs.aggregate}"
+      outputs: {aggregate: aggregate/aggregate.hdf5}
+    - id: differential
+      threads: 1
+      tool: chicDifferentialTest
+      description: differential interactions between the two samples
+      args:
+        aggregatedFile: "${steps.aggregate.outputs.aggregate}"
+        alpha: "@{alpha}"
+        statisticTest: "@{statisticTest}"
+        correctForMultipleTesting: "@{correction}"
+        outFileName: "${outputs.differential}"
+      outputs: {differential: differential/differential.hdf5}
+    - id: export
+      threads: 1
+      tool: chicExportData
+      description: the differential results as text, accepted, rejected and all per reference point
+      args:
+        file: "${steps.differential.outputs.differential}"
+        outputMode: all
+        outFileName: "${outputs.archive}"
+      outputs: {archive: export/differential_export.tar.gz}

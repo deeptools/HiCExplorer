@@ -44,7 +44,7 @@ VALUES = {
                       "matrixB": os.path.join(DATA, "hicConvertFormat", "GM12878_combined_30.chr21_chr22.v7.hic")},
 }
 
-FORMATS = [(".tar.gz", "tar_images"), (".hdf5", "chic_hdf5"), (".h5", "h5"), (".cool", "cool"),
+FORMATS = [("_export.tar.gz", "tar_members"), (".tar.gz", "tar_images"), (".hdf5", "chic_hdf5"), (".h5", "h5"), (".cool", "cool"),
            (".bedgraph", "text"), (".npz", "npz"), (".png", "png"), (".bam", "plain")]
 
 NORMALISATIONS = {
@@ -153,15 +153,16 @@ def test_every_template_loads_with_documented_parameters():
         assert required == set(VALUES[template.name]), template.name
 
 
-def test_capture_template_shows_the_unported_chic_tools_with_the_reason():
+def test_capture_template_runs_the_whole_chic_suite():
     from hicexplorer_gui.catalog import tool_entries
     entries, _ = tool_entries(CPP_BIN)
     template = Template(os.path.join(TEMPLATE_DIR, "capture_hic.yaml"))
-    missing = {tool: reason for tool, _, reason in template.unavailable_steps(entries)}
-    assert set(missing) == {"chicSignificantInteractions", "chicAggregateStatistic", "chicDifferentialTest",
-                            "chicExportData"}
-    assert all(reason.startswith("not ported to C++ yet, PLAN tier 6") for reason in missing.values()), missing
-    assert set(template.tools()).isdisjoint(missing)
+    assert list(template.unavailable_steps(entries)) == []
+    assert set(template.tools()) == {"chicQualityControl", "chicViewpointBackgroundModel", "chicViewpoint",
+                                     "chicPlotViewpoint", "chicSignificantInteractions", "chicAggregateStatistic",
+                                     "chicDifferentialTest", "chicExportData"}
+    available = {entry.name for entry in entries if entry.available}
+    assert set(template.tools()) <= available
 
 
 def test_picker_creates_the_workflow_in_the_project(qtbot, tmp_path):
@@ -179,9 +180,9 @@ def test_picker_creates_the_workflow_in_the_project(qtbot, tmp_path):
     qtbot.addWidget(picker)
     titles = [picker.list.item(i).text() for i in range(picker.list.count())]
     picker.list.setCurrentRow(titles.index("Capture Hi-C"))
-    assert "chicSignificantInteractions" in picker.unavailable.text()
-    assert "not ported to C++ yet" in picker.unavailable.text()
-    assert set(picker.fields) == {"matrices", "referencePoints", "sparsity", "range", "fixateRange", "plotGene"}
+    assert picker.unavailable.text() == "All steps are available."
+    assert set(picker.fields) == {"matrices", "referencePoints", "sparsity", "range", "fixateRange", "plotGene",
+                                  "xFoldBackground", "pValue", "alpha", "statisticTest", "correction"}
     assert picker.fields["sparsity"][1].text() == "0.05"
     picker.create()
     assert picker.workflow is None and "needs a value" in picker.status.text()
