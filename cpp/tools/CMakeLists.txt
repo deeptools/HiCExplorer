@@ -11,6 +11,7 @@ set(HICX_TOOLS
     chicViewpointBackgroundModel
     chicSignificantInteractions
     chicAggregateStatistic
+    chicDifferentialTest
     hicCompareMatrices
     hicConvertFormat
     hicFindTADs

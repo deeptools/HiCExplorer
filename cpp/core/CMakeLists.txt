@@ -51,6 +51,7 @@ add_library(hicx4core
     src/resource_usage.cpp
     src/simd_reduce.cpp
     src/scipy_special.cpp
+    src/scipy_stats.cpp
     src/sparse_matrix.cpp
     src/stats_ops.cpp
     src/text_formats.cpp
@@ -107,5 +108,51 @@ add_library(hicx_boost_math INTERFACE)
 target_include_directories(hicx_boost_math SYSTEM INTERFACE "${boost_math_SOURCE_DIR}/include")
 target_compile_definitions(hicx_boost_math INTERFACE BOOST_MATH_STANDALONE=1)
 target_link_libraries(hicx4core PRIVATE hicx_boost_math)
+
+# scipy's C++ translation of Cephes, for hicx/scipy_stats.hpp. In scipy 1.14.1
+# special.gammaincinv and special.chdtrc, under stats.chi2.ppf and the p-value
+# of stats.chi2_contingency, map to cephes_igami and cephes_chdtrc
+# (scipy/special/functions.json), which are header only in
+# scipy/special/special/cephes. The headers those two need are downloaded one
+# by one at the commit of the v1.14.1 tag and checked against their SHA256.
+set(HICX_SCIPY_COMMIT 92d2a8592782ee19a1161d0bf3fc2241ba78bb63)
+set(HICX_SCIPY_SPECIAL_DIR "${CMAKE_BINARY_DIR}/_deps/scipy_special")
+set(HICX_SCIPY_SPECIAL_HEADERS
+    "special/config.h=1d96ebe9556cb3eb8119f5ef340f8c301e399c09810ccea2cbe21c4cf3f5d833"
+    "special/error.h=0bb3e91080f4052fa263d214b2eb1e4a62fe6021009bd51a3a0aa56df01e8f4a"
+    "special/cephes/chdtr.h=27a20cabeb467a83a2b2af1ee65e5ba5b7652c900b4275ac0d6d462ca595d039"
+    "special/cephes/const.h=94a81da5e3f6dd3f7f3cc03a55628c509a57b021e051a0d88f7e448cdf0181b8"
+    "special/cephes/gamma.h=e7f1c1b70a58e480bfdb4f038cb61a4ff2d026a7e15220f1a35a921eb29dd619"
+    "special/cephes/igam_asymp_coeff.h=21b23621cd3feaa909da3cf1f36de34fc1cfd2cf92368ee3e83eacac06eb9e70"
+    "special/cephes/igam.h=ea06624ca774c21a50875e339e51b6942405b1a32162e19086155291a17c1548"
+    "special/cephes/igami.h=68757c6422982eb08acf017734fadf9a6d6c951ba71ddb2f907e7eb4e891a4bc"
+    "special/cephes/lanczos.h=203895d8c085e89de24158f5ca8b63835d38922a8e33843fad8f22aff44efc35"
+    "special/cephes/ndtr.h=3c5b035184d383facd5885266ed1104f5252b1c284381334ab7472c6e3d42158"
+    "special/cephes/polevl.h=a333233a8ddd758f7dda84f781187260a4ada3132ae55d047e3e06ba026e3059"
+    "special/cephes/trig.h=30e7d4d067e88912832d58d23b0e8384c5b310826ae9bca9347e3ac8a6a4a714"
+    "special/cephes/unity.h=aec1b0010fd0dd17508796077e395350606b7b3e7bddad27613147d6891084ac"
+    "special/cephes/zeta.h=6f6b8625171b34602a72e981a2573ad34c5083782fc63fbc8bc1e0d9abb348ac")
+foreach(entry IN LISTS HICX_SCIPY_SPECIAL_HEADERS)
+    string(REPLACE "=" ";" parts "${entry}")
+    list(GET parts 0 relative)
+    list(GET parts 1 expected)
+    set(header "${HICX_SCIPY_SPECIAL_DIR}/${relative}")
+    set(actual "")
+    if(EXISTS "${header}")
+        file(SHA256 "${header}" actual)
+    endif()
+    if(NOT actual STREQUAL expected)
+        file(DOWNLOAD
+            "https://raw.githubusercontent.com/scipy/scipy/${HICX_SCIPY_COMMIT}/scipy/special/${relative}"
+            "${header}" EXPECTED_HASH SHA256=${expected} STATUS status)
+        list(GET status 0 code)
+        if(NOT code EQUAL 0)
+            message(FATAL_ERROR "cannot download scipy/special/${relative}: ${status}")
+        endif()
+    endif()
+endforeach()
+add_library(hicx_scipy_special INTERFACE)
+target_include_directories(hicx_scipy_special SYSTEM INTERFACE "${HICX_SCIPY_SPECIAL_DIR}")
+target_link_libraries(hicx4core PRIVATE hicx_scipy_special)
 
 add_library(hicx::core ALIAS hicx4core)
