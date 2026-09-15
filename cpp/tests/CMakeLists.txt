@@ -28,6 +28,8 @@ add_executable(hicx_tests
     test_text_formats.cpp
     test_tier2_support.cpp
     test_transform_ops.cpp
+    test_dgeev_selected.cpp
+    test_sparse_pca.cpp
     test_writers.cpp
     test_build_matrix.cpp
     test_correct_math.cpp
