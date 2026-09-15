@@ -133,6 +133,70 @@
     "notes": "Class EX. Blocks identical to the conditions leave the condition effect inestimable; refused before any input is read."
   },
   {
+    "id": "hicDifferentialAnalysis.loops.split_block_plants",
+    "tool": "hicDifferentialAnalysis",
+    "tier": 9,
+    "reference": "none",
+    "args": ["loops",
+             "-a", "{data}/hicTADClassifier/gm12878_chr1.cool", "{data}/hicTADClassifier/gm12878_chr1.cool",
+             "-b", "{data}/hicTADClassifier/gm12878_chr1.cool", "{data}/hicTADClassifier/gm12878_chr1.cool",
+             "--splitReplicates", "13", "--blocks", "r1", "r2", "r1", "r2",
+             "--loops", "{data}/hicMergeLoops/gm12878_10kb.bedgraph", "{data}/hicMergeLoops/gm12878_25kb.bedgraph",
+             "--plantRegions", "{data}/hicDifferentialAnalysis/gm12878_chr1_plants.bed",
+             "--plantFold", "2", "--plantSeed", "5",
+             "-o", "{out}/diff", "--threads", "4"],
+    "outputs": [
+      {"path": "{out}/diff_loops.tsv", "format": "text", "class": "EX"}
+    ],
+    "validators": [
+      {"name": "differential_analysis_table", "output": "{out}/diff_loops.tsv",
+       "options": {"exploratory": false, "min_rows": 500}}
+    ],
+    "threads_arg": "--threads",
+    "memory": {"alpha": 0.5, "beta": 0.0},
+    "notes": "Class EX. The loops subcommand on real raw counts (GM12878 chr1, 10 kb) with the calls of two resolutions united, the replicate split, planted thinning and a replicate block. Gated: exit status, the table invariants, memory and, with --determinism, repeats and threads. Recovery of planted loops is the GSE234292 calibration, not a verdict here."
+  },
+  {
+    "id": "hicDifferentialAnalysis.loops.single_sample_exploratory",
+    "tool": "hicDifferentialAnalysis",
+    "tier": 9,
+    "reference": "none",
+    "args": ["loops",
+             "-a", "{data}/hicTADClassifier/gm12878_chr1.cool",
+             "-b", "{data}/hicTADClassifier/gm12878_chr1.cool",
+             "--splitReplicates", "17", "--exploratory", "--minFoldChange", "1",
+             "--loops", "{data}/hicMergeLoops/gm12878_10kb.bedgraph",
+             "-o", "{out}/diff", "--threads", "3"],
+    "outputs": [
+      {"path": "{out}/diff_loops.tsv", "format": "text", "class": "EX"}
+    ],
+    "validators": [
+      {"name": "differential_analysis_table", "output": "{out}/diff_loops.tsv",
+       "options": {"exploratory": true, "min_rows": 500}}
+    ],
+    "stderr_contains": ["(EXPLORATORY)"],
+    "threads_arg": "--threads",
+    "memory": {"alpha": 0.5, "beta": 0.0},
+    "notes": "Class EX. One sample per condition with --exploratory, the ordinary test (--minFoldChange 1)."
+  },
+  {
+    "id": "hicDifferentialAnalysis.loops.single_replicate_refused",
+    "tool": "hicDifferentialAnalysis",
+    "tier": 9,
+    "reference": "none",
+    "expect_exit": 1,
+    "args": ["loops",
+             "-a", "{data}/hicDifferentialTAD/GSM2644945_Untreated-R1.100000_chr1.cool",
+             "-b", "{data}/hicDifferentialTAD/GSM2644947_Auxin2days-R1.100000_chr1.cool",
+             "--loops", "{data}/hicMergeLoops/gm12878_25kb.bedgraph",
+             "-o", "{out}/diff"],
+    "outputs": [
+      {"path": "{out}/diff_loops.tsv", "format": "text", "class": "EX", "absent": true}
+    ],
+    "stderr_contains": ["each condition needs at least two replicates"],
+    "notes": "Class EX. The refusal of one sample per condition, for the loops subcommand."
+  },
+  {
     "id": "hicDifferentialAnalysis.no_subcommand",
     "tool": "hicDifferentialAnalysis",
     "tier": 9,

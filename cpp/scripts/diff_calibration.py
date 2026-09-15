@@ -3,6 +3,7 @@
 
     diff_calibration.py --cpp-bin BUILD/tools --out DIR
         [--tads WT1 WT2 KO1 KO2 --domains BED]
+        [--loops WT1 WT2 KO1 KO2 --loop-calls FILE [FILE ...] [--peak-width BINS]]
         [--chromosomes CHROM ...] [--threads N] [--seed N]
         [--plant-fraction F] [--min-fold-changes 1.0 1.1]
 
@@ -41,7 +42,11 @@ fraction is reported and marked n/a.
 Unit types (families):
   tads           TADs (Simes over the total and the distance strata) and
                  TAD boundaries; a boundary counts as planted when a planted TAD
-                 borders it, because thinning a TAD changes its insulation.
+                 boundaries. TADs are planted as the square of a TAD's contacts;
+                 boundaries separately, as the rectangle of contacts crossing
+                 the boundary within the window the tool reports.
+  loops          united loop calls, each against its local background; planted
+                 as the peak square (+- --peak-width bins) of a tested loop.
 
 Output: DIR/report.md (every table), DIR/results.json, and the tool's output
 tables and logs under DIR/runs.
@@ -186,6 +191,33 @@ def tads_unit(options):
             "resolution": resolution}
 
 
+def loops_unit(options):
+    wt1, wt2, ko1, ko2 = options.loops
+    resolution = bin_size(wt1)
+    width = options.peak_width
+
+    def plant_loops(null_prefix, path, seed):
+        # The peak square of a united loop, as the tool reports it in the null
+        # run: the loop's enrichment over its (unchanged) background.
+        rows = [r for r in read_table(str(null_prefix) + "_loops.tsv") if r["pvalue"] != "nan"]
+        rng = random.Random(seed + 11)
+        chosen = rng.sample(rows, max(1, round(options.plant_fraction * len(rows))))
+        chosen.sort(key=lambda r: (r["chrom1"], int(r["start1"]), int(r["start2"])))
+        with open(path, "w") as handle:
+            for r in chosen:
+                s1, s2 = int(r["start1"]), int(r["start2"])
+                handle.write(f"{r['chrom1']}\t{s1 - width * resolution}\t{s1 + (width + 1) * resolution}\t"
+                             f"{r['chrom2']}\t{s2 - width * resolution}\t{s2 + (width + 1) * resolution}\t"
+                             f"{rng.choice('AB')}\n")
+        keys = {(r["chrom1"], r["start1"], r["start2"]) for r in chosen}
+        return lambda r: (r["chrom1"], r["start1"], r["start2"]) in keys
+
+    return {"name": "loops", "command": "loops", "matrices": (wt1, wt2, ko1, ko2),
+            "extra": ["--loops"] + options.loop_calls + ["--peakWidth", width],
+            "families": {"loops": "_loops.tsv"}, "plants": {"loops": plant_loops},
+            "resolution": resolution}
+
+
 # --------------------------------------------------------------------------
 
 
@@ -306,6 +338,9 @@ def main(argv=None):
     parser.add_argument("--out", required=True)
     parser.add_argument("--tads", nargs=4, metavar=("WT1", "WT2", "KO1", "KO2"))
     parser.add_argument("--domains")
+    parser.add_argument("--loops", nargs=4, metavar=("WT1", "WT2", "KO1", "KO2"))
+    parser.add_argument("--loop-calls", nargs="+", default=[])
+    parser.add_argument("--peak-width", type=int, default=1)
     parser.add_argument("--chromosomes", nargs="+", default=DEFAULT_CHROMOSOMES)
     parser.add_argument("--threads", type=int, default=4)
     parser.add_argument("--seed", type=int, default=20260915)
@@ -318,6 +353,10 @@ def main(argv=None):
         if not options.domains:
             parser.error("--tads needs --domains")
         units.append(tads_unit(options))
+    if options.loops:
+        if not options.loop_calls:
+            parser.error("--loops needs --loop-calls")
+        units.append(loops_unit(options))
     if not units:
         parser.error("give at least one unit type")
     Path(options.out).mkdir(parents=True, exist_ok=True)

@@ -37,6 +37,8 @@
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <functional>
+#include <iterator>
 #include <limits>
 #include <map>
 #include <optional>
@@ -62,20 +64,22 @@ constexpr const char* kProg = "hicDifferentialAnalysis";
 constexpr double kNaN = std::numeric_limits<double>::quiet_NaN();
 constexpr std::size_t kStratumFamilyMinimum = 100;
 
-const char* const kUsage = "usage: hicDifferentialAnalysis [-h] [--version] {tads} ...\n";
+const char* const kUsage = "usage: hicDifferentialAnalysis [-h] [--version] {tads,loops} ...\n";
 
 const char* const kHelp =
     "\n"
     "Replicate-aware, count-based differential analysis of Hi-C contact matrices: TADs\n"
-    "and TAD boundaries (tads). Counts are modelled with a negative binomial GLM, the\n"
+    "and TAD boundaries (tads) and loops (loops). Counts are modelled with a negative\n"
+    "binomial GLM, the\n"
     "dispersion is estimated from the replicates with quasi-likelihood empirical Bayes\n"
     "moderation, offsets take library size and distance decay, bins filtered in any\n"
     "sample are masked in all, a minimum fold change is tested (TREAT) and the\n"
     "p-values are adjusted with Benjamini-Hochberg. Not in the Python HiCExplorer.\n"
     "\n"
     "positional arguments:\n"
-    "  {tads}\n"
+    "  {tads,loops}\n"
     "    tads         differential TADs and TAD boundaries\n"
+    "    loops        differential loops, each against its local background\n"
     "\n"
     "options:\n"
     "  -h, --help     show this help message and exit\n"
@@ -162,6 +166,48 @@ const char* const kTadsOptionalHelp =
     "  --boundaryWindow BP   Width of the windows on either side of a boundary, capped\n"
     "                        by the two TADs (Default: 500000).\n";
 
+const char* const kLoopsUsage =
+    "usage: hicDifferentialAnalysis loops --conditionA MATRIX [MATRIX ...]\n"
+    "                                     --conditionB MATRIX [MATRIX ...]\n"
+    "                                     --loops LOOPS [LOOPS ...]\n"
+    "                                     --outFilePrefix PREFIX\n"
+    "                                     [--blocks LABEL [LABEL ...]] [--exploratory]\n"
+    "                                     [--fdr FDR] [--minFoldChange FOLD]\n"
+    "                                     [--filterThreshold LOWER UPPER]\n"
+    "                                     [--chromosomes CHROM [CHROM ...]]\n"
+    "                                     [--peakWidth BINS] [--windowSize BINS]\n"
+    "                                     [--threads THREADS]\n"
+    "                                     [--splitReplicates SEED]\n"
+    "                                     [--plantRegions BED] [--plantFold FOLD]\n"
+    "                                     [--plantSeed SEED] [-h]\n";
+
+const char* const kLoopsHelpHead =
+    "\n"
+    "Differential loops. The loop calls of all samples are united: positions mapped to\n"
+    "bins of the matrices, and calls within one bin of each other (in both anchors)\n"
+    "merged into one loop at their rounded mean position. Each loop is tested on the\n"
+    "contacts of its peak square (the loop pixel +- --peakWidth bins) with the contacts\n"
+    "of its local background as the offset: the square of +- --windowSize bins without\n"
+    "the peak square and the ring of one bin around it. A change is a change of the\n"
+    "loop's enrichment over its background. Writes <prefix>_loops.tsv.\n"
+    "\n";
+
+const char* const kLoopsSpecificHelp =
+    "  --loops LOOPS [LOOPS ...]\n"
+    "                        Loop calls, one file or more (for example one per\n"
+    "                        sample): BEDPE-like, the first six columns chrom1 start1\n"
+    "                        end1 chrom2 start2 end2, as hicDetectLoops writes them.\n"
+    "                        Inter-chromosomal calls are ignored.\n"
+    "  --outFilePrefix PREFIX, -o PREFIX\n"
+    "                        Prefix of the output file.\n"
+    "\n"
+    "Optional arguments:\n";
+
+const char* const kLoopsOptionalHelp =
+    "  --peakWidth BINS      Half width of the peak square in bins (Default: 1).\n"
+    "  --windowSize BINS     Half width of the background square in bins; at least\n"
+    "                        --peakWidth + 2 (Default: 5).\n";
+
 struct Arguments {
     std::string command;
     std::vector<std::string> condition_a;
@@ -181,6 +227,9 @@ struct Arguments {
     std::int64_t plant_seed = 0;
     std::string domains;
     std::int64_t boundary_window = 500000;
+    std::vector<std::string> loops;
+    std::int64_t peak_width = 1;
+    std::int64_t window_size = 5;
 };
 
 void add_common(hicx::cli::Parser& sub, hicx::cli::ArgumentGroup& required,
@@ -249,7 +298,7 @@ Arguments parse_arguments(int argc, char** argv) {
     cli::ArgumentGroup& options = parser.group("options");
     options.add({"-h", "--help"}).action(cli::Action::Help).help("show this help message and exit");
     options.add({"--version"}).version(std::string("%(prog)s ") + hicx::kVersion);
-    parser.subcommands("command", true, std::string("{tads}"));
+    parser.subcommands("command", true, std::string("{tads,loops}"));
 
     cli::Parser& tads = parser.add_subcommand("tads", "Differential TADs and TAD boundaries.");
     tads.set_usage(kTadsUsage)
@@ -283,6 +332,47 @@ Arguments parse_arguments(int argc, char** argv) {
             .help("show this help message and exit");
     }
 
+    cli::Parser& loops = parser.add_subcommand(
+        "loops", "Differential loops, each against its local background.");
+    loops.set_usage(kLoopsUsage)
+        .set_help(std::string(kLoopsHelpHead) + kCommonRequiredHelp + kLoopsSpecificHelp +
+                  kCommonOptionalHelp + kLoopsOptionalHelp + kCalibrationHelp);
+    {
+        cli::ArgumentGroup& required = loops.group("Required arguments");
+        cli::ArgumentGroup& optional = loops.group("Optional arguments");
+        cli::ArgumentGroup& calibration = loops.group("Calibration arguments");
+        add_common(loops, required, optional, calibration);
+        required.add({"--loops"})
+            .nargs("+")
+            .required()
+            .metavar("LOOPS")
+            .input({"bedgraph", "bedpe"})
+            .help("Loop calls, one file or more: the first six columns chrom1 start1 end1 "
+                  "chrom2 start2 end2.");
+        required.add({"--outFilePrefix", "-o"})
+            .required()
+            .metavar("PREFIX")
+            .output({"tsv"}, "prefix")
+            .help("Prefix of the output file <prefix>_loops.tsv.");
+        optional.add({"--peakWidth"})
+            .type("int")
+            .default_value(1)
+            .metavar("BINS")
+            .help("Half width of the peak square in bins.");
+        optional.add({"--windowSize"})
+            .type("int")
+            .default_value(5)
+            .metavar("BINS")
+            .help("Half width of the background square in bins, at least --peakWidth + 2.");
+        optional.add({"--threads", "-t"})
+            .type("int")
+            .default_value(4)
+            .help("Worker threads; the result does not depend on the number.");
+        calibration.add({"-h", "--help"})
+            .action(cli::Action::Help)
+            .help("show this help message and exit");
+    }
+
     const cli::Namespace ns = parser.parse(argc, argv);
     Arguments args;
     args.command = ns.command();
@@ -307,6 +397,11 @@ Arguments parse_arguments(int argc, char** argv) {
     if (args.command == "tads") {
         args.domains = ns.str("domains");
         args.boundary_window = ns.integer("boundaryWindow");
+    }
+    if (args.command == "loops") {
+        args.loops = ns.strs("loops");
+        args.peak_width = ns.integer("peakWidth");
+        args.window_size = ns.integer("windowSize");
     }
     return args;
 }
@@ -398,6 +493,11 @@ void validate(const Arguments& args) {
     }
     if (args.command == "tads" && args.boundary_window < 1) {
         throw std::runtime_error("--boundaryWindow must be positive");
+    }
+    if (args.command == "loops" &&
+        (args.peak_width < 0 || args.window_size < args.peak_width + 2 || args.window_size > 1000)) {
+        throw std::runtime_error("--peakWidth must be at least 0 and --windowSize between "
+                                 "--peakWidth + 2 and 1000");
     }
     diff::Design design;
     design.condition.assign(a, 0);
@@ -1034,6 +1134,276 @@ void run_tads(const Arguments& args) {
                  num(args.fdr).c_str(), in.design.exploratory ? " (EXPLORATORY)" : "");
 }
 
+// --------------------------------------------------------------------------
+// loops
+
+struct Loop {
+    std::string chrom;
+    std::int64_t row = 0;  // local bins of the loop pixel, row <= col
+    std::int64_t col = 0;
+    std::size_t calls = 0;  // input calls merged into this loop
+    bool testable = false;
+    std::vector<double> peak;
+    std::vector<double> peak_expected;
+    std::vector<double> background;
+    std::vector<double> background_expected;
+};
+
+// Calls within one bin of each other in both anchors (Chebyshev distance 1)
+// are linked, and every connected group becomes one loop at the rounded mean
+// of its distinct positions.
+std::vector<Loop> unite_calls(const std::string& chrom,
+                              const std::map<std::pair<std::int64_t, std::int64_t>, std::size_t>&
+                                  positions) {
+    std::vector<std::pair<std::int64_t, std::int64_t>> points;
+    for (const auto& [point, count] : positions) {
+        points.push_back(point);
+    }
+    std::vector<std::size_t> parent(points.size());
+    for (std::size_t k = 0; k < parent.size(); ++k) {
+        parent[k] = k;
+    }
+    const std::function<std::size_t(std::size_t)> find = [&](std::size_t k) {
+        while (parent[k] != k) {
+            parent[k] = parent[parent[k]];
+            k = parent[k];
+        }
+        return k;
+    };
+    for (std::size_t k = 0; k < points.size(); ++k) {
+        for (std::int64_t di = -1; di <= 1; ++di) {
+            for (std::int64_t dj = -1; dj <= 1; ++dj) {
+                const auto it = positions.find({points[k].first + di, points[k].second + dj});
+                if (it != positions.end()) {
+                    const std::size_t other = static_cast<std::size_t>(
+                        std::distance(positions.begin(), it));
+                    const std::size_t a = find(k);
+                    const std::size_t b = find(other);
+                    if (a != b) {
+                        parent[std::max(a, b)] = std::min(a, b);
+                    }
+                }
+            }
+        }
+    }
+    std::map<std::size_t, std::vector<std::size_t>> groups;
+    for (std::size_t k = 0; k < points.size(); ++k) {
+        groups[find(k)].push_back(k);
+    }
+    std::vector<Loop> loops;
+    for (const auto& [root, members] : groups) {
+        double sum_row = 0.0;
+        double sum_col = 0.0;
+        std::size_t calls = 0;
+        for (std::size_t k : members) {
+            sum_row += static_cast<double>(points[k].first);
+            sum_col += static_cast<double>(points[k].second);
+            calls += positions.at(points[k]);
+        }
+        Loop loop;
+        loop.chrom = chrom;
+        loop.row = static_cast<std::int64_t>(std::floor(sum_row / members.size() + 0.5));
+        loop.col = static_cast<std::int64_t>(std::floor(sum_col / members.size() + 0.5));
+        loop.calls = calls;
+        loops.push_back(std::move(loop));
+    }
+    std::sort(loops.begin(), loops.end(), [](const Loop& a, const Loop& b) {
+        return a.row < b.row || (a.row == b.row && a.col < b.col);
+    });
+    return loops;
+}
+
+void run_loops(const Arguments& args) {
+    Inputs in = open_inputs(args);
+    const std::size_t samples = in.specs.size();
+    const auto threads = static_cast<unsigned>(std::min<std::int64_t>(args.threads, 1024));
+    const std::int64_t res = in.bin_size;
+    const std::int64_t pw = args.peak_width;
+    const std::int64_t wr = args.window_size;
+
+    std::map<std::string, std::map<std::pair<std::int64_t, std::int64_t>, std::size_t>> positions;
+    std::size_t input_calls = 0;
+    for (const std::string& path : args.loops) {
+        for (const std::vector<std::string>& row : diffc::read_fields(path)) {
+            if (row.size() < 6) {
+                throw std::runtime_error("'" + path + "': a loop needs chrom1 start1 end1 chrom2 "
+                                         "start2 end2");
+            }
+            if (row[0] != row[3] || std::find(in.chromosomes.begin(), in.chromosomes.end(),
+                                              row[0]) == in.chromosomes.end()) {
+                continue;
+            }
+            std::int64_t i = parse_int(row[1], path) / res;
+            std::int64_t j = parse_int(row[4], path) / res;
+            if (i > j) {
+                std::swap(i, j);
+            }
+            ++positions[row[0]][{i, j}];
+            ++input_calls;
+        }
+    }
+    const std::vector<PlantRegion> plants = args.plant_regions.has_value()
+                                                ? read_plant_regions(*args.plant_regions, res)
+                                                : std::vector<PlantRegion>();
+
+    std::vector<Loop> loops;
+    for (const std::string& chrom : in.chromosomes) {
+        const auto found = positions.find(chrom);
+        if (found == positions.end()) {
+            continue;
+        }
+        std::vector<Loop> here = unite_calls(chrom, found->second);
+        std::int64_t longest = 0;
+        for (const Loop& loop : here) {
+            longest = std::max(longest, loop.col - loop.row);
+        }
+        const std::int64_t band = longest + 2 * wr;
+        const auto [first, last] = in.files.front().extent(chrom);
+        const std::int64_t bins = last - first;
+        std::vector<diffc::ChromosomeData> data = load_samples(args, in, first, last, band);
+        const std::vector<char> invalid = shared_invalid(args, data);
+        const auto valid = [&](std::int64_t i) { return invalid[static_cast<std::size_t>(i)] == 0; };
+        apply_plants(args, in, chrom, plants, data, threads);
+        std::vector<std::vector<double>> decay(samples);
+        hicx::parallel_for(samples, threads, [&](std::size_t s) {
+            decay[s] = diffc::distance_decay(data[s], invalid, band);
+        });
+        hicx::parallel_for(here.size(), threads, [&](std::size_t h) {
+            Loop& loop = here[h];
+            loop.peak.assign(samples, 0.0);
+            loop.peak_expected.assign(samples, 0.0);
+            loop.background.assign(samples, 0.0);
+            loop.background_expected.assign(samples, 0.0);
+            if (loop.row - wr < 0 || loop.col + wr >= bins || loop.col - loop.row < wr + 3) {
+                return;
+            }
+            std::size_t peak_pixels = 0;
+            std::size_t background_pixels = 0;
+            for (std::int64_t r = loop.row - wr; r <= loop.row + wr; ++r) {
+                if (!valid(r)) {
+                    continue;
+                }
+                for (std::int64_t c = loop.col - wr; c <= loop.col + wr; ++c) {
+                    if (!valid(c) || c - r < 2) {
+                        continue;
+                    }
+                    const std::int64_t ring = std::max(std::abs(r - loop.row), std::abs(c - loop.col));
+                    if (ring <= pw) {
+                        ++peak_pixels;
+                    } else if (ring >= pw + 2) {
+                        ++background_pixels;
+                    } else {
+                        continue;
+                    }
+                    for (std::size_t s = 0; s < samples; ++s) {
+                        const double e = decay[s][static_cast<std::size_t>(c - r)];
+                        (ring <= pw ? loop.peak_expected : loop.background_expected)[s] += e;
+                    }
+                }
+                for (std::size_t s = 0; s < samples; ++s) {
+                    const auto [k0, k1] = data[s].row_range(r, loop.col - wr, loop.col + wr + 1);
+                    for (std::size_t k = k0; k < k1; ++k) {
+                        const std::int64_t c = data[s].col[k];
+                        if (!valid(c) || c - r < 2) {
+                            continue;
+                        }
+                        const std::int64_t ring =
+                            std::max(std::abs(r - loop.row), std::abs(c - loop.col));
+                        if (ring <= pw) {
+                            loop.peak[s] += data[s].count[k];
+                        } else if (ring >= pw + 2) {
+                            loop.background[s] += data[s].count[k];
+                        }
+                    }
+                }
+            }
+            loop.testable = peak_pixels >= 3 && background_pixels >= 20;
+        });
+        for (Loop& loop : here) {
+            loops.push_back(std::move(loop));
+        }
+    }
+
+    diff::Family family;
+    family.samples = samples;
+    std::vector<std::size_t> unit_of(loops.size(), static_cast<std::size_t>(-1));
+    for (std::size_t l = 0; l < loops.size(); ++l) {
+        const Loop& loop = loops[l];
+        if (!loop.testable) {
+            continue;
+        }
+        unit_of[l] = family.units();
+        double mean_peak = 0.0;
+        double mean_background = 0.0;
+        for (std::size_t s = 0; s < samples; ++s) {
+            family.counts.push_back(loop.peak[s]);
+            const bool ok = loop.background[s] > 0.0 && loop.background_expected[s] > 0.0 &&
+                            loop.peak_expected[s] > 0.0;
+            family.log_offsets.push_back(
+                ok ? std::log(loop.background[s] * loop.peak_expected[s] /
+                              loop.background_expected[s])
+                   : kNaN);
+            mean_peak += loop.peak[s] / static_cast<double>(samples);
+            mean_background += loop.background[s] / static_cast<double>(samples);
+        }
+        family.covariate.push_back(-std::log(1.0 / (mean_peak + 0.5) + 1.0 / (mean_background + 0.5)));
+    }
+    diff::FamilyOptions options;
+    options.min_log_fold = std::log(args.min_fold_change);
+    options.threads = threads;
+    const diff::FamilyResult result = diff::test_family(family, in.design, options);
+    report_family(args.command, "loops", result);
+    const std::vector<double> fdr = hicx::stats::benjamini_hochberg_adjusted(result.pvalue);
+
+    std::string text = header_common(args, in, "differential loops");
+    text += "# " + std::to_string(input_calls) + " input calls united into " +
+            std::to_string(loops.size()) + " loops; peak square +-" + std::to_string(pw) +
+            " bins, background square +-" + std::to_string(wr) +
+            " bins; log2FoldChange: condition B against A of the peak contacts relative to the "
+            "background; enrichment: observed over expected peak contacts relative to the same "
+            "for the background, per sample; nan: not testable (a masked pixel majority, the "
+            "matrix edge, or anchors closer than windowSize + 3 bins)\n";
+    text += "#chrom1\tstart1\tend1\tchrom2\tstart2\tend2\tinputCalls\tlog2FoldChange\tpvalue\tfdr\tdifferential";
+    for (const std::string& label : in.labels) {
+        text += "\tenrichment_" + label;
+    }
+    text += "\n";
+    std::size_t calls = 0;
+    std::size_t tested = 0;
+    for (std::size_t l = 0; l < loops.size(); ++l) {
+        const Loop& loop = loops[l];
+        const std::size_t u = unit_of[l];
+        const double log_fold = u == static_cast<std::size_t>(-1) ? kNaN : result.log_fold[u];
+        const double p = u == static_cast<std::size_t>(-1) ? kNaN : result.pvalue[u];
+        const double q = u == static_cast<std::size_t>(-1) ? kNaN : fdr[u];
+        const bool called = !std::isnan(q) && q <= args.fdr;
+        calls += called ? 1 : 0;
+        tested += std::isnan(p) ? 0 : 1;
+        const std::int64_t length = in.chrom_length[loop.chrom];
+        text += loop.chrom + "\t" + std::to_string(loop.row * res) + "\t" +
+                std::to_string(std::min((loop.row + 1) * res, length)) + "\t" + loop.chrom + "\t" +
+                std::to_string(loop.col * res) + "\t" +
+                std::to_string(std::min((loop.col + 1) * res, length)) + "\t" +
+                std::to_string(loop.calls) + "\t" + num(log_fold / std::log(2.0)) + "\t" + pval(p) +
+                "\t" + pval(q) + "\t" + (called ? "1" : "0");
+        for (std::size_t s = 0; s < samples; ++s) {
+            const double enrichment =
+                loop.testable ? (loop.peak[s] / loop.peak_expected[s]) /
+                                    (loop.background[s] / loop.background_expected[s])
+                              : kNaN;
+            text += "\t" + num(enrichment);
+        }
+        text += "\n";
+    }
+    const std::string path = args.prefix + "_loops.tsv";
+    if (!write_file(path, text)) {
+        throw std::runtime_error("cannot write '" + path + "'");
+    }
+    std::fprintf(stderr, "%s loops: %zu of %zu tested loops (%zu united) differential at FDR %s%s\n",
+                 kProg, calls, tested, loops.size(), num(args.fdr).c_str(),
+                 in.design.exploratory ? " (EXPLORATORY)" : "");
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -1042,6 +1412,8 @@ int main(int argc, char** argv) {
         validate(args);
         if (args.command == "tads") {
             run_tads(args);
+        } else if (args.command == "loops") {
+            run_loops(args);
         }
     } catch (const std::exception& error) {
         std::fprintf(stderr, "%s %s: error: %s\n", kProg, args.command.c_str(), error.what());
