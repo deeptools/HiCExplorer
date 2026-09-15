@@ -278,6 +278,83 @@ void clean_covariance_like_hicpca(hicx::DenseSymmetric& covariance, int threads)
     });
 }
 
+// select_bins(source, [first, first + n)) followed by materialize_full(), built
+// in one pass when the source stores the upper triangle. The two-step route
+// holds the selected upper triangle, its transposed copy and the merged result
+// at once, four times the block's stored entries; this holds the result only.
+// Row i of the result is, as materialize_full merges it, the mirrored entries
+// of column i (their source rows ascend) followed by row i's own entries from
+// the diagonal on, and entries that are exactly zero are dropped from both, as
+// scipy's CSR addition does.
+hicx::CsrMatrix chromosome_block(const hicx::CsrMatrix& source, std::int64_t first,
+                                 std::int64_t n) {
+    if (source.symmetry() != hicx::Symmetry::UpperTriangle) {
+        std::vector<std::int64_t> order(static_cast<std::size_t>(n));
+        for (std::int64_t i = 0; i < n; ++i) {
+            order[static_cast<std::size_t>(i)] = first + i;
+        }
+        hicx::CsrMatrix block = hicx::select_bins(source, order);
+        block.materialize_full();
+        return block;
+    }
+    const std::vector<std::int64_t>& indptr = source.indptr();
+    const std::vector<std::int32_t>& indices = source.indices();
+    const std::vector<double>& data = source.data();
+    const std::int64_t last = first + n;
+    const std::size_t size = static_cast<std::size_t>(n);
+    std::vector<std::int64_t> own(size, 0);
+    std::vector<std::int64_t> mirrored(size, 0);
+    const auto for_each_entry = [&](auto&& visit) {
+        for (std::int64_t r = 0; r < n; ++r) {
+            const std::size_t row = static_cast<std::size_t>(first + r);
+            const std::size_t end = static_cast<std::size_t>(indptr[row + 1]);
+            for (std::size_t k = static_cast<std::size_t>(indptr[row]); k < end; ++k) {
+                const std::int64_t column = indices[k];
+                if (column >= last) {
+                    break;  // the columns of a row ascend
+                }
+                if (data[k] == 0.0) {
+                    continue;
+                }
+                visit(r, column - first, data[k]);
+            }
+        }
+    };
+    for_each_entry([&](std::int64_t r, std::int64_t column, double) {
+        ++own[static_cast<std::size_t>(r)];
+        if (column > r) {
+            ++mirrored[static_cast<std::size_t>(column)];
+        }
+    });
+    std::vector<std::int64_t> block_indptr(size + 1, 0);
+    for (std::size_t i = 0; i < size; ++i) {
+        block_indptr[i + 1] = block_indptr[i] + mirrored[i] + own[i];
+    }
+    const std::size_t total = static_cast<std::size_t>(block_indptr.back());
+    std::vector<std::int32_t> block_indices(total);
+    std::vector<double> block_data(total);
+    // Reuse the two count arrays as the write cursors of the two parts.
+    for (std::size_t i = 0; i < size; ++i) {
+        own[i] = block_indptr[i] + mirrored[i];
+        mirrored[i] = block_indptr[i];
+    }
+    for_each_entry([&](std::int64_t r, std::int64_t column, double value) {
+        const std::size_t slot = static_cast<std::size_t>(own[static_cast<std::size_t>(r)]++);
+        block_indices[slot] = static_cast<std::int32_t>(column);
+        block_data[slot] = value;
+        if (column > r) {
+            const std::size_t mirror =
+                static_cast<std::size_t>(mirrored[static_cast<std::size_t>(column)]++);
+            block_indices[mirror] = static_cast<std::int32_t>(r);
+            block_data[mirror] = value;
+        }
+    });
+    hicx::CsrMatrix block(n, n, std::move(block_indptr), std::move(block_indices),
+                          std::move(block_data), source.dtype());
+    block.set_symmetry(hicx::Symmetry::Full);
+    return block;
+}
+
 const char* const kUsage =
     "usage: hicPCA --matrix MATRIX --outputFileName OUTPUTFILENAME\n"
     "              [OUTPUTFILENAME ...]\n"
@@ -791,6 +868,26 @@ int main(int argc, char** argv) {
             }
             hic.refresh_boundaries();
         }
+        // The chromosome blocks are read from the loaded matrix itself, so that
+        // --chromosomes does not copy the whole matrix: keepOnlyTheseChr is
+        // applied to the bin table, the NaN bins and the correction factors
+        // over an empty stand-in of the same shape, and every block is taken
+        // from the original bins of its chromosome. Selecting a contiguous
+        // ascending range is a filter and a renumbering, so the block is the
+        // same whether it is cut from the selected matrix or from this one.
+        // Measured on the 25 kb GSE234292 cool with 21 of 22 chromosomes, the
+        // copy set the peak: 1,033 MB against 538 MB for the load alone.
+        const hicx::CsrMatrix source = std::move(hic.data().matrix);
+        const std::vector<std::pair<std::string, hicx::BinRange>> source_boundaries =
+            hic.boundaries();
+        {
+            hicx::CsrMatrix stand_in(source.rows(), source.cols(),
+                                     std::vector<std::int64_t>(
+                                         static_cast<std::size_t>(source.rows()) + 1, 0),
+                                     {}, {}, source.dtype());
+            stand_in.set_symmetry(source.symmetry());
+            hic.data().matrix = std::move(stand_in);
+        }
         if (!args.chromosomes.empty()) {
             hicx::keep_only_chromosomes(hic.data(), args.chromosomes);
             hic.refresh_boundaries();
@@ -875,16 +972,22 @@ int main(int argc, char** argv) {
             const std::int64_t n = boundaries[c].second.last - first;
             ChromosomeResult& result = results[c];
 
-            std::vector<std::int64_t> order(static_cast<std::size_t>(n));
-            for (std::int64_t i = 0; i < n; ++i) {
-                order[static_cast<std::size_t>(i)] = first + i;
+            std::int64_t source_first = -1;
+            for (const std::pair<std::string, hicx::BinRange>& entry : source_boundaries) {
+                if (entry.first == boundaries[c].first) {
+                    source_first = entry.second.first;
+                    break;
+                }
             }
-            hicx::CsrMatrix block = hicx::select_bins(hic.matrix(), order);
+            if (source_first < 0) {
+                throw std::runtime_error("chromosome " + boundaries[c].first +
+                                         " is not in the loaded matrix");
+            }
             // hicPCA densifies the block, so it is one of the tools cpp/PLAN.md
             // 4.4 rule 2 exempts from upper-triangle-only storage. The sparse
             // form is still what the covariance is computed from; only the
             // symmetric completion is materialised.
-            block.materialize_full();
+            hicx::CsrMatrix block = chromosome_block(source, source_first, n);
 
             if (args.method == "lieberman") {
                 hicx::obs_exp_lieberman_in_place(block, length_chromosome,
