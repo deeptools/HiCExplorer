@@ -1574,6 +1574,10 @@ reference implementation where no Python exists.
 bgzipped. *Validation:* **E2** against `cooler cload pairs` on the same file, and
 **E2** against the BAM route when the pairs file carries exactly the pairs
 hicBuildMatrix keeps from that BAM.
+*Real data (2026-09-15):* GSE234292's `pairs_sample.zip` holds lists of pixel
+paths, not pairs, and GEO has only mcool files for that series. The scale
+check uses ENCODE ENCFF849QYT (mm10 in situ Hi-C, the first 135,889,417
+sorted upper-triangle pairs).
 
 **9.3 Stripe detection (`hicDetectStripes`).** *Validation:* planted stripes in
 real matrices recovered at a recall and precision fixed in this plan before the
@@ -1634,6 +1638,10 @@ Work:
 
 Gate (EX, fixed before implementation):
 - **Null comparisons** at FDR 0.05 call at most 1 % of tested TADs, loops or compartment bins. The nulls: wt rep1 vs rep2, knockout rep1 vs rep2, and the label swap {wt rep1, knockout rep2} vs {wt rep2, knockout rep1}. In each null the fraction of p <= 0.05 lies between 3 % and 7 %.
+- **The label-swap null** is evaluated with the genotype as block (decided
+  2026-09-15). An unpaired swap cannot meet the 3 % p-value bound by
+  construction, because its within-group variance contains the wt against
+  knockout effect. The unpaired swap is still reported, without a gate.
 - **Planted differences** in real wt matrices are recovered with recall >= 0.8 at 2-fold and an observed FDR <= 0.10. The plants: contacts scaled inside chosen TADs, at chosen loop pixels, and across chosen compartment bins, at 1.5-fold and 2-fold.
 
 **9.8 Structural variant and translocation detection from Hi-C.** Inter- and
