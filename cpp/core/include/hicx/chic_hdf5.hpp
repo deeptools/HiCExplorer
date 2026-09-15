@@ -29,8 +29,11 @@
 #define HICX_CHIC_HDF5_HPP
 
 #include <cstdint>
+#include <map>
+#include <optional>
 #include <span>
 #include <string>
+#include <vector>
 
 #include "hicx/chic_viewpoint.hpp"
 #include "hicx/hdf5_util.hpp"
@@ -54,8 +57,15 @@ class Hdf5Writer {
                        std::int64_t value);
     void set_attribute(const std::string& object_path, const std::string& name,
                        std::span<const std::int64_t> values);
+    // A Python float: a float64 scalar attribute.
+    void set_attribute(const std::string& object_path, const std::string& name, double value);
+    // A Python bool: h5py's enumeration {FALSE: 0, TRUE: 1} over int8.
+    void set_bool_attribute(const std::string& object_path, const std::string& name, bool value);
 
     void write_string(const std::string& path, const std::string& value);
+    // create_dataset(path, data=[str, ...]): a one dimensional variable length
+    // UTF-8 string array, contiguous, without a filter.
+    void write_strings(const std::string& path, const std::vector<std::string>& values);
     void write_scalar(const std::string& path, std::int64_t value);
     void write_scalar(const std::string& path, double value);
 
@@ -86,6 +96,44 @@ void write_interaction_datasets(Hdf5Writer& writer, const std::string& group_pat
                                 const InteractionFileData& data,
                                 std::int64_t reference_point_start,
                                 std::int64_t reference_point_end);
+
+// ---------------------------------------------------------------------------
+// Reading
+
+// h5py's `path in file`: every component of the path must exist.
+[[nodiscard]] bool contains(const h5::File& file, const std::string& path);
+
+// One entry of readInteractionFile's interaction_file_data:
+// [chromosome, start, end, gene, sum_of_interactions, relative position,
+//  relative interaction, p-value, x-fold, raw], in that order.
+struct InteractionRecord {
+    std::string chromosome;
+    std::int64_t start = 0;
+    std::int64_t end = 0;
+    std::string gene;
+    double sum_of_interactions = 0.0;
+    std::int64_t relative_position = 0;
+    double interaction = 0.0;
+    double pvalue = 0.0;
+    double xfold = 0.0;
+    double raw = 0.0;
+};
+
+// Viewpoint.readInteractionFile(pFilePath, triplet), viewpoint.py:100-187.
+//
+// The two dicts it returns share their keys, the relative positions as numpy
+// reads them; `keys` holds them in dict insertion order, so a repeated position
+// keeps its first place and its last values. `reference_point` is the list the
+// Python returns third: empty when the group is missing or the records cannot
+// be built (the try block returns ({}, {}, [])), otherwise [start, end] with
+// nullopt for a missing dataset (None).
+struct InteractionTable {
+    std::vector<double> keys;
+    std::map<double, InteractionRecord> records;
+    std::vector<std::optional<std::int64_t>> reference_point;
+};
+[[nodiscard]] InteractionTable read_interaction_table(const h5::File& file,
+                                                      const std::vector<std::string>& triplet);
 
 }  // namespace hicx::chic
 

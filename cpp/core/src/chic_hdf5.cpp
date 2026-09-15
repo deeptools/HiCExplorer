@@ -4,6 +4,7 @@
 
 #include <hdf5.h>
 
+#include <cmath>
 #include <vector>
 
 namespace hicx::chic {
@@ -139,6 +140,59 @@ void Hdf5Writer::set_attribute(const std::string& object_path, const std::string
     }
 }
 
+void Hdf5Writer::set_attribute(const std::string& object_path, const std::string& name,
+                               double value) {
+    const Handle object = open_object(file_.get(), object_path);
+    const Handle space(H5Screate(H5S_SCALAR), Handle::Kind::DataSpace);
+    const Handle attribute(H5Acreate2(object.get(), name.c_str(), H5T_IEEE_F64LE, space.get(),
+                                      H5P_DEFAULT, H5P_DEFAULT),
+                           Handle::Kind::Attribute);
+    if (!attribute.valid() || H5Awrite(attribute.get(), H5T_NATIVE_DOUBLE, &value) < 0) {
+        throw Error("cannot write attribute " + name + " on " + object_path);
+    }
+}
+
+void Hdf5Writer::set_bool_attribute(const std::string& object_path, const std::string& name,
+                                    bool value) {
+    const Handle object = open_object(file_.get(), object_path);
+    const Handle type(H5Tenum_create(H5T_NATIVE_INT8), Handle::Kind::DataType);
+    const signed char false_value = 0;
+    const signed char true_value = 1;
+    if (!type.valid() || H5Tenum_insert(type.get(), "FALSE", &false_value) < 0 ||
+        H5Tenum_insert(type.get(), "TRUE", &true_value) < 0) {
+        throw Error("cannot create the bool enumeration type");
+    }
+    const Handle space(H5Screate(H5S_SCALAR), Handle::Kind::DataSpace);
+    const Handle attribute(
+        H5Acreate2(object.get(), name.c_str(), type.get(), space.get(), H5P_DEFAULT, H5P_DEFAULT),
+        Handle::Kind::Attribute);
+    const signed char stored = value ? 1 : 0;
+    if (!attribute.valid() || H5Awrite(attribute.get(), type.get(), &stored) < 0) {
+        throw Error("cannot write attribute " + name + " on " + object_path);
+    }
+}
+
+void Hdf5Writer::write_strings(const std::string& path, const std::vector<std::string>& values) {
+    const Handle type = variable_string_type();
+    const hsize_t dims[1] = {static_cast<hsize_t>(values.size())};
+    const Handle space(H5Screate_simple(1, dims, nullptr), Handle::Kind::DataSpace);
+    const Handle link_plist = link_create_plist();
+    const Handle plist = dataset_create_plist();
+    const Handle dataset(H5Dcreate2(file_.get(), path.c_str(), type.get(), space.get(),
+                                    link_plist.get(), plist.get(), H5P_DEFAULT),
+                         Handle::Kind::Dataset);
+    std::vector<const char*> pointers;
+    pointers.reserve(values.size());
+    for (const std::string& value : values) {
+        pointers.push_back(value.c_str());
+    }
+    if (!dataset.valid() ||
+        (!values.empty() && H5Dwrite(dataset.get(), type.get(), H5S_ALL, H5S_ALL, H5P_DEFAULT,
+                                     pointers.data()) < 0)) {
+        throw Error("cannot write dataset " + path + " in " + path_);
+    }
+}
+
 void Hdf5Writer::write_string(const std::string& path, const std::string& value) {
     const Handle type = variable_string_type();
     const Handle space(H5Screate(H5S_SCALAR), Handle::Kind::DataSpace);
@@ -254,6 +308,114 @@ void write_interaction_datasets(Hdf5Writer& writer, const std::string& group_pat
     writer.write_array(prefix + "raw", std::span<const double>(data.raw), kGzip);
     writer.write_scalar(prefix + "reference_point_start", reference_point_start);
     writer.write_scalar(prefix + "reference_point_end", reference_point_end);
+}
+
+bool contains(const h5::File& file, const std::string& path) {
+    std::string prefix;
+    std::size_t begin = 0;
+    while (begin <= path.size()) {
+        std::size_t end = path.find('/', begin);
+        if (end == std::string::npos) {
+            end = path.size();
+        }
+        const std::string component = path.substr(begin, end - begin);
+        if (!component.empty()) {
+            prefix += "/" + component;
+            if (!file.exists(prefix)) {
+                return false;
+            }
+        }
+        begin = end + 1;
+    }
+    return !prefix.empty();
+}
+
+InteractionTable read_interaction_table(const h5::File& file,
+                                        const std::vector<std::string>& triplet) {
+    std::string internal;
+    for (std::size_t i = 0; i < triplet.size(); ++i) {
+        internal += (i > 0 ? "/" : "") + triplet[i];
+    }
+    InteractionTable out;
+    if (!contains(file, internal)) {
+        return out;
+    }
+    const std::string base = "/" + internal + "/";
+    // Only the arrays that exist are appended, so a missing one shifts the
+    // later ones down, as `data.append` does.
+    std::vector<std::vector<double>> data;
+    for (const char* name : {"relative_position_list", "interaction_data_list", "pvalue", "raw",
+                             "xfold", "start_list", "end_list"}) {
+        if (contains(file, internal + "/" + name)) {
+            data.push_back(file.read_doubles(base + name));
+        }
+    }
+    std::optional<std::string> chromosome;
+    std::optional<std::string> gene;
+    std::optional<double> sum;
+    if (contains(file, internal + "/chromosome")) {
+        chromosome = file.read_strings(base + "chromosome").at(0);
+    }
+    if (contains(file, internal + "/gene")) {
+        gene = file.read_strings(base + "gene").at(0);
+    }
+    if (contains(file, internal + "/sum_of_interactions")) {
+        sum = file.read_doubles(base + "sum_of_interactions").at(0);
+    }
+    std::optional<std::int64_t> reference_start;
+    std::optional<std::int64_t> reference_end;
+    if (file.exists(base + "reference_point_start")) {
+        reference_start = static_cast<std::int64_t>(
+            file.read_doubles(base + "reference_point_start").at(0));
+    }
+    if (file.exists(base + "reference_point_end")) {
+        reference_end =
+            static_cast<std::int64_t>(file.read_doubles(base + "reference_point_end").at(0));
+    }
+    // The try block around `for i in range(len(data[0]))`: an exception
+    // anywhere in it (no arrays at all, a missing array, chromosome, gene or
+    // sum, a shorter array, int() of a non-finite value) discards every record
+    // and the reference point.
+    if (data.empty()) {
+        return InteractionTable{};
+    }
+    if (data[0].empty()) {
+        out.reference_point = {reference_start, reference_end};
+        return out;
+    }
+    if (data.size() < 7 || !chromosome.has_value() || !gene.has_value() || !sum.has_value()) {
+        return InteractionTable{};
+    }
+    for (std::size_t i = 0; i < data[0].size(); ++i) {
+        for (std::size_t column = 1; column < 7; ++column) {
+            if (i >= data[column].size()) {
+                return InteractionTable{};
+            }
+        }
+        for (const double value : {data[5][i], data[6][i], data[0][i]}) {
+            if (!std::isfinite(value)) {
+                return InteractionTable{};
+            }
+        }
+        InteractionRecord record;
+        record.chromosome = *chromosome;
+        record.start = static_cast<std::int64_t>(data[5][i]);
+        record.end = static_cast<std::int64_t>(data[6][i]);
+        record.gene = *gene;
+        record.sum_of_interactions = *sum;
+        record.relative_position = static_cast<std::int64_t>(data[0][i]);
+        record.interaction = data[1][i];
+        record.pvalue = data[2][i];
+        record.xfold = data[4][i];
+        record.raw = data[3][i];
+        const double key = data[0][i];
+        if (out.records.find(key) == out.records.end()) {
+            out.keys.push_back(key);
+        }
+        out.records[key] = record;
+    }
+    out.reference_point = {reference_start, reference_end};
+    return out;
 }
 
 }  // namespace hicx::chic

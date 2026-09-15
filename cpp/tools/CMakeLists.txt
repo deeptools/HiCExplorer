@@ -9,6 +9,7 @@ set(HICX_TOOLS
     chicQualityControl
     chicViewpoint
     chicViewpointBackgroundModel
+    chicSignificantInteractions
     hicCompareMatrices
     hicConvertFormat
     hicFindTADs

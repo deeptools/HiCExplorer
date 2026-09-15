@@ -1,0 +1,184 @@
+[
+  {
+    "id": "chicSignificantInteractions.xfold.dual",
+    "tool": "chicSignificantInteractions",
+    "tier": 6,
+    "args": ["--interactionFile", "{data}/cHi-C/chicViewpoint/two_matrices.hdf5",
+             "--backgroundModelFile", "{data}/cHi-C/background.txt", "--range", "200000", "200000",
+             "--outFileNameSignificant", "{out}/significant.hdf5", "--outFileNameTarget", "{out}/target.hdf5",
+             "--xFoldBackground", "1.5", "--pValue", "0.2", "-t", "1", "--combinationMode", "dual"],
+    "outputs": [
+      {"path": "{out}/significant.hdf5", "format": "chic_hdf5", "class": "E0"},
+      {"path": "{out}/target.hdf5", "format": "chic_hdf5", "class": "E0"}
+    ],
+    "threads_arg": "--threads",
+    "notes": "test_chicSignificantInteractions.py::test_xFold. The merged candidates' p-values come from Boost's ibeta as scipy 1.14 evaluates betainc (F42), so they are compared exactly. The significant file is written in np.unique order while the reference points are taken in computation order, so the Sox17 groups carry Eya1's reference point; reproduced. E0 on both files implies E5 on the calls."
+  },
+  {
+    "id": "chicSignificantInteractions.loose.dual",
+    "tool": "chicSignificantInteractions",
+    "tier": 6,
+    "args": ["--interactionFile", "{data}/cHi-C/chicViewpoint/two_matrices.hdf5",
+             "--backgroundModelFile", "{data}/cHi-C/background.txt", "--range", "200000", "200000",
+             "--outFileNameSignificant", "{out}/significant.hdf5", "--outFileNameTarget", "{out}/target.hdf5",
+             "--loosePValue", "0.5", "--pValue", "0.2", "-t", "1", "--combinationMode", "dual"],
+    "outputs": [
+      {"path": "{out}/significant.hdf5", "format": "chic_hdf5", "class": "E0"},
+      {"path": "{out}/target.hdf5", "format": "chic_hdf5", "class": "E0"}
+    ],
+    "threads_arg": "--threads",
+    "notes": "test_chicSignificantInteractions.py::test_loose_pvalue."
+  },
+  {
+    "id": "chicSignificantInteractions.loose.single.t12",
+    "tool": "chicSignificantInteractions",
+    "tier": 6,
+    "args": ["--interactionFile", "{data}/cHi-C/chicViewpoint/two_matrices.hdf5",
+             "--backgroundModelFile", "{data}/cHi-C/background.txt", "--range", "200000", "200000",
+             "--outFileNameSignificant", "{out}/significant.hdf5", "--outFileNameTarget", "{out}/target.hdf5",
+             "--loosePValue", "0.5", "--pValue", "0.2", "-t", "12", "--combinationMode", "single"],
+    "outputs": [
+      {"path": "{out}/significant.hdf5", "format": "chic_hdf5", "class": "E0"},
+      {"path": "{out}/target.hdf5", "format": "chic_hdf5", "class": "E0"}
+    ],
+    "threads_arg": "--threads",
+    "notes": "test_chicSignificantInteractions.py::test_loose_pvalue_single, 12 processes for 6 sample viewpoints: the first 11 get nothing and the last all of them, which gives the order of one process."
+  },
+  {
+    "id": "chicSignificantInteractions.loose.single.truncateZeroPvalues",
+    "tool": "chicSignificantInteractions",
+    "tier": 6,
+    "args": ["--interactionFile", "{data}/cHi-C/chicViewpoint/two_matrices.hdf5",
+             "--backgroundModelFile", "{data}/cHi-C/background.txt", "--range", "200000", "200000",
+             "--outFileNameSignificant", "{out}/significant.hdf5", "--outFileNameTarget", "{out}/target.hdf5",
+             "--loosePValue", "0.5", "--pValue", "0.2", "-t", "2", "--combinationMode", "single",
+             "--truncateZeroPvalues", "--peakInteractionsThreshold", "10"],
+    "outputs": [
+      {"path": "{out}/significant.hdf5", "format": "chic_hdf5", "class": "E0"},
+      {"path": "{out}/target.hdf5", "format": "chic_hdf5", "class": "E0"}
+    ],
+    "threads_arg": "--threads",
+    "notes": "Not covered by the Python tests: --truncateZeroPvalues drops the positions whose stored p-value is exactly 0 before merging, and a peak threshold of 10 on the merged raw sums."
+  },
+  {
+    "id": "chicSignificantInteractions.nopreselection.single",
+    "tool": "chicSignificantInteractions",
+    "tier": 6,
+    "args": ["--interactionFile", "{data}/cHi-C/chicViewpoint/two_matrices.hdf5",
+             "--backgroundModelFile", "{data}/cHi-C/background.txt", "--range", "200000", "200000",
+             "--outFileNameSignificant", "{out}/significant.hdf5", "--outFileNameTarget", "{out}/target.hdf5",
+             "--pValue", "0.2", "-t", "1", "--combinationMode", "single"],
+    "outputs": [
+      {"path": "{out}/significant.hdf5", "format": "chic_hdf5", "class": "E0"},
+      {"path": "{out}/target.hdf5", "format": "chic_hdf5", "class": "E0"}
+    ],
+    "threads_arg": "--threads",
+    "notes": "Not covered by the Python tests: without a preselection filter_by_pvalue accepts positions on their stored p-value and compares --peakInteractionsThreshold with the x-fold, not the raw interactions; reproduced. Sox17 has no accepted position in either sample, so the run appends two lines to errorLog.txt in the working directory."
+  },
+  {
+    "id": "chicSignificantInteractions.pValueFile.fails",
+    "tool": "chicSignificantInteractions",
+    "tier": 6,
+    "args": ["--interactionFile", "{data}/cHi-C/chicViewpoint/two_matrices.hdf5",
+             "--backgroundModelFile", "{data}/cHi-C/background.txt", "--range", "200000", "200000",
+             "--outFileNameSignificant", "{out}/significant.hdf5", "--outFileNameTarget", "{out}/target.hdf5",
+             "--pValue", "{data}/cHi-C/thresholdFile_pValue.txt",
+             "--loosePValue", "{data}/cHi-C/thresholdFile_loose_pValue.txt", "-t", "1"],
+    "expect_exit": 1,
+    "outputs": [
+      {"path": "{out}/significant.hdf5", "format": "chic_hdf5", "class": "E0"}
+    ],
+    "notes": "Threshold files for --pValue and --loosePValue are read and used, and writing the --pValue dict as an HDF5 attribute raises TypeError (Object dtype has no native HDF5 equivalent): exit 1 with a significant file that holds only the type and version attributes, and no target file. Reproduced."
+  },
+  {
+    "id": "chicSignificantInteractions.xFoldFile.fails",
+    "tool": "chicSignificantInteractions",
+    "tier": 6,
+    "args": ["--interactionFile", "{data}/cHi-C/chicViewpoint/two_matrices.hdf5",
+             "--backgroundModelFile", "{data}/cHi-C/background.txt", "--range", "200000", "200000",
+             "--outFileNameSignificant", "{out}/significant.hdf5", "--outFileNameTarget", "{out}/target.hdf5",
+             "--xFoldBackground", "{data}/cHi-C/thresholdFile_xfold.txt", "--pValue", "0.2", "-t", "1"],
+    "expect_exit": 1,
+    "outputs": [
+      {"path": "{out}/significant.hdf5", "format": "chic_hdf5", "class": "E0"}
+    ],
+    "notes": "An x-fold threshold file: the run fails when mode_preselection_value is written, after pvalue and mode_preselection."
+  },
+  {
+    "id": "chicSignificantInteractions.threads0.fails",
+    "tool": "chicSignificantInteractions",
+    "tier": 6,
+    "args": ["--interactionFile", "{data}/cHi-C/chicViewpoint/two_matrices.hdf5",
+             "--backgroundModelFile", "{data}/cHi-C/background.txt", "--range", "200000", "200000",
+             "--outFileNameSignificant", "{out}/significant.hdf5", "--outFileNameTarget", "{out}/target.hdf5",
+             "--xFoldBackground", "1.5", "--pValue", "0.2", "-t", "0"],
+    "expect_exit": 1,
+    "outputs": [],
+    "notes": "--threads 0: ZeroDivisionError in call_multi_core before any output."
+  },
+  {
+    "id": "chicSignificantInteractions.threadsNegative",
+    "tool": "chicSignificantInteractions",
+    "tier": 6,
+    "args": ["--interactionFile", "{data}/cHi-C/chicViewpoint/two_matrices.hdf5",
+             "--backgroundModelFile", "{data}/cHi-C/background.txt", "--range", "200000", "200000",
+             "--outFileNameSignificant", "{out}/significant.hdf5", "--outFileNameTarget", "{out}/target.hdf5",
+             "--xFoldBackground", "1.5", "--pValue", "0.2", "-t", "-1"],
+    "outputs": [
+      {"path": "{out}/significant.hdf5", "format": "chic_hdf5", "class": "E0"},
+      {"path": "{out}/target.hdf5", "format": "chic_hdf5", "class": "E0"}
+    ],
+    "notes": "A negative --threads starts no worker: exit 0 with both files holding their attributes only. Reproduced."
+  },
+  {
+    "id": "chicSignificantInteractions.v4.xfold.dual.fdr",
+    "tool": "chicSignificantInteractions",
+    "tier": 6,
+    "py_script": "cpp/scripts/py_chicSignificantInteractions_calibrated.py",
+    "args": ["--interactionFile", "{data}/cHi-C/chicViewpoint/two_matrices.hdf5",
+             "--backgroundModelFile", "{data}/cHi-C/background.txt", "--range", "200000", "200000",
+             "--outFileNameSignificant", "{out}/significant.hdf5", "--outFileNameTarget", "{out}/target.hdf5",
+             "--xFoldBackground", "1.5", "--pValue", "0.2", "-t", "1", "--combinationMode", "dual",
+             "--correctForMultipleTesting", "fdr"],
+    "outputs": [
+      {"path": "{out}/significant.hdf5", "format": "chic_hdf5", "class": "E0"},
+      {"path": "{out}/target.hdf5", "format": "chic_hdf5", "class": "E0"}
+    ],
+    "threads_arg": "--threads",
+    "notes": "C++ only option (PLAN.md 9.7 work item 3). The reference is cpp/scripts/py_chicSignificantInteractions_calibrated.py: the unmodified tool's p-values of every tested candidate, adjusted by Benjamini-Hochberg across all sample viewpoints, and the tool's acceptance applied to the adjusted values."
+  },
+  {
+    "id": "chicSignificantInteractions.v4.loose.single.bonferroni",
+    "tool": "chicSignificantInteractions",
+    "tier": 6,
+    "py_script": "cpp/scripts/py_chicSignificantInteractions_calibrated.py",
+    "args": ["--interactionFile", "{data}/cHi-C/chicViewpoint/two_matrices.hdf5",
+             "--backgroundModelFile", "{data}/cHi-C/background.txt", "--range", "200000", "200000",
+             "--outFileNameSignificant", "{out}/significant.hdf5", "--outFileNameTarget", "{out}/target.hdf5",
+             "--loosePValue", "0.5", "--pValue", "0.2", "-t", "1", "--combinationMode", "single",
+             "--correctForMultipleTesting", "bonferroni"],
+    "outputs": [
+      {"path": "{out}/significant.hdf5", "format": "chic_hdf5", "class": "E0"},
+      {"path": "{out}/target.hdf5", "format": "chic_hdf5", "class": "E0"}
+    ],
+    "threads_arg": "--threads",
+    "notes": "C++ only option, Bonferroni, loose p-value preselection in single mode."
+  },
+  {
+    "id": "chicSignificantInteractions.v4.nopreselection.single.fdr",
+    "tool": "chicSignificantInteractions",
+    "tier": 6,
+    "py_script": "cpp/scripts/py_chicSignificantInteractions_calibrated.py",
+    "args": ["--interactionFile", "{data}/cHi-C/chicViewpoint/two_matrices.hdf5",
+             "--backgroundModelFile", "{data}/cHi-C/background.txt", "--range", "200000", "200000",
+             "--outFileNameSignificant", "{out}/significant.hdf5", "--outFileNameTarget", "{out}/target.hdf5",
+             "--pValue", "0.2", "-t", "1", "--combinationMode", "single",
+             "--correctForMultipleTesting", "fdr"],
+    "outputs": [
+      {"path": "{out}/significant.hdf5", "format": "chic_hdf5", "class": "E0"},
+      {"path": "{out}/target.hdf5", "format": "chic_hdf5", "class": "E0"}
+    ],
+    "threads_arg": "--threads",
+    "notes": "C++ only option without a preselection: the family is the stored p-value of every position of every viewpoint (2,406 values)."
+  }
+]
