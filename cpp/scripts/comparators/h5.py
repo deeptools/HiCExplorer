@@ -83,8 +83,16 @@ def compare(path_a, path_b, cls, opts=None):
         else:
             diffs += _compare_values("/matrix/data", data_a, data_b, cls, metrics)
 
+        # "ignore_nodes": interval lists whose values a case declares out of
+        # scope, with the reason in its notes. The node must still exist in
+        # both files. Used by hicBuildMatrix --pairsFile against the BAM
+        # route: a .pairs file carries no read length, so the per bin coverage
+        # maximum of /intervals/extra_list cannot be computed.
+        ignored = set(opts.get("ignore_nodes", []))
         for node in ("/intervals/chr_list", "/intervals/start_list",
                      "/intervals/end_list", "/intervals/extra_list"):
+            if node in ignored:
+                continue
             left = _read(handle_a, node)
             right = _read(handle_b, node)
             if left.shape != right.shape:

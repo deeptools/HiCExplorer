@@ -63,6 +63,12 @@ def compare(path_a, path_b, cls, opts=None):
     import h5py
 
     opts = opts or {}
+    # "ignore_attributes": attributes a case declares out of scope, with the
+    # reason in its notes. Used where the reference is another writer (cooler
+    # cload pairs against hicBuildMatrix --pairsFile), whose provenance and
+    # metadata attributes differ by design; the pixels, bins and chromosomes
+    # are still compared.
+    ignored = frozenset(opts.get("ignore_attributes", []))
     with h5py.File(path_a, "r") as file_a, h5py.File(path_b, "r") as file_b:
         groups_a = _coolers(file_a)
         groups_b = _coolers(file_b)
@@ -74,7 +80,7 @@ def compare(path_a, path_b, cls, opts=None):
             # An mcool: the coolers live in groups and the file root carries
             # the provenance hicmatrix writes there for the first resolution
             # only (hicmatrix/lib/cool.py:422-426). Nothing else compares it.
-            diffs += _compare_attrs(file_a, file_b, "/")
+            diffs += _compare_attrs(file_a, file_b, "/", ignored)
             if sorted(file_a.keys()) != sorted(file_b.keys()):
                 diffs.append(f"root children {sorted(file_a.keys())} vs "
                              f"{sorted(file_b.keys())}")
@@ -83,7 +89,7 @@ def compare(path_a, path_b, cls, opts=None):
             group_b = file_b[group_path]
             if cls == "E1":
                 diffs += _compare_structure(group_a, group_b, group_path)
-            diffs += _compare_attrs(group_a, group_b, group_path)
+            diffs += _compare_attrs(group_a, group_b, group_path, ignored)
             pixel_diffs, pixel_metrics = _compare_pixels(group_a, group_b, cls,
                                                          group_path)
             diffs += pixel_diffs
@@ -139,10 +145,10 @@ def _arrays_identical(a, b):
     return np.array_equal(a, b)
 
 
-def _compare_attrs(group_a, group_b, prefix):
+def _compare_attrs(group_a, group_b, prefix, ignored=frozenset()):
     diffs = []
-    keys_a = set(group_a.attrs) - NORMALISED_ATTRS
-    keys_b = set(group_b.attrs) - NORMALISED_ATTRS
+    keys_a = set(group_a.attrs) - NORMALISED_ATTRS - set(ignored)
+    keys_b = set(group_b.attrs) - NORMALISED_ATTRS - set(ignored)
     for key in sorted(keys_a - keys_b):
         diffs.append(f"{prefix}: attribute {key} only in the Python output")
     for key in sorted(keys_b - keys_a):
