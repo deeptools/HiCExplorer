@@ -1398,6 +1398,9 @@ done by a separate worker in parallel with tier 5. The intermediate `.hdf5`
 files are **E1**; the exported text is **E0**/**E3**; `chicExportData`'s bigWig
 output is **E1** via libBigWig.
 
+**Done, merged 2026-09-15 in `2452a010`.** All seven chic tools are ported.
+chicDifferentialTest reproduces scipy 1.14.1's statistics bit for bit.
+
 ### Tier 7 - plotting (8 tools)
 
 `hicPlotMatrix` (1,114), `hicPlotTADs` (9, a shim over pyGenomeTracks),
@@ -1624,6 +1627,9 @@ Work:
    - The tested units: per TAD, aggregated counts per distance stratum plus boundary insulation; per loop, the union of loop positions from all samples, tested against local background; per compartment bin, a GC-oriented compartment score.
    - With a single sample per condition the tool refuses, or runs only with an explicit option that labels its output exploratory.
 3. **Multiple-testing correction** for the chic tools and hicDetectLoops, dual mode.
+   - Done for chicSignificantInteractions and chicDifferentialTest (`2452a010`):
+     `--correctForMultipleTesting`, with `none` equal to the Python.
+   - hicDetectLoops is still open.
 
 Gate (EX, fixed before implementation):
 - **Null comparisons** at FDR 0.05 call at most 1 % of tested TADs, loops or compartment bins. The nulls: wt rep1 vs rep2, knockout rep1 vs rep2, and the label swap {wt rep1, knockout rep2} vs {wt rep2, knockout rep1}. In each null the fraction of p <= 0.05 lies between 3 % and 7 %.

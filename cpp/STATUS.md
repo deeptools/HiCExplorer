@@ -2,10 +2,21 @@
 
 Owner: the orchestrating session. Architecture: `cpp/PLAN.md`. Rules:
 `cpp/AGENTS_CONTRACT.md`. Optimization rules: `cpp/OPTIMIZATION.md`. Last updated
-2026-09-15, at commit `e9c5bbaa`.
+2026-09-15, at commit `2452a010`.
 
-**Current state: 38 of 46 tools ported and committed** on `version4-cpp`.
-- **Last regression,** on clean exports of the plotting branch (`6d27fa8e`,
+**Current state: 42 of 46 tools ported and committed** on `version4-cpp`.
+- **Last regression,** merge-style (`--cache refresh`, contract rule 13) on a
+  clean export of the capture Hi-C branch `eea2a808` (reproduced); merged in
+  `2452a010`.
+  - 535 of 535 cases over 43 tools, with no time-gate reruns;
+  - determinism for all 7 chic tools;
+  - ctest 6, specs 43, argparse 79, gui 138 (1 skipped, snakemake), bindings 99;
+  - the Python chic tests, including the new characterization tests: 30 passed, 5 xfailed.
+  - The build showed two `-Wformat-truncation` warnings in the new tar writer:
+    a member of 8 GiB or more would have got a truncated size. They were fixed
+    in `a55555cd`, and a clean export of that commit has 0 warnings, ctest 6,
+    and chicExportData 22 of 22 with determinism.
+- **Earlier regression,** on clean exports of the plotting branch (`6d27fa8e`,
   then `cedc9f33` for its final fix), built out of tree with the Python module
   and without `HICX_PLOT_PYTHON` set (reproduced). Merged in `b71510ba`.
   - 470 cases over 37 tools and the round trips;
@@ -26,7 +37,10 @@ Owner: the orchestrating session. Architecture: `cpp/PLAN.md`. Rules:
 - The earlier merge `bfcf75fa` (cool read speed, hicDifferentialTAD, legacy
   `.hic`) passed the same regression, and `53a9fc91` moved both library pins to
   commits that differ only in the libraries' consumer tests.
-- **Open branches:** none.
+- **Open branches** (three parallel agents, contract rule 14), each from `7f3f94ad`:
+  - `v4-sparse-pca`: tier 11 and a multithreaded dense hicPCA path;
+  - `v4-pairs-input`: PLAN 9.2;
+  - `v4-diff-engine`: PLAN 9.7, work item 2.
 
 **Harness: Python reference cache and parallel scheduling, merged in
 `04f948ce` (contract rule 13).**
@@ -175,10 +189,10 @@ mattered repeatedly:
 | chicQualityControl | 6 | E0 text | 1.3W | weak | written | done | 5/5 (reproduced) | Figures drawn through `hicexplorer_plot`, E0. Reproduces F36, F43. |
 | chicViewpointBackgroundModel | 6 | exact columns; fitted size and prob by likelihood and downstream E5 | 1.3W | weak | written | done | 5/5 (reproduced) | EN withdrawn for size and prob (F50). Each fit's likelihood must be no worse than the worst of five reference runs by more than `max(spread_i, T_well)`; downstream calls Jaccard 1.000000 on all four fitted cases. Reproduces F45. |
 | chicViewpoint | 6 | E1 / bit identical values | 1.3W | weak | written | done | 6/6 (reproduced) | Bit identical through Boost.Math `ibeta`, as scipy uses (F42). Reproduces F44, F46, F47; F48 is a deviation. |
-| chicSignificantInteractions | 6 | E5 calls | 1.3W | weak | yes | not started | - | Builds on the chicViewpoint core, now merged. |
-| chicAggregateStatistic | 6 | E1 | 1.3W | weak | yes | not started | - | |
-| chicDifferentialTest | 6 | E3 p-values / E5 calls | 1.3W | weak | yes | not started | - | Needs `fisher_exact`, `chi2_contingency`, `chi2.ppf`. |
-| chicExportData | 6 | E0 text / E1 bigwig | 1.3W | partial | yes | not started | - | |
+| chicSignificantInteractions | 6 | E0 HDF5 (implies E5 calls) | 1.3W | weak | written | done | 12/12 (reproduced) | C++-only `--correctForMultipleTesting` (PLAN 9.7), E0 against a Python reference that adjusts the tool's p-values. 15 MB and under 0.01 s against the Python's 218 MB and 1.55 s. Reproduces F62. |
+| chicAggregateStatistic | 6 | E1 | 1.3W | weak | written | done | 9/9 (reproduced) | Reproduces F63. |
+| chicDifferentialTest | 6 | declared E3, measured bit-identical | 1.3W | weak | written | done | 9/9 (reproduced) | Reproduces scipy 1.14.1 exactly: Boost.Math hypergeometric for `fisher_exact`, and Cephes `chdtrc` and `igami` for `chi2_contingency` and `chi2.ppf`, bit-identical on 45,081 checked values. Also has `--correctForMultipleTesting`. Reproduces F64. |
+| chicExportData | 6 | E0 text / E1 bigWig | 1.3W | partial | written | done | 22/22 (reproduced) | bigWig through libBigWig 0.4.8, compared through pyBigWig interval by interval, plus zoom summaries. The archive lists members sorted, with time 0. |
 | hicPlotMatrix | 7 | E0 figures | declared 90 and 130 MB | weak | yes | done | 23/23 (reproduced) | C++ compute plus matplotlib drawing (tier 7 option a). The Li et al. 2015 whole-matrix case, behind a 120 GB `skipif` in the Python tests, runs at 14.0 GB against the Python's 14.6 GB, almost all of it matplotlib. |
 | hicPlotTADs | 7 | E0 | n/a | none | no | done | 4/4 (reproduced) | Delegation to pyGenomeTracks 3.9, checked at run time. |
 | hicPlotViewpoint | 7 | E0 data and figures | 1.3W | weak | yes | done | 9/9 (reproduced) | Exits 1 on a bad region where the Python exits 0. |
@@ -213,10 +227,10 @@ mattered repeatedly:
 | 3 | 6 | 6 | 0 |
 | 4 | 3 | 3 | 0 |
 | 5 | 5 | 5 | 0 |
-| 6 | 7 | 3 | 4 |
+| 6 | 7 | 7 | 0 |
 | 7 | 8 | 8 | 0 |
 | 8 | 4 | 0 | 4 |
-| **total** | **46** | **38** | **8** |
+| **total** | **46** | **42** | **4** |
 
 ## Baseline of the Python suite
 
@@ -263,7 +277,7 @@ not find graphviz `dot` on the venv's `PATH`; one hicBuildMatrix trivial run pas
 | hicAggregateContacts | z-score in modes `all` and `inter-chr` has no harness case | the Python needs a dense matrix of several GB |
 | hicBuildMatrixMicroC | no characterization test | rule 1 not met |
 | h5 writer | fixed at the source: attributes on datasets were opened with `H5Oopen` and closed as groups, leaving 27 identifiers open on a small matrix. `H5close()` before the drawing exec remains only as a safety net | a unit test counts open identifiers after a write |
-| packaging | Boost.Math and x86-simd-sort are fetched at configure time; hicMergeDomains needs graphviz `dot` at run time | an offline package build needs vendored tarballs, and the package needs a graphviz dependency |
+| packaging | Fetched at configure time: Boost.Math, x86-simd-sort, libBigWig, pybind11, and scipy 1.14.1's Cephes headers (per-file SHA256). hicMergeDomains needs graphviz `dot` at run time, and the plotting tools need a Python with matplotlib 3.8.4 | an offline package build needs vendored tarballs, and the package needs graphviz and the drawing environment as dependencies |
 | harness | `cpp_args` passes options to the C++ side only; `path_prepend` changes one case's `PATH` | both allowed only where they do not change compared outputs |
 | hicPCA | dense per-chromosome matrices, needed for the bit-exact eigenvector choice (PLAN 5.4) | memory grows with the square of the largest chromosome's bin count: 269 MB of the 344 MB peak on `small_test_matrix` (5,801 bins), about 5 GB per matrix for human chr1 at 10 kb. A sparse Lanczos option with implicit centering is proposed, pending the project owner |
 | hicDifferentialTAD, chic tools, hicDetectLoops | false positives: per-sample bin filtering and no multiple-testing correction (PLAN 9.7) | 20.5 % of TADs called between replicates. Step 1 is merged in `bfcf75fa` as hicDifferentialTAD options, not defaults; the chic tools and hicDetectLoops still lack a correction |
@@ -372,6 +386,9 @@ unaffected by design.
 | **F59** | hicConvertFormat (hic2cool) | the installed hic2cool reports `__version__` 0.8.3 while its pip metadata says 1.0.1, so cool files converted from `.hic` say `generated-by: hic2cool-0.8.3`; the port reproduces the string. |
 | **F60** | hicAdjustMatrix | `--action mask --regions` zeroed 4,970 rows at 50 kb on GSE234292 for a BED of 4,067 bins. Measured with the C++ port, which matches the Python on all 21 hicAdjustMatrix cases; not rerun on the Python, and the cause is not yet examined. It inflated an early calibration figure (PLAN 9.7). |
 | **F61** | cooler (reference library) | `cooler.fileops.is_cooler` returns False for `hicDifferentialTAD/GSM2644945_Untreated-R1.100000_chr1_chr2.cool`, whose `format` attribute is a fixed-length byte string, while `cooler.Cooler` opens it (3,790 bins, 3,202,457 pixels, reproduced). `hicx_matrix` follows `cooler.Cooler`. `test_data/matrix.mcool` has no `/resolutions/` groups, so it is not an mcool to cooler's layout. |
+| **F62** | chicSignificantInteractions | Five defects reproduced by the port. (1) The significant file is written in `np.unique` order but takes reference points in computation order, so Sox17 carries Eya1's reference point. (2) Without preselection, the peak threshold is compared with the x-fold instead of the raw count. (3) `merge_neighbors` drops a final unmerged candidate. (4) Dual mode reads the second sample under the first sample's chromosome and gene names. (5) Threshold files written as attributes crash with a TypeError, and `mode_preselection_calue` is misspelled when there is no preselection. |
+| **F63** | chicAggregateStatistic | Interval trees restart whenever the chromosome changes. A four-column target BED works only with matrices named `c_adj_norm` and `t_adj_norm`. A single-mode target file fails with a KeyError. |
+| **F64** | chicDifferentialTest | A skipped reference point shifts every later written result and ends in an IndexError. The chi-squared test rejects on the statistic against the critical value, not on the p-value. |
 
 ## Deliberate deviations from the Python behaviour
 
@@ -382,6 +399,8 @@ unaffected by design.
 | provenance, all tools | output is to name HiCExplorer 4 (recorded, not implemented) | project owner, 2026-09-02 |
 | figures, all tools | drawn by `hicexplorer_plot` with matplotlib 3.8.4 checked at run time. A wrong or missing drawing environment exits 3 before any input is read or output created; `HICX_PLOT_ALLOW_UNPINNED=1` draws anyway with a warning. `--noPlot` remains as a C++-only option | project owner (GUI request, tier 7 option a), 2026-09-15 |
 | hicPlotViewpoint, hicCorrelate, hicPrepareQCreport | exit 1 for a bad region, labels and range errors, and label-row mismatches, where the Python exits 0 | implementing agent, reported |
+| chic tools | where the Python hangs on an HDF5 group name that is already taken, the C++ exits 1. chicExportData's archive lists members sorted, since the Python's `os.walk` order is not reproducible, and stamps them with time 0 | implementing agent, reported |
+| capture Hi-C workflow template | its multiple-testing correction defaults to `fdr`, so the template differs from the Python tools unless it is set to `none` | orchestrating session, 2026-09-15 (false-positive control, PLAN 9.7) |
 | KR | no `exit(0)`; deterministic; class EN; reimplemented, not vendored | orchestrating session |
 | hangs in the reference | hicPlotSVL worker exception (F38), chicViewpoint duplicate gene (F48), hicMergeDomains start coordinate 0 (F49): the port exits 1 with a message | orchestrating session |
 | hicMergeDomains | an unknown `-of` format or a missing `dot` is refused before anything is written, where the Python writes text files first and then crashes | implementing agent, reported |

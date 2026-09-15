@@ -191,3 +191,13 @@ directories would silently not be committed.
     - (Added 2026-09-15: C++ CPU time on the development machine grows with
       parallel load, by a median of 1.13 to 1.44 at 8 to 16 jobs on a
       thin-margin sample.)
+14. **Parallel agents.** Up to three implementing agents may run at once, each a
+    fresh agent with a self-contained brief.
+    - **Isolation:** each works in its own worktree under
+      `~/src/HiCExplorer-v4-worktrees/`, uses its own harness cache directory
+      and at most `--jobs 4`, and starts no subagents.
+    - **Load:** CPU time grows with the other agents' load, so a time-gate
+      failure seen under load is rechecked on a quiet machine before a merge.
+    - **Disk:** keep scratch in a per-task directory, and delete large
+      intermediates before reporting.
+    - (Approved by the project owner 2026-09-15.)
