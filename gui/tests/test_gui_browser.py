@@ -298,6 +298,11 @@ def test_axes_and_track_follow_the_region_in_every_mode(qtbot, tmp_path, mode):
 
 
 def test_scripted_session_peak_rss(tmp_path):
+    # The session's fetch count and its memory bound are defined for the
+    # scripted walk over both the cool and the large .hic file.
+    if not (LARGE_HIC and os.path.isfile(LARGE_HIC)):
+        pytest.skip("HICX_LARGE_HIC does not name an existing .hic file; the scripted "
+                    "session needs it for its fetch count and memory bound")
     cool = os.path.join(DATA, "hicTADClassifier", "gm12878_chr1.cool")
     argv = [sys.executable, os.path.join(GUI_DIR, "tests", "browse_session.py"), cool]
     if LARGE_HIC and os.path.isfile(LARGE_HIC):
