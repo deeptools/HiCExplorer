@@ -2015,11 +2015,15 @@ def _threads(cpu, wall):
     return max(1, int(round(cpu / wall)))
 
 
-def _demand(case, options, record, jobs, python_cached):
+def _demand(case, options, record, jobs, python_cached, has_history=None):
     """(expected peak kB, CPU slots, expected seconds, measured) of one case. A case
     with a thin time-gate margin takes every slot, so it runs alone: a recorded
-    ratio of at least THIN_TIME_MARGIN, or, with no C++ measurement, a case
-    that draws figures or belongs to THIN_MARGIN_TOOLS."""
+    ratio of at least THIN_TIME_MARGIN, or, when the cache's own history holds
+    no C++ measurement of the case (has_history; by default whether record
+    holds one), a case that draws figures or belongs to THIN_MARGIN_TOOLS. So
+    every run into a new cache is conservative, also when --expect-from
+    reports supply durations. A large case without any measurement runs alone
+    too: its reference is threaded and slows down badly beside others."""
     large = bool(case.get("large"))
     record = record or {}
     budget_mb = (case.get("memory") or {}).get("budget_mb")
@@ -2045,11 +2049,12 @@ def _demand(case, options, record, jobs, python_cached):
     slots = max(threads)
     if large and not known:
         # Nothing measured: a large case may use many threads and much time.
-        slots = max(slots, jobs // 2)
+        slots = jobs
     if (record.get("time_ratio") or 0.0) >= THIN_TIME_MARGIN:
         slots = jobs
-    if not record.get("cpp_cpu_seconds") and (case_draws(case)
-                                               or case.get("tool") in THIN_MARGIN_TOOLS):
+    if has_history is None:
+        has_history = bool(record.get("cpp_cpu_seconds"))
+    if not has_history and (case_draws(case) or case.get("tool") in THIN_MARGIN_TOOLS):
         slots = jobs
     return max(peaks), min(jobs, slots), seconds, options_known
 
@@ -2072,6 +2077,7 @@ def _execute(cases, options, runner, on_result=None):
     started = time.monotonic()
     stop_after = getattr(options, "stop_after", None)
     records = _expectations(options)
+    cache_history = cache_for(options).history()
     limit_kb = _available_memory_kb() * MEMORY_FRACTION
     demands = {}
     for case in cases:
@@ -2082,7 +2088,9 @@ def _execute(cases, options, runner, on_result=None):
                 cached = cache_for(options).lookup(key) is not None
             except Exception:  # pylint: disable=W0718
                 cached = False
-        demands[case["id"]] = _demand(case, options, records.get(case["id"]), jobs, cached)
+        demands[case["id"]] = _demand(
+            case, options, records.get(case["id"]), jobs, cached,
+            has_history=bool((cache_history.get(case["id"]) or {}).get("cpp_cpu_seconds")))
     # Cases that run alone come last, when the others have drained, longest
     # first within each group. A pending entry is (case, is a rerun alone).
     pending = [(case, False) for case in

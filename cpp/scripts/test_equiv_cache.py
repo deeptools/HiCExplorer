@@ -329,3 +329,22 @@ def test_stop_after_starts_unmeasured_cases_while_time_remains(tmp_path):
     options.stop_after = 0.0
     results = equiv._execute(cases, options, runner)
     assert len(results) == 0 and len(options.deferred) == 6
+
+
+def test_reports_seed_durations_but_a_new_cache_stays_conservative():
+    options = argparse.Namespace(noise_runs=5, determinism=False)
+    drawing = {"id": "d", "tool": "hicPlotMatrix", "args": ["x"], "cpp_args": [], "outputs": [],
+               "large": False, "memory": {}}
+    large = {"id": "l", "tool": "hicInfo", "args": ["x"], "cpp_args": [], "outputs": [],
+             "large": True, "memory": {}}
+    reported = {"py_peak_rss_kb": 100_000, "py_seconds": 10.0, "py_cpu_seconds": 10.0,
+                "cpp_peak_rss_kb": 50_000, "cpp_seconds": 2.0, "cpp_cpu_seconds": 2.0,
+                "time_ratio": 0.2}
+    # from a report only: measured durations, but no history in this cache
+    peak, slots, seconds, measured = equiv._demand(drawing, options, reported, 8, False,
+                                                   has_history=False)
+    assert slots == 8 and measured and seconds == 10.0 * 1 + 2.0
+    assert equiv._demand(drawing, options, reported, 8, False, has_history=True)[1] == 1
+    # a large case without any measurement runs alone
+    assert equiv._demand(large, options, None, 8, False, has_history=False)[1] == 8
+    assert equiv._demand(large, options, reported, 8, False, has_history=False)[1] == 1
