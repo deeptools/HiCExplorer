@@ -52,6 +52,7 @@ add_library(hicx4core
     src/simd_reduce.cpp
     src/scipy_special.cpp
     src/scipy_stats.cpp
+    src/tar_gz.cpp
     src/sparse_matrix.cpp
     src/stats_ops.cpp
     src/text_formats.cpp

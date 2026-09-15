@@ -5,8 +5,8 @@ compare(path_a, path_b, cls, opts) -> Result and registering it below.
 """
 from __future__ import annotations
 
-from . import (chic_background, chic_hdf5, cool, h5, hic, image, interval, npz, rendered,
-               tar_images, text)
+from . import (bigwig, chic_background, chic_hdf5, cool, h5, hic, image, interval, npz, rendered,
+               tar_images, tar_members, text)
 from .base import CLASSES, Result, fail
 
 _REGISTRY = {
@@ -45,6 +45,12 @@ _REGISTRY = {
     # A tar or tar.gz of figures (chicPlotViewpoint): member names in order,
     # each member through the image comparator; see comparators/tar_images.py.
     "tar_images": tar_images,
+    # bigWig files through pyBigWig (chicExportData); see comparators/bigwig.py.
+    "bigwig": bigwig,
+    # A tar or tar.gz of data files (chicExportData): member names, text
+    # members byte for byte, bigWig members through the bigwig comparator;
+    # see comparators/tar_members.py.
+    "tar_members": tar_members,
 }
 
 # Default text schema per format name, so a case can just say format: bedgraph.
