@@ -133,8 +133,20 @@ class Argv:
         return argv + appended
 
 
+class _DecadeAxis(pg.AxisItem):
+    """In log mode, labels the decades only: the minor ticks (2..9 per
+    decade) keep their lines but no text, which otherwise runs together."""
+
+    def tickStrings(self, values, scale, spacing):
+        strings = super().tickStrings(values, scale, spacing)
+        if not self.logMode:
+            return strings
+        return [s if abs(v - round(v)) < 1e-6 else "" for v, s in zip(values, strings)]
+
+
 def _plot_widget(title=None, log_x=False, log_y=False):
-    widget = pg.PlotWidget(title=title)
+    axes = {name: _DecadeAxis(name) for name, log in (("bottom", log_x), ("left", log_y)) if log}
+    widget = pg.PlotWidget(title=title, axisItems=axes)
     widget.setBackground("w")
     widget.setMenuEnabled(False)
     widget.showGrid(x=True, y=True, alpha=0.2)
@@ -340,14 +352,17 @@ class QCReportView(AnalysisView):
         plot = _plot_widget()
         columns = [i for i, h in enumerate(headers) if i > 0 and not h.rstrip().endswith("%")
                    and all(_is_number(row[i]) for row in rows if i < len(row))]
-        width = 0.8 / max(1, len(rows))
+        # Horizontal bars: the column names are long, and on the y-axis each
+        # gets its own line instead of overlapping under the bars.
+        thickness = 0.8 / max(1, len(rows))
         for r, row in enumerate(rows):
-            x = np.arange(len(columns)) + r * width
-            heights = [float(row[i]) for i in columns]
-            plot.addItem(pg.BarGraphItem(x=x, height=heights, width=width * 0.9,
-                                         brush=pg.mkBrush(*PALETTE[r % len(PALETTE)])))
-        plot.getAxis("bottom").setTicks([[(i + 0.4 - width / 2, headers[c][:18])
-                                          for i, c in enumerate(columns)]])
+            y = np.arange(len(columns)) + r * thickness
+            values = [float(row[i]) for i in columns]
+            plot.addItem(pg.BarGraphItem(x0=0, y=y, width=values, height=thickness * 0.9,
+                                         brush=pg.mkBrush(*PALETTE[r % len(PALETTE)]),
+                                         name=row[0] if row else None))
+        plot.getAxis("left").setTicks([[(i + 0.4 - thickness / 2, headers[c]) for i, c in enumerate(columns)]])
+        plot.invertY(True)
         return plot
 
     def export_figure(self, target):
@@ -659,6 +674,12 @@ class CorrelationView(AnalysisView):
         payload = self.plot_data()
         self.labels = [str(label).strip("'") for label in payload.get("labels") or []]
         self.results = np.asarray(payload.get("results") or [[]], dtype=float)
+        if self.results.ndim == 2 and self.results.shape[0] == self.results.shape[1] > 1:
+            # The tool fills the upper triangle only (its figure masks the
+            # lower one); a zero there is no correlation, so mirror it.
+            lower = np.tril_indices(self.results.shape[0], -1)
+            if not self.results[lower].any():
+                self.results[lower] = self.results.T[lower]
         info = QtWidgets.QLabel("{} correlation{}".format(payload.get("method", ""),
                                                          " of log1p values" if payload.get("log1p") else ""))
         self.body.addWidget(info)
