@@ -1522,7 +1522,7 @@ The situation is different for each:
 | 9 | beyond the Python: new features and a differential redesign | 14 items (9.1 to 9.14) |
 | 10 | Python GUI (PySide6) with workflows and visualisation, Linux and macOS | 8 items (10.1 to 10.8) |
 | 11 | sparse Lanczos eigensolver for hicPCA, C++-only option | 1 item |
-| 12 | hicmatrixcpp: the hicmatrix API as an independent C++ library, then v4 on it | 2 phases |
+| 12 | hicmatrix 18: hicmatrix with a C++ core and its unchanged Python API, then v4 on it | 2 phases |
 
 Tiers 2, 6 and 7 are independent of tiers 3-5 after tier 0 lands, so up to three
 workers can proceed in parallel from that point.
@@ -1815,15 +1815,32 @@ chromosome's bin count:
   per-chromosome vector bound. Determinism at `-t1` and `-tN`, with a fixed
   starting vector.
 
-### Tier 12 - hicmatrixcpp, an independent C++ hicmatrix (added 2026-09-15)
+### Tier 12 - hicmatrix 18: hicmatrix with a C++ core and its Python API (added 2026-09-15)
 
-The project owner asked that hicmatrix, like cooler and the `.hic` format,
-become its own independent C++ library with the Python version's API. v4's
-core already reimplements much of it internally: `cool_adapter.cpp` (what
-hicmatrix adds on top of cooler), `h5_file.cpp`, `text_formats.cpp`,
-`tool_matrix.cpp`, `hic_matrix.cpp`, and parts of `hdf5_util.cpp` and
-`matrix_ops.cpp`, used by 18 tools. This tier turns that into a library and
-makes v4 consume it.
+The project owner asked that hicmatrix become its own independent C++ library.
+It is not a separately named library but **a new version of hicmatrix itself**,
+which keeps offering the Python API. v4's core already reimplements much of
+hicmatrix internally: `cool_adapter.cpp` (what hicmatrix adds on top of
+cooler), `h5_file.cpp`, `text_formats.cpp`, `tool_matrix.cpp`, `hic_matrix.cpp`,
+and parts of `hdf5_util.cpp` and `matrix_ops.cpp`, used by 18 tools. This tier
+moves that into hicmatrix 18 and makes v4 consume it.
+
+**Repository.** The upstream clone `~/src/HiCMatrix` (deeptools/HiCMatrix,
+GPL-3, so no separate licence decision), on a local branch created from the
+`17.2` tag (the oracle version), never pushed. Version 18.0.
+- The C++ core has a C++ API that v4 links against.
+- The `hicmatrix` Python package keeps 17.2's public API through bindings:
+  `hicmatrix.HiCMatrix.hiCMatrix` with its public attributes (`matrix` as a
+  `scipy.sparse.csr_matrix`, `cut_intervals`, `nan_bins`,
+  `correction_factors`, `distance_counts`, `bin_size` and so on),
+  `hicmatrix.lib.MatrixFileHandler`, the format classes and
+  `hicmatrix.utilities`. HiCExplorer's 56 importing Python files must work
+  unchanged.
+- Heavy work (file I/O, obs/exp, z-score, masking, reordering) runs in C++ on
+  the CSR buffers, copying only where the Python API requires an owned object.
+- Files it writes name HiCMatrix 18 as their producer (section 5.0.1).
+
+The public API to keep, from hicmatrix 17.2:
 
 **Target:** hicmatrix 17.2 (the reference installed in the oracle
 environment), about 2,000 lines.
@@ -1842,33 +1859,38 @@ environment), about 2,000 lines.
   logic, metadata), homer, hicpro, ginteractions and scool.
 - **`utilities`.**
 
-**Where:** its own repository, `~/src/hicmatrixcpp`, laid out like coolercpp
-and hicfilecpp: harness, `docs/API_MAPPING.md`, `DEVIATIONS.md`,
-`PROVENANCE.md`, and a CMake package.
-- Depends on HDF5 and coolercpp, at a pinned commit.
-- Provides the scipy-compatible CSR matrix type the API returns.
+**Layout:** inside the HiCMatrix repository.
+- A C++ core with a CMake package for C++ consumers.
+- A Python build (pybind11, a wheel or conda recipe) that installs the
+  `hicmatrix` package.
+- Harness, `docs/API_MAPPING.md`, `DEVIATIONS.md` and `PROVENANCE.md`.
+- Depends on HDF5 and coolercpp, at a pinned commit. PyTables, pandas and
+  intervaltree stay only where the Python API hands out their objects.
 - Every hicmatrix quirk v4 reproduces today (for example the correction-factor
   swap, NaN bins rebuilt from empty rows, the part split and sum) belongs in
-  the library, as the Python behaviour.
-- **Licence:** hicmatrix is GPL-3, so the owner decides together with the
-  licences of coolercpp and hicfilecpp.
+  hicmatrix 18, as the Python behaviour.
 
-**Phase 1, the library,** independent of v4.
-- **Harness against Python hicmatrix,** method by method and format by format,
-  on real matrices (the committed h5, cool, mcool, scool, homer, hicpro and
-  ginteractions test data, plus gm12878_chr1.cool). Classes are E0 for written
-  files (after the named provenance normalisations), E2 for loaded arrays and
-  intervals, and ED only where the Python itself computes in floating point
-  (obs/exp, z-score).
+**Phase 1, hicmatrix 18,** independent of v4.
+- **hicmatrix's own test suite** (`hicmatrix/test`, with its 32 MB of real
+  test data) passes unchanged against version 18.
+- **HiCExplorer's Python test suite** (the 3.7.7-dev tree) runs with
+  hicmatrix 18 installed in place of 17.2. It must give the same pass, fail,
+  xfail and xpass results as the recorded baseline, in a separate venv, never
+  the oracle venv.
+- **Harness against hicmatrix 17.2,** method by method and format by format,
+  on real matrices (the h5, cool, mcool, scool, homer, hicpro and ginteractions
+  test data, plus gm12878_chr1.cool). Classes are E0 for written files (after
+  normalising the producer name), E2 for loaded arrays and intervals, and ED
+  only where 17.2 itself computes in floating point (obs/exp, z-score).
 - **Mutation checks,** as in coolercpp.
-- **Memory and CPU** against the Python for load, save and the transforms.
-- **Clean-export build,** ctest including a consumer test that reads the
-  project version (see the coolercpp consumer fix), and determinism.
+- **Memory and CPU** against 17.2 for load, save and the transforms.
+- **Build:** clean-export build of the C++ core and the Python package, ctest
+  including a consumer test that reads the project version, and determinism.
 
-**Phase 2, v4 integration,** after the open branches merge.
-- v4's core replaces its internal implementations with hicmatrixcpp. Only
-  v4-specific code stays: streaming paths, memory-budgeted readers and tool
-  glue.
+**Phase 2, v4 on hicmatrix 18,** after the open branches merge.
+- v4's core replaces its internal implementations with hicmatrix 18's C++ API.
+  Only v4-specific code stays: streaming paths, memory-budgeted readers and
+  tool glue.
 - **Pinning** is like `HicxCoolercpp.cmake`.
 - **Gates:** a merge-style full regression (contract rule 13), determinism,
   memory and CPU no worse than before, and the gui and bindings suites. The templates grow as tier 6 and
