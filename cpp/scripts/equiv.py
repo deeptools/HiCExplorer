@@ -2016,7 +2016,7 @@ def _threads(cpu, wall):
 
 
 def _demand(case, options, record, jobs, python_cached):
-    """(expected peak kB, CPU slots, expected seconds) of one case. A case
+    """(expected peak kB, CPU slots, expected seconds, measured) of one case. A case
     with a thin time-gate margin takes every slot, so it runs alone: a recorded
     ratio of at least THIN_TIME_MARGIN, or, with no C++ measurement, a case
     that draws figures or belongs to THIN_MARGIN_TOOLS."""
@@ -2041,6 +2041,7 @@ def _demand(case, options, record, jobs, python_cached):
     if not known:
         peaks.append(fallback_kb)
         seconds = UNKNOWN_LARGE_SECONDS if large else UNKNOWN_SECONDS
+    options_known = known
     slots = max(threads)
     if large and not known:
         # Nothing measured: a large case may use many threads and much time.
@@ -2050,7 +2051,7 @@ def _demand(case, options, record, jobs, python_cached):
     if not record.get("cpp_cpu_seconds") and (case_draws(case)
                                                or case.get("tool") in THIN_MARGIN_TOOLS):
         slots = jobs
-    return max(peaks), min(jobs, slots), seconds
+    return max(peaks), min(jobs, slots), seconds, options_known
 
 
 def _execute(cases, options, runner, on_result=None):
@@ -2099,9 +2100,17 @@ def _execute(cases, options, runner, on_result=None):
             on_result(result)
 
     def in_time(case, anything_started):
-        if stop_after is None or not anything_started:
+        """--stop-after: a measured case starts when it is expected to finish in
+        time (or when it is the first); an unmeasured one, whose estimate says
+        nothing, while the time is not up. A case cut short by the caller's
+        timeout is neither persisted nor cached and runs again on --resume."""
+        if stop_after is None:
             return True
-        return time.monotonic() - started + demands[case["id"]][2] <= stop_after
+        elapsed = time.monotonic() - started
+        _, _, seconds, measured = demands[case["id"]]
+        if not measured:
+            return elapsed < stop_after
+        return not anything_started or elapsed + seconds <= stop_after
 
     launched = 0
     with concurrent.futures.ThreadPoolExecutor(max_workers=jobs) as pool:
@@ -2113,7 +2122,7 @@ def _execute(cases, options, runner, on_result=None):
                 used_slots = sum(entry[1] for entry in running.values())
                 for item in list(pending):
                     case, is_rerun = item
-                    peak_kb, slots, _ = demands[case["id"]]
+                    peak_kb, slots, _, _ = demands[case["id"]]
                     if is_rerun:
                         slots = jobs
                     elif not in_time(case, launched > 0):

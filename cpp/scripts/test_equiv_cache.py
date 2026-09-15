@@ -310,3 +310,22 @@ def test_a_time_gate_failure_beside_other_cases_is_rerun_alone(tmp_path):
                                                        jobs_resolved=4, deferred=[]),
                                     list(results.values()), "run")
     assert {entry["id"] for entry in report["reruns_alone"]} == {"flaky", "slow"}
+
+
+def test_stop_after_starts_unmeasured_cases_while_time_remains(tmp_path):
+    import time as time_module
+
+    def runner(case, options):
+        time_module.sleep(0.05)
+        return {"id": case["id"], "tier": 0, "passed": True, "failed_gates": []}
+    runner.reruns_time_gate = True
+    cases = [{"id": f"large{i}", "tool": "hicInfo", "tier": 0, "args": ["x"], "outputs": [],
+              "large": True, "memory": {}} for i in range(6)]
+    options = argparse.Namespace(jobs="1", stop_after=30.0, cache="off", noise_runs=5,
+                                 determinism=False, data=str(tmp_path), keep_workdirs=False,
+                                 cache_dir=str(tmp_path / "cache"), expect_from=None)
+    results = equiv._execute(cases, options, runner)
+    assert len(results) == 6 and options.deferred == []
+    options.stop_after = 0.0
+    results = equiv._execute(cases, options, runner)
+    assert len(results) == 0 and len(options.deferred) == 6
