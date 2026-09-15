@@ -2,7 +2,7 @@
 
 Owner: the orchestrating session. Architecture: `cpp/PLAN.md`. Rules:
 `cpp/AGENTS_CONTRACT.md`. Optimization rules: `cpp/OPTIMIZATION.md`. Last updated
-2026-09-15, at commit `04f948ce`.
+2026-09-15, at commit `e9c5bbaa`.
 
 **Current state: 38 of 46 tools ported and committed** on `version4-cpp`.
 - **Last regression,** on clean exports of the plotting branch (`6d27fa8e`,
@@ -72,6 +72,25 @@ unchanged.
     view leaves empty space in wide windows.
 - Browser limits: one chromosome at a time, and h5 files with variable bin
   sizes are refused inline.
+
+**GUI analysis views and workflow templates (PLAN 10.6 and 10.7), merged in
+`e9c5bbaa`.** Verified on a clean export of `cb8c67e5` (reproduced): build and
+ctest 6 of 6, gui suite 134 passed and 1 skipped (snakemake), bindings 99, the
+browser tests skipping with a reason without `HICX_LARGE_HIC`, and the cache
+test 15 of 15 in five consecutive runs. No C++ changed.
+- **Views**, linked to the matrix browser: QC report, distance decay,
+  hicPlotViewpoint and chicPlotViewpoint, aggregate contacts, compartment
+  saddle, correlation, and hicDifferentialTAD results with a volcano plot.
+- **Figure export** equals the CLI figure (byte-identical or E0).
+- **Unavailable, with their PLAN sections:** HiCRep, differential loops and
+  compartments.
+- **Templates:** Hi-C, differential TADs, capture Hi-C, and conversion and QC
+  run end to end on committed data. Outputs equal their logged commands, with
+  two named normalisations: the QC html table id and hicInfo's `Date:` line.
+- **Screenshots** reviewed at 1280x720 (differential, QC report, template
+  picker).
+- **Session memory:** a session opening every view peaks at 216 MB for the GUI
+  process.
 
 **Libraries,** each in its own repository with no remote and no licence yet:
 - **coolercpp** (`~/src/coolercpp`): cooler's API in C++. All cool and mcool I/O
@@ -235,8 +254,9 @@ not find graphviz `dot` on the venv's `PATH`; one hicBuildMatrix trivial run pas
 | hicQuickQC | its charts are drawn but not compared: their legends carry the random temporary file name, so widths vary by up to 21 px between runs of either tool | E7 for those charts |
 | hicBuildMatrixMicroC | QC figures drawn, but no case compares them | add cases |
 | drawing tools | the C++ saves the matrix and then draws, where the Python renders the QC report before saving | a failed drawing leaves the matrix behind |
-| gui tests | `test_gui_browser` asserts a fetch count that fails, not skips, when `HICX_LARGE_HIC` is unset | make it skip |
-| harness tests | `test_equiv_cache.py::test_a_time_gate_failure_beside_other_cases_is_rerun_alone` failed once (a fake memory-gate case passed its gate) right after two full regressions, then passed 3 of 3 on an idle machine | the fake case depends on a real RSS measurement; make it deterministic |
+| GUI differential view | the volcano plot's y axis reads "-log10 p" while its heading says adjusted p-value | cosmetic |
+| GUI chicPlotViewpoint view | its data holds distances to the reference point, not genomic positions | the view cannot move the matrix browser, and says so |
+| GUI differential template | the committed data has one replicate per condition | the template sums a single matrix per condition; a replicated real-data run is still open |
 | time gate | C++ CPU time grows with parallel load, and drawing tools sit near a ratio of 1.0 because matplotlib dominates both sides | contract rule 13 schedules and reruns such cases alone; the rerun rule is proven only by a fake case so far |
 | Python characterization tests of the plotting tools | they call `main()` directly | they cannot run against the C++ entry points |
 | hicAggregateContacts | numpy's argsort fallback for CPUs without AVX-512 was not checked against numpy, because the development machine always takes the AVX-512 path | contact-pair line order could differ on such a CPU |

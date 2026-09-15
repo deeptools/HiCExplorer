@@ -1763,9 +1763,10 @@ GUI, and a macOS app bundle later.
 10.4 and 10.5 are done, merged 2026-09-14 in `0b3b56db`: the PySide6 shell with
 forms for all 30 tools and the matrix browser, reviewed on screenshots at three
 sizes.
-- 10.6: the tier 7 shells are done (`b71510ba`); the GUI analysis views and
-  figure export from the GUI remain.
-- 10.7 follows.
+- 10.6: done. The tier 7 shells landed in `b71510ba`; the GUI analysis views
+  and their figure export landed in `e9c5bbaa`.
+- 10.7: done, `e9c5bbaa`. Four templates run end to end with outputs equal to
+  their logged commands.
 - 10.8 needs a Mac or a CI runner.
 
 ### Tier 11 - sparse eigensolver for hicPCA (added 2026-09-14)
