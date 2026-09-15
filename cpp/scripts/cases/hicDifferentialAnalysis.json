@@ -197,6 +197,72 @@
     "notes": "Class EX. The refusal of one sample per condition, for the loops subcommand."
   },
   {
+    "id": "hicDifferentialAnalysis.compartments.split_block_plants",
+    "tool": "hicDifferentialAnalysis",
+    "tier": 9,
+    "reference": "none",
+    "args": ["compartments",
+             "-a", "{data}/hicCorrectMatrix/gm12878_raw_values.cool", "{data}/hicCorrectMatrix/gm12878_raw_values.cool",
+             "-b", "{data}/hicCorrectMatrix/gm12878_raw_values.cool", "{data}/hicCorrectMatrix/gm12878_raw_values.cool",
+             "--chromosomes", "1",
+             "--splitReplicates", "19", "--blocks", "r1", "r2", "r1", "r2",
+             "--gcTrack", "{data}/hicDifferentialAnalysis/hg19_chr1_gc_2500kb.bedgraph",
+             "--plantRegions", "{data}/hicDifferentialAnalysis/gm12878_chr1_plants.bed",
+             "--plantFold", "2", "--plantSeed", "5",
+             "-o", "{out}/diff", "--threads", "4"],
+    "outputs": [
+      {"path": "{out}/diff_compartments.tsv", "format": "text", "class": "EX"}
+    ],
+    "validators": [
+      {"name": "differential_analysis_table", "output": "{out}/diff_compartments.tsv",
+       "options": {"exploratory": false, "min_rows": 50}}
+    ],
+    "threads_arg": "--threads",
+    "memory": {"alpha": 2.0, "beta": 0.0},
+    "notes": "Class EX. The compartments subcommand on real raw counts (GM12878, 2.5 Mb, chromosome 1): the consensus eigenvector by subspace iteration, GC orientation with a committed GC track (hg19 chr1 from UCSC goldenPath/hg19/chromosomes/chr1.fa.gz, fraction G or C among A, C, G, T per 2.5 Mb bin), the replicate split, planted thinning (BED regions against A bins, BEDPE rectangles) and a replicate block. Gated: exit status, table invariants, memory and, with --determinism, repeats and threads. Recovery of planted differences is the GSE234292 calibration, not a verdict here."
+  },
+  {
+    "id": "hicDifferentialAnalysis.compartments.single_sample_exploratory",
+    "tool": "hicDifferentialAnalysis",
+    "tier": 9,
+    "reference": "none",
+    "args": ["compartments",
+             "-a", "{data}/hicCorrectMatrix/gm12878_raw_values.cool",
+             "-b", "{data}/hicCorrectMatrix/gm12878_raw_values.cool",
+             "--chromosomes", "1", "--splitReplicates", "23", "--exploratory",
+             "--gcTrack", "{data}/hicDifferentialAnalysis/hg19_chr1_gc_2500kb.bedgraph",
+             "-o", "{out}/diff", "--threads", "2"],
+    "outputs": [
+      {"path": "{out}/diff_compartments.tsv", "format": "text", "class": "EX"}
+    ],
+    "validators": [
+      {"name": "differential_analysis_table", "output": "{out}/diff_compartments.tsv",
+       "options": {"exploratory": true, "min_rows": 50}}
+    ],
+    "stderr_contains": ["(EXPLORATORY)"],
+    "threads_arg": "--threads",
+    "memory": {"alpha": 2.0, "beta": 0.0},
+    "notes": "Class EX. One sample per condition with --exploratory."
+  },
+  {
+    "id": "hicDifferentialAnalysis.compartments.missing_gc_refused",
+    "tool": "hicDifferentialAnalysis",
+    "tier": 9,
+    "reference": "none",
+    "expect_exit": 1,
+    "args": ["compartments",
+             "-a", "{data}/hicCorrectMatrix/gm12878_raw_values.cool", "{data}/hicCorrectMatrix/gm12878_raw_values.cool",
+             "-b", "{data}/hicCorrectMatrix/gm12878_raw_values.cool", "{data}/hicCorrectMatrix/gm12878_raw_values.cool",
+             "--chromosomes", "2", "--splitReplicates", "19",
+             "--gcTrack", "{data}/hicDifferentialAnalysis/hg19_chr1_gc_2500kb.bedgraph",
+             "-o", "{out}/diff"],
+    "outputs": [
+      {"path": "{out}/diff_compartments.tsv", "format": "text", "class": "EX", "absent": true}
+    ],
+    "stderr_contains": ["the GC track has no values on chromosome '2'"],
+    "notes": "Class EX. Compartments cannot be oriented without GC values on the chromosome; refused, nothing written."
+  },
+  {
     "id": "hicDifferentialAnalysis.no_subcommand",
     "tool": "hicDifferentialAnalysis",
     "tier": 9,

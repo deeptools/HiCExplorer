@@ -4,6 +4,7 @@
     diff_calibration.py --cpp-bin BUILD/tools --out DIR
         [--tads WT1 WT2 KO1 KO2 --domains BED]
         [--loops WT1 WT2 KO1 KO2 --loop-calls FILE [FILE ...] [--peak-width BINS]]
+        [--compartments WT1 WT2 KO1 KO2 --gc-track BEDGRAPH [--plant-run-bins N]]
         [--chromosomes CHROM ...] [--threads N] [--seed N]
         [--plant-fraction F] [--min-fold-changes 1.0 1.1]
 
@@ -47,6 +48,9 @@ Unit types (families):
                  the boundary within the window the tool reports.
   loops          united loop calls, each against its local background; planted
                  as the peak square (+- --peak-width bins) of a tested loop.
+  compartments   every bin's contacts with A against B bins (GC-oriented
+                 consensus compartments); planted as runs of --plant-run-bins
+                 consecutive tested bins whose contacts with A bins are thinned.
 
 Output: DIR/report.md (every table), DIR/results.json, and the tool's output
 tables and logs under DIR/runs.
@@ -218,6 +222,63 @@ def loops_unit(options):
             "resolution": resolution}
 
 
+def compartments_unit(options):
+    wt1, wt2, ko1, ko2 = options.compartments
+    resolution = bin_size(wt1)
+    run = options.plant_run_bins
+
+    def plant_bins(null_prefix, path, seed):
+        # Runs of consecutive tested bins (no masked bin in between); a BED
+        # region thins the region's contacts with the A compartment.
+        #
+        # Contacts are symmetric, so this also thins the contacts of the
+        # region's A partners (a real change of the neighbours, counted as
+        # false calls here). Three design rules keep every planted bin at the
+        # planted fold, checked with identical samples in both conditions:
+        # a run lies within one compartment (the tool leaves contacts between
+        # region bins of opposite compartments unthinned, which would
+        # otherwise dilute the change of transition bins), one condition per
+        # chromosome (a contact between two runs planted in opposite
+        # conditions would be thinned in both and cancel), and at least
+        # --plant-run-gap bins between runs. A first design without these
+        # rules realised as little as 0.74 of the planted log fold change for
+        # a fifth of the planted A bins, which then failed the recall gate.
+        rows = [r for r in read_table(str(null_prefix) + "_compartments.tsv") if r["pvalue"] != "nan"]
+        gap = options.plant_run_gap
+        starts = []
+        for k in range(len(rows) - run + 1):
+            first, last = rows[k], rows[k + run - 1]
+            if first["chrom"] == last["chrom"] and \
+                    int(last["start"]) - int(first["start"]) == (run - 1) * resolution and \
+                    len({rows[k + i]["compartment"] for i in range(run)}) == 1:
+                starts.append(k)
+        rng = random.Random(seed + 13)
+        condition = {chrom: rng.choice("AB") for chrom in sorted({r["chrom"] for r in rows})}
+        wanted = max(1, round(options.plant_fraction * len(rows) / run))
+        chosen, used = [], set()
+        for k in rng.sample(starts, len(starts)):
+            if len(chosen) == wanted:
+                break
+            if any(k + i in used for i in range(-gap, run + gap)):
+                continue
+            chosen.append(k)
+            used.update(range(k, k + run))
+        chosen.sort()
+        keys = set()
+        with open(path, "w") as handle:
+            for k in chosen:
+                first, last = rows[k], rows[k + run - 1]
+                handle.write(f"{first['chrom']}\t{first['start']}\t{last['end']}\t"
+                             f"{condition[first['chrom']]}\n")
+                keys.update((rows[k + i]["chrom"], rows[k + i]["start"]) for i in range(run))
+        return lambda r: (r["chrom"], r["start"]) in keys
+
+    return {"name": "compartments", "command": "compartments",
+            "matrices": (wt1, wt2, ko1, ko2), "extra": ["--gcTrack", options.gc_track],
+            "families": {"compartments": "_compartments.tsv"},
+            "plants": {"compartments": plant_bins}, "resolution": resolution}
+
+
 # --------------------------------------------------------------------------
 
 
@@ -341,6 +402,10 @@ def main(argv=None):
     parser.add_argument("--loops", nargs=4, metavar=("WT1", "WT2", "KO1", "KO2"))
     parser.add_argument("--loop-calls", nargs="+", default=[])
     parser.add_argument("--peak-width", type=int, default=1)
+    parser.add_argument("--compartments", nargs=4, metavar=("WT1", "WT2", "KO1", "KO2"))
+    parser.add_argument("--gc-track")
+    parser.add_argument("--plant-run-bins", type=int, default=10)
+    parser.add_argument("--plant-run-gap", type=int, default=30)
     parser.add_argument("--chromosomes", nargs="+", default=DEFAULT_CHROMOSOMES)
     parser.add_argument("--threads", type=int, default=4)
     parser.add_argument("--seed", type=int, default=20260915)
@@ -357,6 +422,10 @@ def main(argv=None):
         if not options.loop_calls:
             parser.error("--loops needs --loop-calls")
         units.append(loops_unit(options))
+    if options.compartments:
+        if not options.gc_track:
+            parser.error("--compartments needs --gc-track")
+        units.append(compartments_unit(options))
     if not units:
         parser.error("give at least one unit type")
     Path(options.out).mkdir(parents=True, exist_ok=True)

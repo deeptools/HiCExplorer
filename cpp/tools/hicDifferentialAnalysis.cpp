@@ -64,22 +64,24 @@ constexpr const char* kProg = "hicDifferentialAnalysis";
 constexpr double kNaN = std::numeric_limits<double>::quiet_NaN();
 constexpr std::size_t kStratumFamilyMinimum = 100;
 
-const char* const kUsage = "usage: hicDifferentialAnalysis [-h] [--version] {tads,loops} ...\n";
+const char* const kUsage =
+    "usage: hicDifferentialAnalysis [-h] [--version] {tads,loops,compartments} ...\n";
 
 const char* const kHelp =
     "\n"
     "Replicate-aware, count-based differential analysis of Hi-C contact matrices: TADs\n"
-    "and TAD boundaries (tads) and loops (loops). Counts are modelled with a negative\n"
-    "binomial GLM, the\n"
+    "and TAD boundaries (tads), loops (loops) and A/B compartments (compartments).\n"
+    "Counts are modelled with a negative binomial GLM, the\n"
     "dispersion is estimated from the replicates with quasi-likelihood empirical Bayes\n"
     "moderation, offsets take library size and distance decay, bins filtered in any\n"
     "sample are masked in all, a minimum fold change is tested (TREAT) and the\n"
     "p-values are adjusted with Benjamini-Hochberg. Not in the Python HiCExplorer.\n"
     "\n"
     "positional arguments:\n"
-    "  {tads,loops}\n"
+    "  {tads,loops,compartments}\n"
     "    tads         differential TADs and TAD boundaries\n"
     "    loops        differential loops, each against its local background\n"
+    "    compartments differential compartment preference of every bin\n"
     "\n"
     "options:\n"
     "  -h, --help     show this help message and exit\n"
@@ -203,6 +205,48 @@ const char* const kLoopsSpecificHelp =
     "\n"
     "Optional arguments:\n";
 
+const char* const kCompartmentsUsage =
+    "usage: hicDifferentialAnalysis compartments --conditionA MATRIX [MATRIX ...]\n"
+    "                                            --conditionB MATRIX [MATRIX ...]\n"
+    "                                            --gcTrack BEDGRAPH\n"
+    "                                            --outFilePrefix PREFIX\n"
+    "                                            [--blocks LABEL [LABEL ...]]\n"
+    "                                            [--exploratory] [--fdr FDR]\n"
+    "                                            [--minFoldChange FOLD]\n"
+    "                                            [--filterThreshold LOWER UPPER]\n"
+    "                                            [--chromosomes CHROM [CHROM ...]]\n"
+    "                                            [--minDistance BP] [--threads THREADS]\n"
+    "                                            [--splitReplicates SEED]\n"
+    "                                            [--plantRegions BED] [--plantFold FOLD]\n"
+    "                                            [--plantSeed SEED] [-h]\n";
+
+const char* const kCompartmentsHelpHead =
+    "\n"
+    "Differential compartment preference. A consensus compartment track is computed\n"
+    "per chromosome from the pooled samples: the Pearson correlation of the pooled\n"
+    "observed over expected matrix, of its three leading eigenvectors the one that\n"
+    "correlates most with GC content, oriented so that A (positive) is GC rich. Every\n"
+    "bin is then tested on its contacts with A bins, with its contacts with B bins as\n"
+    "the offset (both at a distance of at least --minDistance): a change is a change of\n"
+    "the bin's preference for the A over the B compartment. The per-sample score is\n"
+    "log2 of observed over expected contacts with A over the same with B. Writes\n"
+    "<prefix>_compartments.tsv. A planted BED region thins the region's contacts with\n"
+    "the A bins, except the contacts between region bins of opposite compartments.\n"
+    "Dense per chromosome: use a resolution of 50 kb or coarser.\n"
+    "\n";
+
+const char* const kCompartmentsSpecificHelp =
+    "  --gcTrack BEDGRAPH    GC content: chrom, start, end, value; averaged over each\n"
+    "                        bin by overlap.\n"
+    "  --outFilePrefix PREFIX, -o PREFIX\n"
+    "                        Prefix of the output file.\n"
+    "\n"
+    "Optional arguments:\n";
+
+const char* const kCompartmentsOptionalHelp =
+    "  --minDistance BP      Least distance of the contacts that are counted\n"
+    "                        (Default: 200000).\n";
+
 const char* const kLoopsOptionalHelp =
     "  --peakWidth BINS      Half width of the peak square in bins (Default: 1).\n"
     "  --windowSize BINS     Half width of the background square in bins; at least\n"
@@ -230,6 +274,8 @@ struct Arguments {
     std::vector<std::string> loops;
     std::int64_t peak_width = 1;
     std::int64_t window_size = 5;
+    std::string gc_track;
+    std::int64_t min_distance = 200000;
 };
 
 void add_common(hicx::cli::Parser& sub, hicx::cli::ArgumentGroup& required,
@@ -298,7 +344,7 @@ Arguments parse_arguments(int argc, char** argv) {
     cli::ArgumentGroup& options = parser.group("options");
     options.add({"-h", "--help"}).action(cli::Action::Help).help("show this help message and exit");
     options.add({"--version"}).version(std::string("%(prog)s ") + hicx::kVersion);
-    parser.subcommands("command", true, std::string("{tads,loops}"));
+    parser.subcommands("command", true, std::string("{tads,loops,compartments}"));
 
     cli::Parser& tads = parser.add_subcommand("tads", "Differential TADs and TAD boundaries.");
     tads.set_usage(kTadsUsage)
@@ -373,6 +419,41 @@ Arguments parse_arguments(int argc, char** argv) {
             .help("show this help message and exit");
     }
 
+    cli::Parser& compartments = parser.add_subcommand(
+        "compartments", "Differential compartment preference of every bin.");
+    compartments.set_usage(kCompartmentsUsage)
+        .set_help(std::string(kCompartmentsHelpHead) + kCommonRequiredHelp +
+                  kCompartmentsSpecificHelp + kCommonOptionalHelp + kCompartmentsOptionalHelp +
+                  kCalibrationHelp);
+    {
+        cli::ArgumentGroup& required = compartments.group("Required arguments");
+        cli::ArgumentGroup& optional = compartments.group("Optional arguments");
+        cli::ArgumentGroup& calibration = compartments.group("Calibration arguments");
+        add_common(compartments, required, optional, calibration);
+        required.add({"--gcTrack"})
+            .required()
+            .metavar("BEDGRAPH")
+            .input({"bedgraph"})
+            .help("GC content per interval: chrom, start, end, value.");
+        required.add({"--outFilePrefix", "-o"})
+            .required()
+            .metavar("PREFIX")
+            .output({"tsv"}, "prefix")
+            .help("Prefix of the output file <prefix>_compartments.tsv.");
+        optional.add({"--minDistance"})
+            .type("int")
+            .default_value(200000)
+            .metavar("BP")
+            .help("Least distance of the contacts that are counted.");
+        optional.add({"--threads", "-t"})
+            .type("int")
+            .default_value(4)
+            .help("Worker threads; the result does not depend on the number.");
+        calibration.add({"-h", "--help"})
+            .action(cli::Action::Help)
+            .help("show this help message and exit");
+    }
+
     const cli::Namespace ns = parser.parse(argc, argv);
     Arguments args;
     args.command = ns.command();
@@ -402,6 +483,10 @@ Arguments parse_arguments(int argc, char** argv) {
         args.loops = ns.strs("loops");
         args.peak_width = ns.integer("peakWidth");
         args.window_size = ns.integer("windowSize");
+    }
+    if (args.command == "compartments") {
+        args.gc_track = ns.str("gcTrack");
+        args.min_distance = ns.integer("minDistance");
     }
     return args;
 }
@@ -499,6 +584,9 @@ void validate(const Arguments& args) {
         throw std::runtime_error("--peakWidth must be at least 0 and --windowSize between "
                                  "--peakWidth + 2 and 1000");
     }
+    if (args.command == "compartments" && args.min_distance < 1) {
+        throw std::runtime_error("--minDistance must be positive");
+    }
     diff::Design design;
     design.condition.assign(a, 0);
     design.condition.insert(design.condition.end(), b, 1);
@@ -568,6 +656,8 @@ struct PlantRegion {
     std::int64_t col_first = 0;
     std::int64_t col_last = 0;
     int condition = 0;
+    // A BED row (a region), as opposed to a BEDPE rectangle.
+    bool region = false;
 
     [[nodiscard]] bool covers(std::int64_t i, std::int64_t j) const {
         return (i >= row_first && i < row_last && j >= col_first && j < col_last) ||
@@ -599,6 +689,7 @@ std::vector<PlantRegion> read_plant_regions(const std::string& path, std::int64_
             region.col_first = region.row_first;
             region.col_last = region.row_last;
             region.condition = row.size() == 4 ? condition_of(row[3]) : 0;
+            region.region = true;
         } else if (row.size() == 6 || row.size() == 7) {
             if (row[3] != row[0]) {
                 throw std::runtime_error("'" + path + "': a planted rectangle must be cis, got " +
@@ -1404,6 +1495,554 @@ void run_loops(const Arguments& args) {
                  in.design.exploratory ? " (EXPLORATORY)" : "");
 }
 
+// --------------------------------------------------------------------------
+// compartments
+
+// The k leading eigenpairs of a symmetric n x n matrix (row-major), by
+// subspace iteration on k + 2 vectors from a fixed pseudo-random start, with
+// modified Gram-Schmidt and a final Rayleigh-Ritz step solved by cyclic
+// Jacobi. The matrix products reduce every row sequentially and the rows are
+// independent, so the result does not depend on the thread count, which a
+// threaded LAPACK would not guarantee.
+std::vector<std::vector<double>> leading_eigenvectors(const std::vector<double>& a, std::size_t n,
+                                                      std::size_t k, unsigned threads) {
+    const std::size_t m = std::min(n, k + 2);
+    std::vector<std::vector<double>> q(m, std::vector<double>(n));
+    for (std::size_t t = 0; t < m; ++t) {
+        for (std::size_t i = 0; i < n; ++i) {
+            diffc::CounterRng rng({0x45494745ULL, t, i});
+            q[t][i] = rng.uniform() - 0.5;
+        }
+    }
+    const auto orthonormalise = [&](std::vector<std::vector<double>>& v) {
+        for (std::size_t t = 0; t < v.size(); ++t) {
+            for (std::size_t u = 0; u < t; ++u) {
+                double dot = 0.0;
+                for (std::size_t i = 0; i < n; ++i) {
+                    dot += v[t][i] * v[u][i];
+                }
+                for (std::size_t i = 0; i < n; ++i) {
+                    v[t][i] -= dot * v[u][i];
+                }
+            }
+            double norm = 0.0;
+            for (double x : v[t]) {
+                norm += x * x;
+            }
+            norm = std::sqrt(norm);
+            for (double& x : v[t]) {
+                x = norm > 0.0 ? x / norm : 0.0;
+            }
+        }
+    };
+    const auto multiply = [&](const std::vector<std::vector<double>>& v) {
+        std::vector<std::vector<double>> z(v.size(), std::vector<double>(n, 0.0));
+        hicx::parallel_for(n, threads, [&](std::size_t i) {
+            const double* row = a.data() + i * n;
+            for (std::size_t t = 0; t < v.size(); ++t) {
+                double sum = 0.0;
+                for (std::size_t j = 0; j < n; ++j) {
+                    sum += row[j] * v[t][j];
+                }
+                z[t][i] = sum;
+            }
+        });
+        return z;
+    };
+    orthonormalise(q);
+    for (int iteration = 0; iteration < 500; ++iteration) {
+        std::vector<std::vector<double>> z = multiply(q);
+        orthonormalise(z);
+        double change = 0.0;
+        for (std::size_t t = 0; t < k && t < m; ++t) {
+            double dot = 0.0;
+            for (std::size_t i = 0; i < n; ++i) {
+                dot += z[t][i] * q[t][i];
+            }
+            change = std::max(change, 1.0 - std::abs(dot));
+        }
+        q.swap(z);
+        if (change < 1e-12) {
+            break;
+        }
+    }
+    // Rayleigh-Ritz.
+    const std::vector<std::vector<double>> aq = multiply(q);
+    std::vector<double> h(m * m);
+    for (std::size_t s = 0; s < m; ++s) {
+        for (std::size_t t = 0; t < m; ++t) {
+            double dot = 0.0;
+            for (std::size_t i = 0; i < n; ++i) {
+                dot += q[s][i] * aq[t][i];
+            }
+            h[s * m + t] = dot;
+        }
+    }
+    for (std::size_t s = 0; s < m; ++s) {
+        for (std::size_t t = s + 1; t < m; ++t) {
+            h[s * m + t] = h[t * m + s] = 0.5 * (h[s * m + t] + h[t * m + s]);
+        }
+    }
+    std::vector<double> u(m * m, 0.0);
+    for (std::size_t s = 0; s < m; ++s) {
+        u[s * m + s] = 1.0;
+    }
+    for (int sweep = 0; sweep < 100; ++sweep) {
+        double off = 0.0;
+        for (std::size_t s = 0; s < m; ++s) {
+            for (std::size_t t = s + 1; t < m; ++t) {
+                off += h[s * m + t] * h[s * m + t];
+            }
+        }
+        if (off < 1e-30) {
+            break;
+        }
+        for (std::size_t p = 0; p < m; ++p) {
+            for (std::size_t r = p + 1; r < m; ++r) {
+                const double apr = h[p * m + r];
+                if (std::abs(apr) < 1e-300) {
+                    continue;
+                }
+                const double theta = (h[r * m + r] - h[p * m + p]) / (2.0 * apr);
+                const double tangent = (theta >= 0.0 ? 1.0 : -1.0) /
+                                       (std::abs(theta) + std::sqrt(theta * theta + 1.0));
+                const double c = 1.0 / std::sqrt(tangent * tangent + 1.0);
+                const double s = tangent * c;
+                for (std::size_t x = 0; x < m; ++x) {
+                    const double hxp = h[x * m + p];
+                    const double hxr = h[x * m + r];
+                    h[x * m + p] = c * hxp - s * hxr;
+                    h[x * m + r] = s * hxp + c * hxr;
+                }
+                for (std::size_t x = 0; x < m; ++x) {
+                    const double hpx = h[p * m + x];
+                    const double hrx = h[r * m + x];
+                    h[p * m + x] = c * hpx - s * hrx;
+                    h[r * m + x] = s * hpx + c * hrx;
+                }
+                for (std::size_t x = 0; x < m; ++x) {
+                    const double uxp = u[x * m + p];
+                    const double uxr = u[x * m + r];
+                    u[x * m + p] = c * uxp - s * uxr;
+                    u[x * m + r] = s * uxp + c * uxr;
+                }
+            }
+        }
+    }
+    std::vector<std::size_t> order(m);
+    for (std::size_t s = 0; s < m; ++s) {
+        order[s] = s;
+    }
+    std::stable_sort(order.begin(), order.end(),
+                     [&](std::size_t x, std::size_t y) { return h[x * m + x] > h[y * m + y]; });
+    std::vector<std::vector<double>> vectors;
+    for (std::size_t e = 0; e < std::min(k, m); ++e) {
+        std::vector<double> v(n, 0.0);
+        for (std::size_t t = 0; t < m; ++t) {
+            const double w = u[t * m + order[e]];
+            for (std::size_t i = 0; i < n; ++i) {
+                v[i] += w * q[t][i];
+            }
+        }
+        vectors.push_back(std::move(v));
+    }
+    return vectors;
+}
+
+double pearson(const std::vector<double>& x, const std::vector<double>& y) {
+    double n = 0.0;
+    double mx = 0.0;
+    double my = 0.0;
+    for (std::size_t i = 0; i < x.size(); ++i) {
+        if (std::isfinite(x[i]) && std::isfinite(y[i])) {
+            n += 1.0;
+            mx += x[i];
+            my += y[i];
+        }
+    }
+    if (n < 3.0) {
+        return kNaN;
+    }
+    mx /= n;
+    my /= n;
+    double sxy = 0.0;
+    double sxx = 0.0;
+    double syy = 0.0;
+    for (std::size_t i = 0; i < x.size(); ++i) {
+        if (std::isfinite(x[i]) && std::isfinite(y[i])) {
+            sxy += (x[i] - mx) * (y[i] - my);
+            sxx += (x[i] - mx) * (x[i] - mx);
+            syy += (y[i] - my) * (y[i] - my);
+        }
+    }
+    return (sxx > 0.0 && syy > 0.0) ? sxy / std::sqrt(sxx * syy) : kNaN;
+}
+
+void run_compartments(const Arguments& args) {
+    Inputs in = open_inputs(args);
+    const std::size_t samples = in.specs.size();
+    const auto threads = static_cast<unsigned>(std::min<std::int64_t>(args.threads, 1024));
+    const std::int64_t res = in.bin_size;
+    const std::int64_t min_bins = std::max<std::int64_t>(1, (args.min_distance + res / 2) / res);
+
+    // GC per bin: the overlap-weighted mean of the track.
+    std::map<std::string, std::pair<std::vector<double>, std::vector<double>>> gc_sums;
+    for (const std::string& chrom : in.chromosomes) {
+        const std::size_t bins = static_cast<std::size_t>((in.chrom_length[chrom] + res - 1) / res);
+        gc_sums[chrom] = {std::vector<double>(bins, 0.0), std::vector<double>(bins, 0.0)};
+    }
+    for (const std::vector<std::string>& row : diffc::read_fields(args.gc_track)) {
+        if (row.size() < 4) {
+            throw std::runtime_error("'" + args.gc_track + "': a GC interval needs chrom, start, "
+                                     "end and value");
+        }
+        const auto it = gc_sums.find(row[0]);
+        if (it == gc_sums.end()) {
+            continue;
+        }
+        double value = 0.0;
+        if (!hicx::cli::python_float(row[3], &value) || !std::isfinite(value)) {
+            continue;
+        }
+        const std::int64_t start = parse_int(row[1], args.gc_track);
+        const std::int64_t end = parse_int(row[2], args.gc_track);
+        auto& [sums, weights] = it->second;
+        for (std::int64_t b = std::max<std::int64_t>(0, start / res);
+             b < static_cast<std::int64_t>(sums.size()) && b * res < end; ++b) {
+            const double overlap = static_cast<double>(std::min(end, (b + 1) * res) -
+                                                       std::max(start, b * res));
+            if (overlap > 0.0) {
+                sums[static_cast<std::size_t>(b)] += overlap * value;
+                weights[static_cast<std::size_t>(b)] += overlap;
+            }
+        }
+    }
+    const std::vector<PlantRegion> plants = args.plant_regions.has_value()
+                                                ? read_plant_regions(*args.plant_regions, res)
+                                                : std::vector<PlantRegion>();
+
+    struct Bin {
+        std::string chrom;
+        std::int64_t index = 0;
+        double e1 = kNaN;
+        double gc = kNaN;
+        std::vector<double> with_a;
+        std::vector<double> with_a_expected;
+        std::vector<double> with_b;
+        std::vector<double> with_b_expected;
+    };
+    std::vector<Bin> units;
+    std::string orientation_notes;
+    for (const std::string& chrom : in.chromosomes) {
+        const auto [first, last] = in.files.front().extent(chrom);
+        const std::int64_t bins = last - first;
+        if (bins < 3) {
+            continue;
+        }
+        std::vector<diffc::ChromosomeData> data = load_samples(args, in, first, last, bins);
+        const std::vector<char> invalid = shared_invalid(args, data);
+        std::vector<std::size_t> valid_bins;
+        for (std::int64_t i = 0; i < bins; ++i) {
+            if (invalid[static_cast<std::size_t>(i)] == 0) {
+                valid_bins.push_back(static_cast<std::size_t>(i));
+            }
+        }
+        const std::size_t nv = valid_bins.size();
+        if (nv < 10) {
+            continue;
+        }
+        if (nv > 20000) {
+            throw std::runtime_error("chromosome '" + chrom + "' has " + std::to_string(nv) +
+                                     " valid bins; the compartment track is dense, use a "
+                                     "resolution of 50 kb or coarser");
+        }
+        // Consensus compartments from the pooled samples, before any plant.
+        std::vector<std::vector<double>> decay(samples);
+        hicx::parallel_for(samples, threads, [&](std::size_t s) {
+            decay[s] = diffc::distance_decay(data[s], invalid, bins);
+        });
+        std::vector<std::int64_t> position(static_cast<std::size_t>(bins), -1);
+        for (std::size_t v = 0; v < nv; ++v) {
+            position[valid_bins[v]] = static_cast<std::int64_t>(v);
+        }
+        std::vector<double> oe(nv * nv, 0.0);
+        std::vector<double> pooled_decay(static_cast<std::size_t>(bins) + 1, 0.0);
+        for (std::size_t s = 0; s < samples; ++s) {
+            for (std::size_t d = 0; d < pooled_decay.size(); ++d) {
+                pooled_decay[d] += decay[s][d];
+            }
+            for (std::int64_t i = 0; i < bins; ++i) {
+                const std::int64_t vi = position[static_cast<std::size_t>(i)];
+                if (vi < 0) {
+                    continue;
+                }
+                for (std::int64_t k = data[s].row_start[static_cast<std::size_t>(i)];
+                     k < data[s].row_start[static_cast<std::size_t>(i) + 1]; ++k) {
+                    const std::int64_t vj = position[static_cast<std::size_t>(data[s].col[static_cast<std::size_t>(k)])];
+                    if (vj >= 0) {
+                        oe[static_cast<std::size_t>(vi) * nv + static_cast<std::size_t>(vj)] +=
+                            data[s].count[static_cast<std::size_t>(k)];
+                    }
+                }
+            }
+        }
+        for (std::size_t x = 0; x < nv; ++x) {
+            for (std::size_t y = x; y < nv; ++y) {
+                const std::size_t d = valid_bins[y] - valid_bins[x];
+                const double value = pooled_decay[d] > 0.0 ? oe[x * nv + y] / pooled_decay[d] : 0.0;
+                oe[x * nv + y] = value;
+                oe[y * nv + x] = value;
+            }
+        }
+        // Rows standardised, correlation = Z Z^T / nv.
+        for (std::size_t x = 0; x < nv; ++x) {
+            double mean = 0.0;
+            for (std::size_t y = 0; y < nv; ++y) {
+                mean += oe[x * nv + y];
+            }
+            mean /= static_cast<double>(nv);
+            double squares = 0.0;
+            for (std::size_t y = 0; y < nv; ++y) {
+                oe[x * nv + y] -= mean;
+                squares += oe[x * nv + y] * oe[x * nv + y];
+            }
+            const double norm = std::sqrt(squares);
+            for (std::size_t y = 0; y < nv; ++y) {
+                oe[x * nv + y] = norm > 0.0 ? oe[x * nv + y] / norm : 0.0;
+            }
+        }
+        std::vector<double> correlation(nv * nv, 0.0);
+        hicx::parallel_for(nv, threads, [&](std::size_t x) {
+            for (std::size_t y = 0; y < nv; ++y) {
+                double sum = 0.0;
+                for (std::size_t z = 0; z < nv; ++z) {
+                    sum += oe[x * nv + z] * oe[y * nv + z];
+                }
+                correlation[x * nv + y] = sum;
+            }
+        });
+        std::vector<double>().swap(oe);
+        const std::vector<std::vector<double>> vectors =
+            leading_eigenvectors(correlation, nv, 3, threads);
+        std::vector<double>().swap(correlation);
+        std::vector<double> gc(nv, kNaN);
+        const auto& [gc_sum, gc_weight] = gc_sums[chrom];
+        for (std::size_t v = 0; v < nv; ++v) {
+            if (valid_bins[v] < gc_weight.size() && gc_weight[valid_bins[v]] > 0.0) {
+                gc[v] = gc_sum[valid_bins[v]] / gc_weight[valid_bins[v]];
+            }
+        }
+        std::size_t chosen = 0;
+        double best = -1.0;
+        double sign = 1.0;
+        for (std::size_t e = 0; e < vectors.size(); ++e) {
+            const double r = pearson(vectors[e], gc);
+            if (std::isfinite(r) && std::abs(r) > best) {
+                best = std::abs(r);
+                chosen = e;
+                sign = r < 0.0 ? -1.0 : 1.0;
+            }
+        }
+        if (best < 0.0) {
+            throw std::runtime_error("the GC track has no values on chromosome '" + chrom + "'");
+        }
+        orientation_notes += " " + chrom + ":eigenvector" + std::to_string(chosen + 1) + ",r=" +
+                             num(best);
+        std::vector<double> e1(static_cast<std::size_t>(bins), kNaN);
+        std::vector<char> in_a(static_cast<std::size_t>(bins), 0);
+        std::vector<char> in_b(static_cast<std::size_t>(bins), 0);
+        for (std::size_t v = 0; v < nv; ++v) {
+            const double value = sign * vectors[chosen][v];
+            e1[valid_bins[v]] = value;
+            in_a[valid_bins[v]] = value > 0.0 ? 1 : 0;
+            in_b[valid_bins[v]] = value < 0.0 ? 1 : 0;
+        }
+
+        // Planted differences: a BED region's contacts with the A bins, a
+        // BEDPE rectangle as it is; then the decay again, on planted counts.
+        std::vector<PlantRegion> here;
+        for (const PlantRegion& region : plants) {
+            if (region.chrom == chrom) {
+                here.push_back(region);
+            }
+        }
+        if (!here.empty()) {
+            hicx::parallel_for(samples, threads, [&](std::size_t s) {
+                const int condition = in.specs[s].condition;
+                diffc::thin_pixels(
+                    data[s],
+                    [&](std::int64_t i, std::int64_t j) {
+                        for (const PlantRegion& region : here) {
+                            if (region.condition != condition) {
+                                continue;
+                            }
+                            if (!region.region) {
+                                if (region.covers(i, j)) {
+                                    return true;
+                                }
+                                continue;
+                            }
+                            if (j - i < min_bins) {
+                                continue;
+                            }
+                            const bool i_in = i >= region.row_first && i < region.row_last;
+                            const bool j_in = j >= region.row_first && j < region.row_last;
+                            const bool i_a = in_a[static_cast<std::size_t>(i)] != 0;
+                            const bool j_a = in_a[static_cast<std::size_t>(j)] != 0;
+                            // A contact between two region bins of opposite
+                            // compartments is a contact with A for one and
+                            // with B for the other; thinning it would move
+                            // both scores in opposite senses, so it is left.
+                            if (i_in && j_in && i_a != j_a) {
+                                continue;
+                            }
+                            if ((i_in && j_a) || (j_in && i_a)) {
+                                return true;
+                            }
+                        }
+                        return false;
+                    },
+                    1.0 / args.plant_fold, static_cast<std::uint64_t>(args.plant_seed),
+                    static_cast<std::uint64_t>(condition) * 65536U + in.specs[s].index);
+                decay[s] = diffc::distance_decay(data[s], invalid, bins);
+            });
+        }
+
+        std::vector<Bin> chrom_units(nv);
+        for (Bin& unit : chrom_units) {
+            // Sized before the samples run in parallel; each writes its own slot.
+            unit.with_a.assign(samples, 0.0);
+            unit.with_a_expected.assign(samples, 0.0);
+            unit.with_b.assign(samples, 0.0);
+            unit.with_b_expected.assign(samples, 0.0);
+        }
+        hicx::parallel_for(samples, threads, [&](std::size_t s) {
+            std::vector<double> with_a(static_cast<std::size_t>(bins), 0.0);
+            std::vector<double> with_b(static_cast<std::size_t>(bins), 0.0);
+            for (std::int64_t i = 0; i < bins; ++i) {
+                if (invalid[static_cast<std::size_t>(i)] != 0) {
+                    continue;
+                }
+                const auto [k0, k1] = data[s].row_range(i, i + min_bins, bins);
+                for (std::size_t k = k0; k < k1; ++k) {
+                    const auto j = static_cast<std::size_t>(data[s].col[k]);
+                    if (invalid[j] != 0) {
+                        continue;
+                    }
+                    const double c = data[s].count[k];
+                    if (in_a[j] != 0) {
+                        with_a[static_cast<std::size_t>(i)] += c;
+                    } else if (in_b[j] != 0) {
+                        with_b[static_cast<std::size_t>(i)] += c;
+                    }
+                    if (in_a[static_cast<std::size_t>(i)] != 0) {
+                        with_a[j] += c;
+                    } else if (in_b[static_cast<std::size_t>(i)] != 0) {
+                        with_b[j] += c;
+                    }
+                }
+            }
+            for (std::size_t v = 0; v < nv; ++v) {
+                const std::size_t i = valid_bins[v];
+                double expected_a = 0.0;
+                double expected_b = 0.0;
+                for (std::size_t w = 0; w < nv; ++w) {
+                    const std::size_t j = valid_bins[w];
+                    const std::size_t d = i > j ? i - j : j - i;
+                    if (static_cast<std::int64_t>(d) < min_bins) {
+                        continue;
+                    }
+                    if (in_a[j] != 0) {
+                        expected_a += decay[s][d];
+                    } else if (in_b[j] != 0) {
+                        expected_b += decay[s][d];
+                    }
+                }
+                Bin& unit = chrom_units[v];
+                unit.with_a[s] = with_a[i];
+                unit.with_a_expected[s] = expected_a;
+                unit.with_b[s] = with_b[i];
+                unit.with_b_expected[s] = expected_b;
+            }
+        });
+        for (std::size_t v = 0; v < nv; ++v) {
+            Bin& unit = chrom_units[v];
+            unit.chrom = chrom;
+            unit.index = static_cast<std::int64_t>(valid_bins[v]);
+            unit.e1 = e1[valid_bins[v]];
+            unit.gc = gc[v];
+            units.push_back(std::move(unit));
+        }
+    }
+    if (units.empty()) {
+        throw std::runtime_error("no chromosome has enough valid bins");
+    }
+
+    diff::Family family;
+    family.samples = samples;
+    for (const Bin& unit : units) {
+        double mean_a = 0.0;
+        double mean_b = 0.0;
+        for (std::size_t s = 0; s < samples; ++s) {
+            family.counts.push_back(unit.with_a[s]);
+            const bool ok = unit.with_b[s] > 0.0 && unit.with_b_expected[s] > 0.0 &&
+                            unit.with_a_expected[s] > 0.0;
+            family.log_offsets.push_back(
+                ok ? std::log(unit.with_b[s] * unit.with_a_expected[s] / unit.with_b_expected[s])
+                   : kNaN);
+            mean_a += unit.with_a[s] / static_cast<double>(samples);
+            mean_b += unit.with_b[s] / static_cast<double>(samples);
+        }
+        family.covariate.push_back(-std::log(1.0 / (mean_a + 0.5) + 1.0 / (mean_b + 0.5)));
+    }
+    diff::FamilyOptions options;
+    options.min_log_fold = std::log(args.min_fold_change);
+    options.threads = threads;
+    const diff::FamilyResult result = diff::test_family(family, in.design, options);
+    report_family(args.command, "compartment bins", result);
+    const std::vector<double> fdr = hicx::stats::benjamini_hochberg_adjusted(result.pvalue);
+
+    std::string text = header_common(args, in, "differential compartment preference");
+    text += "# consensus compartments from the pooled samples, oriented by GC (" + args.gc_track +
+            "):" + orientation_notes + "\n";
+    text += "# minimum contact distance " + std::to_string(min_bins) +
+            " bins; log2FoldChange: condition B against A of the contacts with A bins relative "
+            "to the contacts with B bins; score: log2 of observed over expected contacts with A "
+            "over the same with B, per sample\n";
+    text += "#chrom\tstart\tend\tE1\tgc\tcompartment\tlog2FoldChange\tpvalue\tfdr\tdifferential";
+    for (const std::string& label : in.labels) {
+        text += "\tscore_" + label;
+    }
+    text += "\n";
+    std::size_t calls = 0;
+    std::size_t tested = 0;
+    for (std::size_t u = 0; u < units.size(); ++u) {
+        const Bin& unit = units[u];
+        const bool called = !std::isnan(fdr[u]) && fdr[u] <= args.fdr;
+        calls += called ? 1 : 0;
+        tested += std::isnan(result.pvalue[u]) ? 0 : 1;
+        text += unit.chrom + "\t" + std::to_string(unit.index * res) + "\t" +
+                std::to_string(std::min((unit.index + 1) * res, in.chrom_length[unit.chrom])) +
+                "\t" + num(unit.e1) + "\t" + num(unit.gc) + "\t" +
+                (unit.e1 > 0.0 ? "A" : (unit.e1 < 0.0 ? "B" : ".")) + "\t" +
+                num(result.log_fold[u] / std::log(2.0)) + "\t" + pval(result.pvalue[u]) + "\t" +
+                pval(fdr[u]) + "\t" + (called ? "1" : "0");
+        for (std::size_t s = 0; s < samples; ++s) {
+            const double score = std::log2((unit.with_a[s] / unit.with_a_expected[s]) /
+                                           (unit.with_b[s] / unit.with_b_expected[s]));
+            text += "\t" + num(score);
+        }
+        text += "\n";
+    }
+    const std::string path = args.prefix + "_compartments.tsv";
+    if (!write_file(path, text)) {
+        throw std::runtime_error("cannot write '" + path + "'");
+    }
+    std::fprintf(stderr, "%s compartments: %zu of %zu tested bins differential at FDR %s%s\n", kProg,
+                 calls, tested, num(args.fdr).c_str(),
+                 in.design.exploratory ? " (EXPLORATORY)" : "");
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -1414,6 +2053,8 @@ int main(int argc, char** argv) {
             run_tads(args);
         } else if (args.command == "loops") {
             run_loops(args);
+        } else if (args.command == "compartments") {
+            run_compartments(args);
         }
     } catch (const std::exception& error) {
         std::fprintf(stderr, "%s %s: error: %s\n", kProg, args.command.c_str(), error.what());
