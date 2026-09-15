@@ -1,0 +1,90 @@
+template:
+  name: capture_hic
+  title: Capture Hi-C
+  description: >-
+    Capture Hi-C viewpoints: the quality control of the reference points, the
+    background model of the accepted ones, the viewpoints with their p-values,
+    and the viewpoint plots.
+  parameters:
+    - name: matrices
+      kind: files
+      description: capture Hi-C matrices (cool), one per sample
+    - name: referencePoints
+      kind: file
+      description: BED file of the reference points (captured regions)
+    - name: sparsity
+      kind: value
+      default: 0.05
+      description: reference points with a sparsity at or below this are rejected
+    - name: range
+      kind: value
+      default: [200000, 200000]
+      description: bp upstream and downstream of a reference point
+    - name: fixateRange
+      kind: value
+      default: 500000
+      description: the background model uses the values up to this distance
+    - name: plotGene
+      kind: value
+      default: Eya1
+      description: the reference point (gene) whose viewpoints are plotted
+  unavailable:
+    - tool: chicSignificantInteractions
+      purpose: significant interactions
+    - tool: chicAggregateStatistic
+      purpose: aggregated statistics of the significant interactions
+    - tool: chicDifferentialTest
+      purpose: differential interactions between samples
+    - tool: chicExportData
+      purpose: export of the results as text
+workflow:
+  version: 1
+  name: capture_hic
+  threads: 2
+  steps:
+    - id: quality
+      threads: 1
+      tool: chicQualityControl
+      description: reference point quality control
+      args:
+        matrices: ["@{matrices}"]
+        referencePoints: "@{referencePoints}"
+        sparsity: "@{sparsity}"
+        outFileName: "${outputs.accepted}"
+        outFileNameHistogram: "${outputs.histogram}"
+        outFileNameSparsity: "${outputs.sparsity}"
+      outputs: {accepted: quality/referencepoints.bed, histogram: quality/histogram.png,
+                sparsity: quality/sparsity.png}
+    - id: background
+      threads: 1
+      tool: chicViewpointBackgroundModel
+      description: background model
+      args:
+        matrices: ["@{matrices}"]
+        referencePoints: "${steps.quality.outputs.accepted}"
+        fixateRange: "@{fixateRange}"
+        outFileName: "${outputs.model}"
+      outputs: {model: background/background.txt}
+    - id: viewpoints
+      threads: 1
+      tool: chicViewpoint
+      description: viewpoints
+      args:
+        matrices: ["@{matrices}"]
+        referencePoints: "${steps.quality.outputs.accepted}"
+        backgroundModelFile: "${steps.background.outputs.model}"
+        range: "@{range}"
+        fixateRange: "@{fixateRange}"
+        outFileName: "${outputs.interactions}"
+      outputs: {interactions: viewpoints/interactions.hdf5}
+    - id: plots
+      threads: 1
+      tool: chicPlotViewpoint
+      description: viewpoint plots
+      args:
+        interactionFile: "${steps.viewpoints.outputs.interactions}"
+        range: "@{range}"
+        combinationMode: oneGene
+        combinationName: "@{plotGene}"
+        outFileName: "${outputs.plots}"
+      outputs: {plots: plots/viewpoints.tar.gz}

@@ -201,6 +201,9 @@ class MainWindow(QtWidgets.QMainWindow):
         new_action = QtGui.QAction("New project...", self)
         new_action.triggered.connect(self._new_project_dialog)
         menu.addAction(new_action)
+        template_action = QtGui.QAction("New workflow from template...", self)
+        template_action.triggered.connect(self.new_from_template)
+        menu.addAction(template_action)
         open_action = QtGui.QAction("Open project...", self)
         open_action.triggered.connect(self._open_project_dialog)
         menu.addAction(open_action)
@@ -208,6 +211,10 @@ class MainWindow(QtWidgets.QMainWindow):
         quit_action = QtGui.QAction("Quit", self)
         quit_action.triggered.connect(self.close)
         menu.addAction(quit_action)
+        analysis = self.menuBar().addMenu("&Analysis")
+        views_action = QtGui.QAction("Open the analysis views of a run...", self)
+        views_action.triggered.connect(self._open_views_dialog)
+        analysis.addAction(views_action)
         view = self.menuBar().addMenu("&View")
         for title, method in (("Runs", self.show_runs), ("Workflow editor", self.show_editor),
                               ("Matrix browser", self.show_browser), ("Settings", self.show_settings)):
@@ -365,8 +372,75 @@ class MainWindow(QtWidgets.QMainWindow):
         if kind == "workflow":
             self.editor.load(path)
             self.show_editor()
-        else:
+        elif not self.open_analysis_views(path):
             self.show_runs()
+
+    # -- analysis views and templates (PLAN 10.6, 10.7) -----------------
+    def open_analysis_views(self, history_dir):
+        """Opens a view for every step of a run whose tool has one."""
+        from .analysis_views import records_from_history
+        try:
+            records = records_from_history(history_dir)
+        except (OSError, ValueError) as exc:
+            self.statusBar().showMessage("Cannot read the run: {}".format(exc))
+            return []
+        return [view for view in (self.open_analysis_view(record) for record in records) if view is not None]
+
+    def open_analysis_view(self, record):
+        from .analysis_views import open_view
+        if self.loader is None:
+            self.statusBar().showMessage("Set the C++ tool directory first (Settings).")
+            return None
+        try:
+            view = open_view(record, self.loader)
+        except Exception as exc:  # noqa: BLE001  a view that cannot read its data says why
+            self.statusBar().showMessage("Cannot open the {} view: {}".format(record.tool, exc))
+            return None
+        view.navigate.connect(self.navigate_browser)
+        self.tabs.addTab(view, "{}: {}".format(view.title, record.name))
+        self.tabs.setCurrentWidget(view)
+        return view
+
+    def navigate_browser(self, matrix, region):
+        """Shows region in the matrix browser, opening matrix first when it is
+        not the matrix already open."""
+        if self.browser is None:
+            return False
+        current = self.browser.sources[0]
+        if matrix and (current is None or os.path.abspath(current.path) != os.path.abspath(matrix)):
+            if self.browser.open_matrix(matrix) is None:
+                return False
+        ok = self.browser.goto(region)
+        self.show_browser()
+        return ok
+
+    def _open_views_dialog(self):
+        start = self.project.history_dir if self.project is not None else ""
+        path = QtWidgets.QFileDialog.getExistingDirectory(self, "Run history entry", start)
+        if path:
+            self.open_analysis_views(path)
+
+    def new_from_template(self):
+        from .template_picker import TemplatePicker
+        if self.project is None:
+            self.statusBar().showMessage("Open or create a project first.")
+            return None
+        dialog = TemplatePicker(self.entries, self)
+        if dialog.exec() != QtWidgets.QDialog.Accepted or dialog.workflow is None:
+            return None
+        return self.create_workflow(dialog.workflow)
+
+    def create_workflow(self, workflow):
+        """Saves a workflow document in the project and opens it in the editor."""
+        import yaml
+        from .project import safe_name
+        path = os.path.join(self.project.workflows_dir, safe_name(workflow["name"]) + ".yaml")
+        with open(path, "w") as handle:
+            yaml.safe_dump(workflow, handle, sort_keys=False)
+        self.refresh_project()
+        self.editor.load(path)
+        self.show_editor()
+        return path
 
     def run_workflow(self, path, name):
         if self.project is None or self.controller.running:

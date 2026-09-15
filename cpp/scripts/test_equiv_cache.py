@@ -247,30 +247,26 @@ def test_no_history_drawing_and_thin_margin_tools_run_alone():
 
 
 def test_a_time_gate_failure_beside_other_cases_is_rerun_alone(tmp_path):
-    """A fake runner: case "flaky" fails the time gate only while another case
-    runs, "slow" fails it alone too, "memory" fails a different gate beside
-    others. Every other case passes and keeps the machine busy."""
-    import threading
+    """A fake runner: case "flaky" fails the time gate in its first attempt and
+    passes in the rerun, "slow" fails it in both, "memory" always fails a
+    different gate. Every other case passes.
+
+    Nothing depends on timing or on a real measurement: the first attempt and
+    the rerun are told apart by the cache mode the scheduler hands the rerun
+    (refresh), and the neighbours are counted by the scheduler when it launches
+    the cases, all of which it launches in one pass before any finishes."""
     import time as time_module
 
-    active = set()
-    lock = threading.Lock()
-
     def runner(case, options):
-        with lock:
-            active.add(case["id"])
-        time_module.sleep(0.4)
-        with lock:
-            others = len(active - {case["id"]})
-            active.discard(case["id"])
-        crowded = others > 0
+        time_module.sleep(0.2)
+        rerun = options.cache == "refresh"
         gates = []
         ratio = 0.6
-        if case["id"] == "flaky" and crowded:
+        if case["id"] == "flaky" and not rerun:
             gates, ratio = ["time"], 1.3
         elif case["id"] == "slow":
             gates, ratio = ["time"], 1.2
-        elif case["id"] == "memory" and crowded:
+        elif case["id"] == "memory":
             gates = ["memory"]
         return {"id": case["id"], "tier": 0, "passed": not gates, "failed_gates": gates,
                 "time_gate": {"ratio": ratio}, "py_cpu_seconds": 1.0,
