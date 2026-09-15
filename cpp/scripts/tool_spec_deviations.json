@@ -1,4 +1,16 @@
 {
+ "hicBuildMatrix": [
+  {"where": "", "dest": "samFiles", "fields": ["required"], "kind": "status",
+   "reason": "The C++ port also reads .pairs files (--pairsFile, PLAN 9.2): --samFiles and --pairsFile form a required mutually exclusive group, so --samFiles is not required on its own (hicBuildMatrix.cpp C1)."},
+  {"where": "", "dest": "restrictionCutFile", "fields": ["required"], "kind": "status",
+   "reason": "Required with --samFiles only, checked after parsing with argparse's message and exit status 2; with --pairsFile it defines restriction fragment bins and is optional (PLAN 9.2, hicBuildMatrix.cpp C1)."},
+  {"where": "", "dest": "restrictionSequence", "fields": ["required"], "kind": "status",
+   "reason": "Required with --samFiles only, checked after parsing; not allowed with --pairsFile, which carries no read sequence (PLAN 9.2, hicBuildMatrix.cpp C1 and C2)."},
+  {"where": "", "dest": "danglingSequence", "fields": ["required"], "kind": "status",
+   "reason": "Required with --samFiles only, checked after parsing; not allowed with --pairsFile, which carries no read sequence (PLAN 9.2, hicBuildMatrix.cpp C1 and C2)."},
+  {"where": "", "dest": "", "fields": ["mutually_exclusive"], "kind": "status",
+   "reason": "The required mutually exclusive group of --samFiles and the C++-only --pairsFile (PLAN 9.2)."}
+ ],
  "hicConvertFormat": [
   {"where": "", "dest": "outputFormat", "fields": ["choices"], "kind": "status",
    "reason": "The C++ port also writes .hic files (--outputFormat hic, PLAN 9.1); cpp/STATUS.md records .hic output as a new EX direction in the hicConvertFormat row and under the deviations of hicConvertFormat and hicfilecpp."}

@@ -30,6 +30,7 @@ add_executable(hicx_tests
     test_transform_ops.cpp
     test_writers.cpp
     test_build_matrix.cpp
+    test_pairs_file.cpp
     test_correct_math.cpp
     test_detect_loops.cpp
     test_tad_contacts.cpp
@@ -91,6 +92,14 @@ add_test(NAME plot_environment_cli
                  "${HICX_PLOT_TEST_PYTHON}"
                  "${CMAKE_CURRENT_SOURCE_DIR}/../../plot/pyproject.toml")
 set_tests_properties(plot_environment_cli PROPERTIES SKIP_RETURN_CODE 77)
+
+# hicBuildMatrix --pairsFile (cpp/PLAN.md 9.2): refused options, the two
+# duplicate checks against each other, and the QC counts against awk. The runs
+# that draw the QC report need the pinned interpreter (status 77 without it).
+add_test(NAME hicBuildMatrix_pairs_cli
+         COMMAND ${HICX_BASH} "${CMAKE_CURRENT_SOURCE_DIR}/cli/hicBuildMatrix_pairs_cli.sh"
+                 $<TARGET_FILE:hicBuildMatrix> "${HICX_TEST_DATA}" "${HICX_PLOT_TEST_PYTHON}")
+set_tests_properties(hicBuildMatrix_pairs_cli PROPERTIES SKIP_RETURN_CODE 77)
 
 # hicAggregateContacts' C++-only --noPlot writes the numeric outputs without
 # any figure; the equivalence harness cannot compare an option the Python does

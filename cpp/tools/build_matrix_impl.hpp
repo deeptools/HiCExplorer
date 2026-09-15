@@ -71,6 +71,14 @@ struct Arguments {
     std::int64_t do_test_run_lines = 1000000;
     bool skip_duplication_check = false;
     std::string chromosome_sizes;
+    // hicBuildMatrix --pairsFile only (build_matrix_pairs_impl.hpp): the
+    // .pairs input, and whether --minMappingQuality was given explicitly,
+    // since without mapq columns an explicit value is refused and the default
+    // is not applied.
+    std::string pairs_file;
+    bool min_mapping_quality_given = false;
+    // hicBuildMatrix --noPlot: QC.log and the tables without the figures.
+    bool no_plot = false;
 };
 
 // hicexplorer.utilities.genomicRegion as an argparse type: a value that is
@@ -514,6 +522,121 @@ hicx::ChromSizes read_chromosome_sizes(const std::string& path) {
     return sizes;
 }
 
+// The matrix file of a finished run: the upper triangle of the pixel counts
+// over the enlarged bins, written as h5, cool or mcool the way
+// buildMatrixMethods.createMatrix writes them. Shared by the BAM route and the
+// .pairs route (build_matrix_pairs_impl.hpp). There are `pixel_count` distinct
+// pixels, which for_each_pixel(sink) hands to sink(key, count) in ascending
+// key order, key = min_bin << 32 | max_bin; a source may release its storage
+// while it does so. `bin_max` is the coverage column of the h5 bin table;
+// `genome_assembly` may be empty.
+template <class ForEachPixel>
+void write_matrix_outputs(const Arguments& args,
+                          const std::vector<hicx::GenomeInterval>& bin_intervals,
+                          const std::vector<double>& bin_max, const hicx::ChromNames& names,
+                          std::size_t pixel_count, ForEachPixel&& for_each_pixel,
+                          const std::string& qc_log, const std::string& genome_assembly) {
+    const std::int64_t matrix_size = static_cast<std::int64_t>(bin_intervals.size());
+    hicx::MatrixData data;
+    data.cut_intervals.reserve(bin_intervals.size());
+    for (std::size_t i = 0; i < bin_intervals.size(); ++i) {
+        hicx::CutInterval interval;
+        interval.chrom = names.name(bin_intervals[i].chrom);
+        interval.start = bin_intervals[i].start;
+        interval.end = bin_intervals[i].end;
+        interval.extra = bin_max[i];
+        data.cut_intervals.push_back(std::move(interval));
+    }
+
+    // The upper triangle of C + C.T - diag(C), built directly: a pair
+    // (a, b) is one count at (min, max), and the diagonal is counted once
+    // because the Python subtracts the doubled diagonal back off.
+    {
+        std::vector<std::int64_t> indptr(static_cast<std::size_t>(matrix_size) + 1, 0);
+        // Reserved rather than sized, so that pages are touched only as the
+        // pixels arrive, while a draining source frees its own blocks.
+        std::vector<std::int32_t> indices;
+        std::vector<double> values;
+        indices.reserve(pixel_count);
+        values.reserve(pixel_count);
+        for_each_pixel([&](std::uint64_t key, std::uint64_t count) {
+            const auto row = static_cast<std::int64_t>(key >> 32);
+            indices.push_back(static_cast<std::int32_t>(key & 0xffffffffULL));
+            values.push_back(static_cast<double>(count));
+            ++indptr[static_cast<std::size_t>(row) + 1];
+        });
+        for (std::size_t r = 0; r < static_cast<std::size_t>(matrix_size); ++r) {
+            indptr[r + 1] += indptr[r];
+        }
+        data.matrix = hicx::CsrMatrix(matrix_size, matrix_size, std::move(indptr),
+                                      std::move(indices), std::move(values), "int64");
+        data.matrix.set_symmetry(hicx::Symmetry::UpperTriangle);
+    }
+
+    // Q9 buildMatrixMethods.py:1371-1376. The three provenance strings are
+    // wrapped in np.string_, that is numpy bytes, and hicmatrix's cool
+    // writer stores str(value) of them (hicmatrix/lib/cool.py:394, 398,
+    // 401). str() of a bytes object is its repr, so what lands in the
+    // cool file is the seven extra characters of "b'...'" around the
+    // value. Reproduced, not fixed: the attribute is part of the file.
+    const auto as_python_bytes_repr = [](const std::string& value) {
+        return "b'" + value + "'";
+    };
+    std::map<std::string, std::string> metadata;
+    metadata["statistics"] = qc_log;
+    metadata["matrix-generated-by"] =
+        as_python_bytes_repr(std::string("HiCExplorer-") + hicx::kVersion);
+    metadata["matrix-generated-by-url"] =
+        as_python_bytes_repr("https://github.com/deeptools/HiCExplorer");
+    if (!genome_assembly.empty()) {
+        metadata["genome-assembly"] = as_python_bytes_repr(genome_assembly);
+    }
+
+    std::error_code ec;
+    std::filesystem::remove(args.out_file_name, ec);
+
+    if (ends_with(args.out_file_name, ".mcool") && args.bin_size.size() > 2) {
+        // Q7: only three or more resolutions take this branch.
+        hicx::CoolSaveOptions options;
+        options.symmetric = true;
+        options.apply_correction = false;
+        options.hic_metadata = metadata;
+        options.has_hic_metadata = true;
+        hicx::write_cool(args.out_file_name + "::/resolutions/" +
+                             std::to_string(args.bin_size[0]),
+                         data, options);
+        // Q10 hicmatrix/lib/cool.py:394-402. create_cooler_input deletes
+        // 'matrix-generated-by', 'matrix-generated-by-url' and
+        // 'genome-assembly' out of the metadata dictionary it was handed,
+        // and buildMatrixMethods.py:1381-1404 hands the *same* dictionary
+        // to every resolution. So only the first resolution of an mcool
+        // carries the provenance and the rest carry none. Reproduced.
+        options.hic_metadata.erase("matrix-generated-by");
+        options.hic_metadata.erase("matrix-generated-by-url");
+        options.hic_metadata.erase("genome-assembly");
+        for (std::size_t r = 1; r < args.bin_size.size(); ++r) {
+            const std::int64_t factor = args.bin_size[r] / args.bin_size[0];
+            hicx::MatrixData merged = hicx::merge_bins(data, factor);
+            hicx::CoolSaveOptions append = options;
+            append.append = true;
+            hicx::write_cool(args.out_file_name + "::/resolutions/" +
+                                 std::to_string(args.bin_size[r]),
+                             merged, append);
+        }
+    } else if (ends_with(args.out_file_name, "h5")) {
+        hicx::write_hicexplorer_h5(args.out_file_name, data);
+    } else if (ends_with(args.out_file_name, "cool")) {
+        hicx::CoolSaveOptions options;
+        options.symmetric = true;
+        options.apply_correction = false;
+        options.hic_metadata = metadata;
+        options.has_hic_metadata = true;
+        hicx::write_cool(args.out_file_name, data, options);
+    }
+    // A name ending in neither is written nowhere at all, silently, which
+    // is hiCMatrix.save's behaviour.
+}
+
 int run_build_matrix(const Arguments& args) {
     try {
         if (!ends_with(args.out_file_name, ".h5") &&
@@ -894,104 +1017,17 @@ int run_build_matrix(const Arguments& args) {
         }
         coverage.clear();
 
-        hicx::MatrixData data;
-        data.cut_intervals.reserve(bin_intervals.size());
-        for (std::size_t i = 0; i < bin_intervals.size(); ++i) {
-            hicx::CutInterval interval;
-            interval.chrom = names.name(bin_intervals[i].chrom);
-            interval.start = bin_intervals[i].start;
-            interval.end = bin_intervals[i].end;
-            interval.extra = bin_max[i];
-            data.cut_intervals.push_back(std::move(interval));
-        }
-
-        // The upper triangle of C + C.T - diag(C), built directly: a pair
-        // (a, b) is one count at (min, max), and the diagonal is counted once
-        // because the Python subtracts the doubled diagonal back off.
-        {
-            std::vector<std::int64_t> indptr(
-                static_cast<std::size_t>(matrix_size) + 1, 0);
-            const auto& keys = accumulator.keys();
-            const auto& counts = accumulator.counts();
-            std::vector<std::int32_t> indices(keys.size());
-            std::vector<double> values(keys.size());
-            for (std::size_t k = 0; k < keys.size(); ++k) {
-                const auto row = static_cast<std::int64_t>(keys[k] >> 32);
-                const auto col = static_cast<std::int64_t>(keys[k] & 0xffffffffULL);
-                indices[k] = static_cast<std::int32_t>(col);
-                values[k] = static_cast<double>(counts[k]);
-                ++indptr[static_cast<std::size_t>(row) + 1];
-            }
-            for (std::size_t r = 0; r < static_cast<std::size_t>(matrix_size); ++r) {
-                indptr[r + 1] += indptr[r];
-            }
-            data.matrix = hicx::CsrMatrix(matrix_size, matrix_size, std::move(indptr),
-                                          std::move(indices), std::move(values),
-                                          "int64");
-            data.matrix.set_symmetry(hicx::Symmetry::UpperTriangle);
-        }
-
-        // Q9 buildMatrixMethods.py:1371-1376. The three provenance strings are
-        // wrapped in np.string_, that is numpy bytes, and hicmatrix's cool
-        // writer stores str(value) of them (hicmatrix/lib/cool.py:394, 398,
-        // 401). str() of a bytes object is its repr, so what lands in the
-        // cool file is the seven extra characters of "b'...'" around the
-        // value. Reproduced, not fixed: the attribute is part of the file.
-        const auto as_python_bytes_repr = [](const std::string& value) {
-            return "b'" + value + "'";
-        };
-        std::map<std::string, std::string> metadata;
-        metadata["statistics"] = qc_log;
-        metadata["matrix-generated-by"] =
-            as_python_bytes_repr(std::string("HiCExplorer-") + hicx::kVersion);
-        metadata["matrix-generated-by-url"] =
-            as_python_bytes_repr("https://github.com/deeptools/HiCExplorer");
-        if (!args.genome_assembly.empty()) {
-            metadata["genome-assembly"] = as_python_bytes_repr(args.genome_assembly);
-        }
-
-        std::filesystem::remove(args.out_file_name, ec);
-
-        if (ends_with(args.out_file_name, ".mcool") && args.bin_size.size() > 2) {
-            // Q7: only three or more resolutions take this branch.
-            hicx::CoolSaveOptions options;
-            options.symmetric = true;
-            options.apply_correction = false;
-            options.hic_metadata = metadata;
-            options.has_hic_metadata = true;
-            hicx::write_cool(args.out_file_name + "::/resolutions/" +
-                                 std::to_string(args.bin_size[0]),
-                             data, options);
-            // Q10 hicmatrix/lib/cool.py:394-402. create_cooler_input deletes
-            // 'matrix-generated-by', 'matrix-generated-by-url' and
-            // 'genome-assembly' out of the metadata dictionary it was handed,
-            // and buildMatrixMethods.py:1381-1404 hands the *same* dictionary
-            // to every resolution. So only the first resolution of an mcool
-            // carries the provenance and the rest carry none. Reproduced.
-            options.hic_metadata.erase("matrix-generated-by");
-            options.hic_metadata.erase("matrix-generated-by-url");
-            options.hic_metadata.erase("genome-assembly");
-            for (std::size_t r = 1; r < args.bin_size.size(); ++r) {
-                const std::int64_t factor = args.bin_size[r] / args.bin_size[0];
-                hicx::MatrixData merged = hicx::merge_bins(data, factor);
-                hicx::CoolSaveOptions append = options;
-                append.append = true;
-                hicx::write_cool(args.out_file_name + "::/resolutions/" +
-                                     std::to_string(args.bin_size[r]),
-                                 merged, append);
-            }
-        } else if (ends_with(args.out_file_name, "h5")) {
-            hicx::write_hicexplorer_h5(args.out_file_name, data);
-        } else if (ends_with(args.out_file_name, "cool")) {
-            hicx::CoolSaveOptions options;
-            options.symmetric = true;
-            options.apply_correction = false;
-            options.hic_metadata = metadata;
-            options.has_hic_metadata = true;
-            hicx::write_cool(args.out_file_name, data, options);
-        }
-        // A name ending in neither is written nowhere at all, silently, which
-        // is hiCMatrix.save's behaviour.
+        (void)matrix_size;
+        write_matrix_outputs(
+            args, bin_intervals, bin_max, names, accumulator.keys().size(),
+            [&accumulator](auto&& sink) {
+                const auto& keys = accumulator.keys();
+                const auto& counts = accumulator.counts();
+                for (std::size_t k = 0; k < keys.size(); ++k) {
+                    sink(keys[k], static_cast<std::uint64_t>(counts[k]));
+                }
+            },
+            qc_log, args.genome_assembly);
     } catch (const std::exception& error) {
         std::fprintf(stderr, "%s: %s\n", g_tool, error.what());
         return 1;
