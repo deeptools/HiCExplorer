@@ -39,13 +39,17 @@ add_executable(hicx_tests
     test_merge_domains.cpp
     test_cool_chromosome_cut.cpp
     test_aggregate_support.cpp
+    test_diff_engine.cpp
     # The computational cores of hicDetectLoops, of the two TAD statistics tools,
-    # of hicCompartmentalization and of hicMergeDomains, so that the tests link
-    # against exactly the translation units the tools run.
+    # of hicCompartmentalization, of hicMergeDomains and of
+    # hicDifferentialAnalysis, so that the tests link against exactly the
+    # translation units the tools run.
     ../tools/detect_loops_impl.cpp
     ../tools/tad_contacts_impl.cpp
     ../tools/compartmentalization_impl.cpp
-    ../tools/merge_domains_impl.cpp)
+    ../tools/merge_domains_impl.cpp
+    ../tools/diff_engine_impl.cpp
+    ../tools/diff_contacts_impl.cpp)
 
 target_link_libraries(hicx_tests PRIVATE hicx::core doctest_header hicx_compile_options)
 

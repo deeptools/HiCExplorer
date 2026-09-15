@@ -1,0 +1,146 @@
+[
+  {
+    "id": "hicDifferentialAnalysis.tads.split_block_plants",
+    "tool": "hicDifferentialAnalysis",
+    "tier": 9,
+    "reference": "none",
+    "args": ["tads",
+             "-a", "{data}/hicTADClassifier/gm12878_chr1.cool", "{data}/hicTADClassifier/gm12878_chr1.cool",
+             "-b", "{data}/hicTADClassifier/gm12878_chr1.cool", "{data}/hicTADClassifier/gm12878_chr1.cool",
+             "--splitReplicates", "11", "--blocks", "r1", "r2", "r1", "r2",
+             "-d", "{data}/hicDifferentialAnalysis/gm12878_chr1_domains.bed",
+             "--plantRegions", "{data}/hicDifferentialAnalysis/gm12878_chr1_plants.bed",
+             "--plantFold", "2", "--plantSeed", "5",
+             "-o", "{out}/diff", "--threads", "4"],
+    "outputs": [
+      {"path": "{out}/diff_tads.tsv", "format": "text", "class": "EX"},
+      {"path": "{out}/diff_boundaries.tsv", "format": "text", "class": "EX"}
+    ],
+    "validators": [
+      {"name": "differential_analysis_table", "output": "{out}/diff_tads.tsv",
+       "options": {"exploratory": false, "min_rows": 200}},
+      {"name": "differential_analysis_table", "output": "{out}/diff_boundaries.tsv",
+       "options": {"exploratory": false, "min_rows": 100}}
+    ],
+    "threads_arg": "--threads",
+    "memory": {"alpha": 0.5, "beta": 0.0},
+    "notes": "Class EX: no Python counterpart. Exercises every random draw of the tool on real raw counts (GM12878 chr1, 10 kb): the replicate split (one read of the file per index, two complementary halves) and planted thinning of TAD squares and boundary rectangles (BED and BEDPE rows), with a replicate block. What is gated is the exit status, the table invariants of the validator, the memory gate and, with --determinism, byte-identical repeats and --threads 1 against N. Whether planted differences are recovered is not a verdict here: that is the calibration on GSE234292 (cpp/scripts/diff_calibration.py). The domains are the chromosome 1 TADs of hicMergeDomains/10kbtad_domains.bed between 1 and 60 Mb and at most 2 Mb long."
+  },
+  {
+    "id": "hicDifferentialAnalysis.tads.split_unpaired",
+    "tool": "hicDifferentialAnalysis",
+    "tier": 9,
+    "reference": "none",
+    "args": ["tads",
+             "-a", "{data}/hicTADClassifier/gm12878_chr1.cool", "{data}/hicTADClassifier/gm12878_chr1.cool",
+             "-b", "{data}/hicTADClassifier/gm12878_chr1.cool", "{data}/hicTADClassifier/gm12878_chr1.cool",
+             "--splitReplicates", "3", "--minFoldChange", "1",
+             "-d", "{data}/hicDifferentialAnalysis/gm12878_chr1_domains.bed",
+             "-o", "{out}/diff", "--threads", "2"],
+    "outputs": [
+      {"path": "{out}/diff_tads.tsv", "format": "text", "class": "EX"},
+      {"path": "{out}/diff_boundaries.tsv", "format": "text", "class": "EX"}
+    ],
+    "validators": [
+      {"name": "differential_analysis_table", "output": "{out}/diff_tads.tsv",
+       "options": {"exploratory": false, "min_rows": 200}},
+      {"name": "differential_analysis_table", "output": "{out}/diff_boundaries.tsv",
+       "options": {"exploratory": false, "min_rows": 100}}
+    ],
+    "threads_arg": "--threads",
+    "memory": {"alpha": 0.5, "beta": 0.0},
+    "notes": "Class EX. Two against two without blocks and without a minimum fold change (the ordinary test)."
+  },
+  {
+    "id": "hicDifferentialAnalysis.tads.single_sample_exploratory",
+    "tool": "hicDifferentialAnalysis",
+    "tier": 9,
+    "reference": "none",
+    "args": ["tads",
+             "-a", "{data}/hicTADClassifier/gm12878_chr1.cool",
+             "-b", "{data}/hicTADClassifier/gm12878_chr1.cool",
+             "--splitReplicates", "7", "--exploratory",
+             "-d", "{data}/hicDifferentialAnalysis/gm12878_chr1_domains.bed",
+             "-o", "{out}/diff", "--threads", "3"],
+    "outputs": [
+      {"path": "{out}/diff_tads.tsv", "format": "text", "class": "EX"},
+      {"path": "{out}/diff_boundaries.tsv", "format": "text", "class": "EX"}
+    ],
+    "validators": [
+      {"name": "differential_analysis_table", "output": "{out}/diff_tads.tsv",
+       "options": {"exploratory": true, "min_rows": 200}},
+      {"name": "differential_analysis_table", "output": "{out}/diff_boundaries.tsv",
+       "options": {"exploratory": true, "min_rows": 100}}
+    ],
+    "stderr_contains": ["(EXPLORATORY)"],
+    "threads_arg": "--threads",
+    "memory": {"alpha": 0.5, "beta": 0.0},
+    "notes": "Class EX. One sample per condition with --exploratory: the run succeeds and every output file carries the EXPLORATORY label."
+  },
+  {
+    "id": "hicDifferentialAnalysis.tads.single_replicate_refused",
+    "tool": "hicDifferentialAnalysis",
+    "tier": 9,
+    "reference": "none",
+    "expect_exit": 1,
+    "args": ["tads",
+             "-a", "{data}/hicDifferentialTAD/GSM2644945_Untreated-R1.100000_chr1.cool",
+             "-b", "{data}/hicDifferentialTAD/GSM2644947_Auxin2days-R1.100000_chr1.cool",
+             "-d", "{data}/hicDifferentialTAD/untreated_R1_domains.bed",
+             "-o", "{out}/diff"],
+    "outputs": [
+      {"path": "{out}/diff_tads.tsv", "format": "text", "class": "EX", "absent": true},
+      {"path": "{out}/diff_boundaries.tsv", "format": "text", "class": "EX", "absent": true}
+    ],
+    "stderr_contains": ["each condition needs at least two replicates", "--exploratory"],
+    "notes": "Class EX. One sample per condition without --exploratory is refused before any input is read, and nothing is written (PLAN.md 9.7)."
+  },
+  {
+    "id": "hicDifferentialAnalysis.tads.normalised_counts_refused",
+    "tool": "hicDifferentialAnalysis",
+    "tier": 9,
+    "reference": "none",
+    "expect_exit": 1,
+    "args": ["tads",
+             "-a", "{data}/hicDifferentialTAD/GSM2644945_Untreated-R1.100000_chr1.cool", "{data}/hicDifferentialTAD/GSM2644945_Untreated-R1.100000_chr1.cool",
+             "-b", "{data}/hicDifferentialTAD/GSM2644947_Auxin2days-R1.100000_chr1.cool", "{data}/hicDifferentialTAD/GSM2644947_Auxin2days-R1.100000_chr1.cool",
+             "-d", "{data}/hicDifferentialTAD/untreated_R1_domains.bed",
+             "-o", "{out}/diff"],
+    "outputs": [
+      {"path": "{out}/diff_tads.tsv", "format": "text", "class": "EX", "absent": true},
+      {"path": "{out}/diff_boundaries.tsv", "format": "text", "class": "EX", "absent": true}
+    ],
+    "stderr_contains": ["raw contact counts"],
+    "notes": "Class EX. These two matrices hold normalised, non-integer values; a count model refuses them and writes nothing."
+  },
+  {
+    "id": "hicDifferentialAnalysis.tads.confounded_blocks_refused",
+    "tool": "hicDifferentialAnalysis",
+    "tier": 9,
+    "reference": "none",
+    "expect_exit": 1,
+    "args": ["tads",
+             "-a", "{data}/hicTADClassifier/gm12878_chr1.cool", "{data}/hicTADClassifier/gm12878_chr1.cool",
+             "-b", "{data}/hicTADClassifier/gm12878_chr1.cool", "{data}/hicTADClassifier/gm12878_chr1.cool",
+             "--splitReplicates", "1", "--blocks", "x", "x", "y", "y",
+             "-d", "{data}/hicDifferentialAnalysis/gm12878_chr1_domains.bed",
+             "-o", "{out}/diff"],
+    "outputs": [
+      {"path": "{out}/diff_tads.tsv", "format": "text", "class": "EX", "absent": true},
+      {"path": "{out}/diff_boundaries.tsv", "format": "text", "class": "EX", "absent": true}
+    ],
+    "stderr_contains": ["confounded"],
+    "notes": "Class EX. Blocks identical to the conditions leave the condition effect inestimable; refused before any input is read."
+  },
+  {
+    "id": "hicDifferentialAnalysis.no_subcommand",
+    "tool": "hicDifferentialAnalysis",
+    "tier": 9,
+    "reference": "none",
+    "expect_exit": 2,
+    "args": [],
+    "outputs": [],
+    "stderr_contains": ["the following arguments are required"],
+    "notes": "Class EX. argparse's usage error without a subcommand."
+  }
+]

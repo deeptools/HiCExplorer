@@ -33,12 +33,14 @@ PLANNED_TOOLS = {
     # tier 8: machine learning and hyperparameter search
     "hicHyperoptDetectLoops": 8, "hicHyperoptDetectLoopsHiCCUPS": 8, "hicTADClassifier": 8,
     "hicTrainTADClassifier": 8,
+    # tier 9: features without a Python counterpart
+    "hicDifferentialAnalysis": 9,
 }
 
 TIER_NAMES = {
     1: "file layer", 2: "interval and text tools", 3: "float matrix math",
     4: "alignment and matrix construction", 5: "TAD, loop and differential calling",
-    6: "capture Hi-C", 7: "plotting", 8: "machine learning",
+    6: "capture Hi-C", 7: "plotting", 8: "machine learning", 9: "new features",
 }
 
 

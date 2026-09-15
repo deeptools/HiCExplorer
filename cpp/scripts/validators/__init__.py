@@ -39,6 +39,7 @@ from importlib import import_module
 _KNOWN = {
     "chic_background_likelihood": "chic_background_model",
     "chic_background_downstream": "chic_background_model",
+    "differential_analysis_table": "differential_analysis",
 }
 
 

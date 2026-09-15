@@ -1321,7 +1321,147 @@ def check_determinism(case, options, workdir, cpp_tool, data, reference_dir):
 # a single case
 
 
+def run_cpp_only_case(case, options):
+    """A case of a tool without a Python counterpart (class EX, PLAN.md 5.1).
+
+    There is no reference to compare with, so the case checks what can be
+    checked on the C++ run alone: the exit status, every declared output
+    written (non-empty) or, with `"absent": true`, not written, the text
+    `stderr_contains` names, the case's validators, the memory gate and, with
+    --determinism, repeats and thread counts. The time gate does not apply.
+    The tool's statistical behaviour is validated by its calibration script
+    (for hicDifferentialAnalysis, cpp/scripts/diff_calibration.py)."""
+    workdir_root, workdir = make_workdir(case["id"], options.tmpdir)
+    out_cpp = workdir / "out_cpp"
+    out_cpp.mkdir()
+    data = str(options.data)
+    args_cpp = [expand(arg, {"data": data, "out": out_cpp})
+                for arg in case["args"] + case["cpp_args"]]
+    cpp_tool = (Path(options.cpp_bin) / case["cpp_binary"]).resolve() \
+        if case.get("cpp_binary") else (Path(options.cpp_bin) / case["tool"])
+    load_average = os.getloadavg()[0]
+    result = {
+        "id": case["id"], "tool": case["tool"], "tier": case["tier"],
+        "class_declared": _declared_class(case), "notes": case["notes"],
+        "workdir": str(workdir), "workdir_root": str(workdir_root),
+        "timing_unreliable": load_average > LOAD_AVERAGE_LIMIT,
+        "load_average": load_average, "large": bool(case.get("large")),
+        "reference": "none",
+        "py_seconds": 0.0, "py_peak_rss_kb": 0, "py_cpu_seconds": 0.0,
+        "py_user_seconds": 0.0, "py_sys_seconds": 0.0, "py_exit": None, "py_command": None,
+    }
+    if not cpp_tool.exists():
+        result.update(passed=False, class_met=None, outputs=[],
+                      error=f"missing C++ binary {cpp_tool}")
+        return result
+    measure_cpp = run_measured([str(cpp_tool)] + args_cpp, workdir,
+                               out_cpp / "stdout.txt", out_cpp / "stderr.txt",
+                               env=cpp_environment(case, options))
+    result.update({
+        "cpp_seconds": measure_cpp["seconds"], "cpp_peak_rss_kb": measure_cpp["peak_rss_kb"],
+        "cpp_user_seconds": measure_cpp["user_seconds"],
+        "cpp_sys_seconds": measure_cpp["sys_seconds"],
+        "cpp_cpu_seconds": measure_cpp["cpu_seconds"], "cpp_exit": measure_cpp["exit_code"],
+        "cpp_command": measure_cpp["command"], "stderr_cpp": _tail(out_cpp / "stderr.txt"),
+    })
+    passed = True
+    errors = []
+    exit_ok = measure_cpp["exit_code"] == case["expect_exit"]
+    if not exit_ok:
+        passed = False
+        errors.append(f"the C++ tool exited {measure_cpp['exit_code']}, "
+                      f"expected {case['expect_exit']}")
+    stderr_text = (out_cpp / "stderr.txt").read_text(errors="replace") \
+        if (out_cpp / "stderr.txt").exists() else ""
+    for text in case.get("stderr_contains", []):
+        if text not in stderr_text:
+            passed = False
+            errors.append(f"stderr does not contain {text!r}")
+
+    outputs = []
+    for declared in case["outputs"]:
+        path = Path(expand(declared["path"], {"data": data, "out": out_cpp}))
+        entry = {"path": declared["path"], "format": declared.get("format", "text"),
+                 "class": declared.get("class", "EX")}
+        if entry["class"] != "EX":
+            ok, diffs = False, ["a case without a Python reference declares class EX only"]
+        elif declared.get("absent"):
+            ok = not path.exists()
+            diffs = [] if ok else ["written, although this run must not write it"]
+        else:
+            ok = path.is_file() and path.stat().st_size > 0
+            diffs = [] if ok else ["missing or empty"]
+        entry.update(passed=ok, class_met="EX" if ok else None, metrics={}, diffs=diffs)
+        outputs.append(entry)
+        passed = passed and ok
+    for entry in case["validators"]:
+        record = {"path": entry.get("output"), "format": f"validator:{entry.get('name')}",
+                  "class": entry.get("class", "EX")}
+        if not exit_ok:
+            record.update(passed=False, class_met=None, metrics={},
+                          diffs=["not run: the tool exited unexpectedly"])
+        else:
+            context = {
+                "case": case, "data": data,
+                "output": str(entry.get("output", "")).replace("{out}/", "").replace("{out}", ""),
+                "out_py": None, "out_cpp": str(out_cpp), "noise_dirs": [], "args_py": None,
+                "args_cpp": args_cpp, "workdir": str(workdir),
+                "py_python": str(options.py_python), "env": python_environment(),
+                "repo_root": str(REPO_ROOT), "options": entry.get("options") or {},
+            }
+            try:
+                with IN_PROCESS_HDF5_LOCK:
+                    record.update(validators.run(entry.get("name"), context).to_json())
+            except Exception as error:  # pylint: disable=W0718
+                record.update(passed=False, class_met=None, metrics={},
+                              diffs=[f"validator raised {type(error).__name__}: {error}"])
+        outputs.append(record)
+        passed = passed and record["passed"]
+    result["outputs"] = outputs
+    result["class_met"] = result["class_declared"] if passed else None
+
+    memory_gate = evaluate_memory_gate(case, options, measure_cpp["peak_rss_kb"], out_cpp, data)
+    memory_gate["ratio_to_python"] = None
+    result["cpp_compute_peak_rss_kb"] = None
+    result["memory_gate"] = memory_gate
+    result["budget_kb"] = memory_gate.get("budget_kb")
+    if not memory_gate["passed"]:
+        passed = False
+        errors.append("memory gate: " + memory_gate.get("reason", "over budget"))
+    result["time_gate"] = {"applied": False, "passed": True, "py_cpu_seconds": 0.0,
+                           "cpp_cpu_seconds": measure_cpp["cpu_seconds"], "ratio": None,
+                           "speedup": None, "reason": "no Python reference (class EX)"}
+    if options.determinism:
+        determinism = check_determinism(case, options, workdir, cpp_tool, data, out_cpp)
+        result["determinism"] = determinism
+        if not determinism["passed"]:
+            passed = False
+            errors.append("determinism: " + "; ".join(determinism["diffs"][:3]))
+    failed_gates = []
+    if not exit_ok:
+        failed_gates.append("exit")
+    if any(not entry.get("passed") for entry in outputs):
+        failed_gates.append("outputs")
+    if not memory_gate["passed"]:
+        failed_gates.append("memory")
+    if options.determinism and not result["determinism"]["passed"]:
+        failed_gates.append("determinism")
+    result["failed_gates"] = failed_gates
+    result["passed"] = passed
+    if errors:
+        result["error"] = "; ".join(errors)
+    if _STOPPING.is_set():
+        result["interrupted"] = True
+    if not options.keep_workdirs and passed:
+        shutil.rmtree(workdir_root, ignore_errors=True)
+        result["workdir"] = None
+        result["workdir_root"] = None
+    return result
+
+
 def run_case(case, options):
+    if case.get("reference") == "none":
+        return run_cpp_only_case(case, options)
     workdir_root, workdir = make_workdir(case["id"], options.tmpdir)
     out_py = workdir / "out_py"
     out_cpp = workdir / "out_cpp"
@@ -2082,7 +2222,8 @@ def _execute(cases, options, runner, on_result=None):
     demands = {}
     for case in cases:
         cached = False
-        if getattr(options, "cache", "off") == "use" and runner is run_case:
+        if getattr(options, "cache", "off") == "use" and runner is run_case \
+                and case.get("reference") != "none":
             try:
                 _, key = python_side_key(case, options, str(options.data), python_environment())
                 cached = cache_for(options).lookup(key) is not None

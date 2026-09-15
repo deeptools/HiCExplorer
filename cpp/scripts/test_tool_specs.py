@@ -30,5 +30,5 @@ def test_allowlist_entries_are_well_formed():
     for tool, entries in tool_specs.allowlist().items():
         assert tool in tool_specs.ported_tools(), tool
         for entry in entries:
-            assert entry["kind"] in ("status", "finding"), entry
+            assert entry["kind"] in ("status", "finding", tool_specs.CPP_ONLY_KIND), entry
             assert entry["fields"] and entry["reason"], entry
