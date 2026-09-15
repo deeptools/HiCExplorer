@@ -424,6 +424,12 @@ def _run_downstream(context, options, model, label):
     distance = str(min(options.fixateRange, DOWNSTREAM_MAX_RANGE))
     interactions = workdir / "interactions.hdf5"
     significant = workdir / "significant.hdf5"
+    # A reference model's downstream results depend on the reference alone,
+    # so equiv.py's cache restores them (reference_cache.VALIDATOR_ARTEFACTS);
+    # the marker says both tools finished. The C++ model's are never cached.
+    done = workdir / "downstream.done"
+    if label != "cpp" and done.is_file() and interactions.is_file() and significant.is_file():
+        return _significant_calls(significant), _interaction_pvalues(interactions)
     commands = [
         [python, str(bin_dir / "chicViewpoint"), "--matrices", *options.matrices,
          "--referencePoints", options.referencePoints, "--backgroundModelFile", str(model),
@@ -444,6 +450,7 @@ def _run_downstream(context, options, model, label):
         if completed.returncode != 0:
             raise RuntimeError(f"{Path(command[1]).name} on the {label} model exited "
                                f"{completed.returncode}: {completed.stderr[-1500:]}")
+    done.write_text("")
     return _significant_calls(significant), _interaction_pvalues(interactions)
 
 
