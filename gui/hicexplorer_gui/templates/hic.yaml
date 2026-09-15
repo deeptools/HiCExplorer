@@ -1,0 +1,135 @@
+template:
+  name: hic
+  title: Hi-C
+  description: >-
+    From paired, name-sorted BAM files to a corrected contact matrix, TADs,
+    loops, A/B compartments with their polarization, and the QC report of the
+    matrix build.
+  parameters:
+    - name: r1
+      kind: file
+      description: BAM file of the first mates, name-sorted (hicBuildMatrix --samFiles)
+    - name: r2
+      kind: file
+      description: BAM file of the second mates, in the same order
+    - name: restrictionCutFile
+      kind: file
+      description: BED file of the restriction sites (hicFindRestSite)
+    - name: restrictionSequence
+      kind: value
+      default: GATC
+      description: restriction site sequence
+    - name: danglingSequence
+      kind: value
+      default: GATC
+      description: sequence left on the fragment ends after digestion
+    - name: binSize
+      kind: value
+      default: 100000
+      description: bin size in bp
+    - name: correctionMethod
+      kind: value
+      default: ICE
+      description: matrix balancing, ICE or KR
+    - name: filterThreshold
+      kind: value
+      default: [-1.5, 5]
+      description: ICE z-score thresholds for removing bins, lower and upper
+    - name: geneTrack
+      kind: file
+      description: BED (or gzipped BED) gene annotation that orients the eigenvector sign (hicPCA --extraTrack)
+    - name: pcaChromosomes
+      kind: value
+      default: [chrX]
+      description: chromosomes of the eigenvector and compartment analysis
+    - name: quantiles
+      kind: value
+      default: 30
+      description: number of eigenvector quantiles of the compartmentalization (saddle) plot
+    - name: threads
+      kind: value
+      default: 4
+      description: threads of the matrix build
+workflow:
+  version: 1
+  name: hic
+  threads: 4
+  inputs:
+    r1: "@{r1}"
+    r2: "@{r2}"
+    sites: "@{restrictionCutFile}"
+    genes: "@{geneTrack}"
+  steps:
+    - id: build
+      tool: hicBuildMatrix
+      description: contact matrix and QC counts
+      threads: "@{threads}"
+      args:
+        samFiles: ["${inputs.r1}", "${inputs.r2}"]
+        binSize: ["@{binSize}"]
+        restrictionCutFile: ["${inputs.sites}"]
+        restrictionSequence: ["@{restrictionSequence}"]
+        danglingSequence: ["@{danglingSequence}"]
+        QCfolder: "${outputs.qc}"
+        outFileName: "${outputs.matrix}"
+      outputs: {matrix: build/matrix.h5, qc: build/qc}
+    - id: correct
+      tool: hicCorrectMatrix
+      subcommand: correct
+      description: matrix balancing
+      args:
+        matrix: "${steps.build.outputs.matrix}"
+        correctionMethod: "@{correctionMethod}"
+        filterThreshold: "@{filterThreshold}"
+        outFileName: "${outputs.matrix}"
+      outputs: {matrix: correct/matrix.h5}
+    - id: tads
+      tool: hicFindTADs
+      description: TADs with FDR-corrected boundaries
+      threads: 2
+      args:
+        matrix: "${steps.correct.outputs.matrix}"
+        correctForMultipleTesting: fdr
+        outPrefix: "${outputs.t}"
+      outputs: {t: tads/t}
+    - id: loops
+      tool: hicDetectLoops
+      description: loops
+      args:
+        matrix: "${steps.correct.outputs.matrix}"
+        peakInteractionsThreshold: 1
+        pValue: 0.5
+        pValuePreselection: 0.5
+        threadsPerChromosome: 1
+        outFileName: "${outputs.loops}"
+      outputs: {loops: loops/loops.bedgraph}
+    - id: pca
+      tool: hicPCA
+      description: first eigenvector and the observed/expected matrix
+      args:
+        matrix: "${steps.correct.outputs.matrix}"
+        outputFileName: ["${outputs.pca1}"]
+        format: bedgraph
+        whichEigenvectors: [1]
+        method: lieberman
+        extraTrack: "${inputs.genes}"
+        chromosomes: "@{pcaChromosomes}"
+        obsexpMatrix: "${outputs.obsexp}"
+      outputs: {pca1: pca/pca1.bedgraph, obsexp: pca/obsexp.h5}
+    - id: compartments
+      tool: hicCompartmentalization
+      description: compartment polarization and saddle matrix
+      args:
+        obsexp_matrices: ["${steps.pca.outputs.obsexp}"]
+        pca: "${steps.pca.outputs.pca1}"
+        quantile: "@{quantiles}"
+        outputFileName: "${outputs.plot}"
+        outputMatrix: "${outputs.matrix}"
+      outputs: {plot: compartments/polarization.png, matrix: compartments/saddle.npz}
+    - id: report
+      tool: hicQC
+      description: QC report of the matrix build
+      args:
+        logfiles: ["${steps.build.outputs.qc}/QC.log"]
+        outputFolder: "${outputs.report}"
+      outputs: {report: report}
