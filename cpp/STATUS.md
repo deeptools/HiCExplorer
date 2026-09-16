@@ -2,7 +2,7 @@
 
 Owner: the orchestrating session. Architecture: `cpp/PLAN.md`. Rules:
 `cpp/AGENTS_CONTRACT.md`. Optimization rules: `cpp/OPTIMIZATION.md`. Last updated
-2026-09-15, at commit `2452a010`.
+2026-09-16, at commit `7769ec55`.
 
 **Current state: 42 of 46 tools ported and committed** on `version4-cpp`.
 - **Last regression,** merge-style (`--cache refresh`, contract rule 13) on a
@@ -37,10 +37,27 @@ Owner: the orchestrating session. Architecture: `cpp/PLAN.md`. Rules:
 - The earlier merge `bfcf75fa` (cool read speed, hicDifferentialTAD, legacy
   `.hic`) passed the same regression, and `53a9fc91` moved both library pins to
   commits that differ only in the libraries' consumer tests.
-- **Open branches** (three parallel agents, contract rule 14), each from `7f3f94ad`:
-  - `v4-sparse-pca`: tier 11 and a multithreaded dense hicPCA path;
-  - `v4-pairs-input`: PLAN 9.2;
-  - `v4-diff-engine`: PLAN 9.7, work item 2.
+- **Merged 2026-09-16, `7769ec55`:** `.pairs` input for hicBuildMatrix (PLAN
+  9.2) and hicPCA's `--eigenSolver lanczos` plus a faster exact dense path
+  (tier 11), verified merge-style together on a clean export at `9bea3c46`
+  (reproduced): full regression 546 of 546 over 43 tools, determinism for
+  hicPCA and the three matrix-building tools, ctest 7, all suites, and a
+  GM12878 chr1 25 kb lanczos-against-dense spot check (max relative
+  difference 0, 8.5 s at 765 MB against 221 s at 1,834 MB).
+  - `.pairs`: E2 against `cooler cload pairs` and against the BAM route;
+    136 M real ENCODE pairs at 29.5 s CPU / 2.6 GB against cooler's 148 s /
+    3.65 GB.
+  - hicPCA dense: bit-identical to the pre-change output; chromosomes now run
+    concurrently and only the requested eigenvector columns are
+    back-transformed. Multithreaded OpenBLAS was tried and dropped: every
+    LAPACK stage changes bits with the thread count.
+  - hicPCA lanczos: ED against dense wherever LAPACK's column order is
+    unambiguous; order-differing cases are documented, not counted as passing.
+- **Open branches** (two parallel agents, contract rule 14), each from
+  `7f3f94ad`:
+  - `v4-diff-engine`: PLAN 9.7, work item 2 (compartment recall follow-up and
+    a harness cache-key fix in progress);
+  - `v4-stripes`: PLAN 9.3, new tool `hicDetectStripes`.
 
 **Harness: Python reference cache and parallel scheduling, merged in
 `04f948ce` (contract rule 13).**

@@ -1864,7 +1864,7 @@ sizes.
   their logged commands.
 - 10.8 needs a Mac or a CI runner.
 
-### Tier 11 - sparse eigensolver for hicPCA (added 2026-09-14)
+### Tier 11 - sparse eigensolver for hicPCA (added 2026-09-14, done 2026-09-16 in `7769ec55`)
 
 Requested by the project owner, to follow the GUI (tier 10).
 
