@@ -59,7 +59,9 @@ add_library(hicx4core
     src/text_formats.cpp
     src/text_table.cpp
     src/tool_matrix.cpp
-    src/transform_ops.cpp)
+    src/transform_ops.cpp
+    src/dgeev_selected.cpp
+    src/sparse_pca.cpp)
 
 target_include_directories(hicx4core PUBLIC
     "${CMAKE_CURRENT_SOURCE_DIR}/include"
@@ -94,6 +96,15 @@ target_link_libraries(hicx4core PRIVATE ${CMAKE_DL_LIBS})
 # transform_ops runs the covariance rows on std::thread workers.
 find_package(Threads REQUIRED)
 target_link_libraries(hicx4core PRIVATE Threads::Threads)
+
+# Spectra and Eigen for hicPCA --eigenSolver lanczos (sparse_pca.cpp only).
+include("${CMAKE_CURRENT_SOURCE_DIR}/../cmake/HicxSpectra.cmake")
+get_target_property(_hicx_spectra_includes hicx_spectra INTERFACE_INCLUDE_DIRECTORIES)
+set(_hicx_spectra_options "")
+foreach(_dir IN LISTS _hicx_spectra_includes)
+    list(APPEND _hicx_spectra_options "-isystem${_dir}")
+endforeach()
+set_source_files_properties(src/sparse_pca.cpp PROPERTIES COMPILE_OPTIONS "${_hicx_spectra_options}")
 
 # Boost.Math, header only, for hicx::scipy::betainc (hicx/scipy_special.hpp).
 # scipy.special.betainc is Boost's ibeta since scipy 1.12, so the exact

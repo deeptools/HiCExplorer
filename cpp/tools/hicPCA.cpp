@@ -51,23 +51,49 @@
 // transform_ops.hpp; that was given up for the reason above, and it did not
 // lower the peak, which the eigensolver phase sets.
 //
-// Two flags the Python does not have, both cpp/PLAN.md 5.8 and
-// cpp/OPTIMIZATION.md:
+// Flags the Python does not have (cpp/PLAN.md 5.8, tier 11 and
+// cpp/OPTIMIZATION.md):
 //   --compatMode v3  (default) dgeev, LAPACK's column order, LAPACK's signs.
 //   --compatMode v4  dsyevr with range='I', only the requested eigenvectors,
 //                    sorted by descending eigenvalue, sign fixed by making the
 //                    largest magnitude component positive.
-//   --threads N      how many workers the covariance rows are split over. The
-//                    output is byte-identical for any N.
+//   --eigenSolver dense    (default) the dense covariance and the solver
+//                    --compatMode selects.
+//   --eigenSolver lanczos  the requested eigenvectors of the same covariance
+//                    from a Krylov solver that never forms it
+//                    (hicx/sparse_pca.hpp), ordered by eigenvalue, with the
+//                    sign rule of v4 before the track rule.
+//   --threads N      workers. The output is byte-identical for any N.
+//
+// Where the threads go. Multithreaded LAPACK was measured to change the bits of
+// every stage of dgeev and of dsyrk with the OpenBLAS thread count
+// (hicx/dgeev_selected.hpp), and those bits decide which eigenvector the
+// Python writes, so LAPACK runs on one OpenBLAS thread. What runs in parallel
+// is what is exact by construction:
+//   * chromosomes: each one's covariance and eigensolver is a serial
+//     computation, so several chromosomes run at once and the results are
+//     written in chromosome order. The dense blocks in flight are limited to
+//     the size of the largest chromosome's, so the peak memory is the one a
+//     serial run has;
+//   * the covariance rows (numpy_covariance), as before;
+//   * with lanczos, the sparse products of the Krylov solver.
+// And dgeev computes only the requested eigenvectors, bit for bit the columns
+// it would return (dgeev_selected_eigenvectors), which removes the
+// back-transform of all the others; the columns were checked against dgeev_
+// itself on mm9_reduced_chr1.cool and on both chrX blocks of the harness.
 
 #include <algorithm>
 #include <cctype>
 #include <cmath>
+#include <condition_variable>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <exception>
 #include <limits>
 #include <memory>
+#include <mutex>
+#include <numeric>
 #include <optional>
 #include <string>
 #include <thread>
@@ -77,11 +103,13 @@
 #include "hicx/argparse.hpp"
 #include "hicx/bins.hpp"
 #include "hicx/cool_adapter.hpp"
+#include "hicx/dgeev_selected.hpp"
 #include "hicx/h5_file.hpp"
 #include "hicx/matrix_ops.hpp"
 #include "hicx/numpy_compat.hpp"
 #include "hicx/obsexp_ops.hpp"
 #include "hicx/resource_usage.hpp"
+#include "hicx/sparse_pca.hpp"
 #include "hicx/tool_matrix.hpp"
 #include "hicx/transform_ops.hpp"
 #include "hicx/version.hpp"
@@ -250,6 +278,83 @@ void clean_covariance_like_hicpca(hicx::DenseSymmetric& covariance, int threads)
     });
 }
 
+// select_bins(source, [first, first + n)) followed by materialize_full(), built
+// in one pass when the source stores the upper triangle. The two-step route
+// holds the selected upper triangle, its transposed copy and the merged result
+// at once, four times the block's stored entries; this holds the result only.
+// Row i of the result is, as materialize_full merges it, the mirrored entries
+// of column i (their source rows ascend) followed by row i's own entries from
+// the diagonal on, and entries that are exactly zero are dropped from both, as
+// scipy's CSR addition does.
+hicx::CsrMatrix chromosome_block(const hicx::CsrMatrix& source, std::int64_t first,
+                                 std::int64_t n) {
+    if (source.symmetry() != hicx::Symmetry::UpperTriangle) {
+        std::vector<std::int64_t> order(static_cast<std::size_t>(n));
+        for (std::int64_t i = 0; i < n; ++i) {
+            order[static_cast<std::size_t>(i)] = first + i;
+        }
+        hicx::CsrMatrix block = hicx::select_bins(source, order);
+        block.materialize_full();
+        return block;
+    }
+    const std::vector<std::int64_t>& indptr = source.indptr();
+    const std::vector<std::int32_t>& indices = source.indices();
+    const std::vector<double>& data = source.data();
+    const std::int64_t last = first + n;
+    const std::size_t size = static_cast<std::size_t>(n);
+    std::vector<std::int64_t> own(size, 0);
+    std::vector<std::int64_t> mirrored(size, 0);
+    const auto for_each_entry = [&](auto&& visit) {
+        for (std::int64_t r = 0; r < n; ++r) {
+            const std::size_t row = static_cast<std::size_t>(first + r);
+            const std::size_t end = static_cast<std::size_t>(indptr[row + 1]);
+            for (std::size_t k = static_cast<std::size_t>(indptr[row]); k < end; ++k) {
+                const std::int64_t column = indices[k];
+                if (column >= last) {
+                    break;  // the columns of a row ascend
+                }
+                if (data[k] == 0.0) {
+                    continue;
+                }
+                visit(r, column - first, data[k]);
+            }
+        }
+    };
+    for_each_entry([&](std::int64_t r, std::int64_t column, double) {
+        ++own[static_cast<std::size_t>(r)];
+        if (column > r) {
+            ++mirrored[static_cast<std::size_t>(column)];
+        }
+    });
+    std::vector<std::int64_t> block_indptr(size + 1, 0);
+    for (std::size_t i = 0; i < size; ++i) {
+        block_indptr[i + 1] = block_indptr[i] + mirrored[i] + own[i];
+    }
+    const std::size_t total = static_cast<std::size_t>(block_indptr.back());
+    std::vector<std::int32_t> block_indices(total);
+    std::vector<double> block_data(total);
+    // Reuse the two count arrays as the write cursors of the two parts.
+    for (std::size_t i = 0; i < size; ++i) {
+        own[i] = block_indptr[i] + mirrored[i];
+        mirrored[i] = block_indptr[i];
+    }
+    for_each_entry([&](std::int64_t r, std::int64_t column, double value) {
+        const std::size_t slot = static_cast<std::size_t>(own[static_cast<std::size_t>(r)]++);
+        block_indices[slot] = static_cast<std::int32_t>(column);
+        block_data[slot] = value;
+        if (column > r) {
+            const std::size_t mirror =
+                static_cast<std::size_t>(mirrored[static_cast<std::size_t>(column)]++);
+            block_indices[mirror] = static_cast<std::int32_t>(r);
+            block_data[mirror] = value;
+        }
+    });
+    hicx::CsrMatrix block(n, n, std::move(block_indptr), std::move(block_indices),
+                          std::move(block_data), source.dtype());
+    block.set_symmetry(hicx::Symmetry::Full);
+    return block;
+}
+
 const char* const kUsage =
     "usage: hicPCA --matrix MATRIX --outputFileName OUTPUTFILENAME\n"
     "              [OUTPUTFILENAME ...]\n"
@@ -259,7 +364,8 @@ const char* const kUsage =
     "              [--method {dist_norm,lieberman}] [--ligation_factor]\n"
     "              [--extraTrack EXTRATRACK] [--histonMarkType HISTONMARKTYPE]\n"
     "              [--pearsonMatrix PEARSONMATRIX] [--obsexpMatrix OBSEXPMATRIX]\n"
-    "              [--ignoreMaskedBins] [--compatMode {v3,v4}] [--threads THREADS]\n"
+    "              [--ignoreMaskedBins] [--compatMode {v3,v4}]\n"
+    "              [--eigenSolver {dense,lanczos}] [--threads THREADS]\n"
     "              [--help] [--version]\n";
 
 const char* const kHelp =
@@ -306,8 +412,17 @@ const char* const kHelp =
     "                        the requested eigenvectors only, sorted by descending\n"
     "                        eigenvalue with a deterministic sign. Not a Python\n"
     "                        option; see cpp/PLAN.md 5.8. (Default: v3).\n"
-    "  --threads THREADS     Workers for the covariance rows. The output is\n"
-    "                        byte-identical for any value. (Default: 4).\n"
+    "  --eigenSolver {dense,lanczos}\n"
+    "                        dense forms each chromosome's covariance and solves it\n"
+    "                        as --compatMode says. lanczos computes the requested\n"
+    "                        eigenvectors of the same covariance from the sparse\n"
+    "                        obs/exp matrix without forming it, ordered by\n"
+    "                        eigenvalue, which is not always the Python's order.\n"
+    "                        Not a Python option; see cpp/PLAN.md tier 11.\n"
+    "                        (Default: dense).\n"
+    "  --threads THREADS     Workers for chromosomes, covariance rows and sparse\n"
+    "                        products. The output is byte-identical for any value.\n"
+    "                        (Default: 4).\n"
     "  --help, -h            show this help message and exit\n"
     "  --version             show program's version number and exit\n";
 
@@ -330,6 +445,7 @@ struct Arguments {
     std::optional<std::string> obsexp_matrix;
     bool ignore_masked_bins = false;
     bool compat_v4 = false;
+    bool lanczos = false;
     int threads = 4;
 };
 
@@ -401,12 +517,18 @@ Arguments parse_arguments(int argc, char** argv) {
         .cpp_only("v4 replaces the general eigensolver by the symmetric one for the requested "
                   "eigenvectors only (cpp/PLAN.md 5.8).")
         .help("v3 reproduces scipy.linalg.eig; v4 uses the symmetric solver dsyevr.");
+    optional.add({"--eigenSolver"})
+        .choices({"dense", "lanczos"})
+        .default_value("dense")
+        .cpp_only("lanczos computes the requested eigenvectors without forming the dense "
+                  "covariance (cpp/PLAN.md tier 11).")
+        .help("dense forms the covariance; lanczos uses a Krylov solver on the sparse matrix.");
     optional.add({"--threads", "-t"})
         .type("int")
         .default_value(4)
         .cpp_only("The Python computes the covariance single-threaded; the output is "
                   "byte-identical for any value.")
-        .help("Workers for the covariance rows.");
+        .help("Workers for chromosomes, covariance rows and sparse products.");
     optional.add({"--help", "-h"}).action(cli::Action::Help).help("show the help message and exit");
     optional.add({"--version"}).version(std::string("%(prog)s ") + hicx::kVersion);
 
@@ -433,10 +555,18 @@ Arguments parse_arguments(int argc, char** argv) {
     args.obsexp_matrix = ns.opt_str("obsexpMatrix");
     args.ignore_masked_bins = ns.flag("ignoreMaskedBins");
     args.compat_v4 = ns.str("compatMode") == "v4";
+    args.lanczos = ns.str("eigenSolver") == "lanczos";
     args.threads = static_cast<int>(ns.integer("threads"));
     if (args.threads < 1) {
         std::fputs(kUsage, stderr);
         std::fputs("hicPCA: error: argument --threads: must be at least 1\n", stderr);
+        std::exit(2);
+    }
+    if (args.lanczos && args.compat_v4) {
+        std::fputs(kUsage, stderr);
+        std::fputs("hicPCA: error: argument --eigenSolver: lanczos replaces the dense solver "
+                   "that --compatMode selects; --compatMode v4 cannot be combined with it\n",
+                   stderr);
         std::exit(2);
     }
     return args;
@@ -470,6 +600,41 @@ class RowwiseCsrBuilder {
     void end_row() {
         indptr_.push_back(static_cast<std::int64_t>(data_.size()));
         ++next_row_;
+    }
+
+    // Consecutive complete rows collected away from the builder, so that
+    // chromosomes can be computed out of order and appended in order.
+    struct Rows {
+        std::vector<std::int64_t> counts;
+        std::vector<std::int32_t> indices;
+        std::vector<double> data;
+        void push(std::int64_t column, double value) {
+            indices.push_back(static_cast<std::int32_t>(column));
+            data.push_back(value);
+        }
+        void end_row(std::size_t row_start) {
+            counts.push_back(static_cast<std::int64_t>(data.size() - row_start));
+        }
+    };
+
+    // Appends `rows` as rows first, first + 1, ... The first block appended to
+    // an empty builder is moved in rather than copied.
+    void append(std::int64_t first, Rows&& rows) {
+        skip_to(first);
+        std::int64_t cursor = static_cast<std::int64_t>(data_.size());
+        if (data_.empty()) {
+            indices_ = std::move(rows.indices);
+            data_ = std::move(rows.data);
+        } else {
+            indices_.insert(indices_.end(), rows.indices.begin(), rows.indices.end());
+            data_.insert(data_.end(), rows.data.begin(), rows.data.end());
+        }
+        for (const std::int64_t count : rows.counts) {
+            cursor += count;
+            indptr_.push_back(cursor);
+            ++next_row_;
+        }
+        rows = Rows();
     }
     [[nodiscard]] hicx::CsrMatrix finish(std::string dtype) {
         skip_to(n_);
@@ -703,6 +868,26 @@ int main(int argc, char** argv) {
             }
             hic.refresh_boundaries();
         }
+        // The chromosome blocks are read from the loaded matrix itself, so that
+        // --chromosomes does not copy the whole matrix: keepOnlyTheseChr is
+        // applied to the bin table, the NaN bins and the correction factors
+        // over an empty stand-in of the same shape, and every block is taken
+        // from the original bins of its chromosome. Selecting a contiguous
+        // ascending range is a filter and a renumbering, so the block is the
+        // same whether it is cut from the selected matrix or from this one.
+        // Measured on the 25 kb GSE234292 cool with 21 of 22 chromosomes, the
+        // copy set the peak: 1,033 MB against 538 MB for the load alone.
+        const hicx::CsrMatrix source = std::move(hic.data().matrix);
+        const std::vector<std::pair<std::string, hicx::BinRange>> source_boundaries =
+            hic.boundaries();
+        {
+            hicx::CsrMatrix stand_in(source.rows(), source.cols(),
+                                     std::vector<std::int64_t>(
+                                         static_cast<std::size_t>(source.rows()) + 1, 0),
+                                     {}, {}, source.dtype());
+            stand_in.set_symmetry(source.symmetry());
+            hic.data().matrix = std::move(stand_in);
+        }
         if (!args.chromosomes.empty()) {
             hicx::keep_only_chromosomes(hic.data(), args.chromosomes);
             hic.refresh_boundaries();
@@ -770,23 +955,39 @@ int main(int argc, char** argv) {
             }
         }
 
-        for (const std::pair<std::string, hicx::BinRange>& entry : boundaries) {
-            const std::string& chrname = entry.first;
-            const std::int64_t first = entry.second.first;
-            const std::int64_t last = entry.second.last;
-            const std::int64_t n = last - first;
+        // One chromosome's share of the work, computed independently of every
+        // other chromosome and consumed in chromosome order further down.
+        struct ChromosomeResult {
+            RowwiseCsrBuilder::Rows obsexp;
+            RowwiseCsrBuilder::Rows pearson;
+            hicx::EigenResult eigen;
+        };
+        const std::size_t chromosome_total = boundaries.size();
+        std::vector<ChromosomeResult> results(chromosome_total);
+        const bool want_obsexp = obsexp_builder.has_value();
+        const bool want_pearson = pearson_builder.has_value();
 
-            std::vector<std::int64_t> order(static_cast<std::size_t>(n));
-            for (std::int64_t i = 0; i < n; ++i) {
-                order[static_cast<std::size_t>(i)] = first + i;
+        const auto compute = [&](std::size_t c) {
+            const std::int64_t first = boundaries[c].second.first;
+            const std::int64_t n = boundaries[c].second.last - first;
+            ChromosomeResult& result = results[c];
+
+            std::int64_t source_first = -1;
+            for (const std::pair<std::string, hicx::BinRange>& entry : source_boundaries) {
+                if (entry.first == boundaries[c].first) {
+                    source_first = entry.second.first;
+                    break;
+                }
             }
-            hicx::CsrMatrix block = hicx::select_bins(hic.matrix(), order);
+            if (source_first < 0) {
+                throw std::runtime_error("chromosome " + boundaries[c].first +
+                                         " is not in the loaded matrix");
+            }
             // hicPCA densifies the block, so it is one of the tools cpp/PLAN.md
             // 4.4 rule 2 exempts from upper-triangle-only storage. The sparse
             // form is still what the covariance is computed from; only the
-            // symmetric completion is materialised, and only for one
-            // chromosome at a time.
-            block.materialize_full();
+            // symmetric completion is materialised.
+            hicx::CsrMatrix block = chromosome_block(source, source_first, n);
 
             if (args.method == "lieberman") {
                 hicx::obs_exp_lieberman_in_place(block, length_chromosome,
@@ -795,24 +996,53 @@ int main(int argc, char** argv) {
                 hicx::obs_exp_non_zero_in_place(block, args.ligation_factor);
             }
 
-            if (obsexp_builder.has_value()) {
+            if (want_obsexp) {
                 // lil_matrix(dense) keeps only the non-zeros, which is what
                 // hicPCA.py:293 assigns into the accumulator.
-                obsexp_builder->skip_to(first);
                 for (std::int64_t i = 0; i < n; ++i) {
+                    const std::size_t row_start = result.obsexp.data.size();
                     const std::int64_t begin = block.indptr()[static_cast<std::size_t>(i)];
                     const std::int64_t stop =
                         block.indptr()[static_cast<std::size_t>(i) + 1];
                     for (std::int64_t k = begin; k < stop; ++k) {
                         const double value = block.data()[static_cast<std::size_t>(k)];
                         if (value != 0.0) {
-                            obsexp_builder->push(
-                                first + block.indices()[static_cast<std::size_t>(k)],
-                                value);
+                            result.obsexp.push(
+                                first + block.indices()[static_cast<std::size_t>(k)], value);
                         }
                     }
-                    obsexp_builder->end_row();
+                    result.obsexp.end_row(row_start);
                 }
+            }
+
+            if (args.lanczos) {
+                if (want_pearson) {
+                    // np.corrcoef of the obs/exp block one row at a time out of
+                    // the sparse matrix (transform_ops' DenseCorrelationRows).
+                    // A one bin chromosome has no correlation and stores no
+                    // entry, which is what the dense path writes for it.
+                    std::vector<double> row(static_cast<std::size_t>(n));
+                    std::optional<hicx::DenseCorrelationRows> rows;
+                    if (n > 1) {
+                        rows.emplace(block, std::vector<hicx::BinRange>{hicx::BinRange{0, n}},
+                                     hicx::DenseCorrelationRows::Kind::Pearson, args.threads);
+                    }
+                    for (std::int64_t i = 0; i < n; ++i) {
+                        const std::size_t row_start = result.pearson.data.size();
+                        if (rows.has_value()) {
+                            rows->fill_row(i, row.data());
+                            for (std::int64_t j = 0; j < n; ++j) {
+                                if (row[static_cast<std::size_t>(j)] != 0.0) {
+                                    result.pearson.push(first + j,
+                                                        row[static_cast<std::size_t>(j)]);
+                                }
+                            }
+                        }
+                        result.pearson.end_row(row_start);
+                    }
+                }
+                result.eigen = hicx::covariance_eigenvectors_lanczos(block, which, args.threads);
+                return;
             }
 
             // Consumes the sparse block. Bit-identical to np.cov, which is
@@ -820,28 +1050,129 @@ int main(int argc, char** argv) {
             // numpy_covariance.
             hicx::DenseSymmetric covariance = numpy_covariance(block, args.threads);
 
-            if (pearson_builder.has_value()) {
+            if (want_pearson) {
                 // np.corrcoef of the same obs/exp block, which is this
                 // covariance rescaled by the square roots of its diagonal.
                 // Read row by row so that the covariance survives for the
                 // eigensolver and no second dense block is allocated.
                 const std::vector<double> scaling = hicx::pearson_scaling(covariance);
                 std::vector<double> row(static_cast<std::size_t>(n));
-                pearson_builder->skip_to(first);
                 for (std::int64_t i = 0; i < n; ++i) {
+                    const std::size_t row_start = result.pearson.data.size();
                     hicx::pearson_row(covariance, scaling, i, row.data());
                     for (std::int64_t j = 0; j < n; ++j) {
                         if (row[static_cast<std::size_t>(j)] != 0.0) {
-                            pearson_builder->push(first + j, row[static_cast<std::size_t>(j)]);
+                            result.pearson.push(first + j, row[static_cast<std::size_t>(j)]);
                         }
                     }
-                    pearson_builder->end_row();
+                    result.pearson.end_row(row_start);
                 }
             }
 
             clean_covariance_like_hicpca(covariance, args.threads);
-            hicx::EigenResult eigen =
-                hicx::leading_eigenvectors(covariance, which, solver);
+            result.eigen = solver == hicx::EigenSolver::Dgeev
+                               ? hicx::dgeev_selected_eigenvectors(covariance, which)
+                               : hicx::leading_eigenvectors(covariance, which, solver);
+        };
+
+        // Chromosomes in parallel for the dense solver. Each computation is
+        // serial LAPACK on its own block, so the results do not depend on
+        // which run together; the scheduler only bounds memory, by admitting a
+        // chromosome while the dense blocks in flight stay within the largest
+        // chromosome's, which is what a serial run holds at its peak. The
+        // Krylov solver threads its sparse products instead and takes the
+        // chromosomes one at a time.
+        {
+            std::vector<std::size_t> by_size(chromosome_total);
+            std::iota(by_size.begin(), by_size.end(), std::size_t{0});
+            const auto bins_of = [&](std::size_t c) {
+                return static_cast<double>(boundaries[c].second.last - boundaries[c].second.first);
+            };
+            std::stable_sort(by_size.begin(), by_size.end(), [&](std::size_t a, std::size_t b) {
+                return bins_of(a) > bins_of(b);
+            });
+            double budget = 0.0;
+            for (std::size_t c = 0; c < chromosome_total; ++c) {
+                budget = std::max(budget, bins_of(c) * bins_of(c));
+            }
+            const int workers =
+                args.lanczos ? 1
+                             : std::max(1, std::min(args.threads, static_cast<int>(chromosome_total)));
+            std::mutex mutex;
+            std::condition_variable changed;
+            std::vector<char> started(chromosome_total, 0);
+            double in_flight = 0.0;
+            std::exception_ptr failure;
+            const auto worker = [&]() {
+                std::unique_lock<std::mutex> lock(mutex);
+                while (!failure) {
+                    bool any_left = false;
+                    std::size_t pick = chromosome_total;
+                    for (const std::size_t c : by_size) {
+                        if (started[c] != 0) {
+                            continue;
+                        }
+                        any_left = true;
+                        const double cost = bins_of(c) * bins_of(c);
+                        if (in_flight == 0.0 || in_flight + cost <= budget) {
+                            pick = c;
+                            break;
+                        }
+                    }
+                    if (!any_left) {
+                        return;
+                    }
+                    if (pick == chromosome_total) {
+                        changed.wait(lock);
+                        continue;
+                    }
+                    started[pick] = 1;
+                    const double cost = bins_of(pick) * bins_of(pick);
+                    in_flight += cost;
+                    lock.unlock();
+                    std::exception_ptr error;
+                    try {
+                        compute(pick);
+                    } catch (...) {
+                        error = std::current_exception();
+                    }
+                    lock.lock();
+                    in_flight -= cost;
+                    if (error && !failure) {
+                        failure = error;
+                    }
+                    changed.notify_all();
+                }
+            };
+            if (workers == 1) {
+                worker();
+            } else {
+                std::vector<std::thread> pool;
+                pool.reserve(static_cast<std::size_t>(workers));
+                for (int w = 0; w < workers; ++w) {
+                    pool.emplace_back(worker);
+                }
+                for (std::thread& thread : pool) {
+                    thread.join();
+                }
+            }
+            if (failure) {
+                std::rethrow_exception(failure);
+            }
+        }
+
+        for (std::size_t c = 0; c < chromosome_total; ++c) {
+            const std::string& chrname = boundaries[c].first;
+            const std::int64_t first = boundaries[c].second.first;
+            const std::int64_t n = boundaries[c].second.last - first;
+            ChromosomeResult& result = results[c];
+            if (want_obsexp) {
+                obsexp_builder->append(first, std::move(result.obsexp));
+            }
+            if (want_pearson) {
+                pearson_builder->append(first, std::move(result.pearson));
+            }
+            hicx::EigenResult& eigen = result.eigen;
 
             bool all_present = true;
             for (const std::vector<double>& vector : eigen.vectors) {
@@ -858,8 +1189,8 @@ int main(int argc, char** argv) {
             // bin.
             bool track_has_chromosome = false;
             if (histone_track != nullptr && histone_track->cl != nullptr) {
-                for (std::int64_t c = 0; c < histone_track->cl->nKeys; ++c) {
-                    if (chrname == histone_track->cl->chrom[c]) {
+                for (std::int64_t key = 0; key < histone_track->cl->nKeys; ++key) {
+                    if (chrname == histone_track->cl->chrom[key]) {
                         track_has_chromosome = true;
                         break;
                     }

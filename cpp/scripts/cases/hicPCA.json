@@ -218,5 +218,33 @@
     "memory": {"alpha": 1.1, "beta": 3.2},
     "large": true,
     "notes": "The designated large input of cpp/PLAN.md 4.2 and the worst memory-to-data ratio in the corpus: 9,760 bins from a 722 KB file, on which the Python spends 4,070 MB and 471 s of wall time, 727 times its 5.6 MB working set. The dense per-chromosome block is 762 MB, so the v3 budget of 1.1 W + 3.2 D + 64 MB allows 2,509 MB; measured, the port peaks at 1,586 MB and 503 s of CPU. The extraTrack here is a bed12 gene track whose coordinates run past the end of the matrix, which is the path hicPCA.py:157-171 warns about and skips; that is the reason this file is in the corpus, and it is also what fixes the sign on the single chromosome this matrix holds."
+  },
+  {
+    "id": "hicPCA.lanczos.bedgraph.dist_norm.noLigationFactor.geneTrack.small_test_matrix",
+    "tool": "hicPCA",
+    "tier": 3,
+    "args": ["-m", "{data}/small_test_matrix.h5", "-o", "{out}/pca1.bedgraph", "{out}/pca2.bedgraph", "-f", "bedgraph", "--whichEigenvectors", "1", "2", "--method", "dist_norm", "--extraTrack", "{data}/dm3_genes.bed.gz", "--chromosomes", "chrX", "chrXHet"],
+    "cpp_args": ["--eigenSolver", "lanczos"],
+    "outputs": [
+      {"path": "{out}/pca1.bedgraph", "format": "bedgraph", "class": "ED"},
+      {"path": "{out}/pca2.bedgraph", "format": "bedgraph", "class": "ED"}
+    ],
+    "threads_arg": "--threads",
+    "memory": {"alpha": 1.1, "beta": 0.0},
+    "notes": "--eigenSolver lanczos (cpp/PLAN.md tier 11), a C++-only option, so the Python command line is the one of hicPCA.bedgraph.dist_norm.noLigationFactor.geneTrack.small_test_matrix and the C++ one adds it. The Krylov solver returns eigenvectors ordered by eigenvalue, which agrees with the Python's positional choice from scipy.linalg.eig only where dgeev's columns are in descending order; this case is one where they are: chrX (4,485 bins) and chrXHet (41 bins, the dense fallback of the Krylov solver) both have requested eigenvalues of descending rank 1 and 2 in dgeev's columns 0 and 1, with relative gaps to their neighbours of at least 0.11 (measured with cpp/PLAN.md 5.4's rule applied to the Python pipeline at one BLAS thread). The --extraTrack decides the sign on both sides. beta = 0 states the tier 11 memory gate: no dense chromosome block may be allocated, so the budget is the sparse matrix alone."
+  },
+  {
+    "id": "hicPCA.lanczos.bedgraph.ignoreMaskedBins.geneTrack.small_test_matrix_50kb",
+    "tool": "hicPCA",
+    "tier": 3,
+    "args": ["-m", "{data}/small_test_matrix_50kb_res.h5", "-o", "{out}/pca1.bedgraph", "{out}/pca2.bedgraph", "-f", "bedgraph", "--whichEigenvectors", "1", "2", "--method", "lieberman", "--ignoreMaskedBins", "--extraTrack", "{data}/dm3_genes.bed.gz", "--chromosomes", "chrX"],
+    "cpp_args": ["--eigenSolver", "lanczos"],
+    "outputs": [
+      {"path": "{out}/pca1.bedgraph", "format": "bedgraph", "class": "ED"},
+      {"path": "{out}/pca2.bedgraph", "format": "bedgraph", "class": "ED"}
+    ],
+    "threads_arg": "--threads",
+    "memory": {"alpha": 1.1, "beta": 0.0},
+    "notes": "--eigenSolver lanczos (cpp/PLAN.md tier 11), a C++-only option, so the Python command line is the one of hicPCA.bedgraph.ignoreMaskedBins.geneTrack.small_test_matrix_50kb and the C++ one adds it. The Krylov solver returns eigenvectors ordered by eigenvalue, which agrees with the Python's positional choice from scipy.linalg.eig only where dgeev's columns are in descending order; this case is one where they are: chrX (449 bins) has requested eigenvalues of descending rank 1 and 2 in dgeev's columns 0 and 1, with relative gaps of at least 0.020 (measured with cpp/PLAN.md 5.4's rule applied to the Python pipeline at one BLAS thread). The --extraTrack decides the sign on both sides. beta = 0 states the tier 11 memory gate: no dense chromosome block may be allocated, so the budget is the sparse matrix alone."
   }
 ]
