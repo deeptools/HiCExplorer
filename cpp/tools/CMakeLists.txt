@@ -71,6 +71,13 @@ foreach(tool IN ITEMS hicDifferentialTAD hicInterIntraTAD)
     target_link_libraries(${tool} PRIVATE hicx::core hicx_compile_options)
 endforeach()
 
+# hicDifferentialAnalysis has no Python counterpart (cpp/PLAN.md 9.7, work item
+# 2). Its count model and its contact input are separate translation units, so
+# that cpp/tests/test_diff_engine.cpp links against exactly the code it runs.
+add_executable(hicDifferentialAnalysis hicDifferentialAnalysis.cpp diff_engine_impl.cpp
+                                       diff_contacts_impl.cpp)
+target_link_libraries(hicDifferentialAnalysis PRIVATE hicx::core hicx_compile_options)
+
 # hicMergeDomains keeps its algorithm in a second translation unit for the same
 # reason: cpp/tests/test_merge_domains.cpp links against it.
 add_executable(hicMergeDomains hicMergeDomains.cpp merge_domains_impl.cpp)

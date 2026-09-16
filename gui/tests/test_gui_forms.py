@@ -8,6 +8,7 @@ For every ported tool (and every subcommand):
   parse_arguments() parses it into exactly the namespace the form values mean.
 """
 
+import json
 import os
 import re
 
@@ -206,8 +207,15 @@ def typed(value, type_name):
 
 @needs_reference
 def test_filled_forms_parse_into_the_meant_namespace(qtbot, tmp_path):
+    # A tool without a Python counterpart (cpp/scripts/tool_spec_deviations.json,
+    # kind cpp_only_tool) has no parser to check the namespace against.
+    with open(os.path.join(REPO, "cpp", "scripts", "tool_spec_deviations.json")) as handle:
+        no_python = {tool for tool, entries in json.load(handle).items()
+                     if any(entry.get("kind") == "cpp_only_tool" for entry in entries)}
     requests, expectations = [], []
     for tool, sub in CASES:
+        if tool in no_python:
+            continue
         spec = _spec(tool)
         scratch = tmp_path / "{}_{}".format(tool, sub or "main")
         scratch.mkdir()
