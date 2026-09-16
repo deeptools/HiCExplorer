@@ -45,6 +45,19 @@ is restored with the new path written over the old one, byte for byte; a
 restore into a path of a different length (a --tmpdir too long to pad) is a
 miss.
 
+The key hashes the content of the inputs, not where they are, so another
+checkout with the same data and code finds the same entry. Tools that print
+an input path (hicInfo, hicPlotSVL, chicQualityControl, hicValidateLocations)
+embed the data directory or the repository in their outputs, and an entry
+restored as it was stored would then compare the Python output of the old
+checkout with the C++ output of the new one. So store records, for the data
+root and the repository root, which files embed them, and restore writes the
+current roots over the recorded ones in those files, both in one pass so that
+a new root containing an old one is not rewritten twice. A text file may
+change length; a file holding a NUL byte is rewritten only when the length
+stays the same, and otherwise the entry is a miss. Format version 3 added this
+record, so an entry stored without it is never restored.
+
 Layout under the cache directory:
 
   entries/<key[:2]>/<key>/meta.json     key document, measurement, provenance
@@ -59,6 +72,7 @@ import ast
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -66,7 +80,7 @@ import tempfile
 import time
 from pathlib import Path
 
-CACHE_FORMAT_VERSION = 2
+CACHE_FORMAT_VERSION = 3
 
 # Distribution names whose versions enter every key.
 SCIENTIFIC_PACKAGES = (
@@ -388,8 +402,12 @@ class Cache:
         except (ValueError, OSError):
             return None
 
-    def store(self, key, document, workdir, measurement, noise_record, excluded=("out_cpp",)):
-        """Copies the reference side of workdir into a new entry, atomically."""
+    def store(self, key, document, workdir, measurement, noise_record, excluded=("out_cpp",),
+              roots=None):
+        """Copies the reference side of workdir into a new entry, atomically.
+
+        roots: {"data": path, "repo": path}, the roots the run's outputs may
+        embed; which files do is recorded for restore."""
         target = self.entry_dir(key)
         staging = Path(tempfile.mkdtemp(prefix=f".{key[:8]}-", dir=self._ensure(target.parent)))
         tree = staging / "workdir"
@@ -400,11 +418,17 @@ class Cache:
                 continue
             _copy(item, tree / item.name)
         embedding = _files_embedding(tree, str(workdir).encode())
+        embedded_roots = {}
+        for name, root in sorted((roots or {}).items()):
+            files = _files_embedding(tree, str(root).encode())
+            if files:
+                embedded_roots[name] = {"path": str(root), "files": files}
         meta = {
             "key": key,
             "document": document,
             "workdir": str(workdir),
             "embedded_workdir_files": embedding,
+            "embedded_roots": embedded_roots,
             "measurement": dict(measurement),
             "noise": noise_record,
             "created": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
@@ -440,14 +464,29 @@ class Cache:
             meta_path.write_text(json.dumps(meta, indent=1))
         return added
 
-    def restore(self, meta, workdir):
-        """Copies an entry into workdir with the old path written over by the
-        new one. False, with nothing restored, when the lengths differ."""
+    def restore(self, meta, workdir, roots=None):
+        """Copies an entry into workdir with the old working directory written
+        over by the new one, and the recorded data and repository roots by the
+        current ones (roots, as store takes them). False, with nothing
+        restored, when a working directory path or a root embedded in a
+        binary file would change length."""
         old = meta["workdir"].encode()
         new = str(workdir).encode()
         if meta["embedded_workdir_files"] and len(old) != len(new):
             return False
         tree = self.entry_dir(meta["key"]) / "workdir"
+        replacements = {}
+        files = set()
+        for name, entry in (meta.get("embedded_roots") or {}).items():
+            current = (roots or {}).get(name)
+            if current is None or str(current) == entry["path"]:
+                continue
+            replacements[entry["path"].encode()] = str(current).encode()
+            files.update(entry["files"])
+        for relative in sorted(files):
+            source = tree / relative
+            if b"\0" in source.read_bytes() and any(len(a) != len(b) for a, b in replacements.items()):
+                return False
         workdir = Path(workdir)
         for item in tree.iterdir():
             _copy(item, workdir / item.name)
@@ -455,6 +494,14 @@ class Cache:
             path = workdir / relative
             content = path.read_bytes()
             path.write_bytes(content.replace(old, new))
+        if replacements:
+            # One pass, longest match first: a new root may contain an old one.
+            pattern = re.compile(b"|".join(re.escape(a) for a in
+                                           sorted(replacements, key=len, reverse=True)))
+            for relative in sorted(files):
+                path = workdir / relative
+                path.write_bytes(pattern.sub(lambda match: replacements[match.group(0)],
+                                             path.read_bytes()))
         return True
 
     def entries(self):

@@ -508,7 +508,8 @@ def run_python_side(case, options, workdir, data, env):
         document, side["key"] = python_side_key(case, options, data, env)
         if mode == "use":
             meta = cache_for(options).lookup(side["key"])
-            if meta is not None and cache_for(options).restore(meta, workdir):
+            if meta is not None and cache_for(options).restore(
+                    meta, workdir, roots={"data": data, "repo": str(REPO_ROOT)}):
                 measurement = Measurement(meta["measurement"])
                 measurement["command"] = " ".join(shlex.quote(part) for part in argv)
                 side.update(cached=True, measurement=measurement,
@@ -552,7 +553,8 @@ def run_python_side(case, options, workdir, data, env):
     side["measurement"] = measurement
     if mode != "off" and healthy and not _STOPPING.is_set():
         cache_for(options).store(side["key"], document, workdir, measurement,
-                                 side["noise_record"])
+                                 side["noise_record"],
+                                 roots={"data": data, "repo": str(REPO_ROOT)})
         side["stored"] = True
     return side
 

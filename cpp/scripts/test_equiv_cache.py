@@ -83,14 +83,14 @@ class World:
                 "outputs": [{"path": "{out}/out.txt", "format": "text", "class": "E0"}],
                 "large": False, "validators": [], "py_script": None, "path_prepend": []}
 
-    def run(self, name, tmpdir=None):
+    def run(self, name, tmpdir=None, data=None):
         """True when the case's Python side came from the cache."""
         reference_cache.clear_hash_memo()
         case = self.cases[name]
         _, workdir = equiv.make_workdir(case["id"], tmpdir or self.tmp)
         (workdir / "out_cpp").mkdir()
         options = argparse.Namespace(**vars(self.options))
-        side = equiv.run_python_side(case, options, workdir, str(self.data),
+        side = equiv.run_python_side(case, options, workdir, str(data or self.data),
                                      equiv.python_environment())
         assert side["measurement"]["exit_code"] == 0, (workdir / "out_py" / "stderr.txt").read_text()
         output = workdir / "out_py" / "out.txt"
@@ -201,6 +201,43 @@ def test_an_embedded_working_directory_is_rewritten_into_another_tmpdir(world):
     assert world.last_output != first
     assert world.last_output.startswith("ALPHA" + str(longer))
     assert world.last_output.endswith("/out_py")
+
+
+def test_an_embedded_data_root_is_rewritten_for_another_checkout(world, tmp_path):
+    # The tool prints its input path, as hicInfo does. The same data in another
+    # checkout finds the same entry (the key hashes content, not location), and
+    # the restored output must name the new checkout's file, or the C++ output
+    # of the new checkout would be compared with the old checkout's path.
+    world.cases["A"]["args"] = ["{data}/a.txt", "{out}/out.txt", "{data}/a.txt"]
+    assert world.run("A") is False
+    assert world.last_output.endswith(str(world.data) + "/a.txt")
+    other = tmp_path / "another_checkout_with_a_longer_path" / "test_data"
+    other.mkdir(parents=True)
+    (other / "a.txt").write_text("alpha")
+    (other / "b.txt").write_text("beta")
+    assert world.run("A", data=other) is True
+    assert world.last_output == "ALPHA" + str(other) + "/a.txt"
+    # and back: the entry is unchanged by a restore
+    assert world.run("A") is True
+    assert world.last_output == "ALPHA" + str(world.data) + "/a.txt"
+
+
+def test_a_root_embedded_in_a_binary_file_is_a_miss_when_its_length_changes(tmp_path):
+    cache = reference_cache.Cache(tmp_path / "cache")
+    old_root, same_length, longer = "/checkout/one/data", "/checkout/two/data", "/checkout/three/data"
+    stored = tmp_path / "stored"
+    (stored / "out_py").mkdir(parents=True)
+    (stored / "out_py" / "matrix.bin").write_bytes(b"\x00HDF" + old_root.encode() + b"/m.cool\x00")
+    (stored / "out_py" / "log.txt").write_text(f"read {old_root}/m.cool\n")
+    meta = cache.store("ab" * 32, {"format": reference_cache.CACHE_FORMAT_VERSION}, stored,
+                       {"exit_code": 0}, None, roots={"data": old_root})
+    assert meta["embedded_roots"]["data"]["files"] == ["out_py/log.txt", "out_py/matrix.bin"]
+    target = tmp_path / "stored"  # the same working directory path, as make_workdir pads it
+    assert cache.restore(meta, target, roots={"data": longer}) is False
+    assert cache.restore(meta, target, roots={"data": same_length}) is True
+    assert (target / "out_py" / "matrix.bin").read_bytes() == \
+        b"\x00HDF" + same_length.encode() + b"/m.cool\x00"
+    assert (target / "out_py" / "log.txt").read_text() == f"read {same_length}/m.cool\n"
 
 
 def test_working_directories_have_one_path_length(tmp_path):
