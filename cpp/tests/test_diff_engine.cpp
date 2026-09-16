@@ -20,6 +20,7 @@
 
 #include "../tools/diff_contacts_impl.hpp"
 #include "../tools/diff_engine_impl.hpp"
+#include "hicx/stats_ops.hpp"
 
 namespace {
 
@@ -45,6 +46,59 @@ TEST_CASE("diff engine: trigamma, tetragamma and the trigamma inverse against sc
     for (int i = 0; i < 4; ++i) {
         CHECK(std::abs(hicx::diff::trigamma_inverse(ys[i]) / inverse[i] - 1.0) < 1e-7);
     }
+}
+
+TEST_CASE("diff engine: trimmed moments of log F against scipy") {
+    // scipy.stats.f.ppf for the 10 % and 90 % quantiles, integrate.quad of
+    // z * pdf and z^2 * pdf of z = log F between them (epsrel 1e-13).
+    struct Reference {
+        double d1, d2, mean, variance;
+    };
+    const Reference references[] = {
+        {1.0, 3.0, -0.6942622468592735, 2.0203018035710874},
+        {2.0, 20.0, -0.41469707773456316, 0.6607032124897644},
+        {2.0, 500.0, -0.45499159259725586, 0.6192944668694895},
+        {4.0, 0.7, 1.2784300869187186, 3.274251325780128},
+    };
+    for (const Reference& r : references) {
+        const hicx::diff::TrimmedMoments m =
+            hicx::diff::trimmed_log_f_moments(r.d1, r.d2, 0.1, 0.9);
+        CHECK(std::abs(m.mean - r.mean) < 1e-6);
+        CHECK(std::abs(m.variance / r.variance - 1.0) < 1e-6);
+    }
+}
+
+TEST_CASE("diff engine: the robust prior ignores a minority of outlying variances") {
+    // s2 = s0^2 * F(2, d0) quantiles on a regular grid, d0 = 12, s0^2 = 0.3,
+    // then 8 % of the units given a variance 50 times larger.
+    const std::size_t n = 2000;
+    std::vector<double> s2(n);
+    std::vector<double> covariate(n);
+    for (std::size_t k = 0; k < n; ++k) {
+        const double u = (static_cast<double>(k) + 0.5) / static_cast<double>(n);
+        // inverse of the F(2, 12) CDF by bisection on the incomplete beta
+        double lo = 0.0;
+        double hi = 1e4;
+        for (int i = 0; i < 200; ++i) {
+            const double mid = 0.5 * (lo + hi);
+            const double x = 2.0 * mid / (2.0 * mid + 12.0);
+            (hicx::stats::betainc(1.0, 6.0, x) < u ? lo : hi) = mid;
+        }
+        s2[k] = 0.3 * 0.5 * (lo + hi);
+        covariate[k] = static_cast<double>((k * 7919) % n);
+    }
+    const hicx::diff::RobustPrior clean = hicx::diff::robust_prior(s2, 2.0, covariate);
+    CHECK(clean.prior_df > 9.0);
+    CHECK(clean.prior_df < 16.0);
+    for (std::size_t k = 0; k < n; k += 25 * 2) {
+        s2[k] *= 50.0;
+    }
+    for (std::size_t k = 25; k < n; k += 25 * 2) {
+        s2[k] *= 50.0;
+    }
+    const hicx::diff::RobustPrior outliers = hicx::diff::robust_prior(s2, 2.0, covariate);
+    CHECK(outliers.prior_df > 6.0);
+    CHECK(std::abs(std::log(outliers.prior_s2[0] / clean.prior_s2[0])) < 0.35);
 }
 
 TEST_CASE("diff engine: Student t survival function against scipy") {

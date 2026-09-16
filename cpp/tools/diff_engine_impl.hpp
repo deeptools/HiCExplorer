@@ -165,6 +165,56 @@ struct FamilyResult {
     std::size_t tested = 0;
 };
 
+// --------------------------------------------------------------------------
+// The empirical Bayes prior of the quasi-likelihood dispersions
+//
+// s2 of a unit is modelled as s0^2 F(df, d0). The prior (d0, s0^2) is fitted
+// by a trimmed method of moments: z = log s2 minus its trend over the
+// covariate (binned 10 % trimmed means) is cut to its central
+// [kPriorTrimLower, kPriorTrimUpper] quantile range, and the mean and
+// variance of that central part are matched to the same trimmed mean and
+// variance of log F(df, d0). The trimmed variance falls with d0 and fixes it
+// (bisection on log d0); the trimmed mean then fixes s0^2.
+//
+// Why trimmed. The untrimmed moment estimate (limma's fitFDist) takes the
+// variance of log s2 minus trigamma(df / 2). With one or two residual degrees
+// of freedom that is a small difference of two large numbers, so it is noisy
+// and inflated by a minority of units with outlying variances, which real
+// differential data always contain: in the compartment calibration the prior
+// df of one design ranged from 10 to 65 between plant runs. limma answers the
+// same problem with robust=TRUE (Phipson, Lee, Majewski, Alexander and Smyth,
+// Ann. Appl. Stat. 2016), which winsorises log s2 and matches winsorised
+// moments of the F distribution; this estimator trims instead, which needs no
+// winsorised moments, and computes the reference moments deterministically
+// (quantiles from the incomplete beta function, moments by Simpson
+// integration) rather than by simulation.
+
+inline constexpr double kPriorTrimLower = 0.1;
+inline constexpr double kPriorTrimUpper = 0.9;
+inline constexpr double kPriorDfFloor = 0.2;
+inline constexpr double kPriorDfLimit = 1e4;
+
+struct TrimmedMoments {
+    double mean = 0.0;
+    double variance = 0.0;
+};
+
+// Mean and variance of log F(d1, d2) between its lower and upper quantiles.
+[[nodiscard]] TrimmedMoments trimmed_log_f_moments(double d1, double d2, double lower,
+                                                   double upper);
+
+// numpy.quantile's linear interpolation on sorted values.
+[[nodiscard]] double quantile_sorted(const std::vector<double>& sorted, double q);
+
+struct RobustPrior {
+    double prior_df = 0.0;  // infinity when the prior is exact
+    std::vector<double> prior_s2;
+    double observed_trimmed_variance = 0.0;
+};
+
+[[nodiscard]] RobustPrior robust_prior(const std::vector<double>& s2, double df,
+                                       std::span<const double> covariate);
+
 // Units with fewer testable members than kMinimumFamilyUnits get NaN.
 inline constexpr std::size_t kMinimumFamilyUnits = 10;
 

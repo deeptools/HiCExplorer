@@ -455,6 +455,141 @@ double simes(std::span<const double> pvalues) {
 
 // --------------------------------------------------------------------------
 
+double quantile_sorted(const std::vector<double>& sorted, double q) {
+    if (sorted.empty()) {
+        return kNaN;
+    }
+    const double position = q * static_cast<double>(sorted.size() - 1);
+    const auto below = static_cast<std::size_t>(std::floor(position));
+    const std::size_t above = std::min(below + 1, sorted.size() - 1);
+    const double fraction = position - static_cast<double>(below);
+    return sorted[below] + (sorted[above] - sorted[below]) * fraction;
+}
+
+namespace {
+
+// log of the density of z = log F, F ~ F(d1, d2).
+double log_f_log_density(double z, double d1, double d2) {
+    const double lbeta = hicx::stats::gammaln(0.5 * d1) + hicx::stats::gammaln(0.5 * d2) -
+                         hicx::stats::gammaln(0.5 * (d1 + d2));
+    return 0.5 * d1 * std::log(d1 / d2) + 0.5 * d1 * z -
+           0.5 * (d1 + d2) * std::log1p(d1 * std::exp(z) / d2) - lbeta;
+}
+
+// P(log F <= z).
+double log_f_cdf(double z, double d1, double d2) {
+    const double x = d1 * std::exp(z);
+    return hicx::stats::betainc(0.5 * d1, 0.5 * d2, x / (x + d2));
+}
+
+double log_f_quantile(double q, double d1, double d2) {
+    double lo = -200.0;
+    double hi = 200.0;
+    for (int i = 0; i < 200; ++i) {
+        const double mid = 0.5 * (lo + hi);
+        if (log_f_cdf(mid, d1, d2) < q) {
+            lo = mid;
+        } else {
+            hi = mid;
+        }
+    }
+    return 0.5 * (lo + hi);
+}
+
+}  // namespace
+
+TrimmedMoments trimmed_log_f_moments(double d1, double d2, double lower, double upper) {
+    TrimmedMoments moments;
+    const double a = log_f_quantile(lower, d1, d2);
+    const double b = log_f_quantile(upper, d1, d2);
+    // Composite Simpson over [a, b], normalised by the integral itself so
+    // that the result is the mean and variance of z given a <= z <= b.
+    const int intervals = 4000;
+    const double h = (b - a) / intervals;
+    double mass = 0.0;
+    double first = 0.0;
+    double second = 0.0;
+    for (int i = 0; i <= intervals; ++i) {
+        const double z = a + h * i;
+        const double w = (i == 0 || i == intervals) ? 1.0 : (i % 2 == 1 ? 4.0 : 2.0);
+        const double p = std::exp(log_f_log_density(z, d1, d2));
+        mass += w * p;
+        first += w * p * z;
+        second += w * p * z * z;
+    }
+    moments.mean = first / mass;
+    moments.variance = second / mass - moments.mean * moments.mean;
+    return moments;
+}
+
+RobustPrior robust_prior(const std::vector<double>& s2, double df,
+                         std::span<const double> covariate) {
+    const std::size_t n = s2.size();
+    RobustPrior out;
+    out.prior_s2.assign(n, kNaN);
+    std::vector<double> log_s2(n);
+    for (std::size_t k = 0; k < n; ++k) {
+        log_s2[k] = std::log(std::max(s2[k], 1e-12));
+    }
+    const std::vector<double> trend = binned_trend(covariate, log_s2, true);
+    std::vector<double> residual(n);
+    for (std::size_t k = 0; k < n; ++k) {
+        residual[k] = log_s2[k] - trend[k];
+    }
+    std::vector<double> sorted = residual;
+    std::sort(sorted.begin(), sorted.end());
+    const double lo = quantile_sorted(sorted, kPriorTrimLower);
+    const double hi = quantile_sorted(sorted, kPriorTrimUpper);
+    double count = 0.0;
+    double sum = 0.0;
+    double squares = 0.0;
+    for (double r : sorted) {
+        if (r >= lo && r <= hi) {
+            count += 1.0;
+            sum += r;
+            squares += r * r;
+        }
+    }
+    const double observed_mean = sum / count;
+    const double observed_variance = squares / count - observed_mean * observed_mean;
+
+    // The trimmed variance of log F(df, d0) falls as d0 grows; beyond
+    // kPriorDfLimit the prior is taken as exact (d0 infinite).
+    const auto variance_at = [&](double d0) {
+        return trimmed_log_f_moments(df, d0, kPriorTrimLower, kPriorTrimUpper).variance;
+    };
+    double d0 = kInf;
+    double reference_mean = 0.0;
+    if (observed_variance > variance_at(kPriorDfLimit)) {
+        double log_lo = std::log(kPriorDfFloor);
+        double log_hi = std::log(kPriorDfLimit);
+        if (observed_variance >= variance_at(kPriorDfFloor)) {
+            log_hi = log_lo;
+        } else {
+            for (int i = 0; i < 60; ++i) {
+                const double mid = 0.5 * (log_lo + log_hi);
+                if (variance_at(std::exp(mid)) > observed_variance) {
+                    log_lo = mid;
+                } else {
+                    log_hi = mid;
+                }
+            }
+        }
+        d0 = std::exp(0.5 * (log_lo + log_hi));
+        reference_mean = trimmed_log_f_moments(df, d0, kPriorTrimLower, kPriorTrimUpper).mean;
+    } else {
+        reference_mean = trimmed_log_f_moments(df, kPriorDfLimit, kPriorTrimLower, kPriorTrimUpper).mean;
+    }
+    out.prior_df = d0;
+    out.observed_trimmed_variance = observed_variance;
+    for (std::size_t k = 0; k < n; ++k) {
+        out.prior_s2[k] = std::exp(trend[k] + observed_mean - reference_mean);
+    }
+    return out;
+}
+
+// --------------------------------------------------------------------------
+
 FamilyResult test_family(const Family& family, const DesignMatrices& design,
                          const FamilyOptions& options) {
     const std::size_t samples = family.samples;
@@ -533,32 +668,12 @@ FamilyResult test_family(const Family& family, const DesignMatrices& design,
     hicx::parallel_for(n, threads, [&](std::size_t k) {
         s2[k] = fit_nb_glm(y_of(k), o_of(k), x_disp, p_disp, phi[k]).deviance / df;
     });
-    const double half_df = 0.5 * df;
-    std::vector<double> e(n);
-    for (std::size_t k = 0; k < n; ++k) {
-        e[k] = std::log(std::max(s2[k], 1e-12)) - hicx::stats::digamma(half_df) + std::log(half_df);
-    }
-    const std::vector<double> e_trend = binned_trend(covariate, e, false);
-    double squares = 0.0;
-    for (std::size_t k = 0; k < n; ++k) {
-        squares += (e[k] - e_trend[k]) * (e[k] - e_trend[k]);
-    }
-    const double evar = squares / static_cast<double>(n - 1) - trigamma(half_df);
-    double d0 = kInf;
-    std::vector<double> prior(n);
+    const RobustPrior fitted = robust_prior(s2, static_cast<double>(df), covariate);
+    const double d0 = fitted.prior_df;
+    const std::vector<double>& prior = fitted.prior_s2;
     std::vector<double> posterior(n);
-    if (evar > 0.0) {
-        d0 = 2.0 * trigamma_inverse(evar);
-        const double shift = hicx::stats::digamma(0.5 * d0) - std::log(0.5 * d0);
-        for (std::size_t k = 0; k < n; ++k) {
-            prior[k] = std::exp(e_trend[k] + shift);
-            posterior[k] = (d0 * prior[k] + df * s2[k]) / (d0 + df);
-        }
-    } else {
-        for (std::size_t k = 0; k < n; ++k) {
-            prior[k] = std::exp(e_trend[k]);
-            posterior[k] = prior[k];
-        }
+    for (std::size_t k = 0; k < n; ++k) {
+        posterior[k] = std::isinf(d0) ? prior[k] : (d0 * prior[k] + df * s2[k]) / (d0 + df);
     }
     double test_df = std::min(d0 + df, static_cast<double>(df) * static_cast<double>(n));
     if (exploratory) {
