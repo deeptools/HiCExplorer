@@ -1933,8 +1933,8 @@ found-and-fixed determinism defect in the harness's own comparator):
 One real defect surfaced and was fixed at its root: `compare_runs` required
 byte-identical (E0) reruns for any file merely named `*.h5`, which is wrong
 for `save.h5.from_cool` (cool-format bytes under a `.h5` name, per the F20
-quirk) whose cool `creation-date` attribute is a genuine timestamp — 17.2 run
-twice would fail the same check. Fixed to hold each rerun to the case's own
+quirk) whose cool `creation-date` attribute is a genuine timestamp, so 17.2
+run twice would fail the same check. Fixed to hold each rerun to the case's own
 declared class, exactly as the cross-version comparison already does.
 
 **Phase 2** (v4 consuming hicmatrix 18's C++ API, replacing v4's internal
