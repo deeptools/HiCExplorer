@@ -1607,6 +1607,31 @@ index with the disagreeing calls examined.
 - **Determinism, memory and CPU gates** as for every tool; Stripenn's run on the
   same input is the CPU and memory reference.
 
+**Revised 2026-09-17: false-positive control matches Stripenn's own practice,
+not Benjamini-Hochberg FDR.** The implementing agent built a C++ port whose
+per-candidate p-values were verified to match real Stripenn's own p-values on
+the same real GM12878 windows (agent's port 0.03-0.13, Stripenn itself
+0.042-0.19 on the same boxes), then ran real Stripenn's own `compute` on real
+data (940 candidates) and applied standard Benjamini-Hochberg to Stripenn's
+own reported p-values directly: best q-value 0.998, zero candidates survive
+q<=0.05, even though 73 candidates have raw p<0.1 and would be reported as
+real calls under Stripenn's own actual practice, which applies no
+multiple-testing correction at all. This is not a defect in the port; it is
+how Stripenn's own significance test behaves on real chromatin. The original
+gate above, which implicitly assumed BH-FDR survival, therefore could not be
+met by any faithful reproduction of the reference method.
+
+Decided by the project owner (2026-09-17), given that evidence: the tool
+matches Stripenn's own practice, a raw p-value or score threshold with no
+multiple-testing correction, rather than the FDR philosophy used elsewhere in
+tier 9 (PLAN 9.7). This is recorded honestly as a higher expected
+false-positive rate than the project's other differential and calling tools,
+consistent with how the established reference tool is actually used. The
+recall and precision thresholds above (0.8 and 0.9) are unchanged and must be
+re-measured under this regime, since they were not yet measured without FDR
+in force. `--fdr` stays available as a C++-only option for a user who wants
+stricter control, defaulting to off (equivalent to Stripenn's own behaviour).
+
 **9.4 SCALE normalisation in hicCorrectMatrix.** *Validation:* **ED** against the
 SCALE vector Juicer tools `addNorm` computes on the same matrix.
 
