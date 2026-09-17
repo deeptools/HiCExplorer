@@ -14,13 +14,20 @@
 //   chrom  anchor_start  anchor_end  orientation  extent_start  extent_end
 //   enrichment  pvalue  qvalue
 //
-// `orientation` is "vertical" when the candidate's narrow axis and long axis
-// start at the same bin (pos1 == pos3, the box touches the diagonal at its
-// start, stripenn.getStripe.pvalue's "downward" case) and "horizontal"
-// otherwise (pos2 == pos4, its "upward" case): the closest thing to an
-// orientation label Stripenn's own pipeline computes. `enrichment` is the
-// box's mean raw count divided by the chromosome's expected count at its
-// offset from the diagonal.
+// `orientation` is "horizontal" when the candidate's narrow axis sits near
+// the *start* of its long axis (pos1 close to pos3, one bin apart at most --
+// stripenn.getStripe.pvalue's own x1==y1 "downward" case, generalised from
+// an exact match to a distance comparison because a real box's narrow axis
+// is never literally the same bin as its long axis's start: the closest
+// pixel to the diagonal is one bin away, not zero) and "vertical" when it
+// sits near the *end* (pos2 close to pos4, Stripenn's x2==y2 "upward" case).
+// This mapping, and which of Stripenn's two cases is "horizontal" versus
+// "vertical" here, is chosen to match cpp/scripts/stripe_calibration.py's
+// own planting convention exactly (plant_one() builds a "horizontal" plant
+// as (anchor, anchor + d) for d = 1..length -- narrow axis at the start --
+// and a "vertical" one as (anchor - d, anchor) -- narrow axis at the end).
+// `enrichment` is the box's mean raw count divided by the chromosome's
+// expected count at its offset from the diagonal.
 
 #include <algorithm>
 #include <cmath>
@@ -630,7 +637,24 @@ int main(int argc, char** argv) {
             continue;
         }
         const hicx::stripes::Candidate& c = all_candidates[i];
-        const bool vertical = (c.pos1 == c.pos3);
+        // Which end of the box sits nearer the diagonal (stripenn.getStripe.
+        // pvalue's own "downward" x1==y1 / "upward" x2==y2 distinction,
+        // generalised to a distance rather than an exact bin match: a
+        // symmetric Hi-C matrix means a box never literally touches the
+        // diagonal at bin resolution, since the pixel closest to it is one
+        // bin away, not zero, so pos1==pos3 essentially never holds at
+        // real genomic coordinates -- verified this was firing on almost
+        // nothing on real data, which is what caught the bug). "vertical"
+        // is the end tag cpp/scripts/stripe_calibration.py's plant_one()
+        // uses for a box built as (anchor - d, anchor), d = 1..length: its
+        // narrow axis (pos1/pos2) sits at the *end* of its long axis
+        // (pos4 is one bin from pos1/pos2, pos3 is far), so d_end is the
+        // small one. "horizontal" is plant_one()'s (anchor, anchor + d):
+        // its narrow axis sits at the *start* of the long axis, so d_start
+        // is the small one.
+        const std::int64_t d_start = std::llabs(c.pos1 - c.pos3);
+        const std::int64_t d_end = std::llabs(c.pos2 - c.pos4);
+        const bool vertical = d_end < d_start;
         ++kept_count;
         output << c.chrom << '\t' << c.pos1 << '\t' << c.pos2 << '\t' << (vertical ? "vertical" : "horizontal")
               << '\t' << std::min(c.pos1, c.pos3) << '\t' << std::max(c.pos2, c.pos4) << '\t' << c.mean << '\t'
