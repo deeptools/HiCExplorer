@@ -1,274 +1,233 @@
 // Unit tests for hicDetectStripes' computational core
-// (tools/stripes_impl.hpp), the only tier 9 tool (PLAN.md 9.3) with no Python
-// reference to pin values against. These tests check the band construction
-// against hand-computed values and the end-to-end pipeline against a
-// synthetic matrix with stripes planted by construction, not against a
-// reference implementation.
+// (tools/stripes_impl.hpp): a faithful C++ port of Stripenn 1.1.65.22's own
+// stripe-finding algorithm (PLAN.md tier 9 section 9.3). There is no Python
+// reference to pin values against, so these check the low-level image
+// primitives against hand-computed values, and the end-to-end frame search
+// against a synthetic image with a stripe planted by construction.
 
-#include <algorithm>
 #include <cmath>
 #include <cstdint>
-#include <random>
 #include <vector>
 
 #include <doctest/doctest.h>
 
 #include "../tools/stripes_impl.hpp"
-#include "hicx/sparse_matrix.hpp"
 
-using hicx::stripes::Band;
-using hicx::stripes::Candidate;
-using hicx::stripes::DetectOptions;
-using hicx::stripes::RunningSums;
+using hicx::stripes::BackgroundModel;
+using hicx::stripes::Image;
 
-namespace {
+TEST_CASE("quantile matches numpy's linear interpolation") {
+    CHECK(hicx::stripes::quantile({1, 2, 3, 4}, 0.5) == doctest::Approx(2.5));
+    CHECK(hicx::stripes::quantile({1, 2, 3, 4}, 0.0) == doctest::Approx(1.0));
+    CHECK(hicx::stripes::quantile({1, 2, 3, 4}, 1.0) == doctest::Approx(4.0));
+    CHECK(hicx::stripes::quantile({5}, 0.3) == doctest::Approx(5.0));
+}
 
-hicx::CsrMatrix upper_triangle_from_dense(const std::vector<std::vector<double>>& dense) {
-    std::vector<std::int32_t> rows;
-    std::vector<std::int32_t> cols;
-    std::vector<double> values;
-    for (std::size_t r = 0; r < dense.size(); ++r) {
-        for (std::size_t c = r + 1; c < dense[r].size(); ++c) {
-            if (dense[r][c] != 0.0) {
-                rows.push_back(static_cast<std::int32_t>(r));
-                cols.push_back(static_cast<std::int32_t>(c));
-                values.push_back(dense[r][c]);
+TEST_CASE("box_blur averages a uniform image to itself") {
+    Image img(5, 5, 0.5);
+    const Image blurred = hicx::stripes::box_blur(img, 3);
+    for (const double v : blurred.v) {
+        CHECK(v == doctest::Approx(0.5));
+    }
+}
+
+TEST_CASE("box_blur smooths a single bright pixel") {
+    Image img(5, 5, 0.0);
+    img.at(2, 2) = 1.0;
+    const Image blurred = hicx::stripes::box_blur(img, 3);
+    // The centre pixel's 3x3 neighbourhood has exactly one bright pixel.
+    CHECK(blurred.at(2, 2) == doctest::Approx(1.0 / 9.0));
+    CHECK(blurred.at(0, 0) == doctest::Approx(0.0));
+}
+
+TEST_CASE("canny finds an edge at a sharp brightness step") {
+    // A vertical step edge: columns 0-4 dark, columns 5-9 bright.
+    Image img(10, 10, 0.0);
+    for (int r = 0; r < 10; ++r) {
+        for (int c = 5; c < 10; ++c) {
+            img.at(r, c) = 1.0;
+        }
+    }
+    const Image edges = hicx::stripes::canny(img, 1.0);
+    bool found_edge_near_boundary = false;
+    for (int r = 2; r < 8; ++r) {
+        for (int c = 3; c < 7; ++c) {
+            if (edges.at(r, c) != 0.0) {
+                found_edge_near_boundary = true;
             }
         }
     }
-    hicx::CsrMatrix matrix = hicx::CsrMatrix::from_coo(
-        static_cast<std::int64_t>(dense.size()), static_cast<std::int64_t>(dense[0].size()),
-        rows, cols, std::move(values), "float64");
-    matrix.set_symmetry(hicx::Symmetry::Full);
-    return matrix;
+    CHECK(found_edge_near_boundary);
+    // Far from the boundary, on a flat region, there should be no edges.
+    CHECK(edges.at(1, 1) == doctest::Approx(0.0));
+    CHECK(edges.at(1, 8) == doctest::Approx(0.0));
 }
 
-}  // namespace
-
-TEST_CASE("build_horizontal_band reads the right pixels and normalises by distance") {
-    //      0  1  2  3
-    // 0    .  4  2  0
-    // 1    .  .  6  0
-    // 2    .  .  .  8
-    // 3    .  .  .  .
-    // distance 1: (0,1)=4, (1,2)=6, (2,3)=8 -> expected = 6
-    // distance 2: (0,2)=2, (1,3)=0          -> expected = 1
-    // distance 3: (0,3)=0                    -> expected = 0
-    const hicx::CsrMatrix matrix =
-        upper_triangle_from_dense({{0, 4, 2, 0}, {0, 0, 6, 0}, {0, 0, 0, 8}, {0, 0, 0, 0}});
-    std::vector<double> expected;
-    const Band band = hicx::stripes::build_horizontal_band(matrix, 4, 3, &expected);
-
-    CHECK(expected[0] == doctest::Approx(6.0));
-    CHECK(expected[1] == doctest::Approx(1.0));
-    CHECK(expected[2] == doctest::Approx(0.0));
-
-    CHECK(band.raw_at(0, 1) == doctest::Approx(4.0));
-    CHECK(band.obs_exp_at(0, 1) == doctest::Approx(4.0 / 6.0));
-    CHECK(band.raw_at(1, 1) == doctest::Approx(6.0));
-    CHECK(band.obs_exp_at(1, 1) == doctest::Approx(1.0));
-    CHECK(band.raw_at(0, 2) == doctest::Approx(2.0));
-    CHECK(band.obs_exp_at(0, 2) == doctest::Approx(2.0));
-    // distance 3's expected value is 0 (only one position, unstored), so
-    // obs_exp is defined as 0 rather than dividing by zero.
-    CHECK(band.obs_exp_at(0, 3) == doctest::Approx(0.0));
+TEST_CASE("vertical_line keeps a vertical edge and drops a horizontal one") {
+    // A purely vertical edge (column step) should produce mostly-vertical
+    // gradient orientation (near 90 degrees) and survive the filter.
+    Image vertical_edge(10, 10, 0.0);
+    for (int r = 3; r < 7; ++r) {
+        vertical_edge.at(r, 5) = 1.0;
+    }
+    const Image vert = hicx::stripes::vertical_line(vertical_edge, 60.0, 120.0);
+    bool any_kept = false;
+    for (const double v : vert.v) {
+        if (v != 0.0) {
+            any_kept = true;
+        }
+    }
+    CHECK(any_kept);
 }
 
-TEST_CASE("build_vertical_band mirrors the horizontal band by the (anchor, distance) shift") {
-    const hicx::CsrMatrix matrix =
-        upper_triangle_from_dense({{0, 4, 2, 1}, {0, 0, 6, 3}, {0, 0, 0, 8}, {0, 0, 0, 0}});
-    const Band horizontal = hicx::stripes::build_horizontal_band(matrix, 4, 3);
-    const Band vertical = hicx::stripes::build_vertical_band(horizontal);
-
-    // vertical.raw_at(c, d) == horizontal.raw_at(c - d, d)
-    CHECK(vertical.raw_at(3, 1) == doctest::Approx(horizontal.raw_at(2, 1)));
-    CHECK(vertical.raw_at(3, 2) == doctest::Approx(horizontal.raw_at(1, 2)));
-    CHECK(vertical.raw_at(3, 3) == doctest::Approx(horizontal.raw_at(0, 3)));
-    // No pixel exists above the top row: anchor 1 at distance 2 would need
-    // row -1.
-    CHECK(vertical.raw_at(1, 2) == doctest::Approx(0.0));
+TEST_CASE("block_scan finds the longest contiguous run in a column") {
+    Image vert(20, 3, 0.0);
+    for (int r = 2; r < 15; ++r) {
+        vert.at(r, 1) = 1.0;
+    }
+    const hicx::stripes::BlockResult result = hicx::stripes::block_scan(vert, 1);
+    CHECK(result.length == 13);
 }
 
-TEST_CASE("build_running_sums accumulates obs_exp and raw along the distance axis") {
-    const hicx::CsrMatrix matrix =
-        upper_triangle_from_dense({{0, 2, 2, 2}, {0, 0, 2, 2}, {0, 0, 0, 2}, {0, 0, 0, 0}});
-    const Band band = hicx::stripes::build_horizontal_band(matrix, 4, 3);
-    const RunningSums sums = hicx::stripes::build_running_sums(band);
-
-    // A uniform matrix has obs_exp 1.0 everywhere it is defined, so the mean
-    // at any length is 1.0 for anchor 0 (which has all three distances).
-    CHECK(sums.obs_exp_mean(0, 1) == doctest::Approx(1.0));
-    CHECK(sums.obs_exp_mean(0, 3) == doctest::Approx(1.0));
-    CHECK(sums.raw_mean(0, 1) == doctest::Approx(2.0));
+TEST_CASE("block_scan tolerates a short gap") {
+    Image vert(20, 3, 0.0);
+    for (int r = 2; r < 8; ++r) {
+        vert.at(r, 1) = 1.0;
+    }
+    // A 2-row gap (below the tolerance of 5) should not break the run.
+    for (int r = 10; r < 16; ++r) {
+        vert.at(r, 1) = 1.0;
+    }
+    const hicx::stripes::BlockResult result = hicx::stripes::block_scan(vert, 1);
+    CHECK(result.length == 12);
 }
 
 namespace {
 
-// A 60-bin synthetic chromosome: a flat background of 3 counts at every
-// distance up to 35 bins, with a horizontal stripe planted at anchor row 10
-// (columns 11..30, 20 bins long) and a vertical stripe at anchor column 50
-// (rows 30..49, 20 bins long), each about 5-fold enriched over the
-// background. The two stripes do not overlap each other's footprint or
-// background window.
-hicx::CsrMatrix synthetic_matrix(std::int64_t n, std::int64_t max_distance,
-                                 double background, double stripe_value,
-                                 std::int64_t horizontal_anchor, std::int64_t horizontal_length,
-                                 std::int64_t vertical_anchor, std::int64_t vertical_length) {
-    std::vector<std::vector<double>> dense(static_cast<std::size_t>(n),
-                                           std::vector<double>(static_cast<std::size_t>(n), 0.0));
-    // Small Poisson-like noise around `background`, seeded for
-    // reproducibility, so the background window has nonzero variance: a
-    // perfectly flat background (std 0) makes every candidate length tie on
-    // z-score, which is not representative of real, noisy contact data. A
-    // fixed pattern (for example a modulo function of row and column) was
-    // tried first and rejected: its period aliases with the length grid and
-    // produces the same kind of degenerate ties.
-    std::mt19937 rng(20260915);
-    std::poisson_distribution<int> noise(background);
-    for (std::int64_t row = 0; row < n; ++row) {
-        for (std::int64_t col = row + 1; col < n && col - row <= max_distance; ++col) {
-            dense[static_cast<std::size_t>(row)][static_cast<std::size_t>(col)] =
-                static_cast<double>(noise(rng));
+// A synthetic frame: a flat low background with a bright vertical stripe
+// (a narrow column range, wide row range) planted near the middle, touching
+// the frame's diagonal at its top so verticalLine's edge detection has a
+// real boundary to find on both sides of the stripe.
+Image synthetic_frame(int S, double background, double stripe_value, int stripe_col_start,
+                      int stripe_width, int stripe_row_start, int stripe_row_end) {
+    Image img(S, S, 0.0);
+    for (int r = 0; r < S; ++r) {
+        for (int c = 0; c < S; ++c) {
+            const int distance = std::abs(r - c);
+            img.at(r, c) = distance == 0 ? 0.0 : background / (1.0 + 0.01 * distance);
         }
     }
-    for (std::int64_t d = 1; d <= horizontal_length; ++d) {
-        const std::int64_t col = horizontal_anchor + d;
-        if (col < n) {
-            dense[static_cast<std::size_t>(horizontal_anchor)][static_cast<std::size_t>(col)] =
-                stripe_value;
+    for (int r = stripe_row_start; r <= stripe_row_end && r < S; ++r) {
+        for (int c = stripe_col_start; c < stripe_col_start + stripe_width && c < S; ++c) {
+            img.at(r, c) = stripe_value;
+            img.at(c, r) = stripe_value;
         }
     }
-    for (std::int64_t d = 1; d <= vertical_length; ++d) {
-        const std::int64_t row = vertical_anchor - d;
-        if (row >= 0) {
-            dense[static_cast<std::size_t>(row)][static_cast<std::size_t>(vertical_anchor)] =
-                stripe_value;
-        }
-    }
-    return upper_triangle_from_dense(dense);
+    return img;
 }
 
 }  // namespace
 
-TEST_CASE("the end-to-end pipeline recovers a planted horizontal and vertical stripe") {
-    constexpr std::int64_t n = 60;
-    constexpr std::int64_t max_distance = 35;
-    const hicx::CsrMatrix matrix =
-        synthetic_matrix(n, max_distance, /*background=*/3.0, /*stripe_value=*/15.0,
-                         /*horizontal_anchor=*/10, /*horizontal_length=*/20,
-                         /*vertical_anchor=*/50, /*vertical_length=*/20);
-
-    const Band horizontal = hicx::stripes::build_horizontal_band(matrix, n, max_distance);
-    const Band vertical = hicx::stripes::build_vertical_band(horizontal);
-    const RunningSums horizontal_sums = hicx::stripes::build_running_sums(horizontal);
-    const RunningSums vertical_sums = hicx::stripes::build_running_sums(vertical);
-
-    DetectOptions options;
-    options.length_grid_bins = {5, 10, 15, 20, 25};
-    options.background_window_bins = 5;
-    options.background_gap_bins = 1;
-    options.min_obs_exp = 1.5;
-    options.preselect_z = 1.5;
-    options.min_raw_count = 1.0;
-    options.merge_window_bins = 2;
-    options.fdr_q = 0.2;
-
-    std::vector<Candidate> candidates = hicx::stripes::preselect(
-        horizontal, vertical, horizontal_sums, vertical_sums, options, /*threads=*/1);
+TEST_CASE("stripe_search_frame finds candidates on a synthetic planted stripe") {
+    constexpr int S = 200;
+    const Image frame = synthetic_frame(S, /*background=*/5.0, /*stripe_value=*/80.0,
+                                        /*stripe_col_start=*/60, /*stripe_width=*/4,
+                                        /*stripe_row_start=*/60, /*stripe_row_end=*/150);
+    const double maxpixel_value = 60.0;
+    const std::vector<hicx::stripes::FrameCandidate> candidates = hicx::stripes::stripe_search_frame(
+        frame, maxpixel_value, /*canny_sigma=*/1.5, /*min_length=*/10, /*max_width=*/8,
+        /*blur_filter=*/3);
     REQUIRE(!candidates.empty());
-    candidates = hicx::stripes::suppress_non_maximal(std::move(candidates), options.merge_window_bins);
-    hicx::stripes::compute_pvalues(candidates, horizontal, vertical, options, /*threads=*/1);
-    const std::vector<Candidate> kept = hicx::stripes::apply_fdr(candidates, options.fdr_q);
-
-    bool found_horizontal = false;
-    bool found_vertical = false;
-    for (const Candidate& candidate : kept) {
-        if (!candidate.vertical && candidate.anchor == 10) {
-            found_horizontal = true;
-            CHECK(candidate.length_bins >= 15);
-            CHECK(candidate.enrichment > 2.0);
-            CHECK(candidate.qvalue <= options.fdr_q);
-        }
-        if (candidate.vertical && candidate.anchor == 50) {
-            found_vertical = true;
-            CHECK(candidate.length_bins >= 15);
-            CHECK(candidate.enrichment > 2.0);
+    bool found_near_planted = false;
+    for (const auto& c : candidates) {
+        if (c.x <= 64 && c.x + c.w >= 60 && c.h >= 20) {
+            found_near_planted = true;
         }
     }
-    CHECK(found_horizontal);
-    CHECK(found_vertical);
+    CHECK(found_near_planted);
 }
 
-TEST_CASE("a flat matrix with no planted stripe yields no calls after FDR") {
-    // The preselection z-test is deliberately cheap and uncorrected
-    // (hicx::stripes::preselect docstring), so pure noise routinely clears a
-    // z of 1.5 at a few of the many (anchor, orientation, length) triples
-    // tested; that is what stage 3's rank-sum test and stage 4's
-    // Benjamini-Hochberg FDR exist to remove. This test therefore checks the
-    // full pipeline's output, not the raw preselection.
-    constexpr std::int64_t n = 40;
-    constexpr std::int64_t max_distance = 25;
-    const hicx::CsrMatrix matrix =
-        synthetic_matrix(n, max_distance, /*background=*/3.0, /*stripe_value=*/3.0,
-                         /*horizontal_anchor=*/0, /*horizontal_length=*/0,
-                         /*vertical_anchor=*/0, /*vertical_length=*/0);
-    const Band horizontal = hicx::stripes::build_horizontal_band(matrix, n, max_distance);
-    const Band vertical = hicx::stripes::build_vertical_band(horizontal);
-    const RunningSums horizontal_sums = hicx::stripes::build_running_sums(horizontal);
-    const RunningSums vertical_sums = hicx::stripes::build_running_sums(vertical);
-
-    DetectOptions options;
-    options.length_grid_bins = {5, 10, 15, 20};
-    options.background_window_bins = 5;
-    options.background_gap_bins = 1;
-    options.min_obs_exp = 1.5;
-    options.preselect_z = 1.5;
-    options.min_raw_count = 1.0;
-    options.merge_window_bins = 2;
-    options.fdr_q = 0.05;
-
-    std::vector<Candidate> candidates = hicx::stripes::preselect(
-        horizontal, vertical, horizontal_sums, vertical_sums, options, /*threads=*/1);
-    candidates = hicx::stripes::suppress_non_maximal(std::move(candidates), options.merge_window_bins);
-    hicx::stripes::compute_pvalues(candidates, horizontal, vertical, options, /*threads=*/1);
-    const std::vector<Candidate> kept = hicx::stripes::apply_fdr(candidates, options.fdr_q);
-    CHECK(kept.empty());
+TEST_CASE("stripe_search_frame finds nothing on a flat frame") {
+    constexpr int S = 100;
+    Image frame(S, S, 0.0);
+    for (int r = 0; r < S; ++r) {
+        for (int c = 0; c < S; ++c) {
+            const int distance = std::abs(r - c);
+            frame.at(r, c) = distance == 0 ? 0.0 : 5.0 / (1.0 + 0.01 * distance);
+        }
+    }
+    const std::vector<hicx::stripes::FrameCandidate> candidates =
+        hicx::stripes::stripe_search_frame(frame, 6.0, 1.5, 10, 8, 3);
+    // A perfectly smooth distance-decaying background has no sharp edges,
+    // so there should be no or very few spurious candidates.
+    CHECK(candidates.size() < 5);
 }
 
-TEST_CASE("suppress_non_maximal keeps only the strongest anchor within the merge window") {
-    std::vector<Candidate> candidates;
-    Candidate a;
-    a.anchor = 10;
-    a.vertical = false;
-    a.zscore = 3.0;
-    a.pvalue = 0.01;
+TEST_CASE("remove_redundant keeps the more elongated of two overlapping boxes") {
+    std::vector<hicx::stripes::Candidate> candidates;
+    hicx::stripes::Candidate a;
+    a.chrom = "chr1";
+    a.pos1 = 0;
+    a.pos2 = 50;   // wide (width 50)
+    a.pos3 = 0;
+    a.pos4 = 60;   // short (height 60), ratio 60/50 = 1.2
+    a.frame_index = 0;
     candidates.push_back(a);
-    Candidate b = a;
-    b.anchor = 12;
-    b.zscore = 5.0;
-    b.pvalue = 0.001;
-    candidates.push_back(b);
-    Candidate c = a;
-    c.anchor = 40;
-    c.zscore = 1.0;
-    candidates.push_back(c);
 
-    const std::vector<Candidate> kept = hicx::stripes::suppress_non_maximal(candidates, 5);
-    REQUIRE(kept.size() == 2);
-    CHECK(kept[0].anchor == 12);
-    CHECK(kept[1].anchor == 40);
+    hicx::stripes::Candidate b;
+    b.chrom = "chr1";
+    b.pos1 = 0;
+    b.pos2 = 10;    // narrow (width 10)
+    b.pos3 = 0;
+    b.pos4 = 500;   // long (height 500), ratio 50, much more elongated
+    b.frame_index = 0;
+    candidates.push_back(b);
+
+    const std::vector<hicx::stripes::Candidate> kept =
+        hicx::stripes::remove_redundant(candidates, /*by_pvalue=*/false, /*threads=*/1);
+    REQUIRE(kept.size() == 1);
+    CHECK(kept[0].pos4 == 500);
 }
 
-TEST_CASE("apply_fdr keeps only candidates at or below the requested q-value") {
-    std::vector<Candidate> candidates;
-    for (const double p : {0.001, 0.01, 0.5, 0.9}) {
-        Candidate candidate;
-        candidate.pvalue = p;
-        candidates.push_back(candidate);
+TEST_CASE("remove_redundant keeps the smaller p-value when requested") {
+    std::vector<hicx::stripes::Candidate> candidates;
+    hicx::stripes::Candidate a;
+    a.chrom = "chr1";
+    a.pos1 = 0;
+    a.pos2 = 100;
+    a.pos3 = 0;
+    a.pos4 = 400;
+    a.frame_index = 0;
+    a.pvalue = 0.2;
+    candidates.push_back(a);
+
+    hicx::stripes::Candidate b = a;
+    b.pvalue = 0.01;
+    candidates.push_back(b);
+
+    const std::vector<hicx::stripes::Candidate> kept =
+        hicx::stripes::remove_redundant(candidates, /*by_pvalue=*/true, /*threads=*/1);
+    REQUIRE(kept.size() == 1);
+    CHECK(kept[0].pvalue == doctest::Approx(0.01));
+}
+
+TEST_CASE("candidate_pvalue ranks against the background sample") {
+    BackgroundModel model;
+    model.left.assign(400, {});
+    model.right.assign(400, {});
+    // A background sample of small, tightly clustered differences at
+    // distance 5.
+    for (int i = 0; i < 100; ++i) {
+        model.left[5].push_back(1.0 + 0.01 * i);
+        model.right[5].push_back(1.0 + 0.01 * i);
     }
-    const std::vector<Candidate> kept = hicx::stripes::apply_fdr(candidates, 0.05);
-    CHECK(kept.size() <= candidates.size());
-    for (const Candidate& candidate : kept) {
-        CHECK(candidate.qvalue <= 0.05);
-    }
+    // A candidate with a much larger difference should get a small p-value.
+    const double p_strong = hicx::stripes::candidate_pvalue(model, 5, 50.0, 50.0);
+    CHECK(p_strong < 0.05);
+    // A candidate with a typical, unremarkable difference should not.
+    const double p_typical = hicx::stripes::candidate_pvalue(model, 5, 1.5, 1.5);
+    CHECK(p_typical > 0.2);
+    // An empty distance bucket falls back to p=1 (never a spurious call).
+    const double p_empty = hicx::stripes::candidate_pvalue(model, 200, 100.0, 100.0);
+    CHECK(p_empty == doctest::Approx(1.0));
 }

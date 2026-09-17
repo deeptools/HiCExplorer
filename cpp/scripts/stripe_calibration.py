@@ -59,14 +59,11 @@ REPLICATES = 5
 # Stripenn timing) uses the same settings.
 TOOL_ARGS = [
     "--minStripeLength", "100000",
-    "--maxStripeLength", "3000000",
-    "--stripeLengthStep", "100000",
-    "--backgroundWindow", "15",
-    "--backgroundGap", "2",
-    "--obsExpThreshold", "2.0",
-    "--zScoreThreshold", "4.0",
-    "--minRawCount", "2.0",
-    "--mergeWindow", "5",
+    "--maxWidth", "8",
+    "--canny", "2.0",
+    "--blurFilter", "3",
+    "--backgroundSamples", "200000",
+    "--pValue", "0.1",
     "--fdr", "0.05",
 ]
 
@@ -216,6 +213,15 @@ def plant_one(band, n_bins, anchor, length_bins, enrichment, vertical, rng):
     caller should pick a different anchor)."""
     bg = local_background(band, anchor, length_bins, vertical, n_bins)
     if bg is None:
+        return False
+    # A plant added on top of near-zero background is near-zero itself
+    # (enrichment multiplies the background, it does not add an absolute
+    # count), and is then undetectable by construction, not by any real
+    # limitation of the detector. Found on chr21: bins below about 10.5 Mb
+    # are an assembly gap with a completely empty matrix there, and early
+    # plant placements landed inside it. Require a minimum mean background
+    # over the plant's own length before accepting the anchor.
+    if float(np.mean(bg)) < 1.0:
         return False
     extra_mean = np.clip((enrichment - 1.0) * bg, 0.0, None)
     extra = rng.poisson(extra_mean)

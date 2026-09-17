@@ -1,187 +1,200 @@
-// The computational core of hicDetectStripes, separated from the tool so that
-// the unit tests (cpp/tests/test_detect_stripes.cpp) can reach it directly.
+// The computational core of hicDetectStripes, separated from the tool so
+// that the unit tests (cpp/tests/test_detect_stripes.cpp) can reach it
+// directly.
 //
 // hicDetectStripes is a PLAN.md tier 9 feature (section 9.3): HiCExplorer 3.7
-// has no stripe caller, so there is no Python behaviour to reproduce and no
-// "quirk" to preserve. The algorithm below is free (PLAN.md 5.0 item 3) and
-// is documented on its own terms.
+// has no stripe caller, so there is no Python behaviour to reproduce. The
+// project owner directed a faithful C++ reimplementation of Stripenn's own
+// method (Yoon et al. 2022, package stripenn 1.1.65.22), not an invented
+// stand-in, on the reasoning that a faithful port converges to Stripenn's
+// own calls by construction and inherits its validated recall/precision on
+// real data, where an ad hoc statistical test did not (see cpp/STATUS.md and
+// the report to the orchestrating session for the numbers that motivated
+// this). What follows is a line-by-line port of stripenn/getStripe.py's
+// detection pipeline (StripeSearch, verticalLine, block, RemoveRedundant),
+// with two classes of deliberate, documented simplification where an exact
+// port would need weeks rather than hours:
 //
-// Method, in one paragraph. A stripe is an elongated run of enriched contacts
-// that starts at an anchor bin on the diagonal and extends away from it along
-// one axis: a horizontal stripe holds its row fixed and extends across
-// columns, a vertical stripe holds its column fixed and extends down rows.
-// For every anchor and orientation, the tool tests a grid of candidate
-// lengths against a *local* background: the same distance range read off the
-// neighbouring anchors a few bins away (not the genome-wide expected value),
-// which is what PLAN.md 9.3 asks the enrichment to be measured against. A
-// cheap one-sample z-test against the local background's mean and standard
-// deviation preselects candidates in O(1) per anchor and length using a
-// precomputed running sum along the distance axis; the survivors, after
-// keeping only the best-scoring length per anchor and suppressing anchors
-// that lie within one non-maximum window of a stronger call, get a rigorous
-// two-sample Wilcoxon rank-sum p-value (hicx::stats::ranksums, the same
-// primitive hicDetectLoops' donut test uses) against the pooled local
-// background pixels. Benjamini-Hochberg FDR (hicx::stats::
-// benjamini_hochberg_adjusted) is then applied across every surviving
-// candidate, genome-wide and both orientations together, and calls below the
-// requested q-value are kept.
+//  1. **Edge detection engine.** Stripenn calls skimage.feature.canny with a
+//     sigma and no explicit hysteresis thresholds, so skimage's own default
+//     threshold selection applies, which is not simple to reproduce without
+//     importing skimage. This port implements a standard Canny pipeline
+//     (Gaussian smoothing at the given sigma, Sobel gradients, non-maximum
+//     suppression, multi-hop hysteresis) and chooses its thresholds with the
+//     classic percentile heuristic (strong = 80th percentile of the nonzero
+//     gradient magnitude, weak = 0.4 times that), not skimage's own default.
+//     A median-based heuristic (Stripenn's own ImageProcessing.auto_canny,
+//     which the codebase carries but does not actually call) was tried
+//     first and rejected: on a sharp, near-uniform step edge, 1.5 times the
+//     median exceeds every pixel's own magnitude, so no pixel ever reaches
+//     the strong threshold and nothing is detected (caught by this port's
+//     own unit test). Everything downstream of the edge image
+//     (verticalLine, block, the column-pairing that turns edges into stripe
+//     boxes) is ported faithfully.
+//  2. **Background/null model for the p-value.** Stripenn's nulldist()
+//     builds an empirical null by a specific stratified, weighted random
+//     sample across every chromosome (proportional to chromosome size and to
+//     the number of non-empty columns), tracked per genomic distance up to
+//     400 bins, separately for stripes anchored "up" and "down" from the
+//     diagonal. This port keeps the same statistical idea -- an empirical
+//     null of (center minus flanking background) differences, ranked
+//     against, per distance -- built from a simpler uniform random sample
+//     over valid anchors of each chromosome being processed (not
+//     genome-wide, and not stratified by chromosome size), because
+//     reproducing the exact sampling weights is not needed for the method
+//     to work and would cost disproportionate implementation time. The
+//     per-candidate p-value computation itself (StripeSearch.pvalue: the
+//     empirical rank of the candidate's own center-vs-flank difference
+//     against the null, taking the worse of the left and right side,
+//     median over the stripe's rows) is ported faithfully.
 //
-// Why this design and not Stripenn's or a HiCCUPS-style approach: Stripenn
-// (Yoon et al. 2022) fits a Gaussian mixture to seed candidate stripes from an
-// image-derivative pseudo-image and expands them by a decay-fit boundary
-// search; Zebra (Zhang lab, unpublished) walks a 1-D score profile along the
-// diagonal. Both are single anchor-scan methods at heart: a per-anchor score
-// along one axis, thresholded and then locally maximised, exactly the shape
-// used here. This port keeps the scan (which is what both external methods
-// reduce to) and swaps their imaging or curve-fitting seed step for a direct
-// statistical test against the local background, because that is what
-// PLAN.md 9.3's recovery rule and precision gate are defined against, and
-// because it reuses already-verified, deterministic primitives
-// (hicx::parallel::parallel_for and hicx::stats::ranksums) rather than adding
-// an OpenCV or curve-fitting dependency for a single tool.
+// Benjamini-Hochberg FDR across every candidate (hicx::stats::
+// benjamini_hochberg_adjusted) is applied on top, genome-wide: Stripenn
+// itself only thresholds its raw p-value (--pvalue), it has no
+// multiple-testing correction, and PLAN.md 9.3 requires one.
 //
-// Threading and determinism (cpp/OPTIMIZATION.md 3). The preselection scan is
-// one independent computation per (anchor, orientation) pair, threaded with
-// hicx::parallel_for and written into a preallocated slot per pair; nothing
-// is accumulated across pairs. The final rank-sum pass is the same, over the
-// (far smaller) list of survivors. Both stages are independent of the thread
-// count and of --threads.
+// Determinism (cpp/OPTIMIZATION.md 3). The frame scan is one independent
+// computation per (chromosome, maxpixel percentile, frame index) triple,
+// threaded with hicx::parallel_for and written into a preallocated slot;
+// results are combined in index order. The background sample uses a
+// deterministic seeded RNG (std::mt19937_64), not Python's random.Random, so
+// it is not bit-identical to a Stripenn run with the "same" seed, only to
+// itself at a fixed --threads.
 
 #ifndef HICX_TOOLS_DETECT_STRIPES_IMPL_HPP
 #define HICX_TOOLS_DETECT_STRIPES_IMPL_HPP
 
 #include <cstdint>
-#include <optional>
 #include <string>
 #include <vector>
 
-#include "hicx/sparse_matrix.hpp"
-
 namespace hicx::stripes {
 
-// A dense per-chromosome band: for anchor bin `a` in [0, n_bins) and distance
-// `d` in [1, max_distance], band.raw[a * max_distance + (d - 1)] is the raw
-// count at the pixel `d` bins away from `a`, and band.obs_exp the same pixel
-// divided by the genome (chromosome)-wide expected count at that distance.
-// Horizontal orientation reads the pixel at (row = a, col = a + d); vertical
-// orientation reads (row = a - d, col = a), materialised as its own band so
-// that both orientations are scanned by the same code.
-struct Band {
-    std::int64_t n_bins = 0;
-    std::int64_t max_distance = 0;
-    std::vector<double> raw;
-    std::vector<double> obs_exp;
+// A dense image, row major, values usually in [0, 1] once normalised.
+struct Image {
+    int rows = 0;
+    int cols = 0;
+    std::vector<double> v;
 
-    [[nodiscard]] double raw_at(std::int64_t anchor, std::int64_t distance) const {
-        return raw[static_cast<std::size_t>(anchor * max_distance + (distance - 1))];
-    }
-    [[nodiscard]] double obs_exp_at(std::int64_t anchor, std::int64_t distance) const {
-        return obs_exp[static_cast<std::size_t>(anchor * max_distance + (distance - 1))];
-    }
+    Image() = default;
+    Image(int r, int c, double fill = 0.0)
+        : rows(r), cols(c), v(static_cast<std::size_t>(r) * static_cast<std::size_t>(c), fill) {}
+
+    [[nodiscard]] double& at(int r, int c) { return v[static_cast<std::size_t>(r) * cols + c]; }
+    [[nodiscard]] double at(int r, int c) const { return v[static_cast<std::size_t>(r) * cols + c]; }
 };
 
-// Builds the horizontal band from a CSR matrix holding the chromosome's upper
-// triangle (row < col, as hicDetectLoops' loader leaves it), restricted to
-// entries with column - row <= max_distance. `expected_out`, when given,
-// receives the per-distance expected value (the mean raw count over every
-// position at that distance, stored or not).
-[[nodiscard]] Band build_horizontal_band(const CsrMatrix& upper_triangle, std::int64_t n_bins,
-                                         std::int64_t max_distance,
-                                         std::vector<double>* expected_out = nullptr);
+// numpy.quantile(values, q, interpolation='linear') on the given values
+// (NaN not expected; empty input returns 0).
+[[nodiscard]] double quantile(std::vector<double> values, double q);
 
-// The vertical band derived from the horizontal one: vertical.raw_at(c, d) ==
-// horizontal.raw_at(c - d, d) for c - d >= 0, and 0 otherwise (no such pixel).
-[[nodiscard]] Band build_vertical_band(const Band& horizontal);
+// cv.filter2D(img, -1, ones(k,k)/(k*k)): a box (mean) blur, "same" size,
+// edge-replicated border (Stripenn/OpenCV's own default is BORDER_REFLECT_101;
+// replication is used here as a documented simplification that matters only
+// at the few-pixel image border).
+[[nodiscard]] Image box_blur(const Image& img, int k);
 
-// Running sums of a band along the distance axis: row_cum[a * max_distance +
-// (L - 1)] is the sum of obs_exp_at(a, 1..L) (and raw_cum the sum of
-// raw_at(a, 1..L)), so the mean pixel value of a length-L candidate at anchor
-// a is row_cum[...] / L, in O(1) once this is built.
-struct RunningSums {
-    std::int64_t n_bins = 0;
-    std::int64_t max_distance = 0;
-    std::vector<double> obs_exp_cum;
-    std::vector<double> raw_cum;
+// A standard Canny edge detector on a grayscale image already scaled to
+// [0, 1]: Gaussian smoothing at `sigma`, Sobel gradients, non-maximum
+// suppression, hysteresis thresholding with the median-based auto
+// thresholds documented at the top of this file. Output is 0/1.
+[[nodiscard]] Image canny(const Image& gray01, double sigma);
 
-    [[nodiscard]] double obs_exp_mean(std::int64_t anchor, std::int64_t length) const {
-        return obs_exp_cum[static_cast<std::size_t>(anchor * max_distance + (length - 1))] /
-               static_cast<double>(length);
-    }
-    [[nodiscard]] double raw_mean(std::int64_t anchor, std::int64_t length) const {
-        return raw_cum[static_cast<std::size_t>(anchor * max_distance + (length - 1))] /
-               static_cast<double>(length);
-    }
+// stripenn.ImageProcessing.verticalLine: a Sobel-like gradient-direction
+// filter over a binary edge image, keeping edge pixels whose gradient
+// orientation (atan2(Filtered_X, Filtered_Y), degrees, wrapped to [0, 360))
+// falls in (L, H); ported with its column shift (y -= 1).
+[[nodiscard]] Image vertical_line(const Image& edges, double low_degrees = 60.0,
+                                  double high_degrees = 120.0);
+
+struct BlockResult {
+    int length = 0;
+    int end = 0;
 };
 
-[[nodiscard]] RunningSums build_running_sums(const Band& band);
+// stripenn.ImageProcessing.block: the longest contiguous run of 1s in
+// column c (ORed with its immediate neighbours), tolerating gaps of up to 4,
+// and the row index the run ends at.
+[[nodiscard]] BlockResult block_scan(const Image& vert, int column);
 
-struct DetectOptions {
-    // Candidate lengths to test, in bins, ascending, each >= 1.
-    std::vector<std::int64_t> length_grid_bins;
-    // Flanking anchors on each side of the background window.
-    std::int64_t background_window_bins = 15;
-    // Anchors immediately next to the stripe body that are excluded from the
-    // background, so that the background never overlaps the stripe itself or
-    // a neighbour close enough to share its signal.
-    std::int64_t background_gap_bins = 2;
-    // The minimum obs/exp enrichment of the stripe body's mean over the local
-    // background's mean for a length to be considered at all.
-    double min_obs_exp = 1.5;
-    // The minimum one-sample z-score (stripe mean against the background
-    // anchors' distribution of per-anchor means) for preselection.
-    double preselect_z = 2.0;
-    // The minimum mean raw count over the stripe body (peakInteractionsThreshold
-    // analogue): filters out stripes with too little data to trust.
-    double min_raw_count = 1.0;
-    // Non-maximum suppression window, in bins: among same-orientation
-    // candidates whose anchors are within this many bins of each other, only
-    // the best-scoring one (by preselection z) survives.
-    std::int64_t merge_window_bins = 5;
-    // Benjamini-Hochberg q-value: candidates at or below this after
-    // multiple-testing correction are kept in the final call set.
-    double fdr_q = 0.05;
+// One candidate stripe box, in the frame's local (row, column) coordinates:
+// column range [x, x + w), row range [y, y + h). w is always the narrow
+// (anchor) axis, bounded by --maxWidth; h is the long (extent) axis.
+struct FrameCandidate {
+    int x = 0;
+    int y = 0;
+    int w = 0;
+    int h = 0;
 };
 
+// stripenn.getStripe.StripeSearch, minus the medpixel/Mean/total columns
+// (not needed downstream) and minus the zero-row/column compaction Stripenn
+// applies before calling it (documented simplification: candidates are
+// found in the frame's own coordinates directly, which very sparse
+// telomeric frames can dilute slightly; this is bounded by the same
+// --minRawCount style implicit filtering the maxpixel/edge thresholds
+// already provide). `submat` is the frame's dense observed-count block
+// (symmetric, diagonal included), `maxpixel_value` is that percentile's
+// count value M for the chromosome.
+[[nodiscard]] std::vector<FrameCandidate> stripe_search_frame(const Image& submat,
+                                                               double maxpixel_value,
+                                                               double canny_sigma, int min_length,
+                                                               int max_width, int blur_filter);
+
+// A candidate mapped to genomic coordinates and chromosome, the unit the
+// rest of the pipeline (redundancy removal, background sampling, FDR)
+// works on.
 struct Candidate {
-    std::int64_t anchor = 0;
-    std::int64_t length_bins = 0;
-    bool vertical = false;
-    double enrichment = 0.0;   // stripe mean obs/exp / local background mean obs/exp
-    double zscore = 0.0;       // preselection z-score at the chosen length
-    double pvalue = 1.0;       // final rank-sum p-value
-    double qvalue = 1.0;       // Benjamini-Hochberg adjusted, genome-wide
+    std::string chrom;
+    std::int64_t pos1 = 0;  // narrow axis start (bp, or a bin index before genomic mapping)
+    std::int64_t pos2 = 0;  // narrow axis end
+    std::int64_t pos3 = 0;  // long axis start
+    std::int64_t pos4 = 0;  // long axis end
+    int frame_index = 0;    // which 200-bin frame this came from (for cross-frame dedup)
+    double mean = 0.0;      // mean raw count over the box, stripenn.py 'Mean'
+    // The same box's mean count shifted by the background window in the
+    // narrow-axis direction, computed once at detection time from the same
+    // dense frame the box was found in -- an apples-to-apples comparison,
+    // the box's own shape against itself shifted, rather than a single
+    // (anchor, distance) lookup or a small fixed window (see
+    // hicDetectStripes.cpp candidate_pvalue call site).
+    double left_mean = 0.0;
+    double right_mean = 0.0;
+    double pvalue = 1.0;
+    double qvalue = 1.0;
 };
 
-// Stage 1: for every anchor, the best-scoring (anchor, orientation) candidate
-// over the length grid that clears min_obs_exp, preselect_z and
-// min_raw_count, or nothing when none of the grid's lengths clears all three.
-// horizontal and vertical must have the same n_bins and max_distance.
-[[nodiscard]] std::vector<Candidate> preselect(const Band& horizontal, const Band& vertical,
-                                               const RunningSums& horizontal_sums,
-                                               const RunningSums& vertical_sums,
-                                               const DetectOptions& options,
-                                               unsigned int threads);
+// stripenn.getStripe.RemoveRedundant(by='size'): among candidates that
+// overlap by more than 20% on both axes, keep the more elongated one
+// (larger h/w). `by_pvalue` selects the 'pvalue' variant (keep the smaller
+// p-value) used for the final cross-percentile merge.
+[[nodiscard]] std::vector<Candidate> remove_redundant(std::vector<Candidate> candidates,
+                                                       bool by_pvalue, unsigned int threads);
 
-// Stage 2: non-maximum suppression within options.merge_window_bins, per
-// orientation, keeping the candidate with the largest zscore in each cluster
-// of anchors that are pairwise within the window of some kept candidate
-// (a sweep in anchor order, matching hicDetectLoops' neighbourhood merge in
-// spirit but over one axis instead of a 2-D window).
-[[nodiscard]] std::vector<Candidate> suppress_non_maximal(std::vector<Candidate> candidates,
-                                                          std::int64_t merge_window_bins);
+// A background sample built from many random (anchor, distance) draws on
+// the chromosome's own obs/exp-free raw band: at distance d (0 up to the
+// band's max distance, capped at 399 as Stripenn's own tables are), the
+// pooled empirical sample of "this pixel's count minus a same-distance
+// pixel a few anchors to the left/right" (see the file header, point 2, for
+// why this replaces Stripenn's 2-D window-averaged, direction-split
+// nulldist() table: it reuses this tool's own already-verified band
+// construction and keeps the same statistical idea -- an empirical local
+// background contrast, ranked -- at a fraction of the implementation cost).
+struct BackgroundModel {
+    // background_model.left[d] / .right[d] is the sample at distance d.
+    std::vector<std::vector<double>> left;
+    std::vector<std::vector<double>> right;
+};
 
-// Stage 3: the final rank-sum p-value for each surviving candidate, computed
-// against the pooled pixel values (not the per-anchor means) of the same
-// local background window used in preselection.
-void compute_pvalues(std::vector<Candidate>& candidates, const Band& horizontal,
-                     const Band& vertical, const DetectOptions& options, unsigned int threads);
-
-// Stage 4: Benjamini-Hochberg FDR across every candidate handed in (expected
-// to span every chromosome and both orientations), keeping those at or below
-// options.fdr_q. Candidates are left in their input order; the caller sorts
-// for output if it wants a particular order.
-[[nodiscard]] std::vector<Candidate> apply_fdr(std::vector<Candidate> candidates,
-                                               double fdr_q);
+// The candidate's p-value: the worse (larger) of the empirical rank of its
+// own mean center-minus-left and center-minus-right differences (averaged
+// over the candidate's rows, at its own distance from the diagonal) against
+// the background model at that distance -- the fraction of the background
+// sample at least as large as the observed difference, matching
+// stripenn.getStripe.pvalue's per-row p1/p2/max(p1,p2) and its "never
+// exactly zero" floor of 1/len(sample).
+[[nodiscard]] double candidate_pvalue(const BackgroundModel& model, int distance,
+                                      double left_diff, double right_diff);
 
 }  // namespace hicx::stripes
 
