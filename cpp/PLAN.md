@@ -1907,7 +1907,39 @@ chromosome's bin count:
   per-chromosome vector bound. Determinism at `-t1` and `-tN`, with a fixed
   starting vector.
 
-### Tier 12 - hicmatrix 18: hicmatrix with a C++ core and its Python API (added 2026-09-15)
+### Tier 12 - hicmatrix 18: hicmatrix with a C++ core and its Python API (added 2026-09-15, phase 1 done 2026-09-17)
+
+**Phase 1 status:** done, in `~/src/HiCMatrix` branch `hicmatrix18-cpp` off tag
+`17.2` (commit `b7d87eb`, not pushed; standalone, does not yet touch v4).
+Independently verified from a clean export twice (once before, once after a
+found-and-fixed determinism defect in the harness's own comparator):
+- clean build, 0 warnings, `ctest` 2/2 (`hicmatrix_test_core`,
+  `hicmatrix_consumer`, the latter a real `pip install --no-build-isolation -e .`
+  into a fresh venv);
+- hicmatrix's own test suite: 51 passed, 1 pre-existing failure
+  (`test_dist_list_to_dict`, reproduced identically against a clean 17.2
+  export, not introduced), 2 xfailed, 1 xpassed, on both sides;
+- the 139-case equivalence harness against 17.2, with `--determinism`:
+  139/139, every file held to its declared class (E0/E1/E2) between reruns at
+  1 and 8 threads;
+- 12/12 mutation checks;
+- HiCExplorer's Python test suite run against 18 in place of 17.2 gave
+  per-shard-identical pass/fail/xfail/xpass/error counts and an empty
+  failing/erroring test-id diff (not independently rerun by the orchestrating
+  session; the harness and own-test results above were);
+- harness-measured totals: about 2x less CPU and 1.5x less peak memory than
+  17.2 on the same 139 cases.
+
+One real defect surfaced and was fixed at its root: `compare_runs` required
+byte-identical (E0) reruns for any file merely named `*.h5`, which is wrong
+for `save.h5.from_cool` (cool-format bytes under a `.h5` name, per the F20
+quirk) whose cool `creation-date` attribute is a genuine timestamp — 17.2 run
+twice would fail the same check. Fixed to hold each rerun to the case's own
+declared class, exactly as the cross-version comparison already does.
+
+**Phase 2** (v4 consuming hicmatrix 18's C++ API, replacing v4's internal
+`cool_adapter.cpp`/`h5_file.cpp`/`text_formats.cpp`/`tool_matrix.cpp`/
+`hic_matrix.cpp`) is not started.
 
 The project owner asked that hicmatrix become its own independent C++ library.
 It is not a separately named library but **a new version of hicmatrix itself**,
