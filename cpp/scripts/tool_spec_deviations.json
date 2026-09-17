@@ -1,4 +1,8 @@
 {
+ "hicDetectStripes": [
+  {"where": "", "dest": "", "fields": ["tool"], "kind": "cpp_only_tool",
+   "reason": "No Python counterpart: a tier 9 feature (cpp/PLAN.md 9.3), validated as class EX by cpp/scripts/stripe_calibration.py and the harness cases in cpp/scripts/cases/hicDetectStripes.json. tool_specs.py checks the structure of its spec only."}
+ ],
  "hicConvertFormat": [
   {"where": "", "dest": "outputFormat", "fields": ["choices"], "kind": "status",
    "reason": "The C++ port also writes .hic files (--outputFormat hic, PLAN 9.1); cpp/STATUS.md records .hic output as a new EX direction in the hicConvertFormat row and under the deviations of hicConvertFormat and hicfilecpp."}

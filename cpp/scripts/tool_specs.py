@@ -214,8 +214,47 @@ def allowlist():
         return json.load(handle)
 
 
+# The allowlist kind that marks a tool with no Python counterpart at all (a
+# tier 9 feature such as hicDetectStripes, cpp/PLAN.md 9.3): its spec has
+# nothing to be compared with, so only its structure is checked.
+CPP_ONLY_KIND = "cpp_only_tool"
+
+
+def cpp_only_tools():
+    return sorted(tool for tool, entries in allowlist().items()
+                  if any(entry.get("kind") == CPP_ONLY_KIND for entry in entries))
+
+
+def spec_structure_problems(spec, where=""):
+    """Structural defects of a spec without a Python parser to compare with:
+    an argument without a dest or without flags (unless positional), a dest
+    declared twice, a subcommand without arguments."""
+    problems = []
+    seen = set()
+    for group in spec.get("groups", []):
+        for arg in group.get("arguments", []):
+            dest = arg.get("dest")
+            if not dest:
+                problems.append((where, "", "argument without a dest", None, arg))
+                continue
+            if not arg.get("flags") and not arg.get("positional"):
+                problems.append((where, dest, "argument without flags", None, arg))
+            if dest in seen:
+                problems.append((where, dest, "dest declared twice", None, None))
+            seen.add(dest)
+    if spec.get("subcommands"):
+        for command in spec["subcommands"]["commands"]:
+            if not any(group.get("arguments") for group in command.get("groups", [])):
+                problems.append((where + command["name"] + " ", "", "subcommand without arguments",
+                                 None, None))
+            problems.extend(spec_structure_problems(command, where + command["name"] + " "))
+    return problems
+
+
 def check_tool(tool, cpp_bin):
     """(unexpected differences, allowed differences, stale allowlist entries)."""
+    if tool in cpp_only_tools():
+        return spec_structure_problems(load_cpp_spec(cpp_bin, tool)), [], []
     differences = compare(tool, python_parser_spec(load_python_parser(tool)),
                           cpp_parser_spec(load_cpp_spec(cpp_bin, tool)))
     entries = allowlist().get(tool, [])
