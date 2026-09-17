@@ -9,6 +9,19 @@
 // band loader hicDetectLoops.cpp uses), the frame scan that drives
 // stripes_impl's StripeSearch port, the background model, and the writer.
 //
+// False-positive control: no multiple-testing correction by default, a raw
+// --pValue cutoff, matching Stripenn's own practice. This was measured, not
+// assumed: on real GM12878 chr21+chr22, this port's p-values for its own
+// best candidates (0.03-0.13) closely matched Stripenn's own `score`
+// command's p-values for the identical boxes (0.042-0.19) on the same real
+// windows, and applying Benjamini-Hochberg to Stripenn's own `compute`
+// output (940 real candidates) left zero survivors at q <= 0.05 (best
+// q-value 0.998) even though Stripenn itself reports 73 calls at its own
+// raw p < 0.1. See cpp/PLAN.md 9.3 for the full record and the project
+// owner's decision (2026-09-18) to match Stripenn's practice rather than
+// require FDR survival by default. `--fdr` remains available as a C++-only,
+// opt-in, stricter alternative.
+//
 // Output format (new, no Python precedent): tab separated,
 //
 //   chrom  anchor_start  anchor_end  orientation  extent_start  extent_end
@@ -101,10 +114,18 @@ const char* const kHelp =
     "                        Random samples per chromosome for the background\n"
     "                        model the p-value is ranked against.\n"
     "                        (Default: 200000).\n"
-    "  --pValue PVALUE       Raw p-value cutoff applied before FDR\n"
-    "                        (Stripenn's pvalue). (Default: 0.1).\n"
-    "  --fdr FDR             Benjamini-Hochberg q-value threshold for the final\n"
-    "                        call set. (Default: 0.05).\n"
+    "  --pValue PVALUE       Raw p-value cutoff for the final call set\n"
+    "                        (Stripenn's own pvalue, and its own practice: no\n"
+    "                        multiple-testing correction by default -- see\n"
+    "                        PLAN.md 9.3 for the real-data evidence this is\n"
+    "                        based on). (Default: 0.1).\n"
+    "  --fdr FDR             Benjamini-Hochberg q-value threshold, applied\n"
+    "                        instead of the raw --pValue cutoff when given.\n"
+    "                        Off by default: on real GM12878 data, even\n"
+    "                        Stripenn's own p-values do not survive q <= 0.05\n"
+    "                        after correction (PLAN.md 9.3), so this option\n"
+    "                        exists for a user who wants that stricter, opt-in\n"
+    "                        guarantee, not as the default. (Default: off).\n"
     "  --seed SEED           Seed for the background sample. (Default: 20260915).\n"
     "  --threads THREADS, -t THREADS\n"
     "                        Number of threads to use. (Default: 4).\n"
@@ -122,7 +143,11 @@ struct Arguments {
     std::vector<double> maxpixel_percentiles{0.95, 0.96, 0.97, 0.98, 0.99};
     std::int64_t background_samples = 200000;
     double p_value = 0.1;
-    double fdr = 0.05;
+    // No default: Stripenn's own practice is a raw p-value cutoff with no
+    // multiple-testing correction at all (PLAN.md 9.3 records the real-data
+    // evidence this default is based on). Given explicitly, --fdr replaces
+    // the raw --pValue cutoff with a Benjamini-Hochberg q-value one.
+    std::optional<double> fdr;
     std::int64_t seed = 20260915;
     int threads = 4;
 };
@@ -173,11 +198,11 @@ Arguments parse_arguments(int argc, char** argv) {
     optional.add({"--pValue"})
         .type("float")
         .default_value(0.1)
-        .help("Raw p-value cutoff applied before FDR.");
+        .help("Raw p-value cutoff for the final call set (used unless --fdr is given).");
     optional.add({"--fdr"})
         .type("float")
-        .default_value(0.05)
-        .help("Benjamini-Hochberg q-value threshold for the final call set.");
+        .help("Benjamini-Hochberg q-value threshold, replacing the raw --pValue cutoff "
+              "when given. Off by default.");
     optional.add({"--seed"})
         .type("int")
         .default_value(20260915)
@@ -205,7 +230,9 @@ Arguments parse_arguments(int argc, char** argv) {
     }
     args.background_samples = ns.integer("backgroundSamples");
     args.p_value = ns.real("pValue");
-    args.fdr = ns.real("fdr");
+    if (ns.given("fdr")) {
+        args.fdr = ns.real("fdr");
+    }
     args.seed = ns.integer("seed");
     args.threads = static_cast<int>(ns.integer("threads"));
     return args;
@@ -688,7 +715,12 @@ int main(int argc, char** argv) {
     }
     std::size_t kept_count = 0;
     for (std::size_t i = 0; i < all_candidates.size(); ++i) {
-        if (adjusted[i] > args.fdr) {
+        // Every candidate here already cleared the raw --pValue cutoff (the
+        // per-chromosome filter above). Without --fdr, that raw cutoff is
+        // the whole story, matching Stripenn's own practice (PLAN.md 9.3);
+        // with --fdr given, the stricter Benjamini-Hochberg q-value is
+        // required on top of it.
+        if (args.fdr.has_value() && adjusted[i] > *args.fdr) {
             continue;
         }
         const hicx::stripes::Candidate& c = all_candidates[i];
