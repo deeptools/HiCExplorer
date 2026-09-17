@@ -1651,9 +1651,12 @@ Work:
    - `--correctForMultipleTesting {none,fdr,bonferroni}` adjusts each test across TADs.
    - Both options are E0 against a Python reference that masks through hicmatrix and adjusts the Python tool's p-values.
 2. **One count-based differential engine** for TADs, loops and compartments.
-   - Replicates per condition, with a negative binomial model: dispersion estimated from replicates, offsets for library size and distance decay, a shared bin mask, and Benjamini-Hochberg FDR with a minimum fold change.
+   Done, merged 2026-09-16 in `967ff69b` as `hicDifferentialAnalysis`.
+   - Replicates per condition, with a negative binomial model: dispersion estimated from replicates (quasi-likelihood, robust empirical-Bayes prior), offsets for library size and distance decay, a shared bin mask, and Benjamini-Hochberg FDR with a minimum fold change.
    - The tested units: per TAD, aggregated counts per distance stratum plus boundary insulation; per loop, the union of loop positions from all samples, tested against local background; per compartment bin, a GC-oriented compartment score.
    - With a single sample per condition the tool refuses, or runs only with an explicit option that labels its output exploratory.
+   - **Gate result on GSE234292:** TADs, boundaries and loops meet every criterion. Compartments do not meet the 0.8 two-fold recall gate (0.771 unpaired, 0.719 replicate-blocked). This is an open limitation, not tuned to pass; see STATUS.
+   - The unpaired label-swap null cannot meet the gate by construction (a real biological effect inflates its variance); the gate is evaluated with genotype as block instead.
 3. **Multiple-testing correction** for the chic tools and hicDetectLoops, dual mode.
    - Done for chicSignificantInteractions and chicDifferentialTest (`2452a010`):
      `--correctForMultipleTesting`, with `none` equal to the Python.
@@ -1755,9 +1758,10 @@ chr19.
 - **Reported, without a gate:** agreement between HiCExplorer's and CHiCAGO's
   calls on the committed mouse cHi-C test data.
 
-Order: 9.1 (with reading of versions 6 and 7) and 9.7 step 1 are done (2026-09-14); then
-9.2, 9.3, 9.4, the rest of 9.7, 9.6 and 9.8 to 9.14, interleaved with the
-remaining tier 6 tools. 9.5 follows coolercpp milestone 3.
+Order: 9.1 (with reading of versions 6 and 7), 9.7 steps 1 and 2, and 9.2 are
+done. Remaining: 9.3 (in progress), 9.4, 9.6, 9.7 step 3 for hicDetectLoops,
+and 9.8 to 9.14, interleaved with tier 6 (done). 9.5 follows coolercpp
+milestone 3.
 
 ### Tier 10 - HiCExplorer GUI (added 2026-09-13)
 

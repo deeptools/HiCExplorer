@@ -2,7 +2,7 @@
 
 Owner: the orchestrating session. Architecture: `cpp/PLAN.md`. Rules:
 `cpp/AGENTS_CONTRACT.md`. Optimization rules: `cpp/OPTIMIZATION.md`. Last updated
-2026-09-16, at commit `7769ec55`.
+2026-09-16, at commit `967ff69b`.
 
 **Current state: 42 of 46 tools ported and committed** on `version4-cpp`.
 - **Last regression,** merge-style (`--cache refresh`, contract rule 13) on a
@@ -53,11 +53,39 @@ Owner: the orchestrating session. Architecture: `cpp/PLAN.md`. Rules:
     LAPACK stage changes bits with the thread count.
   - hicPCA lanczos: ED against dense wherever LAPACK's column order is
     unambiguous; order-differing cases are documented, not counted as passing.
-- **Open branches** (two parallel agents, contract rule 14), each from
-  `7f3f94ad`:
-  - `v4-diff-engine`: PLAN 9.7, work item 2 (compartment recall follow-up and
-    a harness cache-key fix in progress);
-  - `v4-stripes`: PLAN 9.3, new tool `hicDetectStripes`.
+- **Merged 2026-09-16, `967ff69b`:** the replicate-aware differential engine,
+  new tool `hicDifferentialAnalysis {tads,loops,compartments}` (PLAN 9.7, work
+  item 2). Verified merge-style from a clean export at `967ff69b` (reproduced):
+  full regression 559 of 559 over 44 tools, determinism for hicPCA (15),
+  hicDifferentialAnalysis (13) and hicBuildMatrix (26), ctest 7, cache pytest
+  17, spec tests 44, argparse 79, gui suite 138 (4 legitimate skips).
+  - **Model:** negative binomial GLM per unit, distance-decay and
+    library-size offsets, quasi-likelihood dispersion with a robust
+    (trimmed) empirical-Bayes prior (Phipson, Lee, Majewski, Alexander and
+    Smyth 2016), Benjamini-Hochberg FDR, a TREAT-style minimum-fold-change
+    test, a shared bin mask. Refuses single-replicate input unless
+    `--exploratory`.
+  - **TADs:** Simes-combined per-distance-stratum tests. **Loops:** tested
+    against local background at the union of all samples' calls.
+    **Compartments:** GC-oriented scores.
+  - **Calibrated against the PLAN 9.7 gate** (fixed before implementation) on
+    GSE234292 (wt/knockout, 2 replicates each): TADs, boundaries and loops
+    meet every criterion (nulls call at most ~5 % at p<=0.05, 0 at FDR 0.05;
+    2-fold plant recall >=0.917, observed FDR <=0.083). **Compartments do not
+    meet the 0.8 recall gate at 2-fold** (0.771 unpaired, 0.719
+    replicate-blocked), even after the robust prior improved it from 0.765
+    and 0.655 with a plug-in prior. Not tuned to pass; recorded as an open
+    limitation below.
+  - The unpaired label-swap null is evaluated with genotype as block, since
+    it cannot meet the gate unpaired by construction (a real wt-vs-knockout
+    effect inflates its within-group variance).
+  - Also fixed: `equiv.py`'s reference cache key now includes the data root
+    for tool outputs that embed input paths (hicInfo, hicPlotSVL,
+    chicQualityControl, hicValidateLocations), which previously gave false
+    mismatches when the cache was built in a different checkout.
+- **Open branches:**
+  - `v4-stripes`: PLAN 9.3, new tool `hicDetectStripes` (in progress, one
+    implementing agent at a time per the project owner, 2026-09-16).
 
 **Harness: Python reference cache and parallel scheduling, merged in
 `04f948ce` (contract rule 13).**
