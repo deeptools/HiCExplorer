@@ -458,6 +458,7 @@ int main(int argc, char** argv) {
 
     for (const std::string& chromosome : chromosomes) {
         ChromosomeMatrix block;
+        std::vector<double> whole_chromosome_nonzero;  // for the maxpixel quantiles, see below
         try {
             if (is_cooler) {
                 const std::int64_t bin_size_hint =
@@ -465,6 +466,47 @@ int main(int argc, char** argv) {
                 const std::int64_t background_margin = 50000 / bin_size_hint + 1;
                 const std::int64_t max_distance_bins = kBackgroundBins + background_margin + 10;
                 block = load_cool_chromosome(*cool, cool_bins, chromosome, max_distance_bins);
+
+                // stripenn.getStripe.getQuantile_original computes its
+                // percentiles from cooler.Cooler(...).fetch(CHROM) -- the
+                // whole chromosome, not the near-diagonal band this tool
+                // otherwise works with. Measured directly on real GM12878
+                // chr21: the band-limited 95th/99th percentiles this port
+                // used before were 54/201, against the whole chromosome's
+                // real 20/99 -- roughly 2 to 2.7x too high across every
+                // percentile, because the band excludes the much lower
+                // far-off-diagonal contacts that pull Stripenn's own
+                // percentile down. A higher M compresses the (M - D) / M
+                // intensity image (PLAN.md 9.3's per-candidate
+                // stripe_search_frame doc), which weakens every edge Canny
+                // finds; this is what was behind this port finding far
+                // fewer raw candidates than Stripenn on the same real,
+                // unplanted genome (reported to the orchestrating session).
+                // A second, unrestricted read of the same chromosome's
+                // pixels, values only (no matrix built), gets the same
+                // population Stripenn's fetch() does without materialising
+                // a dense whole-chromosome block the way Stripenn itself
+                // does.
+                std::int64_t first = -1;
+                std::int64_t last = 0;
+                for (std::size_t bin = 0; bin < cool_bins.size(); ++bin) {
+                    if (cool_bins[bin].chrom != chromosome) {
+                        continue;
+                    }
+                    if (first < 0) {
+                        first = static_cast<std::int64_t>(bin);
+                    }
+                    last = static_cast<std::int64_t>(bin) + 1;
+                }
+                if (first >= 0) {
+                    cool->for_each_pixel_chunk(first, last, first, last, [&](const hicx::PixelChunk& chunk) {
+                        for (std::size_t k = 0; k < chunk.bin1.size(); ++k) {
+                            if (chunk.count[k] != 0.0) {
+                                whole_chromosome_nonzero.push_back(chunk.count[k]);
+                            }
+                        }
+                    });
+                }
             } else {
                 std::vector<std::int64_t> selection;
                 for (std::size_t bin = 0; bin < whole.cut_intervals.size(); ++bin) {
@@ -481,6 +523,16 @@ int main(int argc, char** argv) {
                     block.cut_intervals.push_back(whole.cut_intervals[static_cast<std::size_t>(bin)]);
                 }
                 block.bin_size = hicx::BinTable(block.cut_intervals).bin_size();
+                // The whole-chromosome matrix is already fully materialised
+                // here (h5 has no per-chromosome band reader), so the
+                // maxpixel population is just its own nonzero values, before
+                // the distance band restricts it below.
+                whole_chromosome_nonzero.reserve(block.matrix.data().size());
+                for (const double v : block.matrix.data()) {
+                    if (v != 0.0) {
+                        whole_chromosome_nonzero.push_back(v);
+                    }
+                }
             }
         } catch (const std::exception& error) {
             std::fprintf(stderr, "ERROR:hicexplorer.hicDetectStripes:%s\n", error.what());
@@ -502,20 +554,16 @@ int main(int argc, char** argv) {
         }
         const AnchorDistanceBand band = build_anchor_distance_band(upper, n_bins, max_distance_bins);
 
-        // The maxpixel quantiles, over the band's nonzero raw counts (a
-        // documented simplification of getQuantile_original, which uses the
-        // whole chromosome's nonzero counts; see stripes_impl.hpp).
-        std::vector<double> nonzero;
-        nonzero.reserve(band.raw.size());
-        for (const double v : band.raw) {
-            if (v > 0.0) {
-                nonzero.push_back(v);
-            }
-        }
+        // The maxpixel quantiles: stripenn.getStripe.getQuantile_original's
+        // own population (whole_chromosome_nonzero, collected above), not
+        // the near-diagonal band. quantile() sorts a copy each call, so this
+        // reuses the same vector across percentiles.
         std::vector<double> maxpixel_values;
         for (const double p : args.maxpixel_percentiles) {
-            maxpixel_values.push_back(hicx::stripes::quantile(nonzero, p));
+            maxpixel_values.push_back(hicx::stripes::quantile(whole_chromosome_nonzero, p));
         }
+        whole_chromosome_nonzero.clear();
+        whole_chromosome_nonzero.shrink_to_fit();
 
         // The frame scan: 200-bin steps, +-100-bin overlap (stripenn.getStripe.extract).
         const std::int64_t nframes = (n_bins + 199) / 200;
@@ -546,16 +594,65 @@ int main(int argc, char** argv) {
                     submat.at(j, i) = v;
                 }
             }
+
+            // stripenn.getStripe.extract's search_frame removes rows and
+            // columns that are entirely zero before calling StripeSearch
+            // ("Remove rows and columns containing only zero"), so the image
+            // Canny actually sees is denser and the block_scan gap tolerance
+            // (5 rows) applies to real, contact-bearing rows only, not to
+            // rows a low-mappability gap happens to separate them by. An
+            // earlier version of this port skipped this and ran on the full,
+            // gap-included frame; on real data the difference is large (this
+            // port found 253 raw calls against Stripenn's own 2021 on the
+            // same unplanted GM12878 autosomes before this fix, reported to
+            // the orchestrating session, which is what prompted re-checking
+            // this against the source rather than assuming the earlier
+            // "documented simplification" note was harmless).
+            std::vector<int> nonzero_idx;
+            nonzero_idx.reserve(static_cast<std::size_t>(S));
+            for (int c = 0; c < S; ++c) {
+                double col_sum = 0.0;
+                for (int r = 0; r < S; ++r) {
+                    col_sum += submat.at(r, c);
+                }
+                if (col_sum != 0.0) {
+                    nonzero_idx.push_back(c);
+                }
+            }
             std::vector<hicx::stripes::Candidate> frame_candidates;
+            if (nonzero_idx.size() <= 10) {
+                per_frame[frame_index] = std::move(frame_candidates);
+                return;
+            }
+            const int Sc = static_cast<int>(nonzero_idx.size());
+            hicx::stripes::Image compact(Sc, Sc, 0.0);
+            for (int i = 0; i < Sc; ++i) {
+                for (int j = 0; j < Sc; ++j) {
+                    compact.at(i, j) = submat.at(nonzero_idx[static_cast<std::size_t>(i)],
+                                                 nonzero_idx[static_cast<std::size_t>(j)]);
+                }
+            }
+
             for (const double M : maxpixel_values) {
                 const std::vector<hicx::stripes::FrameCandidate> found = hicx::stripes::stripe_search_frame(
-                    submat, M, args.canny_sigma, static_cast<int>(min_length_bins),
+                    compact, M, args.canny_sigma, static_cast<int>(min_length_bins),
                     static_cast<int>(args.max_width), static_cast<int>(args.blur_filter));
                 for (const hicx::stripes::FrameCandidate& fc : found) {
-                    const std::int64_t abs_x0 = start + fc.x;
-                    const std::int64_t abs_x1 = start + fc.x + fc.w - 1;
-                    const std::int64_t abs_y0 = start + fc.y;
-                    const std::int64_t abs_y1 = start + fc.y + fc.h - 1;
+                    // Compact indices map back to absolute bins through
+                    // nonzero_idx, exactly as stripenn.py's
+                    // start_array[nonzero_idx]/end_array[nonzero_idx] does:
+                    // the endpoints of the compact span, not a contiguous
+                    // absolute range (the compacted columns in between may
+                    // skip real gaps).
+                    if (fc.x + fc.w - 1 >= Sc || fc.y + fc.h - 1 >= Sc) {
+                        continue;
+                    }
+                    const std::int64_t abs_x0 = start + nonzero_idx[static_cast<std::size_t>(fc.x)];
+                    const std::int64_t abs_x1 =
+                        start + nonzero_idx[static_cast<std::size_t>(fc.x + fc.w - 1)];
+                    const std::int64_t abs_y0 = start + nonzero_idx[static_cast<std::size_t>(fc.y)];
+                    const std::int64_t abs_y1 =
+                        start + nonzero_idx[static_cast<std::size_t>(fc.y + fc.h - 1)];
                     if (abs_x1 >= n_bins || abs_y1 >= n_bins) {
                         continue;
                     }
@@ -567,13 +664,13 @@ int main(int argc, char** argv) {
                     candidate.pos4 = abs_y1;
                     candidate.frame_index = static_cast<int>(idx);
                     const auto box_mean = [&](int col0) {
-                        if (col0 < 0 || col0 + fc.w > S) {
+                        if (col0 < 0 || col0 + fc.w > Sc) {
                             return -1.0;  // out of frame: no usable shifted box
                         }
                         double sum = 0.0;
                         for (int r = fc.y; r < fc.y + fc.h; ++r) {
                             for (int c = col0; c < col0 + fc.w; ++c) {
-                                sum += submat.at(r, c);
+                                sum += compact.at(r, c);
                             }
                         }
                         return sum / static_cast<double>(fc.h) / static_cast<double>(fc.w);
