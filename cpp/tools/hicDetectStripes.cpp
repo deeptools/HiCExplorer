@@ -312,25 +312,37 @@ struct AnchorDistanceBand {
         return raw[static_cast<std::size_t>(anchor * max_distance + (distance - 1))];
     }
 
-    // The mean over a small (anchor, distance) window, matching the
-    // statistical power of Stripenn's own 2-D background windows
-    // (tableft_up/tabcenter_up/... average a background_size x
-    // background_size block, not a single pixel): averaging a single-pixel
-    // difference the way the first version of this background model did
-    // makes the null far noisier than Stripenn's own, which weakens every
-    // p-value. `half_window` = 2 gives a 5x5 window.
-    [[nodiscard]] double windowed_mean(std::int64_t anchor, std::int64_t distance,
-                                       std::int64_t half_window) const {
+    // A single matrix cell by absolute (row, column), symmetric: only the
+    // upper triangle (row < col) is actually stored, so a query with
+    // row > col reads the mirrored entry, and the diagonal (row == col,
+    // which this band never stores self-counts for) reads 0.
+    [[nodiscard]] double cell(std::int64_t row, std::int64_t col) const {
+        if (row == col) {
+            return 0.0;
+        }
+        return row < col ? at(row, col - row) : at(col, row - col);
+    }
+
+    // The mean over a genuine rectangular row x column block, [r0, r1) x
+    // [c0, c1), out-of-range rows/columns contributing 0 (matching Stripenn
+    // treating anything past the chromosome's own bins, via nantozero, as
+    // zero rather than skipping it, since hicDetectStripes.cpp's own
+    // stripenn.getStripe.nulldist port below clamps its own row and column
+    // ranges to stay in bounds in the same places nulldist does). This is
+    // stripenn.getStripe.nulldist's own tableft_up/tabcenter_up/tabright_up
+    // (and pvalue's mat_center/mat_left/mat_right): a real 2-D area, not a
+    // window in (anchor, distance) space, which an earlier version of this
+    // background model used and which does not correspond to any rectangle
+    // Stripenn actually averages over.
+    [[nodiscard]] double block_mean(std::int64_t r0, std::int64_t r1, std::int64_t c0,
+                                    std::int64_t c1) const {
         double sum = 0.0;
         std::int64_t count = 0;
-        for (std::int64_t da = -half_window; da <= half_window; ++da) {
-            for (std::int64_t dd = -half_window; dd <= half_window; ++dd) {
-                const std::int64_t a = anchor + da;
-                const std::int64_t d = distance + dd;
-                if (a < 0 || a >= n_bins || d < 1 || d > max_distance) {
-                    continue;
+        for (std::int64_t r = r0; r < r1; ++r) {
+            for (std::int64_t c = c0; c < c1; ++c) {
+                if (r >= 0 && r < n_bins && c >= 0 && c < n_bins) {
+                    sum += cell(r, c);
                 }
-                sum += raw[static_cast<std::size_t>(a * max_distance + (d - 1))];
                 ++count;
             }
         }
@@ -557,52 +569,95 @@ int main(int argc, char** argv) {
         }
         chrom_candidates = hicx::stripes::remove_redundant(std::move(chrom_candidates), false, workers);
 
-        // Background model: uniformly sampled (anchor, distance) draws on
-        // this chromosome's band (see stripes_impl.hpp for how this differs
-        // from Stripenn's own nulldist()).
+        // Background model: two direction-specific tables, matching
+        // stripenn.getStripe.nulldist's own bgleft_down/bgright_down (x1==y1,
+        // "horizontal" here) and bgleft_up/bgright_up (x2==y2, "vertical"),
+        // each built from genuine background_size x background_size
+        // rectangular windows -- nulldist's own tableft_up/tabcenter_up/
+        // tabright_up shape exactly, read from stripenn/getStripe.py again
+        // to get this right, not from memory of the earlier read. What
+        // still differs from nulldist(): the anchors sampled here are drawn
+        // uniformly from this one chromosome, not from nulldist's
+        // genome-wide sample stratified by chromosome size and by each
+        // chromosome's own non-empty-column density (still the simplified,
+        // documented part of this port -- see stripes_impl.hpp).
         const std::int64_t background_size = std::max<std::int64_t>(1, 50000 / bin_size);
-        hicx::stripes::BackgroundModel model;
-        model.left.assign(kBackgroundBins, {});
-        model.right.assign(kBackgroundBins, {});
-        std::uniform_int_distribution<std::int64_t> anchor_dist(background_size,
-                                                                 std::max<std::int64_t>(background_size, n_bins - background_size - 1));
-        std::uniform_int_distribution<std::int64_t> distance_dist(1, std::min<std::int64_t>(kBackgroundBins, max_distance_bins - background_size));
-        constexpr std::int64_t kHalfWindow = 2;  // 5x5, matching Stripenn's own window
-        for (std::int64_t sample = 0; sample < args.background_samples && n_bins > 2 * background_size; ++sample) {
-            const std::int64_t anchor = anchor_dist(rng);
-            const std::int64_t distance = distance_dist(rng);
-            const double center = band.windowed_mean(anchor, distance, kHalfWindow);
-            const double left = band.windowed_mean(anchor - background_size, distance, kHalfWindow);
-            const double right = band.windowed_mean(anchor + background_size, distance, kHalfWindow);
-            const std::size_t d = static_cast<std::size_t>(distance - 1);
-            if (d < model.left.size()) {
-                model.left[d].push_back(center - left);
-                model.right[d].push_back(center - right);
+        const std::int64_t background_up = background_size / 2;
+        const std::int64_t background_down = background_size - background_up;
+        hicx::stripes::BackgroundModel model_down;  // x1==y1, "horizontal"
+        hicx::stripes::BackgroundModel model_up;    // x2==y2, "vertical"
+        model_down.left.assign(kBackgroundBins, {});
+        model_down.right.assign(kBackgroundBins, {});
+        model_up.left.assign(kBackgroundBins, {});
+        model_up.right.assign(kBackgroundBins, {});
+        const std::int64_t margin = background_up + background_size + kBackgroundBins;
+        std::uniform_int_distribution<std::int64_t> anchor_dist(
+            margin, std::max<std::int64_t>(margin, n_bins - margin - 1));
+        std::uniform_int_distribution<std::int64_t> distance_dist(1, kBackgroundBins);
+        if (n_bins > 2 * margin) {
+            for (std::int64_t sample = 0; sample < args.background_samples; ++sample) {
+                const std::int64_t x = anchor_dist(rng);
+                const std::int64_t j = distance_dist(rng);
+                const std::size_t d = static_cast<std::size_t>(j - 1);
+                for (const bool down : {true, false}) {
+                    const std::int64_t y = down ? x + j : x - j;
+                    const double center = band.block_mean(x - background_up, x + background_down,
+                                                          y - background_up, y + background_down);
+                    const double left =
+                        band.block_mean(x - background_up - background_size, x - background_up,
+                                        y - background_up, y + background_down);
+                    const double right =
+                        band.block_mean(x + background_down, x + background_down + background_size,
+                                        y - background_up, y + background_down);
+                    hicx::stripes::BackgroundModel& target = down ? model_down : model_up;
+                    target.left[d].push_back(center - left);
+                    target.right[d].push_back(center - right);
+                }
             }
         }
 
-        // Genomic mapping and the p-value: the candidate's own box mean
-        // against its own shifted box means (computed at detection time,
-        // see the frame scan above), ranked against the background model.
+        // Genomic mapping and the p-value: stripenn.getStripe.pvalue's own
+        // per-row test (one center/left/right comparison per row of the
+        // candidate's long axis, ranked against the matching direction's
+        // background model at that row's own distance from the anchor end)
+        // and its median aggregation across rows, not a single whole-box
+        // comparison against a single distance bucket.
         for (hicx::stripes::Candidate& candidate : chrom_candidates) {
-            const std::int64_t distance_bin = std::max<std::int64_t>(1, candidate.pos3 - candidate.pos1);
-            const double left_diff = candidate.left_mean >= 0.0 ? candidate.mean - candidate.left_mean : 0.0;
-            const double right_diff = candidate.right_mean >= 0.0 ? candidate.mean - candidate.right_mean : 0.0;
-            candidate.pvalue = hicx::stripes::candidate_pvalue(
-                model, static_cast<int>(std::min<std::int64_t>(distance_bin, kBackgroundBins) - 1), left_diff,
-                right_diff);
+            const std::int64_t x0 = candidate.pos1;
+            const std::int64_t x1 = candidate.pos2;
+            const std::int64_t y0 = candidate.pos3;
+            const std::int64_t y1 = candidate.pos4;
+            const std::int64_t d_start = std::llabs(x0 - y0);
+            const std::int64_t d_end = std::llabs(x1 - y1);
+            const bool vertical = d_end < d_start;
+            const hicx::stripes::BackgroundModel& model = vertical ? model_up : model_down;
+            std::vector<double> row_pvalues;
+            row_pvalues.reserve(static_cast<std::size_t>(y1 - y0 + 1));
+            for (std::int64_t row = y0; row <= y1; ++row) {
+                const double center = band.block_mean(row, row + 1, x0, x1 + 1);
+                const double left = band.block_mean(row, row + 1, x0 - background_size, x0);
+                const double right = band.block_mean(row, row + 1, x1 + 1, x1 + 1 + background_size);
+                const std::int64_t distance_from_anchor = vertical ? (y1 - row) : (row - y0);
+                const int clamped = static_cast<int>(
+                    std::clamp<std::int64_t>(distance_from_anchor, 0, kBackgroundBins - 1));
+                row_pvalues.push_back(
+                    hicx::stripes::candidate_pvalue(model, clamped, center - left, center - right));
+            }
+            std::sort(row_pvalues.begin(), row_pvalues.end());
+            candidate.pvalue = row_pvalues.empty() ? 1.0 : row_pvalues[row_pvalues.size() / 2];
 
-            const hicx::CutInterval& x0 = block.cut_intervals[static_cast<std::size_t>(candidate.pos1)];
-            const hicx::CutInterval& x1 = block.cut_intervals[static_cast<std::size_t>(candidate.pos2)];
-            const hicx::CutInterval& y0 = block.cut_intervals[static_cast<std::size_t>(candidate.pos3)];
-            const hicx::CutInterval& y1 = block.cut_intervals[static_cast<std::size_t>(candidate.pos4)];
+            const std::int64_t distance_bin = std::max<std::int64_t>(1, y0 - x0);
+            const hicx::CutInterval& xc0 = block.cut_intervals[static_cast<std::size_t>(x0)];
+            const hicx::CutInterval& xc1 = block.cut_intervals[static_cast<std::size_t>(x1)];
+            const hicx::CutInterval& yc0 = block.cut_intervals[static_cast<std::size_t>(y0)];
+            const hicx::CutInterval& yc1 = block.cut_intervals[static_cast<std::size_t>(y1)];
             const double expected = band.expected[static_cast<std::size_t>(
                 std::clamp<std::int64_t>(distance_bin, 1, max_distance_bins) - 1)];
             candidate.mean = expected > 0.0 ? candidate.mean / expected : 0.0;  // now holds enrichment
-            candidate.pos1 = x0.start;
-            candidate.pos2 = x1.end;
-            candidate.pos3 = y0.start;
-            candidate.pos4 = y1.end;
+            candidate.pos1 = xc0.start;
+            candidate.pos2 = xc1.end;
+            candidate.pos3 = yc0.start;
+            candidate.pos4 = yc1.end;
         }
         chrom_candidates.erase(std::remove_if(chrom_candidates.begin(), chrom_candidates.end(),
                                               [&](const hicx::stripes::Candidate& c) {
