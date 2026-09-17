@@ -33,9 +33,10 @@ import argparse
 import json
 import os
 import random
-import resource
+import re
 import subprocess
 import sys
+import tempfile
 import time
 
 import cooler
@@ -80,16 +81,46 @@ def log(message):
     print(f"[stripe_calibration] {message}", file=sys.stderr, flush=True)
 
 
-def measured_run(cmd, out_path=None):
-    """Runs cmd, returns (returncode, wall_seconds, cpu_seconds, peak_rss_kb)."""
-    before = resource.getrusage(resource.RUSAGE_CHILDREN)
+def measured_run(cmd, out_path=None, stdin_text="y\n"):
+    """Runs cmd under /usr/bin/time -v, returns (returncode, wall_seconds,
+    cpu_seconds, peak_rss_kb, stderr).
+
+    Not resource.getrusage(RUSAGE_CHILDREN): its ru_maxrss is a high-water
+    mark for the whole calling process's lifetime, not resettable between
+    calls, so a "before/after" delta around one subprocess call is only
+    correct for the first such call ever made -- every later call silently
+    returns the earlier call's peak once it is not exceeded again. Measured
+    here: two unrelated subprocesses (an EX call and, minutes later,
+    Stripenn) reported the identical peak_rss_kb, which is what exposed it.
+    /usr/bin/time -v isolates exactly the one child process.
+
+    `stdin_text` answers a yes/no prompt some external tools print (Stripenn
+    asks to overwrite an existing output directory); it is otherwise unread
+    and harmless."""
+    with tempfile.NamedTemporaryFile(mode="r", prefix="stripe_calib_time_",
+                                     suffix=".log", delete=False) as handle:
+        time_log = handle.name
     start = time.time()
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    result = subprocess.run(["/usr/bin/time", "-v", "-o", time_log] + list(cmd),
+                            capture_output=True, text=True, input=stdin_text)
     wall = time.time() - start
-    after = resource.getrusage(resource.RUSAGE_CHILDREN)
-    cpu = (after.ru_utime - before.ru_utime) + (after.ru_stime - before.ru_stime)
-    peak_rss_kb = after.ru_maxrss - before.ru_maxrss if after.ru_maxrss > before.ru_maxrss \
-        else after.ru_maxrss
+    cpu = 0.0
+    peak_rss_kb = 0
+    try:
+        with open(time_log) as handle:
+            time_text = handle.read()
+        user = re.search(r"User time \(seconds\): ([\d.]+)", time_text)
+        sys_ = re.search(r"System time \(seconds\): ([\d.]+)", time_text)
+        rss = re.search(r"Maximum resident set size \(kbytes\): (\d+)", time_text)
+        cpu = (float(user.group(1)) if user else 0.0) + (float(sys_.group(1)) if sys_ else 0.0)
+        peak_rss_kb = int(rss.group(1)) if rss else 0
+    except OSError:
+        pass
+    finally:
+        try:
+            os.remove(time_log)
+        except OSError:
+            pass
     if result.returncode != 0:
         log(f"command failed ({result.returncode}): {' '.join(cmd)}\n{result.stderr[-4000:]}")
     return result.returncode, wall, cpu, peak_rss_kb, result.stderr
@@ -535,30 +566,57 @@ def main():
         log("GSE234292 replicates not given, skipping reproducibility")
 
     # --- Stripenn agreement, memory and CPU (reported, no gate) ---
+    #
+    # Stripenn 1.1.65.22's `compute` writes result_filtered.tsv with columns
+    # chr, pos1, pos2, chr2, pos3, pos4, length, width, Mean, maxpixel,
+    # pvalue, Stripiness: a bounding box (pos1..pos2) x (pos3..pos4) on one
+    # chromosome (chr == chr2 always, intra-chromosomal), with no explicit
+    # orientation label. The narrower side of the box (closest to its `width`
+    # column) is the anchor axis and the wider side (closest to `length`) is
+    # the extent axis; whichever axis is the anchor decides horizontal
+    # (pos1/pos2 narrow) versus vertical (pos3/pos4 narrow). This mapping is
+    # a documented heuristic, not part of Stripenn's own interface.
     if args.stripenn_python:
-        log("running Stripenn on the planted matrix's chromosomes")
-        stripenn_out = os.path.join(args.out, "stripenn")
+        log("running Stripenn on the unplanted matrix's chromosomes")
+        stripenn_out = os.path.join(args.out, "stripenn") + os.sep
+        # Stripenn prompts to overwrite an existing output directory; start
+        # clean so there is nothing to confirm (measured_run also answers
+        # "y" defensively).
+        if os.path.isdir(stripenn_out):
+            import shutil as _shutil
+            _shutil.rmtree(stripenn_out)
         os.makedirs(stripenn_out, exist_ok=True)
-        cmd = [args.stripenn_python, "-m", "stripenn", "compute", "--cool", unplanted_uri,
-              "--out", stripenn_out, "--chrom",
-              ",".join(("chr" + c if not c.startswith("chr") else c) for c in args.chromosomes)]
+        cmd = [os.path.join(os.path.dirname(args.stripenn_python), "stripenn"), "compute",
+              "--cool", unplanted_uri, "--out", stripenn_out,
+              "--chrom", ",".join(args.chromosomes), "--numcores", str(args.threads)]
         code, wall, cpu, peak_rss_kb, stderr = measured_run(cmd)
         report["stripenn"] = {"returncode": code, "wall_seconds": wall, "cpu_seconds": cpu,
-                              "peak_rss_kb": peak_rss_kb, "stderr_tail": stderr[-2000:]}
+                              "peak_rss_kb": peak_rss_kb, "stderr_tail": stderr[-2000:],
+                              "command": cmd}
         result_path = os.path.join(stripenn_out, "result_filtered.tsv")
         if code == 0 and os.path.exists(result_path):
             stripenn_table = pd.read_csv(result_path, sep="\t")
             stripenn_calls = []
             for _, row in stripenn_table.iterrows():
-                vertical = row.get("pos1", 0) != row.get("pos2", 0) and \
-                    row.get("chr2", row.get("chr", "")) is not None
+                width_12 = abs(int(row["pos2"]) - int(row["pos1"]))
+                width_34 = abs(int(row["pos4"]) - int(row["pos3"]))
+                if width_12 <= width_34:
+                    vertical = False
+                    anchor_start = int(row["pos1"])
+                else:
+                    vertical = True
+                    anchor_start = int(row["pos3"])
                 stripenn_calls.append({
-                    "chrom": str(row.get("chr", row.get("chr1", ""))).replace("chr", ""),
-                    "anchor_start": int(row.get("pos1", 0)), "orientation": "horizontal",
+                    "chrom": str(row["chr"]), "anchor_start": anchor_start,
+                    "orientation": "vertical" if vertical else "horizontal",
                 })
             report["stripenn"]["n_calls"] = len(stripenn_calls)
             report["stripenn"]["jaccard_vs_hicDetectStripes"] = jaccard(
-                planted_run["calls"], stripenn_calls, bin_size)
+                unplanted_run["calls"], stripenn_calls, bin_size)
+            log(f"Stripenn: {len(stripenn_calls)} calls, {wall:.1f}s wall, "
+                f"{peak_rss_kb / 1024:.0f} MB, Jaccard vs hicDetectStripes "
+                f"(both on the unplanted matrix) "
+                f"{report['stripenn']['jaccard_vs_hicDetectStripes']:.3f}")
         else:
             report["stripenn"]["n_calls"] = None
             report["stripenn"]["jaccard_vs_hicDetectStripes"] = None
