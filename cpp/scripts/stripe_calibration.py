@@ -64,7 +64,9 @@ TOOL_ARGS = [
     "--blurFilter", "3",
     "--backgroundSamples", "200000",
     "--pValue", "0.1",
-    "--fdr", "0.05",
+    # No --fdr: the tool's own default is a raw p-value cutoff with no
+    # multiple-testing correction, matching Stripenn's own practice
+    # (project owner decision 2026-09-18, cpp/PLAN.md 9.3).
 ]
 
 # The background window used to plant stripes, matching the tool's own
