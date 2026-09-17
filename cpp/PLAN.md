@@ -1632,6 +1632,30 @@ re-measured under this regime, since they were not yet measured without FDR
 in force. `--fdr` stays available as a C++-only option for a user who wants
 stricter control, defaulting to off (equivalent to Stripenn's own behaviour).
 
+**Revised 2026-09-17, second decision: try other published stripe-detection
+algorithms, not only Stripenn.** After the false-positive philosophy question
+was settled, the implementing agent closed the raw candidate-count gap
+against real Stripenn almost completely (474 vs 456 on the same chromosome),
+then ran real, unmodified Stripenn on the exact planted-stripe gate matrix
+and found that it too recovers only 4 of 60 plants (6.7 %), with the port
+recovering 6 of 60. That is evidence Stripenn's specific method, an
+image-based Canny edge detector on a percentile-saturated rendering of the
+matrix, does not reliably recover this plant design, not evidence that no
+method can. The project owner's direction: this is not a reason to stop or
+to accept Stripenn's ceiling as the project's ceiling. **Evaluate other
+published stripe-calling algorithms with a different underlying paradigm
+against the same real GM12878 data and the same fixed plants** (for example
+a statistical/HMM approach, a multi-scale wavelet or ridge-detection method,
+or another tool's own published method, whichever real, obtainable
+implementations exist), not only variations on Stripenn's own edge-detection
+idea. `hicDetectStripes` gains a method the same way hicDifferentialTAD
+gained an option, or, if the methods differ enough to need different
+inputs or outputs, a comparison is run and reported per candidate method
+before committing to one as the port's default. The original recall/precision
+gate (0.8 and 0.9 on 2-fold, >=1 Mb plants) stays the bar; it is judged
+against whichever real method the port ends up implementing, not relaxed to
+match Stripenn's own ceiling.
+
 **9.4 SCALE normalisation in hicCorrectMatrix.** *Validation:* **ED** against the
 SCALE vector Juicer tools `addNorm` computes on the same matrix.
 
