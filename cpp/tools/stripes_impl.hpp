@@ -12,25 +12,33 @@
 // the report to the orchestrating session for the numbers that motivated
 // this). What follows is a line-by-line port of stripenn/getStripe.py's
 // detection pipeline (StripeSearch, verticalLine, block, RemoveRedundant),
-// with two classes of deliberate, documented simplification where an exact
-// port would need weeks rather than hours:
+// with one remaining class of deliberate, documented simplification:
 //
-//  1. **Edge detection engine.** Stripenn calls skimage.feature.canny with a
-//     sigma and no explicit hysteresis thresholds, so skimage's own default
-//     threshold selection applies, which is not simple to reproduce without
-//     importing skimage. This port implements a standard Canny pipeline
-//     (Gaussian smoothing at the given sigma, Sobel gradients, non-maximum
-//     suppression, multi-hop hysteresis) and chooses its thresholds with the
-//     classic percentile heuristic (strong = 80th percentile of the nonzero
-//     gradient magnitude, weak = 0.4 times that), not skimage's own default.
-//     A median-based heuristic (Stripenn's own ImageProcessing.auto_canny,
-//     which the codebase carries but does not actually call) was tried
-//     first and rejected: on a sharp, near-uniform step edge, 1.5 times the
-//     median exceeds every pixel's own magnitude, so no pixel ever reaches
-//     the strong threshold and nothing is detected (caught by this port's
-//     own unit test). Everything downstream of the edge image
-//     (verticalLine, block, the column-pairing that turns edges into stripe
-//     boxes) is ported faithfully.
+//  1. **Edge detection engine: now faithful, not approximated.** Stripenn
+//     calls skimage.feature.canny(gray, sigma=self.canny) with no other
+//     arguments (verified by reading stripenn/getStripe.py's call site
+//     directly). canny() is ported here from the real, installed
+//     scikit-image 0.26.0 source (skimage/feature/_canny.py and the Cython
+//     _nonmaximum_suppression_bilinear in _canny_cy.pyx, both read in full,
+//     not from memory): Gaussian smoothing with zero border, unnormalised
+//     Sobel gradients with reflected border and the exact sign convention
+//     scipy.ndimage.sobel uses (verified empirically against scipy, not
+//     assumed), bilinear non-maximum suppression along the true gradient
+//     direction (not quantised to 45 degrees), and hysteresis at the fixed
+//     absolute thresholds low=0.1, high=0.2 of a [0, 1]-scaled image --
+//     skimage's own defaults, used as plain magnitude thresholds because
+//     Stripenn never sets use_quantiles. An earlier version of this port
+//     used a percentile heuristic on the gradient magnitude instead,
+//     invented because skimage's real algorithm looked hard to reproduce
+//     without importing it. That was wrong to guess at rather than check:
+//     the real algorithm's fixed thresholds admit far more of a noisy real
+//     image's genuine local gradient than a percentile cutoff does, which is
+//     why the percentile version never spanned a candidate's full planted
+//     length on real GM12878 data even though it passed a clean synthetic
+//     step-edge unit test (project owner direction 2026-09-17). See
+//     stripes_impl.cpp's canny() for the full trace. Everything downstream
+//     of the edge image (verticalLine, block, the column-pairing that turns
+//     edges into stripe boxes) is ported faithfully, unchanged by this fix.
 //  2. **Background/null model for the p-value.** Stripenn's nulldist()
 //     builds an empirical null by a specific stratified, weighted random
 //     sample across every chromosome (proportional to chromosome size and to

@@ -47,8 +47,26 @@ Image box_blur(const Image& img, int k) {
 
 namespace {
 
-Image gaussian_blur(const Image& img, double sigma) {
-    const int radius = std::max(1, static_cast<int>(std::lround(3.0 * sigma)));
+// scipy.ndimage's border modes, both needed exactly: the Gaussian smoothing
+// in skimage.feature._canny._preprocess uses mode='constant', cval=0 (the
+// canny() function's own defaults, and Stripenn never overrides them); the
+// Sobel step (scipy.ndimage.sobel) defaults to mode='reflect', which is
+// "edge value duplicated" (d c b a | a b c d | d c b a), not scipy's
+// 'mirror' (which does not duplicate it) and not plain replication.
+[[nodiscard]] inline int reflect_index(int i, int n) {
+    if (i < 0) {
+        return -i - 1;
+    }
+    if (i >= n) {
+        return 2 * n - 1 - i;
+    }
+    return i;
+}
+
+// scipy.ndimage.gaussian_filter's default truncate is 4.0, so the kernel
+// radius is int(4 * sigma + 0.5); skimage.feature.canny does not change it.
+Image gaussian_blur_constant(const Image& img, double sigma) {
+    const int radius = std::max(1, static_cast<int>(4.0 * sigma + 0.5));
     std::vector<double> kernel(static_cast<std::size_t>(2 * radius + 1));
     double sum = 0.0;
     for (int i = -radius; i <= radius; ++i) {
@@ -59,14 +77,16 @@ Image gaussian_blur(const Image& img, double sigma) {
     for (double& v : kernel) {
         v /= sum;
     }
-    // Separable: horizontal pass then vertical pass, edge-replicated border.
+    // Separable, zero (mode='constant', cval=0) border, matching
+    // skimage.feature._canny._preprocess's gaussian_kwargs exactly.
     Image temp(img.rows, img.cols);
     for (int r = 0; r < img.rows; ++r) {
         for (int c = 0; c < img.cols; ++c) {
             double acc = 0.0;
             for (int i = -radius; i <= radius; ++i) {
-                const int cc = std::clamp(c + i, 0, img.cols - 1);
-                acc += img.at(r, cc) * kernel[static_cast<std::size_t>(i + radius)];
+                const int cc = c + i;
+                const double v = (cc >= 0 && cc < img.cols) ? img.at(r, cc) : 0.0;
+                acc += v * kernel[static_cast<std::size_t>(i + radius)];
             }
             temp.at(r, c) = acc;
         }
@@ -76,8 +96,9 @@ Image gaussian_blur(const Image& img, double sigma) {
         for (int c = 0; c < img.cols; ++c) {
             double acc = 0.0;
             for (int i = -radius; i <= radius; ++i) {
-                const int rr = std::clamp(r + i, 0, img.rows - 1);
-                acc += temp.at(rr, c) * kernel[static_cast<std::size_t>(i + radius)];
+                const int rr = r + i;
+                const double v = (rr >= 0 && rr < img.rows) ? temp.at(rr, c) : 0.0;
+                acc += v * kernel[static_cast<std::size_t>(i + radius)];
             }
             out.at(r, c) = acc;
         }
@@ -85,129 +106,219 @@ Image gaussian_blur(const Image& img, double sigma) {
     return out;
 }
 
-void sobel(const Image& img, Image& gx, Image& gy) {
-    gx = Image(img.rows, img.cols);
-    gy = Image(img.rows, img.cols);
-    static constexpr int kSx[3][3] = {{-1, 0, 1}, {-2, 0, 2}, {-1, 0, 1}};
-    static constexpr int kSy[3][3] = {{1, 2, 1}, {0, 0, 0}, {-1, -2, -1}};
-    for (int r = 0; r < img.rows; ++r) {
-        for (int c = 0; c < img.cols; ++c) {
-            double sx = 0.0;
-            double sy = 0.0;
-            for (int dr = -1; dr <= 1; ++dr) {
-                for (int dc = -1; dc <= 1; ++dc) {
-                    const int rr = std::clamp(r + dr, 0, img.rows - 1);
-                    const int cc = std::clamp(c + dc, 0, img.cols - 1);
-                    const double v = img.at(rr, cc);
-                    sx += v * kSx[dr + 1][dc + 1];
-                    sy += v * kSy[dr + 1][dc + 1];
-                }
-            }
-            gx.at(r, c) = sx;
-            gy.at(r, c) = sy;
+// scipy.ndimage.sobel(image, axis=0) and axis=1, reflect border, verified
+// against scipy directly: axis=0 ("isobel") is positive when the row above
+// is brighter (kernel [[1,2,1],[0,0,0],[-1,-2,-1]] centred on the pixel,
+// correlation not convolution); axis=1 ("jsobel") is positive when the
+// column to the left is brighter (kernel [[1,0,-1],[2,0,-2],[1,0,-1]]). The
+// bilinear non-maximum suppression below is sign-sensitive, so getting
+// these two kernels' signs right (not just their shape) is part of being
+// faithful, not a detail: an initial version used the shape of Stripenn's
+// own (unrelated) verticalLine kernel for jsobel, which has the opposite
+// sign convention from scipy.ndimage.sobel and silently breaks the
+// direction logic below.
+// scipy.ndimage.sobel is itself separable (correlate1d with a [1, 0, -1]
+// derivative kernel along the requested axis, then correlate1d with a
+// [1, 2, 1] smoothing kernel along every other axis), and is applied here
+// the same way rather than as one fused 3x3 kernel. This is not merely a
+// style choice: a fused 2-D kernel accumulates its nine products in a
+// different order, and for a row-invariant image (a vertical edge far from
+// any row boundary) the true axis-0 gradient is exactly zero by symmetry.
+// The fused version left a tiny floating-point residual around zero instead
+// of an exact one, which the sign-sensitive is_up/is_down test below
+// amplified into a real, wrong-looking asymmetry between the two columns of
+// a straight, symmetric edge in a bigger synthetic test (caught while
+// checking this port against skimage.feature.canny directly). The
+// separable form matches scipy's actual computation and does not have that
+// residual.
+void sobel_reflect(const Image& img, Image& isobel, Image& jsobel) {
+    const int rows = img.rows;
+    const int cols = img.cols;
+
+    // Derivative along rows (axis 0), then smoothing along columns.
+    Image deriv_rows(rows, cols);
+    for (int r = 0; r < rows; ++r) {
+        for (int c = 0; c < cols; ++c) {
+            const int rm = reflect_index(r - 1, rows);
+            const int rp = reflect_index(r + 1, rows);
+            deriv_rows.at(r, c) = img.at(rm, c) - img.at(rp, c);
+        }
+    }
+    isobel = Image(rows, cols);
+    for (int r = 0; r < rows; ++r) {
+        for (int c = 0; c < cols; ++c) {
+            const int cm = reflect_index(c - 1, cols);
+            const int cp = reflect_index(c + 1, cols);
+            isobel.at(r, c) =
+                deriv_rows.at(r, cm) + 2.0 * deriv_rows.at(r, c) + deriv_rows.at(r, cp);
+        }
+    }
+
+    // Derivative along columns (axis 1), then smoothing along rows.
+    Image deriv_cols(rows, cols);
+    for (int r = 0; r < rows; ++r) {
+        for (int c = 0; c < cols; ++c) {
+            const int cm = reflect_index(c - 1, cols);
+            const int cp = reflect_index(c + 1, cols);
+            deriv_cols.at(r, c) = img.at(r, cm) - img.at(r, cp);
+        }
+    }
+    jsobel = Image(rows, cols);
+    for (int r = 0; r < rows; ++r) {
+        for (int c = 0; c < cols; ++c) {
+            const int rm = reflect_index(r - 1, rows);
+            const int rp = reflect_index(r + 1, rows);
+            jsobel.at(r, c) =
+                deriv_cols.at(rm, c) + 2.0 * deriv_cols.at(r, c) + deriv_cols.at(rp, c);
         }
     }
 }
 
 }  // namespace
 
+// A faithful port of skimage.feature.canny (0.26.0) as Stripenn's own call
+// site uses it (stripenn/getStripe.py:917, `feature.canny(gray, sigma=self.canny)`,
+// no low_threshold/high_threshold/use_quantiles/mode/cval given, all left at
+// their defaults). Traced end to end from the installed package's real
+// source (skimage/feature/_canny.py and the Cython
+// _nonmaximum_suppression_bilinear in _canny_cy.pyx, both read in full for
+// this port): Gaussian smoothing at `sigma` with zero border, unnormalised
+// Sobel gradients with reflected border, bilinear-interpolated non-maximum
+// suppression along the true (not quantised-to-45-degree) gradient
+// direction, and hysteresis at the fixed absolute thresholds low=0.1,
+// high=0.2 of a [0, 1]-scaled image (skimage's `low_threshold`/
+// `high_threshold` defaults, used as plain magnitude thresholds because
+// `use_quantiles` defaults to False and Stripenn never sets it -- there is
+// no percentile-based threshold selection anywhere in the path Stripenn
+// actually exercises). Border pixels (a 1-pixel frame) are never edges,
+// matching skimage's eroded_mask.
+//
+// This replaces an earlier version of this port that used a percentile
+// heuristic on the gradient magnitude instead, invented because skimage's
+// own algorithm looked hard to reproduce without importing it; that
+// simplification is why architectural stripe candidates never spanned their
+// full planted length on real, noisy GM12878 data even though the earlier
+// heuristic passed a clean synthetic step-edge unit test (see
+// cpp/scripts/stripe_calibration.py and the report to the orchestrating
+// session for that diagnosis, project owner direction 2026-09-17).
 Image canny(const Image& gray01, double sigma) {
-    const Image smoothed = gaussian_blur(gray01, sigma);
-    Image gx;
-    Image gy;
-    sobel(smoothed, gx, gy);
-
     const int rows = gray01.rows;
     const int cols = gray01.cols;
-    Image mag(rows, cols);
-    Image dir(rows, cols);  // quantised to 0, 45, 90, 135 degrees
-    double max_mag = 0.0;
-    for (int r = 0; r < rows; ++r) {
-        for (int c = 0; c < cols; ++c) {
-            const double x = gx.at(r, c);
-            const double y = gy.at(r, c);
-            const double m = std::sqrt(x * x + y * y);
-            mag.at(r, c) = m;
-            max_mag = std::max(max_mag, m);
-            double angle = std::atan2(y, x) * 180.0 / kPi;
-            if (angle < 0) {
-                angle += 180.0;
-            }
-            double quantised = 0.0;
-            if ((angle >= 0 && angle < 22.5) || (angle >= 157.5 && angle <= 180.0)) {
-                quantised = 0.0;
-            } else if (angle >= 22.5 && angle < 67.5) {
-                quantised = 45.0;
-            } else if (angle >= 67.5 && angle < 112.5) {
-                quantised = 90.0;
-            } else {
-                quantised = 135.0;
-            }
-            dir.at(r, c) = quantised;
-        }
+    // skimage.feature._canny._preprocess's "bleed-over" correction: since
+    // mode='constant' (Stripenn never changes it), the zero-padded Gaussian
+    // would otherwise darken every pixel within about a kernel radius of
+    // the image border, even where the real data has no edge there at all
+    // (an all-bright region touching the border, for instance). skimage
+    // compensates by also smoothing an all-ones image with the same kernel
+    // and dividing it out, recovering the effect of smoothing only the real
+    // data. Missing this produced a spurious edge near the border on a
+    // uniform region in this port's own unit test, which is what caught it.
+    Image smoothed = gaussian_blur_constant(gray01, sigma);
+    const Image ones(gray01.rows, gray01.cols, 1.0);
+    const Image bleed_over = gaussian_blur_constant(ones, sigma);
+    constexpr double kFloat64Eps = 2.220446049250313e-16;
+    for (std::size_t i = 0; i < smoothed.v.size(); ++i) {
+        smoothed.v[i] /= (bleed_over.v[i] + kFloat64Eps);
     }
-    if (max_mag <= 0.0) {
-        return Image(rows, cols, 0.0);
+    Image isobel;
+    Image jsobel;
+    sobel_reflect(smoothed, isobel, jsobel);
+
+    Image magnitude(rows, cols);
+    for (std::size_t i = 0; i < magnitude.v.size(); ++i) {
+        const double x = isobel.v[i];
+        const double y = jsobel.v[i];
+        magnitude.v[i] = std::sqrt(x * x + y * y);
     }
 
-    // Non-maximum suppression along the gradient direction.
-    Image nms(rows, cols);
+    // dtype_max for a float image is 1.0 (skimage.util.dtype_limits), so
+    // the default low/high thresholds (10% / 20% of dtype_max) are these
+    // absolute values directly, applied to `magnitude` as computed (no
+    // normalisation): skimage only rescales when use_quantiles=True, which
+    // Stripenn's call never sets.
+    constexpr double kLowThreshold = 0.1;
+    constexpr double kHighThreshold = 0.2;
+
+    // The bilinear non-maximum suppression of
+    // skimage/feature/_canny_cy.pyx::_nonmaximum_suppression_bilinear,
+    // ported line for line (the eroded_mask there strips a 1-pixel border,
+    // reproduced here as the loop bounds; low_threshold's zero-guard does
+    // not apply since Stripenn's low threshold is 0.1, never 0).
+    Image nms(rows, cols, 0.0);
     for (int r = 1; r < rows - 1; ++r) {
         for (int c = 1; c < cols - 1; ++c) {
-            const double m = mag.at(r, c);
-            double n1 = 0.0;
-            double n2 = 0.0;
-            const double d = dir.at(r, c);
-            if (d == 0.0) {
-                n1 = mag.at(r, c - 1);
-                n2 = mag.at(r, c + 1);
-            } else if (d == 45.0) {
-                n1 = mag.at(r - 1, c + 1);
-                n2 = mag.at(r + 1, c - 1);
-            } else if (d == 90.0) {
-                n1 = mag.at(r - 1, c);
-                n2 = mag.at(r + 1, c);
-            } else {
-                n1 = mag.at(r - 1, c - 1);
-                n2 = mag.at(r + 1, c + 1);
+            const double m = magnitude.at(r, c);
+            if (m < kLowThreshold) {
+                continue;
             }
-            nms.at(r, c) = (m >= n1 && m >= n2) ? m : 0.0;
+            const double i_val = isobel.at(r, c);
+            const double j_val = jsobel.at(r, c);
+            const bool is_down = i_val <= 0.0;
+            const bool is_up = i_val >= 0.0;
+            const bool is_left = j_val <= 0.0;
+            const bool is_right = j_val >= 0.0;
+            const bool cond1 = (is_up && is_right) || (is_down && is_left);
+            const bool cond2 = (is_down && is_right) || (is_up && is_left);
+            if (!cond1 && !cond2) {
+                continue;
+            }
+            const double abs_i = std::fabs(i_val);
+            const double abs_j = std::fabs(j_val);
+            double w = 0.0;
+            double n1a = 0.0;
+            double n1b = 0.0;
+            double n2a = 0.0;
+            double n2b = 0.0;
+            if (cond1) {
+                if (abs_i > abs_j) {
+                    w = abs_j / abs_i;
+                    n1a = magnitude.at(r + 1, c);
+                    n1b = magnitude.at(r + 1, c + 1);
+                    n2a = magnitude.at(r - 1, c);
+                    n2b = magnitude.at(r - 1, c - 1);
+                } else {
+                    w = abs_i / abs_j;
+                    n1a = magnitude.at(r, c + 1);
+                    n1b = magnitude.at(r + 1, c + 1);
+                    n2a = magnitude.at(r, c - 1);
+                    n2b = magnitude.at(r - 1, c - 1);
+                }
+            } else {  // cond2
+                if (abs_i < abs_j) {
+                    w = abs_i / abs_j;
+                    n1a = magnitude.at(r, c + 1);
+                    n1b = magnitude.at(r - 1, c + 1);
+                    n2a = magnitude.at(r, c - 1);
+                    n2b = magnitude.at(r + 1, c - 1);
+                } else {
+                    w = abs_j / abs_i;
+                    n1a = magnitude.at(r - 1, c);
+                    n1b = magnitude.at(r - 1, c + 1);
+                    n2a = magnitude.at(r + 1, c);
+                    n2b = magnitude.at(r + 1, c - 1);
+                }
+            }
+            const bool c_plus = (n1b * w + n1a * (1.0 - w)) <= m;
+            if (!c_plus) {
+                continue;
+            }
+            const bool c_minus = (n2b * w + n2a * (1.0 - w)) <= m;
+            if (c_minus) {
+                nms.at(r, c) = m;
+            }
         }
     }
 
-    // Automatic hysteresis thresholds on the gradient magnitude (the file
-    // header explains why, and why not skimage's own default): the strong
-    // threshold is the 80th percentile of the nonzero, non-maximum-suppressed
-    // magnitude and the weak threshold half of that, the classic
-    // percentile-based automatic-Canny heuristic. A median-based heuristic
-    // (Stripenn's own auto_canny, applied to the image rather than the
-    // gradient) was tried first and rejected: on a single sharp step edge
-    // the surviving gradient magnitudes are all close to the same value, so
-    // 1.5 times their median exceeds every one of them and no pixel ever
-    // reaches the strong threshold.
-    std::vector<double> nonzero;
-    nonzero.reserve(static_cast<std::size_t>(rows) * static_cast<std::size_t>(cols));
-    for (const double v : nms.v) {
-        if (v > 0.0) {
-            nonzero.push_back(v);
-        }
-    }
-    if (nonzero.empty()) {
-        return Image(rows, cols, 0.0);
-    }
-    const double high = quantile(nonzero, 0.8);
-    const double low = std::max(0.0, 0.4 * high);
-
-    // Hysteresis: strong pixels seed a BFS through weak-but-connected ones,
-    // the real multi-hop hysteresis a Canny detector needs (the ImageProcessing.Canny
-    // helper the Python codebase carries but does not use only checks one
-    // hop, which is not what skimage.feature.canny -- the function actually
-    // called -- does).
+    // Hysteresis: an 8-connected component of the low mask (nms > 0) is
+    // promoted to edges iff it contains at least one pixel at or above the
+    // high threshold, matching skimage's connected-component labelling
+    // exactly (a BFS from every high pixel through connected low pixels is
+    // the same computation).
     Image edges(rows, cols, 0.0);
     std::vector<std::pair<int, int>> stack;
     for (int r = 0; r < rows; ++r) {
         for (int c = 0; c < cols; ++c) {
-            if (nms.at(r, c) >= high) {
+            if (nms.at(r, c) >= kHighThreshold) {
                 edges.at(r, c) = 1.0;
                 stack.emplace_back(r, c);
             }
@@ -229,7 +340,7 @@ Image canny(const Image& gray01, double sigma) {
                 if (edges.at(rr, cc) != 0.0) {
                     continue;
                 }
-                if (nms.at(rr, cc) >= low) {
+                if (nms.at(rr, cc) > 0.0) {
                     edges.at(rr, cc) = 1.0;
                     stack.emplace_back(rr, cc);
                 }
