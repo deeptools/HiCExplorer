@@ -291,9 +291,34 @@ def test_loading_a_bam_file_filters_to_bam_compatible_tools(tab):
     assert {e.name for e in tab.filtered_entries} == expected
 
 
-def test_loading_a_fastq_file_says_no_tool_reads_it_directly(tab, tmp_path):
+def test_loading_a_fastq_file_filters_to_hicalignreads(tab, tmp_path):
+    # PLAN tier 13: hicAlignReads wraps minibwa and declares fastq/fastq.gz
+    # as an input format in its own --help-json, so it is found the same
+    # way test_loading_a_cool_file_filters_to_matrix_compatible_tools finds
+    # hicInfo for cool -- no FASTQ-specific code path left to test here.
+    from hicexplorer_gui.catalog import entries_for_format
     fastq = tmp_path / "reads.fastq"
     fastq.write_text("@read1\nACGT\n+\nIIII\n")
+    entry = tab.load_data_file(str(fastq))
+    assert entry.format == "fastq"
+    expected = {e.name for e in entries_for_format(tab.entries, "fastq")}
+    assert expected  # the real spec data of the built tools gives a non-empty set
+    assert "hicAlignReads" in expected  # hicAlignReads --help-json declares inFile: input, [fastq, fastq.gz]
+    assert {e.name for e in tab.filtered_entries} == expected
+    assert "tool(s) accept fastq input" in tab.data_status.text()
+    shown = {tab.tool_tree.topLevelItem(0).child(i).text(0)
+            for i in range(tab.tool_tree.topLevelItem(0).childCount())}
+    assert shown == expected
+
+
+def test_loading_a_fastq_file_says_no_tool_reads_it_directly_when_none_is_built(tab, tmp_path, monkeypatch):
+    # The FASTQ_MESSAGE fallback still exists for a tool directory that
+    # predates PLAN tier 13 (no hicAlignReads executable in it): simulate
+    # that by filtering hicAlignReads out of the catalog entries the tab
+    # already has, rather than needing a second, hicAlignReads-less build.
+    fastq = tmp_path / "reads.fastq"
+    fastq.write_text("@read1\nACGT\n+\nIIII\n")
+    monkeypatch.setattr(tab, "entries", [e for e in tab.entries if e.name != "hicAlignReads"])
     entry = tab.load_data_file(str(fastq))
     assert entry.format == "fastq"
     assert tab.filtered_entries == []

@@ -44,6 +44,28 @@ class SettingsPage(QtWidgets.QWidget):
         self.status = QtWidgets.QLabel()
         self.status.setWordWrap(True)
         layout.addWidget(self.status)
+
+        layout.addWidget(QtWidgets.QLabel("<b>Shared minibwa index cache</b>"))
+        index_hint = QtWidgets.QLabel(
+            "Where hicBuildIndex saves a custom reference index by default (PLAN tier 13), "
+            "so several projects can reuse it instead of rebuilding it. A tool form's own file "
+            "picker can still point anywhere, including inside a single project; this is only "
+            "the starting suggestion. Leave empty to default to the current project's directory.")
+        index_hint.setWordWrap(True)
+        layout.addWidget(index_hint)
+        index_row = QtWidgets.QHBoxLayout()
+        self.index_edit = QtWidgets.QLineEdit(window.settings.index_cache_dir)
+        index_row.addWidget(self.index_edit, 1)
+        index_browse = QtWidgets.QPushButton("Browse")
+        index_browse.clicked.connect(self.browse_index_cache)
+        index_row.addWidget(index_browse)
+        index_apply = QtWidgets.QPushButton("Apply")
+        index_apply.clicked.connect(self.apply_index_cache)
+        index_row.addWidget(index_apply)
+        layout.addLayout(index_row)
+        self.index_status = QtWidgets.QLabel()
+        self.index_status.setWordWrap(True)
+        layout.addWidget(self.index_status)
         layout.addStretch(1)
 
     def browse(self):
@@ -61,6 +83,23 @@ class SettingsPage(QtWidgets.QWidget):
         available = sum(1 for e in self.window.entries if e.available)
         self.status.setStyleSheet("" if available else "color: #d0314b;")
         self.status.setText("{} of {} tools available.".format(available, len(self.window.entries)))
+        return True
+
+    def browse_index_cache(self):
+        path = QtWidgets.QFileDialog.getExistingDirectory(self, "Shared minibwa index cache",
+                                                           self.index_edit.text())
+        if path:
+            self.index_edit.setText(path)
+
+    def apply_index_cache(self):
+        path = self.index_edit.text().strip()
+        if path and not os.path.isdir(path):
+            self.index_status.setStyleSheet("color: #d0314b;")
+            self.index_status.setText("{} is not a directory.".format(path))
+            return False
+        self.window.settings.index_cache_dir = path
+        self.index_status.setStyleSheet("")
+        self.index_status.setText("Saved." if path else "Cleared; defaults to the project directory.")
         return True
 
 
@@ -162,6 +201,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self._settings_dialog = SettingsDialog(self, self)
         else:
             self._settings_dialog.page.edit.setText(self.settings.tools_dir)
+            self._settings_dialog.page.index_edit.setText(self.settings.index_cache_dir)
         self._settings_dialog.show()
         self._settings_dialog.raise_()
         self._settings_dialog.activateWindow()
