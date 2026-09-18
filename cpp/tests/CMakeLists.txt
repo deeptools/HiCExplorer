@@ -43,16 +43,18 @@ add_executable(hicx_tests
     test_cool_chromosome_cut.cpp
     test_aggregate_support.cpp
     test_diff_engine.cpp
+    test_detect_stripes.cpp
     # The computational cores of hicDetectLoops, of the two TAD statistics tools,
-    # of hicCompartmentalization, of hicMergeDomains and of
-    # hicDifferentialAnalysis, so that the tests link against exactly the
+    # of hicCompartmentalization, of hicMergeDomains, of hicDifferentialAnalysis
+    # and of hicDetectStripes, so that the tests link against exactly the
     # translation units the tools run.
     ../tools/detect_loops_impl.cpp
     ../tools/tad_contacts_impl.cpp
     ../tools/compartmentalization_impl.cpp
     ../tools/merge_domains_impl.cpp
     ../tools/diff_engine_impl.cpp
-    ../tools/diff_contacts_impl.cpp)
+    ../tools/diff_contacts_impl.cpp
+    ../tools/stripes_impl.cpp)
 
 target_link_libraries(hicx_tests PRIVATE hicx::core doctest_header hicx_compile_options)
 
@@ -85,6 +87,14 @@ add_test(NAME hicPlotSVL_cli
 add_test(NAME hicMergeDomains_cli
          COMMAND ${HICX_BASH} "${CMAKE_CURRENT_SOURCE_DIR}/cli/hicMergeDomains_cli.sh"
                  $<TARGET_FILE:hicMergeDomains> "${HICX_TEST_DATA}" "${HICX_DEPS_ROOT}")
+
+# hicDetectStripes (cpp/PLAN.md 9.3): no Python counterpart, so its command
+# line behaviour is checked here rather than through cpp/scripts/equiv.py's
+# class EX mode, which is not available on this branch (see the script's
+# header comment).
+add_test(NAME hicDetectStripes_cli
+         COMMAND ${HICX_BASH} "${CMAKE_CURRENT_SOURCE_DIR}/cli/hicDetectStripes_cli.sh"
+                 $<TARGET_FILE:hicDetectStripes> "${HICX_TEST_DATA}")
 
 # The drawing environment check of the plotting tools: a wrong or missing
 # matplotlib or pyGenomeTracks is refused before anything is written, and the

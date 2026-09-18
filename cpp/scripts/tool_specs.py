@@ -215,8 +215,9 @@ def allowlist():
 
 
 # The allowlist kind that marks a tool with no Python counterpart at all (a
-# tier 9 feature such as hicDifferentialAnalysis, cpp/PLAN.md 9.7): its spec
-# has nothing to be compared with, so only its structure is checked.
+# tier 9 feature such as hicDifferentialAnalysis, cpp/PLAN.md 9.7, or
+# hicDetectStripes, cpp/PLAN.md 9.3): its spec has nothing to be compared
+# with, so only its structure is checked.
 CPP_ONLY_KIND = "cpp_only_tool"
 
 

@@ -64,6 +64,13 @@ add_custom_target(hicx_plot_package ALL
 add_executable(hicDetectLoops hicDetectLoops.cpp detect_loops_impl.cpp)
 target_link_libraries(hicDetectLoops PRIVATE hicx::core hicx_compile_options)
 
+# hicDetectStripes has no Python counterpart (cpp/PLAN.md tier 9 section 9.3).
+# Its statistical core is a second translation unit for the same reason as
+# hicDetectLoops': cpp/tests/test_detect_stripes.cpp links against exactly the
+# code the tool runs.
+add_executable(hicDetectStripes hicDetectStripes.cpp stripes_impl.cpp)
+target_link_libraries(hicDetectStripes PRIVATE hicx::core hicx_compile_options)
+
 # hicDifferentialTAD and hicInterIntraTAD cut their TAD blocks with the same
 # code, which is also what cpp/tests/test_tad_contacts.cpp links against.
 foreach(tool IN ITEMS hicDifferentialTAD hicInterIntraTAD)

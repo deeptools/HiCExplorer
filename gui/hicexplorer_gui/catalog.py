@@ -35,6 +35,7 @@ PLANNED_TOOLS = {
     "hicTrainTADClassifier": 8,
     # tier 9: features without a Python counterpart
     "hicDifferentialAnalysis": 9,
+    "hicDetectStripes": 9,
 }
 
 TIER_NAMES = {

@@ -1,0 +1,100 @@
+[
+  {
+    "id": "hicDetectStripes.cool.small_test_matrix.chr2L",
+    "tool": "hicDetectStripes",
+    "tier": 9,
+    "reference": "none",
+    "args": [
+      "-m",
+      "{data}/hicNormalize/small_test_matrix.cool",
+      "--chromosomes",
+      "chr2L",
+      "--minStripeLength",
+      "25000",
+      "--maxWidth",
+      "6",
+      "--canny",
+      "1.5",
+      "--backgroundSamples",
+      "2000",
+      "--pValue",
+      "1.0",
+      "--fdr",
+      "1.0",
+      "-t",
+      "1",
+      "-o",
+      "{out}/stripes.tsv"
+    ],
+    "threads_arg": "--threads",
+    "stderr_contains": [
+      "INFO:hicexplorer.hicDetectStripes:Number of detected stripes:"
+    ],
+    "outputs": [],
+    "validators": [],
+    "notes": "PLAN.md tier 9 section 9.3, class EX: no Python counterpart, and a faithful C++ reimplementation of Stripenn 1.1.65.22's own detection method (project owner directive, see cpp/tools/stripes_impl.hpp). This tiny committed fixture is a mechanics sanity check (argument parsing, cool loading, exit status, no crash), not a statistical validation; the recall and precision gate of PLAN.md 9.3 is measured on real GM12878 data by cpp/scripts/stripe_calibration.py, which is far too large to commit (cpp/AGENTS_CONTRACT.md rule 10). --pValue 1.0 --fdr 1.0 keeps every geometric candidate here since this fixture's chromosomes are too short and sparse to build a meaningful background sample."
+  },
+  {
+    "id": "hicDetectStripes.h5.small_test_matrix.chr2L",
+    "tool": "hicDetectStripes",
+    "tier": 9,
+    "reference": "none",
+    "args": [
+      "-m",
+      "{data}/small_test_matrix.h5",
+      "--chromosomes",
+      "chr2L",
+      "--minStripeLength",
+      "25000",
+      "--maxWidth",
+      "6",
+      "--canny",
+      "1.5",
+      "--backgroundSamples",
+      "2000",
+      "--pValue",
+      "1.0",
+      "--fdr",
+      "1.0",
+      "-t",
+      "1",
+      "-o",
+      "{out}/stripes.tsv"
+    ],
+    "threads_arg": "--threads",
+    "stderr_contains": [
+      "INFO:hicexplorer.hicDetectStripes:Number of detected stripes:"
+    ],
+    "outputs": [],
+    "validators": [],
+    "notes": "As the cool case above, but through the h5 whole-matrix loader (no per-chromosome band reader for h5, cpp/tools/hicDetectStripes.cpp mirrors hicDetectLoops' approach: hicx::read_hicexplorer_h5 then hicx::select_bins)."
+  },
+  {
+    "id": "hicDetectStripes.error.unknown_chromosome",
+    "tool": "hicDetectStripes",
+    "tier": 9,
+    "reference": "none",
+    "expect_exit": 1,
+    "args": [
+      "-m",
+      "{data}/hicNormalize/small_test_matrix.cool",
+      "--chromosomes",
+      "chrDoesNotExist",
+      "-o",
+      "{out}/stripes.tsv"
+    ],
+    "threads_arg": "--threads",
+    "stderr_contains": [
+      "ERROR:hicexplorer.hicDetectStripes:Chromosome name not in matrix. 'chrDoesNotExist'"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/stripes.tsv",
+        "class": "EX",
+        "absent": true
+      }
+    ],
+    "validators": [],
+    "notes": "An unknown --chromosomes name exits 1 before anything is written, the same behaviour hicDetectLoops.cpp has for the same condition."
+  }
+]
