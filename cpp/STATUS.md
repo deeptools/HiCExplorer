@@ -2,7 +2,7 @@
 
 Owner: the orchestrating session. Architecture: `cpp/PLAN.md`. Rules:
 `cpp/AGENTS_CONTRACT.md`. Optimization rules: `cpp/OPTIMIZATION.md`. Last updated
-2026-09-16, at commit `967ff69b`.
+2026-09-18, at commit `ab2cff32`.
 
 **Current state: 42 of 46 tools ported and committed** on `version4-cpp`.
 - **Last regression,** merge-style (`--cache refresh`, contract rule 13) on a
@@ -83,9 +83,64 @@ Owner: the orchestrating session. Architecture: `cpp/PLAN.md`. Rules:
     for tool outputs that embed input paths (hicInfo, hicPlotSVL,
     chicQualityControl, hicValidateLocations), which previously gave false
     mismatches when the cache was built in a different checkout.
-- **Open branches:**
-  - `v4-stripes`: PLAN 9.3, new tool `hicDetectStripes` (in progress, one
-    implementing agent at a time per the project owner, 2026-09-16).
+- **Merged 2026-09-18, `ab2cff32`:** new tool `hicDetectStripes` (PLAN 9.3),
+  a faithful C++ port of Stripenn 1.1.65.22's own detection pipeline.
+  Verified merge-style from a clean export at `ab2cff32` (reproduced): full
+  regression 562 of 562 over 45 tools, ctest 8, check_case_inputs 0 missing,
+  spec tests 45, argparse 79, gui suite 139, cache pytest 17.
+  - **Method:** maxpixel-percentile image construction (whole-chromosome
+    population, not band-limited), `skimage.feature.canny` reproduced pixel
+    for pixel against the installed library (Gaussian smoothing with the real
+    bleed-over border correction, separable Sobel gradients matching scipy's
+    summation order, bilinear non-maximum suppression, real default
+    magnitude thresholds 0.1/0.2, not quantile-based), the `verticalLine`
+    Sobel-direction filter, zero-row/column frame compaction before the
+    block-run-length scan, up/down column-pairing into stripe boxes,
+    `RemoveRedundant` overlap-and-elongation dedup, and Stripenn's real 2D
+    rectangular direction-specific background windows with a per-row median
+    test. No multiple-testing correction by default, matching Stripenn's own
+    real-world practice (raw p-value threshold); `--fdr` is an opt-in
+    C++-only option.
+  - **Fidelity checks against real Stripenn**, each independently
+    established, not assumed from reading the source: per-candidate p-values
+    match on identical real GM12878 windows (this port 0.03-0.13, Stripenn
+    itself 0.042-0.19); raw candidate generation on the same chromosome
+    matches Stripenn's own count (474 vs 456, after fixing two real gaps:
+    the frame compaction above, and reading `maxpixel`'s percentiles from the
+    whole chromosome instead of the near-diagonal band, which had made them
+    2-2.7x too high).
+  - **PLAN 9.3's recall (0.8) and precision (0.9) gate on the fixed 60-plant
+    real GM12878 test is recorded as measured and not met.** Real,
+    unmodified Stripenn on the identical plants recovers 4 of 60 (6.7 %);
+    this port recovers 6 of 60 (10 %), matching or slightly exceeding the
+    reference. Two further real, correctly-verified, independent paradigms
+    were benchmarked against the same plants and both also failed at usable
+    precision: Quagga (Gaussian-blur peak detection, Poisson/NB test) 0 of 60
+    (0 %); Chromosight (cross-correlation against its own stripe kernels)
+    looked like a pass at the gate bucket (16 of 20, 0.80) but was shown to
+    be chance-level noise from massive over-calling (79,975 raw calls
+    genome-wide against about 2,000 for Stripenn or this port; a control of
+    200 random non-plant anchors under the identical matching rule gave a
+    41.5 % "recovery" rate by chance alone).
+  - **Decided by the project owner (2026-09-18):** ship the port with this
+    result documented rather than continue searching for a passing method or
+    revise the plant design. See PLAN.md 9.3 for the full evidence trail
+    across all four methods.
+  - Reported without a gate: GSE234292 rep1/rep2 Jaccard 0.065; agreement
+    with Stripenn on the real unplanted genome, Jaccard 0.037-0.06 depending
+    on which fix stage was measured.
+  - Memory/CPU on 22 real autosomes: hicDetectStripes 383-645 MB, 7-91 s
+    wall depending on the FDR/candidate-generation fix stage measured; real
+    Stripenn 1099-1101 MB, 732-758 s wall, both the memory and CPU
+    reference. hicDetectStripes is lighter and faster throughout.
+  - Determinism confirmed at `-t1`/`-t4` (byte-identical, cool and h5).
+  - Two further real defects found and fixed while running the multi-method
+    comparison: the orientation-label convention was backwards and used
+    exact bin equality instead of a distance comparison (measured effect on
+    the isolated-geometry recall check: 0/6 to 1/6 on real GM12878
+    chr21+chr22); `stripe_calibration.py` itself had a full-genome-table
+    pixel load and a `getrusage(RUSAGE_CHILDREN)` memory measurement that
+    did not reset between subprocess calls.
 
 **Harness: Python reference cache and parallel scheduling, merged in
 `04f948ce` (contract rule 13).**
