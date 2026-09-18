@@ -2110,8 +2110,74 @@ environment), about 2,000 lines.
   tool glue.
 - **Pinning** is like `HicxCoolercpp.cmake`.
 - **Gates:** a merge-style full regression (contract rule 13), determinism,
-  memory and CPU no worse than before, and the gui and bindings suites. The templates grow as tier 6 and
-tier 9 tools land.
+  memory and CPU no worse than before, and the gui and bindings suites.
+
+### Tier 13 - alignment (minibwa), custom indexes, and a Docker image with baked-in genomes (added 2026-09-18)
+
+Requested by the project owner directly, closing the gap the GUI redesign
+(tier 10, `v4-gui-redesign`) surfaced: no C++ tool in this project reads raw
+FASTQ, because HiCExplorer's own pipeline has always expected already-aligned
+reads.
+
+**minibwa integration.** minibwa 0.5 is already installed as a conda package
+(`~/miniconda3/envs/__minibwa@0.5/bin/minibwa`), with a clean CLI:
+`minibwa index <in.fasta> [out.prefix]` and `minibwa map`/`minibwa mem` for
+alignment. This tier wraps it as the FASTQ-to-BAM step ahead of
+`hicBuildMatrix` (or `hicBuildMatrixMicroC`), both from the CLI and as a GUI
+action (load FASTQ pair(s) plus a reference/index, run the alignment, then
+the aligned BAM feeds the existing data-driven tool filter from tier 10's
+redesign).
+- **Custom index generation:** a GUI action and a scriptable CLI path that
+  runs `minibwa index` on any FASTA the user supplies, not only the baked-in
+  genomes below. The result is stored per project (or in a shared,
+  user-configured index cache directory) and becomes selectable wherever an
+  index is needed.
+- **Validation:** alignment run through this integration is byte-identical to
+  running `minibwa map`/`index` directly by hand on the same input, at the
+  same thread count and across thread counts (determinism, as for every tool
+  in this project).
+
+**Docker image.** Ships the whole v4 stack: the C++ tools, the GUI, minibwa,
+and baked-in reference data, so a user gets a working environment with no
+separate setup.
+- **Genomes baked in** (FASTA plus a prebuilt minibwa index each), decided by
+  the project owner 2026-09-18: **human hg38, human hg19, mouse mm10, mouse
+  mm39.** Sourced from UCSC or Ensembl (record the exact source URL and a
+  checksum for each in the image build script, so the image is
+  reproducible). This is a large image by design (the project owner chose
+  baked-in genomes over a lean download-on-demand image, understanding the
+  size cost): four genomes' FASTA plus BWT-family indexes is realistically in
+  the tens of GB, on top of the C++ build and Qt/GUI stack.
+- **Restriction site files baked in,** requested by the project owner
+  2026-09-18: for each of the four genomes, `hicFindRestSite` is run at
+  image-build time against the standard Hi-C recognition sequences, so a user
+  never has to regenerate them:
+  - **MboI / DpnII** (isoschizomers): `GATC`
+  - **HindIII:** `AAGCTT` (the original Hi-C protocol's enzyme)
+  - **NcoI:** `CCATGG`
+  - **Arima kit's two-enzyme combination:** `GATC` and `GANTC` together
+    (`hicFindRestSite --searchPattern` already accepts multiple patterns)
+
+  This list is a sensible default, not confirmed by the project owner; adjust
+  if a different or additional enzyme set is wanted. Each baked BED file is
+  validated by re-running `hicFindRestSite` on the same FASTA and comparing
+  (E0), so the baked file is provably what the tool itself would produce, not
+  a separately sourced file that could drift.
+- **Build:** a `Dockerfile` (or a small set of build stages) under a new
+  top-level `docker/` directory, documenting exactly how the image is built,
+  so a rebuild is reproducible and auditable rather than a black box. The
+  image-build step that downloads and indexes genomes is expected to take a
+  long time (network and CPU); it must be resumable/cacheable across
+  Docker layers so an unrelated code change does not force re-downloading
+  and re-indexing four whole genomes.
+- **Never pushed** to any registry without the project owner's explicit
+  instruction, consistent with the project's git rule of never pushing
+  without being asked.
+
+Order: minibwa integration and custom index generation first (needed by the
+Docker image's own build process, and useful standalone before the image
+exists); then the Docker image itself, once tier 10's GUI redesign
+(`v4-gui-redesign`) has merged, since the image packages the GUI.
 
 ## 7. The state of the Python test suite, honestly
 
