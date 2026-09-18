@@ -1656,6 +1656,50 @@ gate (0.8 and 0.9 on 2-fold, >=1 Mb plants) stays the bar; it is judged
 against whichever real method the port ends up implementing, not relaxed to
 match Stripenn's own ceiling.
 
+**Revised 2026-09-18, third and final decision on this gate: ship the port,
+document the gate as measured and not met.** The implementing agent evaluated
+two further real, correctly-run, genuinely different paradigms against the
+same real GM12878 data and the identical 60 plants:
+- **Quagga** (Gaussian-blur peak detection with a Poisson/negative-binomial
+  significance test): 0 of 60 (0 %) recall.
+- **Chromosight** (cross-correlation/template matching against its own
+  `stripes_left`/`stripes_right` kernels): raw recall at the gate bucket
+  looked like a pass (16 of 20, 0.80) at its own default threshold, but the
+  agent checked this against 200 random non-plant genomic anchors under the
+  identical matching rule and found a 41.5 % "recovery" rate by chance alone,
+  from the sheer density of Chromosight's default-threshold output
+  (79,975 raw calls across the planted autosomes, against about 2,000 for
+  Stripenn or this port and 634 for Quagga). The apparent pass is
+  statistically indistinguishable from noise and would fail the 0.9
+  precision gate; it is not usable evidence of a working method.
+
+Three independent, real, correctly-verified detection paradigms therefore
+all fail to recover this plant design at usable precision: Stripenn 6.7 %,
+Quagga 0 %, Chromosight chance-level, alongside this project's own faithful
+Stripenn port at 10 %, which is the best result of the four and matches or
+slightly exceeds real Stripenn's own performance on the identical test.
+
+The project owner's decision, given that evidence: **ship the faithful
+Stripenn port as `hicDetectStripes`'s method, with the PLAN 9.3 recall
+(0.8) and precision (0.9) gate recorded as measured and not met**, rather
+than continue searching for a method that passes it or revise the plant
+design to make it pass. The port's other correctness properties stand on
+their own merit regardless of the gate: it reproduces `skimage.feature.canny`
+exactly (verified pixel for pixel against the installed library, not
+assumed), Stripenn's real 2D rectangular background windows and per-row
+median test (verified: the port's p-values match real Stripenn's own
+p-values on the same real windows, 0.03-0.13 against 0.042-0.19), and
+Stripenn's own candidate-generation behaviour (474 raw candidates against
+Stripenn's own 456 on the same chromosome, after fixing two real gaps: frame
+zero-row/column compaction, and the maxpixel population read from the whole
+chromosome rather than the near-diagonal band). Determinism, memory and CPU
+gates are met (Stripenn is the CPU/memory reference). See STATUS.md for the
+final measured numbers and the full investigation, including two further
+implementation defects the agent found and fixed while running Quagga's and
+Chromosight's own oracle commands (an orientation-label convention that was
+backwards and used exact bin equality instead of a distance comparison, and
+the two candidate-generation gaps above).
+
 **9.4 SCALE normalisation in hicCorrectMatrix.** *Validation:* **ED** against the
 SCALE vector Juicer tools `addNorm` computes on the same matrix.
 
