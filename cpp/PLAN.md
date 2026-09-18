@@ -1959,6 +1959,14 @@ sizes.
   and their figure export landed in `e9c5bbaa`.
 - 10.7: done, `e9c5bbaa`. Four templates run end to end with outputs equal to
   their logged commands.
+- **Redesigned 2026-09-18 in `c8a173f3`, requested directly by the project
+  owner after reviewing the layout:** the single-project, dock-and-tab
+  layout from 10.4/10.5 above is replaced by a tab per open project
+  (`ProjectTab`), each with its own independent tool browser, run view,
+  workflow editor and matrix browser. Loading a data file into a project now
+  filters its tool list to what actually accepts that format, built from
+  each tool's real `--help-json` data. Settings moved from a tab into a
+  menu-opened dialog. See STATUS.md for the verification detail.
 - 10.8 needs a Mac or a CI runner.
 
 ### Tier 11 - sparse eigensolver for hicPCA (added 2026-09-14, done 2026-09-16 in `7769ec55`)

@@ -2,7 +2,7 @@
 
 Owner: the orchestrating session. Architecture: `cpp/PLAN.md`. Rules:
 `cpp/AGENTS_CONTRACT.md`. Optimization rules: `cpp/OPTIMIZATION.md`. Last updated
-2026-09-18, at commit `ab2cff32`.
+2026-09-18, at commit `c8a173f3`.
 
 **Current state: 42 of 46 tools ported and committed** on `version4-cpp`.
 - **Last regression,** merge-style (`--cache refresh`, contract rule 13) on a
@@ -141,6 +141,30 @@ Owner: the orchestrating session. Architecture: `cpp/PLAN.md`. Rules:
     chr21+chr22); `stripe_calibration.py` itself had a full-genome-table
     pixel load and a `getrusage(RUSAGE_CHILDREN)` memory measurement that
     did not reset between subprocess calls.
+- **Merged 2026-09-18, `c8a173f3`:** GUI redesign, multi-project tabs and
+  data-driven tool filtering (PLAN tier 10), requested directly by the
+  project owner after reviewing the previous single-project layout.
+  Verified merge-style from a clean export at `c8a173f3` (reproduced): build
+  0 warnings, ctest, gui suite all pass.
+  - `MainWindow`'s central widget is now a `QTabWidget` of `ProjectTab`s:
+    each open project is its own closable top-level tab with independent
+    state (tool browser, run controller and view, workflow editor, matrix
+    browser). Closing a project (confirmed if a run is in progress) leaves
+    other open projects untouched. The C++ tool directory stays a single
+    window-global setting, shared by every open project.
+  - `dataformats.py` detects cool/mcool/h5/`.hic`/BAM/`.pairs` by extension
+    and, where ambiguous, real content signatures.
+  - The per-project tool list filters to whatever accepts the loaded file's
+    format, built from each tool's own `--help-json` file `role`/`formats`
+    data, not a hand-maintained mapping (verified against the real build:
+    loading a cool file filtered 45 of 49 tools down to the 29 that declare
+    a cool-accepting input argument). Loading a FASTQ file shows an honest
+    message that no tool reads it directly (PLAN tier 13 will close this
+    with minibwa) instead of inventing support.
+  - Settings is no longer a tab: opened from the File/View menu as a dialog.
+  - Verified on the real desktop display, not only offscreen: two
+    independently-stated project tabs, the cool-driven filter, and the
+    settings dialog, confirmed by screenshot review.
 
 **Harness: Python reference cache and parallel scheduling, merged in
 `04f948ce` (contract rule 13).**
