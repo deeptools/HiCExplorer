@@ -22,6 +22,7 @@ import threading
 
 import numpy as np
 import pyqtgraph as pg
+import shiboken6
 from PySide6 import QtCore, QtGui, QtWidgets
 
 import hicx_matrix
@@ -499,7 +500,9 @@ class MatrixBrowser(QtWidgets.QWidget):
 
     def _fit(self):
         """Sizes the matrix views square and the track as wide as view A."""
-        if not self.panels:
+        # Deferred through QTimer.singleShot(0, ...), so it can fire after the
+        # browser (e.g. a project tab being closed) was already deleted.
+        if not shiboken6.isValid(self) or not self.panels:
             return
         width = self.graphics.width() - 16
         height = self.graphics.height() - 16
@@ -510,7 +513,7 @@ class MatrixBrowser(QtWidgets.QWidget):
         # its plot (a title not yet elided) would make the measure too small,
         # so it never goes below the fixed left axis width.
         dw, dh = AXIS_WIDTH + 12, 64
-        if plot.vb.width() > 1 and plot.vb.height() > 1:
+        if shiboken6.isValid(plot.vb) and plot.vb.width() > 1 and plot.vb.height() > 1:
             dw = max(AXIS_WIDTH + 2, plot.size().width() - plot.vb.width())
             dh = max(40, plot.size().height() - plot.vb.height())
         n = len(self.panels)
@@ -547,10 +550,11 @@ class MatrixBrowser(QtWidgets.QWidget):
             budget = int(budget * 0.85)
 
     def _check_square(self):
-        if self.panels:
-            vb = self.panels[0].plot.vb
-            if abs(vb.width() - vb.height()) > 1:
-                self._fit()
+        if not shiboken6.isValid(self) or not self.panels:
+            return
+        vb = self.panels[0].plot.vb
+        if shiboken6.isValid(vb) and abs(vb.width() - vb.height()) > 1:
+            self._fit()
 
     def _apply_limits(self):
         if self.chrom is None or self.sources[0] is None or self.chrom not in self.sources[0].lengths:

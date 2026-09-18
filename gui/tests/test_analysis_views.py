@@ -48,6 +48,11 @@ def loader():
 
 @pytest.fixture
 def window(qtbot, tmp_path):
+    """A ProjectTab of a freshly created project (named "window" so the rest
+    of this file, written against the pre-redesign single-project MainWindow,
+    needs no further changes: a ProjectTab exposes the same tabs/browser/
+    open_analysis_view(s) surface the old MainWindow did, now scoped to one
+    project instead of the whole window)."""
     import sys
     module_dir = os.environ.get("HICX_PYTHON_MODULE_DIR")
     if module_dir and module_dir not in sys.path:
@@ -58,14 +63,16 @@ def window(qtbot, tmp_path):
     win = MainWindow(Settings(qsettings))
     qtbot.addWidget(win)
     win.set_tools_dir(CPP_BIN)
-    if win.browser is None:
+    win.create_project(str(tmp_path / "project"))
+    tab = win.active_project_tab()
+    if tab.browser is None:
         pytest.skip("the matrix browser needs hicx_matrix (HICX_PYTHON_MODULE_DIR)")
-    return win
+    return tab
 
 
 def open_in(window, record):
     view = window.open_analysis_view(record)
-    assert view is not None, window.statusBar().currentMessage()
+    assert view is not None, window.window.statusBar().currentMessage()
     return view
 
 
