@@ -40,6 +40,7 @@ add_library(hicx4core
     src/math/kr_balancing.cpp
     src/math/sparse_kernels.cpp
     src/matrix_ops.cpp
+    src/minibwa_bridge.cpp
     src/npz_file.cpp
     src/numpy_compat.cpp
     src/numpy_random.cpp
