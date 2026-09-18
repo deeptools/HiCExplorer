@@ -2,7 +2,7 @@
 
 Owner: the orchestrating session. Architecture: `cpp/PLAN.md`. Rules:
 `cpp/AGENTS_CONTRACT.md`. Optimization rules: `cpp/OPTIMIZATION.md`. Last updated
-2026-09-18, at commit `c8a173f3`.
+2026-09-18, at commit `7538037c`.
 
 **Current state: 42 of 46 tools ported and committed** on `version4-cpp`.
 - **Last regression,** merge-style (`--cache refresh`, contract rule 13) on a
@@ -165,6 +165,25 @@ Owner: the orchestrating session. Architecture: `cpp/PLAN.md`. Rules:
   - Verified on the real desktop display, not only offscreen: two
     independently-stated project tabs, the cool-driven filter, and the
     settings dialog, confirmed by screenshot review.
+- **Merged 2026-09-18, `7538037c`:** auto-open loaded matrix files in the
+  Matrix browser, and an arc-style loop track, both requested directly by
+  the project owner after using the redesigned GUI live.
+  Verified merge-style from a clean export at `7538037c` (reproduced): build
+  0 warnings, ctest 6/8 (2 pre-existing environment-gated skips), gui suite
+  155 passed/5 skipped.
+  - Loading a cool/mcool/h5/`.hic` file now calls the same `open_matrix()`
+    path the manual "Open in Matrix browser" button already used, so it
+    appears in the Matrix browser immediately without a second click. The
+    manual button is unchanged. Non-matrix formats are untouched.
+  - Loops are now drawn as a below-matrix arc track (`loop_arc_path` in
+    `browser.py`), stacked with the existing bedgraph/bigwig tracks on the
+    same x-axis, replacing the old point-marker overlay drawn on the matrix
+    face. Arc apex height scales by the loop's BEDPE score column when
+    present, else by span; only loops with both anchors in the current view
+    are drawn.
+  - Verified on the real desktop display, not only offscreen: auto-open
+    after loading a cool file, and three loop arcs of visibly different
+    heights matching their scores, confirmed by screenshot review.
 
 **Harness: Python reference cache and parallel scheduling, merged in
 `04f948ce` (contract rule 13).**
