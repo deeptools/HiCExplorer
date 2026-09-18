@@ -24,6 +24,8 @@ FORMAT_GLOBS = {
     "png": ["*.png"], "pdf": ["*.pdf"], "svg": ["*.svg"], "fasta": ["*.fa", "*.fasta", "*.fa.gz"],
     "gff": ["*.gff", "*.gtf"], "hicpro": ["*.matrix"], "homer": ["*.homer", "*.gz"],
     "ginteractions": ["*.tsv", "*.ginteractions"], "broadpeak": ["*.broadPeak"], "narrowpeak": ["*.narrowPeak"],
+    "pairs": ["*.pairs"], "pairs.gz": ["*.pairs.gz"], "fastq": ["*.fastq", "*.fq"],
+    "fastq.gz": ["*.fastq.gz", "*.fq.gz"],
 }
 
 ERROR_STYLE = "color: #d0314b;"

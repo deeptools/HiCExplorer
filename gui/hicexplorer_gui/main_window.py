@@ -1,71 +1,22 @@
-"""The main window: projects, the tool browser, tool forms, runs, the workflow editor and settings."""
+"""The main window: a tab per open project, and the window-global C++ tool
+directory (Settings, moved into the File menu, PLAN 10 GUI redesign
+2026-09-18).
+
+Each open project is its own ProjectTab (project_tab.py): its own data,
+filtered tool browser, runs, workflow editor, matrix browser and dynamically
+opened tool-form and analysis-view tabs. The tool directory is the one thing
+every open project shares, since there is a single build of the C++ tools;
+the resulting catalog (entries, loader) is pushed into every open ProjectTab
+whenever it changes.
+"""
 
 import os
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
 from .catalog import tool_entries
-from .forms import ERROR_STYLE, ToolForm
 from .project import Project, ProjectError
-from .runs import RunController, RunView
-from .workflow_editor import WorkflowEditor
-
-
-class ToolPage(QtWidgets.QWidget):
-    """A tool form with validate, run and the command line it produces."""
-
-    def __init__(self, window, spec, parent=None):
-        super().__init__(parent)
-        self.window = window
-        self.spec = spec
-        layout = QtWidgets.QVBoxLayout(self)
-        layout.setContentsMargins(4, 4, 4, 4)
-        self.form = ToolForm(spec, start_dir=lambda: window.project.path if window.project else "")
-        layout.addWidget(self.form, 1)
-        self.command = QtWidgets.QLabel()
-        self.command.setWordWrap(True)
-        self.command.setTextInteractionFlags(QtCore.Qt.TextSelectableByMouse)
-        layout.addWidget(self.command)
-        self.status = QtWidgets.QLabel()
-        self.status.setWordWrap(True)
-        layout.addWidget(self.status)
-        row = QtWidgets.QHBoxLayout()
-        self.validate_button = QtWidgets.QPushButton("Validate")
-        self.validate_button.clicked.connect(self.validate)
-        row.addWidget(self.validate_button)
-        self.run_button = QtWidgets.QPushButton("Run")
-        self.run_button.clicked.connect(self.run)
-        row.addWidget(self.run_button)
-        row.addStretch(1)
-        layout.addLayout(row)
-        self.form.changed.connect(self.update_command)
-        self.update_command()
-
-    def update_command(self):
-        self.command.setText("Command: " + self.form.command_line())
-
-    def validate(self):
-        errors = self.form.validate()
-        self.status.setStyleSheet(ERROR_STYLE if errors else "")
-        self.status.setText("" if not errors else "Fix the marked fields before running.")
-        return errors
-
-    def run(self):
-        if self.validate():
-            return False
-        if self.window.project is None:
-            self.status.setStyleSheet(ERROR_STYLE)
-            self.status.setText("Open or create a project first; runs are recorded in its history.")
-            return False
-        if self.window.controller.running:
-            self.status.setStyleSheet(ERROR_STYLE)
-            self.status.setText("Another run is in progress.")
-            return False
-        self.status.setStyleSheet("")
-        self.status.setText("Running; see the Runs tab.")
-        self.window.show_runs()
-        return self.window.controller.run_tool(self.window.project, self.window.loader, self.spec,
-                                               self.form.subcommand(), self.form.values())
+from .project_tab import ProjectTab
 
 
 class SettingsPage(QtWidgets.QWidget):
@@ -76,7 +27,8 @@ class SettingsPage(QtWidgets.QWidget):
         layout.setContentsMargins(8, 8, 8, 8)
         layout.addWidget(QtWidgets.QLabel("<b>C++ tool directory</b>"))
         hint = QtWidgets.QLabel("The directory holding the HiCExplorer C++ tool executables "
-                                "(for example the tools directory of a build).")
+                                "(for example the tools directory of a build). Shared by every "
+                                "open project, since there is one build of the tools.")
         hint.setWordWrap(True)
         layout.addWidget(hint)
         row = QtWidgets.QHBoxLayout()
@@ -102,216 +54,129 @@ class SettingsPage(QtWidgets.QWidget):
     def apply(self):
         path = self.edit.text().strip()
         if path and not os.path.isdir(path):
-            self.status.setStyleSheet(ERROR_STYLE)
+            self.status.setStyleSheet("color: #d0314b;")
             self.status.setText("{} is not a directory.".format(path))
             return False
         self.window.set_tools_dir(path)
         available = sum(1 for e in self.window.entries if e.available)
-        self.status.setStyleSheet("" if available else ERROR_STYLE)
+        self.status.setStyleSheet("" if available else "color: #d0314b;")
         self.status.setText("{} of {} tools available.".format(available, len(self.window.entries)))
         return True
+
+
+class SettingsDialog(QtWidgets.QDialog):
+    """The C++ tool directory, as a non-modal dialog reached from File >
+    Settings, rather than a permanently visible tab."""
+
+    def __init__(self, window, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Settings")
+        self.page = SettingsPage(window)
+        layout = QtWidgets.QVBoxLayout(self)
+        layout.addWidget(self.page)
+        buttons = QtWidgets.QHBoxLayout()
+        buttons.addStretch(1)
+        close_button = QtWidgets.QPushButton("Close")
+        close_button.clicked.connect(self.close)
+        buttons.addWidget(close_button)
+        layout.addLayout(buttons)
+        self.resize(520, 220)
 
 
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self, settings, project_path=None, parent=None):
         super().__init__(parent)
         self.settings = settings
-        self.project = None
         self.entries = []
         self.loader = None
-        self.controller = RunController(self)
         self.setWindowTitle("HiCExplorer")
 
         self.tabs = QtWidgets.QTabWidget()
         self.tabs.setTabsClosable(True)
         self.tabs.setDocumentMode(True)
-        self.tabs.tabCloseRequested.connect(self._close_tab)
+        self.tabs.tabCloseRequested.connect(self._close_project_tab)
         self.setCentralWidget(self.tabs)
 
-        self.run_view = RunView()
-        self.run_view.attach(self.controller)
-        self.editor = WorkflowEditor()
-        self.editor.run_requested.connect(self.run_workflow)
-        self.settings_page = SettingsPage(self)
-        self.browser = None
-        self._fixed = []
-        for widget, title in ((self.run_view, "Runs"), (self.editor, "Workflow editor"),
-                              (self.settings_page, "Settings")):
-            self.tabs.addTab(widget, title)
-            self._fixed.append(widget)
-        self._add_browser()
-        self.controller.finished.connect(lambda _code: self.refresh_project())
-
-        self._build_docks()
+        self._settings_dialog = None
         self._build_menus()
         self.statusBar().showMessage("Ready")
         self.set_tools_dir(settings.tools_dir)
         if project_path:
             self.open_project(project_path)
 
-    # -- layout ---------------------------------------------------------
-    def _add_browser(self):
-        try:
-            from .browser import MatrixBrowser
-        except ImportError as exc:  # hicx_matrix or pyqtgraph missing
-            page = QtWidgets.QLabel("The matrix browser needs pyqtgraph and the hicx_matrix module: {}".format(exc))
-            page.setWordWrap(True)
-            self.browser = None
-        else:
-            page = self.browser = MatrixBrowser()
-        self.tabs.insertTab(2, page, "Matrix browser")
-        self._fixed.append(page)
-
-    def _build_docks(self):
-        project_dock = QtWidgets.QDockWidget("Project", self)
-        project_dock.setObjectName("project")
-        self.project_tree = QtWidgets.QTreeWidget()
-        self.project_tree.setHeaderHidden(True)
-        self.project_tree.itemDoubleClicked.connect(self._project_item_opened)
-        project_dock.setWidget(self.project_tree)
-        self.addDockWidget(QtCore.Qt.LeftDockWidgetArea, project_dock)
-
-        tools_dock = QtWidgets.QDockWidget("Tools", self)
-        tools_dock.setObjectName("tools")
-        panel = QtWidgets.QWidget()
-        layout = QtWidgets.QVBoxLayout(panel)
-        layout.setContentsMargins(2, 2, 2, 2)
-        self.tool_filter = QtWidgets.QLineEdit()
-        self.tool_filter.setPlaceholderText("Filter tools")
-        self.tool_filter.textChanged.connect(self._fill_tools)
-        layout.addWidget(self.tool_filter)
-        self.tool_tree = QtWidgets.QTreeWidget()
-        self.tool_tree.setHeaderHidden(True)
-        self.tool_tree.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
-        self.tool_tree.currentItemChanged.connect(self._tool_selected)
-        self.tool_tree.itemDoubleClicked.connect(self._tool_opened)
-        layout.addWidget(self.tool_tree, 3)
-        self.tool_detail = QtWidgets.QLabel()
-        self.tool_detail.setWordWrap(True)
-        self.tool_detail.setAlignment(QtCore.Qt.AlignTop | QtCore.Qt.AlignLeft)
-        layout.addWidget(self.tool_detail, 1)
-        tools_dock.setWidget(panel)
-        self.addDockWidget(QtCore.Qt.LeftDockWidgetArea, tools_dock)
-        self.splitDockWidget(project_dock, tools_dock, QtCore.Qt.Vertical)
-        self.resizeDocks([project_dock, tools_dock], [1, 3], QtCore.Qt.Vertical)
-        self.resizeDocks([project_dock], [260], QtCore.Qt.Horizontal)
-
+    # -- menus --------------------------------------------------------------
     def _build_menus(self):
         menu = self.menuBar().addMenu("&File")
         new_action = QtGui.QAction("New project...", self)
         new_action.triggered.connect(self._new_project_dialog)
         menu.addAction(new_action)
-        template_action = QtGui.QAction("New workflow from template...", self)
-        template_action.triggered.connect(self.new_from_template)
-        menu.addAction(template_action)
         open_action = QtGui.QAction("Open project...", self)
         open_action.triggered.connect(self._open_project_dialog)
         menu.addAction(open_action)
+        self.recent_menu = menu.addMenu("Open recent")
+        self._fill_recent_menu()
+        menu.addSeparator()
+        template_action = QtGui.QAction("New workflow from template...", self)
+        template_action.triggered.connect(self.new_from_template)
+        menu.addAction(template_action)
+        menu.addSeparator()
+        settings_action = QtGui.QAction("Settings...", self)
+        settings_action.triggered.connect(self.open_settings_dialog)
+        menu.addAction(settings_action)
         menu.addSeparator()
         quit_action = QtGui.QAction("Quit", self)
         quit_action.triggered.connect(self.close)
         menu.addAction(quit_action)
+
         analysis = self.menuBar().addMenu("&Analysis")
         views_action = QtGui.QAction("Open the analysis views of a run...", self)
         views_action.triggered.connect(self._open_views_dialog)
         analysis.addAction(views_action)
+
         view = self.menuBar().addMenu("&View")
         for title, method in (("Runs", self.show_runs), ("Workflow editor", self.show_editor),
-                              ("Matrix browser", self.show_browser), ("Settings", self.show_settings)):
+                              ("Matrix browser", self.show_browser)):
             action = QtGui.QAction(title, self)
             action.triggered.connect(method)
             view.addAction(action)
+        view.addSeparator()
+        settings_view_action = QtGui.QAction("Settings...", self)
+        settings_view_action.triggered.connect(self.open_settings_dialog)
+        view.addAction(settings_view_action)
 
-    def _close_tab(self, index):
-        if self.tabs.widget(index) in self._fixed:
+    def _fill_recent_menu(self):
+        self.recent_menu.clear()
+        recent = self.settings.recent_projects
+        if not recent:
+            empty = QtGui.QAction("(no recent projects)", self)
+            empty.setEnabled(False)
+            self.recent_menu.addAction(empty)
             return
-        widget = self.tabs.widget(index)
-        self.tabs.removeTab(index)
-        widget.deleteLater()
+        for path in recent:
+            action = QtGui.QAction(path, self)
+            action.triggered.connect(lambda checked=False, p=path: self.open_project(p))
+            self.recent_menu.addAction(action)
 
-    def show_runs(self):
-        self.tabs.setCurrentWidget(self.run_view)
+    def open_settings_dialog(self):
+        if self._settings_dialog is None:
+            self._settings_dialog = SettingsDialog(self, self)
+        else:
+            self._settings_dialog.page.edit.setText(self.settings.tools_dir)
+        self._settings_dialog.show()
+        self._settings_dialog.raise_()
+        self._settings_dialog.activateWindow()
+        return self._settings_dialog
 
-    def show_editor(self):
-        self.tabs.setCurrentWidget(self.editor)
-
-    def show_settings(self):
-        self.tabs.setCurrentWidget(self.settings_page)
-
-    def show_browser(self):
-        self.tabs.setCurrentIndex(self.tabs.indexOf(self._fixed[-1]))
-
-    # -- tools ----------------------------------------------------------
+    # -- the window-global tool catalog --------------------------------------
     def set_tools_dir(self, path):
         self.settings.tools_dir = path
         self.entries, self.loader = tool_entries(path)
-        self._fill_tools()
-        self.editor.set_context(self.project, self.entries, self.loader)
+        for index in range(self.tabs.count()):
+            self.tabs.widget(index).set_catalog(self.entries, self.loader)
         available = sum(1 for e in self.entries if e.available)
         self.statusBar().showMessage("{} of {} tools available".format(available, len(self.entries)))
 
-    def _fill_tools(self, *_):
-        text = self.tool_filter.text().strip().lower()
-        self.tool_tree.clear()
-        available = QtWidgets.QTreeWidgetItem(["Available"])
-        missing = QtWidgets.QTreeWidgetItem(["Not available"])
-        for entry in self.entries:
-            if text and text not in entry.name.lower():
-                continue
-            item = QtWidgets.QTreeWidgetItem([entry.name])
-            item.setData(0, QtCore.Qt.UserRole, entry.name)
-            if entry.available:
-                item.setToolTip(0, entry.spec.description or entry.name)
-                available.addChild(item)
-            else:
-                item.setToolTip(0, entry.reason)
-                item.setForeground(0, QtGui.QBrush(QtGui.QColor("gray")))
-                missing.addChild(item)
-        available.setText(0, "Available ({})".format(available.childCount()))
-        missing.setText(0, "Not available ({})".format(missing.childCount()))
-        self.tool_tree.addTopLevelItems([available, missing])
-        available.setExpanded(True)
-        missing.setExpanded(True)
-        # Wide enough for the longest tool name, so no name is elided.
-        metrics = self.tool_tree.fontMetrics()
-        longest = max([metrics.horizontalAdvance(e.name) for e in self.entries] or [0])
-        scroll = self.tool_tree.verticalScrollBar().sizeHint().width()
-        self.tool_tree.setMinimumWidth(longest + 2 * self.tool_tree.indentation() + scroll + 16)
-
-    def entry(self, name):
-        for entry in self.entries:
-            if entry.name == name:
-                return entry
-        return None
-
-    def _tool_selected(self, item, _previous=None):
-        name = item.data(0, QtCore.Qt.UserRole) if item is not None else None
-        entry = self.entry(name) if name else None
-        if entry is None:
-            self.tool_detail.setText("")
-        elif entry.available:
-            self.tool_detail.setText("<b>{}</b><br>{}".format(entry.name, entry.spec.description))
-        else:
-            self.tool_detail.setText("<b>{}</b><br>Not available: {}".format(entry.name, entry.reason))
-
-    def _tool_opened(self, item, _column=0):
-        name = item.data(0, QtCore.Qt.UserRole)
-        if name:
-            self.open_tool_form(name)
-
-    def open_tool_form(self, name, subcommand=None):
-        entry = self.entry(name)
-        if entry is None or not entry.available:
-            self.statusBar().showMessage("{}: {}".format(name, entry.reason if entry else "unknown tool"))
-            return None
-        page = ToolPage(self, entry.spec)
-        if subcommand is not None:
-            page.form.set_subcommand(subcommand)
-        index = self.tabs.addTab(page, name)
-        self.tabs.setCurrentIndex(index)
-        return page
-
-    # -- projects -------------------------------------------------------
+    # -- project tabs ---------------------------------------------------------
     def _new_project_dialog(self):
         path = QtWidgets.QFileDialog.getExistingDirectory(self, "New project directory")
         if path:
@@ -323,127 +188,81 @@ class MainWindow(QtWidgets.QMainWindow):
             self.open_project(path)
 
     def create_project(self, path):
-        return self._set_project(Project.create(path))
+        return self._add_project_tab(Project.create(path))
 
     def open_project(self, path):
+        existing = self._find_open_tab(path)
+        if existing is not None:
+            self.tabs.setCurrentWidget(existing)
+            return existing.project
         try:
             project = Project(path)
         except ProjectError as exc:
             self.statusBar().showMessage(str(exc))
             return None
-        return self._set_project(project)
+        return self._add_project_tab(project)
 
-    def _set_project(self, project):
-        self.project = project
+    def _find_open_tab(self, path):
+        target = os.path.abspath(path)
+        for index in range(self.tabs.count()):
+            tab = self.tabs.widget(index)
+            if os.path.abspath(tab.project.path) == target:
+                return tab
+        return None
+
+    def _add_project_tab(self, project):
+        tab = ProjectTab(self, project, self.entries, self.loader)
+        index = self.tabs.addTab(tab, project.name)
+        self.tabs.setCurrentIndex(index)
         self.settings.add_recent_project(project.path)
-        self.setWindowTitle("HiCExplorer - {}".format(project.name))
-        self.run_view.set_project(project)
-        self.editor.set_context(project, self.entries, self.loader)
-        self.refresh_project()
-        return project
+        self._fill_recent_menu()
+        return tab.project
 
-    def refresh_project(self):
-        self.project_tree.clear()
-        if self.project is None:
-            return
-        root = QtWidgets.QTreeWidgetItem([self.project.name])
-        workflows = QtWidgets.QTreeWidgetItem(["Workflows"])
-        for path in self.project.workflows():
-            item = QtWidgets.QTreeWidgetItem([os.path.basename(path)])
-            item.setData(0, QtCore.Qt.UserRole, ("workflow", path))
-            workflows.addChild(item)
-        history = QtWidgets.QTreeWidgetItem(["History"])
-        for entry in self.project.history():
-            item = QtWidgets.QTreeWidgetItem(["{} ({})".format(entry.get("name"), entry.get("exit_code"))])
-            item.setToolTip(0, entry.get("started", ""))
-            item.setData(0, QtCore.Qt.UserRole, ("history", entry["dir"]))
-            history.addChild(item)
-        root.addChildren([workflows, history])
-        self.project_tree.addTopLevelItem(root)
-        root.setExpanded(True)
-        workflows.setExpanded(True)
-        self.run_view.refresh_history()
+    def _close_project_tab(self, index):
+        tab = self.tabs.widget(index)
+        if tab.controller.running:
+            answer = QtWidgets.QMessageBox.question(
+                self, "Close project",
+                "A run is in progress in project \"{}\". Close it anyway?".format(tab.project.name),
+                QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No, QtWidgets.QMessageBox.No)
+            if answer != QtWidgets.QMessageBox.Yes:
+                return
+            tab.controller.cancel()
+        self.tabs.removeTab(index)
+        tab.deleteLater()
 
-    def _project_item_opened(self, item, _column=0):
-        data = item.data(0, QtCore.Qt.UserRole)
-        if not data:
-            return
-        kind, path = data
-        if kind == "workflow":
-            self.editor.load(path)
-            self.show_editor()
-        elif not self.open_analysis_views(path):
-            self.show_runs()
+    def active_project_tab(self):
+        return self.tabs.currentWidget()
 
-    # -- analysis views and templates (PLAN 10.6, 10.7) -----------------
-    def open_analysis_views(self, history_dir):
-        """Opens a view for every step of a run whose tool has one."""
-        from .analysis_views import records_from_history
-        try:
-            records = records_from_history(history_dir)
-        except (OSError, ValueError) as exc:
-            self.statusBar().showMessage("Cannot read the run: {}".format(exc))
-            return []
-        return [view for view in (self.open_analysis_view(record) for record in records) if view is not None]
+    # -- view menu, acting on the active project -----------------------------
+    def show_runs(self):
+        tab = self.active_project_tab()
+        if tab is not None:
+            tab.show_runs()
 
-    def open_analysis_view(self, record):
-        from .analysis_views import open_view
-        if self.loader is None:
-            self.statusBar().showMessage("Set the C++ tool directory first (Settings).")
-            return None
-        try:
-            view = open_view(record, self.loader)
-        except Exception as exc:  # noqa: BLE001  a view that cannot read its data says why
-            self.statusBar().showMessage("Cannot open the {} view: {}".format(record.tool, exc))
-            return None
-        view.navigate.connect(self.navigate_browser)
-        self.tabs.addTab(view, "{}: {}".format(view.title, record.name))
-        self.tabs.setCurrentWidget(view)
-        return view
+    def show_editor(self):
+        tab = self.active_project_tab()
+        if tab is not None:
+            tab.show_editor()
 
-    def navigate_browser(self, matrix, region):
-        """Shows region in the matrix browser, opening matrix first when it is
-        not the matrix already open."""
-        if self.browser is None:
-            return False
-        current = self.browser.sources[0]
-        if matrix and (current is None or os.path.abspath(current.path) != os.path.abspath(matrix)):
-            if self.browser.open_matrix(matrix) is None:
-                return False
-        ok = self.browser.goto(region)
-        self.show_browser()
-        return ok
-
-    def _open_views_dialog(self):
-        start = self.project.history_dir if self.project is not None else ""
-        path = QtWidgets.QFileDialog.getExistingDirectory(self, "Run history entry", start)
-        if path:
-            self.open_analysis_views(path)
+    def show_browser(self):
+        tab = self.active_project_tab()
+        if tab is not None:
+            tab.show_browser()
 
     def new_from_template(self):
-        from .template_picker import TemplatePicker
-        if self.project is None:
+        tab = self.active_project_tab()
+        if tab is None:
             self.statusBar().showMessage("Open or create a project first.")
             return None
-        dialog = TemplatePicker(self.entries, self)
-        if dialog.exec() != QtWidgets.QDialog.Accepted or dialog.workflow is None:
+        return tab.new_from_template()
+
+    def _open_views_dialog(self):
+        tab = self.active_project_tab()
+        if tab is None:
+            self.statusBar().showMessage("Open or create a project first.")
             return None
-        return self.create_workflow(dialog.workflow)
-
-    def create_workflow(self, workflow):
-        """Saves a workflow document in the project and opens it in the editor."""
-        import yaml
-        from .project import safe_name
-        path = os.path.join(self.project.workflows_dir, safe_name(workflow["name"]) + ".yaml")
-        with open(path, "w") as handle:
-            yaml.safe_dump(workflow, handle, sort_keys=False)
-        self.refresh_project()
-        self.editor.load(path)
-        self.show_editor()
-        return path
-
-    def run_workflow(self, path, name):
-        if self.project is None or self.controller.running:
-            return False
-        self.show_runs()
-        return self.controller.run_workflow(self.project, self.loader, path, name)
+        start = tab.project.history_dir if tab.project is not None else ""
+        path = QtWidgets.QFileDialog.getExistingDirectory(self, "Run history entry", start)
+        if path:
+            tab.open_analysis_views(path)

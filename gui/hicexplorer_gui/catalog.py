@@ -60,6 +60,26 @@ class ToolEntry:
         return "ToolEntry({!r}, available={})".format(self.name, self.available)
 
 
+def tool_input_formats(spec):
+    """The lower-cased formats of spec's role: input file arguments, across
+    the top level and every subcommand, taken from the tool's own
+    ``--help-json`` (never a hand-maintained mapping)."""
+    formats = set()
+    subcommands = list(spec.commands) or [None]
+    for subcommand in subcommands:
+        for arg in spec.arguments(subcommand):
+            info = arg.get("file") or {}
+            if info.get("role") == "input":
+                formats.update(f.lower() for f in (info.get("formats") or []))
+    return formats
+
+
+def entries_for_format(entries, fmt):
+    """Available entries whose spec declares fmt as an input format."""
+    fmt = fmt.lower()
+    return [e for e in entries if e.available and fmt in tool_input_formats(e.spec)]
+
+
 def tool_entries(tools_dir):
     """One ToolEntry per planned tool, sorted by tier and name."""
     loader = SpecLoader(tools_dir or None)

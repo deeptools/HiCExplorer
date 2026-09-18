@@ -194,8 +194,9 @@ def test_picker_creates_the_workflow_in_the_project(qtbot, tmp_path):
     assert picker.workflow is not None
     assert picker.workflow["steps"][0]["args"]["matrices"] == values["matrices"]
     assert picker.workflow["steps"][0]["args"]["sparsity"] == 0.05
-    path = window.create_workflow(picker.workflow)
-    assert os.path.isfile(path) and path.startswith(window.project.workflows_dir)
-    assert window.tabs.currentWidget() is window.editor
+    tab = window.active_project_tab()
+    path = tab.create_workflow(picker.workflow)
+    assert os.path.isfile(path) and path.startswith(tab.project.workflows_dir)
+    assert tab.tabs.currentWidget() is tab.editor
     proc = cli("validate", path, "--tools-dir", CPP_BIN)
     assert proc.returncode == 0, proc.stdout
