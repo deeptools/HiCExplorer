@@ -248,6 +248,8 @@ class ProjectTab(QtWidgets.QWidget):
         entry = DataFile(path, fmt)
         self.data_files.append(entry)
         self.set_current_data(entry)
+        if is_matrix_format(fmt):
+            self._open_current_in_browser()
         return entry
 
     def set_current_data(self, entry):

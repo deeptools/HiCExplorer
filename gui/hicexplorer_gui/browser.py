@@ -225,7 +225,13 @@ class Track:
                     if self.kind == "loops":
                         if fields[0] != fields[3]:
                             continue
-                        item = (int(fields[1]), int(fields[2]), int(fields[4]), int(fields[5]))
+                        score = None
+                        if len(fields) > 6:
+                            try:
+                                score = float(fields[6])
+                            except ValueError:
+                                score = None
+                        item = (int(fields[1]), int(fields[2]), int(fields[4]), int(fields[5]), score)
                     elif self.kind == "bedgraph":
                         item = (int(fields[1]), int(fields[2]), float(fields[3]))
                     else:
@@ -281,6 +287,38 @@ def clipped_tad_lines(domains, rows, cols):
     return np.array(x, dtype=float), np.array(y, dtype=float)
 
 
+ARC_SAMPLES = 24
+
+
+def loop_arc_path(loops, cols):
+    """(x, y) with NaN breaks tracing one parabolic arc per loop whose two
+    anchor midpoints both lie inside ``cols`` (a single linear axis, matching
+    the matrix's x-axis). Apex height is scaled by the loop's score when one
+    was parsed, falling back to its span (e2 - s1); heights are normalised to
+    the tallest arc drawn so the track always uses its own available height."""
+    kept, heights = [], []
+    c0, c1 = cols
+    for s1, e1, s2, e2, score in loops:
+        x1, x2 = (s1 + e1) / 2.0, (s2 + e2) / 2.0
+        if c0 <= x1 <= c1 and c0 <= x2 <= c1:
+            kept.append((x1, x2))
+            heights.append(abs(score) if score is not None else float(e2 - s1))
+    if not kept:
+        return np.array([]), np.array([])
+    peak = max(heights) or 1.0
+    x, y = [], []
+    t = np.linspace(-1.0, 1.0, ARC_SAMPLES)
+    parabola = 1.0 - t ** 2
+    for (x1, x2), height in zip(kept, heights):
+        left, right = min(x1, x2), max(x1, x2)
+        mid, half = (left + right) / 2.0, max(right - left, 1.0) / 2.0
+        x.extend((mid + t * half).tolist())
+        x.append(np.nan)
+        y.extend((parabola * (height / peak)).tolist())
+        y.append(np.nan)
+    return np.array(x, dtype=float), np.array(y, dtype=float)
+
+
 class GenomeAxis(pg.AxisItem):
     """Tick labels in kb or Mb instead of scientific notation."""
 
@@ -317,10 +355,7 @@ class Panel:
         self.image = pg.ImageItem(axisOrder="row-major")
         self.plot.addItem(self.image)
         self.tads = pg.PlotDataItem(pen=pg.mkPen((0, 90, 200), width=1.5), connect="finite")
-        self.loops = pg.ScatterPlotItem(symbol="s", size=10, pen=pg.mkPen((0, 150, 0), width=1.5),
-                                        brush=None, pxMode=True)
         self.plot.addItem(self.tads)
-        self.plot.addItem(self.loops)
 
 
 class MatrixBrowser(QtWidgets.QWidget):
@@ -393,6 +428,8 @@ class MatrixBrowser(QtWidgets.QWidget):
         self.panels = []
         self.track_plot = None
         self.track_curves = []
+        self.arc_plot = None
+        self.arc_curves = []
         self.timer = QtCore.QTimer(self)
         self.timer.setSingleShot(True)
         self.timer.setInterval(150)
@@ -472,11 +509,15 @@ class MatrixBrowser(QtWidgets.QWidget):
             panel.plot.sigRangeChanged.connect(lambda *_args, p=panel: self._range_changed(p))
             self.panels.append(panel)
         one_d = [t for t in self.tracks if t.kind in ("bedgraph", "bigwig")]
+        loop_tracks = [t for t in self.tracks if t.kind == "loops"]
         self.track_plot = None
         self.track_curves = []
+        self.arc_plot = None
+        self.arc_curves = []
+        row = 1
         if one_d:
             self.track_plot = _plot_item(left=False)
-            self.graphics.addItem(self.track_plot, row=1, col=0)
+            self.graphics.addItem(self.track_plot, row=row, col=0)
             self.track_plot.setMouseEnabled(x=False, y=False)
             self.track_plot.addLegend(offset=(5, 5))
             palette = [(200, 60, 0), (0, 100, 180), (60, 140, 60), (120, 60, 160)]
@@ -484,6 +525,21 @@ class MatrixBrowser(QtWidgets.QWidget):
                 curve = self.track_plot.plot(stepMode="center", pen=pg.mkPen(palette[index % 4], width=1.2),
                                              name=track.name)
                 self.track_curves.append((track, curve))
+            row += 1
+        if loop_tracks:
+            # Arc track: replaces the old point overlay of loop anchors drawn
+            # directly on the matrix (PLAN 10.5); one parabolic arc per loop,
+            # laid out as its own panel row so it shares the matrix's x-axis
+            # like the bedgraph/bigwig tracks above.
+            self.arc_plot = _plot_item(left=False)
+            self.graphics.addItem(self.arc_plot, row=row, col=0)
+            self.arc_plot.setMouseEnabled(x=False, y=False)
+            self.arc_plot.addLegend(offset=(5, 5))
+            palette = [(160, 20, 130), (0, 130, 130), (180, 110, 0)]
+            for index, track in enumerate(loop_tracks):
+                curve = self.arc_plot.plot(pen=pg.mkPen(palette[index % len(palette)], width=1.5),
+                                           connect="finite", name=track.name)
+                self.arc_curves.append((track, curve))
         self._apply_limits()
         if self.view_x is not None:
             self._set_view(self.view_x, self.view_y)
@@ -517,17 +573,19 @@ class MatrixBrowser(QtWidgets.QWidget):
             dw = max(AXIS_WIDTH + 2, plot.size().width() - plot.vb.width())
             dh = max(40, plot.size().height() - plot.vb.height())
         n = len(self.panels)
-        track = TRACK_HEIGHT + 10 if self.track_plot is not None else 0
+        extra_rows = (self.track_plot is not None) + (self.arc_plot is not None)
+        track = (TRACK_HEIGHT + 10) * extra_rows
         side = int(max(40, min(width / n - dw - 6 * n, height - track - dh)))
         for panel in self.panels:
             self._elide_title(panel, side)
             size = QtCore.QSizeF(side + dw, side + dh)
             panel.plot.setMinimumSize(size)
             panel.plot.setMaximumSize(size)
-        if self.track_plot is not None:
-            size = QtCore.QSizeF(side + dw, TRACK_HEIGHT)
-            self.track_plot.setMinimumSize(size)
-            self.track_plot.setMaximumSize(size)
+        for extra in (self.track_plot, self.arc_plot):
+            if extra is not None:
+                size = QtCore.QSizeF(side + dw, TRACK_HEIGHT)
+                extra.setMinimumSize(size)
+                extra.setMaximumSize(size)
         self._fit_attempts += 1
         if self._fit_attempts < 4:
             QtCore.QTimer.singleShot(0, self._check_square)
@@ -567,6 +625,8 @@ class MatrixBrowser(QtWidgets.QWidget):
                                         maxXRange=length, maxYRange=length)
             if self.track_plot is not None:
                 self.track_plot.vb.setLimits(xMin=0, xMax=length, maxXRange=length)
+            if self.arc_plot is not None:
+                self.arc_plot.vb.setLimits(xMin=0, xMax=length, maxXRange=length)
         finally:
             self._navigating = False
 
@@ -604,6 +664,8 @@ class MatrixBrowser(QtWidgets.QWidget):
                 panel.plot.vb.setRange(xRange=x_range, yRange=y_range, padding=0)
             if self.track_plot is not None:
                 self.track_plot.vb.setXRange(*x_range, padding=0)
+            if self.arc_plot is not None:
+                self.arc_plot.vb.setXRange(*x_range, padding=0)
         finally:
             self._navigating = False
         self.region.setText("{}:{:,}-{:,}".format(self.chrom, int(round(x_range[0])), int(round(x_range[1]))))
@@ -760,22 +822,30 @@ class MatrixBrowser(QtWidgets.QWidget):
                                               array.shape[1] * resolution, array.shape[0] * resolution))
             self._draw_overlays(panel, request)
         self._draw_tracks(request)
+        self._draw_arcs(request)
 
     def _draw_overlays(self, panel, request):
         rows, cols = request.view_rows, request.view_cols
-        domains, lx, ly = [], [], []
+        domains = []
         for track in self.tracks:
             if track.kind == "tads":
                 domains.extend(track.data.get(request.chrom, []))
-            elif track.kind == "loops":
-                for s1, e1, s2, e2 in track.data.get(request.chrom, []):
-                    for cx, cy in (((s2 + e2) / 2, (s1 + e1) / 2), ((s1 + e1) / 2, (s2 + e2) / 2)):
-                        if cols[0] <= cx <= cols[1] and rows[0] <= cy <= rows[1]:
-                            lx.append(cx)
-                            ly.append(cy)
         x, y = clipped_tad_lines(domains, rows, cols)
         panel.tads.setData(x, y)
-        panel.loops.setData(lx, ly)
+
+    def _draw_arcs(self, request):
+        if self.arc_plot is None:
+            return
+        cols = request.view_cols
+        for track, curve in self.arc_curves:
+            x, y = loop_arc_path(track.data.get(request.chrom, []), cols)
+            curve.setData(x, y)
+        if self.view_x is not None:
+            self._navigating = True
+            try:
+                self.arc_plot.vb.setXRange(*self.view_x, padding=0)
+            finally:
+                self._navigating = False
 
     def _draw_tracks(self, request):
         if self.track_plot is None:

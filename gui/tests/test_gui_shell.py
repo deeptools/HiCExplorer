@@ -302,6 +302,42 @@ def test_loading_a_fastq_file_says_no_tool_reads_it_directly(tab, tmp_path):
     assert tab.tool_tree.topLevelItem(0).childCount() == 0
 
 
+def test_loading_a_matrix_file_auto_opens_it_in_the_matrix_browser(tab):
+    matrix = os.path.join(DATA, "small_test_matrix.cool")
+    entry = tab.load_data_file(matrix)
+    assert entry.format == "cool"
+    assert tab.browser is not None
+    assert tab.browser.sources[0] is not None
+    assert os.path.abspath(tab.browser.sources[0].path) == os.path.abspath(matrix)
+    # auto-open also switches to the Matrix browser tab, the same as clicking
+    # the manual "Open in Matrix browser" button would
+    assert tab.tabs.currentWidget() is tab.browser
+
+
+def test_loading_a_non_matrix_file_does_not_touch_the_matrix_browser(tab):
+    bam = os.path.join(DATA, "small_test_R1_unsorted.bam")
+    entry = tab.load_data_file(bam)
+    assert entry.format == "bam"
+    assert tab.browser is not None
+    assert tab.browser.sources[0] is None
+    assert tab.tabs.currentWidget() is not tab.browser
+
+
+def test_manual_open_in_browser_button_still_opens_the_selected_data_file(tab):
+    # the "Open in Matrix browser" button (open_in_browser_button) stays for
+    # files opened another way, e.g. reselecting an earlier load or a tool's
+    # own output; auto-open on load must not replace it.
+    a = os.path.join(DATA, "small_test_matrix.cool")
+    b = os.path.join(DATA, "hicTADClassifier", "gm12878_chr1.cool")
+    tab.load_data_file(a)
+    tab.load_data_file(b)
+    assert os.path.abspath(tab.browser.sources[0].path) == os.path.abspath(b)
+    tab.set_current_data(tab.data_files[0])
+    assert tab.open_in_browser_button.isEnabled()
+    tab.open_in_browser_button.click()
+    assert os.path.abspath(tab.browser.sources[0].path) == os.path.abspath(a)
+
+
 def test_without_data_the_full_tool_list_is_shown(tab):
     assert tab.current_data is None
     assert tab.filtered_entries == tab.entries

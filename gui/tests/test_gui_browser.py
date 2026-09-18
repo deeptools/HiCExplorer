@@ -200,6 +200,51 @@ def test_single_resolution_file_refuses_a_too_large_view(qtbot, browser):
     assert "Zoom in" in browser.status.text()
 
 
+def test_loop_arc_path_scales_by_score_when_present():
+    from hicexplorer_gui.browser import ARC_SAMPLES, loop_arc_path
+    loops = [
+        (100, 200, 800, 900, 2.0),
+        (300, 400, 600, 700, 8.0),
+    ]
+    x, y = loop_arc_path(loops, (0, 1000))
+    first_peak = np.nanmax(y[:ARC_SAMPLES])
+    second_peak = np.nanmax(y[ARC_SAMPLES + 1:])
+    assert second_peak == pytest.approx(np.nanmax(y))  # the higher score reaches the track's peak
+    assert first_peak / second_peak == pytest.approx(2.0 / 8.0, rel=1e-3)
+    finite = np.isfinite(x[:ARC_SAMPLES])
+    assert x[:ARC_SAMPLES][finite].min() == pytest.approx(150.0)
+    assert x[:ARC_SAMPLES][finite].max() == pytest.approx(850.0)
+
+
+def test_loop_arc_path_falls_back_to_span_without_a_score():
+    from hicexplorer_gui.browser import ARC_SAMPLES, loop_arc_path
+    loops = [
+        (0, 100, 200, 300, None),    # span e2 - s1 = 300
+        (500, 600, 700, 900, None),  # span e2 - s1 = 400
+    ]
+    x, y = loop_arc_path(loops, (0, 1000))
+    first_peak = np.nanmax(y[:ARC_SAMPLES])
+    second_peak = np.nanmax(y[ARC_SAMPLES + 1:])
+    assert second_peak == pytest.approx(np.nanmax(y))  # the wider span reaches the track's peak
+    assert first_peak / second_peak == pytest.approx(300.0 / 400.0, rel=1e-3)
+
+
+def test_loop_arc_path_drops_loops_with_an_anchor_outside_the_view():
+    from hicexplorer_gui.browser import loop_arc_path
+    kept = (100, 200, 800, 900, None)
+    dropped = (100, 200, 2000, 2100, None)
+    x, y = loop_arc_path([kept, dropped], (0, 1000))
+    assert np.count_nonzero(np.isnan(x)) == 1  # one break: only the kept loop drawn
+    finite = np.isfinite(x)
+    assert x[finite].min() >= 0 and x[finite].max() <= 1000
+
+
+def test_loop_arc_path_empty_view_returns_empty_arrays():
+    from hicexplorer_gui.browser import loop_arc_path
+    x, y = loop_arc_path([], (0, 1000))
+    assert x.size == 0 and y.size == 0
+
+
 def test_tracks_overlay_and_signal(qtbot, browser, tmp_path):
     import pyBigWig
     tads = tmp_path / "tads.bed"
@@ -221,11 +266,52 @@ def test_tracks_overlay_and_signal(qtbot, browser, tmp_path):
     settle(qtbot, browser)
     panel = browser.panels[0]
     assert np.count_nonzero(np.isfinite(panel.tads.xData)) >= 10
-    assert len(panel.loops.data) >= 1
+    assert browser.arc_plot is not None and len(browser.arc_curves) == 1
+    arc_x, arc_y = browser.arc_curves[0][1].xData, browser.arc_curves[0][1].yData
+    assert arc_x is not None and np.count_nonzero(np.isfinite(arc_x)) >= 2
+    assert np.nanmax(arc_y) > 0
     curves = dict((t.kind, c) for t, c in browser.track_curves)
     assert len(curves["bedgraph"].yData) > 0 and np.nanmax(curves["bedgraph"].yData) == 6
     assert np.nanmax(curves["bigwig"].yData) == 3.0
     assert Track(wig, "bigwig").signal("1", 112000000, 113000000, 4)[1].tolist() == [1.0, 1.0, 1.0, 1.0]
+
+
+def test_arc_track_draws_one_arc_per_visible_loop_scaled_by_score(qtbot, browser, tmp_path):
+    # A real BEDPE-style loops file (score in column 7) with three loops:
+    # two inside the region that will be viewed and one whose second anchor
+    # falls outside it, plus a mismatched-chromosome row that must be ignored.
+    loops = tmp_path / "loops.bedpe"
+    loops.write_text(
+        "1\t111500000\t112000000\t1\t112500000\t113000000\t3.0\n"
+        "1\t113500000\t114000000\t1\t115500000\t116000000\t9.0\n"
+        "1\t118000000\t118500000\t1\t130000000\t130500000\t5.0\n"
+        "1\t111000000\t111500000\t2\t112000000\t112500000\t1.0\n"
+    )
+    browser.open_matrix(os.path.join(DATA, "hicTADClassifier", "gm12878_chr1.cool"))
+    assert browser.add_track(str(loops)) is not None
+    assert browser.tracks[-1].kind == "loops"
+    browser.goto("1:111,000,000-119,000,000")
+    settle(qtbot, browser)
+    assert browser.arc_plot is not None
+    _track, curve = browser.arc_curves[0]
+    x, y = curve.xData, curve.yData
+    # two loops are drawn (the third's far anchor at 130 Mb is out of view),
+    # each contributing ARC_SAMPLES points followed by one NaN break.
+    from hicexplorer_gui.browser import ARC_SAMPLES
+    assert np.count_nonzero(np.isnan(x)) == 2
+    assert x.size == 2 * (ARC_SAMPLES + 1)
+    finite = np.isfinite(x)
+    assert x[finite].min() >= 111000000 and x[finite].max() <= 119000000
+    # the higher-score loop (9.0) reaches the normalised peak of 1.0, the
+    # lower-score one (3.0) peaks at 3/9
+    first_peak = np.nanmax(y[:ARC_SAMPLES])
+    second_peak = np.nanmax(y[ARC_SAMPLES + 1:2 * ARC_SAMPLES + 1])
+    assert max(first_peak, second_peak) == pytest.approx(np.nanmax(y))
+    assert min(first_peak, second_peak) / max(first_peak, second_peak) == pytest.approx(3.0 / 9.0, rel=1e-3)
+    browser.goto("1:150,000,000-160,000,000")
+    settle(qtbot, browser)
+    x2 = browser.arc_curves[0][1].xData
+    assert x2 is None or x2.size == 0  # no loop anchor pair lies in this window
 
 
 def assert_view_is_region(widget, start, end):
@@ -246,8 +332,6 @@ def assert_view_is_region(widget, start, end):
             finite = np.isfinite(xs)
             assert start <= xs[finite].min() and xs[finite].max() <= end
             assert start <= ys[finite].min() and ys[finite].max() <= end
-        for spot in panel.loops.points():
-            assert start <= spot.pos().x() <= end and start <= spot.pos().y() <= end
     if widget.track_plot is not None:
         assert tuple(widget.track_plot.vb.viewRange()[0]) == pytest.approx((start, end), abs=1.0)
         track_vb, matrix_vb = widget.track_plot.vb, widget.panels[0].plot.vb
@@ -257,6 +341,16 @@ def assert_view_is_region(widget, start, end):
         for _track, curve in widget.track_curves:
             if curve.xData is not None and len(curve.xData):
                 assert start <= curve.xData.min() and curve.xData.max() <= end
+    if widget.arc_plot is not None:
+        assert tuple(widget.arc_plot.vb.viewRange()[0]) == pytest.approx((start, end), abs=1.0)
+        arc_vb, matrix_vb = widget.arc_plot.vb, widget.panels[0].plot.vb
+        left_arc = arc_vb.mapToScene(arc_vb.rect().topLeft()).x()
+        left_matrix = matrix_vb.mapToScene(matrix_vb.rect().topLeft()).x()
+        assert abs(left_arc - left_matrix) <= 2 and abs(arc_vb.width() - matrix_vb.width()) <= 2
+        for _track, curve in widget.arc_curves:
+            if curve.xData is not None and np.count_nonzero(np.isfinite(curve.xData)):
+                finite = np.isfinite(curve.xData)
+                assert start <= curve.xData[finite].min() and curve.xData[finite].max() <= end
 
 
 @pytest.mark.parametrize("mode", ["single", "side by side", "difference"])
