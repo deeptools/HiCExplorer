@@ -20,7 +20,8 @@ PLANNED_TOOLS = {
     "hicCompartmentalization": 3, "hicCorrectMatrix": 3, "hicDetectLoops": 3, "hicFindTADs": 3,
     "hicInterIntraTAD": 3, "hicPCA": 3, "hicPlotSVL": 3, "hicTransform": 3,
     # tier 4: alignment and matrix construction
-    "hicBuildMatrix": 4, "hicBuildMatrixMicroC": 4, "hicQuickQC": 4,
+    "hicAlignReads": 4, "hicBuildIndex": 4, "hicBuildMatrix": 4, "hicBuildMatrixMicroC": 4,
+    "hicQuickQC": 4,
     # tier 5: TAD, loop and differential calling
     "hicAggregateContacts": 5, "hicDifferentialTAD": 5, "hicMergeDomains": 5,
     # tier 6: capture Hi-C suite

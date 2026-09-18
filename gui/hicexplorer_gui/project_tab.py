@@ -45,13 +45,21 @@ def _open_data_filter():
 class ToolPage(QtWidgets.QWidget):
     """A tool form with validate, run and the command line it produces."""
 
+    # Tools whose file arguments are more often found in (or best saved to)
+    # the shared index cache directory (Settings > Shared minibwa index
+    # cache, PLAN tier 13) than in the current project: hicBuildIndex writes
+    # a custom index there by default, and hicAlignReads most often reads
+    # one back from there. Any field's own file picker can still be pointed
+    # anywhere; this only changes the dialog's starting directory.
+    _INDEX_CACHE_TOOLS = ("hicBuildIndex", "hicAlignReads")
+
     def __init__(self, project_tab, spec, parent=None):
         super().__init__(parent)
         self.owner = project_tab
         self.spec = spec
         layout = QtWidgets.QVBoxLayout(self)
         layout.setContentsMargins(4, 4, 4, 4)
-        self.form = ToolForm(spec, start_dir=lambda: project_tab.project.path if project_tab.project else "")
+        self.form = ToolForm(spec, start_dir=self._start_dir)
         layout.addWidget(self.form, 1)
         self.command = QtWidgets.QLabel()
         self.command.setWordWrap(True)
@@ -71,6 +79,13 @@ class ToolPage(QtWidgets.QWidget):
         layout.addLayout(row)
         self.form.changed.connect(self.update_command)
         self.update_command()
+
+    def _start_dir(self):
+        if self.spec.tool in self._INDEX_CACHE_TOOLS:
+            cache = self.owner.window.settings.index_cache_dir
+            if cache:
+                return cache
+        return self.owner.project.path if self.owner.project else ""
 
     def update_command(self):
         self.command.setText("Command: " + self.form.command_line())
@@ -299,15 +314,19 @@ class ProjectTab(QtWidgets.QWidget):
             self.filtered_entries = self.entries
             self.data_status.setText(
                 "{} is not a recognised format; showing every available tool.".format(self.current_data.name))
-        elif is_fastq_format(self.current_data.format):
-            self.filtered_entries = []
-            self.data_status.setText(
-                "{}: {}.".format(self.current_data.name, FASTQ_MESSAGE))
         else:
             self.filtered_entries = entries_for_format(self.entries, self.current_data.format)
             if self.filtered_entries:
                 self.data_status.setText("{}: {} tool(s) accept {} input.".format(
                     self.current_data.name, len(self.filtered_entries), self.current_data.format))
+            elif is_fastq_format(self.current_data.format):
+                # hicAlignReads (PLAN tier 13) declares fastq/fastq.gz as an
+                # input format in its own --help-json, so entries_for_format
+                # already finds it once the C++ tool directory has it built;
+                # this message only fires when it is missing from that
+                # directory, not as a permanent "FASTQ is unsupported" note.
+                self.data_status.setText(
+                    "{}: {}.".format(self.current_data.name, FASTQ_MESSAGE))
             else:
                 self.data_status.setText("{}: no available tool accepts {} input.".format(
                     self.current_data.name, self.current_data.format))
