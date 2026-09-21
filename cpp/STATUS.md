@@ -2,7 +2,7 @@
 
 Owner: the orchestrating session. Architecture: `cpp/PLAN.md`. Rules:
 `cpp/AGENTS_CONTRACT.md`. Optimization rules: `cpp/OPTIMIZATION.md`. Last updated
-2026-09-18, at commit `7538037c`.
+2026-09-21, at commit `e2f0b103`.
 
 **Current state: 42 of 46 tools ported and committed** on `version4-cpp`.
 - **Last regression,** merge-style (`--cache refresh`, contract rule 13) on a
@@ -184,6 +184,23 @@ Owner: the orchestrating session. Architecture: `cpp/PLAN.md`. Rules:
   - Verified on the real desktop display, not only offscreen: auto-open
     after loading a cool file, and three loop arcs of visibly different
     heights matching their scores, confirmed by screenshot review.
+- **Corrected 2026-09-21, `e2f0b103`:** two scoping mistakes from the
+  orchestrating session, reverted at the project owner's direct instruction.
+  - minibwa integration (merged 2026-09-18 in `4c5e79a5` as new C++ tools
+    `hicBuildIndex`/`hicAlignReads`, PLAN tier 13) is reverted in full: both
+    tools, the `minibwa_bridge` core module, and their catalog/spec entries
+    are removed. minibwa was never meant to become a HiCExplorer-branded
+    tool; it belongs to `hicexplorer-gui` instead, exposed as itself. See
+    PLAN.md tier 13 for the corrected scope.
+  - The GUI (`gui/`, all of tier 10's work) is removed from this repository
+    entirely. It was split out, with its real commit history (`git subtree
+    split`), into the standalone `~/src/hicexplorer-gui`, which depends on
+    stock Python HiCExplorer (`>=3.7,<4`) rather than this C++ rewrite. This
+    repository is the C++ tool rewrite only from here on.
+  - Verified: clean rebuild (0 warnings, 0 errors), ctest 6/8 (2 pre-existing
+    environment-gated skips), 45 real tool binaries remain (47 minus the two
+    reverted; unaffected by the removal since neither was ever part of the
+    original 46 Python-ported tools).
 
 **Harness: Python reference cache and parallel scheduling, merged in
 `04f948ce` (contract rule 13).**
