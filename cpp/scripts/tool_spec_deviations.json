@@ -78,27 +78,5 @@
             "kind": "cpp_only_tool",
             "reason": "No Python counterpart: a tier 9 feature (cpp/PLAN.md 9.3), validated as class EX by cpp/scripts/stripe_calibration.py and the harness cases in cpp/scripts/cases/hicDetectStripes.json. tool_specs.py checks the structure of its spec only."
         }
-    ],
-    "hicBuildIndex": [
-        {
-            "where": "",
-            "dest": "",
-            "fields": [
-                "tool"
-            ],
-            "kind": "cpp_only_tool",
-            "reason": "No Python counterpart: a tier 13 feature (cpp/PLAN.md tier 13, minibwa integration), a thin wrapper around `minibwa index`. Validated as class E0 (byte-identical index files against `minibwa index` run directly, at -t 1 and -t 4); see cpp/tools/hicBuildIndex.cpp. tool_specs.py checks the structure of its spec only."
-        }
-    ],
-    "hicAlignReads": [
-        {
-            "where": "",
-            "dest": "",
-            "fields": [
-                "tool"
-            ],
-            "kind": "cpp_only_tool",
-            "reason": "No Python counterpart: a tier 13 feature (cpp/PLAN.md tier 13, minibwa integration), a thin wrapper around `minibwa map` that converts its SAM output to BAM. Validated as class E0 (byte-identical alignment records against `minibwa map` + `samtools view -b --no-PG` run directly, at -t 1 and -t 4); see cpp/tools/hicAlignReads.cpp. tool_specs.py checks the structure of its spec only."
-        }
     ]
 }

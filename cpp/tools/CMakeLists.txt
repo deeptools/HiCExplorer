@@ -4,8 +4,6 @@
 set(HICX_TOOLS
     hicAggregateContacts
     hicAdjustMatrix
-    hicAlignReads
-    hicBuildIndex
     hicBuildMatrix
     hicBuildMatrixMicroC
     chicQualityControl

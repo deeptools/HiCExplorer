@@ -1969,6 +1969,19 @@ sizes.
   menu-opened dialog. See STATUS.md for the verification detail.
 - 10.8 needs a Mac or a CI runner.
 
+**Moved out 2026-09-21, requested directly by the project owner: there is no
+GUI in this repository any more.** The `gui/` package described above was
+split out (with its real commit history, via `git subtree split`) into a new,
+standalone repository, `~/src/hicexplorer-gui`. That repository depends on
+the real, published stock Python HiCExplorer (`hicexplorer>=3.7,<4`, bioconda)
+rather than on this C++ rewrite, so it is decoupled from `version4-cpp`'s own
+progress; the `ToolSpec`/`--help-json` JSON shape this tier defined is kept as
+the stable contract between the two, so that the day this C++ rewrite becomes
+`hicexplorer-gui`'s dependency instead of stock 3.7.x, the GUI's spec-loading
+layer changes its source, not its shape. See that repository's own README for
+its design. Everything above in this tier is kept as the historical record of
+what was built here before the move; do not resume GUI work in this repo.
+
 ### Tier 11 - sparse eigensolver for hicPCA (added 2026-09-14, done 2026-09-16 in `7769ec55`)
 
 Requested by the project owner, to follow the GUI (tier 10).
@@ -2120,34 +2133,27 @@ environment), about 2,000 lines.
 - **Gates:** a merge-style full regression (contract rule 13), determinism,
   memory and CPU no worse than before, and the gui and bindings suites.
 
-### Tier 13 - alignment (minibwa), custom indexes, and a Docker image with baked-in genomes (added 2026-09-18)
+### Tier 13 - a Docker image with baked-in genomes (added 2026-09-18, corrected 2026-09-21)
 
-Requested by the project owner directly, closing the gap the GUI redesign
-(tier 10, `v4-gui-redesign`) surfaced: no C++ tool in this project reads raw
-FASTQ, because HiCExplorer's own pipeline has always expected already-aligned
-reads.
+**Corrected 2026-09-21.** This tier originally (2026-09-18) also described
+wrapping minibwa as two new C++ tools of this project, `hicBuildIndex` and
+`hicAlignReads` (merged in `4c5e79a5`, later reverted). That was a scoping
+mistake on the orchestrating session's part, not something the project owner
+asked for: the owner's actual request was that minibwa be *provided*, as
+itself, for use from the GUI and the Docker image, not reimplemented as a new
+HiCExplorer-branded tool. Both wrapper tools, their `minibwa_bridge` core
+module, and their catalog/spec entries have been removed from this repository
+(2026-09-21). minibwa exposure now belongs entirely to `~/src/hicexplorer-gui`
+(see that tier's note under Tier 10 above): its catalog introspects minibwa's
+own real `--help` output directly and shells out to the real `minibwa`
+binary, unrenamed and unwrapped. This repository (`version4-cpp`) has no
+alignment step and no GUI at all; it is the C++ tool rewrite only.
 
-**minibwa integration.** minibwa 0.5 is already installed as a conda package
-(`~/miniconda3/envs/__minibwa@0.5/bin/minibwa`), with a clean CLI:
-`minibwa index <in.fasta> [out.prefix]` and `minibwa map`/`minibwa mem` for
-alignment. This tier wraps it as the FASTQ-to-BAM step ahead of
-`hicBuildMatrix` (or `hicBuildMatrixMicroC`), both from the CLI and as a GUI
-action (load FASTQ pair(s) plus a reference/index, run the alignment, then
-the aligned BAM feeds the existing data-driven tool filter from tier 10's
-redesign).
-- **Custom index generation:** a GUI action and a scriptable CLI path that
-  runs `minibwa index` on any FASTA the user supplies, not only the baked-in
-  genomes below. The result is stored per project (or in a shared,
-  user-configured index cache directory) and becomes selectable wherever an
-  index is needed.
-- **Validation:** alignment run through this integration is byte-identical to
-  running `minibwa map`/`index` directly by hand on the same input, at the
-  same thread count and across thread counts (determinism, as for every tool
-  in this project).
-
-**Docker image.** Ships the whole v4 stack: the C++ tools, the GUI, minibwa,
-and baked-in reference data, so a user gets a working environment with no
-separate setup.
+**Docker image.** Bakes in reference data so a user gets a working
+environment with no separate setup. What exactly the image ships (the C++
+tools from this repo, `hicexplorer-gui` with minibwa, both, or something
+else) is an open question now that the GUI and this repo are separate
+projects; decide that before starting the image build.
 - **Genomes baked in** (FASTA plus a prebuilt minibwa index each), decided by
   the project owner 2026-09-18: **human hg38, human hg19, mouse mm10, mouse
   mm39.** Sourced from UCSC or Ensembl (record the exact source URL and a
@@ -2182,10 +2188,8 @@ separate setup.
   instruction, consistent with the project's git rule of never pushing
   without being asked.
 
-Order: minibwa integration and custom index generation first (needed by the
-Docker image's own build process, and useful standalone before the image
-exists); then the Docker image itself, once tier 10's GUI redesign
-(`v4-gui-redesign`) has merged, since the image packages the GUI.
+Not started. Depends on deciding what the image actually ships, now that the
+GUI lives in a separate repository (see the correction above).
 
 ## 7. The state of the Python test suite, honestly
 
