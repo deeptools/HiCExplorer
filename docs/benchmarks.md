@@ -2,7 +2,8 @@
 
 HiCExplorer v4 (C++) was benchmarked against Python HiCExplorer 3.7.6 on real data: a full
 single-chromosome Hi-C matrix (`hicTADClassifier/gm12878_chr1.cool`, 24,926 bins, 61.8M nonzero pixels)
-for `hicDetectLoops` and `hicFindTADs`, and a real small paired BAM dataset for `hicBuildMatrix`. Wall
+for `hicDetectLoops` and `hicFindTADs`, and a real, full-scale paired-end Hi-C sequencing run for
+`hicBuildMatrix` (130.6M read pairs, chromosome-scale reference, DpnII digestion, 10 kb bins). Wall
 clock and peak resident set size (RSS) were captured with `/usr/bin/time -v`, both tools run
 single-threaded (`--threads 1` / `--numberOfProcessors 1` where the tool has a thread flag).
 
@@ -10,7 +11,7 @@ single-threaded (`--threads 1` / `--numberOfProcessors 1` where the tool has a t
 
 | Tool | C++ v4 | Python 3.7.6 | Speedup | C++ v4 peak RSS | Python peak RSS | Memory |
 |---|---|---|---|---|---|---|
-| hicBuildMatrix | 0.23 s | 16.06 s | 69.8x | 98 MB | 900 MB | 9.2x less |
+| hicBuildMatrix (130.6M read pairs) | 122.0 s | 700.1 s | 5.7x | 1,881 MB | 6,125 MB | 3.3x less |
 | hicDetectLoops | 2.05 s | 20.59 s | 10.0x | 230 MB | 624 MB | 2.7x less |
 | hicFindTADs | 6.33 s | 33.00 s | 5.2x | 1,475 MB | 6,021 MB | 4.1x less |
 | hicPCA (100 kb) | 3.76 s | 24.20 s | 6.4x | 147 MB | 493 MB | 3.4x less |
@@ -29,9 +30,12 @@ different algorithm from Python's dense path and therefore not directly comparab
 
 ## Accuracy
 
-hicBuildMatrix and hicFindTADs were additionally checked for output size and domain count between the
-two runs (matrix dimensions and file size for hicBuildMatrix, boundary and domain count for
-hicFindTADs), and matched. This is a runtime sanity check on this benchmark run, not a full correctness
-validation; the project's actual correctness validation is the per-tool equivalence-class work recorded
-in `cpp/STATUS.md` in the repository, which checks every ported tool's output against the Python
-reference implementation on real and synthetic data before it is considered done.
+hicBuildMatrix and hicFindTADs were additionally checked for agreement between the two runs on this
+benchmark's own real data. hicBuildMatrix's QC report matched exactly on the full 130.6M-read-pair run:
+130,598,449 sequenced reads, 18,044,337 mappable/unique/high-quality pairs, and 10,318,597 Hi-C
+contacts, identical between the two implementations, with near-identical output file sizes
+(18,451,445 against 18,452,651 bytes). hicFindTADs matched in boundary and domain count (644 domains,
+both runs). This is a runtime sanity check on these benchmark runs, not a full correctness validation;
+the project's actual correctness validation is the per-tool equivalence-class work recorded in
+`cpp/STATUS.md` in the repository, which checks every ported tool's output against the Python reference
+implementation on real and synthetic data before it is considered done.
