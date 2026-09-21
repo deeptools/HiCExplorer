@@ -1479,25 +1479,28 @@ they been kept.
 
 The situation for the two remaining tools:
 
-- **`hicHyperoptDetectLoops`**: a driver that calls `hicDetectLoops.main` and
-  `hicValidateLocations.main` in a loop under hyperopt's TPE optimiser
-  (`hicHyperoptDetectLoops.py:11-12,89,117`). Once tiers 2 and 5 exist, the
-  inner tools are C++ binaries. What remains is TPE. **Recommendation: port the
-  driver to C++ and implement TPE.** Hyperopt's `tpe.suggest` is a documented
-  algorithm (Bergstra et al.), about 400 lines: an adaptive Parzen estimator
-  over the observation history, `n_startup_jobs=20` random trials,
-  `gamma=0.25`, 24 candidate draws per iteration. But it is **seeded**, and the
-  search path depends on the RNG stream, so results will differ. Class **E7**
-  for the chosen hyperparameters; the harness instead checks that the C++ driver,
-  given a *fixed* parameter set, produces the same loop file as the Python driver
-  with the same set, which is a real check of the plumbing. Defer TPE itself to
-  v4.1 and ship a `--parameterFile` mode first.
-- **`hicHyperoptDetectLoopsHiCCUPS`**: the same driver, except the inner tool is
-  `java -jar juicer.jar hiccups` invoked through `subprocess`
-  (`hicHyperoptDetectLoopsHiCCUPS.py:120-127`). Nothing about it is portable and
-  nothing about it needs to be: it is process orchestration. **Recommendation:
-  port the driver to C++ (it still shells out to java), same TPE caveat.**
-  Class **E7**.
+- **`hicHyperoptDetectLoops`** and **`hicHyperoptDetectLoopsHiCCUPS`**:
+  **decided by the project owner 2026-09-21, revising the recommendation
+  below: do not port the driver to C++ or reimplement TPE. Keep both as the
+  real, unchanged Python driver scripts (real hyperopt, real `tpe.suggest`,
+  same RNG stream as the Python original), and repoint only their inner-loop
+  calls at the C++ v4 binaries** (`hicDetectLoops`, `hicValidateLocations` for
+  the first; the second still shells out to `java -jar juicer.jar hiccups`
+  unchanged, nothing about that step is portable or needs to be). This is
+  simpler than the earlier plan and validates more strongly: since the search
+  itself (hyperopt's real TPE, real RNG stream) is untouched Python, and only
+  the per-trial loop-detection step is swapped for an already-validated C++
+  binary, the driver's output should be reproducible at a much tighter class
+  than the E7 originally expected from a from-scratch C++ TPE port (the
+  earlier recommendation's whole caveat was a *reimplemented* TPE's search
+  path diverging from Python's; that risk does not exist if TPE itself is
+  never reimplemented). Confirm the achieved class empirically once this is
+  built rather than assuming it. (Superseded recommendation, kept for
+  context: porting the driver to C++ and reimplementing hyperopt's
+  `tpe.suggest` by hand, deferring the reimplemented TPE to v4.1 with a
+  `--parameterFile` mode first. Abandoned because a reimplemented TPE's
+  RNG-dependent search path would not match Python's, exactly the divergence
+  repointing the existing Python driver avoids entirely.)
 
 ### Tier summary
 
