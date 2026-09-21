@@ -1,0 +1,129 @@
+site_name: HiCExplorer
+site_description: >-
+  A from-scratch C++ rewrite of HiCExplorer, a tool suite to process, normalize,
+  analyze and visualize Hi-C and capture Hi-C data
+site_author: Joachim Wolff
+copyright: GPL-3.0 License
+
+# TODO(docs-migration): repo_url / edit_uri intentionally left unset.
+# The historical upstream is git@github.com:deeptools/HiCExplorer.git, but that
+# repository is the old Python HiCExplorer this project rewrites from scratch in
+# C++ (branch version4-cpp here); it does not contain this code. This fork's own
+# work currently lives only on local, unpushed branches, so there is no public
+# URL yet that correctly represents this C++ rewrite. Once this project (or a
+# fork of it, for example under the MHH-Bioinformatics-Hematology org the way
+# vardictcpp and picardcpp are hosted) has a real public home, set:
+#   repo_url: https://github.com/<org>/<repo>
+#   repo_name: <org>/<repo>
+#   edit_uri: edit/<default-branch>/docs/
+# Do not point this at deeptools/HiCExplorer: it would silently misattribute
+# this C++ rewrite's docs (and its "edit this page" links) to the unrelated
+# Python project.
+
+theme:
+  name: material
+  features:
+    - navigation.sections
+    - navigation.top
+    - content.code.copy
+    - toc.integrate
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+
+markdown_extensions:
+  - admonition
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.highlight
+  - pymdownx.superfences
+  - pymdownx.details
+
+nav:
+  - Home: index.md
+  - Installation: installation.md
+  - Usage: usage.md
+  - Tools:
+      - Overview: tools/index.md
+      - Pre-processing:
+          - Overview: tools/preprocessing.md
+          - hicFindRestSite: tools/hicFindRestSite.md
+          - hicBuildMatrix: tools/hicBuildMatrix.md
+          - hicBuildMatrixMicroC: tools/hicBuildMatrixMicroC.md
+          - hicSumMatrices: tools/hicSumMatrices.md
+          - hicMergeMatrixBins: tools/hicMergeMatrixBins.md
+          - hicCorrectMatrix: tools/hicCorrectMatrix.md
+          - hicNormalize: tools/hicNormalize.md
+      - Quality control:
+          - Overview: tools/qc.md
+          - hicQuickQC: tools/hicQuickQC.md
+          - hicQC: tools/hicQC.md
+          - hicPrepareQCreport: tools/hicPrepareQCreport.md
+          - hicCorrelate: tools/hicCorrelate.md
+          - hicPlotDistVsCounts: tools/hicPlotDistVsCounts.md
+          - hicInfo: tools/hicInfo.md
+      - Analysis:
+          - Overview: tools/analysis.md
+          - hicCompareMatrices: tools/hicCompareMatrices.md
+          - hicPCA: tools/hicPCA.md
+          - hicTransform: tools/hicTransform.md
+          - hicAverageRegions: tools/hicAverageRegions.md
+          - hicDetectLoops: tools/hicDetectLoops.md
+          - hicDetectStripes: tools/hicDetectStripes.md
+          - hicValidateLocations: tools/hicValidateLocations.md
+          - hicMergeLoops: tools/hicMergeLoops.md
+          - hicHyperoptDetectLoops: tools/hicHyperoptDetectLoops.md
+          - hicHyperoptDetectLoopsHiCCUPS: tools/hicHyperoptDetectLoopsHiCCUPS.md
+          - hicCompartmentalization: tools/hicCompartmentalization.md
+          - hicPlotSVL: tools/hicPlotSVL.md
+          - hicDifferentialAnalysis: tools/hicDifferentialAnalysis.md
+      - TADs:
+          - Overview: tools/tads.md
+          - hicFindTADs: tools/hicFindTADs.md
+          - hicMergeDomains: tools/hicMergeDomains.md
+          - hicDifferentialTAD: tools/hicDifferentialTAD.md
+          - hicMergeTADbins: tools/hicMergeTADbins.md
+          - hicInterIntraTAD: tools/hicInterIntraTAD.md
+      - Visualization:
+          - Overview: tools/visualization.md
+          - hicPlotMatrix: tools/hicPlotMatrix.md
+          - hicPlotTADs: tools/hicPlotTADs.md
+          - hicPlotViewpoint: tools/hicPlotViewpoint.md
+          - hicAggregateContacts: tools/hicAggregateContacts.md
+          - hicPlotAverageRegions: tools/hicPlotAverageRegions.md
+      - Matrix handling:
+          - Overview: tools/matrix-handling.md
+          - hicConvertFormat: tools/hicConvertFormat.md
+          - hicAdjustMatrix: tools/hicAdjustMatrix.md
+          - hicCreateThresholdFile: tools/hicCreateThresholdFile.md
+      - Capture Hi-C:
+          - Overview: tools/capture-hic.md
+          - chicQualityControl: tools/chicQualityControl.md
+          - chicViewpointBackgroundModel: tools/chicViewpointBackgroundModel.md
+          - chicViewpoint: tools/chicViewpoint.md
+          - chicSignificantInteractions: tools/chicSignificantInteractions.md
+          - chicAggregateStatistic: tools/chicAggregateStatistic.md
+          - chicDifferentialTest: tools/chicDifferentialTest.md
+          - chicPlotViewpoint: tools/chicPlotViewpoint.md
+          - chicExportData: tools/chicExportData.md
+  - File formats: file-formats.md
+  - Example usage:
+      - Overview: example-usage.md
+      - mES-HiC analysis: example-usage/mes-hic-analysis.md
+      - hicExport (removed tool): example-usage/hicexport.md
+      - Capture Hi-C analysis: example-usage/capture-hic-tutorial.md
+  - Benchmarks: benchmarks.md
+  - News: news.md
+  - Citation: citation.md
+  - Support: support.md
