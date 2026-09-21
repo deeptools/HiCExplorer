@@ -4,7 +4,10 @@ Owner: the orchestrating session. Architecture: `cpp/PLAN.md`. Rules:
 `cpp/AGENTS_CONTRACT.md`. Optimization rules: `cpp/OPTIMIZATION.md`. Last updated
 2026-09-21, at commit `e2f0b103`.
 
-**Current state: 42 of 46 tools ported and committed** on `version4-cpp`.
+**Current state: 42 of 44 tools ported and committed** on `version4-cpp`
+(`hicTADClassifier`/`hicTrainTADClassifier` dropped 2026-09-21, see PLAN.md
+tier 8: little real-world usage, not worth an ONNX-incompatible Python
+shell).
 - **Last regression,** merge-style (`--cache refresh`, contract rule 13) on a
   clean export of the capture Hi-C branch `eea2a808` (reproduced); merged in
   `2452a010`.

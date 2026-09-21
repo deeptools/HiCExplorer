@@ -1458,33 +1458,27 @@ these as "not a pure C++ port" so that no one later mistakes them for done.
 The equivalence class for the images stays **E6** against the existing masters
 in `test_data/`, which is exactly what the current Python tests already do.
 
-### Tier 8 - machine learning and hyperparameter search (4 tools)
+### Tier 8 - machine learning and hyperparameter search (2 tools)
 
-`hicTADClassifier` (86 + `lib/tadClassifier.py` 800), `hicTrainTADClassifier`
-(218), `hicHyperoptDetectLoops` (152), `hicHyperoptDetectLoopsHiCCUPS` (158).
+`hicHyperoptDetectLoops` (152), `hicHyperoptDetectLoopsHiCCUPS` (158).
 
-The situation is different for each:
+**`hicTADClassifier` and `hicTrainTADClassifier` are dropped, not ported,**
+decided by the project owner 2026-09-21: little real-world usage, and not
+worth the cost of the option below. Recorded here for the historical
+reasoning, since the analysis was already done before the drop:
+`hicTrainTADClassifier` trains an `imblearn.EasyEnsembleClassifier` (a bagging
+ensemble of AdaBoost over randomly undersampled folds), optionally wrapped in
+`cleanlab.classification.CleanLearning`, pickled to a `.BIN`
+(`test_data/hicTADClassifier/trained_model.BIN`, 683 KB); there is no C++
+equivalent of that training stack. `hicTADClassifier` (inference from an
+existing pickled model) hit the same wall from the other side: ONNX Runtime
+was the obvious path and does not work, since `skl2onnx` has no converter for
+`imblearn.ensemble.EasyEnsembleClassifier` or `cleanlab`'s `CleanLearning`
+wrapper. Both would have stayed a Python shell (option (a)) at class E7 had
+they been kept.
 
-- **`hicTrainTADClassifier`**: trains an `imblearn.EasyEnsembleClassifier`
-  (a bagging ensemble of AdaBoost over randomly undersampled folds), optionally
-  wrapped in `cleanlab.classification.CleanLearning`, with resampling chosen
-  from `imblearn.under_sampling`. It pickles the result to a `.BIN`
-  (`test_data/hicTADClassifier/trained_model.BIN`, 683 KB). There is no C++
-  equivalent of that training stack and no serialisation format in common.
-  **Recommendation: keep as Python (option (a)), with feature extraction moved
-  into the C++ core and exposed through a small binding.** The features are
-  matrix rows and obs/exp windows, which is exactly what the core computes, and
-  moving them is also the memory win for this tool. Class **E7**.
-- **`hicTADClassifier`**: inference from an existing pickled model. ONNX Runtime
-  was the obvious candidate and it does not work: `skl2onnx` has no converter
-  for `imblearn.ensemble.EasyEnsembleClassifier` or for `cleanlab`'s
-  `CleanLearning` wrapper, and the shipped `.BIN` models are pickles of exactly
-  those classes. Converting them would mean unwrapping each ensemble into its
-  constituent `AdaBoostClassifier`s and re-expressing the resampling-aware
-  prediction rule by hand, at which point the "already-trained model" guarantee
-  is gone. **Recommendation: keep as Python (option (a)), same shell as
-  training.** Revisit ONNX only if the models are ever retrained as plain
-  sklearn estimators. Class **E7**.
+The situation for the two remaining tools:
+
 - **`hicHyperoptDetectLoops`**: a driver that calls `hicDetectLoops.main` and
   `hicValidateLocations.main` in a loop under hyperopt's TPE optimiser
   (`hicHyperoptDetectLoops.py:11-12,89,117`). Once tiers 2 and 5 exist, the
@@ -1517,8 +1511,8 @@ The situation is different for each:
 | 5 | TAD, loop, differential calling | 5 |
 | 6 | cHi-C suite | 7 |
 | 7 | plotting (Python shell over C++ core) | 8 |
-| 8 | ML and hyperparameter search | 4 |
-| | **total** | **46 + 1 alias (`hicQC`)** |
+| 8 | ML and hyperparameter search | 2 (`hicTADClassifier`/`hicTrainTADClassifier` dropped 2026-09-21) |
+| | **total** | **44 + 1 alias (`hicQC`)** |
 | 9 | beyond the Python: new features and a differential redesign | 14 items (9.1 to 9.14) |
 | 10 | Python GUI (PySide6) with workflows and visualisation, Linux and macOS | 8 items (10.1 to 10.8) |
 | 11 | sparse Lanczos eigensolver for hicPCA, C++-only option | 1 item |
