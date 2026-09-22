@@ -3,6 +3,7 @@
 #include "hicx/chicago.hpp"
 
 #include <algorithm>
+#include <charconv>
 #include <cmath>
 #include <cstdint>
 #include <fstream>
@@ -12,6 +13,7 @@
 #include <set>
 #include <sstream>
 #include <stdexcept>
+#include <string_view>
 #include <thread>
 #include <unordered_map>
 #include <unordered_set>
@@ -27,6 +29,65 @@
 namespace hicx::chicago {
 
 namespace {
+
+// Splits [0, n) into up to `threads` contiguous chunks, runs `partial` on each
+// in its own std::thread (partial(first, last) -> double), and sums the
+// per-chunk results in chunk order, so the reduction order (and therefore the
+// floating-point result) does not depend on how many threads ran it.
+double threaded_reduce(std::size_t n, int threads,
+                        const std::function<double(std::size_t, std::size_t)>& partial) {
+    const int worker_count = std::max(1, threads);
+    if (worker_count == 1 || n < 4096) {
+        return partial(0, n);
+    }
+    std::vector<double> sums(static_cast<std::size_t>(worker_count), 0.0);
+    std::vector<std::thread> workers;
+    workers.reserve(static_cast<std::size_t>(worker_count));
+    const std::size_t chunk = (n + static_cast<std::size_t>(worker_count) - 1) /
+                               static_cast<std::size_t>(worker_count);
+    for (int w = 0; w < worker_count; ++w) {
+        const std::size_t first = static_cast<std::size_t>(w) * chunk;
+        const std::size_t last = std::min(n, first + chunk);
+        if (first >= last) break;
+        workers.emplace_back([&, w, first, last] { sums[static_cast<std::size_t>(w)] = partial(first, last); });
+    }
+    for (std::thread& worker : workers) worker.join();
+    double total = 0.0;
+    for (double s : sums) total += s;
+    return total;
+}
+
+// Splits [0, n) into up to `threads` contiguous chunks, runs `chunk_fn(first,
+// last)` on each in its own std::thread producing one T per chunk (in chunk
+// order, empty/default T for a chunk skipped because there were fewer rows
+// than workers), and hands the vector of per-chunk results to the caller to
+// merge however that T needs merging (an accumulating map, a concatenated
+// vector, ...). The caller's merge is the only place reduction order can
+// matter, and every merge used below is either an associative/commutative
+// combine (sum, AND, OR, set union) or an ordered concatenation of chunks
+// still in original row order, so the result never depends on `threads`.
+template <class T, class ChunkFn>
+std::vector<T> threaded_map(std::size_t n, int threads, ChunkFn&& chunk_fn) {
+    const int worker_count = std::max(1, threads);
+    if (worker_count == 1 || n < 4096) {
+        std::vector<T> one;
+        one.push_back(chunk_fn(0, n));
+        return one;
+    }
+    std::vector<T> parts(static_cast<std::size_t>(worker_count));
+    std::vector<std::thread> workers;
+    workers.reserve(static_cast<std::size_t>(worker_count));
+    const std::size_t chunk = (n + static_cast<std::size_t>(worker_count) - 1) /
+                               static_cast<std::size_t>(worker_count);
+    for (int w = 0; w < worker_count; ++w) {
+        const std::size_t first = static_cast<std::size_t>(w) * chunk;
+        const std::size_t last = std::min(n, first + chunk);
+        if (first >= last) break;
+        workers.emplace_back([&, w, first, last] { parts[static_cast<std::size_t>(w)] = chunk_fn(first, last); });
+    }
+    for (std::thread& worker : workers) worker.join();
+    return parts;
+}
 
 constexpr double kDblEps = std::numeric_limits<double>::epsilon();
 
@@ -298,42 +359,114 @@ std::vector<BaitmapFragment> read_baitmap(const std::string& path) {
     return out;
 }
 
-std::vector<ChinputRecord> read_chinput(const std::string& path) {
-    std::ifstream in(path);
+namespace {
+
+// Parses one chinput data line already known not to be empty, a comment or
+// the header row. Returns false (caller skips the line) only for a malformed
+// row with fewer than 5 tab-separated fields, matching read_chinput's old
+// `if (f.size() < 5) continue;` behaviour.
+bool parse_chinput_line(std::string_view line, ChinputRecord& r) {
+    std::string_view fields[5];
+    std::size_t n_fields = 0;
+    std::string_view rest = line;
+    while (n_fields < 5) {
+        const auto tab = rest.find('\t');
+        if (tab == std::string_view::npos) {
+            fields[n_fields++] = rest;
+            rest = {};
+            break;
+        }
+        fields[n_fields++] = rest.substr(0, tab);
+        rest.remove_prefix(tab + 1);
+    }
+    if (n_fields < 5) return false;
+    auto parse_long = [](std::string_view s) {
+        long v = 0;
+        std::from_chars(s.data(), s.data() + s.size(), v);
+        return v;
+    };
+    r.bait_id = parse_long(fields[0]);
+    r.other_end_id = parse_long(fields[1]);
+    {
+        double v = 0.0;
+        std::from_chars(fields[2].data(), fields[2].data() + fields[2].size(), v);
+        r.N = v;
+    }
+    r.other_end_len = parse_long(fields[3]);
+    if (fields[4] == "NA") {
+        r.has_dist_sign = false;
+    } else {
+        r.has_dist_sign = true;
+        r.dist_sign = parse_long(fields[4]);
+    }
+    return true;
+}
+
+}  // namespace
+
+std::vector<ChinputRecord> read_chinput(const std::string& path, int threads) {
+    std::ifstream in(path, std::ios::binary);
     if (!in) {
         throw std::runtime_error("cannot open chinput file: " + path);
     }
-    std::vector<ChinputRecord> out;
-    std::string line;
-    bool header_skipped = false;
-    while (std::getline(in, line)) {
-        if (line.empty() || line[0] == '#') {
-            continue;
-        }
-        if (!header_skipped) {
-            // First non-comment line is the column header
-            // (baitID otherEndID N otherEndLen distSign).
-            header_skipped = true;
-            if (line.rfind("baitID", 0) == 0) {
-                continue;
+    std::string content((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    in.close();
+
+    // Byte-offset chunk boundaries, each moved forward to the next line start
+    // so no thread's chunk splits a line; only the first chunk can contain
+    // the leading '#' comment line(s) and the one column-header row a real
+    // .chinput file has, so only it carries that one-time skip logic.
+    const std::size_t total = content.size();
+    const int worker_count = std::max(1, threads);
+    std::vector<std::size_t> bounds(static_cast<std::size_t>(worker_count) + 1);
+    bounds[0] = 0;
+    bounds[static_cast<std::size_t>(worker_count)] = total;
+    for (int w = 1; w < worker_count; ++w) {
+        std::size_t pos = total * static_cast<std::size_t>(w) / static_cast<std::size_t>(worker_count);
+        while (pos < total && content[pos] != '\n') ++pos;
+        if (pos < total) ++pos;
+        bounds[static_cast<std::size_t>(w)] = pos;
+    }
+
+    auto parse_range = [&](int idx) {
+        std::vector<ChinputRecord> local;
+        std::size_t pos = bounds[static_cast<std::size_t>(idx)];
+        const std::size_t end = bounds[static_cast<std::size_t>(idx) + 1];
+        bool header_skipped = (idx != 0);
+        while (pos < end) {
+            const std::size_t eol = content.find('\n', pos);
+            const std::size_t line_end = (eol == std::string::npos || eol > end) ? end : eol;
+            std::string_view line(content.data() + pos, line_end - pos);
+            pos = (eol == std::string::npos) ? end : eol + 1;
+            if (line.empty() || line[0] == '#') continue;
+            if (!header_skipped) {
+                header_skipped = true;
+                if (line.rfind("baitID", 0) == 0) continue;
             }
+            ChinputRecord r;
+            if (parse_chinput_line(line, r)) local.push_back(r);
         }
-        auto f = split_tab(line);
-        if (f.size() < 5) {
-            continue;
-        }
-        ChinputRecord r;
-        r.bait_id = std::stol(f[0]);
-        r.other_end_id = std::stol(f[1]);
-        r.N = std::stod(f[2]);
-        r.other_end_len = std::stol(f[3]);
-        if (f[4] == "NA") {
-            r.has_dist_sign = false;
-        } else {
-            r.has_dist_sign = true;
-            r.dist_sign = std::stol(f[4]);
-        }
-        out.push_back(std::move(r));
+        return local;
+    };
+
+    if (worker_count == 1 || total < (1u << 20)) {
+        return parse_range(0);
+    }
+    std::vector<std::thread> workers;
+    workers.reserve(static_cast<std::size_t>(worker_count));
+    std::vector<std::vector<ChinputRecord>> parts(static_cast<std::size_t>(worker_count));
+    for (int w = 0; w < worker_count; ++w) {
+        if (bounds[static_cast<std::size_t>(w)] >= bounds[static_cast<std::size_t>(w) + 1]) continue;
+        workers.emplace_back([&, w] { parts[static_cast<std::size_t>(w)] = parse_range(w); });
+    }
+    for (std::thread& worker : workers) worker.join();
+
+    std::size_t total_rows = 0;
+    for (auto& p : parts) total_rows += p.size();
+    std::vector<ChinputRecord> out;
+    out.reserve(total_rows);
+    for (auto& p : parts) {
+        out.insert(out.end(), std::make_move_iterator(p.begin()), std::make_move_iterator(p.end()));
     }
     return out;
 }
@@ -674,72 +807,147 @@ long distbin_of(double abs_dist, const FilterSettings& fs) {
 
 }  // namespace
 
+namespace {
+
+// Concatenates threaded_map's per-chunk vectors back into one vector, in
+// chunk order, so the result's row order never depends on `threads`.
+template <class T>
+std::vector<T> concat_chunks(std::vector<std::vector<T>>&& parts) {
+    std::size_t total = 0;
+    for (auto& p : parts) total += p.size();
+    std::vector<T> out;
+    out.reserve(total);
+    for (auto& p : parts) {
+        out.insert(out.end(), std::make_move_iterator(p.begin()), std::make_move_iterator(p.end()));
+    }
+    return out;
+}
+
+}  // namespace
+
 std::vector<ChiInteraction> read_sample(const std::vector<ChinputRecord>& raw,
                                          const std::vector<BaitmapFragment>& baitmap,
-                                         const FilterSettings& fs) {
+                                         const FilterSettings& fs, int threads) {
     std::unordered_set<long> bait_ids;
     for (const auto& b : baitmap) bait_ids.insert(b.id);
 
-    std::vector<ChiInteraction> x;
-    x.reserve(raw.size());
-    for (const auto& r : raw) {
-        if (r.other_end_len < fs.min_frag_len || r.other_end_len > fs.max_frag_len) continue;
-        if (r.has_dist_sign && r.dist_sign == 0) continue;  // self-ligation
-        ChiInteraction c;
-        c.bait_id = r.bait_id;
-        c.other_end_id = r.other_end_id;
-        c.N = r.N;
-        c.other_end_len = r.other_end_len;
-        c.has_dist_sign = r.has_dist_sign;
-        c.dist_sign = r.dist_sign;
-        c.is_bait2bait = bait_ids.count(r.other_end_id) > 0;
-        x.push_back(std::move(c));
-    }
+    // otherEndLen range + self-ligation filter, and the is_bait2bait lookup
+    // (read-only into bait_ids): every row is independent of every other, so
+    // this is a plain threaded_map, chunks concatenated back in order.
+    auto x = concat_chunks(threaded_map<std::vector<ChiInteraction>>(
+        raw.size(), threads, [&](std::size_t first, std::size_t last) {
+            std::vector<ChiInteraction> local;
+            for (std::size_t i = first; i < last; ++i) {
+                const auto& r = raw[i];
+                if (r.other_end_len < fs.min_frag_len || r.other_end_len > fs.max_frag_len) continue;
+                if (r.has_dist_sign && r.dist_sign == 0) continue;  // self-ligation
+                ChiInteraction c;
+                c.bait_id = r.bait_id;
+                c.other_end_id = r.other_end_id;
+                c.N = r.N;
+                c.other_end_len = r.other_end_len;
+                c.has_dist_sign = r.has_dist_sign;
+                c.dist_sign = r.dist_sign;
+                c.is_bait2bait = bait_ids.count(r.other_end_id) > 0;
+                local.push_back(c);
+            }
+            return local;
+        }));
 
-    // minNPerBait
-    std::unordered_map<long, double> n_per_bait;
-    for (const auto& c : x) n_per_bait[c.bait_id] += c.N;
-    std::vector<ChiInteraction> x2;
-    x2.reserve(x.size());
-    for (auto& c : x) {
-        if (n_per_bait[c.bait_id] >= static_cast<double>(fs.min_n_per_bait)) x2.push_back(c);
+    // minNPerBait: sum(N) per bait is a per-chunk partial-map reduction
+    // (addition is associative/commutative, so merge order does not matter),
+    // then the filter itself is another independent-row threaded_map.
+    {
+        auto parts = threaded_map<std::unordered_map<long, double>>(
+            x.size(), threads, [&](std::size_t first, std::size_t last) {
+                std::unordered_map<long, double> local;
+                for (std::size_t i = first; i < last; ++i) local[x[i].bait_id] += x[i].N;
+                return local;
+            });
+        std::unordered_map<long, double> n_per_bait = std::move(parts[0]);
+        for (std::size_t p = 1; p < parts.size(); ++p) {
+            for (auto& [id, n] : parts[p]) n_per_bait[id] += n;
+        }
+        x = concat_chunks(threaded_map<std::vector<ChiInteraction>>(
+            x.size(), threads, [&](std::size_t first, std::size_t last) {
+                std::vector<ChiInteraction> local;
+                for (std::size_t i = first; i < last; ++i) {
+                    if (n_per_bait[x[i].bait_id] >= static_cast<double>(fs.min_n_per_bait)) {
+                        local.push_back(x[i]);
+                    }
+                }
+                return local;
+            }));
     }
-    x = std::move(x2);
 
     if (fs.remove_adjacent) {
-        std::vector<ChiInteraction> x3;
-        x3.reserve(x.size());
-        for (auto& c : x) {
-            if (std::labs(c.bait_id - c.other_end_id) != 1) x3.push_back(c);
-        }
-        x = std::move(x3);
+        x = concat_chunks(threaded_map<std::vector<ChiInteraction>>(
+            x.size(), threads, [&](std::size_t first, std::size_t last) {
+                std::vector<ChiInteraction> local;
+                for (std::size_t i = first; i < last; ++i) {
+                    if (std::labs(x[i].bait_id - x[i].other_end_id) != 1) local.push_back(x[i]);
+                }
+                return local;
+            }));
     }
 
-    // Drop baits whose every proximal (|distSign| < maxLBrownEst, cis) row is bait2bait.
-    std::unordered_map<long, bool> bait_has_prox;       // seen a proximal row at all
-    std::unordered_map<long, bool> bait_all_b2b;        // all proximal rows seen so far are b2b
-    for (auto& c : x) {
-        if (!c.has_dist_sign) continue;
-        if (!(std::labs(c.dist_sign) < fs.max_l_brown_est)) continue;
-        auto it = bait_has_prox.find(c.bait_id);
-        if (it == bait_has_prox.end()) {
-            bait_has_prox[c.bait_id] = true;
-            bait_all_b2b[c.bait_id] = c.is_bait2bait;
-        } else {
-            bait_all_b2b[c.bait_id] = bait_all_b2b[c.bait_id] && c.is_bait2bait;
+    // Drop baits whose every proximal (|distSign| < maxLBrownEst, cis) row is
+    // bait2bait. Per chunk: the same has-seen-a-proximal-row / all-proximal-
+    // rows-so-far-are-b2b bookkeeping as the old single pass, restricted to
+    // that chunk's rows. Merging chunks: "has a proximal row at all" is an OR
+    // across chunks (a bait entry only exists in a chunk's maps if that chunk
+    // saw one), and "all proximal rows are b2b" is an AND across whichever
+    // chunks saw one, both associative/commutative, so the merged result is
+    // identical to the old single sequential pass regardless of chunking.
+    std::unordered_map<long, bool> bait_has_prox;
+    std::unordered_map<long, bool> bait_all_b2b;
+    {
+        struct Local {
+            std::unordered_map<long, bool> has_prox, all_b2b;
+        };
+        auto parts = threaded_map<Local>(x.size(), threads, [&](std::size_t first, std::size_t last) {
+            Local loc;
+            for (std::size_t i = first; i < last; ++i) {
+                const auto& c = x[i];
+                if (!c.has_dist_sign) continue;
+                if (!(std::labs(c.dist_sign) < fs.max_l_brown_est)) continue;
+                auto it = loc.has_prox.find(c.bait_id);
+                if (it == loc.has_prox.end()) {
+                    loc.has_prox[c.bait_id] = true;
+                    loc.all_b2b[c.bait_id] = c.is_bait2bait;
+                } else {
+                    loc.all_b2b[c.bait_id] = loc.all_b2b[c.bait_id] && c.is_bait2bait;
+                }
+            }
+            return loc;
+        });
+        for (auto& part : parts) {
+            for (auto& [id, seen] : part.has_prox) {
+                auto it = bait_has_prox.find(id);
+                if (it == bait_has_prox.end()) {
+                    bait_has_prox[id] = true;
+                    bait_all_b2b[id] = part.all_b2b[id];
+                } else {
+                    bait_all_b2b[id] = bait_all_b2b[id] && part.all_b2b[id];
+                }
+            }
         }
     }
-    std::vector<ChiInteraction> x4;
-    x4.reserve(x.size());
-    for (auto& c : x) {
-        auto it = bait_has_prox.find(c.bait_id);
-        // isAllB2BProx is TRUE (bait dropped) when there IS at least one proximal
-        // row and every one of them is bait2bait; a bait with no proximal row at
-        // all keeps isAllB2BProx == TRUE too (R: `if (!length(prox)) TRUE`).
-        const bool all_b2b = (it == bait_has_prox.end()) ? true : bait_all_b2b[c.bait_id];
-        if (!all_b2b) x4.push_back(c);
-    }
-    return x4;
+    return concat_chunks(threaded_map<std::vector<ChiInteraction>>(
+        x.size(), threads, [&](std::size_t first, std::size_t last) {
+            std::vector<ChiInteraction> local;
+            for (std::size_t i = first; i < last; ++i) {
+                const auto& c = x[i];
+                auto it = bait_has_prox.find(c.bait_id);
+                // isAllB2BProx is TRUE (bait dropped) when there IS at least one
+                // proximal row and every one of them is bait2bait; a bait with no
+                // proximal row at all keeps isAllB2BProx == TRUE too (R: `if
+                // (!length(prox)) TRUE`).
+                const bool all_b2b = (it == bait_has_prox.end()) ? true : bait_all_b2b[c.bait_id];
+                if (!all_b2b) local.push_back(c);
+            }
+            return local;
+        }));
 }
 
 std::vector<int> cut2_native_groups(const std::vector<double>& x, long m) {
@@ -833,20 +1041,41 @@ int cut_with_breaks(double x, const std::vector<double>& breaks) {
 
 TlbResult add_tlb(const std::vector<ChiInteraction>& x, const FilterSettings& fs,
                    double tlb_filter_top_percent, long tlb_min_prox_oe_per_bin,
-                   long tlb_min_prox_b2b_per_bin) {
+                   long tlb_min_prox_b2b_per_bin, int threads) {
     struct OeAgg {
         double trans_length = 0.0;
         bool is_bait2bait = false;
         double min_abs_dist = std::numeric_limits<double>::infinity();
     };
+    // Per otherEndID: trans_length sums (associative), min_abs_dist takes a
+    // min (associative), is_bait2bait is the same value every row for a given
+    // otherEndID (membership in a fixed bait_ids set), so overwriting it from
+    // any chunk gives the same result. A per-thread partial map merged this
+    // way is therefore identical to the old single sequential pass.
     std::map<long, OeAgg> agg;  // sorted by otherEndID, matching data.table's key order
-    for (const auto& c : x) {
-        OeAgg& a = agg[c.other_end_id];
-        a.is_bait2bait = c.is_bait2bait;
-        if (!c.has_dist_sign) {
-            a.trans_length += 1.0;
-        } else {
-            a.min_abs_dist = std::min(a.min_abs_dist, static_cast<double>(std::labs(c.dist_sign)));
+    {
+        auto parts = threaded_map<std::map<long, OeAgg>>(
+            x.size(), threads, [&](std::size_t first, std::size_t last) {
+                std::map<long, OeAgg> local;
+                for (std::size_t i = first; i < last; ++i) {
+                    const auto& c = x[i];
+                    OeAgg& a = local[c.other_end_id];
+                    a.is_bait2bait = c.is_bait2bait;
+                    if (!c.has_dist_sign) {
+                        a.trans_length += 1.0;
+                    } else {
+                        a.min_abs_dist = std::min(a.min_abs_dist, static_cast<double>(std::labs(c.dist_sign)));
+                    }
+                }
+                return local;
+            });
+        for (auto& part : parts) {
+            for (auto& [id, a] : part) {
+                OeAgg& g = agg[id];
+                g.is_bait2bait = a.is_bait2bait;
+                g.trans_length += a.trans_length;
+                g.min_abs_dist = std::min(g.min_abs_dist, a.min_abs_dist);
+            }
         }
     }
 
@@ -912,18 +1141,30 @@ TlbResult add_tlb(const std::vector<ChiInteraction>& x, const FilterSettings& fs
 TechnicalNoiseResult estimate_technical_noise(const std::vector<ChiInteraction>& x, const TlbResult& tlb,
                                                const std::vector<RmapFragment>& rmap,
                                                const std::vector<BaitmapFragment>& baitmap,
-                                               long min_baits_per_bin) {
+                                               long min_baits_per_bin, int threads) {
     std::unordered_map<long, std::string> bait_chrom, oe_chrom;
     for (const auto& b : baitmap) bait_chrom[b.id] = b.chrom;
     for (const auto& r : rmap) oe_chrom[r.id] = r.chrom;
 
     std::map<long, long> trans_count_by_bait;  // sorted by baitID
-    for (const auto& c : x) {
-        auto it = trans_count_by_bait.find(c.bait_id);
-        if (it == trans_count_by_bait.end()) trans_count_by_bait[c.bait_id] = 0;
-    }
-    for (const auto& c : x) {
-        if (!c.has_dist_sign) trans_count_by_bait[c.bait_id] += 1;
+    {
+        // Every baitID present in x must end up as a key (count 0 is a valid,
+        // meaningful entry), and the trans-row count per bait is a sum, both
+        // associative/commutative, so a per-thread partial map merges cleanly.
+        auto parts = threaded_map<std::map<long, long>>(
+            x.size(), threads, [&](std::size_t first, std::size_t last) {
+                std::map<long, long> local;
+                for (std::size_t i = first; i < last; ++i) {
+                    const auto& c = x[i];
+                    auto it = local.find(c.bait_id);
+                    if (it == local.end()) local[c.bait_id] = 0;
+                    if (!c.has_dist_sign) local[c.bait_id] += 1;
+                }
+                return local;
+            });
+        for (auto& part : parts) {
+            for (auto& [id, cnt] : part) trans_count_by_bait[id] += cnt;
+        }
     }
     std::vector<long> bait_ids;
     std::vector<double> counts;
@@ -940,16 +1181,34 @@ TechnicalNoiseResult estimate_technical_noise(const std::vector<ChiInteraction>&
         std::set<long> baits, oes;
         double n_trans = 0.0;
     };
+    // Per (tlb, tblb) pool: baits/oes are set unions (idempotent, order-free),
+    // n_trans is a sum, both associative/commutative merges.
     std::map<std::pair<int, int>, PoolAgg> pools;
-    for (const auto& c : x) {
-        auto oe_it = tlb.pool_of_other_end.find(c.other_end_id);
-        if (oe_it == tlb.pool_of_other_end.end()) continue;  // dropped by addTLB's top-percent filter
-        const int tlb_id = oe_it->second;
-        const int tblb_id = result.tblb_of_bait.at(c.bait_id);
-        PoolAgg& a = pools[{tlb_id, tblb_id}];
-        a.baits.insert(c.bait_id);
-        a.oes.insert(c.other_end_id);
-        if (!c.has_dist_sign) a.n_trans += c.N;
+    {
+        auto parts = threaded_map<std::map<std::pair<int, int>, PoolAgg>>(
+            x.size(), threads, [&](std::size_t first, std::size_t last) {
+                std::map<std::pair<int, int>, PoolAgg> local;
+                for (std::size_t i = first; i < last; ++i) {
+                    const auto& c = x[i];
+                    auto oe_it = tlb.pool_of_other_end.find(c.other_end_id);
+                    if (oe_it == tlb.pool_of_other_end.end()) continue;  // top-percent filtered
+                    const int tlb_id = oe_it->second;
+                    const int tblb_id = result.tblb_of_bait.at(c.bait_id);
+                    PoolAgg& a = local[{tlb_id, tblb_id}];
+                    a.baits.insert(c.bait_id);
+                    a.oes.insert(c.other_end_id);
+                    if (!c.has_dist_sign) a.n_trans += c.N;
+                }
+                return local;
+            });
+        for (auto& part : parts) {
+            for (auto& [key, a] : part) {
+                PoolAgg& g = pools[key];
+                g.baits.insert(a.baits.begin(), a.baits.end());
+                g.oes.insert(a.oes.begin(), a.oes.end());
+                g.n_trans += a.n_trans;
+            }
+        }
     }
 
     for (auto& [key, a] : pools) {
@@ -975,21 +1234,33 @@ TechnicalNoiseResult estimate_technical_noise(const std::vector<ChiInteraction>&
 
 BaitFactors normalise_baits(const std::vector<ChiInteraction>& x, const std::vector<RmapFragment>&,
                              const std::vector<BaitmapFragment>&, const std::string& npb_path,
-                             const FilterSettings& fs) {
+                             const FilterSettings& fs, int threads) {
     auto npb = read_bin_table(npb_path);
     long n_bins = 0;
     for (auto& [id, v] : npb) {
         n_bins = std::max<long>(n_bins, static_cast<long>(v.size()));
     }
 
-    // sum(N) per (baitID, distbin), non-bait2bait, distbin defined.
+    // sum(N) per (baitID, distbin), non-bait2bait, distbin defined; a sum, so
+    // a per-thread partial map merges by addition regardless of chunking.
     std::map<std::pair<long, long>, double> sum_n;  // (baitID, distbin) -> sum N
-    for (const auto& c : x) {
-        if (c.is_bait2bait) continue;
-        if (!c.has_dist_sign) continue;
-        const long db = distbin_of(static_cast<double>(std::labs(c.dist_sign)), fs);
-        if (db == 0) continue;
-        sum_n[{c.bait_id, db}] += c.N;
+    {
+        auto parts = threaded_map<std::map<std::pair<long, long>, double>>(
+            x.size(), threads, [&](std::size_t first, std::size_t last) {
+                std::map<std::pair<long, long>, double> local;
+                for (std::size_t i = first; i < last; ++i) {
+                    const auto& c = x[i];
+                    if (c.is_bait2bait) continue;
+                    if (!c.has_dist_sign) continue;
+                    const long db = distbin_of(static_cast<double>(std::labs(c.dist_sign)), fs);
+                    if (db == 0) continue;
+                    local[{c.bait_id, db}] += c.N;
+                }
+                return local;
+            });
+        for (auto& part : parts) {
+            for (auto& [key, s] : part) sum_n[key] += s;
+        }
     }
 
     // bbm per (baitID, distbin) = sum_n / ntot, ntot = npb[baitID][distbin].
@@ -1031,7 +1302,7 @@ std::unordered_map<int, double> normalise_other_ends(const std::vector<ChiIntera
                                                        const TlbResult& tlb,
                                                        const std::unordered_map<long, double>& bait_s_j,
                                                        const std::string& nbpb_path,
-                                                       const FilterSettings& fs) {
+                                                       const FilterSettings& fs, int threads) {
     auto nbpb = read_bin_table(nbpb_path);
 
     // sum(NNb) per (tlb pool, distbin), restricted to |distSign| <= maxLBrownEst,
@@ -1042,21 +1313,38 @@ std::unordered_map<int, double> normalise_other_ends(const std::vector<ChiIntera
     // R dedupes nbpb-joined-onto-x by (otherEndID, distbin) before summing,
     // so an other end contributes nbpb[otherEndID][distbin] to its pool's
     // ntot once per distinct distbin it has real interactions in, not once
-    // per every bin nbpb happens to define.
+    // per every bin nbpb happens to define. Both sum_n (a sum) and the
+    // present-pairs set (a union) merge from per-thread partials regardless
+    // of chunking.
     std::set<std::pair<long, long>> oe_distbin_present;
-    for (const auto& c : x) {
-        if (!c.has_dist_sign) continue;
-        const double ad = static_cast<double>(std::labs(c.dist_sign));
-        if (ad > static_cast<double>(fs.max_l_brown_est)) continue;
-        auto it = tlb.pool_of_other_end.find(c.other_end_id);
-        if (it == tlb.pool_of_other_end.end()) continue;
-        auto sj_it = bait_s_j.find(c.bait_id);
-        if (sj_it == bait_s_j.end()) continue;
-        const long db = distbin_of(ad, fs);
-        if (db == 0) continue;
-        const double nnb = std::max(1.0, std::round(c.N / sj_it->second));
-        sum_n[std::make_pair(it->second, db)] += nnb;
-        oe_distbin_present.insert(std::make_pair(c.other_end_id, db));
+    {
+        struct Local {
+            std::map<std::pair<int, long>, double> sum_n;
+            std::set<std::pair<long, long>> present;
+        };
+        auto parts = threaded_map<Local>(x.size(), threads, [&](std::size_t first, std::size_t last) {
+            Local loc;
+            for (std::size_t i = first; i < last; ++i) {
+                const auto& c = x[i];
+                if (!c.has_dist_sign) continue;
+                const double ad = static_cast<double>(std::labs(c.dist_sign));
+                if (ad > static_cast<double>(fs.max_l_brown_est)) continue;
+                auto it = tlb.pool_of_other_end.find(c.other_end_id);
+                if (it == tlb.pool_of_other_end.end()) continue;
+                auto sj_it = bait_s_j.find(c.bait_id);
+                if (sj_it == bait_s_j.end()) continue;
+                const long db = distbin_of(ad, fs);
+                if (db == 0) continue;
+                const double nnb = std::max(1.0, std::round(c.N / sj_it->second));
+                loc.sum_n[std::make_pair(it->second, db)] += nnb;
+                loc.present.insert(std::make_pair(c.other_end_id, db));
+            }
+            return loc;
+        });
+        for (auto& part : parts) {
+            for (auto& [key, s] : part.sum_n) sum_n[key] += s;
+            oe_distbin_present.insert(part.present.begin(), part.present.end());
+        }
     }
 
     // ntot per (tlb pool, distbin): sum over other ends in that pool, over
@@ -1127,37 +1415,6 @@ std::vector<ProxOePair> read_poe(const std::string& path) {
     }
     return out;
 }
-
-namespace {
-
-// Splits [0, n) into up to `threads` contiguous chunks, runs `partial` on each
-// in its own std::thread (partial(first, last) -> double), and sums the
-// per-chunk results in chunk order, so the reduction order (and therefore the
-// floating-point result) does not depend on how many threads ran it.
-double threaded_reduce(std::size_t n, int threads,
-                        const std::function<double(std::size_t, std::size_t)>& partial) {
-    const int worker_count = std::max(1, threads);
-    if (worker_count == 1 || n < 4096) {
-        return partial(0, n);
-    }
-    std::vector<double> sums(static_cast<std::size_t>(worker_count), 0.0);
-    std::vector<std::thread> workers;
-    workers.reserve(static_cast<std::size_t>(worker_count));
-    const std::size_t chunk = (n + static_cast<std::size_t>(worker_count) - 1) /
-                               static_cast<std::size_t>(worker_count);
-    for (int w = 0; w < worker_count; ++w) {
-        const std::size_t first = static_cast<std::size_t>(w) * chunk;
-        const std::size_t last = std::min(n, first + chunk);
-        if (first >= last) break;
-        workers.emplace_back([&, w, first, last] { sums[static_cast<std::size_t>(w)] = partial(first, last); });
-    }
-    for (std::thread& worker : workers) worker.join();
-    double total = 0.0;
-    for (double s : sums) total += s;
-    return total;
-}
-
-}  // namespace
 
 double estimate_dispersion_theta_ml(const std::vector<double>& N, const std::vector<double>& Bmean,
                                      int threads) {
@@ -1234,11 +1491,13 @@ BackgroundModel fit_chicago_background(const std::vector<ChinputRecord>& raw,
     BackgroundModel model;
     model.filters = fs;
 
-    const std::vector<ChiInteraction> x = read_sample(raw, baitmap, fs);
-    model.tlb = add_tlb(x, fs, tlb_filter_top_percent, tlb_min_prox_oe_per_bin, tlb_min_prox_b2b_per_bin);
-    model.bait_factors = normalise_baits(x, rmap, baitmap, npb_path, fs);
-    model.s_i_by_tlb_pool = normalise_other_ends(x, model.tlb, model.bait_factors.s_j, nbpb_path, fs);
-    model.tech_noise = estimate_technical_noise(x, model.tlb, rmap, baitmap, tlb_min_baits_per_bin);
+    const std::vector<ChiInteraction> x = read_sample(raw, baitmap, fs, threads);
+    model.tlb = add_tlb(x, fs, tlb_filter_top_percent, tlb_min_prox_oe_per_bin, tlb_min_prox_b2b_per_bin,
+                         threads);
+    model.bait_factors = normalise_baits(x, rmap, baitmap, npb_path, fs, threads);
+    model.s_i_by_tlb_pool =
+        normalise_other_ends(x, model.tlb, model.bait_factors.s_j, nbpb_path, fs, threads);
+    model.tech_noise = estimate_technical_noise(x, model.tlb, rmap, baitmap, tlb_min_baits_per_bin, threads);
 
     // estimateDistFun: sequential midpoints over the distbins with a defined
     // refBinMean, in ascending distbin order (R builds this from a sorted,

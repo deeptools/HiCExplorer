@@ -235,12 +235,13 @@ int main(int argc, char** argv) {
         if (args.given("maxLBrownEst")) fs.max_l_brown_est = args.integer("maxLBrownEst");
         if (args.given("noRemoveAdjacent")) fs.remove_adjacent = false;
 
+        const int threads = static_cast<int>(args.integer("threads"));
         auto rmap = read_rmap(args.str("rmap"));
         auto baitmap = read_baitmap(args.str("baitmap"));
         const std::vector<ChinputRecord> raw = args.given("chinput")
-            ? read_chinput(args.str("chinput"))
+            ? read_chinput(args.str("chinput"), threads)
             : chinput_from_matrices(args.strs("matrices"), rmap, baitmap, fs);
-        auto x = read_sample(raw, baitmap, fs);
+        auto x = read_sample(raw, baitmap, fs, threads);
 
         WeightSettings w;
         w.alpha = args.real("weightAlpha");

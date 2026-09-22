@@ -213,10 +213,11 @@ int main(int argc, char** argv) {
         fs.binsize = args.integer("binsize");
         fs.remove_adjacent = !args.flag("noRemoveAdjacent");
 
+        const int threads = static_cast<int>(args.integer("threads"));
         auto rmap = read_rmap(args.str("rmap"));
         auto baitmap = read_baitmap(args.str("baitmap"));
         const std::vector<ChinputRecord> raw = args.given("chinput")
-            ? read_chinput(args.str("chinput"))
+            ? read_chinput(args.str("chinput"), threads)
             : chinput_from_matrices(args.strs("matrices"), rmap, baitmap, fs);
 
         const BackgroundModel model = fit_chicago_background(
