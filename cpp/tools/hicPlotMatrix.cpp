@@ -97,7 +97,14 @@ const char* const kHelp =
     "Python tool (HICX_PLOT_PYTHON names the interpreter); see the Python tool's\n"
     "help for every option. The C++-only option --plotData FILE writes the data of\n"
     "the figure as JSON to FILE (and its matrices as FILE.<n>.npy) instead of\n"
-    "drawing it.\n";
+    "drawing it. The C++-only option --matrix2 MATRIX2 has no equivalent in the\n"
+    "Python original (cpp/PLAN.md tier 9): it draws a single heatmap whose upper\n"
+    "triangle (column index greater than row index) comes from --matrix and whose\n"
+    "lower triangle (column index less than row index) comes from --matrix2, the\n"
+    "side-by-side comparison of two matrices used throughout the Hi-C literature.\n"
+    "Both matrices are read for the same requested region and must resolve to the\n"
+    "same shape there; the diagonal itself is always taken from --matrix. It is\n"
+    "incompatible with --perChromosome.\n";
 
 class ExitError : public std::runtime_error {
   public:
@@ -572,6 +579,134 @@ bool writable_without_creating(const std::string& path) {
     return ::access(directory.c_str(), W_OK | X_OK) == 0;
 }
 
+// The result of loading one matrix into a dense, non-per-chromosome block:
+// exactly what --matrix's own load produces in main() below, factored out so
+// --matrix2 can be read through the identical region-scoped or whole-matrix
+// path (never a separate, naive whole load).
+struct DenseLoad {
+    std::vector<double> values;
+    std::int64_t rows = 0;
+    std::int64_t cols = 0;
+};
+
+// Loads path for the given request the same way --matrix's own load does
+// (is_partial_source fast path first, whole-matrix path otherwise; see the
+// top-of-file comment), producing the dense matrix pcolormesh would draw for
+// that request. region/region2 are taken by value: the fast path may consume
+// them (as main()'s --matrix load does), and each caller needs its own
+// request untouched by the other's.
+DenseLoad load_dense_matrix(const std::string& path, std::optional<std::string> region,
+                            std::optional<std::string> region2,
+                            const std::optional<std::vector<std::string>>& chromosome_order,
+                            bool clear_masked_bins) {
+    const bool is_cooler = hicx::check_cooler(path);
+    const bool is_partial_source = is_cooler || hicx::is_hic_path(path);
+    const bool open_cooler_chromosome_order =
+        !(chromosome_order.has_value() && chromosome_order->size() > 1);
+
+    Model model;
+    auto load = [&](const std::optional<std::string>& chrname) {
+        hicx::ToolMatrix loaded = hicx::ToolMatrix::load(path, chrname);
+        model.intervals = loaded.cut_intervals();
+        model.nan_bins = loaded.nan_bins();
+        model.matrix = std::move(loaded.matrix());
+        model.view.resize(model.intervals.size());
+        for (std::size_t i = 0; i < model.view.size(); ++i) {
+            model.view[i] = static_cast<std::int64_t>(i);
+        }
+    };
+    auto clear_masked = [&]() {
+        if (clear_masked_bins) {
+            mask_nan_bins(model);
+            enlarge_bins(model.intervals);
+        }
+    };
+
+    DenseLoad out;
+    if (is_partial_source && !(region2.has_value() && !region2->empty()) && open_cooler_chromosome_order) {
+        std::optional<std::string> retrieve;
+        if (region.has_value() && !region->empty()) {
+            retrieve = *region;
+        }
+        if (chromosome_order.has_value()) {
+            region.reset();
+            region2.reset();
+            retrieve = chromosome_order->front();
+        }
+        load(retrieve);
+        clear_masked();
+        const std::vector<std::int64_t> bins = all_bins(model);
+        out.values = dense(model, bins, bins);
+        out.rows = out.cols = static_cast<std::int64_t>(bins.size());
+    } else {
+        load(std::nullopt);
+        clear_masked();
+        if (chromosome_order.has_value()) {
+            region.reset();
+            region2.reset();
+            std::vector<std::string> valid;
+            std::vector<std::string> invalid;
+            for (const std::string& chrom : *chromosome_order) {
+                if (bin_range(model, chrom).has_value()) {
+                    valid.push_back(chrom);
+                } else {
+                    invalid.push_back(chrom);
+                }
+            }
+            if (!invalid.empty()) {
+                std::fputs("WARNING: The following chromosome/scaffold names were not found. "
+                           "Please checkthe correct spelling of the chromosome names. \n",
+                           stderr);
+            }
+            reorder_chromosomes(model, valid);
+        }
+        if (!stores_any_value(model)) {
+            throw ExitError("ValueError: zero-size array to reduction operation minimum which "
+                            "has no identity");
+        }
+        if (region.has_value() && !region->empty()) {
+            const Selection selection = get_region(*region, region2, model, is_partial_source);
+            out.values = dense(model, selection.idx1, selection.idx2);
+            out.rows = static_cast<std::int64_t>(selection.idx1.size());
+            out.cols = static_cast<std::int64_t>(selection.idx2.size());
+        } else {
+            const std::vector<std::int64_t> bins = all_bins(model);
+            out.values = dense(model, bins, bins);
+            out.rows = out.cols = static_cast<std::int64_t>(bins.size());
+            for (const std::int64_t bin : model.nan_bins) {
+                for (std::int64_t k = 0; k < out.rows; ++k) {
+                    out.values[static_cast<std::size_t>(bin * out.cols + k)] =
+                        std::numeric_limits<double>::quiet_NaN();
+                    out.values[static_cast<std::size_t>(k * out.cols + bin)] =
+                        std::numeric_limits<double>::quiet_NaN();
+                }
+            }
+        }
+    }
+    return out;
+}
+
+// Combines two same-shaped dense matrices into one for the --matrix2 upper
+// or lower triangle heatmap: column index greater than row index (the upper
+// triangle) takes upper's value, column index less than row index (the lower
+// triangle) takes lower's value. The diagonal (row == column) is always
+// taken from upper (--matrix): it is a single bin's self contact, not a
+// choice between two off-diagonal directions, so there is no upper/lower
+// distinction to make there, and keeping it filled (rather than NaN) avoids
+// a blank diagonal line under --log/--log1p, where the diagonal is usually
+// the strongest signal in the plot.
+void combine_triangles(std::vector<double>& upper, const std::vector<double>& lower,
+                       std::int64_t rows, std::int64_t cols) {
+    for (std::int64_t row = 0; row < rows; ++row) {
+        for (std::int64_t col = 0; col < cols; ++col) {
+            if (col < row) {
+                const auto index = static_cast<std::size_t>(row * cols + col);
+                upper[index] = lower[index];
+            }
+        }
+    }
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -600,6 +735,17 @@ int main(int argc, char** argv) {
         .help("File name to save the image.");
 
     cli::ArgumentGroup& optional = parser.group("Optional arguments");
+    optional.add({"--matrix2"})
+        .input({"h5", "cool", "mcool"})
+        .cpp_only("Draws one heatmap whose upper triangle (column index greater than row "
+                  "index) is --matrix and whose lower triangle (column index less than row "
+                  "index) is --matrix2, the two-matrix comparison heatmap common in the Hi-C "
+                  "literature; has no equivalent in the Python original (cpp/PLAN.md tier 9). "
+                  "Both matrices are read for the same requested region and must resolve to "
+                  "the same shape there. The diagonal is always taken from --matrix. "
+                  "Incompatible with --perChromosome.")
+        .help("Path of a second Hi-C matrix; combined with --matrix into a single upper/lower "
+              "triangle comparison heatmap.");
     optional.add({"--title", "-t"}).help("Plot title.");
     optional.add({"--scoreName", "-s"}).help("Score name label for the heatmap legend.");
     optional.add({"--perChromosome"})
@@ -707,8 +853,15 @@ int main(int argc, char** argv) {
         std::fclose(handle);
     }
     const std::string matrix_path = ns.str("matrix");
+    const std::optional<std::string> matrix2_path = ns.opt_str("matrix2");
     std::optional<std::string> region = ns.opt_str("region");
     std::optional<std::string> region2 = ns.opt_str("region2");
+    // Untouched copies for --matrix2's own load: the --matrix load below
+    // mutates region/region2 (it resets them once it has read --chromosomeOrder
+    // or a --region into a Selection), and --matrix2 must be read against the
+    // same request the user made, not against what is left of it afterwards.
+    const std::optional<std::string> requested_region = region;
+    const std::optional<std::string> requested_region2 = region2;
     std::optional<std::vector<std::string>> chromosome_order;
     if (ns.given("chromosomeOrder")) {
         chromosome_order = ns.strs("chromosomeOrder");
@@ -723,6 +876,11 @@ int main(int argc, char** argv) {
         if (per_chromosome && region.has_value() && !region->empty()) {
             throw ExitError("ERROR, choose from the option --perChromosome or --region, the two "
                             "options at the same time are not compatible.");
+        }
+        if (matrix2_path.has_value() && per_chromosome) {
+            throw ExitError("ERROR, --matrix2 and --perChromosome are not compatible: --matrix2 "
+                            "draws a single upper/lower triangle heatmap, not one heatmap per "
+                            "chromosome.");
         }
         if (ns.given("bigwig") && ns.strs("bigwig").size() > 1 &&
             ns.flag("bigwigAdditionalVerticalAxis")) {
@@ -841,6 +999,33 @@ int main(int argc, char** argv) {
                     }
                 }
             }
+        }
+
+        if (matrix2_path.has_value()) {
+            // --perChromosome was already refused together with --matrix2 above,
+            // so matrix_values/matrix_rows/matrix_cols were filled by exactly one
+            // of the two dense branches above. --matrix2 is read for the same
+            // originally requested region/region2/chromosomeOrder, through the
+            // identical region-scoped or whole-matrix path load_dense_matrix
+            // factors out of the block above, never a separate whole load.
+            DenseLoad second;
+            try {
+                second = load_dense_matrix(*matrix2_path, requested_region, requested_region2,
+                                           chromosome_order, ns.flag("clearMaskedBins"));
+            } catch (const ExitError& error) {
+                throw ExitError(std::string("--matrix2: ") + error.what(), error.code());
+            } catch (const std::exception& error) {
+                throw ExitError(std::string("--matrix2: ") + error.what());
+            }
+            if (second.rows != matrix_rows || second.cols != matrix_cols) {
+                throw ExitError(
+                    "ERROR: --matrix2 does not have the same shape as --matrix for the "
+                    "requested region (--matrix: " +
+                    std::to_string(matrix_rows) + "x" + std::to_string(matrix_cols) +
+                    ", --matrix2: " + std::to_string(second.rows) + "x" +
+                    std::to_string(second.cols) + ").");
+            }
+            combine_triangles(matrix_values, second.values, matrix_rows, matrix_cols);
         }
 
         const std::int64_t resolution = hicx::BinTable(model.intervals).bin_size();

@@ -97,6 +97,13 @@ add_test(NAME hicDetectStripes_cli
          COMMAND ${HICX_BASH} "${CMAKE_CURRENT_SOURCE_DIR}/cli/hicDetectStripes_cli.sh"
                  $<TARGET_FILE:hicDetectStripes> "${HICX_TEST_DATA}")
 
+# hicPlotMatrix --matrix2 (cpp/PLAN.md tier 9): a v4-only upper/lower triangle
+# comparison heatmap with no Python counterpart, checked here element-wise
+# rather than through cpp/scripts/equiv.py.
+add_test(NAME hicPlotMatrix_triangle_cli
+         COMMAND ${HICX_BASH} "${CMAKE_CURRENT_SOURCE_DIR}/cli/hicPlotMatrix_triangle_cli.sh"
+                 $<TARGET_FILE:hicPlotMatrix> $<TARGET_FILE:hicSumMatrices> "${HICX_TEST_DATA}")
+
 # The drawing environment check of the plotting tools: a wrong or missing
 # matplotlib or pyGenomeTracks is refused before anything is written, and the
 # pinned interpreter draws. HICX_PLOT_TEST_PYTHON names a Python with the
