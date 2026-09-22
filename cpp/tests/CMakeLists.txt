@@ -40,6 +40,7 @@ add_executable(hicx_tests
     test_compartmentalization.cpp
     test_quick_qc.cpp
     test_chic.cpp
+    test_chicago.cpp
     test_merge_domains.cpp
     test_cool_chromosome_cut.cpp
     test_aggregate_support.cpp
