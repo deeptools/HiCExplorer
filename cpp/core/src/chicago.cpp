@@ -6,11 +6,13 @@
 #include <cmath>
 #include <cstdint>
 #include <fstream>
+#include <functional>
 #include <limits>
 #include <map>
 #include <set>
 #include <sstream>
 #include <stdexcept>
+#include <thread>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -1126,35 +1128,74 @@ std::vector<ProxOePair> read_poe(const std::string& path) {
     return out;
 }
 
-double estimate_dispersion_theta_ml(const std::vector<double>& N, const std::vector<double>& Bmean) {
+namespace {
+
+// Splits [0, n) into up to `threads` contiguous chunks, runs `partial` on each
+// in its own std::thread (partial(first, last) -> double), and sums the
+// per-chunk results in chunk order, so the reduction order (and therefore the
+// floating-point result) does not depend on how many threads ran it.
+double threaded_reduce(std::size_t n, int threads,
+                        const std::function<double(std::size_t, std::size_t)>& partial) {
+    const int worker_count = std::max(1, threads);
+    if (worker_count == 1 || n < 4096) {
+        return partial(0, n);
+    }
+    std::vector<double> sums(static_cast<std::size_t>(worker_count), 0.0);
+    std::vector<std::thread> workers;
+    workers.reserve(static_cast<std::size_t>(worker_count));
+    const std::size_t chunk = (n + static_cast<std::size_t>(worker_count) - 1) /
+                               static_cast<std::size_t>(worker_count);
+    for (int w = 0; w < worker_count; ++w) {
+        const std::size_t first = static_cast<std::size_t>(w) * chunk;
+        const std::size_t last = std::min(n, first + chunk);
+        if (first >= last) break;
+        workers.emplace_back([&, w, first, last] { sums[static_cast<std::size_t>(w)] = partial(first, last); });
+    }
+    for (std::thread& worker : workers) worker.join();
+    double total = 0.0;
+    for (double s : sums) total += s;
+    return total;
+}
+
+}  // namespace
+
+double estimate_dispersion_theta_ml(const std::vector<double>& N, const std::vector<double>& Bmean,
+                                     int threads) {
     if (N.size() != Bmean.size() || N.empty()) {
         throw std::runtime_error("estimate_dispersion_theta_ml: mismatched or empty input");
     }
     const std::size_t n = N.size();
     auto score = [&](double th) {
-        double s = 0.0;
-        for (std::size_t i = 0; i < n; ++i) {
-            const double mu = Bmean[i];
-            s += boost::math::digamma(th + N[i]) - boost::math::digamma(th) + std::log(th) + 1.0 -
-                 std::log(th + mu) - (N[i] + th) / (mu + th);
-        }
-        return s;
+        return threaded_reduce(n, threads, [&](std::size_t first, std::size_t last) {
+            double s = 0.0;
+            for (std::size_t i = first; i < last; ++i) {
+                const double mu = Bmean[i];
+                s += boost::math::digamma(th + N[i]) - boost::math::digamma(th) + std::log(th) + 1.0 -
+                     std::log(th + mu) - (N[i] + th) / (mu + th);
+            }
+            return s;
+        });
     };
     auto info = [&](double th) {
-        double s = 0.0;
-        for (std::size_t i = 0; i < n; ++i) {
-            const double mu = Bmean[i];
-            s += -boost::math::trigamma(th + N[i]) + boost::math::trigamma(th) - 1.0 / th +
-                 2.0 / (mu + th) - (N[i] + th) / ((mu + th) * (mu + th));
-        }
-        return s;
+        return threaded_reduce(n, threads, [&](std::size_t first, std::size_t last) {
+            double s = 0.0;
+            for (std::size_t i = first; i < last; ++i) {
+                const double mu = Bmean[i];
+                s += -boost::math::trigamma(th + N[i]) + boost::math::trigamma(th) - 1.0 / th +
+                     2.0 / (mu + th) - (N[i] + th) / ((mu + th) * (mu + th));
+            }
+            return s;
+        });
     };
 
-    double sum_sq = 0.0;
-    for (std::size_t i = 0; i < n; ++i) {
-        const double r = N[i] / Bmean[i] - 1.0;
-        sum_sq += r * r;
-    }
+    const double sum_sq = threaded_reduce(n, threads, [&](std::size_t first, std::size_t last) {
+        double s = 0.0;
+        for (std::size_t i = first; i < last; ++i) {
+            const double r = N[i] / Bmean[i] - 1.0;
+            s += r * r;
+        }
+        return s;
+    });
     double t0 = static_cast<double>(n) / sum_sq;
     long it = 0;
     double del = 1.0;
@@ -1189,7 +1230,7 @@ BackgroundModel fit_chicago_background(const std::vector<ChinputRecord>& raw,
                                         const std::string& poe_path, const FilterSettings& fs,
                                         long tlb_min_baits_per_bin, double tlb_filter_top_percent,
                                         long tlb_min_prox_oe_per_bin, long tlb_min_prox_b2b_per_bin,
-                                        long brownian_noise_subset) {
+                                        long brownian_noise_subset, int threads) {
     BackgroundModel model;
     model.filters = fs;
 
@@ -1258,7 +1299,7 @@ BackgroundModel fit_chicago_background(const std::vector<ChinputRecord>& raw,
         Bmeans.push_back(bmean);
     }
     model.dispersion_n_pairs = Ns.size();
-    model.dispersion = estimate_dispersion_theta_ml(Ns, Bmeans);
+    model.dispersion = estimate_dispersion_theta_ml(Ns, Bmeans, threads);
     return model;
 }
 

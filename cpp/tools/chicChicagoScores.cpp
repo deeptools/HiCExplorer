@@ -18,6 +18,7 @@
 //
 // No Python HiCExplorer counterpart; C++ only (cpp/PLAN.md 9.15).
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <fstream>
@@ -25,8 +26,10 @@
 #include <map>
 #include <sstream>
 #include <string>
+#include <thread>
 #include <unordered_map>
 #include <utility>
+#include <vector>
 
 #include "hicx/argparse.hpp"
 #include "hicx/chicago.hpp"
@@ -42,7 +45,8 @@ const char* const kUsage =
     "                         [--minNPerBait MINNPERBAIT] [--maxLBrownEst MAXLBROWNEST]\n"
     "                         [--noRemoveAdjacent] [--weightAlpha WEIGHTALPHA]\n"
     "                         [--weightBeta WEIGHTBETA] [--weightGamma WEIGHTGAMMA]\n"
-    "                         [--weightDelta WEIGHTDELTA] [--rmap RMAP] [--help] [--version]\n";
+    "                         [--weightDelta WEIGHTDELTA] [--rmap RMAP] [--threads THREADS]\n"
+    "                         [--help] [--version]\n";
 
 const char* const kHelp =
     "\n"
@@ -90,6 +94,10 @@ const char* const kHelp =
     "  --weightDelta WEIGHTDELTA\n"
     "                        CHiCAGO's distance-weighting curve parameters\n"
     "                        (Default: R Chicago's own defaults).\n"
+    "  --threads THREADS     Number of threads to score interactions with\n"
+    "                        (Default: 1). Output row order and values do not\n"
+    "                        depend on --threads: rows are scored independently\n"
+    "                        and written back out in input order.\n"
     "  --help, -h            show this help message and exit\n"
     "  --version             show program's version number and exit\n";
 
@@ -209,6 +217,7 @@ int main(int argc, char** argv) {
     optional.add({"--weightBeta"}).type("float").default_value(-2.58688050486759).help("Weight curve beta.");
     optional.add({"--weightGamma"}).type("float").default_value(-17.1347845819659).help("Weight curve gamma.");
     optional.add({"--weightDelta"}).type("float").default_value(-7.07609217973722).help("Weight curve delta.");
+    optional.add({"--threads"}).type("int").default_value(1).help("Number of threads.");
     optional.add({"--help", "-h"}).action(cli::Action::Help).help("show this help message and exit");
     optional.add({"--version"}).version(std::string("%(prog)s ") + hicx::kVersion);
 
@@ -250,33 +259,68 @@ int main(int argc, char** argv) {
         out.precision(15);
         out << "baitID\totherEndID\tN\tdistSign\tBmean\tTmean\tlog_p\tscore\n";
 
-        for (const auto& c : x) {
-            auto sj_it = model.s_j.find(c.bait_id);
-            if (sj_it == model.s_j.end()) continue;
-            auto oe_it = model.pool_of_other_end.find(c.other_end_id);
-            if (oe_it == model.pool_of_other_end.end()) continue;  // dropped by tlb pooling
-            const int pool = oe_it->second;
-            auto si_it = model.s_i.find(pool);
-            const double s_i = (si_it == model.s_i.end()) ? 1.0 : si_it->second;
+        // Every row is scored independently of every other (only read-only
+        // lookups into model.*), so rows are split into contiguous chunks, one
+        // per thread, each formatting its own rows into its own string; the
+        // chunks are then written out in original row order, so the output
+        // file is identical no matter how many threads ran it.
+        const std::size_t n = x.size();
+        const int worker_count = std::max(1, static_cast<int>(args.integer("threads")));
+        auto format_range = [&](std::size_t first, std::size_t last) {
+            std::string buf;
+            for (std::size_t i = first; i < last; ++i) {
+                const auto& c = x[i];
+                auto sj_it = model.s_j.find(c.bait_id);
+                if (sj_it == model.s_j.end()) continue;
+                auto oe_it = model.pool_of_other_end.find(c.other_end_id);
+                if (oe_it == model.pool_of_other_end.end()) continue;  // dropped by tlb pooling
+                const int pool = oe_it->second;
+                auto si_it = model.s_i.find(pool);
+                const double s_i = (si_it == model.s_i.end()) ? 1.0 : si_it->second;
 
-            double abs_dist = std::numeric_limits<double>::infinity();
-            double Bmean = 0.0;
-            if (c.has_dist_sign) {
-                abs_dist = static_cast<double>(std::labs(c.dist_sign));
-                Bmean = sj_it->second * s_i * std::exp(eval_distance_function(model.dist_fun, abs_dist));
+                double abs_dist = std::numeric_limits<double>::infinity();
+                double Bmean = 0.0;
+                if (c.has_dist_sign) {
+                    abs_dist = static_cast<double>(std::labs(c.dist_sign));
+                    Bmean =
+                        sj_it->second * s_i * std::exp(eval_distance_function(model.dist_fun, abs_dist));
+                }
+
+                auto tblb_it = model.tblb_of_bait.find(c.bait_id);
+                const int tblb = (tblb_it == model.tblb_of_bait.end()) ? -1 : tblb_it->second;
+                auto tmean_it = model.tmean_by_pool.find({pool, tblb});
+                const double Tmean = (tmean_it == model.tmean_by_pool.end()) ? 0.0 : tmean_it->second;
+
+                const double log_p = log_pvalue(c.N, model.dispersion, Bmean, Tmean);
+                const double score = score_from_pvalue(log_p, abs_dist, w, eta_bar);
+
+                std::ostringstream row;
+                row.precision(15);
+                row << c.bait_id << "\t" << c.other_end_id << "\t" << c.N << "\t";
+                if (c.has_dist_sign) row << c.dist_sign; else row << "NA";
+                row << "\t" << Bmean << "\t" << Tmean << "\t" << log_p << "\t" << score << "\n";
+                buf += row.str();
             }
+            return buf;
+        };
 
-            auto tblb_it = model.tblb_of_bait.find(c.bait_id);
-            const int tblb = (tblb_it == model.tblb_of_bait.end()) ? -1 : tblb_it->second;
-            auto tmean_it = model.tmean_by_pool.find({pool, tblb});
-            const double Tmean = (tmean_it == model.tmean_by_pool.end()) ? 0.0 : tmean_it->second;
-
-            const double log_p = log_pvalue(c.N, model.dispersion, Bmean, Tmean);
-            const double score = score_from_pvalue(log_p, abs_dist, w, eta_bar);
-
-            out << c.bait_id << "\t" << c.other_end_id << "\t" << c.N << "\t";
-            if (c.has_dist_sign) out << c.dist_sign; else out << "NA";
-            out << "\t" << Bmean << "\t" << Tmean << "\t" << log_p << "\t" << score << "\n";
+        if (worker_count == 1 || n < 4096) {
+            out << format_range(0, n);
+        } else {
+            std::vector<std::string> chunks(static_cast<std::size_t>(worker_count));
+            std::vector<std::thread> workers;
+            workers.reserve(static_cast<std::size_t>(worker_count));
+            const std::size_t chunk_size = (n + static_cast<std::size_t>(worker_count) - 1) /
+                                            static_cast<std::size_t>(worker_count);
+            for (int w_idx = 0; w_idx < worker_count; ++w_idx) {
+                const std::size_t first = static_cast<std::size_t>(w_idx) * chunk_size;
+                const std::size_t last = std::min(n, first + chunk_size);
+                if (first >= last) break;
+                workers.emplace_back(
+                    [&, w_idx, first, last] { chunks[static_cast<std::size_t>(w_idx)] = format_range(first, last); });
+            }
+            for (std::thread& worker : workers) worker.join();
+            for (const std::string& chunk : chunks) out << chunk;
         }
     } catch (const std::exception& error) {
         std::fprintf(stderr, "chicChicagoScores: %s\n", error.what());

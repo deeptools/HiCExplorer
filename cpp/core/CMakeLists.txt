@@ -96,7 +96,7 @@ target_link_libraries(hicx4core PRIVATE ${CMAKE_DL_LIBS})
 
 # transform_ops runs the covariance rows on std::thread workers.
 find_package(Threads REQUIRED)
-target_link_libraries(hicx4core PRIVATE Threads::Threads)
+target_link_libraries(hicx4core PUBLIC Threads::Threads)
 
 # Spectra and Eigen for hicPCA --eigenSolver lanczos (sparse_pca.cpp only).
 include("${CMAKE_CURRENT_SOURCE_DIR}/../cmake/HicxSpectra.cmake")
