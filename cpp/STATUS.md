@@ -2,7 +2,7 @@
 
 Owner: the orchestrating session. Architecture: `cpp/PLAN.md`. Rules:
 `cpp/AGENTS_CONTRACT.md`. Optimization rules: `cpp/OPTIMIZATION.md`. Last updated
-2026-09-22, at commit `5be73193`.
+2026-09-22, at commit `412c5d45`.
 
 **Current state: 42 of 44 tools ported and committed** on `version4-cpp`
 (`hicTADClassifier`/`hicTrainTADClassifier` dropped 2026-09-21, see PLAN.md
@@ -264,32 +264,56 @@ shell).
   14/14 (fixed-resolution cases reclassified E1/E2 to EX, a deliberate
   v4-only deviation, documented per-case), reproduced on a clean export by
   the orchestrating session.
-- **Merged 2026-09-22, `5be73193`, explicitly partial:** the foundational
-  statistics of CHiCAGO scoring for the chic tools (PLAN.md 9.15), requested
-  directly by the project owner, and **not yet a usable feature**: there is
-  no CLI surface (`--backgroundModel`, `--scoring`, a
-  `chicSignificantInteractions` threshold), and
-  `estimateTechnicalNoise`/`estimateBrownianComponent` (turning raw
-  `.chinput`/`.npb`/`.nbpb` genome-wide tables into the Bmean/Tmean/
-  dispersion inputs the rest of the pipeline needs) are not implemented.
-  What is done and independently ED-verified against a real, privately
-  provisioned R 4.5.3 + Chicago 1.38.0 + PCHiCdata 1.38.0 environment
-  (Chicago's real pipeline run end to end on PCHiCdata's real GM12878
-  chr20/chr21 and mouse ES chr18/chr19 data): the Delaporte p-value
-  (`log_pvalue`, including a real precision bug found and fixed, since naive
-  linear-space convolution loses all precision on deep-tail p-values; one
-  honestly-flagged deviation on 9 of ~4,600 sampled rows where R's own
-  compiled `pdelap_C` itself underflows and substitutes an approximation
-  this implementation does not reproduce), the distance-based p-value
-  weighting and score (`log_weight`/`score_from_pvalue`), the cubic log-log
-  distance-function fit (`fit_distance_function`), and R's genome-geometry
-  formulas (`avg_frag_length`/`n_hypotheses`/`eta_bar_from_design`).
-  `hicx_tests` 309/309 (177,643 assertions, 10 new cases), ctest 9/9,
-  reproduced on a clean export by the orchestrating session. **Remaining
-  work, not started:** the technical-noise and Brownian-component
-  estimation stage, the CLI wiring, and the full PLAN.md 9.15 gate
-  (end-to-end score >= 5 Jaccard >= 0.99, defaults regression, determinism,
-  memory/CPU vs R, mouse cHi-C agreement report).
+- **Merged 2026-09-22, `5be73193` then `412c5d45`:** CHiCAGO scoring
+  (PLAN.md 9.15), requested directly by the project owner, now a usable
+  feature. `5be73193` landed the foundational per-interaction statistics
+  (Delaporte p-value, distance-based weighting/score, distance-function
+  fit, genome-geometry formulas), independently ED-verified against a real,
+  privately provisioned R 4.5.3 + Chicago 1.38.0 + PCHiCdata 1.38.0
+  environment (Chicago's real pipeline on PCHiCdata's real GM12878
+  chr20/chr21 and mouse ES chr18/chr19 data), including a real precision
+  bug found and fixed (naive linear-space convolution loses all precision
+  on deep-tail p-values) and one honestly-flagged deviation (9 of ~4,600
+  sampled rows where R's own compiled `pdelap_C` itself underflows and
+  substitutes an approximation this implementation does not reproduce).
+  `412c5d45` finished it: genome-wide parameter estimation (technical
+  noise, bait/other-end normalisation, Brownian dispersion via
+  `MASS::theta.ml`'s Newton iteration), and three new, standalone,
+  C++-only tools, corrected mid-task from an earlier flag-based design to
+  separate tools per the project owner's direct naming instruction:
+  `chicChicagoBackgroundModel` (mirrors `chicViewpointBackgroundModel`'s
+  role), `chicChicagoScores` (mirrors `chicViewpoint`'s role),
+  `chicChicagoSignificantInteractions` (mirrors
+  `chicSignificantInteractions`'s role, default score threshold 5).
+  - Cross-checking against R found and fixed two more real bugs:
+    `normaliseOtherEnds` sums the bait-normalised `NNb` count, not raw
+    `N`; its per-pool `ntot` sums `nbpb` only over observed pairs, not
+    every defined bin.
+  - Dispersion 2.550454 exact match to R's own on GM12878; `s_j` max
+    relative deviation 4.9e-12 across 648 baits; `s_i` and `Tmean` exact
+    matches.
+  - End-to-end gate (PLAN.md 9.15): GM12878, score >= 5, Jaccard
+    **1.000000** against R Chicago (1,169/1,169 identical calls). Mouse ES
+    (over R's default subsample threshold, so R's own dispersion is itself
+    not run-to-run deterministic there): Jaccard **0.998665** (4,488/4,494
+    shared calls, all 6 disagreements within 1% of the threshold), meeting
+    the >=0.99 gate. Determinism: byte-identical repeat runs
+    (single-threaded). Defaults regression: all 76 existing chic-tool
+    `equiv.py` cases unaffected.
+  - Known, explicitly scoped-out gaps: multi-replicate merging (R's
+    `mergeSamples`) is not implemented, so a caller with several replicates
+    must sum `N` per bait/other-end pair before calling these tools;
+    shrunken normalisation is not implemented (irrelevant to Chicago's own
+    defaults); no formal memory/CPU-vs-R benchmark (qualitatively much
+    faster: 0.7 s CPU for the full GM12878 fit against R's ~14 s CPU for
+    the same input).
+  - `hicx_tests` 311/311 (177,671 assertions), ctest 9/9 (2 pre-existing
+    environment-gated skips). Independently reproduced by the orchestrating
+    session, twice (the isolated branch and the actually-merged tree): a
+    clean-export build and full test suite, and the dispersion/score/
+    significant-call numbers above reproduced from scratch on real GM12878
+    data (265,494 score rows, 1,169 significant calls), not just re-run
+    from the agent's own report.
 
 **Harness: Python reference cache and parallel scheduling, merged in
 `04f948ce` (contract rule 13).**
