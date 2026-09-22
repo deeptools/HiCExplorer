@@ -2,7 +2,7 @@
 
 Owner: the orchestrating session. Architecture: `cpp/PLAN.md`. Rules:
 `cpp/AGENTS_CONTRACT.md`. Optimization rules: `cpp/OPTIMIZATION.md`. Last updated
-2026-09-22, at commit `73f60939`.
+2026-09-22, at commit `5be73193`.
 
 **Current state: 42 of 44 tools ported and committed** on `version4-cpp`
 (`hicTADClassifier`/`hicTrainTADClassifier` dropped 2026-09-21, see PLAN.md
@@ -235,6 +235,61 @@ shell).
   - Known follow-up, not done: `hicAdjustMatrix.cpp` has an analogous
     cool-only single-chromosome fast path that would need the same `.hic`
     extension; left for a later pass.
+- **Merged 2026-09-22, `bea7c0e9`:** `hicPlotMatrix --matrix2`, a v4-only
+  upper/lower triangle comparison heatmap (upper = `--matrix`, lower =
+  `--matrix2`, diagonal always `--matrix`, reasoned in the code comment on
+  `combine_triangles`), requested directly by the project owner. Both
+  matrices load through the same genuinely partial, region-scoped path
+  `73f60939` added, confirmed together on a 2 GB cool file and the 39.9 GB
+  real `.hic` file: 0.80 s, ~52 MB peak RSS for both matrices combined.
+  Element-wise correctness verified via `--plotData` against separate
+  single-matrix dumps, pinned by a new test
+  (`cpp/tests/cli/hicPlotMatrix_triangle_cli.sh`). `hicx_tests`/`ctest`/the
+  existing 23 `hicPlotMatrix` equivalence cases all still pass, reproduced
+  on a clean export by the orchestrating session.
+- **Merged 2026-09-22, `9696f88a`:** `hicMergeMatrixBins` now requires
+  `--chromosomeSizes`/`-cs`, fixing a real correctness bug the project owner
+  flagged directly: the merged bin layout used to come from whichever bins
+  the input happened to contain, not the true genome length, so two inputs
+  of the same genome/resolution with different missing bins produced
+  differently-shaped, non-comparable output (the Python original has this
+  same bug, reproduced deliberately until now). New
+  `merge_bins_genome`/`plan_bin_merge_genome` tile every chromosome from
+  position 0 at the matrix's own resolution, independent of input
+  presence; scoped to fixed-resolution matrices only (a restriction-
+  fragment matrix falls back to the old, Python-faithful path).
+  `hicConvertFormat`'s own use of the shared `merge_bins`/`reduce_matrix` is
+  untouched (33/33 equivalence cases confirmed unaffected). `hicx_tests`
+  299/299 (151,179 assertions), ctest 9/9, `hicMergeMatrixBins` equivalence
+  14/14 (fixed-resolution cases reclassified E1/E2 to EX, a deliberate
+  v4-only deviation, documented per-case), reproduced on a clean export by
+  the orchestrating session.
+- **Merged 2026-09-22, `5be73193`, explicitly partial:** the foundational
+  statistics of CHiCAGO scoring for the chic tools (PLAN.md 9.15), requested
+  directly by the project owner, and **not yet a usable feature**: there is
+  no CLI surface (`--backgroundModel`, `--scoring`, a
+  `chicSignificantInteractions` threshold), and
+  `estimateTechnicalNoise`/`estimateBrownianComponent` (turning raw
+  `.chinput`/`.npb`/`.nbpb` genome-wide tables into the Bmean/Tmean/
+  dispersion inputs the rest of the pipeline needs) are not implemented.
+  What is done and independently ED-verified against a real, privately
+  provisioned R 4.5.3 + Chicago 1.38.0 + PCHiCdata 1.38.0 environment
+  (Chicago's real pipeline run end to end on PCHiCdata's real GM12878
+  chr20/chr21 and mouse ES chr18/chr19 data): the Delaporte p-value
+  (`log_pvalue`, including a real precision bug found and fixed, since naive
+  linear-space convolution loses all precision on deep-tail p-values; one
+  honestly-flagged deviation on 9 of ~4,600 sampled rows where R's own
+  compiled `pdelap_C` itself underflows and substitutes an approximation
+  this implementation does not reproduce), the distance-based p-value
+  weighting and score (`log_weight`/`score_from_pvalue`), the cubic log-log
+  distance-function fit (`fit_distance_function`), and R's genome-geometry
+  formulas (`avg_frag_length`/`n_hypotheses`/`eta_bar_from_design`).
+  `hicx_tests` 309/309 (177,643 assertions, 10 new cases), ctest 9/9,
+  reproduced on a clean export by the orchestrating session. **Remaining
+  work, not started:** the technical-noise and Brownian-component
+  estimation stage, the CLI wiring, and the full PLAN.md 9.15 gate
+  (end-to-end score >= 5 Jaccard >= 0.99, defaults regression, determinism,
+  memory/CPU vs R, mouse cHi-C agreement report).
 
 **Harness: Python reference cache and parallel scheduling, merged in
 `04f948ce` (contract rule 13).**
