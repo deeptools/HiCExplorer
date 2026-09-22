@@ -2,7 +2,7 @@
 
 Owner: the orchestrating session. Architecture: `cpp/PLAN.md`. Rules:
 `cpp/AGENTS_CONTRACT.md`. Optimization rules: `cpp/OPTIMIZATION.md`. Last updated
-2026-09-22, at commit `412c5d45`.
+2026-09-22, at commit `dab5fe2d`.
 
 **Current state: 42 of 44 tools ported and committed** on `version4-cpp`
 (`hicTADClassifier`/`hicTrainTADClassifier` dropped 2026-09-21, see PLAN.md
@@ -300,6 +300,25 @@ shell).
     the >=0.99 gate. Determinism: byte-identical repeat runs
     (single-threaded). Defaults regression: all 76 existing chic-tool
     `equiv.py` cases unaffected.
+  - **Merged 2026-09-22, `dab5fe2d`:** `chicChicagoBackgroundModel` and
+    `chicChicagoScores` also accept `--matrices` (cool/h5/`.hic`), a
+    required, mutually-exclusive alternative to `--chinput`, requested
+    directly by the project owner to match how `chicViewpoint` already
+    takes real matrices rather than CHiCAGO's own bespoke pre-processed
+    format. `hicx::chicago::chinput_from_matrices` derives each
+    `(baitID, otherEndID)` pair's `N` from the matrix via the existing
+    genuinely partial, region-scoped `ToolMatrix::load`, summing every bin
+    pair overlapping each `.rmap`/`.baitmap` fragment's span (one cell at
+    exact fragment resolution, many at a fixed bin size); `distSign`'s
+    round-half-up convention was reverse-engineered and confirmed against
+    all 270,441 real cis rows of the GM12878 chinput fixture. Scoped to
+    cis-within-`maxLBrownEst`; trans and farther-cis still need `--chinput`.
+    Verified independently by the orchestrating session: a fragment-
+    resolution cool matrix built from GM12878's own real `N` values
+    reproduces byte-identical background-model and scores output to the
+    original chinput file, reproduced from scratch on a clean export
+    (twice: the isolated branch and the merged tree). `hicx_tests` 314/314
+    (796,405 assertions), ctest 9/9.
   - Known, explicitly scoped-out gaps: multi-replicate merging (R's
     `mergeSamples`) is not implemented, so a caller with several replicates
     must sum `N` per bait/other-end pair before calling these tools;
