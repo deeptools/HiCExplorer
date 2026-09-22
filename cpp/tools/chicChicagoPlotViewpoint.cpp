@@ -43,6 +43,10 @@
 //     project's own convention (matching the arc-style loop track already
 //     used in the HiCExplorer v4 GUI's matrix browser).
 //
+// --onlySignificant drops every background-tier row (score < --plevel2)
+// before any of the above, in both scopes and both styles: a plot of only
+// the two significant colour tiers, no background clutter.
+//
 // The figure is drawn by plot/hicexplorer_plot/chicChicagoPlotViewpoint.py
 // (hicx::plot::draw), the same C++-computes-data / Python-draws-figure
 // bridge every other plotting tool in this project uses (cpp/PLAN.md tier 7,
@@ -79,7 +83,7 @@ const char* const kUsage =
     "                                [--style {scatter,arcs}] [--baitmap BAITMAP]\n"
     "                                [--backgroundModel BACKGROUNDMODEL]\n"
     "                                [--range RANGE RANGE] [--plevel1 PLEVEL1]\n"
-    "                                [--plevel2 PLEVEL2] [--keepBait2bait]\n"
+    "                                [--plevel2 PLEVEL2] [--keepBait2bait] [--onlySignificant]\n"
     "                                [--outFileName OUTFILENAME] [--outputFormat OUTPUTFORMAT]\n"
     "                                [--dpi DPI] [--plotData FILE] [--help] [--version]\n";
 
@@ -132,6 +136,8 @@ const char* const kHelp =
     "                        both baits inside --region is always deduplicated to\n"
     "                        one arc regardless of this flag). Only has an effect\n"
     "                        with --baitmap.\n"
+    "  --onlySignificant     Drop background rows (score < --plevel2): only the two\n"
+    "                        significant colour tiers are drawn, no background.\n"
     "  --outFileName OUTFILENAME, -o OUTFILENAME\n"
     "                        The name of the plot file (Default: chicago_viewpoint.png).\n"
     "  --outputFormat OUTPUTFORMAT, -format OUTPUTFORMAT\n"
@@ -251,6 +257,10 @@ int main(int argc, char** argv) {
     optional.add({"--keepBait2bait"})
         .action(cli::Action::StoreTrue)
         .help("Keep bait2bait rows (Default: removed). Only has an effect with --baitmap.");
+    optional.add({"--onlySignificant"})
+        .action(cli::Action::StoreTrue)
+        .help("Drop background rows (score < --plevel2): only the two significant colour "
+              "tiers are drawn, no background.");
     optional.add({"--outFileName", "-o"})
         .default_value("chicago_viewpoint.png")
         .output({"png", "pdf", "svg"})
@@ -302,6 +312,7 @@ int main(int argc, char** argv) {
             }
         }
         const bool remove_bait2bait = !all_bait_ids.empty() && !args.flag("keepBait2bait");
+        const bool only_significant = args.flag("onlySignificant");
 
         std::optional<double> dispersion;
         if (args.given("backgroundModel")) dispersion = read_dispersion(args.str("backgroundModel"));
@@ -329,6 +340,7 @@ int main(int argc, char** argv) {
             for (const auto& r : rows) {
                 if (!r.has_dist_sign) continue;  // trans: no x position
                 if (remove_bait2bait && all_bait_ids.count(r.other_end_id) > 0) continue;
+                if (only_significant && r.score < plevel2) continue;
                 const double d = static_cast<double>(r.dist_sign);
                 if (d < static_cast<double>(-upstream) || d > static_cast<double>(downstream)) continue;
                 score.push_back(r.score);
@@ -394,6 +406,7 @@ int main(int argc, char** argv) {
             std::set<std::pair<long, long>> seen_pairs;  // canonical (min id, max id)
             for (const auto& r : rows) {
                 if (!r.has_dist_sign) continue;
+                if (only_significant && r.score < plevel2) continue;
                 const double d = static_cast<double>(r.dist_sign);
                 if (d < static_cast<double>(-upstream) || d > static_cast<double>(downstream)) continue;
                 const bool other_is_selected_bait = selected_bait_ids.count(r.other_end_id) > 0;
