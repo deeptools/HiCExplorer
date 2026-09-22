@@ -36,7 +36,10 @@
 #define HICX_CHICAGO_HPP
 
 #include <cstddef>
+#include <map>
 #include <string>
+#include <unordered_map>
+#include <utility>
 #include <vector>
 
 namespace hicx::chicago {
@@ -154,6 +157,185 @@ struct DistFunFit {
 // Evaluates the fitted distance function at a distance (predicts
 // log(refBinMean); the caller exponentiates for a mean).
 [[nodiscard]] double eval_distance_function(const DistFunFit& fit, double distance);
+
+// ---------------------------------------------------------------------------
+// Genome-wide parameter estimation: readSample's per-file ingestion filter,
+// estimateTechnicalNoise's trans-count binning, normaliseBaits/
+// normaliseOtherEnds' non-shrunken (default) scaling factors, and
+// estimateBrownianComponent's dispersion.
+//
+// Scope note: R's readAndMerge merges several replicate .chinput files
+// (mergeSamples) before readSample's own filtering. That multi-file merge is
+// not reproduced here; callers pass one already-merged .chinput (summed
+// per bait/otherEnd pair across replicates by the caller, or a single
+// replicate file, exactly what read_chinput already reads). readSample's own
+// per-file filtering (fragment length, self-ligation, minNPerBait,
+// removeAdjacent, bait2bait-only baits) is reproduced in full below.
+//
+// Also not reproduced: normaliseBaits/normaliseOtherEnds' shrink=TRUE path
+// (gamma MLE + loess smoothing). Chicago's own default is shrink=FALSE for
+// normaliseBaits and normaliseOtherEnds always calls it with shrink=FALSE,
+// so this covers Chicago's actual default pipeline, not every option it
+// exposes.
+// ---------------------------------------------------------------------------
+
+// Settings readSample/estimateTechnicalNoise/estimateBrownianComponent need,
+// all Chicago default values (Chicago::defaultSettings()).
+struct FilterSettings {
+    long min_frag_len = 150;
+    long max_frag_len = 40000;
+    long min_n_per_bait = 250;
+    bool remove_adjacent = true;
+    long max_l_brown_est = 1500000;
+    long binsize = 20000;
+    bool adj_bait2bait = true;
+};
+
+// One row of x after readSample's filtering: a bait/other-end interaction
+// with its trans flag (has_dist_sign == false) preserved, and isBait2bait
+// precomputed (wb2b: otherEndID appears in the baitmap).
+struct ChiInteraction {
+    long bait_id = 0;
+    long other_end_id = 0;
+    double N = 0.0;
+    long other_end_len = 0;
+    bool has_dist_sign = false;
+    long dist_sign = 0;
+    bool is_bait2bait = false;
+};
+
+// readSample (R/Chicago/R/readData.R), the ingestion path for ONE chinput
+// file already read by read_chinput: otherEndLen range filter, self-ligation
+// removal, minNPerBait filter, optional removeAdjacent, and dropping baits
+// whose only proximal (within max_l_brown_est) interactions are all
+// bait2bait.
+[[nodiscard]] std::vector<ChiInteraction> read_sample(const std::vector<ChinputRecord>& raw,
+                                                        const std::vector<BaitmapFragment>& baitmap,
+                                                        const FilterSettings& fs);
+
+// One (bait, other-end) fragment pool assignment, from Hmisc::cut2's default
+// quantile-binning algorithm (cuts missing, onlycuts = FALSE): group index
+// (1-based) per input element, replicating cut2's own y-vector semantics
+// (the native grouping technicalNoise's tblb binning uses directly).
+[[nodiscard]] std::vector<int> cut2_native_groups(const std::vector<double>& x, long m);
+
+// cut2(x, m = m, onlycuts = TRUE): the g roughly-equal-count breakpoints
+// (unique(c(low, max(x)))), used as input to a plain R cut() elsewhere
+// (addTLB calls cut2 this way, then cut() on a different, larger vector).
+[[nodiscard]] std::vector<double> cut2_cuts(const std::vector<double>& x, long m);
+
+// R's cut(x, breaks, right = TRUE, include.lowest = TRUE): 1-based bin index,
+// (breaks[i-1], breaks[i]] except the first bin which also includes
+// breaks[0] itself; 0 if x falls outside [breaks.front(), breaks.back()].
+[[nodiscard]] int cut_with_breaks(double x, const std::vector<double>& breaks);
+
+// .addTLB: bins other ends by their (bait2bait-adjusted) trans-interaction
+// count into pools, returned as a 1-based pool id per otherEndID (the same
+// tlb column normaliseOtherEnds and estimateTechnicalNoise both consume).
+// Non-bait2bait and bait2bait other ends are binned separately and never
+// share a pool id (bait2bait ids are offset past the last non-B2B id, the
+// same separation R's "B2B" suffix gives its factor levels).
+struct TlbResult {
+    std::unordered_map<long, int> pool_of_other_end;  // otherEndID -> tlb pool id
+    int n_non_b2b_pools = 0;
+    int n_b2b_pools = 0;
+};
+[[nodiscard]] TlbResult add_tlb(const std::vector<ChiInteraction>& x, const FilterSettings& fs,
+                                 double tlb_filter_top_percent, long tlb_min_prox_oe_per_bin,
+                                 long tlb_min_prox_b2b_per_bin);
+
+// estimateTechnicalNoise: bins baits by their observed trans-interaction
+// count (tblb, separate from the other-end tlb pools above) and computes the
+// Poisson mean trans-count Tmean for every observed (tlb, tblb) pool,
+// dividing the observed trans counts in that pool by the total number of
+// possible bait/other-end pairs the pool could have produced.
+struct TechnicalNoiseResult {
+    std::unordered_map<long, int> tblb_of_bait;             // baitID -> tblb pool id
+    std::map<std::pair<int, int>, double> tmean_by_pool;     // (tlb, tblb) -> Tmean
+};
+[[nodiscard]] TechnicalNoiseResult estimate_technical_noise(
+    const std::vector<ChiInteraction>& x, const TlbResult& tlb,
+    const std::vector<RmapFragment>& rmap, const std::vector<BaitmapFragment>& baitmap,
+    long min_baits_per_bin);
+
+// normaliseFragmentSets' non-shrunken path (shrink = FALSE), specialised to
+// the bait side: for every baitID, s_j = median over distance bins of
+// (binwise sum of N / total possible other ends in that bin) / (geometric
+// mean of that ratio over all baits in the bin); also returns refBinMean,
+// the geometric mean per distance bin (estimateDistFun's own input).
+struct BaitFactors {
+    std::unordered_map<long, double> s_j;              // baitID -> s_j
+    std::vector<double> ref_bin_mean_by_distbin;        // 1-based distbin -> refBinMean (NaN if undefined)
+};
+[[nodiscard]] BaitFactors normalise_baits(const std::vector<ChiInteraction>& x,
+                                           const std::vector<RmapFragment>& rmap,
+                                           const std::vector<BaitmapFragment>& baitmap,
+                                           const std::string& npb_path, const FilterSettings& fs);
+
+// normaliseFragmentSets' non-shrunken path, other-end side: for every tlb
+// pool, s_i = median over distance bins of (binwise sum of N / total
+// possible baits in that bin) / (geometric mean of that ratio over all tlb
+// pools in the bin).
+// bait_s_j is normalise_baits' own s_j output: normaliseOtherEnds sums NNb =
+// pmax(1, round(N / s_j)), the bait-normalised count, not the raw N (R:
+// normaliseOtherEnds(cd, Ncol = "NNb", ...), NNb set by normaliseBaits).
+[[nodiscard]] std::unordered_map<int, double> normalise_other_ends(
+    const std::vector<ChiInteraction>& x, const TlbResult& tlb,
+    const std::unordered_map<long, double>& bait_s_j, const std::string& nbpb_path,
+    const FilterSettings& fs);
+
+// A proximal (baitID, otherEndID) pair from the precomputed .poe design
+// file: every pair within max_l_brown_est of each other, after removeb2b
+// and removeAdjacent, with its exact distance.
+struct ProxOePair {
+    long bait_id = 0;
+    long other_end_id = 0;
+    double dist = 0.0;
+};
+[[nodiscard]] std::vector<ProxOePair> read_poe(const std::string& path);
+
+// estimateBrownianComponent's dispersion (MASS::glm.nb's theta, fit by
+// MASS::theta.ml's Newton iteration on the negative-binomial profile
+// likelihood, exactly as R computes it): N ~ NB(mean = Bmean, dispersion =
+// alpha) with Bmean fixed by the offset (s_j * s_i * distance function), no
+// free regression coefficients, so glm.nb's IRLS loop never changes Bmean
+// and this reduces to a single theta.ml(N, Bmean) call.
+[[nodiscard]] double estimate_dispersion_theta_ml(const std::vector<double>& N,
+                                                    const std::vector<double>& Bmean);
+
+// s_j * s_i * eval_distance_function(fit, |dist|), i.e. estimateBMean; NaN
+// distSign (trans) maps to Bmean = 0, matching R's x[is.na(distSign), Bmean := 0].
+[[nodiscard]] double estimate_bmean(double s_j, double s_i, double abs_dist_or_nan,
+                                     const DistFunFit& fit);
+
+// The full parameter set chicChicagoBackgroundModel estimates and
+// chicChicagoScores consumes: everything above, wired into one pipeline in
+// R's own order (normaliseBaits -> normaliseOtherEnds -> estimateTechnicalNoise
+// -> estimateDistFun -> estimateBrownianComponent).
+struct BackgroundModel {
+    FilterSettings filters;
+    TlbResult tlb;
+    BaitFactors bait_factors;
+    std::unordered_map<int, double> s_i_by_tlb_pool;
+    TechnicalNoiseResult tech_noise;
+    DistFunFit dist_fun;
+    double dispersion = 0.0;
+    // Diagnostics: how many (bait, other-end) pairs from the .poe design fed
+    // the dispersion fit, and whether R's own brownianNoise.subset (1000
+    // baits by default) would have triggered sub-sampling on this input
+    // (report only; this implementation always fits on the full design,
+    // see the header comment on estimate_dispersion_theta_ml's caller).
+    std::size_t dispersion_n_pairs = 0;
+    bool subset_would_trigger_in_r = false;
+};
+
+[[nodiscard]] BackgroundModel fit_chicago_background(
+    const std::vector<ChinputRecord>& raw, const std::vector<RmapFragment>& rmap,
+    const std::vector<BaitmapFragment>& baitmap, const std::string& npb_path,
+    const std::string& nbpb_path, const std::string& poe_path, const FilterSettings& fs,
+    long tlb_min_baits_per_bin = 1000, double tlb_filter_top_percent = 0.01,
+    long tlb_min_prox_oe_per_bin = 50000, long tlb_min_prox_b2b_per_bin = 2500,
+    long brownian_noise_subset = 1000);
 
 }  // namespace hicx::chicago
 

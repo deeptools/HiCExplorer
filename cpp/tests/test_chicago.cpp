@@ -263,6 +263,96 @@ TEST_CASE("chicago: read_rmap/read_baitmap and eta_bar_from_design match R on re
     check_ed(eta_bar, 0.009105237, "etaBar");
 }
 
+TEST_CASE("chicago: fit_chicago_background matches R's own single-file pipeline on real GM12878 data") {
+    // Reference values from a real Chicago::chicagoPipeline() run of
+    // setExperiment + readAndMerge(files = "GM_rep1.chinput") [ONE file, no
+    // multi-replicate merge, matching this port's documented scope] +
+    // normaliseBaits + normaliseOtherEnds + estimateTechnicalNoise +
+    // estimateDistFun + estimateBrownianComponent, on PCHiCdata's real
+    // GM12878 chr20/chr21 design (R 4.5.3, Chicago 1.38.0, Delaporte 8.4.3,
+    // PCHiCdata 1.38.0). GM12878 has 648 normalised baits, under the default
+    // brownianNoise.subset of 1000, so R's own estimateBrownianComponent
+    // deterministically fits the full dataset (no stochastic subsampling):
+    // this is the one case a real, unseeded R run is itself reproducible,
+    // and the numbers below (dispersion 2.550454, the distFun cubic fit
+    // coefficients, s_j, s_i, Tmean) are exact-digit copies of that run's
+    // actual output, not approximations.
+    using namespace hicx::chicago;
+    auto rmap = read_rmap(kChicago + "h19_chr20and21.rmap");
+    auto baitmap = read_baitmap(kChicago + "h19_chr20and21.baitmap");
+    auto raw = read_chinput(kChicago + "GM_rep1.chinput");
+    FilterSettings fs;
+
+    const auto model = fit_chicago_background(raw, rmap, baitmap, kChicago + "h19_chr20and21.npb",
+                                               kChicago + "h19_chr20and21.nbpb",
+                                               kChicago + "h19_chr20and21.poe", fs);
+
+    CHECK(model.bait_factors.s_j.size() == 648);
+    CHECK(model.dispersion_n_pairs == 433821);
+    CHECK_FALSE(model.subset_would_trigger_in_r);
+    check_ed(model.dispersion, 2.550454, "dispersion");
+
+    check_ed(model.dist_fun.cubic[0], 9.489652707, "cubic[0]");
+    check_ed(model.dist_fun.cubic[1], -0.102094079, "cubic[1]");
+    check_ed(model.dist_fun.cubic[2], -0.119670837, "cubic[2]");
+    check_ed(model.dist_fun.cubic[3], 0.004958396, "cubic[3]");
+    check_ed(model.dist_fun.head_coef[0], 11.893220, "head_coef[0]");
+    check_ed(model.dist_fun.head_coef[1], -1.044645, "head_coef[1]");
+    check_ed(model.dist_fun.tail_coef[0], 5.1882376, "tail_coef[0]");
+    check_ed(model.dist_fun.tail_coef[1], -0.4986937, "tail_coef[1]");
+
+    // Spot-checked bait factors (baitID -> s_j), read from the real R run.
+    check_ed(model.bait_factors.s_j.at(403482), 1.5293753995821, "s_j[403482]");
+    check_ed(model.bait_factors.s_j.at(423749), 1.00267324887507, "s_j[423749]");
+
+    // Two tlb pools (one non-bait2bait, one bait2bait); the non-bait2bait
+    // pool's own bbm is excluded from... no, it IS the sole reference (R's
+    // refExcludeSuffix = "B2B" excludes the bait2bait pool from the geomean,
+    // so the lone non-B2B pool normalises to exactly 1).
+    CHECK(model.tlb.n_non_b2b_pools == 1);
+    CHECK(model.tlb.n_b2b_pools == 1);
+    check_ed(model.s_i_by_tlb_pool.at(1), 1.0, "s_i[non-B2B pool]");
+    check_ed(model.s_i_by_tlb_pool.at(2), 1.12250554323725, "s_i[B2B pool]");
+
+    // Both technical-noise pools (one tblb pool, since 648 baits < the
+    // default techNoise.minBaitsPerBin of 1000).
+    check_ed(model.tech_noise.tmean_by_pool.at({1, 1}), 0.00313682023102442, "Tmean[nonB2B]");
+    check_ed(model.tech_noise.tmean_by_pool.at({2, 1}), 0.00568968230589508, "Tmean[B2B]");
+}
+
+TEST_CASE("chicago: fit_chicago_background's deterministic parts match R on real mouse ES data") {
+    // Mouse ES (mESCrep1.chinput alone) has 1225 normalised baits, over the
+    // default brownianNoise.subset of 1000: R's own estimateBrownianComponent
+    // therefore subsamples baits and averages several stochastic glm.nb fits
+    // with no fixed seed, so R's own reported dispersion is not reproducible
+    // run to run (measured: 2.80-2.84 across 5 samples of one real run, mean
+    // 2.824255). Only the deterministic parts (distFun, which does not
+    // depend on the Brownian dispersion step) are ED-checked here; the
+    // dispersion itself is checked only for being in the right neighbourhood,
+    // consistent with fitting the same model on the full dataset instead of
+    // R's own bait subsample (see fit_chicago_background's header comment).
+    using namespace hicx::chicago;
+    auto rmap = read_rmap(kChicago + "mm9_chr18and19.rmap");
+    auto baitmap = read_baitmap(kChicago + "mm9_chr18and19.baitmap");
+    auto raw = read_chinput(kChicago + "mESCrep1.chinput");
+    FilterSettings fs;
+
+    const auto model = fit_chicago_background(raw, rmap, baitmap, kChicago + "mm9_chr18and19.npb",
+                                               kChicago + "mm9_chr18and19.nbpb",
+                                               kChicago + "mm9_chr18and19.poe", fs);
+
+    CHECK(model.bait_factors.s_j.size() == 1225);
+    CHECK(model.subset_would_trigger_in_r);
+    check_ed(model.dist_fun.cubic[0], 10.87298959, "cubic[0]");
+    check_ed(model.dist_fun.cubic[1], -2.16294784, "cubic[1]");
+    check_ed(model.dist_fun.cubic[2], 0.20765500, "cubic[2]");
+    check_ed(model.dist_fun.cubic[3], -0.00822967, "cubic[3]");
+
+    // R's real 5-sample run: 2.802542 .. 2.843026, mean 2.824255.
+    CHECK(model.dispersion > 2.7);
+    CHECK(model.dispersion < 2.95);
+}
+
 TEST_CASE("chicago: read_chinput parses a real .chinput file") {
     auto recs = hicx::chicago::read_chinput(kChicago + "GM_rep1.chinput");
     CHECK(recs.size() > 100000);

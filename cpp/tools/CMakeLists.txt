@@ -12,6 +12,12 @@ set(HICX_TOOLS
     chicSignificantInteractions
     chicAggregateStatistic
     chicDifferentialTest
+    # The CHiCAGO pipeline (Cairns et al. 2016), exposed as its own tools
+    # rather than as mode flags on the chic* tools above (cpp/PLAN.md 9.15;
+    # no Python HiCExplorer counterpart for any of the three).
+    chicChicagoBackgroundModel
+    chicChicagoScores
+    chicChicagoSignificantInteractions
     hicCompareMatrices
     hicConvertFormat
     hicFindTADs
