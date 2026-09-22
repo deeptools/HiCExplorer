@@ -98,6 +98,48 @@ struct BinMergePlan {
 // because the caller cleared them.
 [[nodiscard]] MatrixData merge_bins(const MatrixData& input, std::int64_t num_bins);
 
+// Chromosome name -> length pairs, in the shape hicx::read_chromosome_sizes
+// returns.
+using ChromosomeLengths = std::vector<std::pair<std::string, std::int64_t>>;
+
+// v4-only deviation from hicMergeMatrixBins.py, used by the hicMergeMatrixBins
+// tool only (see the deviation note at the top of hicMergeMatrixBins.cpp).
+// plan_bin_merge builds its groups by walking `intervals`, the bin table the
+// *input* actually has, so a bin missing from one input (for example because
+// no reads were observed there) shrinks the group count and shifts every
+// group after it. plan_bin_merge_genome instead builds the groups by walking
+// the full set of bins the genome should have: every chromosome of
+// `chromosome_lengths` tiled from position 0 in steps of `resolution`,
+// exactly as read_two_dimensional_text does. A bin of `intervals` is mapped
+// into that layout by (chromosome, start) and contributes to whichever group
+// it falls in; a bin the layout expects but `intervals` does not have simply
+// contributes nothing to its group, exactly as a present but all-zero bin
+// already would. Two inputs covering the same genome at the same resolution
+// therefore always produce the same group layout with the same
+// `--chromosomeSizes` and the same num_bins, whatever bins either of them is
+// missing.
+//
+// This only makes sense for a matrix with a single, fixed bin size: a
+// restriction-fragment matrix has no such thing as "the bin a chromosome
+// position belongs to" without the restriction cut positions, which
+// chromosome_lengths does not carry, so the caller does not call this
+// function for one (BinTable::bin_size_homogeneous() is false) and uses
+// plan_bin_merge instead.
+//
+// Throws std::invalid_argument if num_bins, resolution or chromosome_lengths
+// is unusable, the same as plan_bin_merge.
+[[nodiscard]] BinMergePlan plan_bin_merge_genome(const std::vector<CutInterval>& intervals,
+                                                  std::int64_t num_bins,
+                                                  const ChromosomeLengths& chromosome_lengths,
+                                                  std::int64_t resolution);
+
+// merge_bins, built on plan_bin_merge_genome instead of plan_bin_merge. Same
+// contract otherwise: nan_bins is recomputed from the result, correction
+// factors and distance counts pass through untouched.
+[[nodiscard]] MatrixData merge_bins_genome(const MatrixData& input, std::int64_t num_bins,
+                                           const ChromosomeLengths& chromosome_lengths,
+                                           std::int64_t resolution);
+
 }  // namespace hicx
 
 #endif  // HICX_REDUCE_MATRIX_HPP

@@ -3,46 +3,56 @@
     "id": "hicMergeMatrixBins.h5.numBins5.small_test_matrix",
     "tool": "hicMergeMatrixBins",
     "tier": 1,
+    "reference": "none",
     "args": ["-m", "{data}/small_test_matrix.h5", "-o", "{out}/merged.h5",
              "--numBins", "5"],
-    "outputs": [{"path": "{out}/merged.h5", "format": "h5", "class": "E2"}],
-    "notes": "The one case the pre-existing Python test covered, against the stored reference hicMergeMatrixBins/result.h5. 33,754 bins over 15 chromosomes with 14,845 NaN bins, so remove_nans_if_needed does real work before the merge."
+    "cpp_args": ["--chromosomeSizes", "{data}/hicBuildMatrix/dm3.chrom.sizes"],
+    "outputs": [{"path": "{out}/merged.h5", "format": "h5", "class": "EX"}],
+    "notes": "Class EX, not E2: --chromosomeSizes is required by the C++ port (project owner, 2026-09-22, hicMergeMatrixBins.cpp top-of-file comment) and this matrix has a single fixed bin size, so the C++ tool builds its merge groups from dm3.chrom.sizes instead of from the bins the input happens to have. That is a deliberate deviation from hicMergeMatrixBins.py, not a faithfulness bug: no Python counterpart exists for this behaviour to compare against. 33,754 bins over 15 chromosomes with 14,845 NaN bins, so remove_nans_if_needed does real work before the merge; the pre-fix Python-equivalent behaviour of this case (class E2 against the stored reference hicMergeMatrixBins/result.h5) is now covered by test_reduce_matrix.cpp's 'merge_bins_genome with no missing data matches merge_bins exactly' regression, which is the pre-fix code path this case used to exercise."
   },
   {
     "id": "hicMergeMatrixBins.h5.numBins4",
     "tool": "hicMergeMatrixBins",
     "tier": 1,
+    "reference": "none",
     "args": ["-m", "{data}/small_test_matrix_50kb_res.h5", "-o", "{out}/merged.h5",
              "--numBins", "4"],
-    "outputs": [{"path": "{out}/merged.h5", "format": "h5", "class": "E2"}],
-    "notes": "2,655 NaN free bins into 665 merged ones. Four trailing groups of one bin each, on chr2RHet, chr3RHet, chr4 and chrX, fall below the numBins/2 threshold of hicMergeMatrixBins.py:248 and are dropped with their counts. The merged intervals are built from the NaN free bin list, so the second chr2RHet interval is 250 kb wide rather than 200 kb."
+    "cpp_args": ["--chromosomeSizes", "{data}/hicBuildMatrix/dm3.chrom.sizes"],
+    "outputs": [{"path": "{out}/merged.h5", "format": "h5", "class": "EX"}],
+    "notes": "Class EX, not E2 (deliberate deviation, see hicMergeMatrixBins.cpp top-of-file comment): this input only has data for 12 of dm3.chrom.sizes' 15 chromosomes (chrYHet, chrUextra and chrM never appear), so the C++ output now also carries those three as empty chromosomes rather than omitting them, on top of no longer applying the numBins/2 drop by input presence. The pre-fix Python-matching behaviour (2,655 NaN free bins into 665 merged ones, four trailing single-bin groups on chr2RHet, chr3RHet, chr4 and chrX dropped by hicMergeMatrixBins.py:248) is unchanged in hicx::merge_bins and pinned by test_reduce_matrix.cpp and the h5.numBins4-old-style plan_bin_merge unit tests."
   },
   {
     "id": "hicMergeMatrixBins.h5.numBins20.drops_two_chromosomes",
     "tool": "hicMergeMatrixBins",
     "tier": 1,
+    "reference": "none",
     "args": ["-m", "{data}/small_test_matrix_50kb_res.h5", "-o", "{out}/merged.h5",
              "--numBins", "20"],
-    "outputs": [{"path": "{out}/merged.h5", "format": "h5", "class": "E2"}],
-    "notes": "The pinned defect of hicMergeMatrixBins.py:248. chr2LHet (8 bins) and chrXHet (5 bins) fall below numBins/2 and vanish from the output entirely, without an error, together with four trailing part groups: 33 of the 2,655 NaN free bins. The total count drops from 59,360 at --numBins 4 to 52,061. Reproduced, not fixed."
+    "cpp_args": ["--chromosomeSizes", "{data}/hicBuildMatrix/dm3.chrom.sizes"],
+    "outputs": [{"path": "{out}/merged.h5", "format": "h5", "class": "EX"}],
+    "notes": "This is the case that motivated the fix. Before it, the pinned defect of hicMergeMatrixBins.py:248 (also reproduced by the pre-fix C++ port) dropped chr2LHet (8 bins) and chrXHet (5 bins) from the output entirely, together with four trailing part groups, because they fell below numBins/2 bins of *input* data: 33 of the 2,655 NaN free bins, total count 52,061 against 59,360 at --numBins 4. With --chromosomeSizes now required and used (this matrix has a single fixed bin size), the merge groups are derived from the true chromosome lengths, so chr2LHet and chrXHet keep their groups (all zero where the input never had a stored NaN free bin) and the output shape depends only on dm3.chrom.sizes, --numBins and the resolution, not on which bins this particular file happens to hold. Class EX: no Python counterpart produces this shape. Pinned by test_reduce_matrix.cpp's 'plan_bin_merge_genome keeps the output shape when the input is missing bins' and 'merge_bins_genome produces the same shape from two differently incomplete inputs' tests, which reproduce the same kind of shape divergence on a small synthetic genome and confirm the fix removes it."
   },
   {
     "id": "hicMergeMatrixBins.h5.numBins1",
     "tool": "hicMergeMatrixBins",
     "tier": 1,
+    "reference": "none",
     "args": ["-m", "{data}/small_test_matrix_50kb_res.h5", "-o", "{out}/merged.h5",
              "--numBins", "1"],
-    "outputs": [{"path": "{out}/merged.h5", "format": "h5", "class": "E2"}],
-    "notes": "One group per bin, so reduce_matrix short circuits at reduceMatrix.py:154-155 and hands the input straight back, neither triangle selected nor symmetrised. The only effect of the run is that the 139 NaN bins are dropped. This is the case that exposed a bug in the port's own merge_bins, which recomputed nan_bins with a loop that assumed a fully materialised matrix; see the report."
+    "cpp_args": ["--chromosomeSizes", "{data}/hicBuildMatrix/dm3.chrom.sizes"],
+    "outputs": [{"path": "{out}/merged.h5", "format": "h5", "class": "EX"}],
+    "notes": "Class EX, not E2: reduce_matrix's len(bins_to_merge) == shape[0] short circuit (reduceMatrix.py:154-155) no longer applies even at --numBins 1, because the genome layout dm3.chrom.sizes produces at 50 kb resolution has far more bins (it also covers chrYHet, chrUextra and chrM, which this file has no data for at all) than the 2,655 NaN free rows the input actually has, so every missing bin is materialised as an empty row and column instead. This is the sharpest illustration of the fix: even a one-bin-to-one-bin 'merge' is no longer a pass-through once the true genome length disagrees with what the input happens to contain."
   },
   {
     "id": "hicMergeMatrixBins.cool.numBins4",
     "tool": "hicMergeMatrixBins",
     "tier": 1,
+    "reference": "none",
     "args": ["-m", "{data}/small_test_matrix_50kb_res.cool", "-o", "{out}/merged.cool",
              "--numBins", "4"],
-    "outputs": [{"path": "{out}/merged.cool", "format": "cool", "class": "E1"}],
-    "notes": "The same merge through the cool reader and writer. The cool file holds 3,383 bins and its NaN bins are derived from the empty rows rather than read, 664 of them, so the merge runs on a 2,719 bin matrix and produces a different bin table from the h5 case."
+    "cpp_args": ["--chromosomeSizes", "{data}/hicBuildMatrix/dm3.chrom.sizes"],
+    "outputs": [{"path": "{out}/merged.cool", "format": "cool", "class": "EX"}],
+    "notes": "Class EX, not E1 (deliberate deviation): the same merge through the cool reader and writer. The cool file holds 3,383 bins and its NaN bins are derived from the empty rows rather than read, 664 of them, so the pre-fix merge ran on a 2,719 bin matrix; with --chromosomeSizes required and used, the merged shape is now derived from dm3.chrom.sizes instead and no longer depends on which rows the cool loader happened to zero out."
   },
   {
     "id": "hicMergeMatrixBins.h5.numBins10.Li_et_al_2015",
@@ -50,19 +60,23 @@
     "tier": 1,
     "args": ["-m", "{data}/Li_et_al_2015.h5", "-o", "{out}/merged.h5",
              "--numBins", "10"],
+    "cpp_args": ["--chromosomeSizes", "{data}/hicBuildMatrix/dm3.chrom.sizes"],
     "outputs": [{"path": "{out}/merged.h5", "format": "h5", "class": "E2"}],
-    "notes": "float64 counts over 11,104 restriction fragment bins, so the block sums are genuine floating point reductions rather than integer ones, and they are still value exact: np.bincount accumulates one cell at a time in the order the entries appear, which the port reproduces."
+    "notes": "Still class E2, unlike every other numBins case here: this matrix is a restriction-fragment one (11,104 fragment bins over chrX, no fixed bin width), so BinTable::bin_size_homogeneous() is false and the C++ tool falls back to the pre-fix, input-derived plan_bin_merge exactly as before. --chromosomeSizes is still required at the CLI level (uniform requirement, hicMergeMatrixBins.cpp top-of-file comment) but its content plays no role for this matrix: a chromosome-lengths file cannot reconstruct restriction fragment boundaries. float64 counts over 11,104 restriction fragment bins, so the block sums are genuine floating point reductions rather than integer ones, and they are still value exact: np.bincount accumulates one cell at a time in the order the entries appear, which the port reproduces."
   },
   {
     "id": "hicMergeMatrixBins.cool.numBins10.GSM_chr1_chr2",
     "tool": "hicMergeMatrixBins",
     "tier": 1,
+    "reference": "none",
     "args": ["-m",
              "{data}/hicDifferentialTAD/GSM2644945_Untreated-R1.100000_chr1_chr2.cool",
              "-o", "{out}/merged.cool", "--numBins", "10"],
-    "outputs": [{"path": "{out}/merged.cool", "format": "cool", "class": "E1"}],
+    "cpp_args": ["--chromosomeSizes",
+                 "{data}/hicMergeMatrixBins/mm9_chr1_chr2.chrom.sizes"],
+    "outputs": [{"path": "{out}/merged.cool", "format": "cool", "class": "EX"}],
     "large": true,
-    "notes": "The memory case for the merge path: 3,790 bins, 4,208,340 stored pixels, two chromosomes. Also the case in which the chromosome change rule and the numBins/2 rule interact, because neither chromosome is a multiple of 10 bins long."
+    "notes": "Class EX, not E1 (deliberate deviation): the memory case for the merge path, 3,790 bins, 4,208,340 stored pixels, two mm9 chromosomes (chr1 197,195,432 bp, chr2 181,748,087 bp; mm9_chr1_chr2.chrom.sizes carries exactly those two, matching what this cool file's own bin table already covers end to end at 100 kb, so this particular run happens to have no missing bins). It is still routed through the chromosome-sizes path because the matrix has a single fixed bin size, and it is kept here specifically because the chromosome-change rule and the numBins/2-by-genome-length rule (rather than numBins/2-by-input-presence) still interact, since neither chromosome is a multiple of 10 bins long."
   },
   {
     "id": "hicMergeMatrixBins.h5.runningWindow3",
@@ -70,8 +84,9 @@
     "tier": 1,
     "args": ["-m", "{data}/small_test_matrix_50kb_res.h5", "-o", "{out}/merged.h5",
              "--numBins", "3", "--runningWindow"],
+    "cpp_args": ["--chromosomeSizes", "{data}/hicBuildMatrix/dm3.chrom.sizes"],
     "outputs": [{"path": "{out}/merged.h5", "format": "h5", "class": "E2"}],
-    "notes": "--runningWindow was never exercised by the pre-existing Python test. The resolution and the bin table are unchanged, only the values: 2,655 bins, 273,674 symmetric non zeros against 23,929 stored in the input. The window is applied to raw bin indices and therefore crosses chromosome borders, which is pinned in the characterization test and reproduced here."
+    "notes": "--runningWindow was never exercised by the pre-existing Python test. --chromosomeSizes is required by the CLI (project owner, 2026-09-22) but --runningWindow never reaches hicx::merge_bins_genome, only hicx::running_window, so this case is unaffected by the fix and stays class E2 as before. The resolution and the bin table are unchanged, only the values: 2,655 bins, 273,674 symmetric non zeros against 23,929 stored in the input. The window is applied to raw bin indices and therefore crosses chromosome borders, which is pinned in the characterization test and reproduced here."
   },
   {
     "id": "hicMergeMatrixBins.h5.runningWindow5",
@@ -79,8 +94,9 @@
     "tier": 1,
     "args": ["-m", "{data}/small_test_matrix_50kb_res.h5", "-o", "{out}/merged.h5",
              "--numBins", "5", "--runningWindow"],
+    "cpp_args": ["--chromosomeSizes", "{data}/hicBuildMatrix/dm3.chrom.sizes"],
     "outputs": [{"path": "{out}/merged.h5", "format": "h5", "class": "E2"}],
-    "notes": "A 25 cell window, 616,057 symmetric non zeros. int64 counts, so the accumulation order inside a cell does not matter and the result is value exact."
+    "notes": "A 25 cell window, 616,057 symmetric non zeros. int64 counts, so the accumulation order inside a cell does not matter and the result is value exact. --chromosomeSizes required by the CLI but unused by --runningWindow, so still class E2."
   },
   {
     "id": "hicMergeMatrixBins.h5.runningWindow1",
@@ -88,8 +104,9 @@
     "tier": 1,
     "args": ["-m", "{data}/small_test_matrix_50kb_res.h5", "-o", "{out}/merged.h5",
              "--numBins", "1", "--runningWindow"],
+    "cpp_args": ["--chromosomeSizes", "{data}/hicBuildMatrix/dm3.chrom.sizes"],
     "outputs": [{"path": "{out}/merged.h5", "format": "h5", "class": "E2"}],
-    "notes": "running_window_merge returns at hicMergeMatrixBins.py:136 before the window is applied, so the only effect is that remove_nans_if_needed drops the 139 NaN bins. nan_bins is not recomputed and the output carries none."
+    "notes": "running_window_merge returns at hicMergeMatrixBins.py:136 before the window is applied, so the only effect is that remove_nans_if_needed drops the 139 NaN bins. nan_bins is not recomputed and the output carries none. --chromosomeSizes required by the CLI but unused by --runningWindow, so still class E2."
   },
   {
     "id": "hicMergeMatrixBins.cool.runningWindow3",
@@ -97,8 +114,9 @@
     "tier": 1,
     "args": ["-m", "{data}/small_test_matrix_50kb_res.cool", "-o", "{out}/merged.cool",
              "--numBins", "3", "--runningWindow"],
+    "cpp_args": ["--chromosomeSizes", "{data}/hicBuildMatrix/dm3.chrom.sizes"],
     "outputs": [{"path": "{out}/merged.cool", "format": "cool", "class": "E1"}],
-    "notes": "The running window through the cool writer, on the 2,719 bin NaN free matrix the cool loader leaves."
+    "notes": "The running window through the cool writer, on the 2,719 bin NaN free matrix the cool loader leaves. --chromosomeSizes required by the CLI but unused by --runningWindow, so still class E1."
   },
   {
     "id": "hicMergeMatrixBins.h5.runningWindow3.Li_et_al_2015",
@@ -106,9 +124,10 @@
     "tier": 1,
     "args": ["-m", "{data}/Li_et_al_2015.h5", "-o", "{out}/merged.h5",
              "--numBins", "3", "--runningWindow"],
+    "cpp_args": ["--chromosomeSizes", "{data}/hicBuildMatrix/dm3.chrom.sizes"],
     "outputs": [{"path": "{out}/merged.h5", "format": "h5", "class": "ED"}],
     "large": true,
-    "notes": "ED rather than E2, and this is the only case of the three tools that is not value exact. The sparsity pattern is identical, 2,517,975 stored values, and 818,579 of them differ in the last bit: the largest relative difference measured is 1.8e-19 and the largest absolute one 5e-13 on values around 2.8e3. The cause is the order in which the duplicate contributions to one cell are summed. The Python builds a coo of every shifted entry, converts it to csr, and scipy's csr_sort_indices sorts each row with a plain std::sort whose comparator looks only at the column, so the order inside a group of duplicates is whatever libstdc++'s introsort leaves. That is an implementation detail of the scipy build, not a defined order, and reproducing it would mean reimplementing a specific std::sort. The port sums in generation order, which is deterministic. Far inside the ED gate of PLAN.md 5.0; the integer running window cases above are value exact because integer addition is associative."
+    "notes": "ED rather than E2, and this is the only case of the three tools that is not value exact. The sparsity pattern is identical, 2,517,975 stored values, and 818,579 of them differ in the last bit: the largest relative difference measured is 1.8e-19 and the largest absolute one 5e-13 on values around 2.8e3. The cause is the order in which the duplicate contributions to one cell are summed. The Python builds a coo of every shifted entry, converts it to csr, and scipy's csr_sort_indices sorts each row with a plain std::sort whose comparator looks only at the column, so the order inside a group of duplicates is whatever libstdc++'s introsort leaves. That is an implementation detail of the scipy build, not a defined order, and reproducing it would mean reimplementing a specific std::sort. The port sums in generation order, which is deterministic. Far inside the ED gate of PLAN.md 5.0; the integer running window cases above are value exact because integer addition is associative. --chromosomeSizes required by the CLI but unused by --runningWindow, so unaffected by the fix."
   },
   {
     "id": "hicMergeMatrixBins.runningWindow_rejects_an_even_numBins",
@@ -116,8 +135,21 @@
     "tier": 1,
     "args": ["-m", "{data}/small_test_matrix_50kb_res.h5", "-o", "{out}/merged.h5",
              "--numBins", "4", "--runningWindow"],
+    "cpp_args": ["--chromosomeSizes", "{data}/hicBuildMatrix/dm3.chrom.sizes"],
     "outputs": [],
     "expect_exit": 1,
-    "notes": "running_window_merge asserts num_bins % 2 == 1 at hicMergeMatrixBins.py:139. The AssertionError ends the run with status 1 and no output file, and the port reproduces the status with a message rather than a traceback."
+    "notes": "running_window_merge asserts num_bins % 2 == 1 at hicMergeMatrixBins.py:139. The AssertionError ends the run with status 1 and no output file, and the port reproduces the status with a message rather than a traceback. --chromosomeSizes required by the CLI but unused by --runningWindow."
+  },
+  {
+    "id": "hicMergeMatrixBins.missing_chromosomeSizes_is_a_cli_error",
+    "tool": "hicMergeMatrixBins",
+    "tier": 1,
+    "reference": "none",
+    "args": ["-m", "{data}/small_test_matrix_50kb_res.h5", "-o", "{out}/merged.h5",
+             "--numBins", "4"],
+    "outputs": [],
+    "expect_exit": 2,
+    "stderr_contains": ["--chromosomeSizes"],
+    "notes": "Class EX: --chromosomeSizes/-cs is required by the C++ port for every run (project owner, 2026-09-22), including one that never reaches hicx::merge_bins_genome, so the CLI rejects a run that omits it before touching the matrix. No Python counterpart to compare against, since hicMergeMatrixBins.py has no such argument at all."
   }
 ]

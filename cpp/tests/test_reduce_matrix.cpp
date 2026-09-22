@@ -203,6 +203,160 @@ TEST_CASE("merge_bins reports the empty columns as nan bins") {
     CHECK(merged.nan_bins == std::vector<std::int64_t>{1});
 }
 
+TEST_CASE("plan_bin_merge_genome keeps the output shape when the input is missing bins") {
+    // Two chromosomes of 45 bp at a 10 bp resolution: 'a' should tile into 5
+    // bins (0,10,20,30,40-45) and 'b' into 4 (0,10,20,30-45)... actually a
+    // clean 40 bp chromosome tiles into 4 bins and a 45 bp one into 5, with a
+    // short last bin. Full input has every bin; the other input is missing
+    // the tail of 'a' (as if no reads were observed there).
+    const hicx::ChromosomeLengths sizes{{"a", 40}, {"b", 45}};
+    const std::vector<CutInterval> full{
+        {"a", 0, 10, 1.0, ""},  {"a", 10, 20, 1.0, ""}, {"a", 20, 30, 1.0, ""},
+        {"a", 30, 40, 1.0, ""}, {"b", 0, 10, 1.0, ""},  {"b", 10, 20, 1.0, ""},
+        {"b", 20, 30, 1.0, ""}, {"b", 30, 40, 1.0, ""}, {"b", 40, 45, 1.0, ""}};
+    // Missing the last two bins of chromosome 'a'.
+    const std::vector<CutInterval> partial{
+        {"a", 0, 10, 1.0, ""},  {"a", 10, 20, 1.0, ""}, {"b", 0, 10, 1.0, ""},
+        {"b", 10, 20, 1.0, ""}, {"b", 20, 30, 1.0, ""}, {"b", 30, 40, 1.0, ""},
+        {"b", 40, 45, 1.0, ""}};
+
+    const hicx::BinMergePlan plan_full = hicx::plan_bin_merge_genome(full, 2, sizes, 10);
+    const hicx::BinMergePlan plan_partial = hicx::plan_bin_merge_genome(partial, 2, sizes, 10);
+
+    // Same output shape from both: 2 groups on 'a' (0-20, 20-40) and 3 on 'b'
+    // (0-20, 20-40, 40-45), a total of 5, whether or not the input actually
+    // has data for every one of them.
+    REQUIRE(plan_full.intervals.size() == 5);
+    REQUIRE(plan_partial.intervals.size() == 5);
+    for (std::size_t i = 0; i < plan_full.intervals.size(); ++i) {
+        CHECK(plan_full.intervals[i].chrom == plan_partial.intervals[i].chrom);
+        CHECK(plan_full.intervals[i].start == plan_partial.intervals[i].start);
+        CHECK(plan_full.intervals[i].end == plan_partial.intervals[i].end);
+    }
+    CHECK(plan_full.intervals[4] == CutInterval{"b", 40, 45, 1.0, ""});
+    CHECK(plan_partial.intervals[4] == CutInterval{"b", 40, 45, 1.0, ""});
+
+    // The group covering the missing tail of 'a' (bins 20-40) is empty for
+    // the partial input, not dropped: it still produces a zero row/column
+    // rather than shrinking the layout, unlike plan_bin_merge.
+    CHECK(plan_full.bins_to_merge[1] == std::vector<std::int64_t>{2, 3});
+    CHECK(plan_partial.bins_to_merge[1].empty());
+}
+
+TEST_CASE("merge_bins_genome produces the same shape from two differently incomplete inputs") {
+    // The concrete failure the project owner flagged: two matrices of the
+    // same genome and resolution, one missing a trailing region the other
+    // has data for, must merge into the same shape with the same
+    // --chromosomeSizes and --numBins.
+    const hicx::ChromosomeLengths sizes{{"a", 40}, {"b", 45}};
+
+    MatrixData full;
+    full.cut_intervals = {{"a", 0, 10, 1.0, ""},  {"a", 10, 20, 1.0, ""},
+                          {"a", 20, 30, 1.0, ""}, {"a", 30, 40, 1.0, ""},
+                          {"b", 0, 10, 1.0, ""},  {"b", 10, 20, 1.0, ""},
+                          {"b", 20, 30, 1.0, ""}, {"b", 30, 40, 1.0, ""},
+                          {"b", 40, 45, 1.0, ""}};
+    full.matrix = dense({{5, 1, 0, 0, 0, 0, 0, 0, 0},
+                        {1, 5, 1, 0, 0, 0, 0, 0, 0},
+                        {0, 1, 5, 1, 0, 0, 0, 0, 0},
+                        {0, 0, 1, 5, 1, 0, 0, 0, 0},
+                        {0, 0, 0, 1, 5, 1, 0, 0, 0},
+                        {0, 0, 0, 0, 1, 5, 1, 0, 0},
+                        {0, 0, 0, 0, 0, 1, 5, 1, 0},
+                        {0, 0, 0, 0, 0, 0, 1, 5, 1},
+                        {0, 0, 0, 0, 0, 0, 0, 1, 5}},
+                       "int32");
+
+    MatrixData partial;
+    partial.cut_intervals = {{"a", 0, 10, 1.0, ""}, {"a", 10, 20, 1.0, ""},
+                             {"b", 0, 10, 1.0, ""}, {"b", 10, 20, 1.0, ""},
+                             {"b", 20, 30, 1.0, ""}, {"b", 30, 40, 1.0, ""},
+                             {"b", 40, 45, 1.0, ""}};
+    partial.matrix = dense({{5, 1, 0, 0, 0, 0, 0},
+                           {1, 5, 0, 0, 0, 0, 0},
+                           {0, 0, 5, 1, 0, 0, 0},
+                           {0, 0, 1, 5, 1, 0, 0},
+                           {0, 0, 0, 1, 5, 1, 0},
+                           {0, 0, 0, 0, 1, 5, 1},
+                           {0, 0, 0, 0, 0, 1, 5}},
+                          "int32");
+
+    const MatrixData merged_full = hicx::merge_bins_genome(full, 2, sizes, 10);
+    const MatrixData merged_partial = hicx::merge_bins_genome(partial, 2, sizes, 10);
+
+    REQUIRE(merged_full.matrix.rows() == 5);
+    REQUIRE(merged_partial.matrix.rows() == 5);
+    REQUIRE(merged_full.cut_intervals.size() == 5);
+    REQUIRE(merged_partial.cut_intervals.size() == 5);
+    for (std::size_t i = 0; i < merged_full.cut_intervals.size(); ++i) {
+        CHECK(merged_full.cut_intervals[i].chrom == merged_partial.cut_intervals[i].chrom);
+        CHECK(merged_full.cut_intervals[i].start == merged_partial.cut_intervals[i].start);
+        CHECK(merged_full.cut_intervals[i].end == merged_partial.cut_intervals[i].end);
+    }
+
+    // Values that both inputs actually have data for still sum correctly and
+    // agree between the two runs: group 0 ('a' bins 0-20) is fully present in
+    // both, groups on 'b' are fully present in both.
+    check_dense(merged_full.matrix, {{11, 1, 0, 0, 0},
+                                     {1, 11, 1, 0, 0},
+                                     {0, 1, 11, 1, 0},
+                                     {0, 0, 1, 11, 1},
+                                     {0, 0, 0, 1, 5}});
+    // Group 1 ('a' bins 20-40) has no data in the partial input, so it is an
+    // all zero row and column rather than absent, and every other group's
+    // value is unaffected by that.
+    check_dense(merged_partial.matrix, {{11, 0, 0, 0, 0},
+                                        {0, 0, 0, 0, 0},
+                                        {0, 0, 11, 1, 0},
+                                        {0, 0, 1, 11, 1},
+                                        {0, 0, 0, 1, 5}});
+    for (std::int64_t r = 0; r < 5; ++r) {
+        for (std::int64_t c = r; c < 5; ++c) {
+            if (r == 1 || c == 1) {
+                continue;  // The group with no data in the partial input.
+            }
+            CHECK(merged_full.matrix.at(r, c) == merged_partial.matrix.at(r, c));
+        }
+    }
+}
+
+TEST_CASE("merge_bins_genome with no missing data matches merge_bins exactly") {
+    // A regression check: when the input has every bin the genome layout
+    // expects, the chromosome-sizes-driven path must be a pure relabelling of
+    // the same groups plan_bin_merge would find on this input (its own bin
+    // table already covers the genome with no numBins/2 drop in play), so the
+    // merged matrix, at least, is byte identical to the pre-fix code path.
+    const hicx::ChromosomeLengths sizes{{"a", 50}, {"b", 10}};
+    MatrixData input;
+    input.cut_intervals = {{"a", 0, 10, 0.5, ""},  {"a", 10, 20, 1.0, ""},
+                           {"a", 20, 30, 1.0, ""}, {"a", 30, 40, 0.1, ""},
+                           {"a", 40, 50, 1.0, ""}, {"b", 0, 10, 1.0, ""}};
+    input.matrix = dense({{50, 10, 5, 3, 0, 0},
+                          {10, 60, 15, 5, 1, 0},
+                          {5, 15, 80, 7, 3, 0},
+                          {3, 5, 7, 90, 1, 0},
+                          {0, 1, 3, 1, 40, 2},
+                          {0, 0, 0, 0, 2, 100}},
+                         "int32");
+
+    const MatrixData by_input = hicx::merge_bins(input, 2);
+    const MatrixData by_genome = hicx::merge_bins_genome(input, 2, sizes, 10);
+
+    REQUIRE(by_input.cut_intervals.size() == by_genome.cut_intervals.size());
+    for (std::size_t i = 0; i < by_input.cut_intervals.size(); ++i) {
+        CHECK(by_input.cut_intervals[i].chrom == by_genome.cut_intervals[i].chrom);
+        CHECK(by_input.cut_intervals[i].start == by_genome.cut_intervals[i].start);
+        CHECK(by_input.cut_intervals[i].end == by_genome.cut_intervals[i].end);
+    }
+    REQUIRE(by_input.matrix.rows() == by_genome.matrix.rows());
+    for (std::int64_t r = 0; r < by_input.matrix.rows(); ++r) {
+        for (std::int64_t c = 0; c < by_input.matrix.cols(); ++c) {
+            CHECK(by_input.matrix.at(r, c) == by_genome.matrix.at(r, c));
+        }
+    }
+    CHECK(by_input.nan_bins == by_genome.nan_bins);
+}
+
 TEST_CASE("plan_bin_merge drops a short leading chromosome but never the last") {
     const std::vector<CutInterval> intervals{
         {"a", 0, 10, 1.0, ""},  {"b", 0, 10, 1.0, ""},  {"b", 10, 20, 1.0, ""},

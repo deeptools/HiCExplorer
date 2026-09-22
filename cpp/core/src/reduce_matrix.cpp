@@ -6,6 +6,7 @@
 #include <numeric>
 #include <stdexcept>
 #include <string>
+#include <unordered_map>
 
 #include "hicx/adjust_ops.hpp"
 #include "hicx/numpy_compat.hpp"
@@ -535,6 +536,131 @@ MatrixData merge_bins(const MatrixData& input, std::int64_t num_bins) {
     // because reduce_matrix hands the input straight back when the group count
     // equals the row count (reduceMatrix.py:154-155), and that input may still
     // be held as an upper triangle. --numBins 1 is exactly that case.
+    merged.nan_bins = empty_column_bins(merged.matrix);
+    return merged;
+}
+
+BinMergePlan plan_bin_merge_genome(const std::vector<CutInterval>& intervals,
+                                   std::int64_t num_bins,
+                                   const ChromosomeLengths& chromosome_lengths,
+                                   std::int64_t resolution) {
+    if (intervals.empty()) {
+        throw std::invalid_argument("cannot merge the bins of an empty bin table");
+    }
+    if (num_bins < 1) {
+        throw std::invalid_argument("--numBins must be at least 1");
+    }
+    if (resolution < 1) {
+        throw std::invalid_argument(
+            "cannot merge by chromosome sizes: the matrix resolution is not positive");
+    }
+    if (chromosome_lengths.empty()) {
+        throw std::invalid_argument("the chromosome sizes file is empty");
+    }
+
+    // The full genome bin table, independent of which of its bins `intervals`
+    // actually holds: every chromosome tiled from 0 in steps of `resolution`,
+    // exactly as read_two_dimensional_text builds it.
+    std::vector<CutInterval> genome;
+    for (const auto& [chrom, length] : chromosome_lengths) {
+        if (length < 1) {
+            throw std::invalid_argument("chromosome '" + chrom +
+                                        "' has a non-positive length in the chromosome "
+                                        "sizes file");
+        }
+        for (std::int64_t start = 0; start < length; start += resolution) {
+            genome.push_back(
+                CutInterval{chrom, start, std::min(length, start + resolution), 1.0, ""});
+        }
+    }
+    if (genome.empty()) {
+        throw std::invalid_argument(
+            "the chromosome sizes file produced no bins at this resolution");
+    }
+
+    // (chromosome, start) -> row of `intervals`, so a bin the genome layout
+    // expects can be looked up in whatever the input actually has. A repeated
+    // (chromosome, start) in the input, which a well formed bin table never
+    // has, keeps the first occurrence.
+    std::unordered_map<std::string, std::unordered_map<std::int64_t, std::size_t>> present;
+    for (std::size_t i = 0; i < intervals.size(); ++i) {
+        present[intervals[i].chrom].emplace(intervals[i].start, i);
+    }
+
+    const auto coverage_mean = [](const std::vector<double>& window) {
+        if (window.empty()) {
+            return std::numeric_limits<double>::quiet_NaN();
+        }
+        return npy::pairwise_sum(window) / static_cast<double>(window.size());
+    };
+
+    BinMergePlan plan;
+    const auto flush_group = [&](std::size_t first, std::size_t last) {
+        std::vector<std::int64_t> group;
+        std::vector<double> coverage_values;
+        for (std::size_t i = first; i < last; ++i) {
+            const auto chrom_it = present.find(genome[i].chrom);
+            if (chrom_it == present.end()) {
+                continue;
+            }
+            const auto bin_it = chrom_it->second.find(genome[i].start);
+            if (bin_it == chrom_it->second.end()) {
+                continue;  // The genome layout has this bin, the input does not.
+            }
+            group.push_back(static_cast<std::int64_t>(bin_it->second));
+            coverage_values.push_back(intervals[bin_it->second].extra);
+        }
+        plan.intervals.push_back(CutInterval{genome[first].chrom, genome[first].start,
+                                             genome[last - 1].end,
+                                             coverage_mean(coverage_values), ""});
+        plan.bins_to_merge.push_back(std::move(group));
+    };
+
+    std::string previous = genome[0].chrom;
+    std::size_t start_index = 0;
+    std::int64_t count = 0;
+    for (std::size_t index = 0; index < genome.size(); ++index) {
+        const std::string& chrom = genome[index].chrom;
+        if ((count > 0 && count % num_bins == 0) || chrom != previous) {
+            // Unlike plan_bin_merge, a short trailing group of the genome
+            // layout is kept rather than dropped: it is derived from the true
+            // chromosome length, not from whatever the input happens to
+            // contain, so there is no reason to reproduce the numBins/2 quirk
+            // here. Keeping every group is also what makes the layout only
+            // depend on the genome and the resolution, never on the count of
+            // bins an input happens to have at its tail.
+            flush_group(start_index, index);
+            start_index = index;
+            count = 0;
+        }
+        previous = chrom;
+        ++count;
+    }
+    flush_group(start_index, genome.size());
+    return plan;
+}
+
+MatrixData merge_bins_genome(const MatrixData& input, std::int64_t num_bins,
+                             const ChromosomeLengths& chromosome_lengths,
+                             std::int64_t resolution) {
+    BinMergePlan plan =
+        plan_bin_merge_genome(input.cut_intervals, num_bins, chromosome_lengths, resolution);
+
+    MatrixData merged;
+    merged.matrix = reduce_matrix(input.matrix, plan.bins_to_merge, true, true);
+    merged.matrix.eliminate_zeros();
+    merged.cut_intervals = std::move(plan.intervals);
+    merged.correction_factors = input.correction_factors;
+    merged.distance_counts = input.distance_counts;
+    merged.correction_factors_are_column = input.correction_factors_are_column;
+
+    if (static_cast<std::int64_t>(merged.cut_intervals.size()) != merged.matrix.rows()) {
+        throw std::runtime_error("merged bin table of " +
+                                 std::to_string(merged.cut_intervals.size()) +
+                                 " entries does not match the merged matrix of " +
+                                 std::to_string(merged.matrix.rows()) + " rows");
+    }
+
     merged.nan_bins = empty_column_bins(merged.matrix);
     return merged;
 }
