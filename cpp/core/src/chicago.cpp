@@ -17,6 +17,7 @@
 #include <thread>
 #include <unordered_map>
 #include <unordered_set>
+#include <utility>
 
 #include <boost/math/special_functions/beta.hpp>
 #include <boost/math/special_functions/digamma.hpp>
@@ -461,12 +462,20 @@ std::vector<ChinputRecord> read_chinput(const std::string& path, int threads) {
     }
     for (std::thread& worker : workers) worker.join();
 
+    // The raw file text (content) is not read again past this point, and
+    // every chunk's own buffer is freed as soon as its rows are moved into
+    // `out` below, so the file text and the still-unmerged chunks never sit
+    // in memory at the same time as the assembled result they duplicate.
+    content.clear();
+    content.shrink_to_fit();
+
     std::size_t total_rows = 0;
     for (auto& p : parts) total_rows += p.size();
     std::vector<ChinputRecord> out;
     out.reserve(total_rows);
     for (auto& p : parts) {
         out.insert(out.end(), std::make_move_iterator(p.begin()), std::make_move_iterator(p.end()));
+        std::vector<ChinputRecord>().swap(p);
     }
     return out;
 }
@@ -825,7 +834,7 @@ std::vector<T> concat_chunks(std::vector<std::vector<T>>&& parts) {
 
 }  // namespace
 
-std::vector<ChiInteraction> read_sample(const std::vector<ChinputRecord>& raw,
+std::vector<ChiInteraction> read_sample(std::vector<ChinputRecord> raw,
                                          const std::vector<BaitmapFragment>& baitmap,
                                          const FilterSettings& fs, int threads) {
     std::unordered_set<long> bait_ids;
@@ -853,6 +862,10 @@ std::vector<ChiInteraction> read_sample(const std::vector<ChinputRecord>& raw,
             }
             return local;
         }));
+    // raw is not read again past this point (the three remaining filter
+    // stages below only ever touch x), so it is freed here instead of
+    // sitting in memory, unused, through the rest of this function.
+    std::vector<ChinputRecord>().swap(raw);
 
     // minNPerBait: sum(N) per bait is a per-chunk partial-map reduction
     // (addition is associative/commutative, so merge order does not matter),
@@ -1480,7 +1493,7 @@ double estimate_bmean(double s_j, double s_i, double abs_dist_or_nan, const Dist
     return s_j * s_i * std::exp(eval_distance_function(fit, abs_dist_or_nan));
 }
 
-BackgroundModel fit_chicago_background(const std::vector<ChinputRecord>& raw,
+BackgroundModel fit_chicago_background(std::vector<ChinputRecord> raw,
                                         const std::vector<RmapFragment>& rmap,
                                         const std::vector<BaitmapFragment>& baitmap,
                                         const std::string& npb_path, const std::string& nbpb_path,
@@ -1491,7 +1504,9 @@ BackgroundModel fit_chicago_background(const std::vector<ChinputRecord>& raw,
     BackgroundModel model;
     model.filters = fs;
 
-    const std::vector<ChiInteraction> x = read_sample(raw, baitmap, fs, threads);
+    // read_sample itself frees raw internally, right after its own first
+    // (and only) stage that reads it, so nothing further is needed here.
+    const std::vector<ChiInteraction> x = read_sample(std::move(raw), baitmap, fs, threads);
     model.tlb = add_tlb(x, fs, tlb_filter_top_percent, tlb_min_prox_oe_per_bin, tlb_min_prox_b2b_per_bin,
                          threads);
     model.bait_factors = normalise_baits(x, rmap, baitmap, npb_path, fs, threads);

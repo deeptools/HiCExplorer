@@ -34,6 +34,7 @@
 #include <cstdio>
 #include <fstream>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "hicx/argparse.hpp"
@@ -216,15 +217,16 @@ int main(int argc, char** argv) {
         const int threads = static_cast<int>(args.integer("threads"));
         auto rmap = read_rmap(args.str("rmap"));
         auto baitmap = read_baitmap(args.str("baitmap"));
-        const std::vector<ChinputRecord> raw = args.given("chinput")
+        std::vector<ChinputRecord> raw = args.given("chinput")
             ? read_chinput(args.str("chinput"), threads)
             : chinput_from_matrices(args.strs("matrices"), rmap, baitmap, fs);
 
         const BackgroundModel model = fit_chicago_background(
-            raw, rmap, baitmap, args.str("nperbin"), args.str("nbaitsperbin"), args.str("proxOE"), fs,
-            args.integer("techNoiseMinBaitsPerBin"), args.real("tlbFilterTopPercent"),
-            args.integer("tlbMinProxOEPerBin"), args.integer("tlbMinProxB2BPerBin"),
-            args.integer("brownianNoiseSubset"), args.integer("threads"));
+            std::move(raw), rmap, baitmap, args.str("nperbin"), args.str("nbaitsperbin"),
+            args.str("proxOE"), fs, args.integer("techNoiseMinBaitsPerBin"),
+            args.real("tlbFilterTopPercent"), args.integer("tlbMinProxOEPerBin"),
+            args.integer("tlbMinProxB2BPerBin"), args.integer("brownianNoiseSubset"),
+            args.integer("threads"));
 
         std::ofstream out(args.str("outFileName"), std::ios::binary);
         if (!out) {
