@@ -510,9 +510,23 @@ std::vector<ChinputRecord> chinput_from_matrices(const std::vector<std::string>&
     std::set<std::string> bait_chroms;
     for (const auto& b : baitmap) bait_chroms.insert(b.chrom);
 
-    std::map<std::pair<long, long>, double> n_sum;         // (baitID, otherEndID) -> N
-    std::unordered_map<long, long> other_end_len;          // otherEndID -> end - start
-    std::map<std::pair<long, long>, long> dist_sign_of;    // (baitID, otherEndID) -> distSign
+    // N and distSign are per (baitID, otherEndID) pair; keeping them in one
+    // map instead of two halves the per-entry bookkeeping overhead (a real
+    // cost at genome scale: tens of millions of pairs, each previously
+    // costing two tree-node allocations instead of one). A 64-bit combined
+    // key is exact and collision-free here, same as fit_chicago_background's
+    // own pair_key (both bait and other-end ids fit comfortably in 32 bits
+    // for every design this project ships).
+    struct PairAgg {
+        double n = 0.0;
+        long dist_sign = 0;
+    };
+    auto pair_key = [](long bait, long oe) {
+        return (static_cast<std::uint64_t>(static_cast<std::uint32_t>(bait)) << 32) |
+               static_cast<std::uint32_t>(oe);
+    };
+    std::unordered_map<std::uint64_t, PairAgg> pairs;   // pair_key(baitID, otherEndID) -> {N, distSign}
+    std::unordered_map<long, long> other_end_len;        // otherEndID -> end - start
 
     for (const std::string& path : matrix_paths) {
         for (const std::string& chrom : bait_chroms) {
@@ -566,24 +580,25 @@ std::vector<ChinputRecord> chinput_from_matrices(const std::vector<std::string>&
                     }
                     if (value == 0.0) continue;  // no observed contact, no chinput row
 
-                    n_sum[{bait.id, oe.id}] += value;
+                    PairAgg& a = pairs[pair_key(bait.id, oe.id)];
+                    a.n += value;
+                    a.dist_sign = dist_sign;
                     other_end_len[oe.id] = oe.end - oe.start;
-                    dist_sign_of[{bait.id, oe.id}] = dist_sign;
                 }
             }
         }
     }
 
     std::vector<ChinputRecord> out;
-    out.reserve(n_sum.size());
-    for (const auto& [key, n] : n_sum) {
+    out.reserve(pairs.size());
+    for (const auto& [key, a] : pairs) {
         ChinputRecord r;
-        r.bait_id = key.first;
-        r.other_end_id = key.second;
-        r.N = n;
-        r.other_end_len = other_end_len.at(key.second);
+        r.bait_id = static_cast<long>(static_cast<std::uint32_t>(key >> 32));
+        r.other_end_id = static_cast<long>(static_cast<std::uint32_t>(key));
+        r.N = a.n;
+        r.other_end_len = other_end_len.at(r.other_end_id);
         r.has_dist_sign = true;
-        r.dist_sign = dist_sign_of.at(key);
+        r.dist_sign = a.dist_sign;
         out.push_back(std::move(r));
     }
     return out;
