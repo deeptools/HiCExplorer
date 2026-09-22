@@ -2,7 +2,7 @@
 
 Owner: the orchestrating session. Architecture: `cpp/PLAN.md`. Rules:
 `cpp/AGENTS_CONTRACT.md`. Optimization rules: `cpp/OPTIMIZATION.md`. Last updated
-2026-09-21, at commit `e2f0b103`.
+2026-09-22, at commit `73f60939`.
 
 **Current state: 42 of 44 tools ported and committed** on `version4-cpp`
 (`hicTADClassifier`/`hicTrainTADClassifier` dropped 2026-09-21, see PLAN.md
@@ -204,6 +204,37 @@ shell).
     environment-gated skips), 45 real tool binaries remain (47 minus the two
     reverted; unaffected by the removal since neither was ever part of the
     original 46 Python-ported tools).
+- **Merged 2026-09-22, `73f60939`:** native `.hic` reading wired into the
+  shared `ToolMatrix::load`, closing a real gap the project owner caught:
+  PLAN.md already claimed "every matrix-reading tool accepts a `.hic`," which
+  was not true before this commit. Only `hicConvertFormat` could read a
+  `.hic` at all; `hicPlotMatrix`, `hicInfo` and every other generic tool
+  failed on one (confirmed: "file signature not found," since the shared
+  loader tried to open it as HDF5).
+  - Detection by real content signature (the `"HIC"` bytes hicfilecpp's own
+    reader already requires), falling back to the `.hic` extension only when
+    the signature check finds nothing.
+  - Selector syntax follows the existing mcool convention exactly:
+    `file.hic::/resolutions/10000`,
+    `file.hic::/resolutions/10000/normalizations/KR`.
+  - A region or chromosome query reads only the blocks it needs through
+    hicfilecpp's own block index (`MatrixZoomData::getRecords`), the same
+    genuinely partial read a cool `fetch()` already did, not a whole-file or
+    whole-chromosome load. Verified on the real 39.9 GB GSE63525 GM12878
+    file: `1:18000000-22000000` at 10 kb loads in well under a second at
+    under 100 MB peak RSS (0.63 to 0.69 s, 91 to 96 MB, reproduced
+    independently by the orchestrating session on a clean export), against
+    several minutes and gigabytes for a whole-genome load, with a
+    byte-identical PNG result either way.
+  - New unit tests (`cpp/tests/test_hic_adapter.cpp`) cross-check the native
+    path against `hic2cool_convert` + `read_cool`, class E2 (bit-identical
+    stored values): whole file raw, whole file KR, bare-chromosome region
+    raw, sub-region raw, sub-region KR. `hicx_tests` 296/296 (151,046
+    assertions), ctest 6/8 (2 pre-existing skips), reproduced on a clean
+    export by the orchestrating session.
+  - Known follow-up, not done: `hicAdjustMatrix.cpp` has an analogous
+    cool-only single-chromosome fast path that would need the same `.hic`
+    extension; left for a later pass.
 
 **Harness: Python reference cache and parallel scheduling, merged in
 `04f948ce` (contract rule 13).**

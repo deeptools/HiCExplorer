@@ -1551,8 +1551,21 @@ reference implementation where no Python exists.
   both the old and the new format; 8 and 9 landed in `8a2fa526`, reading 6 and 7
   on `v4-hic-legacy`.)
 - *v4:* `hicConvertFormat` reads `.hic` into cool, mcool, h5 and the text formats,
-  and writes `.hic` from h5, cool and mcool. Afterwards every matrix-reading
-  tool accepts a `.hic` with a resolution and normalisation selector.
+  and writes `.hic` from h5, cool and mcool. Every matrix-reading tool accepts
+  a `.hic` with a resolution and normalisation selector (`file.hic::/resolutions/10000`,
+  `file.hic::/resolutions/10000/normalizations/KR`, following the existing mcool
+  convention), **merged 2026-09-22 in `73f60939`**: this claim did not hold
+  until that commit, which wired the already-working `.hic` reader into the
+  shared `ToolMatrix::load` every generic tool goes through (before it, only
+  `hicConvertFormat` could read a `.hic` at all; `hicPlotMatrix`, `hicInfo` and
+  everything else failed on one). A region or chromosome query reads only the
+  blocks it needs through hicfilecpp's own block index, the same genuinely
+  partial read a cool `fetch()` already did, not a whole-file or
+  whole-chromosome load: confirmed on the real 39.9 GB GSE63525 GM12878 file,
+  a `1:18000000-22000000` region at 10 kb loads in well under a second at
+  under 100 MB peak RSS (0.63 to 0.69 s, 91 to 96 MB, reproduced independently
+  by the orchestrating session), against several minutes and gigabytes for a
+  whole-genome load, with a byte-identical result either way.
 - *Validation:* `.hic` to cool against the Python `hic2cool` path, **E1/E2**.
   Reading against `hicstraw` record by record at every resolution and
   normalisation: pixels exact, vectors **ED**. Writing: files read back through
