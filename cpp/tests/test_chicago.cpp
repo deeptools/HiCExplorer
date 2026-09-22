@@ -476,14 +476,17 @@ TEST_CASE("chinput_from_matrices: sums bin pairs across a fixed-resolution matri
 
 TEST_CASE("chicago: matrix_from_chinput round-trips through chinput_from_matrices on real GM12878 data") {
     // GM_rep1.chinput -> a real cool matrix (matrix_from_chinput) ->
-    // chinput_from_matrices must reproduce every (baitID, otherEndID, N) pair
-    // chinput_from_matrices derives directly from the real reference cool
-    // fixture GM_rep1_within_maxLBrownEst.chinput describes (the cis, within-
-    // maxLBrownEst subset both paths can see; matrix_from_chinput itself
-    // keeps every row, cis and trans, but chinput_from_matrices only ever
-    // derives the proximal-cis subset back out, so that reference chinput,
-    // not the full GM_rep1.chinput, is what the derived side is compared
-    // against).
+    // chinput_from_matrices: chinput_from_matrices is inherently directed
+    // (one derived row per bait, per nearby fragment, exactly like a real
+    // .chinput file reports each bait's own observations separately), so its
+    // row count still matches GM_rep1_within_maxLBrownEst.chinput's own row
+    // count one for one. What changes is the *value*: matrix_from_chinput
+    // sums both directions of a bait2bait pair into one matrix cell rather
+    // than picking one (real data, checked this session on a different
+    // design, can carry genuinely different N on the two directional rows,
+    // not always the identical value this particular GM12878 fixture happens
+    // to have), so both of a bait2bait pair's directed rows now derive that
+    // same summed total back out, not each row's own original N.
     const std::string tmp_cool = "matrix_from_chinput_roundtrip.cool";
     std::remove(tmp_cool.c_str());
     {
@@ -500,13 +503,27 @@ TEST_CASE("chicago: matrix_from_chinput round-trips through chinput_from_matrice
     auto reference = hicx::chicago::read_chinput(kChicago + "GM_rep1_within_maxLBrownEst.chinput");
     CHECK(derived.size() == reference.size());
 
+    // canonical (min id, max id) -> summed N over every reference row that
+    // canonicalises to it (1 row for a non-bait2bait pair, 2 for a
+    // bait2bait pair, matching what matrix_from_chinput stored at that cell).
+    std::map<std::pair<long, long>, double> canonical_sum;
+    for (const auto& ref : reference) {
+        long a = ref.bait_id;
+        long b = ref.other_end_id;
+        if (a > b) std::swap(a, b);
+        canonical_sum[{a, b}] += ref.N;
+    }
+
     std::map<std::pair<long, long>, const hicx::chicago::ChinputRecord*> derived_by_key;
     for (const auto& r : derived) derived_by_key[{r.bait_id, r.other_end_id}] = &r;
     std::size_t checked = 0;
     for (const auto& ref : reference) {
         const auto it = derived_by_key.find({ref.bait_id, ref.other_end_id});
         REQUIRE(it != derived_by_key.end());
-        CHECK(it->second->N == doctest::Approx(ref.N));
+        long a = ref.bait_id;
+        long b = ref.other_end_id;
+        if (a > b) std::swap(a, b);
+        CHECK(it->second->N == doctest::Approx(canonical_sum.at({a, b})));
         ++checked;
     }
     CHECK(checked == reference.size());

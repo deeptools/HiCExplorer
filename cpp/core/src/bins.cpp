@@ -129,17 +129,28 @@ std::optional<std::int64_t> BinTable::bin_at(const std::string& chrom,
         return std::nullopt;
     }
     const std::vector<BinInterval>& tree = it->second;
-    // Bins are non overlapping, so the first interval with start <= position
-    // and end > position is the answer. sorted(...)[0] in Python picks the
-    // smallest start among the overlapping intervals, which is the same.
+    // Bins are non overlapping, so the interval containing `position`, if
+    // any, is unique: the one with the largest start that is still <=
+    // position, immediately before the first interval whose start is >
+    // position (a real Hi-C matrix's bin table can never have two intervals
+    // both starting at or before `position` while also both being able to
+    // contain it, non-overlap rules that out). upper_bound alone finds that
+    // boundary in O(log n); this used to also walk every interval from the
+    // start of the chromosome up to it (a literal but needlessly linear
+    // transcription of a Python interval tree's own sorted(...)[0] tie
+    // break), a real cost at genome scale where a single chromosome can hold
+    // tens of thousands of restriction-fragment bins and this is called
+    // millions of times.
     auto upper = std::upper_bound(tree.begin(), tree.end(), position,
                                   [](std::int64_t value, const BinInterval& item) {
                                       return value < item.start;
                                   });
-    for (auto candidate = tree.begin(); candidate != upper; ++candidate) {
-        if (candidate->start <= position && position < candidate->end) {
-            return candidate->bin_id;
-        }
+    if (upper == tree.begin()) {
+        return std::nullopt;
+    }
+    const BinInterval& candidate = *(upper - 1);
+    if (candidate.start <= position && position < candidate.end) {
+        return candidate.bin_id;
     }
     return std::nullopt;
 }
