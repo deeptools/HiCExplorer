@@ -42,6 +42,8 @@
 #include <utility>
 #include <vector>
 
+#include "hicx/matrix_data.hpp"
+
 namespace hicx::chicago {
 
 // getPvals: log of the upper-tail survival probability P(N' >= N), N' being
@@ -115,6 +117,31 @@ struct ChinputRecord {
 [[nodiscard]] std::vector<RmapFragment> read_rmap(const std::string& path);
 [[nodiscard]] std::vector<BaitmapFragment> read_baitmap(const std::string& path);
 [[nodiscard]] std::vector<ChinputRecord> read_chinput(const std::string& path, int threads = 1);
+
+// The reverse direction of chinput_from_matrices: builds a real Hi-C matrix
+// (one bin per .rmap restriction fragment, in the .rmap's own order) with
+// one entry per .chinput row, so a .chinput file (however it was produced -
+// bam2chicago, a prior chinput_from_matrices run, or any other CHiCAGO
+// pipeline) can be written out as a real .cool/.h5/.hic file through
+// hicConvertFormat --inputFormat chinput, instead of staying in a format
+// only R's Chicago package reads.
+//
+// A .rmap fragment's 1-based, inclusive [start, end] becomes the bin table's
+// usual 0-based, half-open [start - 1, end), the same convention
+// chinput_from_matrices' own header comment documents (and the inverse of
+// it: round-tripping a matrix through chinput_from_matrices and back through
+// this function reproduces the same N values at the same fragment pairs).
+// Every row is one observed direction of what a Hi-C matrix represents
+// symmetrically, so entries are canonicalised to (min bin, max bin) and the
+// result is marked Symmetry::UpperTriangle: a query at either (bait, other
+// end) or (other end, bait) then finds the same value, matching how every
+// other Hi-C matrix this project reads or writes is stored.
+//
+// A .chinput row whose baitID or otherEndID is not one of the .rmap's own
+// fragment ids fails loudly (a real design/data mismatch, not something to
+// silently drop rows over).
+[[nodiscard]] hicx::MatrixData matrix_from_chinput(const std::string& chinput_path,
+                                                     const std::string& rmap_path);
 
 // eta.bar (.getEtaBar in R): the genome-wide average of exp(log_weight) over
 // every possible bait-fragment pair up to the chromosome ends, weighted the
