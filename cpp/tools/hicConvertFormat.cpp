@@ -29,6 +29,12 @@
 //     A cool file with a /resolutions group given to --inputFormat cool is
 //     written with every resolution, or with those in --resolutions.
 //
+//   * --inputFormat chinput (cpp/PLAN.md 9.15's CHiCAGO tools), beyond the
+//     Python: writes the real Hi-C matrix a CHiCAGO .chinput file's rows
+//     represent (one bin per --rmap restriction fragment) through
+//     hicx::chicago::matrix_from_chinput, the reverse direction of
+//     chicChicagoBackgroundModel/chicChicagoScores' own --matrices option.
+//
 // Not supported, and refused rather than half done:
 //
 //   * --chromosome. Loading a single chromosome out of a cooler is a distinct
@@ -63,6 +69,7 @@
 
 #include "hicx/argparse.hpp"
 #include "hicx/bins.hpp"
+#include "hicx/chicago.hpp"
 #include "hicx/cool_adapter.hpp"
 #include "hicx/h5_file.hpp"
 #include "hicx/hdf5_util.hpp"
@@ -78,7 +85,7 @@ namespace {
 const char* const kUsage =
     "usage: hicConvertFormat --matrices MATRICES [MATRICES ...] --outFileName\n"
     "                        OUTFILENAME [OUTFILENAME ...] --inputFormat\n"
-    "                        {h5,cool,hic,homer,hicpro,2D-text} --outputFormat\n"
+    "                        {h5,cool,hic,homer,hicpro,2D-text,chinput} --outputFormat\n"
     "                        {cool,h5,homer,ginteractions,mcool,hicpro,hic}\n"
     "                        [--correction_name CORRECTION_NAME]\n"
     "                        [--correction_division] [--store_applied_correction]\n"
@@ -87,6 +94,7 @@ const char* const kUsage =
     "[RESOLUTIONS ...]]\n"
     "                        [--help] [--chromosomeSizes txt file] [--version]\n"
     "                        [--bedFileHicpro BEDFILEHICPRO [BEDFILEHICPRO ...]]\n"
+    "                        [--rmap RMAP [RMAP ...]]\n"
     "                        [--hicVersion {8,9}]\n"
     "                        [--hicNormalizations {VC,VC_SQRT,KR,SCALE,none} "
     "[{VC,VC_SQRT,KR,SCALE,none} ...]]\n"
@@ -104,13 +112,17 @@ const char* const kHelp =
     "format type and all output files too. For input and output of cooler files\n"
     "special options are available, for all other formats they will be ignored.\n"
     "HiCPro file format needs an additional bed file as input.\n"
+    "chinput input (C++ only) needs an additional .rmap file, and writes the real\n"
+    "Hi-C matrix a CHiCAGO .chinput file's rows represent, one bin per restriction\n"
+    "fragment, the reverse of chicChicagoBackgroundModel/chicChicagoScores'\n"
+    "--matrices option.\n"
     "\n"
     "Required arguments:\n"
     "  --matrices MATRICES [MATRICES ...], -m MATRICES [MATRICES ...]\n"
     "                        input file(s). Could be one or many files.\n"
     "  --outFileName OUTFILENAME [OUTFILENAME ...], -o OUTFILENAME [OUTFILENAME ...]\n"
     "                        File name to save the exported matrix.\n"
-    "  --inputFormat {h5,cool,hic,homer,hicpro,2D-text}\n"
+    "  --inputFormat {h5,cool,hic,homer,hicpro,2D-text,chinput}\n"
     "                        File format of the input matrix file.\n"
     "  --outputFormat {cool,h5,homer,ginteractions,mcool,hicpro,hic}\n"
     "                        Output format. (Default: cool).\n"
@@ -138,6 +150,12 @@ const char* const kHelp =
     "  --bedFileHicpro BEDFILEHICPRO [BEDFILEHICPRO ...], -bf BEDFILEHICPRO "
     "[BEDFILEHICPRO ...]\n"
     "                        Bed file(s) of hicpro file format.\n"
+    "  --rmap RMAP [RMAP ...]\n"
+    "                        CHiCAGO .rmap restriction fragment file(s), one per\n"
+    "                        --matrices .chinput file. Required for --inputFormat\n"
+    "                        chinput; the bin table (one bin per fragment) comes\n"
+    "                        from this file, the .chinput file only supplies the\n"
+    "                        matrix values.\n"
     "  --hicVersion {8,9}    Version of a .hic output file. (Default: 8).\n"
     "  --hicNormalizations {VC,VC_SQRT,KR,SCALE,none} [{VC,VC_SQRT,KR,SCALE,none} ...]\n"
     "                        Normalizations a .hic output file stores, computed\n"
@@ -151,6 +169,7 @@ struct Arguments {
     std::vector<std::string> out_file_names;
     std::vector<std::string> resolutions;
     std::vector<std::string> bed_file_hicpro;
+    std::vector<std::string> rmap_files;
     std::string input_format;
     std::string output_format = "cool";
     std::string correction_name = "weight";
@@ -204,7 +223,7 @@ Arguments parse_arguments(int argc, char** argv) {
     required.add({"--matrices", "-m"})
         .nargs("+")
         .required()
-        .input({"h5", "cool", "mcool", "hic", "homer", "hicpro", "txt"})
+        .input({"h5", "cool", "mcool", "hic", "homer", "hicpro", "txt", "chinput"})
         .help("input file(s). Could be one or many files.");
     required.add({"--outFileName", "-o"})
         .required()
@@ -212,8 +231,11 @@ Arguments parse_arguments(int argc, char** argv) {
         .output({"cool", "mcool", "h5", "hic", "homer", "hicpro", "tsv"})
         .help("File name to save the exported matrix.");
     required.add({"--inputFormat"})
-        .choices({"h5", "cool", "hic", "homer", "hicpro", "2D-text"})
+        .choices({"h5", "cool", "hic", "homer", "hicpro", "2D-text", "chinput"})
         .required()
+        .note("The choice 'chinput' exists only in the C++ port: a CHiCAGO .chinput file "
+              "written out as a real Hi-C matrix, the reverse of chicChicagoBackgroundModel/"
+              "chicChicagoScores' own --matrices option.")
         .help("File format of the input matrix file.");
     required.add({"--outputFormat"})
         .default_value("cool")
@@ -256,6 +278,12 @@ Arguments parse_arguments(int argc, char** argv) {
         .nargs("+")
         .input({"bed"})
         .help("Bed file(s) of hicpro file format.");
+    optional.add({"--rmap"})
+        .nargs("+")
+        .input({"rmap", "txt"})
+        .cpp_only("For the C++-only input format `chinput`.")
+        .help("CHiCAGO .rmap restriction fragment file(s), one per --matrices "
+              ".chinput file. Required for --inputFormat chinput.");
     optional.add({"--hicVersion"})
         .choices({"8", "9"})
         .default_value("8")
@@ -292,6 +320,7 @@ Arguments parse_arguments(int argc, char** argv) {
     args.out_file_names = ns.strs("outFileName");
     args.resolutions = ns.strs("resolutions");
     args.bed_file_hicpro = ns.strs("bedFileHicpro");
+    args.rmap_files = ns.strs("rmap");
     args.input_format = ns.str("inputFormat");
     args.output_format = ns.str("outputFormat");
     args.correction_name = ns.str("correction_name");
@@ -326,6 +355,8 @@ Loaded load_input(const Arguments& args, std::size_t index) {
     const std::string& matrix = args.matrices[index];
     if (args.input_format == "hicpro") {
         loaded.data = hicx::read_hicpro(matrix, args.bed_file_hicpro[index]);
+    } else if (args.input_format == "chinput") {
+        loaded.data = hicx::chicago::matrix_from_chinput(matrix, args.rmap_files[index]);
     } else if (args.input_format == "homer") {
         loaded.data = hicx::read_homer(matrix);
     } else if (args.input_format == "2D-text") {
@@ -583,6 +614,13 @@ int run(const Arguments& args) {
             reject("Number of matrices and associated bed files need to be the same.");
             return reject("Matrices: " + std::to_string(args.matrices.size()) +
                           "; Bed files: " + std::to_string(args.bed_file_hicpro.size()));
+        }
+    }
+    if (args.input_format == "chinput") {
+        if (args.matrices.size() != args.rmap_files.size()) {
+            return reject("Number of matrices and associated .rmap files need to be the same. "
+                          "Matrices: " + std::to_string(args.matrices.size()) +
+                          "; .rmap files: " + std::to_string(args.rmap_files.size()));
         }
     }
     if (args.input_format == "2D-text") {

@@ -21,6 +21,7 @@
 // exactly as R's own getPvals and getScores take them.
 
 #include <cmath>
+#include <cstdio>
 #include <fstream>
 #include <map>
 #include <sstream>
@@ -30,6 +31,7 @@
 
 #include "doctest/doctest.h"
 #include "hicx/chicago.hpp"
+#include "hicx/tool_matrix.hpp"
 
 namespace {
 
@@ -467,4 +469,52 @@ TEST_CASE("chinput_from_matrices: sums bin pairs across a fixed-resolution matri
     for (const auto& r : derived) {
         CHECK(r.other_end_id != 11);
     }
+}
+
+// matrix_from_chinput: the reverse direction, deriving a real Hi-C matrix
+// from a .chinput file (hicConvertFormat --inputFormat chinput).
+
+TEST_CASE("chicago: matrix_from_chinput round-trips through chinput_from_matrices on real GM12878 data") {
+    // GM_rep1.chinput -> a real cool matrix (matrix_from_chinput) ->
+    // chinput_from_matrices must reproduce every (baitID, otherEndID, N) pair
+    // chinput_from_matrices derives directly from the real reference cool
+    // fixture GM_rep1_within_maxLBrownEst.chinput describes (the cis, within-
+    // maxLBrownEst subset both paths can see; matrix_from_chinput itself
+    // keeps every row, cis and trans, but chinput_from_matrices only ever
+    // derives the proximal-cis subset back out, so that reference chinput,
+    // not the full GM_rep1.chinput, is what the derived side is compared
+    // against).
+    const std::string tmp_cool = "matrix_from_chinput_roundtrip.cool";
+    std::remove(tmp_cool.c_str());
+    {
+        hicx::ToolMatrix matrix;
+        matrix.data() =
+            hicx::chicago::matrix_from_chinput(kChicago + "GM_rep1.chinput", kChicago + "h19_chr20and21.rmap");
+        REQUIRE(matrix.save(tmp_cool));
+    }
+
+    auto rmap = hicx::chicago::read_rmap(kChicago + "h19_chr20and21.rmap");
+    auto baitmap = hicx::chicago::read_baitmap(kChicago + "h19_chr20and21.baitmap");
+    hicx::chicago::FilterSettings fs;
+    auto derived = hicx::chicago::chinput_from_matrices({tmp_cool}, rmap, baitmap, fs);
+    auto reference = hicx::chicago::read_chinput(kChicago + "GM_rep1_within_maxLBrownEst.chinput");
+    CHECK(derived.size() == reference.size());
+
+    std::map<std::pair<long, long>, const hicx::chicago::ChinputRecord*> derived_by_key;
+    for (const auto& r : derived) derived_by_key[{r.bait_id, r.other_end_id}] = &r;
+    std::size_t checked = 0;
+    for (const auto& ref : reference) {
+        const auto it = derived_by_key.find({ref.bait_id, ref.other_end_id});
+        REQUIRE(it != derived_by_key.end());
+        CHECK(it->second->N == doctest::Approx(ref.N));
+        ++checked;
+    }
+    CHECK(checked == reference.size());
+    std::remove(tmp_cool.c_str());
+}
+
+TEST_CASE("chicago: matrix_from_chinput fails loudly on a fragment id absent from the .rmap") {
+    CHECK_THROWS_AS(
+        hicx::chicago::matrix_from_chinput(kChicago + "mESCrep1.chinput", kChicago + "h19_chr20and21.rmap"),
+        std::runtime_error);
 }

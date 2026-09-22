@@ -480,6 +480,73 @@ std::vector<ChinputRecord> read_chinput(const std::string& path, int threads) {
     return out;
 }
 
+hicx::MatrixData matrix_from_chinput(const std::string& chinput_path, const std::string& rmap_path) {
+    const auto rmap = read_rmap(rmap_path);
+    if (rmap.empty()) {
+        throw std::runtime_error(rmap_path + ": empty .rmap file");
+    }
+
+    hicx::MatrixData data;
+    data.cut_intervals.reserve(rmap.size());
+    std::unordered_map<long, std::int64_t> bin_of_id;
+    bin_of_id.reserve(rmap.size());
+    for (const auto& f : rmap) {
+        const std::int64_t bin = static_cast<std::int64_t>(data.cut_intervals.size());
+        data.cut_intervals.push_back(hicx::CutInterval{f.chrom, f.start - 1, f.end, 1.0, ""});
+        bin_of_id[f.id] = bin;
+    }
+
+    // A bait2bait pair's interaction is listed once in EACH bait's own
+    // .chinput row (from bait A's perspective, otherEndID = B, and from bait
+    // B's perspective, otherEndID = A), both rows carrying the same N (the
+    // same underlying observed reciprocal count, not two independent
+    // observations to add together: verified bit for bit in the real data
+    // chinput_from_matrices' own test fixture was built from). Canonicalising
+    // both to the same (min bin, max bin) cell and summing would double it,
+    // so pairs are deduplicated by that canonical cell first (last value
+    // wins; a genuinely differing duplicate could only mean mismatched input,
+    // not something to silently add up).
+    // A 64-bit combined key is exact and collision-free: both row and column
+    // bin indices fit comfortably in 32 bits for every design this project
+    // ships (same reasoning as fit_chicago_background's own pair_key).
+    auto pair_key = [](std::int64_t row, std::int64_t col) {
+        return (static_cast<std::uint64_t>(static_cast<std::uint32_t>(row)) << 32) |
+               static_cast<std::uint32_t>(col);
+    };
+    std::unordered_map<std::uint64_t, double> cell_value;
+    const auto rows_in = read_chinput(chinput_path);
+    cell_value.reserve(rows_in.size());
+    for (const auto& r : rows_in) {
+        const auto bait_it = bin_of_id.find(r.bait_id);
+        const auto oe_it = bin_of_id.find(r.other_end_id);
+        if (bait_it == bin_of_id.end() || oe_it == bin_of_id.end()) {
+            throw std::runtime_error(chinput_path + ": fragment id not found in " + rmap_path +
+                                     " (baitID " + std::to_string(r.bait_id) + ", otherEndID " +
+                                     std::to_string(r.other_end_id) + ")");
+        }
+        std::int64_t row = bait_it->second;
+        std::int64_t col = oe_it->second;
+        if (row > col) std::swap(row, col);
+        cell_value[pair_key(row, col)] = r.N;
+    }
+
+    std::vector<std::int32_t> rows, cols;
+    std::vector<double> values;
+    rows.reserve(cell_value.size());
+    cols.reserve(cell_value.size());
+    values.reserve(cell_value.size());
+    for (const auto& [key, n] : cell_value) {
+        rows.push_back(static_cast<std::int32_t>(static_cast<std::uint32_t>(key >> 32)));
+        cols.push_back(static_cast<std::int32_t>(static_cast<std::uint32_t>(key)));
+        values.push_back(n);
+    }
+
+    const std::int64_t n_bins = static_cast<std::int64_t>(data.cut_intervals.size());
+    data.matrix = hicx::CsrMatrix::from_coo(n_bins, n_bins, rows, cols, std::move(values), "float64");
+    data.matrix.set_symmetry(hicx::Symmetry::UpperTriangle);
+    return data;
+}
+
 namespace {
 
 // floor(x + 0.5): round-half-up. Matches the .chinput distSign column's own
