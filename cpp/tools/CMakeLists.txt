@@ -18,6 +18,7 @@ set(HICX_TOOLS
     chicChicagoBackgroundModel
     chicChicagoScores
     chicChicagoSignificantInteractions
+    chicChicagoPlotViewpoint
     hicCompareMatrices
     hicConvertFormat
     hicFindTADs
