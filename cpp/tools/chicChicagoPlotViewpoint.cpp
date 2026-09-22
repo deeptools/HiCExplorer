@@ -47,6 +47,22 @@
 // before any of the above, in both scopes and both styles: a plot of only
 // the two significant colour tiers, no background clutter.
 //
+// --linksFile FILE writes the same kept interactions (whichever scope,
+// --onlySignificant and --keepBait2bait already selected) as a
+// pyGenomeTracks `links` file (chr1 start1 end1 chr2 start2 end2 score, tab
+// separated, checked directly against the real installed
+// pygenometracks.tracks.LinksTrack this session), so they can be combined
+// with real bigwig, gene and BED region tracks (known enhancers, promoters,
+// ...) in one pyGenomeTracks figure through the existing hicPlotTADs (a
+// literal delegation to pyGenomeTracks' own plotTracks, cpp/PLAN.md tier 7):
+// write a tracks.ini with a [chicago links] section (file = FILE, file_type
+// = links) alongside [bigwig]/[genes]/[bed] sections for the other tracks,
+// then `hicPlotTADs --tracks tracks.ini --region CHROM:START-END -o out.png`.
+// Needs --baitmap (real coordinates for the bait side of every link); the
+// other end's real fragment span comes from --rmap when given, else a 1 bp
+// placeholder at its computed position (still a valid link for pyGenomeTracks'
+// arcs style, which only draws between the two extremities).
+//
 // The figure is drawn by plot/hicexplorer_plot/chicChicagoPlotViewpoint.py
 // (hicx::plot::draw), the same C++-computes-data / Python-draws-figure
 // bridge every other plotting tool in this project uses (cpp/PLAN.md tier 7,
@@ -80,12 +96,13 @@ namespace plot = hicx::plot;
 const char* const kUsage =
     "usage: chicChicagoPlotViewpoint --scores SCORES (--baitID BAITID |\n"
     "                                --region CHROM START END)\n"
-    "                                [--style {scatter,arcs}] [--baitmap BAITMAP]\n"
+    "                                [--style {scatter,arcs}] [--baitmap BAITMAP] [--rmap RMAP]\n"
     "                                [--backgroundModel BACKGROUNDMODEL]\n"
     "                                [--range RANGE RANGE] [--plevel1 PLEVEL1]\n"
     "                                [--plevel2 PLEVEL2] [--keepBait2bait] [--onlySignificant]\n"
     "                                [--outFileName OUTFILENAME] [--outputFormat OUTPUTFORMAT]\n"
-    "                                [--dpi DPI] [--plotData FILE] [--help] [--version]\n";
+    "                                [--dpi DPI] [--linksFile FILE] [--plotData FILE] [--help]\n"
+    "                                [--version]\n";
 
 const char* const kHelp =
     "\n"
@@ -138,6 +155,15 @@ const char* const kHelp =
     "                        with --baitmap.\n"
     "  --onlySignificant     Drop background rows (score < --plevel2): only the two\n"
     "                        significant colour tiers are drawn, no background.\n"
+    "  --rmap RMAP           CHiCAGO .rmap file, for --linksFile's other-end\n"
+    "                        fragment spans. Without it a 1 bp placeholder at the\n"
+    "                        other end's computed position is written instead.\n"
+    "  --linksFile FILE      Write the kept interactions as a pyGenomeTracks\n"
+    "                        `links` file (chr1 start1 end1 chr2 start2 end2\n"
+    "                        score), to combine with bigwig/gene/BED tracks\n"
+    "                        through hicPlotTADs. Requires --baitmap. Written\n"
+    "                        alongside the normal plot output, independent of\n"
+    "                        --plotData.\n"
     "  --outFileName OUTFILENAME, -o OUTFILENAME\n"
     "                        The name of the plot file (Default: chicago_viewpoint.png).\n"
     "  --outputFormat OUTPUTFORMAT, -format OUTPUTFORMAT\n"
@@ -222,6 +248,24 @@ std::pair<long, long> canonical_pair(long a, long b) {
     return a < b ? std::make_pair(a, b) : std::make_pair(b, a);
 }
 
+// One pyGenomeTracks `links` row (chr1 start1 end1 chr2 start2 end2 score),
+// coordinates already 0-based half-open.
+struct LinkRow {
+    std::string chrom;
+    long start1 = 0, end1 = 0, start2 = 0, end2 = 0;
+    double score = 0.0;
+};
+
+void write_links_file(const std::string& path, const std::vector<LinkRow>& links) {
+    std::ofstream out(path, std::ios::binary);
+    if (!out) throw std::runtime_error("cannot open " + path + " for writing");
+    out.precision(15);
+    for (const auto& l : links) {
+        out << l.chrom << '\t' << l.start1 << '\t' << l.end1 << '\t' << l.chrom << '\t' << l.start2
+            << '\t' << l.end2 << '\t' << l.score << '\n';
+    }
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -261,6 +305,12 @@ int main(int argc, char** argv) {
         .action(cli::Action::StoreTrue)
         .help("Drop background rows (score < --plevel2): only the two significant colour "
               "tiers are drawn, no background.");
+    optional.add({"--rmap"}).input({"rmap", "txt"}).help("CHiCAGO .rmap file, for --linksFile.");
+    optional.add({"--linksFile"})
+        .metavar("FILE")
+        .output({"links", "txt"})
+        .help("Write the kept interactions as a pyGenomeTracks `links` file. Requires "
+              "--baitmap.");
     optional.add({"--outFileName", "-o"})
         .default_value("chicago_viewpoint.png")
         .output({"png", "pdf", "svg"})
@@ -296,6 +346,10 @@ int main(int argc, char** argv) {
             std::fprintf(stderr, "chicChicagoPlotViewpoint: --region requires --baitmap.\n");
             return 2;
         }
+        if (args.given("linksFile") && !args.given("baitmap")) {
+            std::fprintf(stderr, "chicChicagoPlotViewpoint: --linksFile requires --baitmap.\n");
+            return 2;
+        }
 
         const auto range = args.integers("range");
         const long upstream = range[0];
@@ -313,6 +367,25 @@ int main(int argc, char** argv) {
         }
         const bool remove_bait2bait = !all_bait_ids.empty() && !args.flag("keepBait2bait");
         const bool only_significant = args.flag("onlySignificant");
+        const bool write_links = args.given("linksFile");
+
+        std::unordered_map<long, hicx::chicago::RmapFragment> rmap_by_id;
+        if (args.given("rmap")) {
+            for (const auto& f : hicx::chicago::read_rmap(args.str("rmap"))) rmap_by_id.emplace(f.id, f);
+        }
+        // The real fragment span when --rmap has it (the project's usual
+        // 0-based half-open convention: a .rmap fragment's 1-based, inclusive
+        // [start, end] becomes [start - 1, end)); otherwise a 1 bp
+        // placeholder at the computed position, still a valid pyGenomeTracks
+        // links row for the arcs style (only the two extremities matter).
+        auto other_end_span = [&](long other_end_id, double computed_pos) {
+            const auto it = rmap_by_id.find(other_end_id);
+            if (it != rmap_by_id.end()) {
+                return std::make_pair(it->second.start - 1, it->second.end);
+            }
+            const long p = static_cast<long>(std::llround(computed_pos));
+            return std::make_pair(p, p + 1);
+        };
 
         std::optional<double> dispersion;
         if (args.given("backgroundModel")) dispersion = read_dispersion(args.str("backgroundModel"));
@@ -337,6 +410,7 @@ int main(int argc, char** argv) {
             auto rows = read_scores_for_baits(args.str("scores"), {bait_id});
             std::vector<double> x, y, height, score;
             std::vector<std::pair<double, double>> bmean_points;
+            std::vector<LinkRow> links;
             for (const auto& r : rows) {
                 if (!r.has_dist_sign) continue;  // trans: no x position
                 if (remove_bait2bait && all_bait_ids.count(r.other_end_id) > 0) continue;
@@ -353,7 +427,13 @@ int main(int argc, char** argv) {
                     y.push_back(r.n);
                 }
                 if (has_background) bmean_points.emplace_back(d, r.bmean);
+                if (write_links && label_it != baitmap_by_id.end()) {
+                    const auto& bait = label_it->second;
+                    const auto [s2, e2] = other_end_span(r.other_end_id, static_cast<double>(bait.start + bait.end) / 2.0 + d);
+                    links.push_back({bait.chrom, bait.start - 1, bait.end, s2, e2, r.score});
+                }
             }
+            if (write_links) write_links_file(args.str("linksFile"), links);
 
             data.add("title", plot::json_string(bait_label));
             data.add("xLabel", plot::json_string("distance from bait (bp)"));
@@ -403,6 +483,7 @@ int main(int argc, char** argv) {
 
             auto rows = read_scores_for_baits(args.str("scores"), selected_bait_ids);
             std::vector<double> x1, x2, height, score;
+            std::vector<LinkRow> links;
             std::set<std::pair<long, long>> seen_pairs;  // canonical (min id, max id)
             for (const auto& r : rows) {
                 if (!r.has_dist_sign) continue;
@@ -421,7 +502,13 @@ int main(int argc, char** argv) {
                 x2.push_back(bait_pos + d);
                 height.push_back(std::log1p(r.n));
                 score.push_back(r.score);
+                if (write_links) {
+                    const auto& bait = baitmap_by_id.at(r.bait_id);
+                    const auto [s2, e2] = other_end_span(r.other_end_id, bait_pos + d);
+                    links.push_back({bait.chrom, bait.start - 1, bait.end, s2, e2, r.score});
+                }
             }
+            if (write_links) write_links_file(args.str("linksFile"), links);
 
             std::vector<double> anchors;
             anchors.reserve(bait_mid.size());
