@@ -91,9 +91,11 @@ def _draw_arcs(ax, data):
         ax.plot([anchor, anchor], [0, -0.03 * max(heights.max(initial=1.0), 1.0)],
                 color='grey', linewidth=1.5)
 
-    for label, c in (('background', 'black'), ('score >= {}'.format(plevel2), 'blue'),
-                     ('score >= {}'.format(plevel1), 'red')):
-        ax.plot([], [], color=c, label=label)
+    for present, label, c in ((background, 'background', 'black'),
+                              (lev2, 'score >= {}'.format(plevel2), 'blue'),
+                              (lev1, 'score >= {}'.format(plevel1), 'red')):
+        if np.any(present):
+            ax.plot([], [], color=c, label=label)
     ax.axhline(0, color='lightgrey', linewidth=0.8, zorder=0)
     ax.set_ylabel('log1p(N)')
     ax.set_ylim(bottom=min(-0.05 * max(heights.max(initial=1.0), 1.0), ax.get_ylim()[0]))
