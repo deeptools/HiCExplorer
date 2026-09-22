@@ -209,7 +209,14 @@ struct ChiInteraction {
 // removal, minNPerBait filter, optional removeAdjacent, and dropping baits
 // whose only proximal (within max_l_brown_est) interactions are all
 // bait2bait.
-[[nodiscard]] std::vector<ChiInteraction> read_sample(const std::vector<ChinputRecord>& raw,
+//
+// Takes raw by value (move it in with std::move at the call site) for the
+// same reason fit_chicago_background does: raw is only read in this
+// function's first stage, and freed right after, before the three remaining
+// filter stages run without it. A const& parameter would keep it alive for
+// the whole call (the caller's storage does not go away just because this
+// function stops reading it), which is most of read_sample's own cost.
+[[nodiscard]] std::vector<ChiInteraction> read_sample(std::vector<ChinputRecord> raw,
                                                         const std::vector<BaitmapFragment>& baitmap,
                                                         const FilterSettings& fs, int threads = 1);
 
@@ -367,8 +374,15 @@ struct BackgroundModel {
     bool subset_would_trigger_in_r = false;
 };
 
+// Takes raw by value (move it in with std::move at the call site to avoid a
+// copy): every interaction the .chinput file has, cis and trans alike, is
+// only needed to build x (read_sample's filtered subset), and freed
+// immediately after, before the rest of this function's work (addTLB,
+// normaliseBaits/normaliseOtherEnds, estimateTechnicalNoise, the dispersion
+// fit) runs without it. A const& parameter could not do that: the caller's
+// storage would stay alive, unused, for the whole call.
 [[nodiscard]] BackgroundModel fit_chicago_background(
-    const std::vector<ChinputRecord>& raw, const std::vector<RmapFragment>& rmap,
+    std::vector<ChinputRecord> raw, const std::vector<RmapFragment>& rmap,
     const std::vector<BaitmapFragment>& baitmap, const std::string& npb_path,
     const std::string& nbpb_path, const std::string& poe_path, const FilterSettings& fs,
     long tlb_min_baits_per_bin = 1000, double tlb_filter_top_percent = 0.01,

@@ -165,12 +165,20 @@ std::vector<ScoreRow> read_scores(const std::string& path, int threads) {
     }
     for (std::thread& worker : workers) worker.join();
 
+    // Same reasoning as chicago.cpp's read_chinput: free the raw file text
+    // and each chunk's own buffer as soon as it is no longer needed, instead
+    // of holding the file text, the unmerged chunks and the assembled result
+    // in memory all at once.
+    content.clear();
+    content.shrink_to_fit();
+
     std::size_t total_rows = 0;
     for (auto& p : parts) total_rows += p.size();
     std::vector<ScoreRow> out;
     out.reserve(total_rows);
     for (auto& p : parts) {
         out.insert(out.end(), std::make_move_iterator(p.begin()), std::make_move_iterator(p.end()));
+        std::vector<ScoreRow>().swap(p);
     }
     return out;
 }
