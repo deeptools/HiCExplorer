@@ -35,7 +35,8 @@
 namespace {
 
 const char* const kUsage =
-    "usage: chicChicagoScores --backgroundModel BACKGROUNDMODEL --chinput CHINPUT\n"
+    "usage: chicChicagoScores --backgroundModel BACKGROUNDMODEL\n"
+    "                         (--chinput CHINPUT | --matrices MATRICES [MATRICES ...])\n"
     "                         --baitmap BAITMAP [--outFileName OUTFILENAME]\n"
     "                         [--minFragLen MINFRAGLEN] [--maxFragLen MAXFRAGLEN]\n"
     "                         [--minNPerBait MINNPERBAIT] [--maxLBrownEst MAXLBROWNEST]\n"
@@ -54,7 +55,17 @@ const char* const kHelp =
     "Required arguments:\n"
     "  --backgroundModel BACKGROUNDMODEL\n"
     "                        chicChicagoBackgroundModel's output file.\n"
-    "  --chinput CHINPUT     One CHiCAGO .chinput interaction count file.\n"
+    "  --chinput CHINPUT     One CHiCAGO .chinput interaction count file. Mutually\n"
+    "                        exclusive with --matrices; exactly one of the two is\n"
+    "                        required.\n"
+    "  --matrices MATRICES [MATRICES ...], -m MATRICES [MATRICES ...]\n"
+    "                        One or more Hi-C matrices (cool, h5 or .hic) to derive\n"
+    "                        the per (bait, other-end) fragment N counts from\n"
+    "                        directly, instead of a pre-built .chinput file (see\n"
+    "                        chicChicagoBackgroundModel --help for the exact scope:\n"
+    "                        cis pairs within --maxLBrownEst only). Several matrices\n"
+    "                        are summed per fragment pair. Mutually exclusive with\n"
+    "                        --chinput; exactly one of the two is required.\n"
     "  --baitmap BAITMAP     CHiCAGO .baitmap file (needed for eta.bar, the\n"
     "                        distance-weighting normalisation constant).\n"
     "  --rmap RMAP           CHiCAGO .rmap file (needed for eta.bar).\n"
@@ -170,7 +181,12 @@ int main(int argc, char** argv) {
         .required()
         .input({"txt"})
         .help("chicChicagoBackgroundModel's output file.");
-    required.add({"--chinput"}).required().input({"chinput", "txt"}).help("CHiCAGO .chinput file.");
+    cli::MutuallyExclusiveGroup& input_source = parser.mutually_exclusive(required, /*required=*/true);
+    input_source.add({"--chinput"}).input({"chinput", "txt"}).help("CHiCAGO .chinput file.");
+    input_source.add({"--matrices", "-m"})
+        .nargs("+")
+        .input({"cool", "h5", "hic"})
+        .help("Hi-C matrices to derive per-fragment-pair counts from directly.");
     required.add({"--baitmap"}).required().input({"baitmap", "txt"}).help("CHiCAGO .baitmap file.");
     required.add({"--rmap"}).required().input({"rmap", "txt"}).help("CHiCAGO .rmap file.");
 
@@ -212,7 +228,9 @@ int main(int argc, char** argv) {
 
         auto rmap = read_rmap(args.str("rmap"));
         auto baitmap = read_baitmap(args.str("baitmap"));
-        auto raw = read_chinput(args.str("chinput"));
+        const std::vector<ChinputRecord> raw = args.given("chinput")
+            ? read_chinput(args.str("chinput"))
+            : chinput_from_matrices(args.strs("matrices"), rmap, baitmap, fs);
         auto x = read_sample(raw, baitmap, fs);
 
         WeightSettings w;

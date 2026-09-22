@@ -19,6 +19,9 @@
 #include <boost/math/special_functions/gamma.hpp>
 #include <boost/math/special_functions/trigamma.hpp>
 
+#include "hicx/bins.hpp"
+#include "hicx/tool_matrix.hpp"
+
 namespace hicx::chicago {
 
 namespace {
@@ -328,6 +331,115 @@ std::vector<ChinputRecord> read_chinput(const std::string& path) {
             r.has_dist_sign = true;
             r.dist_sign = std::stol(f[4]);
         }
+        out.push_back(std::move(r));
+    }
+    return out;
+}
+
+namespace {
+
+// floor(x + 0.5): round-half-up. Matches the .chinput distSign column's own
+// midpoint rounding exactly (verified against all 270441 cis rows of
+// GM_rep1.chinput: 100% agreement, where round-to-even or truncation each
+// mismatch on tens of thousands of rows).
+double half_up(double x) { return std::floor(x + 0.5); }
+
+}  // namespace
+
+std::vector<ChinputRecord> chinput_from_matrices(const std::vector<std::string>& matrix_paths,
+                                                  const std::vector<RmapFragment>& rmap,
+                                                  const std::vector<BaitmapFragment>& baitmap,
+                                                  const FilterSettings& fs) {
+    // Other-end fragments grouped by chromosome, sorted by start, so the
+    // fragments within max_l_brown_est of a bait can be found with a binary
+    // search rather than a scan of the whole chromosome.
+    std::unordered_map<std::string, std::vector<const RmapFragment*>> by_chrom;
+    for (const auto& f : rmap) by_chrom[f.chrom].push_back(&f);
+    for (auto& kv : by_chrom) {
+        std::sort(kv.second.begin(), kv.second.end(),
+                  [](const RmapFragment* a, const RmapFragment* b) { return a->start < b->start; });
+    }
+
+    // Only the chromosomes the .baitmap actually uses are ever loaded from a
+    // matrix: chinput_from_matrices only derives cis pairs (see the header
+    // comment), so no other chromosome's data is needed.
+    std::set<std::string> bait_chroms;
+    for (const auto& b : baitmap) bait_chroms.insert(b.chrom);
+
+    std::map<std::pair<long, long>, double> n_sum;         // (baitID, otherEndID) -> N
+    std::unordered_map<long, long> other_end_len;          // otherEndID -> end - start
+    std::map<std::pair<long, long>, long> dist_sign_of;    // (baitID, otherEndID) -> distSign
+
+    for (const std::string& path : matrix_paths) {
+        for (const std::string& chrom : bait_chroms) {
+            hicx::ToolMatrix matrix;
+            try {
+                matrix = hicx::ToolMatrix::load(path, chrom);
+            } catch (const std::exception&) {
+                continue;  // this matrix has no data for this chromosome
+            }
+            if (matrix.cut_intervals().empty()) continue;
+            const hicx::BinTable bins(matrix.cut_intervals());
+
+            for (const auto& bait : baitmap) {
+                if (bait.chrom != chrom) continue;
+                const auto bait_range = bins.region_bin_range(chrom, bait.start - 1, bait.end - 1);
+                if (!bait_range.has_value()) continue;
+                const auto [bait_row_first, bait_row_last] = *bait_range;
+
+                const double bait_mid = static_cast<double>(bait.start + bait.end) / 2.0;
+                const auto it = by_chrom.find(chrom);
+                if (it == by_chrom.end()) continue;
+                const std::vector<const RmapFragment*>& frags = it->second;
+
+                // Binary search for the first fragment whose end could still
+                // be within max_l_brown_est upstream of the bait, then walk
+                // forward until the fragment starts more than max_l_brown_est
+                // downstream of the bait.
+                const long lo_bound = bait.start - fs.max_l_brown_est;
+                auto lower = std::lower_bound(
+                    frags.begin(), frags.end(), lo_bound,
+                    [](const RmapFragment* f, long value) { return f->end < value; });
+
+                for (auto fit = lower; fit != frags.end(); ++fit) {
+                    const RmapFragment& oe = **fit;
+                    if (oe.start - bait.end > fs.max_l_brown_est) break;
+                    if (oe.id == bait.id) continue;  // self, not an other end
+
+                    const double oe_mid = static_cast<double>(oe.start + oe.end) / 2.0;
+                    const long dist_sign = static_cast<long>(half_up(oe_mid) - half_up(bait_mid));
+                    if (std::labs(dist_sign) >= fs.max_l_brown_est) continue;
+
+                    const auto oe_range = bins.region_bin_range(chrom, oe.start - 1, oe.end - 1);
+                    if (!oe_range.has_value()) continue;
+                    const auto [oe_col_first, oe_col_last] = *oe_range;
+
+                    double value = 0.0;
+                    for (std::int64_t row = bait_row_first; row <= bait_row_last; ++row) {
+                        for (std::int64_t col = oe_col_first; col <= oe_col_last; ++col) {
+                            value += matrix.matrix().at(row, col);
+                        }
+                    }
+                    if (value == 0.0) continue;  // no observed contact, no chinput row
+
+                    n_sum[{bait.id, oe.id}] += value;
+                    other_end_len[oe.id] = oe.end - oe.start;
+                    dist_sign_of[{bait.id, oe.id}] = dist_sign;
+                }
+            }
+        }
+    }
+
+    std::vector<ChinputRecord> out;
+    out.reserve(n_sum.size());
+    for (const auto& [key, n] : n_sum) {
+        ChinputRecord r;
+        r.bait_id = key.first;
+        r.other_end_id = key.second;
+        r.N = n;
+        r.other_end_len = other_end_len.at(key.second);
+        r.has_dist_sign = true;
+        r.dist_sign = dist_sign_of.at(key);
         out.push_back(std::move(r));
     }
     return out;

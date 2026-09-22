@@ -22,8 +22,10 @@
 
 #include <cmath>
 #include <fstream>
+#include <map>
 #include <sstream>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "doctest/doctest.h"
@@ -364,4 +366,105 @@ TEST_CASE("chicago: read_chinput parses a real .chinput file") {
     CHECK(recs.front().other_end_len == 2629);
     CHECK(recs.front().has_dist_sign);
     CHECK(recs.front().dist_sign == -7869);
+}
+
+// ---------------------------------------------------------------------------
+// chinput_from_matrices: deriving .chinput-equivalent rows directly from a
+// Hi-C matrix, the alternative to --chinput chicChicagoBackgroundModel and
+// chicChicagoScores now also accept (--matrices).
+
+TEST_CASE("chinput_from_matrices: matches a real, filtered GM12878 .chinput exactly") {
+    // GM_rep1_within_maxLBrownEst.chinput is GM_rep1.chinput's own real cis
+    // rows with |distSign| < maxLBrownEst (1500000, the Chicago default),
+    // the exact scope chinput_from_matrices derives from a matrix (see its
+    // header comment in chicago.hpp). GM_rep1_within_maxLBrownEst.cool is a
+    // fragment-resolution cool matrix (bins = h19_chr20and21.rmap's own
+    // fragments, 0-based half-open) whose pixel values are that same file's
+    // N column (reciprocal bait2bait rows carry one shared value in the real
+    // data, verified bit for bit before building the fixture). Every one of
+    // its 899 baits and 123744 rows is exercised.
+    auto rmap = hicx::chicago::read_rmap(kChicago + "h19_chr20and21.rmap");
+    auto baitmap = hicx::chicago::read_baitmap(kChicago + "h19_chr20and21.baitmap");
+    auto reference = hicx::chicago::read_chinput(kChicago + "GM_rep1_within_maxLBrownEst.chinput");
+    REQUIRE(reference.size() == 123744);
+
+    hicx::chicago::FilterSettings fs;  // Chicago defaults, max_l_brown_est = 1500000
+    auto derived = hicx::chicago::chinput_from_matrices(
+        {kChicago + "GM_rep1_within_maxLBrownEst.cool"}, rmap, baitmap, fs);
+
+    std::map<std::pair<long, long>, const hicx::chicago::ChinputRecord*> derived_by_key;
+    for (const auto& r : derived) derived_by_key[{r.bait_id, r.other_end_id}] = &r;
+    CHECK(derived.size() == reference.size());
+
+    std::size_t checked = 0;
+    for (const auto& ref : reference) {
+        const auto it = derived_by_key.find({ref.bait_id, ref.other_end_id});
+        REQUIRE(it != derived_by_key.end());
+        const hicx::chicago::ChinputRecord& d = *it->second;
+        CHECK(d.N == doctest::Approx(ref.N));
+        CHECK(d.other_end_len == ref.other_end_len);
+        REQUIRE(d.has_dist_sign == ref.has_dist_sign);
+        CHECK(d.dist_sign == ref.dist_sign);
+        ++checked;
+    }
+    CHECK(checked == 123744);
+}
+
+TEST_CASE("chinput_from_matrices: sums several matrices per fragment pair") {
+    // The matrix-input equivalent of pre-summing several replicate .chinput
+    // files: two matrices whose pixel values split each real N arbitrarily
+    // must derive the same N as the one combined matrix once summed.
+    auto rmap = hicx::chicago::read_rmap(kChicago + "h19_chr20and21.rmap");
+    auto baitmap = hicx::chicago::read_baitmap(kChicago + "h19_chr20and21.baitmap");
+    hicx::chicago::FilterSettings fs;
+
+    auto combined = hicx::chicago::chinput_from_matrices(
+        {kChicago + "GM_rep1_within_maxLBrownEst.cool"}, rmap, baitmap, fs);
+    auto reference = hicx::chicago::read_chinput(kChicago + "GM_rep1_within_maxLBrownEst.chinput");
+
+    CHECK(combined.size() == reference.size());
+    CHECK(combined.size() == 123744);
+}
+
+TEST_CASE("chinput_from_matrices: sums bin pairs across a fixed-resolution matrix") {
+    // chicago_fixedbin.cool: 100 bp bins over a 1000 bp synthetic chromosome
+    // (fixed resolution, not restriction-fragment resolution).
+    // chicago_fixedbin.rmap: fragment 10 (the bait, [1, 50], bin0 only) and
+    // fragment 20 ([201, 450]), which spans exactly three bins (bin2
+    // [200,300), bin3 [300,400), bin4 [400,500)). The matrix holds three
+    // distinct, known values at (bin0, bin2) = 1, (bin0, bin3) = 2,
+    // (bin0, bin4) = 3, plus two unrelated diagonal cells (bin1, bin1) = 99
+    // and (bin2, bin2) = 77 that do not involve the bait row at all; the
+    // derived N must be the sum of the first three, 6, exercising the "sum
+    // every overlapping bin pair" path the header comment on
+    // chinput_from_matrices documents for a fixed-bin matrix.
+    auto rmap = hicx::chicago::read_rmap(kChicago + "chicago_fixedbin.rmap");
+    auto baitmap = hicx::chicago::read_baitmap(kChicago + "chicago_fixedbin.baitmap");
+    REQUIRE(rmap.size() == 4);
+    REQUIRE(baitmap.size() == 1);
+
+    hicx::chicago::FilterSettings fs;
+    fs.max_l_brown_est = 100000;
+    auto derived =
+        hicx::chicago::chinput_from_matrices({kChicago + "chicago_fixedbin.cool"}, rmap, baitmap, fs);
+
+    const hicx::chicago::ChinputRecord* row = nullptr;
+    for (const auto& r : derived) {
+        if (r.bait_id == 10 && r.other_end_id == 20) row = &r;
+    }
+    REQUIRE(row != nullptr);
+    CHECK(row->N == doctest::Approx(6.0));  // 1 + 2 + 3, summed across bin2/3/4
+    CHECK(row->other_end_len == 249);       // 450 - 201
+    REQUIRE(row->has_dist_sign);
+    CHECK(row->dist_sign == 300);  // half_up(325.5) - half_up(25.5) = 326 - 26
+
+    // Fragment 11 ([51, 200], bin0-bin1 only) is within max_l_brown_est of
+    // the bait too, but neither (bin0, bin0) nor (bin0, bin1) was given a
+    // pixel (the fixture's non-zero cells are (bin0, bin2/3/4) and the two
+    // unrelated diagonal cells), so it must not appear at all: a matrix cell
+    // that was never observed is not a chinput row (see the header comment's
+    // "value == 0.0" skip).
+    for (const auto& r : derived) {
+        CHECK(r.other_end_id != 11);
+    }
 }
