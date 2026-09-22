@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <charconv>
+#include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <fstream>
@@ -496,16 +497,23 @@ hicx::MatrixData matrix_from_chinput(const std::string& chinput_path, const std:
         bin_of_id[f.id] = bin;
     }
 
-    // A bait2bait pair's interaction is listed once in EACH bait's own
+    // A bait2bait pair's interaction can be listed once in EACH bait's own
     // .chinput row (from bait A's perspective, otherEndID = B, and from bait
-    // B's perspective, otherEndID = A), both rows carrying the same N (the
-    // same underlying observed reciprocal count, not two independent
-    // observations to add together: verified bit for bit in the real data
-    // chinput_from_matrices' own test fixture was built from). Canonicalising
-    // both to the same (min bin, max bin) cell and summing would double it,
-    // so pairs are deduplicated by that canonical cell first (last value
-    // wins; a genuinely differing duplicate could only mean mismatched input,
-    // not something to silently add up).
+    // B's perspective, otherEndID = A). Whether the two carry the same N
+    // (a single capture experiment reporting the same underlying count from
+    // both sides) or genuinely different, additive N (a reciprocal-capture
+    // design's two independent captures, real Javierre et al. 2016 data
+    // checked this session: distinct N *and* distinct otherEndLen on the two
+    // rows) depends on how the .chinput file was produced and cannot be told
+    // apart from the file's own contents; there is no single rule that is
+    // correct for both. Summing both directions is the safer default for a
+    // real matrix cell (a real observed-contact total no more mismatched
+    // than the matrix that will be read back through chinput_from_matrices
+    // needs it to be), so every row canonicalised to the same (min bin, max
+    // bin) cell is added together here, matching an ordinary Hi-C matrix's
+    // own semantics and CsrMatrix::from_coo's own duplicate-coordinate
+    // behaviour.
+    //
     // A 64-bit combined key is exact and collision-free: both row and column
     // bin indices fit comfortably in 32 bits for every design this project
     // ships (same reasoning as fit_chicago_background's own pair_key).
@@ -527,7 +535,7 @@ hicx::MatrixData matrix_from_chinput(const std::string& chinput_path, const std:
         std::int64_t row = bait_it->second;
         std::int64_t col = oe_it->second;
         if (row > col) std::swap(row, col);
-        cell_value[pair_key(row, col)] = r.N;
+        cell_value[pair_key(row, col)] += r.N;
     }
 
     std::vector<std::int32_t> rows, cols;
@@ -606,6 +614,11 @@ std::vector<ChinputRecord> chinput_from_matrices(const std::vector<std::string>&
             if (matrix.cut_intervals().empty()) continue;
             const hicx::BinTable bins(matrix.cut_intervals());
 
+            const auto& indptr = matrix.matrix().indptr();
+            const auto& indices = matrix.matrix().indices();
+            const auto& mdata = matrix.matrix().data();
+            const std::int64_t n_rows = matrix.matrix().rows();
+
             for (const auto& bait : baitmap) {
                 if (bait.chrom != chrom) continue;
                 const auto bait_range = bins.region_bin_range(chrom, bait.start - 1, bait.end - 1);
@@ -626,6 +639,18 @@ std::vector<ChinputRecord> chinput_from_matrices(const std::vector<std::string>&
                     frags.begin(), frags.end(), lo_bound,
                     [](const RmapFragment* f, long value) { return f->end < value; });
 
+                // First pass: collect every candidate other-end fragment
+                // (with its distSign and bin range already resolved) and the
+                // combined bin-index window covering all of them plus the
+                // bait's own range, without touching the matrix yet.
+                struct Candidate {
+                    const RmapFragment* frag;
+                    long dist_sign;
+                    std::int64_t col_first, col_last;
+                };
+                std::vector<Candidate> candidates;
+                std::int64_t window_first = bait_row_first;
+                std::int64_t window_last = bait_row_last;
                 for (auto fit = lower; fit != frags.end(); ++fit) {
                     const RmapFragment& oe = **fit;
                     if (oe.start - bait.end > fs.max_l_brown_est) break;
@@ -639,18 +664,107 @@ std::vector<ChinputRecord> chinput_from_matrices(const std::vector<std::string>&
                     if (!oe_range.has_value()) continue;
                     const auto [oe_col_first, oe_col_last] = *oe_range;
 
-                    double value = 0.0;
-                    for (std::int64_t row = bait_row_first; row <= bait_row_last; ++row) {
-                        for (std::int64_t col = oe_col_first; col <= oe_col_last; ++col) {
-                            value += matrix.matrix().at(row, col);
+                    candidates.push_back({&oe, dist_sign, oe_col_first, oe_col_last});
+                    window_first = std::min(window_first, oe_col_first);
+                    window_last = std::max(window_last, oe_col_last);
+                }
+                if (candidates.empty()) continue;
+
+                // Second pass: scan the matrix's stored entries once for the
+                // combined [window_first, window_last] row range (one small,
+                // contiguous CSR slice, not one .at() lookup per candidate
+                // fragment) and build the bait's own interaction profile
+                // against every bin in that window. at(row, col) on an
+                // upper-triangle matrix looks in row=min(row,col)'s stored
+                // range for col=max(row,col) (sparse_matrix.cpp's own
+                // symmetric swap); scanning the window once and sorting each
+                // stored entry into the profile by whichever of its row/col
+                // is the bait's own range reproduces exactly that lookup for
+                // every candidate, without redoing it once per candidate.
+                // A real matrix row's stored entries span the whole
+                // chromosome, most of it nowhere near this window, so each
+                // row is binary-searched (its own stored columns are already
+                // sorted, from_coo's own guarantee) straight to the narrow
+                // sub-range that could matter here, rather than scanned in
+                // full: the whole [window_first, window_last] window when
+                // this row IS the bait's own row (it can hold the value for
+                // any candidate), or just the bait's own narrow column range
+                // otherwise (the only way a non-bait row contributes is if
+                // it stores the bait's own column, the upper-triangle-
+                // implied direction, symmetric_matrix.cpp's own at() swap).
+                // A growable vector, not a tree-based std::map: every stored
+                // entry found costs one push_back (amortised O(1), no
+                // per-entry node allocation), sorted and coalesced once at
+                // the end instead of one tree insertion per entry.
+                std::vector<std::pair<std::int64_t, double>> profile_entries;
+                const std::int64_t scan_first = std::max<std::int64_t>(0, window_first);
+                const std::int64_t scan_last = std::min<std::int64_t>(n_rows - 1, window_last);
+                const auto indices_begin = indices.begin();
+                for (std::int64_t row = scan_first; row <= scan_last; ++row) {
+                    const std::size_t row_begin = static_cast<std::size_t>(indptr[static_cast<std::size_t>(row)]);
+                    const std::size_t row_end =
+                        static_cast<std::size_t>(indptr[static_cast<std::size_t>(row) + 1]);
+                    if (row_begin == row_end) continue;
+                    const bool row_is_bait = row >= bait_row_first && row <= bait_row_last;
+                    const std::int32_t lo = static_cast<std::int32_t>(row_is_bait ? window_first : bait_row_first);
+                    const std::int32_t hi = static_cast<std::int32_t>(row_is_bait ? window_last : bait_row_last);
+                    const auto range_begin = indices_begin + static_cast<std::ptrdiff_t>(row_begin);
+                    const auto range_end = indices_begin + static_cast<std::ptrdiff_t>(row_end);
+                    auto k_it = std::lower_bound(range_begin, range_end, lo);
+                    for (; k_it != range_end && *k_it <= hi; ++k_it) {
+                        const std::size_t k = static_cast<std::size_t>(k_it - indices_begin);
+                        const double value = mdata[k];
+                        if (value == 0.0) continue;
+                        if (row_is_bait) {
+                            profile_entries.emplace_back(static_cast<std::int64_t>(*k_it), value);
+                        } else {
+                            profile_entries.emplace_back(row, value);
                         }
+                    }
+                }
+                if (profile_entries.empty()) continue;
+                std::sort(profile_entries.begin(), profile_entries.end());
+                // Coalesce duplicate columns (a bait's own multi-bin block
+                // contributing to the same neighbour from more than one of
+                // its own rows is the only realistic way this happens).
+                std::vector<std::pair<std::int64_t, double>> profile;
+                profile.reserve(profile_entries.size());
+                for (auto& e : profile_entries) {
+                    if (!profile.empty() && profile.back().first == e.first) {
+                        profile.back().second += e.second;
+                    } else {
+                        profile.push_back(e);
+                    }
+                }
+
+                // Third pass: sum the profile over each candidate's own bin
+                // range, the same total a per-cell .at() sum over the
+                // bait's rows x fragment's columns would have given, just
+                // read from the profile instead of re-scanning the matrix.
+                // candidates and profile are both sorted by column, and a
+                // candidate's own col_first only ever increases as
+                // candidates are visited in order (frags was sorted by
+                // start), so a single cursor walked forward across
+                // candidates amortises to one pass over profile overall
+                // instead of a per-candidate binary search; it is only ever
+                // advanced past entries strictly before the *current*
+                // candidate's own window, which is safe even when two
+                // candidates' windows overlap (a coarser-than-fragment fixed
+                // bin matrix), since neither candidate needs an entry
+                // earlier than its own col_first.
+                std::size_t p = 0;
+                for (const auto& c : candidates) {
+                    while (p < profile.size() && profile[p].first < c.col_first) ++p;
+                    double value = 0.0;
+                    for (std::size_t q = p; q < profile.size() && profile[q].first <= c.col_last; ++q) {
+                        value += profile[q].second;
                     }
                     if (value == 0.0) continue;  // no observed contact, no chinput row
 
-                    PairAgg& a = pairs[pair_key(bait.id, oe.id)];
+                    PairAgg& a = pairs[pair_key(bait.id, c.frag->id)];
                     a.n += value;
-                    a.dist_sign = dist_sign;
-                    other_end_len[oe.id] = oe.end - oe.start;
+                    a.dist_sign = c.dist_sign;
+                    other_end_len[c.frag->id] = c.frag->end - c.frag->start;
                 }
             }
         }
