@@ -114,7 +114,7 @@ struct ChinputRecord {
 
 [[nodiscard]] std::vector<RmapFragment> read_rmap(const std::string& path);
 [[nodiscard]] std::vector<BaitmapFragment> read_baitmap(const std::string& path);
-[[nodiscard]] std::vector<ChinputRecord> read_chinput(const std::string& path);
+[[nodiscard]] std::vector<ChinputRecord> read_chinput(const std::string& path, int threads = 1);
 
 // eta.bar (.getEtaBar in R): the genome-wide average of exp(log_weight) over
 // every possible bait-fragment pair up to the chromosome ends, weighted the
@@ -211,7 +211,7 @@ struct ChiInteraction {
 // bait2bait.
 [[nodiscard]] std::vector<ChiInteraction> read_sample(const std::vector<ChinputRecord>& raw,
                                                         const std::vector<BaitmapFragment>& baitmap,
-                                                        const FilterSettings& fs);
+                                                        const FilterSettings& fs, int threads = 1);
 
 // Derives ChinputRecord rows directly from a Hi-C contact matrix (cool, h5 or
 // .hic, through hicx::ToolMatrix::load's genuinely partial, chromosome-scoped
@@ -279,7 +279,7 @@ struct TlbResult {
 };
 [[nodiscard]] TlbResult add_tlb(const std::vector<ChiInteraction>& x, const FilterSettings& fs,
                                  double tlb_filter_top_percent, long tlb_min_prox_oe_per_bin,
-                                 long tlb_min_prox_b2b_per_bin);
+                                 long tlb_min_prox_b2b_per_bin, int threads = 1);
 
 // estimateTechnicalNoise: bins baits by their observed trans-interaction
 // count (tblb, separate from the other-end tlb pools above) and computes the
@@ -293,7 +293,7 @@ struct TechnicalNoiseResult {
 [[nodiscard]] TechnicalNoiseResult estimate_technical_noise(
     const std::vector<ChiInteraction>& x, const TlbResult& tlb,
     const std::vector<RmapFragment>& rmap, const std::vector<BaitmapFragment>& baitmap,
-    long min_baits_per_bin);
+    long min_baits_per_bin, int threads = 1);
 
 // normaliseFragmentSets' non-shrunken path (shrink = FALSE), specialised to
 // the bait side: for every baitID, s_j = median over distance bins of
@@ -307,7 +307,8 @@ struct BaitFactors {
 [[nodiscard]] BaitFactors normalise_baits(const std::vector<ChiInteraction>& x,
                                            const std::vector<RmapFragment>& rmap,
                                            const std::vector<BaitmapFragment>& baitmap,
-                                           const std::string& npb_path, const FilterSettings& fs);
+                                           const std::string& npb_path, const FilterSettings& fs,
+                                           int threads = 1);
 
 // normaliseFragmentSets' non-shrunken path, other-end side: for every tlb
 // pool, s_i = median over distance bins of (binwise sum of N / total
@@ -319,7 +320,7 @@ struct BaitFactors {
 [[nodiscard]] std::unordered_map<int, double> normalise_other_ends(
     const std::vector<ChiInteraction>& x, const TlbResult& tlb,
     const std::unordered_map<long, double>& bait_s_j, const std::string& nbpb_path,
-    const FilterSettings& fs);
+    const FilterSettings& fs, int threads = 1);
 
 // A proximal (baitID, otherEndID) pair from the precomputed .poe design
 // file: every pair within max_l_brown_est of each other, after removeb2b
