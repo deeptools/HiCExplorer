@@ -15,6 +15,8 @@
 #define HICX_HIC_ADAPTER_HPP
 
 #include <cstdint>
+#include <map>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -63,6 +65,84 @@ struct HicWriteOptions {
 void write_hic(const std::string& path, const std::vector<const MatrixData*>& matrices,
                const std::vector<std::int64_t>& extra_resolutions,
                const HicWriteOptions& options);
+
+// ----------------------------------------------------------- generic loading
+//
+// hicmatrix.HiCMatrix.__init__ (hicmatrix.py:47-51) has never known about
+// .hic; every matrix-reading tool in v4 gains it here, through ToolMatrix,
+// with a resolution and normalisation selector modelled on the mcool
+// convention the tools already use ("file.mcool::/resolutions/10000",
+// hicConvertFormat --help). The .hic selector nests the same way:
+//
+//   file.hic                                        finest resolution, raw counts
+//   file.hic::/resolutions/10000                     10000 bp, raw counts
+//   file.hic::/resolutions/10000/normalizations/KR    10000 bp, KR applied
+//   file.hic::/normalizations/KR                     finest resolution, KR applied
+//
+// "raw counts" and "finest resolution" are hic2cool_convert's own defaults
+// (resolution 0 means every resolution, and hicConvertFormat's own default
+// --correction_name "weight" names a column no hic2cool cool file has, so by
+// default nothing gets applied); the selector follows them rather than
+// choosing new defaults independently.
+
+// The literal bytes "HIC" hicfilecpp's reader itself requires at the start of
+// a file (src/reader.cpp: "Hi-C magic string is missing"). Cheap enough to
+// call before deciding a file's format, and preferred over the ".hic"
+// extension where the two disagree. False when the file cannot be opened or
+// is shorter than 3 bytes.
+[[nodiscard]] bool has_hic_signature(const std::string& path);
+
+// True when `path`, with any "::" selector suffix stripped, is a .hic file:
+// its content signature first, the ".hic" extension as a fallback.
+[[nodiscard]] bool is_hic_path(const std::string& path);
+
+// One parsed selector.
+struct HicUri {
+    std::string path;
+    std::optional<std::int64_t> resolution;
+    std::optional<std::string> normalization;
+};
+
+// Parses the selector documented above. Throws std::runtime_error on a
+// suffix that is not one of the four forms.
+[[nodiscard]] HicUri parse_hic_uri(const std::string& uri);
+
+// What ToolMatrix::load needs from a .hic source, matching hicx::CoolLoadResult
+// closely enough that the caller can treat it the same way.
+struct HicLoadResult {
+    MatrixData data;
+    std::optional<char> correction_operator;
+    std::map<std::string, std::string> metadata;
+};
+
+// hicmatrix.lib.Cool.load for a .hic source, in the same two shapes
+// CoolLoadOptions.chrom_name gives the cool loader (cool_adapter.hpp):
+//
+//  * `chrom_name` empty: the whole file, at the selected resolution and
+//    normalisation. Goes through hic2cool_convert (the same, already
+//    validated conversion hicConvertFormat runs) into a temporary single
+//    resolution cool file, removed before this returns, and then
+//    hicx::read_cool on it; not a reimplementation of .hic parsing.
+//  * `chrom_name` a bare chromosome name or a "chrom:start-end" region
+//    (coolercpp::parse_region_string, the same parser cool's own
+//    CoolFile::extent uses, so both formats accept the same region syntax):
+//    only that block is read, through hicfilecpp's MatrixZoomData::getRecords,
+//    which itself decodes only the blocks the requested genomic range's block
+//    index selects (hicfilecpp/src/reader.cpp), not the whole chromosome or
+//    file. This is the .hic side of cpp/PLAN.md's tier 10 note that a matrix
+//    is never loaded whole for an on screen region, and it is what lets
+//    hicPlotMatrix's existing "a cool input without --region2 ... is loaded
+//    as the region or chromosome only" fast path (hicPlotMatrix.cpp's header
+//    comment) carry over to .hic without loading the file hic2cool_convert
+//    would have to touch in full.
+//
+// Either way the requested normalisation, when not "NONE", is applied as
+// hic2cool's own tables always are: divisively (observed / normI / normJ),
+// matching what hicConvertFormat's --correction_division names explicitly
+// rather than leaving it to the column-name heuristic cool files use for
+// their own 'weight' column.
+[[nodiscard]] HicLoadResult read_hic(const std::string& uri,
+                                     const std::optional<std::string>& chrom_name = std::nullopt);
 
 }  // namespace hicx
 

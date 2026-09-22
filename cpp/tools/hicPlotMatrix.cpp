@@ -56,6 +56,7 @@
 #include "hicx/argparse.hpp"
 #include "hicx/bins.hpp"
 #include "hicx/cool_adapter.hpp"
+#include "hicx/hic_adapter.hpp"
 #include "hicx/plot_bridge.hpp"
 #include "hicx/resource_usage.hpp"
 #include "hicx/sparse_matrix.hpp"
@@ -730,6 +731,13 @@ int main(int argc, char** argv) {
                        stderr);
         }
         const bool is_cooler = hicx::check_cooler(matrix_path);
+        // v4's own addition: a .hic source is block indexed the same way a
+        // cooler is (hic_adapter.hpp read_hic), so the single-region fast path
+        // below and getRegion's cool style bin overlap test apply to it too,
+        // not only to check_cooler's cool/mcool. hicx::CoolFile itself is
+        // never opened in this file, so nothing here needs the file to
+        // actually be a cooler.
+        const bool is_partial_source = is_cooler || hicx::is_hic_path(matrix_path);
         const bool open_cooler_chromosome_order =
             !(chromosome_order.has_value() && chromosome_order->size() > 1);
         bool chromosome_order_as_bytes = false;
@@ -759,7 +767,7 @@ int main(int argc, char** argv) {
             }
         };
 
-        if (is_cooler && !(region2.has_value() && !region2->empty()) && open_cooler_chromosome_order) {
+        if (is_partial_source && !(region2.has_value() && !region2->empty()) && open_cooler_chromosome_order) {
             std::optional<std::string> retrieve;
             if (region.has_value() && !region->empty()) {
                 retrieve = *region;
@@ -772,7 +780,7 @@ int main(int argc, char** argv) {
             load(retrieve);
             clear_masked();
             if (region.has_value() && !region->empty()) {
-                selection = get_region(*region, region2, model, is_cooler);
+                selection = get_region(*region, region2, model, is_partial_source);
                 xlabel = selection->region.chrom;
                 ylabel = selection->region2.has_value() ? selection->region2->chrom
                                                         : selection->region.chrom;
@@ -810,7 +818,7 @@ int main(int argc, char** argv) {
                                 "has no identity");
             }
             if (region.has_value() && !region->empty()) {
-                selection = get_region(*region, region2, model, is_cooler);
+                selection = get_region(*region, region2, model, is_partial_source);
                 xlabel = selection->region.chrom;
                 ylabel = selection->region2.has_value() ? selection->region2->chrom
                                                         : selection->region.chrom;
@@ -918,7 +926,7 @@ int main(int argc, char** argv) {
                         value += 1.0;
                     }
                 }
-                const Selection chromosome = get_region(name, region2, model, is_cooler);
+                const Selection chromosome = get_region(name, region2, model, is_partial_source);
                 const std::string path = matrix_file(number++);
                 plot::write_npy_float64(path, values, static_cast<std::int64_t>(bins.size()),
                                         static_cast<std::int64_t>(bins.size()));

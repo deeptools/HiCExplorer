@@ -3,6 +3,7 @@
 #include <utility>
 
 #include "hicx/h5_file.hpp"
+#include "hicx/hic_adapter.hpp"
 #include "hicx/matrix_ops.hpp"
 
 namespace hicx {
@@ -22,7 +23,21 @@ ToolMatrix ToolMatrix::load(const std::string& path,
 
     // hicmatrix.HiCMatrix.__init__:47-51 picks the format from the file name
     // suffix alone: '.h5' is the HiCExplorer format, everything else is cool.
-    if (ends_with(path, ".h5")) {
+    // v4 adds a third branch Python never had: a .hic source, detected by
+    // content signature first and by extension as a fallback (hic_adapter.hpp
+    // is_hic_path), read through hic_adapter's read_hic with the resolution
+    // and normalisation selector documented there. `chromosome`, when given,
+    // reaches read_hic exactly as it reaches CoolLoadOptions.chrom_name below:
+    // a bare chromosome name or a "chrom:start-end" region loads only that
+    // block, through hicfilecpp's block index, not the whole file (see
+    // hic_adapter.hpp read_hic and hicPlotMatrix.cpp's fast path).
+    if (is_hic_path(path)) {
+        HicLoadResult loaded = read_hic(path, chromosome);
+        result.data_ = std::move(loaded.data);
+        result.cool_options_.correction_operator = loaded.correction_operator;
+        result.cool_options_.hic_metadata = std::move(loaded.metadata);
+        result.cool_options_.has_hic_metadata = true;
+    } else if (ends_with(path, ".h5")) {
         result.data_ = read_hicexplorer_h5(path);
         result.input_is_h5_ = true;
     } else {

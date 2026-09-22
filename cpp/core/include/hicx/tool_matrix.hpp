@@ -38,9 +38,10 @@ namespace hicx {
 class ToolMatrix {
   public:
     // hm.hiCMatrix(path). `chromosome`, when given, is hiCMatrix's
-    // pChrnameList with a single entry and only reaches the cool loader, which
-    // is the only format that implements it; an h5 path ignores it exactly as
-    // hicmatrix does.
+    // pChrnameList with a single entry and reaches the cool loader and, v4's
+    // own addition, the .hic loader (hic_adapter.hpp read_hic): both read only
+    // that chromosome's, or "chrom:start-end" region's, block rather than the
+    // whole file. An h5 path ignores it exactly as hicmatrix does.
     static ToolMatrix load(const std::string& path,
                            const std::optional<std::string>& chromosome = std::nullopt);
 

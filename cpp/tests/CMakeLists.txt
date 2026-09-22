@@ -22,6 +22,7 @@ add_executable(hicx_tests
     test_matrix_ops.cpp
     test_json_lite.cpp
     test_readers.cpp
+    test_hic_adapter.cpp
     test_reduce_matrix.cpp
     test_adjust_ops.cpp
     test_stats_ops.cpp

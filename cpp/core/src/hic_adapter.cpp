@@ -6,14 +6,19 @@
 #include <cstdio>
 #include <ctime>
 #include <filesystem>
+#include <fstream>
 #include <functional>
 #include <limits>
 #include <map>
 #include <set>
+#include <sstream>
+#include <thread>
 #include <utility>
 
+#include <coolercpp/region.hpp>
 #include <hicfilecpp/hicfilecpp.hpp>
 
+#include "hicx/cool_adapter.hpp"
 #include "hicx/hdf5_util.hpp"
 
 namespace hicx {
@@ -692,6 +697,296 @@ void write_hic(const std::string& path, const std::vector<const MatrixData*>& ma
     }
     MatrixSource source(std::move(by_resolution), base);
     hicfilecpp::writeHicFile(path, write, source);
+}
+
+// --------------------------------------------------------- generic loading
+
+namespace {
+
+std::vector<std::string> split_slash(const std::string& text) {
+    std::vector<std::string> parts;
+    std::string current;
+    for (const char c : text) {
+        if (c == '/') {
+            if (!current.empty()) {
+                parts.push_back(current);
+                current.clear();
+            }
+        } else {
+            current += c;
+        }
+    }
+    if (!current.empty()) {
+        parts.push_back(current);
+    }
+    return parts;
+}
+
+// Removes a file when it goes out of scope, the same pattern
+// hicConvertFormat.cpp uses for its own hic2cool_convert temporaries.
+struct TemporaryFile {
+    std::string path;
+    ~TemporaryFile() {
+        std::error_code ignored;
+        std::filesystem::remove(path, ignored);
+    }
+};
+
+std::string unique_temp_cool_path() {
+    const auto now = std::chrono::steady_clock::now().time_since_epoch().count();
+    std::ostringstream name;
+    name << "hicx_hic_load_" << std::this_thread::get_id() << "_" << now << ".cool";
+    return (std::filesystem::temp_directory_path() / name.str()).string();
+}
+
+}  // namespace
+
+bool has_hic_signature(const std::string& path) {
+    std::ifstream file(path, std::ios::binary);
+    if (!file) {
+        return false;
+    }
+    char magic[3] = {0, 0, 0};
+    file.read(magic, 3);
+    return file.gcount() == 3 && magic[0] == 'H' && magic[1] == 'I' && magic[2] == 'C';
+}
+
+bool is_hic_path(const std::string& path) {
+    const std::string base = path.substr(0, path.find("::"));
+    if (has_hic_signature(base)) {
+        return true;
+    }
+    return ends_with(base, ".hic");
+}
+
+HicUri parse_hic_uri(const std::string& uri) {
+    HicUri parsed;
+    const std::size_t separator = uri.find("::");
+    parsed.path = uri.substr(0, separator);
+    if (separator == std::string::npos) {
+        return parsed;
+    }
+    const std::vector<std::string> tokens = split_slash(uri.substr(separator + 2));
+    const auto syntax_error = [&]() -> HicUri {
+        throw std::runtime_error(
+            "invalid .hic selector '" + uri +
+            "'; expected 'file.hic', 'file.hic::/resolutions/<N>', "
+            "'file.hic::/normalizations/<NAME>' or "
+            "'file.hic::/resolutions/<N>/normalizations/<NAME>'");
+    };
+    if (tokens.size() == 2 && tokens[0] == "resolutions") {
+        parsed.resolution = std::stoll(tokens[1]);
+    } else if (tokens.size() == 2 && tokens[0] == "normalizations") {
+        parsed.normalization = tokens[1];
+    } else if (tokens.size() == 4 && tokens[0] == "resolutions" && tokens[2] == "normalizations") {
+        parsed.resolution = std::stoll(tokens[1]);
+        parsed.normalization = tokens[3];
+    } else {
+        return syntax_error();
+    }
+    return parsed;
+}
+
+namespace {
+
+std::int64_t resolve_resolution(const hicfilecpp::HiCFile& hic, const std::string& path,
+                                const std::optional<std::int64_t>& requested) {
+    const std::vector<std::int32_t> available = hic.getResolutions();
+    if (available.empty()) {
+        throw std::runtime_error(".hic file " + path + " has no resolutions");
+    }
+    if (requested.has_value()) {
+        if (std::find(available.begin(), available.end(), *requested) == available.end()) {
+            throw std::runtime_error("resolution " + std::to_string(*requested) +
+                                     " is not one of " + path + "'s: " + python_list(available));
+        }
+        return *requested;
+    }
+    // hic2cool_convert's own resolution 0 ("every resolution") is not useful
+    // for a single matrix load; the finest one is what a caller giving no
+    // selector expects, matching cpp/PLAN.md's stated default.
+    return *std::min_element(available.begin(), available.end());
+}
+
+std::string resolve_normalization(const hicfilecpp::HiCFile& hic, const std::string& path,
+                                  const std::optional<std::string>& requested) {
+    const std::string normalization = requested.value_or("NONE");
+    if (normalization == "NONE") {
+        return normalization;
+    }
+    const std::vector<std::string> types = hic.getNormalizationTypes();
+    if (std::find(types.begin(), types.end(), normalization) == types.end()) {
+        std::string list = "[";
+        for (std::size_t i = 0; i < types.size(); ++i) {
+            list += (i ? ", " : "") + types[i];
+        }
+        list += "]";
+        throw std::runtime_error("normalization " + normalization + " is not one of " + path +
+                                 "'s: " + list);
+    }
+    return normalization;
+}
+
+// The whole file, through hic2cool_convert (already validated) into a
+// temporary cool file and hicx::read_cool. Used when no chrom_name narrows
+// the load.
+HicLoadResult read_hic_whole(const std::string& path, std::int64_t resolution,
+                             const std::string& normalization) {
+    TemporaryFile temporary{unique_temp_cool_path()};
+    hic2cool_convert(path, temporary.path, resolution);
+
+    CoolLoadOptions options;
+    options.apply_correction = normalization != "NONE";
+    options.correction_factor_table = normalization;
+    if (normalization != "NONE") {
+        // Every hic2cool normalization table (KR, VC, VC_SQRT, SCALE, and the
+        // GW_/INTER_ variants hic2cool also writes) is a Juicer normalization
+        // vector: divisive, observed / normI / normJ. cool's own auto
+        // detection (cool_adapter.cpp) only recognises KR, VC and SQRT_VC by
+        // column name, so it is set explicitly here instead of relied on.
+        options.correction_operator = '/';
+    }
+    CoolLoadResult loaded = read_cool(temporary.path, options);
+
+    HicLoadResult result;
+    result.data = std::move(loaded.data);
+    result.correction_operator = loaded.correction_operator;
+    result.metadata = std::move(loaded.metadata);
+    return result;
+}
+
+// cool.py's own NaN bin heuristic (cool_adapter.cpp read_cool, "the bins that
+// hold no interaction at all"), reproduced on a matrix built directly from
+// .hic records instead of a cooler's pixel table.
+std::vector<std::int64_t> nan_bins_of(const CsrMatrix& matrix) {
+    std::vector<std::int64_t> nan_bins;
+    const std::int64_t shape = std::min(matrix.rows(), matrix.cols());
+    std::vector<char> used_as_column(static_cast<std::size_t>(shape), 0);
+    for (const std::int32_t column : matrix.indices()) {
+        if (column >= 0 && column < shape) {
+            used_as_column[static_cast<std::size_t>(column)] = 1;
+        }
+    }
+    for (std::int64_t bin = 0; bin < shape; ++bin) {
+        if (used_as_column[static_cast<std::size_t>(bin)] != 0) {
+            continue;
+        }
+        const bool empty_row = matrix.indptr()[static_cast<std::size_t>(bin)] ==
+                               matrix.indptr()[static_cast<std::size_t>(bin) + 1];
+        if (empty_row) {
+            nan_bins.push_back(bin);
+        }
+    }
+    return nan_bins;
+}
+
+// One chromosome, or one genomic sub-range of it, through hicfilecpp's block
+// indexed MatrixZoomData::getRecords, which decodes only the blocks the
+// query's genomic range selects (hicfilecpp/src/reader.cpp: z.blockNumbers(region)
+// picks the block numbers before anything is decoded). Neither the whole
+// file nor the whole chromosome is read when the region is narrower than it;
+// this is the .hic side of cool's existing CoolFile::extent + read_block fast
+// path (cool_adapter.cpp read_cool, options.chrom_name).
+HicLoadResult read_hic_region(const hicfilecpp::HiCFile& hic, const std::string& path,
+                              std::int64_t resolution, const std::string& normalization,
+                              const std::string& chrom_name) {
+    const coolercpp::GenomicRange range = coolercpp::parse_region_string(chrom_name);
+    const std::vector<hicfilecpp::Chromosome> chromosomes = hic.getChromosomes();
+    const auto found = std::find_if(chromosomes.begin(), chromosomes.end(),
+                                    [&](const hicfilecpp::Chromosome& c) { return c.name == range.chrom; });
+    if (found == chromosomes.end()) {
+        throw std::runtime_error("chromosome " + range.chrom + " is not one of " + path + "'s");
+    }
+    const std::int64_t length = found->length;
+    const std::int64_t start = std::max<std::int64_t>(0, range.start.value_or(0));
+    const std::int64_t end = std::min(length, range.end.value_or(length));
+    if (start >= end) {
+        throw std::runtime_error("region " + chrom_name + " of " + path + " is empty");
+    }
+
+    const std::int64_t nbins_chrom = (length + resolution - 1) / resolution;
+    const std::int64_t bin_first = start / resolution;
+    const std::int64_t bin_last = std::min(nbins_chrom, (end + resolution - 1) / resolution);
+    const std::int64_t nbins_local = bin_last - bin_first;
+    const std::int64_t gx0 = bin_first * resolution;
+    const std::int64_t gx1 = std::min(bin_last * resolution, length);
+
+    hicfilecpp::MatrixZoomData mzd =
+        hic.getMatrixZoomData(range.chrom, range.chrom, "observed", normalization, "BP", resolution);
+    if (!mzd.found()) {
+        throw std::runtime_error("no matrix for " + range.chrom + " x " + range.chrom + " in " + path +
+                                 ": " + mzd.message());
+    }
+    const std::vector<hicfilecpp::ContactRecord> records = mzd.getRecords(gx0, gx1, gx0, gx1);
+
+    // COO triplets, canonicalised to the upper triangle (row <= col) the way
+    // convert()'s MatrixSource assumes on write, so symmetrize_in_place (every
+    // ToolMatrix::load caller runs it) sees exactly what a cool block gives it.
+    std::vector<std::int32_t> row;
+    std::vector<std::int32_t> col;
+    std::vector<double> data;
+    row.reserve(records.size());
+    col.reserve(records.size());
+    data.reserve(records.size());
+    for (const hicfilecpp::ContactRecord& record : records) {
+        const std::int64_t x = (static_cast<std::int64_t>(record.binX) - gx0) / resolution;
+        const std::int64_t y = (static_cast<std::int64_t>(record.binY) - gx0) / resolution;
+        const std::int64_t r = std::min(x, y);
+        const std::int64_t c = std::max(x, y);
+        if (r < 0 || c >= nbins_local) {
+            continue;
+        }
+        row.push_back(static_cast<std::int32_t>(r));
+        col.push_back(static_cast<std::int32_t>(c));
+        data.push_back(static_cast<double>(record.counts));
+    }
+
+    HicLoadResult result;
+    result.data.matrix =
+        CsrMatrix::from_coo(nbins_local, nbins_local, row, col, std::move(data), "float64");
+
+    result.data.cut_intervals.reserve(static_cast<std::size_t>(nbins_local));
+    for (std::int64_t i = 0; i < nbins_local; ++i) {
+        CutInterval interval;
+        interval.chrom = range.chrom;
+        interval.start = (bin_first + i) * resolution;
+        interval.end = std::min((bin_first + i + 1) * resolution, length);
+        result.data.cut_intervals.push_back(std::move(interval));
+    }
+
+    if (normalization != "NONE") {
+        result.correction_operator = '/';
+        const std::optional<std::vector<double>> vector =
+            hic.readNormVector(normalization, found->index, "BP", static_cast<std::int32_t>(resolution));
+        std::vector<double> factors(static_cast<std::size_t>(nbins_local),
+                                    std::numeric_limits<double>::quiet_NaN());
+        if (vector.has_value()) {
+            for (std::int64_t i = 0; i < nbins_local; ++i) {
+                const auto source = static_cast<std::size_t>(bin_first + i);
+                if (source < vector->size()) {
+                    factors[static_cast<std::size_t>(i)] = (*vector)[source];
+                }
+            }
+        }
+        result.data.correction_factors = std::move(factors);
+    }
+
+    result.data.nan_bins = nan_bins_of(result.data.matrix);
+    return result;
+}
+
+}  // namespace
+
+HicLoadResult read_hic(const std::string& uri, const std::optional<std::string>& chrom_name) {
+    const HicUri parsed = parse_hic_uri(uri);
+    const hicfilecpp::HiCFile hic(parsed.path);
+    const std::int64_t resolution = resolve_resolution(hic, parsed.path, parsed.resolution);
+    const std::string normalization = resolve_normalization(hic, parsed.path, parsed.normalization);
+
+    if (chrom_name.has_value()) {
+        return read_hic_region(hic, parsed.path, resolution, normalization, *chrom_name);
+    }
+    return read_hic_whole(parsed.path, resolution, normalization);
 }
 
 }  // namespace hicx
