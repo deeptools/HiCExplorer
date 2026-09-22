@@ -54,8 +54,8 @@ const char* const kUsage =
     "                                  [--tlbMinProxOEPerBin TLBMINPROXOEPERBIN]\n"
     "                                  [--tlbMinProxB2BPerBin TLBMINPROXB2BPERBIN]\n"
     "                                  [--techNoiseMinBaitsPerBin TECHNOISEMINBAITSPERBIN]\n"
-    "                                  [--brownianNoiseSubset BROWNIANNOISESUBSET] [--help]\n"
-    "                                  [--version]\n";
+    "                                  [--brownianNoiseSubset BROWNIANNOISESUBSET] [--threads THREADS]\n"
+    "                                  [--help] [--version]\n";
 
 const char* const kHelp =
     "\n"
@@ -128,6 +128,12 @@ const char* const kHelp =
     "  --brownianNoiseSubset BROWNIANNOISESUBSET\n"
     "                        Reported only: the bait count above which R's own\n"
     "                        estimateBrownianComponent subsamples (Default: 1000).\n"
+    "  --threads THREADS     Number of threads for the dispersion fit's per-pair sums\n"
+    "                        over the .poe design (Default: 1). Only the reduction\n"
+    "                        order changes with thread count, not the converged\n"
+    "                        result: chunk sums are always added back in a fixed\n"
+    "                        order, so output does not depend on --threads beyond\n"
+    "                        ordinary floating-point rounding.\n"
     "  --help, -h            show this help message and exit\n"
     "  --version             show program's version number and exit\n";
 
@@ -191,6 +197,7 @@ int main(int argc, char** argv) {
         .type("int")
         .default_value(1000)
         .help("Bait count above which R subsamples (reported only).");
+    optional.add({"--threads"}).type("int").default_value(1).help("Number of threads.");
     optional.add({"--help", "-h"}).action(cli::Action::Help).help("show this help message and exit");
     optional.add({"--version"}).version(std::string("%(prog)s ") + hicx::kVersion);
 
@@ -216,7 +223,7 @@ int main(int argc, char** argv) {
             raw, rmap, baitmap, args.str("nperbin"), args.str("nbaitsperbin"), args.str("proxOE"), fs,
             args.integer("techNoiseMinBaitsPerBin"), args.real("tlbFilterTopPercent"),
             args.integer("tlbMinProxOEPerBin"), args.integer("tlbMinProxB2BPerBin"),
-            args.integer("brownianNoiseSubset"));
+            args.integer("brownianNoiseSubset"), args.integer("threads"));
 
         std::ofstream out(args.str("outFileName"), std::ios::binary);
         if (!out) {

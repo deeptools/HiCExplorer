@@ -338,7 +338,7 @@ struct ProxOePair {
 // free regression coefficients, so glm.nb's IRLS loop never changes Bmean
 // and this reduces to a single theta.ml(N, Bmean) call.
 [[nodiscard]] double estimate_dispersion_theta_ml(const std::vector<double>& N,
-                                                    const std::vector<double>& Bmean);
+                                                    const std::vector<double>& Bmean, int threads = 1);
 
 // s_j * s_i * eval_distance_function(fit, |dist|), i.e. estimateBMean; NaN
 // distSign (trans) maps to Bmean = 0, matching R's x[is.na(distSign), Bmean := 0].
@@ -372,7 +372,7 @@ struct BackgroundModel {
     const std::string& nbpb_path, const std::string& poe_path, const FilterSettings& fs,
     long tlb_min_baits_per_bin = 1000, double tlb_filter_top_percent = 0.01,
     long tlb_min_prox_oe_per_bin = 50000, long tlb_min_prox_b2b_per_bin = 2500,
-    long brownian_noise_subset = 1000);
+    long brownian_noise_subset = 1000, int threads = 1);
 
 }  // namespace hicx::chicago
 
