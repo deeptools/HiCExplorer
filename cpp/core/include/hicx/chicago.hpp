@@ -213,6 +213,43 @@ struct ChiInteraction {
                                                         const std::vector<BaitmapFragment>& baitmap,
                                                         const FilterSettings& fs);
 
+// Derives ChinputRecord rows directly from a Hi-C contact matrix (cool, h5 or
+// .hic, through hicx::ToolMatrix::load's genuinely partial, chromosome-scoped
+// path: one load per chromosome the .baitmap actually uses, never a
+// whole-genome load) instead of a .chinput file: for every bait fragment and
+// every .rmap fragment on the same chromosome within fs.max_l_brown_est of
+// it, the matrix's contact value between the two fragments' genomic spans
+// becomes N. Several matrix paths are summed per (baitID, otherEndID) pair,
+// the matrix-input equivalent of pre-summing several replicate .chinput
+// files before this pipeline sees them (see the note on chicChicagoBackground
+// Model's own --chinput cardinality).
+//
+// Coordinate convention: a .rmap fragment is CHiCAGO's own 1-based,
+// inclusive-of-both-ends span (contiguous fragments: the next fragment's
+// start is the previous fragment's end + 1). A Hi-C matrix's bin table is
+// 0-based, half-open, the convention every other coordinate this project
+// feeds to BinTable::region_bin_range already uses (reference point BED
+// files, --region strings). A fragment [start, end] is therefore queried as
+// the half-open region [start - 1, end), exactly the span
+// hicBuildMatrix --restrictionCutFile produces from a BED digest whose
+// 1-based .rmap is that same BED shifted by one. A matrix at a fixed bin
+// resolution (not restriction-fragment resolution) is handled the same way:
+// every bin overlapping [start - 1, end) contributes, and their values are
+// summed.
+//
+// Scope: only cis pairs within fs.max_l_brown_est are enumerated, matching
+// the distance bound the tool's own Brownian estimation already uses
+// (FilterSettings.max_l_brown_est; see read_sample's own proximal-only use
+// of it). Trans pairs and cis pairs beyond that bound are not derived from
+// the matrix: reproducing them would mean walking the whole genome for every
+// bait, which this tool's proximal design does not need. A run that also
+// needs trans-based technical-noise estimation from real reads still needs a
+// .chinput file for that (--chinput remains the only way to feed trans
+// counts in).
+[[nodiscard]] std::vector<ChinputRecord> chinput_from_matrices(
+    const std::vector<std::string>& matrix_paths, const std::vector<RmapFragment>& rmap,
+    const std::vector<BaitmapFragment>& baitmap, const FilterSettings& fs);
+
 // One (bait, other-end) fragment pool assignment, from Hmisc::cut2's default
 // quantile-binning algorithm (cuts missing, onlycuts = FALSE): group index
 // (1-based) per input element, replicating cut2's own y-vector semantics

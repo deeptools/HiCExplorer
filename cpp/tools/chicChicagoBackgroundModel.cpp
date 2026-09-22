@@ -43,7 +43,8 @@
 namespace {
 
 const char* const kUsage =
-    "usage: chicChicagoBackgroundModel --rmap RMAP --baitmap BAITMAP --chinput CHINPUT\n"
+    "usage: chicChicagoBackgroundModel --rmap RMAP --baitmap BAITMAP\n"
+    "                                  (--chinput CHINPUT | --matrices MATRICES [MATRICES ...])\n"
     "                                  --nperbin NPERBIN --nbaitsperbin NBAITSPERBIN\n"
     "                                  --proxOE PROXOE [--outFileName OUTFILENAME]\n"
     "                                  [--minFragLen MINFRAGLEN] [--maxFragLen MAXFRAGLEN]\n"
@@ -78,6 +79,20 @@ const char* const kHelp =
     "  --chinput CHINPUT     One CHiCAGO .chinput interaction count file. Several\n"
     "                        replicates must be pre-merged (N summed per bait/\n"
     "                        other-end pair) before this tool; it reads one file.\n"
+    "                        Mutually exclusive with --matrices; exactly one of\n"
+    "                        the two is required.\n"
+    "  --matrices MATRICES [MATRICES ...], -m MATRICES [MATRICES ...]\n"
+    "                        One or more Hi-C matrices (cool, h5 or .hic) to derive\n"
+    "                        the per (bait, other-end) fragment N counts from\n"
+    "                        directly, instead of a pre-built .chinput file. Several\n"
+    "                        matrices are summed per fragment pair, the matrix\n"
+    "                        equivalent of pre-merging several replicate .chinput\n"
+    "                        files. Only cis (bait, other-end) fragment pairs within\n"
+    "                        --maxLBrownEst of each other are derived; trans and\n"
+    "                        farther-cis counts, used elsewhere for technical-noise\n"
+    "                        estimation, are not available this way and still need\n"
+    "                        --chinput. Mutually exclusive with --chinput; exactly\n"
+    "                        one of the two is required.\n"
     "  --nperbin NPERBIN     CHiCAGO .npb NPerBin design table.\n"
     "  --nbaitsperbin NBAITSPERBIN\n"
     "                        CHiCAGO .nbpb NBaitsPerBin design table.\n"
@@ -127,7 +142,12 @@ int main(int argc, char** argv) {
     cli::ArgumentGroup& required = parser.group("Required arguments");
     required.add({"--rmap"}).required().input({"rmap", "txt"}).help("CHiCAGO .rmap file.");
     required.add({"--baitmap"}).required().input({"baitmap", "txt"}).help("CHiCAGO .baitmap file.");
-    required.add({"--chinput"}).required().input({"chinput", "txt"}).help("CHiCAGO .chinput file.");
+    cli::MutuallyExclusiveGroup& input_source = parser.mutually_exclusive(required, /*required=*/true);
+    input_source.add({"--chinput"}).input({"chinput", "txt"}).help("CHiCAGO .chinput file.");
+    input_source.add({"--matrices", "-m"})
+        .nargs("+")
+        .input({"cool", "h5", "hic"})
+        .help("Hi-C matrices to derive per-fragment-pair counts from directly.");
     required.add({"--nperbin"}).required().input({"npb", "txt"}).help("CHiCAGO .npb design table.");
     required.add({"--nbaitsperbin"})
         .required()
@@ -188,7 +208,9 @@ int main(int argc, char** argv) {
 
         auto rmap = read_rmap(args.str("rmap"));
         auto baitmap = read_baitmap(args.str("baitmap"));
-        auto raw = read_chinput(args.str("chinput"));
+        const std::vector<ChinputRecord> raw = args.given("chinput")
+            ? read_chinput(args.str("chinput"))
+            : chinput_from_matrices(args.strs("matrices"), rmap, baitmap, fs);
 
         const BackgroundModel model = fit_chicago_background(
             raw, rmap, baitmap, args.str("nperbin"), args.str("nbaitsperbin"), args.str("proxOE"), fs,
