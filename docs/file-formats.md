@@ -140,6 +140,22 @@ matrixFileHandlerOutput.set_matrix_variables(_matrix, cut_intervals, nan_bins,
 
 matrixFileHandlerOutput.save(args.outFileName, pSymmetric=True, pApplyCorrection=applyCorrection)
 ```
+### CHiCAGO formats
+
+The `chicChicago*` tools read the file formats of R Chicago. All files are tab separated and are
+described in the CHiCAGO documentation; the columns the tools rely on are listed here.
+
+| File | Columns |
+|---|---|
+| `.rmap` | chromosome, start, end, fragment ID (1-based coordinates). |
+| `.baitmap` | chromosome, start, end, fragment ID, bait annotation. |
+| `.chinput` | header line, then baitID, otherEndID, N, otherEndLen, distSign. Trans rows carry the literal `NA` in distSign. |
+| `.npb`, `.nbpb`, `.poe` | Design tables from `makeDesignFiles.py` of chicagoTools: NPerBin, NBaitsPerBin and ProxOE. |
+
+Background model files and score files are plain text tables written by `chicChicagoBackgroundModel` and
+`chicChicagoScores`. A `.chinput` file converts to a matrix with `hicConvertFormat --inputFormat chinput`;
+both directions of a reciprocal bait-to-bait pair are summed in the matrix.
+
 ### Capture Hi-C HDF containers
 
 The capture Hi-C data analysis creates for the scripts `chicViewpoint`, `chicSignificantInteractions`, `chicAggregateStatistic` and `chicDifferentialTest` individual HDF containers to store the processed data.

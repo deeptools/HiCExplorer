@@ -117,12 +117,17 @@ nav:
           - chicDifferentialTest: tools/chicDifferentialTest.md
           - chicPlotViewpoint: tools/chicPlotViewpoint.md
           - chicExportData: tools/chicExportData.md
+          - chicChicagoBackgroundModel: tools/chicChicagoBackgroundModel.md
+          - chicChicagoScores: tools/chicChicagoScores.md
+          - chicChicagoSignificantInteractions: tools/chicChicagoSignificantInteractions.md
+          - chicChicagoPlotViewpoint: tools/chicChicagoPlotViewpoint.md
   - File formats: file-formats.md
   - Example usage:
       - Overview: example-usage.md
       - mES-HiC analysis: example-usage/mes-hic-analysis.md
       - hicExport (removed tool): example-usage/hicexport.md
       - Capture Hi-C analysis: example-usage/capture-hic-tutorial.md
+      - CHiCAGO analysis: example-usage/chicago-tutorial.md
   - Benchmarks: benchmarks.md
   - News: news.md
   - Citation: citation.md
