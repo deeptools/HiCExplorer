@@ -5,7 +5,7 @@ Converts between Hi-C interaction matrix formats (hic, cool, mcool, h5, homer, H
 ```text
 usage: hicConvertFormat --matrices MATRICES [MATRICES ...] --outFileName
                         OUTFILENAME [OUTFILENAME ...] --inputFormat
-                        {h5,cool,hic,homer,hicpro,2D-text} --outputFormat
+                        {h5,cool,hic,homer,hicpro,2D-text,chinput} --outputFormat
                         {cool,h5,homer,ginteractions,mcool,hicpro,hic}
                         [--correction_name CORRECTION_NAME]
                         [--correction_division] [--store_applied_correction]
@@ -26,7 +26,7 @@ Conversion of Hi-C matrices of different file formats. We support the conversion
 |---|---|
 | `--matrices MATRICES [MATRICES ...], -m MATRICES [MATRICES ...]` | input file(s). Could be one or many files. |
 | `--outFileName OUTFILENAME [OUTFILENAME ...], -o OUTFILENAME [OUTFILENAME ...]` | File name to save the exported matrix. |
-| `--inputFormat {h5,cool,hic,homer,hicpro,2D-text}` | File format of the input matrix file. |
+| `--inputFormat {h5,cool,hic,homer,hicpro,2D-text,chinput}` | File format of the input matrix file. `chinput` is C++ only and needs `--rmap`. |
 | `--outputFormat {cool,h5,homer,ginteractions,mcool,hicpro,hic}` | Output format. (Default: cool). |
 
 ## Optional arguments
@@ -46,6 +46,7 @@ Conversion of Hi-C matrices of different file formats. We support the conversion
 | `--bedFileHicpro BEDFILEHICPRO [BEDFILEHICPRO ...], -bf BEDFILEHICPRO [BEDFILEHICPRO ...]` | Bed file(s) of hicpro file format. |
 | `--hicVersion {8,9}` | Version of a .hic output file. (Default: 8). |
 | `--hicNormalizations {VC,VC_SQRT,KR,SCALE,none} [{VC,VC_SQRT,KR,SCALE,none} ...]` | Normalizations a .hic output file stores, computed as Juicer tools addNorm does. (Default: VC VC_SQRT KR SCALE). |
+| `--rmap RMAP [RMAP ...]` | C++-only. CHiCAGO `.rmap` file(s) that define the bins of a `chinput` input, one per input. |
 | `--threads THREADS` | Threads for compressing a .hic output file; the file does not depend on the number. (Default: 1). |
 
 ## Notes
@@ -57,6 +58,7 @@ However, most Hi-C softwares are only supporting their own data format which mak
 interaction matrices, both for import and for export. 
 
 Import:
+    - chinput (C++ only, needs `--rmap`; bins are the restriction fragments and both directions of a bait-to-bait pair are summed)
     - hic
     - cool
     - h5

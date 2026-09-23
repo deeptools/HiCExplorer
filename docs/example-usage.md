@@ -3,7 +3,7 @@
 This walkthrough goes through a typical Hi-C analysis from mapped reads to A/B compartments, kept from
 the original documentation and checked below for anything the C++ rewrite changed.
 
-Three longer, self-contained tutorials from the original documentation are carried over as their own
+Four longer, self-contained tutorials from the original documentation are carried over as their own
 pages rather than folded in here, unchanged in substance:
 
 - [mES-HiC analysis](example-usage/mes-hic-analysis.md): a full walkthrough on a mouse embryonic stem
@@ -13,8 +13,10 @@ pages rather than folded in here, unchanged in substance:
   arriving from old external references to `hicExport`, which does not exist in this project any more).
 - [Capture Hi-C analysis](example-usage/capture-hic-tutorial.md): the cHi-C pipeline (`chicQualityControl`
   through `chicPlotViewpoint`) on a real capture Hi-C dataset.
+- [CHiCAGO analysis](example-usage/chicago-tutorial.md): CHiCAGO scoring, viewpoint plots and genome
+  tracks with the C++ `chicChicago*` tools.
 
-All three use the Python HiCExplorer's command-line syntax; see the note under
+The Capture Hi-C and mES-HiC tutorials use the Python HiCExplorer's command-line syntax; see the note under
 [Capture Hi-C analysis](example-usage/capture-hic-tutorial.md#c-rewrite-note) and the individual tool
 pages under [Tools](tools/index.md) for what changed in the C++ rewrite's CLI.
 
