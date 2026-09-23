@@ -1861,6 +1861,14 @@ chr19.
 - **Reported, without a gate:** agreement between HiCExplorer's and CHiCAGO's
   calls on the committed mouse cHi-C test data.
 
+*Outcome of the follow-up work (2026-09):* the matrix path is the primary
+input. `hicConvertFormat` imports `.chinput` (with `--rmap`), so the tools run
+from cool, h5 or `.hic` without R's bespoke format. The memory and CPU gate is
+met on a full-genome design: 236.6 s from `.chinput` and 48.5 s from the
+matrix against 437.5 s for R Chicago, at 20.7 GB and 3.9 GB against 40.4 GB.
+`chicChicagoPlotViewpoint` was added for viewpoint plots and pyGenomeTracks
+links files. Open: an automated test for the plot tool.
+
 Order: 9.1 (with reading of versions 6 and 7), 9.7 steps 1 and 2, and 9.2 are
 done. Remaining: 9.3 (in progress), 9.4, 9.6, 9.7 step 3 for hicDetectLoops,
 and 9.8 to 9.14, interleaved with tier 6 (done). 9.5 follows coolercpp

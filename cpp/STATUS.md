@@ -333,6 +333,30 @@ shell).
     significant-call numbers above reproduced from scratch on real GM12878
     data (265,494 score rows, 1,169 significant calls), not just re-run
     from the agent's own report.
+  - **Later CHiCAGO work, 2026-09 (merged, see `git log`):**
+    - `hicConvertFormat --inputFormat chinput --rmap RMAP` writes a `.chinput`
+      file as a matrix (`hicx::chicago::matrix_from_chinput`, one bin per
+      fragment). Both directions of a bait-to-bait pair are summed, because
+      reciprocal-capture data carries different `N` per direction.
+    - `read_chinput`, `read_sample`, `add_tlb`, the normalisations and the
+      technical-noise estimate run threaded (`--threads`) with a fixed merge
+      order, so the output does not depend on the thread count. Peak memory
+      on the full-genome run fell from 26.3 GB to 20.7 GB (large vectors are
+      passed by value and freed early).
+    - `BinTable::bin_at` scanned linearly from the chromosome start after
+      `upper_bound`. It now checks only the bin before the upper bound. This
+      shared core function made the matrix path 10.6x faster.
+    - Trans rows of a written `.chinput` carry a literal `NA` in distSign; a
+      0 corrupted R's technical-noise estimate.
+    - New tool `chicChicagoPlotViewpoint` (scatter or arcs, `--baitID` or
+      `--region`, `--onlySignificant`, `--linksFile` for pyGenomeTracks).
+      There is no automated test for it yet.
+    - Full-genome measurements (22,076 baits, 119.8M rows, 16 threads): R
+      437.5 s; C++ from `.chinput` 236.6 s; C++ from the converted matrix
+      48.5 s. Recorded in `docs/benchmarks.md`.
+    - Documentation: four tool pages, a tutorial, the CHiCAGO file formats.
+      The hicBuildMatrix benchmark row without a retained log was replaced by
+      the logged thread-scaling table.
 
 **Harness: Python reference cache and parallel scheduling, merged in
 `04f948ce` (contract rule 13).**
