@@ -135,7 +135,7 @@ In the case of multiple samples / replicates that need to be normalized to the s
 #### Visualization of results
 
 There are two ways to see the resulting matrix, one using [hicPlotMatrix](tools/hicPlotMatrix.md) and the
-other is using [hicPlotTADs](tools/hicPlotTADs.md). The first one allows the visualization over large regions
+other is using [pyGenomeTracks](https://pygenometracks.readthedocs.io). The first one allows the visualization over large regions
 while the second one is preferred to see specific parts together with other information,
 for example genes or bigwig tracks.
 
@@ -182,11 +182,11 @@ This code will produce several files: 1. The TAD-separation score file, 2. the z
 with the boundary location, 4. a bed file with the domains, 5. a bedgraph file with the TAD-score that can be
 visualized in a genome browser.
 
-The TAD-separation score and the matrix can be visualized using [hicPlotTADs](tools/hicPlotTADs.md).
+The TAD-separation score and the matrix can be visualized using [pyGenomeTracks](https://pygenometracks.readthedocs.io).
 
-![Example output from hicPlotTADs from http://chorogenome.ie-freiburg.mpg.de/](images/chorogenome_example.jpg)
+![Example output from pyGenomeTracks from http://chorogenome.ie-freiburg.mpg.de/](images/chorogenome_example.jpg)
 
-*Example output from hicPlotTADs from http://chorogenome.ie-freiburg.mpg.de/*
+*Example output from pyGenomeTracks from http://chorogenome.ie-freiburg.mpg.de/*
 #### A / B compartment analysis
 
 To compute the A / B compartments the matrix needs to be transformed to an observed/expected matrix in the 

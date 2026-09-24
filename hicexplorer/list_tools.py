@@ -48,7 +48,6 @@ hicMergeMatrixBins           Merges consecutive bins on a Hi-C matrix to reduce 
 hicMergeTADbins              Uses a BED file of domains or TAD boundaries to merge the bin counts of a Hi-C matrix.
 hicPlotDistVsCounts          Plot the decay in interaction frequency with distance
 hicPlotMatrix                Plots a Hi-C matrix as a heatmap
-hicPlotTADs                  Plots TADs as a track that can be combined with other tracks (genes, signal, interactions)
 hicPlotViewpoint             A plot with the interactions around a reference point or region.
 hicAggregateContacts         A tool that allows plotting of aggregated Hi-C sub-matrices of a specified list of positions.
 hicSumMatrices               Adds Hi-C matrices of the same size

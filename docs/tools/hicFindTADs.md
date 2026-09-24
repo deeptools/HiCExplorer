@@ -44,7 +44,7 @@ Uses a measure called TAD-separation score to identify the degree of separation 
 
 #### Usage example
 
-It is recommended to test multiple parameters of TAD calling with hicFindTADs before making conclusions about the number of TADs in a given sample or before comparing TAD calling between multiple conditions. In order to compare several TAD calling parameters at once, it is recommended to use [hicPlotTADs](hicPlotTADs.md).
+It is recommended to test multiple parameters of TAD calling with hicFindTADs before making conclusions about the number of TADs in a given sample or before comparing TAD calling between multiple conditions. In order to compare several TAD calling parameters at once, it is recommended to use [pyGenomeTracks](https://pygenometracks.readthedocs.io).
 
 Below you can find a typical command-line to use `hicFindTADs`:
 
@@ -70,7 +70,7 @@ myHiCmatrix_min3000_max31500_step1500_thres0.05_delta0.01_fdr_score.npz
 myHiCmatrix_min3000_max31500_step1500_thres0.05_delta0.01_fdr_tad_score.bm
 myHiCmatrix_min3000_max31500_step1500_thres0.05_delta0.01_fdr_zscore_matrix.h5
 ```
-TAD boundaries locations are stored in the `boundaries` files, `domains.bed` file contains the TAD locations, `score` files contain TAD separation score, or the so-called TAD insulation score, in various formats. As a side note, the `tad_score.bm` file is a bedgraph matrix that can be used to display TAD separation score curves in [hicPlotTADs](hicPlotTADs.md) for example.
+TAD boundaries locations are stored in the `boundaries` files, `domains.bed` file contains the TAD locations, `score` files contain TAD separation score, or the so-called TAD insulation score, in various formats. As a side note, the `tad_score.bm` file is a bedgraph matrix that can be used to display TAD separation score curves in [pyGenomeTracks](https://pygenometracks.readthedocs.io) for example.
 
 The `zscore_matrix.h5` file contains a z-score matrix that is useful to quickly test the **--thresholdComparisons**, **--delta** and **--correctForMultipleTesting** parameters by using the **--TAD_sep_score_prefix** option pointing to this `zscore_matrix.h5` file. For example to quickly test a **--thresholdComparisons** of 0.01 instead of 0.05 we can run the following command:
 
@@ -85,12 +85,12 @@ $ hicFindTADs -m myHiCmatrix.h5 \
 ```
 As you can see above, **--minDepth**, **--maxDepth** and **--step** are ignored because these parameters are used to calculate the z-score matrix which is here provided to **--TAD_sep_score_prefix**. Since z-score matrix computation is the most demanding step of hicFindTADs in terms of memory and computation, the above command will thus run significantly faster than the previous one.
 
-Multiple combinations of parameters can be tested that way with only one z-score matrix computation. To compare several TAD calling outputs, we use [hicPlotTADs](hicPlotTADs.md) with the following command using, for example, the following tracks.ini file:
+Multiple combinations of parameters can be tested that way with only one z-score matrix computation. To compare several TAD calling outputs, we use [pyGenomeTracks](https://pygenometracks.readthedocs.io) with the following command using, for example, the following tracks.ini file:
 
 - **command line:**
 
 ```bash
-$ hicPlotTADs --tracks tracks.ini --region chrX:6800000-8500000  -o TAD_calling_comparison.png
+$ pyGenomeTracks --tracks tracks.ini --region chrX:6800000-8500000  -o TAD_calling_comparison.png
 ```
 - **tracks.ini:**
 

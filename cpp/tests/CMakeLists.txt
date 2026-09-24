@@ -117,7 +117,7 @@ add_test(NAME chicChicagoPlotViewpoint_cli
 # pinned interpreter draws. HICX_PLOT_TEST_PYTHON names a Python with the
 # pinned versions; without it the pinned part is skipped (status 77).
 set(HICX_PLOT_TEST_PYTHON "" CACHE FILEPATH
-    "Python with matplotlib 3.8.4 and pyGenomeTracks 3.9 for plot_environment_cli")
+    "Python with matplotlib 3.8 or newer for plot_environment_cli")
 add_test(NAME plot_environment_cli
          COMMAND ${HICX_BASH} "${CMAKE_CURRENT_SOURCE_DIR}/cli/plot_environment_cli.sh"
                  "$<TARGET_FILE_DIR:hicInterIntraTAD>" "${HICX_TEST_DATA}"

@@ -53,11 +53,10 @@
 // separated, checked directly against the real installed
 // pygenometracks.tracks.LinksTrack this session), so they can be combined
 // with real bigwig, gene and BED region tracks (known enhancers, promoters,
-// ...) in one pyGenomeTracks figure through the existing hicPlotTADs (a
-// literal delegation to pyGenomeTracks' own plotTracks, cpp/PLAN.md tier 7):
+// ...) in one pyGenomeTracks figure with pyGenomeTracks:
 // write a tracks.ini with a [chicago links] section (file = FILE, file_type
 // = links) alongside [bigwig]/[genes]/[bed] sections for the other tracks,
-// then `hicPlotTADs --tracks tracks.ini --region CHROM:START-END -o out.png`.
+// then `pyGenomeTracks --tracks tracks.ini --region CHROM:START-END -o out.png`.
 // Needs --baitmap (real coordinates for the bait side of every link); the
 // other end's real fragment span comes from --rmap when given, else a 1 bp
 // placeholder at its computed position (still a valid link for pyGenomeTracks'
@@ -161,7 +160,7 @@ const char* const kHelp =
     "  --linksFile FILE      Write the kept interactions as a pyGenomeTracks\n"
     "                        `links` file (chr1 start1 end1 chr2 start2 end2\n"
     "                        score), to combine with bigwig/gene/BED tracks\n"
-    "                        through hicPlotTADs. Requires --baitmap. Written\n"
+    "                        with pyGenomeTracks. Requires --baitmap. Written\n"
     "                        alongside the normal plot output, independent of\n"
     "                        --plotData.\n"
     "  --outFileName OUTFILENAME, -o OUTFILENAME\n"

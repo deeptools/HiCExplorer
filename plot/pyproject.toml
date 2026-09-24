@@ -7,23 +7,20 @@ name = "hicexplorer-plot"
 version = "0.1.0"
 description = "Drawing layer of the HiCExplorer v4 C++ plotting tools: matplotlib figures from the data the C++ binaries compute"
 requires-python = ">=3.9"
-# The figures must equal the Python tools' figures (class E6), so the
-# renderers are pinned to the versions of the reference environment.
 dependencies = [
-    "matplotlib==3.8.4",
-    "pyGenomeTracks==3.9",
+    "matplotlib>=3.8",
     "numpy",
     # hicPlotAverageRegions rotates its image with scipy.ndimage.rotate, an
     # interpolation that is part of the figure.
-    "scipy==1.14.1",
+    "scipy",
     # hicQC.html is pandas Styler.to_html through Jinja2, and the QC charts
     # are pandas plotting calls.
-    "pandas==2.2.3",
-    "jinja2==3.1.4",
+    "pandas",
+    "jinja2",
     # hicPlotMatrix reads its bigwig tracks while drawing and transliterates
     # --title, as the reference does.
-    "pyBigWig==0.3.22",
-    "unidecode==1.3.8",
+    "pyBigWig",
+    "unidecode",
 ]
 
 [project.scripts]
@@ -34,7 +31,6 @@ chicPlotViewpoint = "hicexplorer_plot.tools:chicPlotViewpoint"
 hicCorrelate = "hicexplorer_plot.tools:hicCorrelate"
 hicPrepareQCreport = "hicexplorer_plot.tools:hicPrepareQCreport"
 hicQC = "hicexplorer_plot.tools:hicQC"
-hicPlotTADs = "hicexplorer_plot.tools:hicPlotTADs"
 hicPlotMatrix = "hicexplorer_plot.tools:hicPlotMatrix"
 
 [tool.setuptools]

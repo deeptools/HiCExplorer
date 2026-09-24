@@ -244,7 +244,7 @@ int preflight(const std::string& tool, bool draws) {
         ::execvp(python.c_str(), argv.data());
         std::fprintf(stderr,
                      "%s: cannot start the drawing interpreter '%s': %s. Set HICX_PLOT_PYTHON to "
-                     "a Python with matplotlib 3.8.4 and the hicexplorer_plot package (plot/ in "
+                     "a Python with matplotlib 3.8 or newer and the hicexplorer_plot package (plot/ in "
                      "the repository).\n",
                      tool.c_str(), python.c_str(), std::strerror(errno));
         ::_exit(127);
@@ -331,7 +331,7 @@ int draw(const std::string& tool, const std::string& data_json,
     ::unlink(path.c_str());
     std::fprintf(stderr,
                  "%s: cannot start the drawing interpreter '%s': %s. Set HICX_PLOT_PYTHON to a "
-                 "Python with matplotlib 3.8.4 and the hicexplorer_plot package (plot/ in the "
+                 "Python with matplotlib 3.8 or newer and the hicexplorer_plot package (plot/ in the "
                  "repository).\n",
                  tool.c_str(), python.c_str(), std::strerror(error));
     return 1;

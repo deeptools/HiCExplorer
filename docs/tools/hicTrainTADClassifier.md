@@ -32,7 +32,7 @@ train_existing mode: train the classifier specified in saved_classifier on new d
 
 predict_test mode: predict using an existing classifier and produce a classification report. The difference in using this over hicTADClassifier is, that this version will predict on a balanced test set. Normally, HiC-Matrices contain a lot more non-boundaries than boundaries, which skews the classification report to the point, where it does not contain usefull information anymore. By passing a domain file produced by another TAD Caller, hicTrainClassifier will build a test set using the boundaries of this domain file and will pick at random as many non-boundaries from the passed matrix. Use this over hicTADClassifier to produce a meaningful output, but not for TAD calling.
 
-This tool runs in Python and is part of the HiCExplorer 4 package.
+This tool runs in Python. Its machine-learning dependencies are optional; install them with `pip install "hicexplorer[tadclassifier]"`.
 
 ## Required arguments
 

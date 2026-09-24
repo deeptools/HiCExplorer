@@ -133,7 +133,7 @@ links_type = arcs
 ```
 
 ```bash
-hicPlotTADs --tracks tracks.ini --region 20:2600000-2950000 --width 40 --outFileName genome_tracks.png
+pyGenomeTracks --tracks tracks.ini --region 20:2600000-2950000 --width 40 --outFileName genome_tracks.png
 ```
 
 ![Genome tracks](../images/chicago-genome-tracks.png)
