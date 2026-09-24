@@ -12,7 +12,7 @@ usage: hicTADClassifier --matrices MATRICES [MATRICES ...] --out_file OUT_FILE [
 
 Uses Supervised Learning to call TAD boundaries. One or multiple HiC-Matrices can be passed, from which a BED file will be produced containing the predicted boundary positions. By default, a EasyEnsembleClassifier as described in Liu et al.: "Exploratory Undersampling for Class-Imbalance Learning" will be used to call TADs. Internally this classifier relies on Resampling, Boosting and Bagging. Passed matrices will be range normalized by default. Alternatively, obs/exp normalization can be used. Currently, only classifiers for 10kb resolution are implemented. For building own classifiers or tune existing ones, hicTrainClassifier can be used and passed with the saved_classifer argument. A simple usage example can be seen here:
 
-This tool runs in Python and is part of the HiCExplorer 4 package.
+This tool runs in Python. Its machine-learning dependencies are optional; install them with `pip install "hicexplorer[tadclassifier]"`.
 
 ## Required arguments
 

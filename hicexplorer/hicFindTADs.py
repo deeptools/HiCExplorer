@@ -60,7 +60,7 @@ of information at certain bins, and depending on the parameters used with this t
                                 help='File prefix to save the resulting files: 1. <prefix>_tad_separation.bm '
                                 'The format of the output file is chrom start end TAD-sep1 TAD-sep2 TAD-sep3 .. etc. '
                                 'We call this format a bedgraph matrix and can be plotted using '
-                                '`hicPlotTADs`. Each of the TAD-separation scores in the file corresponds to '
+                                '`pyGenomeTracks`. Each of the TAD-separation scores in the file corresponds to '
                                 'a different window length starting from --minDepth to --maxDepth. '
                                 '2. <prefix>_zscore_matrix.h5, the z-score matrix used for the computation of '
                                 'the TAD-separation score.  3. < prefix > _boundaries.bed, which '

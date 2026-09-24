@@ -510,7 +510,7 @@ mattered repeatedly:
 | chicDifferentialTest | 6 | declared E3, measured bit-identical | 1.3W | weak | written | done | 9/9 (reproduced) | Reproduces scipy 1.14.1 exactly: Boost.Math hypergeometric for `fisher_exact`, and Cephes `chdtrc` and `igami` for `chi2_contingency` and `chi2.ppf`, bit-identical on 45,081 checked values. Also has `--correctForMultipleTesting`. Reproduces F64. |
 | chicExportData | 6 | E0 text / E1 bigWig | 1.3W | partial | written | done | 22/22 (reproduced) | bigWig through libBigWig 0.4.8, compared through pyBigWig interval by interval, plus zoom summaries. The archive lists members sorted, with time 0. |
 | hicPlotMatrix | 7 | E0 figures | declared 90 and 130 MB | weak | yes | done | 23/23 (reproduced) | C++ compute plus matplotlib drawing (tier 7 option a). The Li et al. 2015 whole-matrix case, behind a 120 GB `skipif` in the Python tests, runs at 14.0 GB against the Python's 14.6 GB, almost all of it matplotlib. |
-| hicPlotTADs | 7 | E0 | n/a | none | no | done | 4/4 (reproduced) | Delegation to pyGenomeTracks 3.9, checked at run time. |
+| hicPlotTADs | 7 | n/a | n/a | none | no | removed | n/a | Removed in version 4: it only delegated to pyGenomeTracks, which users call directly. |
 | hicPlotViewpoint | 7 | E0 data and figures | 1.3W | weak | yes | done | 9/9 (reproduced) | Exits 1 on a bad region where the Python exits 0. |
 | hicPlotAverageRegions | 7 | E0 | n/a | weak | yes | done | 8/8 (reproduced) | |
 | hicPlotDistVsCounts | 7 | E0 data and figures | 1.3W | weak | yes | done | 7/7 (reproduced) | gm12878_chr1 per chromosome: 934 MB against the Python's 4,410 MB. |
@@ -525,8 +525,9 @@ mattered repeatedly:
 **Tier 7 is done (option a, merged in `b71510ba`).**
 - C++ computes each figure's data, and `hicexplorer_plot` draws it with the
   Python's matplotlib calls.
-- The drawing interpreter is `HICX_PLOT_PYTHON`, and must have matplotlib 3.8.4
-  (pyGenomeTracks 3.9 for hicPlotTADs).
+- The drawing interpreter is `HICX_PLOT_PYTHON`, and must have matplotlib 3.8 or newer
+  (relaxed from the exact 3.8.4 pin of the equivalence work; figures no longer
+  match 3.7.6 pixel for pixel, 2026-09-24).
   - A wrong or missing package exits 3 before any input is read or output
     created.
   - `HICX_PLOT_ALLOW_UNPINNED=1` draws anyway, with a warning.

@@ -44,7 +44,6 @@ script:
   - hicMergeMatrixBins --version
   - hicPlotMatrix --version
   - hicPlotDistVsCounts --version
-  - hicPlotTADs --version
   - hicSumMatrices --version
   - hicInfo --version
   - hicConvertFormat --version
@@ -83,7 +82,6 @@ script:
   - hicMergeMatrixBins --help
   - hicPlotMatrix --help
   - hicPlotDistVsCounts --help
-  - hicPlotTADs --help
   - hicSumMatrices --help
   - hicInfo --help
   - hicConvertFormat --help

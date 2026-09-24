@@ -346,7 +346,7 @@ the TAD-score file.
 
 We can plot the TADs for a given chromosomal region. For this we need to
 create a track file containing the instructions to build the plot. The
-[tools/hicPlotTADs](../tools/hicPlotTADs.md) documentation contains the instructions to build the track file.
+[pyGenomeTracks documentation](https://pygenometracks.readthedocs.io) contains the instructions to build the track file.
 
 In following plot we will use the listed track file. Please store it as track.ini.
 
@@ -397,14 +397,14 @@ We plot the result with:
 (1-19, X, Y) variant:
 
 ```bash
-hicPlotTADs --tracks track.ini --region X:98000000-105000000 \
+pyGenomeTracks --tracks track.ini --region X:98000000-105000000 \
 --dpi 300 --outFileName plots/marks_et-al_TADs.png \
 --title "Marks et. al. TADs on X"
 ```
 (chr1-ch19, chrX, chrY) variant:
 
 ```bash
-hicPlotTADs --tracks track.ini --region chrX:98000000-105000000 \
+pyGenomeTracks --tracks track.ini --region chrX:98000000-105000000 \
 --dpi 300 --outFileName plots/marks_et-al_TADs.png \
 --title "Marks et. al. TADs on X"
 ```

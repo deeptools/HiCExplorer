@@ -38,7 +38,7 @@ usage: chicChicagoPlotViewpoint --scores SCORES (--baitID BAITID |
 
 ## Links file for pyGenomeTracks
 
-`--linksFile FILE` writes the kept interactions as a pyGenomeTracks `links` file (`chr1 start1 end1 chr2 start2 end2 score`, tab separated). It requires `--baitmap`; `--rmap` supplies the real fragment span of the other end, otherwise a 1 bp placeholder at its position is written. Combined with bigWig, gene and BED tracks in a `tracks.ini`, the links are drawn next to histone marks, genes, promoters and known enhancers by [hicPlotTADs](hicPlotTADs.md). See the [CHiCAGO tutorial](../example-usage/chicago-tutorial.md#combine-the-interactions-with-genome-tracks).
+`--linksFile FILE` writes the kept interactions as a pyGenomeTracks `links` file (`chr1 start1 end1 chr2 start2 end2 score`, tab separated). It requires `--baitmap`; `--rmap` supplies the real fragment span of the other end, otherwise a 1 bp placeholder at its position is written. Combined with bigWig, gene and BED tracks in a `tracks.ini`, the links are drawn next to histone marks, genes, promoters and known enhancers by pyGenomeTracks. See the [CHiCAGO tutorial](../example-usage/chicago-tutorial.md#combine-the-interactions-with-genome-tracks).
 
 ## Required arguments
 

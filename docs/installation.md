@@ -25,8 +25,7 @@ The wheels contain the tools and the libraries they need for Linux (x86_64 and a
 - The libraries [coolercpp](https://github.com/) (cool/mcool file I/O) and
   [hicfilecpp](https://github.com/) (`.hic` file I/O), fetched automatically by CMake or pointed at
   local checkouts.
-- The plotting tools draw figures with Python. The Python environment needs matplotlib 3.8.4 and, for
-  `hicPlotTADs`, pyGenomeTracks. The environment is selected with the `HICX_PLOT_PYTHON` environment
+- The plotting tools draw figures with Python. The Python environment needs matplotlib. The environment is selected with the `HICX_PLOT_PYTHON` environment
   variable and defaults to the Python that runs the tool.
 - `hicMergeDomains` additionally needs the Graphviz `dot` binary on `PATH` at run time, to render the
   TAD hierarchy plots.

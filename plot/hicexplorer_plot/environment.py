@@ -1,13 +1,11 @@
-"""The pinned drawing environment.
+"""The drawing environment.
 
-A figure of this package equals the Python HiCExplorer's figure (class E6)
-only when it is rendered by the renderer versions HiCExplorer's reference
-environment uses. Another matplotlib draws different pixels, or fails, and
-nothing else would say so; the check below runs before anything is drawn, and
-the C++ tools run it (python -m hicexplorer_plot --check TOOL) before they
-read any input or write any output.
+The figures are drawn by matplotlib, and the check below runs before anything
+is drawn: the C++ tools run it (python -m hicexplorer_plot --check TOOL)
+before they read any input or write any output. A matplotlib older than the
+minimum below, or none at all, is refused.
 
-The pins repeat the versions of plot/pyproject.toml; the ctest
+The minimums repeat the versions of plot/pyproject.toml; the ctest
 plot_environment_cli compares the two.
 
 The check looks at the module that is actually imported, not only at the
@@ -15,7 +13,7 @@ installed distribution metadata, so a different package earlier on
 PYTHONPATH is caught too: a module's __version__ when it has one, otherwise
 the version of the installed distribution the imported file belongs to.
 
-HICX_PLOT_ALLOW_UNPINNED=1 draws with a different version anyway and says so
+HICX_PLOT_ALLOW_UNPINNED=1 draws with an older version anyway and says so
 on stderr. A missing package is refused either way.
 """
 
@@ -24,19 +22,31 @@ import importlib.metadata
 import os
 import sys
 
-# module name: (distribution name, required version)
+# module name: (distribution name, minimum version)
 PINS = {
-    "matplotlib": ("matplotlib", "3.8.4"),
+    "matplotlib": ("matplotlib", "3.8"),
 }
-TOOL_PINS = {
-    "hicPlotTADs": {"pygenometracks": ("pyGenomeTracks", "3.9")},
-}
+TOOL_PINS = {}
 
 OPT_OUT = "HICX_PLOT_ALLOW_UNPINNED"
 # Set by the C++ tools once their check passed, so that the drawing process
 # does not repeat the opt-out warning.
 CHECKED = "HICX_PLOT_CHECKED"
 REFUSAL_EXIT = 3
+
+
+def _numeric(version):
+    parts = []
+    for piece in version.split("."):
+        digits = ""
+        for char in piece:
+            if not char.isdigit():
+                break
+            digits += char
+        if not digits:
+            break
+        parts.append(int(digits))
+    return tuple(parts)
 
 
 def requirements(tool):
@@ -74,26 +84,26 @@ def check(tool, stream=None):
     for module_name, (distribution, required) in sorted(requirements(tool).items()):
         version, problem = _imported_version(module_name, distribution)
         if problem is not None:
-            missing.append("{} {} (required: {} {})".format(distribution, problem, distribution,
+            missing.append("{} {} (required: {} {} or newer)".format(distribution, problem, distribution,
                                                             required))
-        elif version != required:
-            mismatched.append("{} {} is installed, but {} {} is required".format(
+        elif _numeric(version) < _numeric(required):
+            mismatched.append("{} {} is installed, but {} {} or newer is required".format(
                 distribution, version, distribution, required))
     if not missing and not mismatched:
         return True
-    pins = " and ".join("{} {}".format(d, v) for d, v in sorted(requirements(tool).values()))
+    pins = " and ".join("{} {} or newer".format(d, v) for d, v in sorted(requirements(tool).values()))
     if not missing and os.environ.get(OPT_OUT, "") not in ("", "0"):
         if not os.environ.get(CHECKED):
             stream.write(
                 "hicexplorer_plot: warning: {tool} draws with {found}; {opt_out} is set, so the "
-                "figures may differ from HiCExplorer's, which need {pins}.\n".format(
+                "figures may be wrong, which need {pins}.\n".format(
                     tool=tool, found="; ".join(mismatched), opt_out=OPT_OUT, pins=pins))
         return True
     stream.write(
         "hicexplorer_plot: refusing to draw {tool}: {problems}. The interpreter is {exe}. "
-        "The figures are only equivalent to HiCExplorer's with {pins}: point HICX_PLOT_PYTHON "
+        "The drawing needs {pins}: point HICX_PLOT_PYTHON "
         "at a Python that has them{opt_out}. No figure was written.\n".format(
             tool=tool, problems="; ".join(missing + mismatched), exe=sys.executable, pins=pins,
-            opt_out="" if missing else ", or set {}=1 to draw anyway with figures that may "
-                                       "differ".format(OPT_OUT)))
+            opt_out="" if missing else ", or set {}=1 to draw anyway with an "
+                                       "older version".format(OPT_OUT)))
     return False

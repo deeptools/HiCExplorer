@@ -90,7 +90,6 @@ nav:
       - Visualization:
           - Overview: tools/visualization.md
           - hicPlotMatrix: tools/hicPlotMatrix.md
-          - hicPlotTADs: tools/hicPlotTADs.md
           - hicPlotViewpoint: tools/hicPlotViewpoint.md
           - hicAggregateContacts: tools/hicAggregateContacts.md
           - hicPlotAverageRegions: tools/hicPlotAverageRegions.md
