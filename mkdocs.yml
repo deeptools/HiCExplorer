@@ -118,6 +118,7 @@ nav:
       - mES-HiC analysis: example-usage/mes-hic-analysis.md
       - hicExport (removed tool): example-usage/hicexport.md
       - Capture Hi-C analysis: example-usage/capture-hic-tutorial.md
+      - New in version 4: example-usage/new-in-version-4.md
       - CHiCAGO analysis: example-usage/chicago-tutorial.md
   - Benchmarks: benchmarks.md
   - News: news.md

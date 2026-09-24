@@ -3,7 +3,7 @@
 This walkthrough goes through a typical Hi-C analysis from mapped reads to A/B compartments, kept from
 the original documentation and checked below for anything version 4 changed.
 
-Four longer, self-contained tutorials from the original documentation are carried over as their own
+Five longer, self-contained tutorials from the original documentation are carried over as their own
 pages rather than folded in here, unchanged in substance:
 
 - [mES-HiC analysis](example-usage/mes-hic-analysis.md): a full walkthrough on a mouse embryonic stem
@@ -13,6 +13,8 @@ pages rather than folded in here, unchanged in substance:
   arriving from old external references to `hicExport`, which does not exist in this project any more).
 - [Capture Hi-C analysis](example-usage/capture-hic-tutorial.md): the cHi-C pipeline (`chicQualityControl`
   through `chicPlotViewpoint`) on a real capture Hi-C dataset.
+- [New in version 4: examples](example-usage/new-in-version-4.md): stripes, differential TADs with replicates,
+  two matrices in one heatmap, the faster PCA solver, `.hic` conversion and CHiCAGO scoring.
 - [CHiCAGO analysis](example-usage/chicago-tutorial.md): CHiCAGO scoring, viewpoint plots and genome
   tracks with the C++ `chicChicago*` tools.
 
