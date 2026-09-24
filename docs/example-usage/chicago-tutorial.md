@@ -6,7 +6,15 @@ For the HiCExplorer HDF5 workflow (`chicViewpoint` and related tools) see the [C
 
 ## Design files
 
-CHiCAGO needs a restriction fragment map (`.rmap`), a bait map (`.baitmap`) and three design tables (`.npb`, `.nbpb`, `.poe`). The tables are produced from the first two with `makeDesignFiles.py` of [chicagoTools](https://github.com/RegulatoryGenomicsGroup/chicago). The fixture ships all five files. See [File formats](../file-formats.md#chicago-formats).
+CHiCAGO needs five design files:
+
+- a [restriction fragment map](../file-formats.md#restriction-fragment-map-rmap) (`.rmap`) with the fragments of the genome,
+- a [bait map](../file-formats.md#bait-map-baitmap) (`.baitmap`) with the baited fragments,
+- three [design tables](../file-formats.md#design-tables-npb-nbpb-poe) (`.npb`, `.nbpb`, `.poe`).
+
+The tables are produced from the first two with `makeDesignFiles.py` of
+[chicagoTools](https://github.com/RegulatoryGenomicsGroup/chicago) and serve all samples of a design. The
+fixture ships all five files. The [File formats](../file-formats.md#chicago-formats) page describes each of them.
 
 ## Interaction counts
 
@@ -37,7 +45,7 @@ chicChicagoScores --chinput GM_rep1.chinput --backgroundModel background_model.t
     --baitmap h19_chr20and21.baitmap --rmap h19_chr20and21.rmap --threads 8 -o scores.txt
 ```
 
-The output has one row per interaction (baitID, otherEndID, N, distSign, Bmean, the p-values and the weighted score). See [chicChicagoScores](../tools/chicChicagoScores.md).
+The output has one row per interaction (`baitID`, `otherEndID`, `N`, `distSign`, `Bmean`, `Tmean`, `log_p` and the weighted `score`). See [chicChicagoScores](../tools/chicChicagoScores.md).
 
 ## Significant interactions
 
