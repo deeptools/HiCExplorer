@@ -75,6 +75,16 @@ jobs:
       - name: Test
         run: ctest --test-dir cpp/build --output-on-failure --parallel 4
 
+      - name: Build and smoke-test the Python package
+        run: |
+          pip install scikit-build-core pathspec
+          CMAKE_ARGS="-DCMAKE_PREFIX_PATH=$CONDA_PREFIX -DHICX_COOLERCPP_GIT_REPOSITORY=$GITHUB_WORKSPACE/deps/coolercpp -DHICX_HICFILECPP_GIT_REPOSITORY=$GITHUB_WORKSPACE/deps/hicfilecpp" \
+            pip wheel . --no-deps --no-build-isolation -w wheelhouse
+          pip install --no-deps wheelhouse/*.whl
+          cd "$RUNNER_TEMP"
+          hicInfo --version
+          hicInfo -m "$GITHUB_WORKSPACE/hicexplorer/test/test_data/small_test_matrix.h5"
+
   windows:
     name: ${{ matrix.name }} (experimental)
     runs-on: ${{ matrix.os }}
