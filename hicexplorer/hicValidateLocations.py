@@ -189,7 +189,7 @@ def writeLoopFile(pOutFileName, pLoopDataFrame):
     pLoopDataFrame.to_csv(pOutFileName, sep='\t', header=False, index=False)
 
 
-def main(args=None):
+def _main_python(args=None):
 
     args = parse_arguments().parse_args(args)
 
@@ -282,3 +282,9 @@ def main(args=None):
                     len(tad_df_) / len(tad_df)))
 
             tad_df_.to_csv(args.outFileName, sep='\t', header=False, index=False)
+
+
+def main(args=None):
+    """Run the C++ implementation; the Python implementation above is kept as _main_python."""
+    from hicexplorer._cpp import entry_point
+    entry_point('hicValidateLocations')(args)

@@ -592,7 +592,7 @@ def filter_by_zscore(hic_ma, lower_threshold, upper_threshold, perchr=False):
     return sorted(to_remove)
 
 
-def main(args=None):
+def _main_python(args=None):
     args = parse_arguments().parse_args(args)
     matplotlib.rcParams['pdf.fonttype'] = 42
 
@@ -777,3 +777,9 @@ def main(args=None):
                         label="Total regions to be removed", restore_masked_bins=False)
 
     ma.save(args.outFileName, pApplyCorrection=False)
+
+
+def main(args=None):
+    """Run the C++ implementation; the Python implementation above is kept as _main_python."""
+    from hicexplorer._cpp import entry_point
+    entry_point('hicCorrectMatrix')(args)

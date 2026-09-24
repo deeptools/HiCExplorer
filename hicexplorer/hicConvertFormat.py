@@ -111,7 +111,7 @@ def parse_arguments(args=None):
     return parser
 
 
-def main(args=None):
+def _main_python(args=None):
     args = parse_arguments().parse_args(args)
     log.debug(args)
 
@@ -342,3 +342,9 @@ def main(args=None):
                                                                  correction_factors, distance_counts)
                     matrixFileHandlerOutput.save(args.outFileName[0] + '::/resolutions/' + str(
                         bin_size), pSymmetric=True, pApplyCorrection=applyCorrection)
+
+
+def main(args=None):
+    """Run the C++ implementation; the Python implementation above is kept as _main_python."""
+    from hicexplorer._cpp import entry_point
+    entry_point('hicConvertFormat')(args)

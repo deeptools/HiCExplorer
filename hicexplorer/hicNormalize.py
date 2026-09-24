@@ -60,7 +60,7 @@ We recommend to compute first the normalization (with hicNormalize) and correct 
     return parser
 
 
-def main(args=None):
+def _main_python(args=None):
 
     args = parse_arguments().parse_args(args)
     hic_matrix_list = []
@@ -151,3 +151,9 @@ def main(args=None):
             hic_matrix.matrix.eliminate_zeros()
 
             hic_matrix.save(args.outFileName[i], pApplyCorrection=False)
+
+
+def main(args=None):
+    """Run the C++ implementation; the Python implementation above is kept as _main_python."""
+    from hicexplorer._cpp import entry_point
+    entry_point('hicNormalize')(args)

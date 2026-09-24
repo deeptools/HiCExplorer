@@ -103,7 +103,7 @@ def getViewpointValues(pMatrix, pReferencePoint, pChromViewpoint, pRegion_start,
     return [view_point_start, view_point_end, view_point_range, data_list, interactions_list]
 
 
-def main(args=None):
+def _main_python(args=None):
     args = parse_arguments().parse_args(args)
     mpl.rcParams['pdf.fonttype'] = 42
 
@@ -185,3 +185,9 @@ def main(args=None):
             with open(args.interactionOutFileName + '_' + matrix_name_legend[i] + '.bedgraph', 'w') as fh:
                 for interaction in interactions_list_:
                     fh.write("{}\t{}\t{}\t{}\t{}\t{}\t{:.12f}\n".format(toString(interaction[0]), toString(interaction[1]), toString(interaction[2]), toString(interaction[3]), toString(interaction[4]), toString(interaction[5]), float(interaction[6])))
+
+
+def main(args=None):
+    """Run the C++ implementation; the Python implementation above is kept as _main_python."""
+    from hicexplorer._cpp import entry_point
+    entry_point('hicPlotViewpoint')(args)

@@ -36,7 +36,7 @@ def parse_arguments(args=None):
     return parser
 
 
-def main(args=None):
+def _main_python(args=None):
 
     args = parse_arguments().parse_args(args)
 
@@ -52,3 +52,9 @@ def main(args=None):
 
         for i in range(args.range[0], args.range[1] + args.resolution, args.resolution):
             file.write('{}\t{}\n'.format(i, args.thresholdValue))
+
+
+def main(args=None):
+    """Run the C++ implementation; the Python implementation above is kept as _main_python."""
+    from hicexplorer._cpp import entry_point
+    entry_point('hicCreateThresholdFile')(args)

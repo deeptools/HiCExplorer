@@ -295,7 +295,7 @@ def plot_images(pInteractionFileList, pHighlightDifferentialRegionsFileList, pBa
     return
 
 
-def main(args=None):
+def _main_python(args=None):
     args = parse_arguments().parse_args(args)
     mpl.rcParams['pdf.fonttype'] = 42
 
@@ -522,3 +522,9 @@ def main(args=None):
                 tar_info.size = len(fobj.getvalue())
                 fobj.seek(0)
                 tar.addfile(tarinfo=tar_info, fileobj=fobj)
+
+
+def main(args=None):
+    """Run the C++ implementation; the Python implementation above is kept as _main_python."""
+    from hicexplorer._cpp import entry_point
+    entry_point('chicPlotViewpoint')(args)

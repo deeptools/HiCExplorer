@@ -89,7 +89,7 @@ The tool hicQuickQC considers the first n lines of two bam/sam files to get a fi
     return parser
 
 
-def main(args=None):
+def _main_python(args=None):
     args = parse_arguments().parse_args(args)
     if not os.path.exists(args.QCfolder):
         try:
@@ -125,3 +125,9 @@ def main(args=None):
     log.debug('args_hicBuildMatrix {}'.format(args_hicBuildMatrix))
 
     hicBuildMatrix.main(args_hicBuildMatrix)
+
+
+def main(args=None):
+    """Run the C++ implementation; the Python implementation above is kept as _main_python."""
+    from hicexplorer._cpp import entry_point
+    entry_point('hicQuickQC')(args)

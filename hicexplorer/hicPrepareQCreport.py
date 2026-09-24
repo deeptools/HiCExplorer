@@ -228,7 +228,7 @@ def make_figure_read_orientation(table, filename, dpi):
                       u'Read pair type: left pairs', u'Read pair type: left pairs %', u'Read pair type: right pairs', u'Read pair type: right pairs %']]
 
 
-def main(args=None):
+def _main_python(args=None):
     """
     The structure of the log file is as follows:
     --------------------------------------------
@@ -339,3 +339,9 @@ def main(args=None):
     read_orientation_table.to_csv(
         args.outputFolder + "/read_orientation_table.txt", sep="\t")
     table.to_csv(args.outputFolder + "/QC_table.txt", sep="\t")
+
+
+def main(args=None):
+    """Run the C++ implementation; the Python implementation above is kept as _main_python."""
+    from hicexplorer._cpp import entry_point
+    entry_point('hicPrepareQCreport')(args)

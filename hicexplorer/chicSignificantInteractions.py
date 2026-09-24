@@ -574,7 +574,7 @@ def writeTargetHDF(pOutFileName, pTargetDataList, pTargetKeyList, pViewpointObj,
     targetFileH5Object.close()
 
 
-def main(args=None):
+def _main_python(args=None):
 
     args = parse_arguments().parse_args(args)
 
@@ -648,3 +648,9 @@ def main(args=None):
 
     writeSignificantHDF(args.outFileNameSignificant, significant_data_list, significant_key_list, viewpointObj, reference_points_list_significant, args)
     writeTargetHDF(args.outFileNameTarget, target_data_list, target_key_list, viewpointObj, resolution, reference_points_list_target, args)
+
+
+def main(args=None):
+    """Run the C++ implementation; the Python implementation above is kept as _main_python."""
+    from hicexplorer._cpp import entry_point
+    entry_point('chicSignificantInteractions')(args)

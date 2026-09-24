@@ -129,7 +129,7 @@ def calculateViewpointRangeBins(pHiCMatrix, pViewpoint, pRange, pCoordinatesToBi
     return start, end, start_out_of_range, end_out_of_range
 
 
-def main(args=None):
+def _main_python(args=None):
 
     args = parse_arguments().parse_args(args)
 
@@ -207,3 +207,9 @@ def main(args=None):
     col = np.nonzero(summed_matrix)[1]
     summed_matrix = csr_matrix((data, (row, col)), shape=(dimensions_new_matrix, dimensions_new_matrix))
     save_npz(args.outFileName, summed_matrix)
+
+
+def main(args=None):
+    """Run the C++ implementation; the Python implementation above is kept as _main_python."""
+    from hicexplorer._cpp import entry_point
+    entry_point('hicAverageRegions')(args)

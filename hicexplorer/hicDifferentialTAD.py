@@ -280,7 +280,7 @@ def computeDifferentialTADs(pMatrixTarget, pMatrixControl, pDomainList, pCoolOrH
     pQueue.put([stats_list, p_values_list, accepted_inter_left, accepted_inter_right, accepted_intra, rows])
 
 
-def main(args=None):
+def _main_python(args=None):
     args = parse_arguments().parse_args(args)
 
     # read domains file
@@ -516,3 +516,9 @@ def main(args=None):
             stats_list = list(map(str, rejected_H0_s[i]))
             file.write('\t'.join(stats_list))
             file.write('\n')
+
+
+def main(args=None):
+    """Run the C++ implementation; the Python implementation above is kept as _main_python."""
+    from hicexplorer._cpp import entry_point
+    entry_point('hicDifferentialTAD')(args)

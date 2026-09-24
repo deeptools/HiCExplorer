@@ -363,7 +363,7 @@ def from_bed_to_cut_interval(hicmat, fh):
     return new_cut_intervals
 
 
-def main(args=None):
+def _main_python(args=None):
     """
     for each distance, compare the
     distribution of two samples,
@@ -552,3 +552,9 @@ else:
     >>> compute_distance_mean(hic, custom_cut_intervals=custom_cut)
     {'all': OrderedDict([(0, (4.0, 5)), (10, (5.0, 3)), (20, (20.0, 1))])}
     """
+
+
+def main(args=None):
+    """Run the C++ implementation; the Python implementation above is kept as _main_python."""
+    from hicexplorer._cpp import entry_point
+    entry_point('hicPlotDistVsCounts')(args)

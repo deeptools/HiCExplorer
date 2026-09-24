@@ -123,7 +123,7 @@ def compute_sparsity(pReferencePoints, pViewpointObj, pArgs, pQueue):
     return
 
 
-def main(args=None):
+def _main_python(args=None):
     args = parse_arguments().parse_args(args)
     matplotlib.rcParams['pdf.fonttype'] = 42
     viewpointObj = Viewpoint()
@@ -305,3 +305,9 @@ def main(args=None):
     ax.set_position([box.x0, box.y0, box.width * 0.6, box.height])
     plt.legend(loc='center', bbox_to_anchor=(1.4, 0.5))
     plt.savefig(args.outFileNameHistogram, dpi=args.dpi)
+
+
+def main(args=None):
+    """Run the C++ implementation; the Python implementation above is kept as _main_python."""
+    from hicexplorer._cpp import entry_point
+    entry_point('chicQualityControl')(args)

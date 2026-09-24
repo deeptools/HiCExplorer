@@ -245,7 +245,7 @@ def parse_arguments(args=None):
     return parser
 
 
-def main(args=None):
+def _main_python(args=None):
     """
     Reads line by line two bam files that are not sorted.
     Each line in the two bam files should correspond
@@ -268,3 +268,9 @@ def main(args=None):
                  pRegion=args.region, pBinSize=args.binSize, pInputBufferSize=args.inputBufferSize, pMinDistance=args.minDistance,
                  pDoTestRunLines=args.doTestRunLines, pSkipDuplicationCheck=args.skipDuplicationCheck, pMinMappingQuality=args.minMappingQuality,
                  pKeepSelfCircles=args.keepSelfCircles, pKeepSelfLigation=args.keepSelfLigation, pGenomeAssembly=args.genomeAssembly)
+
+
+def main(args=None):
+    """Run the C++ implementation; the Python implementation above is kept as _main_python."""
+    from hicexplorer._cpp import entry_point
+    entry_point('hicBuildMatrix')(args)

@@ -400,7 +400,7 @@ def create_list_with_protein(bList, minPeak, cList=None):
     return bList
 
 
-def main(args=None):
+def _main_python(args=None):
     args = parse_arguments().parse_args(args)
     pValue = args.value
     listOfDomains = []
@@ -426,3 +426,9 @@ def main(args=None):
         relationList = create_relationsship_list(mergedListWithId, args.percent)
         write_in_file(relationList, args.outputRelationList, True)
         create_tree(relationList, mergedListWithId, args.outputTreePlotPrefix, args.outputTreePlotFormat)
+
+
+def main(args=None):
+    """Run the C++ implementation; the Python implementation above is kept as _main_python."""
+    from hicexplorer._cpp import entry_point
+    entry_point('hicMergeDomains')(args)

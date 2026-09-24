@@ -259,7 +259,7 @@ def exportData(pFileList, pArgs, pViewpointObject, pDecimalPlace, pChromosomeSiz
     return
 
 
-def main(args=None):
+def _main_python(args=None):
     args = parse_arguments().parse_args(args)
     viewpointObj = Viewpoint()
 
@@ -568,3 +568,9 @@ def main(args=None):
                     shutil.rmtree(bigwig_folder)
                 except OSError as e:
                     log.error("Error: %s - %s." % (e.filename, e.strerror))
+
+
+def main(args=None):
+    """Run the C++ implementation; the Python implementation above is kept as _main_python."""
+    from hicexplorer._cpp import entry_point
+    entry_point('chicExportData')(args)

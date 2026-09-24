@@ -245,7 +245,7 @@ def get_vectors(mat1, mat2):
     return values1, values2
 
 
-def main(args=None):
+def _main_python(args=None):
 
     args = parse_arguments().parse_args(args)
     mpl.rcParams['pdf.fonttype'] = 42
@@ -448,3 +448,9 @@ def main(args=None):
                      args.zMin,
                      args.colorMap,
                      pPlotNumbers=args.plotNumbers)
+
+
+def main(args=None):
+    """Run the C++ implementation; the Python implementation above is kept as _main_python."""
+    from hicexplorer._cpp import entry_point
+    entry_point('hicCorrelate')(args)

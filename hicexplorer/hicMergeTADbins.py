@@ -133,7 +133,7 @@ def get_boundary_bin_id(hic, bed_fh):
     return np.sort(list(boundaries))
 
 
-def main(args=None):
+def _main_python(args=None):
 
     args = parse_arguments().parse_args(args)
     hic_ma = hm.hiCMatrix(args.matrix)
@@ -145,3 +145,9 @@ def main(args=None):
     # make a reduce matrix by merging the TAD bins
     log.info("Generating matrix with merged bins")
     merge_tad_bins(hic_ma, boundary_id_list, args.outFile)
+
+
+def main(args=None):
+    """Run the C++ implementation; the Python implementation above is kept as _main_python."""
+    from hicexplorer._cpp import entry_point
+    entry_point('hicMergeTADbins')(args)

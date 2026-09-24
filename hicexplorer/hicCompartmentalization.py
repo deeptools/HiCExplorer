@@ -171,7 +171,7 @@ def plot_polarization_ratio(polarization_ratio, plotName, labels,
     plt.savefig(plotName)
 
 
-def main(args=None):
+def _main_python(args=None):
     """
     Main function to generate the polarization plot.
     """
@@ -221,3 +221,9 @@ def main(args=None):
     plot_polarization_ratio(
         polarization_ratio, args.outputFileName, labels, args.quantile)
     np.savetxt(args.outputFileName + '_' + 'dat', polarization_ratio)
+
+
+def main(args=None):
+    """Run the C++ implementation; the Python implementation above is kept as _main_python."""
+    from hicexplorer._cpp import entry_point
+    entry_point('hicCompartmentalization')(args)

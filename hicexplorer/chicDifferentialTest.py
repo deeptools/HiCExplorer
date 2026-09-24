@@ -322,7 +322,7 @@ def run_statistical_tests(pInteractionFilesList, pArgs, pViewpointObject, pQueue
     return
 
 
-def main(args=None):
+def _main_python(args=None):
     args = parse_arguments().parse_args(args)
 
     viewpointObj = Viewpoint()
@@ -417,3 +417,9 @@ def main(args=None):
     all_data = [item for sublist in all_data for item in sublist]
 
     writeResultHDF(args.outFileName, accepted_data, rejected_data, all_data, aggregatedList, args.alpha, args.statisticTest)
+
+
+def main(args=None):
+    """Run the C++ implementation; the Python implementation above is kept as _main_python."""
+    from hicexplorer._cpp import entry_point
+    entry_point('chicDifferentialTest')(args)

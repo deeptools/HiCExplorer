@@ -268,7 +268,7 @@ def computeInterIntraTADs(pMatrix, pDomainList, pCoolOrH5, pThreadId, pQueue):
                 rows])
 
 
-def main(args=None):
+def _main_python(args=None):
     args = parse_arguments().parse_args(args)
     mpl.rcParams['pdf.fonttype'] = 42
 
@@ -512,3 +512,9 @@ def main(args=None):
     plt.tight_layout()
     plt.savefig(args.outFileNameRatioPlot, dpi=args.dpi)
     plt.close()
+
+
+def main(args=None):
+    """Run the C++ implementation; the Python implementation above is kept as _main_python."""
+    from hicexplorer._cpp import entry_point
+    entry_point('hicInterIntraTAD')(args)

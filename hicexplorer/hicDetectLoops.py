@@ -952,7 +952,7 @@ def read_threshold_file(pFile):
     return distance_value_dict
 
 
-def main(args=None):
+def _main_python(args=None):
     args = parse_arguments().parse_args(args)
 
     if args.windowSize <= args.peakWidth:
@@ -1091,3 +1091,9 @@ def main(args=None):
         write_bedgraph(mapped_loops, args.outFileName)
     log.info("Number of detected loops for all regions: {}".format(
         len(mapped_loops)))
+
+
+def main(args=None):
+    """Run the C++ implementation; the Python implementation above is kept as _main_python."""
+    from hicexplorer._cpp import entry_point
+    entry_point('hicDetectLoops')(args)

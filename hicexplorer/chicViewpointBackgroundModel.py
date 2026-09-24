@@ -121,7 +121,7 @@ def compute_background(pReferencePoints, pViewpointObj, pArgs, pQueue):
     return
 
 
-def main(args=None):
+def _main_python(args=None):
     args = parse_arguments().parse_args(args)
 
     viewpointObj = Viewpoint()
@@ -255,3 +255,9 @@ def main(args=None):
             relative_position_in_genomic_scale = relative_position * bin_size
             file.write("{}\t{:.12f}\t{:.12f}\t{:.12f}\t{:.12f}\n".format(relative_position_in_genomic_scale, nbinom_parameters[relative_position]['size'],
                                                                          nbinom_parameters[relative_position]['prob'], max_value[relative_position], mean_value[relative_position]))
+
+
+def main(args=None):
+    """Run the C++ implementation; the Python implementation above is kept as _main_python."""
+    from hicexplorer._cpp import entry_point
+    entry_point('chicViewpointBackgroundModel')(args)

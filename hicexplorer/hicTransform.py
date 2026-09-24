@@ -138,7 +138,7 @@ def _obs_exp_non_zero(pSubmatrix, ligation_factor):
     return obs_exp_matrix_  # .todense()
 
 
-def main(args=None):
+def _main_python(args=None):
 
     args = parse_arguments().parse_args(args)
 
@@ -258,3 +258,9 @@ def main(args=None):
         hic_ma.setMatrix(trasf_matrix, cut_intervals=hic_ma.cut_intervals)
 
     hic_ma.save(args.outFileName, pSymmetric=True, pApplyCorrection=False)
+
+
+def main(args=None):
+    """Run the C++ implementation; the Python implementation above is kept as _main_python."""
+    from hicexplorer._cpp import entry_point
+    entry_point('hicTransform')(args)

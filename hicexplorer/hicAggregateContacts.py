@@ -814,7 +814,7 @@ def plot_diagnostic_heatmaps(clustered_info, M_half, args):
     plt.close()
 
 
-def main(args=None):
+def _main_python(args=None):
     args = parse_arguments().parse_args(args)
     matplotlib.rcParams['pdf.fonttype'] = 42
 
@@ -974,3 +974,9 @@ def main(args=None):
     # the diagonals plot is useful to see individual cases and if they had a contact in the center
     if args.diagnosticHeatmapFile:
         plot_diagnostic_heatmaps(clustered_info, M_half, args)
+
+
+def main(args=None):
+    """Run the C++ implementation; the Python implementation above is kept as _main_python."""
+    from hicexplorer._cpp import entry_point
+    entry_point('hicAggregateContacts')(args)

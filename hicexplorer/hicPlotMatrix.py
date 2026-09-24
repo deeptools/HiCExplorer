@@ -642,7 +642,7 @@ def bigwig_axes_config(pArgs, pBigWigInfo):
     return pBigWigInfo, ax1
 
 
-def main(args=None):
+def _main_python(args=None):
     args = parse_arguments().parse_args(args)
     mpl.rcParams['pdf.fonttype'] = 42
 
@@ -1112,3 +1112,9 @@ def plotTADs(pAxis, pNameOfLongRangeContactsFile, pHiCMatrix, pRegion, pChromoso
         for x_id, y_id in zip(x_list, y_list):
             pAxis.plot([x_id, x_id], [y_id, x_id], 'k')
             pAxis.plot([x_id, y_id], [y_id, y_id], 'k')
+
+
+def main(args=None):
+    """Run the C++ implementation; the Python implementation above is kept as _main_python."""
+    from hicexplorer._cpp import entry_point
+    entry_point('hicPlotMatrix')(args)
