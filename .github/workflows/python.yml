@@ -1,0 +1,57 @@
+name: Python (HiCExplorer)
+
+on:
+  push:
+    branches: [version4-cpp]
+    paths-ignore: ['cpp/**', 'docs/**', '**.md']
+  pull_request:
+    paths-ignore: ['cpp/**', 'docs/**', '**.md']
+  workflow_dispatch:
+
+concurrency:
+  group: python-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: ${{ matrix.os }} py${{ matrix.python }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        python: ['3.8', '3.9', '3.10', '3.11', '3.12']
+    defaults:
+      run:
+        shell: bash -el {0}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: conda-incubator/setup-miniconda@v3
+        with:
+          miniforge-version: latest
+          python-version: ${{ matrix.python }}
+          channels: conda-forge,bioconda
+          activate-environment: hicexplorer
+
+      - name: Install dependencies
+        run: |
+          mamba install --yes python=${{ matrix.python }} --file requirements.txt
+          mamba install --yes pytest flake8 pytest-xdist pytest-forked nose configparser
+          pip install .
+
+      - name: Lint
+        run: flake8 . --exclude=.venv,.build,planemo_test_env,build --ignore=E501,F401,F403,E402,F999,F405,E712,W504
+
+      - name: Doctests and number of test cases
+        run: |
+          py.test hicexplorer/test/test_pytest_collected_items.py --doctest-modules --capture=sys
+          py.test hicexplorer --doctest-modules --ignore=hicexplorer/test/
+
+      - name: Tests
+        run: py.test hicexplorer/test/general/ --doctest-modules --capture=sys -n 4 --ignore=hicexplorer/test/general/test_hicTADClassifier.py --ignore=hicexplorer/test/general/test_hicTrainTADClassifier.py
+
+      - name: TAD classifier tests
+        run: |
+          py.test hicexplorer/test/general/test_hicTADClassifier.py
+          py.test hicexplorer/test/general/test_hicTrainTADClassifier.py
