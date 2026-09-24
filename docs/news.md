@@ -2,14 +2,33 @@
 
 ### Release 4.0.0
 
-- The tools run as native executables. Command lines, file formats and outputs stay compatible with
-  release 3.7.6. Most tools use several threads (`--threads`).
-- New tools: `chicChicagoBackgroundModel`, `chicChicagoScores`, `chicChicagoSignificantInteractions` and
-  `chicChicagoPlotViewpoint` for CHiCAGO scoring of capture Hi-C data, `hicDifferentialAnalysis` and
-  `hicDetectStripes`.
-- `hicConvertFormat` reads CHiCAGO `.chinput` files (`--inputFormat chinput`, with `--rmap`).
-- `chicExportData` exports the capture Hi-C HDF containers to text or bigWig.
-- The Python modules keep their names and `main(args)` functions as an API that runs the executables.
+HiCExplorer 4 is a port of HiCExplorer to C++. Every tool of release 3.7.6 is available under the same name
+with the same command line, file formats and outputs, checked tool by tool against 3.7.6. The tools run
+as native executables, and the Python modules stay as an API that calls them. On real data the tools are 5 to
+70 times faster and use 3 to 9 times less memory (see [Benchmarks](benchmarks.md)), and most of them run
+multithreaded (`--threads`).
+
+New tools:
+
+- `chicChicagoBackgroundModel`, `chicChicagoScores` and `chicChicagoSignificantInteractions` score capture
+  Hi-C interactions with the CHiCAGO method, from cool, h5 or `.hic` matrices or from CHiCAGO `.chinput`
+  files. `chicChicagoPlotViewpoint` plots the viewpoints as scatter plots or arcs, for one bait or all baits
+  of a region, and writes the interactions as a pyGenomeTracks links file. See the
+  [CHiCAGO tutorial](example-usage/chicago-tutorial.md).
+- `hicDifferentialAnalysis` tests TADs, loops and A/B compartments for differences between conditions with
+  replicates, using a negative binomial model.
+- `hicDetectStripes` detects stripes in a Hi-C matrix.
+
+New options and features:
+
+- `hicConvertFormat` reads CHiCAGO `.chinput` files (`--inputFormat chinput`, with `--rmap`), reads `.hic`
+  files of versions 6 to 9 and writes `.hic` files of versions 8 and 9 (`--outputFormat hic`).
+- `hicPlotMatrix --matrix2` draws two matrices as the upper and lower triangle of one heatmap.
+- `hicPCA --eigenSolver lanczos` computes the eigenvectors of large matrices with less time and memory.
+- `hicDifferentialTAD` and `chicSignificantInteractions` accept `--correctForMultipleTesting` and
+  `hicDifferentialTAD` accepts `--sharedMask`.
+- `hicCompartmentalization --noPlot` writes the numeric results without drawing the figure.
+- `hicBuildMatrix` and the CHiCAGO tools produce the same output for every number of threads.
 
 ### Release 3.7.6
 **27 November 2024**
