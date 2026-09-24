@@ -1,22 +1,19 @@
 # Example usage
 
-This walkthrough goes through a typical Hi-C analysis from mapped reads to A/B compartments, kept from
-the original documentation and checked below for anything version 4 changed.
-
-Five longer, self-contained tutorials from the original documentation are carried over as their own
-pages rather than folded in here, unchanged in substance:
+This walkthrough goes through a typical Hi-C analysis from mapped reads to A/B compartments. Longer
+tutorials have their own pages:
 
 - [mES-HiC analysis](example-usage/mes-hic-analysis.md): a full walkthrough on a mouse embryonic stem
   cell dataset, from read mapping to TAD comparison across two studies.
 - [Exporting Hi-C data with HiCExport](example-usage/hicexport.md): a note on the `hicExport` tool that
   `hicConvertFormat` and `hicAdjustMatrix` replaced starting with HiCExplorer 2.2 (kept for readers
-  arriving from old external references to `hicExport`, which does not exist in this project any more).
+  arriving from old references to `hicExport`).
 - [Capture Hi-C analysis](example-usage/capture-hic-tutorial.md): the cHi-C pipeline (`chicQualityControl`
   through `chicPlotViewpoint`) on a real capture Hi-C dataset.
 - [New in version 4: examples](example-usage/new-in-version-4.md): stripes, differential TADs with replicates,
   two matrices in one heatmap, the faster PCA solver, `.hic` conversion and CHiCAGO scoring.
 - [CHiCAGO analysis](example-usage/chicago-tutorial.md): CHiCAGO scoring, viewpoint plots and genome
-  tracks with the C++ `chicChicago*` tools.
+  tracks with the `chicChicago*` tools.
 
 The individual tool pages under [Tools](tools/index.md) list the flags of version 4. The Capture Hi-C and
 mES-HiC tutorials were written for version 3 and were not re-checked flag by flag.
