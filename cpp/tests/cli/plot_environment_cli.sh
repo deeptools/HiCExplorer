@@ -15,8 +15,8 @@
 #     output directory
 #     byte for byte as it was: an existing output keeps its content and no new
 #     file or folder appears.
-#  6. With the pinned interpreter the figure is drawn without a warning, and
-#     the pins equal those of plot/pyproject.toml. Needs the pinned
+#  6. With a current interpreter the figure is drawn without a warning, and
+#     the minimums equal those of plot/pyproject.toml. Needs the
 #     interpreter (CMake HICX_PLOT_TEST_PYTHON); without it this part is
 #     reported and the test ends with the skip status 77.
 #
@@ -196,13 +196,13 @@ import sys
 import tomllib
 from hicexplorer_plot import environment
 with open(sys.argv[1], "rb") as handle:
-    pins = {d.split("==")[0]: d.split("==")[1] for d in tomllib.load(handle)["project"]["dependencies"] if "==" in d}
+    pins = {d.split(">=")[0]: d.split(">=")[1] for d in tomllib.load(handle)["project"]["dependencies"] if ">=" in d}
 wanted = list(environment.PINS.values()) + [p for tool in environment.TOOL_PINS.values() for p in tool.values()]
 bad = [(name, version, pins.get(name)) for name, version in wanted if pins.get(name) != version]
 print(bad)
 sys.exit(1 if bad else 0)
 PY
-    expect "the pins equal plot/pyproject.toml" [ "$?" -eq 0 ]
+    expect "the minimums equal plot/pyproject.toml" [ "$?" -eq 0 ]
 fi
 
 echo "$failures failure(s)"
