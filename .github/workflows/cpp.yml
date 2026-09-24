@@ -1,0 +1,136 @@
+name: C++ (HiCExplorer v4)
+
+on:
+  push:
+    branches: [version4-cpp]
+    paths: ['cpp/**', 'hicexplorer/test/test_data/**', '.github/workflows/cpp.yml']
+  pull_request:
+    paths: ['cpp/**', 'hicexplorer/test/test_data/**', '.github/workflows/cpp.yml']
+  workflow_dispatch:
+
+concurrency:
+  group: cpp-${{ github.ref }}
+  cancel-in-progress: true
+
+# coolercpp and hicfilecpp are separate repositories. Set the repository
+# variables COOLERCPP_REPOSITORY and HICFILECPP_REPOSITORY (owner/name) under
+# Settings > Secrets and variables > Actions > Variables. For private
+# repositories add a secret DEPS_TOKEN with read access to both.
+jobs:
+  conda:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {name: linux-x86_64, os: ubuntu-24.04}
+          - {name: linux-arm64, os: ubuntu-24.04-arm}
+          - {name: macos-arm64, os: macos-14}
+    defaults:
+      run:
+        shell: bash -el {0}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the dependency repositories are configured
+        run: |
+          test -n "${{ vars.COOLERCPP_REPOSITORY }}" && test -n "${{ vars.HICFILECPP_REPOSITORY }}" || {
+            echo "Set the repository variables COOLERCPP_REPOSITORY and HICFILECPP_REPOSITORY."; exit 1; }
+
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ vars.COOLERCPP_REPOSITORY }}
+          token: ${{ secrets.DEPS_TOKEN || github.token }}
+          path: deps/coolercpp
+          fetch-depth: 0
+
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ vars.HICFILECPP_REPOSITORY }}
+          token: ${{ secrets.DEPS_TOKEN || github.token }}
+          path: deps/hicfilecpp
+          fetch-depth: 0
+
+      - uses: conda-incubator/setup-miniconda@v3
+        with:
+          miniforge-version: latest
+          auto-activate-base: false
+          activate-environment: hicx
+          channels: conda-forge
+
+      - name: Install native dependencies
+        run: mamba install --yes -n hicx cmake ninja compilers hdf5 blosc zlib htslib libopenblas liblapack graphviz python=3.12
+
+      - name: Configure
+        run: |
+          cmake -S cpp -B cpp/build -G Ninja -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_PREFIX_PATH="$CONDA_PREFIX" \
+            -DHICX_COOLERCPP_GIT_REPOSITORY="$GITHUB_WORKSPACE/deps/coolercpp" \
+            -DHICX_HICFILECPP_GIT_REPOSITORY="$GITHUB_WORKSPACE/deps/hicfilecpp"
+
+      - name: Build
+        run: cmake --build cpp/build --parallel
+
+      - name: Test
+        run: ctest --test-dir cpp/build --output-on-failure --parallel 4
+
+  windows:
+    name: ${{ matrix.name }} (experimental)
+    runs-on: ${{ matrix.os }}
+    # The sources use POSIX headers (unistd.h, sys/wait.h, dlfcn.h). These jobs
+    # report whether the MSYS2 toolchains build them and never fail the run.
+    continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {name: windows-x86_64, os: windows-2022, msystem: CLANG64, prefix: mingw-w64-clang-x86_64}
+          - {name: windows-arm64, os: windows-11-arm, msystem: CLANGARM64, prefix: mingw-w64-clang-aarch64}
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ vars.COOLERCPP_REPOSITORY }}
+          token: ${{ secrets.DEPS_TOKEN || github.token }}
+          path: deps/coolercpp
+          fetch-depth: 0
+
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ vars.HICFILECPP_REPOSITORY }}
+          token: ${{ secrets.DEPS_TOKEN || github.token }}
+          path: deps/hicfilecpp
+          fetch-depth: 0
+
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: ${{ matrix.msystem }}
+          update: true
+          install: >-
+            git
+            ${{ matrix.prefix }}-toolchain
+            ${{ matrix.prefix }}-cmake
+            ${{ matrix.prefix }}-ninja
+            ${{ matrix.prefix }}-hdf5
+            ${{ matrix.prefix }}-blosc
+            ${{ matrix.prefix }}-zlib
+            ${{ matrix.prefix }}-openblas
+            ${{ matrix.prefix }}-htslib
+
+      - name: Configure
+        run: |
+          cmake -S cpp -B cpp/build -G Ninja -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_PREFIX_PATH="$MINGW_PREFIX" \
+            -DHICX_COOLERCPP_GIT_REPOSITORY="$GITHUB_WORKSPACE/deps/coolercpp" \
+            -DHICX_HICFILECPP_GIT_REPOSITORY="$GITHUB_WORKSPACE/deps/hicfilecpp"
+
+      - name: Build
+        run: cmake --build cpp/build --parallel
+
+      - name: Test
+        run: ctest --test-dir cpp/build --output-on-failure --parallel 4
