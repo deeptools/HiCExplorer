@@ -1,8 +1,5 @@
 # Analysis
 
-!!! note "Two hyperopt tools not yet ported"
-    `hicHyperoptDetectLoops` and `hicHyperoptDetectLoopsHiCCUPS` exist in the Python HiCExplorer (added in version 3.5) but are listed in `cpp/STATUS.md` as tier 8, not started; they have no C++ build yet. Their pages below are placeholders, not a real CLI reference.
-
 | Tool | Description |
 |---|---|
 | [hicCompareMatrices](hicCompareMatrices.md) | Computes the difference, ratio or log2 ratio between two matrices. |

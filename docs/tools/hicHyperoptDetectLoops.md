@@ -1,18 +1,29 @@
 # hicHyperoptDetectLoops
 
-!!! warning "Not yet ported to C++"
-    `hicHyperoptDetectLoops` exists in the Python HiCExplorer but has not been ported to this C++
-    rewrite yet: `cpp/STATUS.md` lists it as tier 8, "not started". There is no `cpp/build/tools/hicHyperoptDetectLoops`
-    binary, and consequently no real `--help` output to generate a CLI reference from. This page is a
-    placeholder so the tool is not silently missing from the documentation; it will be filled in with a
-    real reference once the tool is ported.
-
 Searches for the best [hicDetectLoops](hicDetectLoops.md) parameter setting for a given dataset, using
 Bayesian hyperparameter optimization (the Python `hyperopt` library) against a set of known protein peak
 locations. Because `hicDetectLoops` has many parameters and finding a good setting by hand is difficult,
-the Python HiCExplorer added this tool (and its HiCCUPS counterpart,
+HiCExplorer added this tool (and its HiCCUPS counterpart,
 [hicHyperoptDetectLoopsHiCCUPS](hicHyperoptDetectLoopsHiCCUPS.md)) in version 3.5.
 
-Until this tool is ported, use the Python HiCExplorer's `hicHyperoptDetectLoops` for parameter search,
-and this rewrite's [hicDetectLoops](hicDetectLoops.md) for the loop calling itself once a parameter
-setting has been chosen.
+```text
+usage: hicHyperoptDetectLoops --matrix MATRIX --proteinFile PROTEINFILE
+                              --maximumNumberOfLoops MAXIMUMNUMBEROFLOOPS
+                              [--outputFileName OUTPUTFILENAME] [--resolution RESOLUTION]
+                              [--chrPrefixLoops {None,add,remove}] [--threads THREADS]
+                              [--runs RUNS] [--help] [--version]
+```
+
+The tool runs in Python. Each evaluation of a parameter setting runs [hicDetectLoops](hicDetectLoops.md)
+and [hicValidateLocations](hicValidateLocations.md).
+
+| Flag | Meaning |
+|---|---|
+| `--matrix MATRIX, -m MATRIX` | The matrix to compute the loops on. |
+| `--proteinFile PROTEINFILE, -p PROTEINFILE` | The protein file to validate the detected loops. |
+| `--maximumNumberOfLoops MAXIMUMNUMBEROFLOOPS, -ml MAXIMUMNUMBEROFLOOPS` | The maximum number of loops that should be used for the optimization. |
+| `--outputFileName OUTPUTFILENAME, -o OUTPUTFILENAME` | File name for the result of the optimization (Default: hyperopt_result.txt). |
+| `--resolution RESOLUTION, -re RESOLUTION` | Resolution of the matrix (Default: 10000). |
+| `--chrPrefixLoops {None,add,remove}, -cl {None,add,remove}` | Add, remove or keep a 'chr' prefix on the chromosome names of the loops. |
+| `--threads THREADS, -t THREADS` | Number of threads (Default: 4). |
+| `--runs RUNS, -r RUNS` | Number of hyperopt runs (Default: 100). |

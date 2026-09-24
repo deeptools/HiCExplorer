@@ -3,8 +3,7 @@
 !!! warning "hicExport does not exist in this project"
     `hicExport` was the HiCExplorer 2.1-and-earlier tool for this job. Starting with HiCExplorer 2.2,
     `hicConvertFormat` and `hicAdjustMatrix` replaced it (see [Matrix handling](../tools/matrix-handling.md));
-    this C++ rewrite only ports the tools that exist in the current Python HiCExplorer, so `hicExport`
-    itself was never ported and does not exist here either. This page is kept, converted from the
+    `hicExport` is not part of HiCExplorer 3 or 4. This page is kept, converted from the
     original documentation, only because it is still linked from [Example usage](../example-usage.md);
     for current matrix format conversion use [hicConvertFormat](../tools/hicConvertFormat.md), and for
     keeping, removing or masking regions use [hicAdjustMatrix](../tools/hicAdjustMatrix.md).

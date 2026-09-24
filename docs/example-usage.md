@@ -1,7 +1,7 @@
 # Example usage
 
 This walkthrough goes through a typical Hi-C analysis from mapped reads to A/B compartments, kept from
-the original documentation and checked below for anything the C++ rewrite changed.
+the original documentation and checked below for anything version 4 changed.
 
 Four longer, self-contained tutorials from the original documentation are carried over as their own
 pages rather than folded in here, unchanged in substance:
@@ -16,9 +16,8 @@ pages rather than folded in here, unchanged in substance:
 - [CHiCAGO analysis](example-usage/chicago-tutorial.md): CHiCAGO scoring, viewpoint plots and genome
   tracks with the C++ `chicChicago*` tools.
 
-The Capture Hi-C and mES-HiC tutorials use the Python HiCExplorer's command-line syntax; see the note under
-[Capture Hi-C analysis](example-usage/capture-hic-tutorial.md#c-rewrite-note) and the individual tool
-pages under [Tools](tools/index.md) for what changed in the C++ rewrite's CLI.
+The individual tool pages under [Tools](tools/index.md) list the flags of version 4. The Capture Hi-C and
+mES-HiC tutorials were written for version 3 and were not re-checked flag by flag.
 
 ### How we use HiCExplorer
 

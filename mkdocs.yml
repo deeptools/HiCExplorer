@@ -1,24 +1,14 @@
 site_name: HiCExplorer
 site_description: >-
-  A from-scratch C++ rewrite of HiCExplorer, a tool suite to process, normalize,
+  HiCExplorer, a tool suite to process, normalize,
   analyze and visualize Hi-C and capture Hi-C data
 site_author: Joachim Wolff
 copyright: GPL-3.0 License
 
-# TODO(docs-migration): repo_url / edit_uri intentionally left unset.
-# The historical upstream is git@github.com:deeptools/HiCExplorer.git, but that
-# repository is the old Python HiCExplorer this project rewrites from scratch in
-# C++ (branch version4-cpp here); it does not contain this code. This fork's own
-# work currently lives only on local, unpushed branches, so there is no public
-# URL yet that correctly represents this C++ rewrite. Once this project (or a
-# fork of it, for example under the MHH-Bioinformatics-Hematology org the way
-# vardictcpp and picardcpp are hosted) has a real public home, set:
+# repo_url and edit_uri stay unset until the documentation has its public repository. Then set:
 #   repo_url: https://github.com/<org>/<repo>
 #   repo_name: <org>/<repo>
 #   edit_uri: edit/<default-branch>/docs/
-# Do not point this at deeptools/HiCExplorer: it would silently misattribute
-# this C++ rewrite's docs (and its "edit this page" links) to the unrelated
-# Python project.
 
 theme:
   name: material
@@ -95,6 +85,8 @@ nav:
           - hicDifferentialTAD: tools/hicDifferentialTAD.md
           - hicMergeTADbins: tools/hicMergeTADbins.md
           - hicInterIntraTAD: tools/hicInterIntraTAD.md
+          - hicTADClassifier: tools/hicTADClassifier.md
+          - hicTrainTADClassifier: tools/hicTrainTADClassifier.md
       - Visualization:
           - Overview: tools/visualization.md
           - hicPlotMatrix: tools/hicPlotMatrix.md

@@ -1,13 +1,12 @@
 # Capture Hi-C analysis
 
-## C++ rewrite note
+## Note
 
-This tutorial's commands use the Python HiCExplorer's `chic*` tool syntax. All seven capture Hi-C
-tools (`chicQualityControl`, `chicViewpointBackgroundModel`, `chicViewpoint`,
-`chicSignificantInteractions`, `chicAggregateStatistic`, `chicDifferentialTest`,
-`chicPlotViewpoint`), plus the new `chicExportData`, are ported in this C++ rewrite; see
-[Capture Hi-C](../tools/capture-hic.md) for the current tool list and each tool's own page for its
-real, current C++ flag set, which the commands below were not re-verified against flag by flag.
+The commands of this tutorial were written for HiCExplorer 3 and were not re-checked flag by flag against
+version 4. All eight capture Hi-C tools (`chicQualityControl`, `chicViewpointBackgroundModel`,
+`chicViewpoint`, `chicSignificantInteractions`, `chicAggregateStatistic`, `chicDifferentialTest`,
+`chicPlotViewpoint` and `chicExportData`) are part of version 4; see [Capture Hi-C](../tools/capture-hic.md)
+for the tool list and each tool's page for its flags.
 
 ### How we use HiCExplorer to analyse cHi-C data
 

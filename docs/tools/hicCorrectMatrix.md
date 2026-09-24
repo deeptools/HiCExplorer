@@ -114,11 +114,10 @@ hicCorrectMatrix correct --matrix matrix.cool --correctionMethod ICE \
   --outFileName corrected_ICE.cool --filterThreshold -1.5 5.0
 ```
 
-!!! note "Runtime and memory figures below are from the Python HiCExplorer"
-    The following per-resolution runtime and peak memory figures were measured on the Python
-    implementation on Rao 2014 GM12878 primary + replicate data, and are kept for reference; they do not
-    describe this C++ rewrite's `hicCorrectMatrix`. See [Benchmarks](../benchmarks.md) for this rewrite's
-    own measured numbers.
+!!! note "Runtime and memory figures below are from HiCExplorer 3"
+    The following per-resolution runtime and peak memory figures were measured with HiCExplorer 3 on
+    Rao 2014 GM12878 primary + replicate data and do not describe version 4. See
+    [Benchmarks](../benchmarks.md) for measured numbers of version 4.
 
     - KR on 25kb: 165 GB, 1:08 h
     - ICE on 25kb: 224 GB, 3:10 h

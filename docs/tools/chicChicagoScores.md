@@ -2,7 +2,7 @@
 
 Applies a fitted CHiCAGO background model to the interaction counts of one sample and writes CHiCAGO's log p-value and weighted score for every (bait, other end) pair. Second step of the CHiCAGO pipeline, after [chicChicagoBackgroundModel](chicChicagoBackgroundModel.md).
 
-This tool exists only in the C++ rewrite. It has no Python HiCExplorer counterpart.
+This tool is new in version 4.
 
 ```text
 usage: chicChicagoScores --backgroundModel BACKGROUNDMODEL

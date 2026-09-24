@@ -1,24 +1,24 @@
 # HiCExplorer
 
 **HiCExplorer** is a suite of command-line tools to process, normalize, analyze and visualize Hi-C,
-Micro-C and capture Hi-C (cHi-C) data. This is a from-scratch C++ rewrite of the original Python
-HiCExplorer, validated tool by tool against the Python reference implementation (see
-[Benchmarks](benchmarks.md) for what that validation covers).
+Micro-C and capture Hi-C (cHi-C) data. This is version 4.
 
-## Why the C++ rewrite
+## What is new in version 4
 
-- **Same results.** Every ported tool is checked against the Python HiCExplorer's own output on real
-  and synthetic data before it is considered done; equivalence classes and known, documented CLI
-  deviations are tracked per tool.
 - **Faster, much less memory.** On a real single-chromosome Hi-C matrix (24,926 bins, 61.8M nonzero
-  pixels), the C++ tools measured 5 to 70 times faster than Python HiCExplorer 3.7.6, single-threaded,
-  at 3 to 9 times less peak memory. See [Benchmarks](benchmarks.md) for the numbers.
-- **No Python runtime dependency for the core pipeline.** The tools are native binaries built against
-  htslib, HDF5 and a small set of C++ libraries; no conda environment with SciPy/pandas/matplotlib is
-  required to build a matrix, correct it, call loops or TADs, or convert formats. A handful of the
-  plotting tools still delegate figure drawing to the original Python/matplotlib code through a small
-  drawing layer (`HICX_PLOT_PYTHON`), since reproducing matplotlib's rendering pixel-for-pixel in C++
-  was judged not worth it; the data these plots draw from is computed in C++.
+  pixels), the tools of version 4 measured 5 to 70 times faster than HiCExplorer 3.7.6,
+  single-threaded, at 3 to 9 times less peak memory. Most tools also run multithreaded. See
+  [Benchmarks](benchmarks.md) for the numbers.
+- **The same results.** Every tool is checked against the output of HiCExplorer 3.7.6 on real and
+  synthetic data. Command lines, file formats and outputs stay compatible, and known differences are
+  listed on the page of the tool.
+- **CHiCAGO scoring.** The `chicChicago*` tools score capture Hi-C interactions with the CHiCAGO
+  method from cool, h5 or `.hic` matrices, and plot them as viewpoints, arcs and genome tracks. See the
+  [CHiCAGO tutorial](example-usage/chicago-tutorial.md).
+- **New analysis tools.** `hicDifferentialAnalysis` (replicate-aware differential TADs, loops and
+  compartments) and `hicDetectStripes`.
+- **One package.** `conda install hicexplorer` installs the tools together with the Python API. Existing
+  scripts that call the commands or import `hicexplorer` keep working.
 
 ## At a glance
 
@@ -38,12 +38,12 @@ hicFindTADs -m hic_corrected.cool --outPrefix hic_corrected
 
 ## Where to go next
 
-- [Installation](installation.md): building from source and what changed from the Python package.
+- [Installation](installation.md): installing with conda, pip or from source.
 - [Usage](usage.md): the general command-line conventions shared by all tools.
 - [Tools](tools/index.md): the full list of tools, grouped by task, each with its own CLI reference.
 - [File formats](file-formats.md): the native h5/cool matrix format and the capture Hi-C HDF containers.
 - [Example usage](example-usage.md): a worked pre-processing-to-visualization walkthrough.
-- [Benchmarks](benchmarks.md): runtime and memory versus the Python implementation.
-- [News](news.md): the Python HiCExplorer release history this rewrite builds on.
+- [Benchmarks](benchmarks.md): runtime and memory compared with HiCExplorer 3.7.6.
+- [News](news.md): the release history.
 - [Citation](citation.md): how to cite HiCExplorer.
 - [Support](support.md): where to get help.

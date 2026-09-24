@@ -33,12 +33,11 @@ analysis, TAD calling, visualization, matrix format handling, and capture Hi-C).
 
 ## The C++ plotting tools and the Python drawing layer
 
-The C++ rewrite computes every plot's underlying data (matrices, positions, statistics) natively. A
+The tools compute every plot's underlying data (matrices, positions, statistics) natively. A
 subset of the plotting tools (`hicPlotMatrix`, `hicPlotTADs`, `hicAggregateContacts`,
 `hicPlotAverageRegions`, `hicCompartmentalization`, and the `diagnostic_plot` subcommand of
-`hicCorrectMatrix`) then hand that data to the original Python/matplotlib (and, for `hicPlotTADs`,
-pyGenomeTracks) drawing code through a small layer named `hicexplorer_plot`, rather than reimplementing
-matplotlib's rendering in C++. The Python interpreter to use for this is set with the `HICX_PLOT_PYTHON`
+`hicCorrectMatrix`) then hand that data to matplotlib (and, for `hicPlotTADs`, pyGenomeTracks) through a small
+Python layer named `hicexplorer_plot`. The Python interpreter to use for this is set with the `HICX_PLOT_PYTHON`
 environment variable. Passing `--plotData FILE` on these tools skips the drawing step and writes the
 figure's data as JSON (plus `.npy` matrices where relevant) instead, which is useful in a pipeline that
 does not want a Python dependency at all, or that wants to re-plot with different styling.
