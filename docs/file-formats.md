@@ -141,19 +141,103 @@ matrixFileHandlerOutput.save(args.outFileName, pSymmetric=True, pApplyCorrection
 ```
 ### CHiCAGO formats
 
-The `chicChicago*` tools read the file formats of R Chicago. All files are tab separated and are
-described in the CHiCAGO documentation; the columns the tools rely on are listed here.
+The `chicChicago*` tools read the input files of R Chicago (Cairns et al. 2016). All files are tab
+separated text. The examples are the first lines of the fixture in
+`hicexplorer/test/test_data/chicago/` (GM12878, chromosomes 20 and 21, HindIII, hg19).
 
-| File | Columns |
-|---|---|
-| `.rmap` | chromosome, start, end, fragment ID (1-based coordinates). |
-| `.baitmap` | chromosome, start, end, fragment ID, bait annotation. |
-| `.chinput` | header line, then baitID, otherEndID, N, otherEndLen, distSign. Trans rows carry the literal `NA` in distSign. |
-| `.npb`, `.nbpb`, `.poe` | Design tables from `makeDesignFiles.py` of chicagoTools: NPerBin, NBaitsPerBin and ProxOE. |
+#### Restriction fragment map (`.rmap`)
 
-Background model files and score files are plain text tables written by `chicChicagoBackgroundModel` and
-`chicChicagoScores`. A `.chinput` file converts to a matrix with `hicConvertFormat --inputFormat chinput`;
-both directions of a reciprocal bait-to-bait pair are summed in the matrix.
+One line per restriction fragment of the genome, sorted by position: chromosome, start, end and the
+fragment ID. Coordinates are 1-based and inclusive, and the fragments of a chromosome tile it without gaps.
+The IDs are unique integers, in order of position.
+
+```text
+20	1	60024	403460
+20	60025	62654	403461
+20	62655	66475	403462
+20	66476	71941	403463
+```
+
+#### Bait map (`.baitmap`)
+
+One line per baited fragment: chromosome, start, end, fragment ID and a bait name (for example the gene
+symbol of the promoter). The coordinates and IDs are those of the `.rmap`, and every bait is a fragment of
+the `.rmap`.
+
+```text
+20	66476	71941	403463	DEFB125
+20	119103	138049	403475	DEFB126
+20	161620	170741	403482	DEFB128
+```
+
+#### Design tables (`.npb`, `.nbpb`, `.poe`)
+
+The three tables are computed from the `.rmap` and the `.baitmap` with `makeDesignFiles.py` of
+[chicagoTools](https://github.com/RegulatoryGenomicsGroup/chicago). They depend only on the design and on the
+settings of the run (minimum and maximum fragment length, `maxLBrownEst`, the distance bin size, and
+whether bait-to-bait pairs and adjacent fragments are removed), so one set serves all samples of a design.
+The first line of each table, starting with `#`, records the settings and the two input files. The
+tools use the tables of the same settings as the run.
+
+The distance from a bait to the other end is split into bins of `binsize` (20,000 bp by default) up to
+`maxLBrownEst` (1,500,000 bp by default), which gives 75 bins.
+
+`.npb` (NPerBin) has one line per bait. The first column is the bait ID and the following 75 columns give
+the number of other-end fragments that lie in each distance bin around the bait and pass the fragment length
+filters.
+
+```text
+#	minFragLen=150	maxFragLen=40000	maxLBrownEst=1500000	binsize=20000	removeb2b=True	removeAdjacent=True	rmapfile=./h19_chr20and21.rmap	baitmapfile=./h19_chr20and21.baitmap
+403463	4	4	3	4	1	4	4	6	6	1	1	3	...
+```
+
+`.nbpb` (NBaitsPerBin) has one line per restriction fragment. The first column is the fragment ID and the
+following 75 columns give the number of baits for which the fragment lies in that distance bin.
+
+```text
+#	maxLBrownEst=1500000	binsize=20000	rmapfile=./h19_chr20and21.rmap	baitmapfile=./h19_chr20and21.baitmap
+403460	0	1	0	0	1	0	1	0	1	0	1	0	1	1	...
+403461	1	0	0	1	0	1	0	1	1	0	1	0	1	1	...
+```
+
+`.poe` (ProxOE) lists the proximal pairs: one line per bait and other end within `maxLBrownEst` after the
+filters, with bait ID, other-end ID and the distance in base pairs.
+
+```text
+#	minFragLen=150	maxFragLen=40000	maxLBrownEst=1500000	binsize=20000	removeb2b=True	removeAdjacent=True	rmapfile=./h19_chr20and21.rmap	baitmapfile=./h19_chr20and21.baitmap
+403463	403461	7869
+403463	403465	5827
+403463	403466	11771
+```
+
+#### Interaction counts (`.chinput`)
+
+One sample per file. The first line starts with `##` and records the sample name and the design files.
+The second line names the columns. Each following line is one pair of a bait and an other end: bait ID,
+other-end ID, the read count N, the length of the other-end fragment and the signed distance
+(negative when the other end lies upstream of the bait). Pairs on different chromosomes (trans) have the
+literal `NA` as distance. Several replicates are summed per pair beforehand.
+
+```text
+##	samplename=GM_rep1	bamname=...	baitmapfile=...	digestfile=...
+baitID	otherEndID	N	otherEndLen	distSign
+403463	403461	2	2629	-7869
+403463	403462	1	3820	-4644
+```
+
+`bam2chicago.sh` of chicagoTools writes the file from the aligned reads. `hicConvertFormat --inputFormat
+chinput --rmap FILE.rmap` writes it as a matrix; both directions of a reciprocal bait-to-bait pair are
+summed in the matrix.
+
+#### Output of the tools
+
+`chicChicagoBackgroundModel` writes the background model and `chicChicagoScores` the scores, both as plain
+text tables. `chicChicagoScores` has one line per interaction with the columns `baitID`, `otherEndID`, `N`,
+`distSign`, `Bmean` (expected count of the Brownian component), `Tmean` (expected count of the technical
+noise), `log_p` (natural logarithm of the p-value) and `score`. `chicChicagoSignificantInteractions` writes the
+interactions above the score threshold with the coordinates: `bait_chr`, `bait_start`, `bait_end`,
+`bait_name`, `otherEnd_chr`, `otherEnd_start`, `otherEnd_end`, `N`, `distSign` and `score`. See the
+[CHiCAGO tutorial](example-usage/chicago-tutorial.md).
 
 ### Capture Hi-C HDF containers
 
