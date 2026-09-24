@@ -27,8 +27,8 @@ Creates a heatmap of a Hi-C matrix.
 
 The tool computes the matrices, positions and extents of the figure, then draws it with matplotlib
 through the `hicexplorer_plot` drawing layer (`HICX_PLOT_PYTHON` names the interpreter to use for
-drawing). The plotting and styling options are (`--title`, `--colorMap`, `--vMin`/`--vMax`, `--log1p`/`--log`,
-`--region`/`--region2`, `--perChromosome`, the bigwig overlay options, and so on). `--plotData FILE`
+drawing). The plotting and styling options include `--title`, `--colorMap`, `--vMin`/`--vMax`, `--log1p`/`--log`,
+`--region`/`--region2`, `--perChromosome`, the bigwig overlay options and more. `--plotData FILE`
 writes the data of the figure as JSON to FILE (and its matrices as `FILE.<n>.npy`) instead of drawing it.
 
 `--matrix2 MATRIX2` draws one heatmap that shows `--matrix` in the upper triangle and `--matrix2` in the
