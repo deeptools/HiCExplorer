@@ -2,7 +2,7 @@
 
 Filters the output of [chicChicagoScores](chicChicagoScores.md) by CHiCAGO's score threshold and writes the accepted interactions with the genomic coordinates of both fragments. Third step of the CHiCAGO pipeline.
 
-This tool exists only in the C++ rewrite. It has no Python HiCExplorer counterpart. It is unrelated to [chicSignificantInteractions](chicSignificantInteractions.md), which works on the HDF5 files of the chicViewpoint workflow.
+This tool is new in version 4. It is unrelated to [chicSignificantInteractions](chicSignificantInteractions.md), which works on the HDF5 files of the chicViewpoint workflow.
 
 ```text
 usage: chicChicagoSignificantInteractions --scores SCORES --rmap RMAP

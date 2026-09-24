@@ -1,11 +1,15 @@
 # News
 
-!!! note "This history is the Python HiCExplorer's"
-    The releases below are the original Python HiCExplorer's history, carried over unmodified from the
-    old documentation for reference (several ported tools, such as `hicBuildMatrixMicroC`, first
-    appeared in one of these releases). This C++ rewrite does not yet have its own numbered release
-    history; the per-tool porting and validation status of the rewrite itself is tracked in
-    `cpp/STATUS.md` in the repository, not here.
+### Release 4.0.0
+
+- The tools run as native executables. Command lines, file formats and outputs stay compatible with
+  release 3.7.6. Most tools use several threads (`--threads`).
+- New tools: `chicChicagoBackgroundModel`, `chicChicagoScores`, `chicChicagoSignificantInteractions` and
+  `chicChicagoPlotViewpoint` for CHiCAGO scoring of capture Hi-C data, `hicDifferentialAnalysis` and
+  `hicDetectStripes`.
+- `hicConvertFormat` reads CHiCAGO `.chinput` files (`--inputFormat chinput`, with `--rmap`).
+- `chicExportData` exports the capture Hi-C HDF containers to text or bigWig.
+- The Python modules keep their names and `main(args)` functions as an API that runs the executables.
 
 ### Release 3.7.6
 **27 November 2024**

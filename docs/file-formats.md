@@ -7,9 +7,8 @@ capture Hi-C analysis.
 !!! note "Python code below is the format's reference implementation"
     The `h5` layout was originally defined and is still read/written by the Python `HiCMatrix` library;
     the code samples in this section are that reference implementation, kept as the most precise
-    description of the on-disk layout. The C++ tools in this rewrite read and write the same h5 and
-    cool layouts natively in C++ (see `cpp/core` in the repository), with no dependency on this Python
-    code at run time; the samples are useful if you need to read or write these files from your own
+    description of the on-disk layout. The tools read and write the same h5 and cool layouts natively
+    (see `cpp/core` in the repository), with no dependency on this Python code at run time; the samples are useful if you need to read or write these files from your own
     Python scripts, or as a byte-for-byte specification of the format.
 
 HiCExplorer has a native interaction file format, h5, and several native formats for capture Hi-C analysis.

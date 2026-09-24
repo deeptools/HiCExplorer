@@ -2,7 +2,7 @@
 
 Estimates the CHiCAGO background model (Cairns et al. 2016) from capture Hi-C interaction counts. First step of the CHiCAGO pipeline; the output feeds [chicChicagoScores](chicChicagoScores.md).
 
-This tool exists only in the C++ rewrite. It has no Python HiCExplorer counterpart.
+This tool is new in version 4.
 
 ```text
 usage: chicChicagoBackgroundModel --rmap RMAP --baitmap BAITMAP

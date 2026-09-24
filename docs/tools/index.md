@@ -1,6 +1,6 @@
 # Tools
 
-45 tools grouped by task, each with a real, current C++ command-line reference generated from the built binary's own `--help` output (`cpp/build/tools/<name> --help`), not hand-copied from the old Python documentation. 2 more (`hicHyperoptDetectLoops`, `hicHyperoptDetectLoopsHiCCUPS`) are listed under [Analysis](analysis.md) but have no C++ build yet; their pages are placeholders, not a real reference. Two further tools present in the Python HiCExplorer, `hicTADClassifier` and `hicTrainTADClassifier`, were dropped from this rewrite entirely (see the note on [TADs](tads.md)) and are not listed here at all.
+Tools grouped by task, each with its command-line reference.
 
 ## Pre-processing
 
@@ -37,8 +37,8 @@
 | [hicDetectStripes](hicDetectStripes.md) | Detects architectural stripes, a C++ port of Stripenn's detection method. New in v4. |
 | [hicValidateLocations](hicValidateLocations.md) | Compares called loops with known protein peak positions. |
 | [hicMergeLoops](hicMergeLoops.md) | Merges loop calls made at different resolutions. |
-| [hicHyperoptDetectLoops](hicHyperoptDetectLoops.md) | Searches for the best hicDetectLoops parameter setting for a given dataset. Not yet ported to C++. |
-| [hicHyperoptDetectLoopsHiCCUPS](hicHyperoptDetectLoopsHiCCUPS.md) | Searches for the best Juicer HiCCUPS parameter setting for a given dataset. Not yet ported to C++. |
+| [hicHyperoptDetectLoops](hicHyperoptDetectLoops.md) | Searches for the best hicDetectLoops parameter setting for a given dataset. |
+| [hicHyperoptDetectLoopsHiCCUPS](hicHyperoptDetectLoopsHiCCUPS.md) | Searches for the best Juicer HiCCUPS parameter setting for a given dataset. |
 | [hicCompartmentalization](hicCompartmentalization.md) | Computes the global compartmentalization (polarization) signal from PCA eigenvectors. |
 | [hicPlotSVL](hicPlotSVL.md) | Computes and plots short-range versus long-range contacts. |
 | [hicDifferentialAnalysis](hicDifferentialAnalysis.md) | Replicate-aware, count-based differential analysis of TADs/boundaries, loops or compartments. New in v4, not in the Python HiCExplorer. |
@@ -52,6 +52,8 @@
 | [hicDifferentialTAD](hicDifferentialTAD.md) | Identifies differential TADs between two Hi-C matrices. |
 | [hicMergeTADbins](hicMergeTADbins.md) | Uses a BED file of domains or TAD boundaries to merge the bin counts of a Hi-C matrix. |
 | [hicInterIntraTAD](hicInterIntraTAD.md) | Computes and plots the inter-TAD versus intra-TAD contact ratio. |
+| [hicTADClassifier](hicTADClassifier.md) | Predicts TAD boundaries with a supervised classifier. |
+| [hicTrainTADClassifier](hicTrainTADClassifier.md) | Trains and tests the classifiers used by hicTADClassifier. |
 
 ## Visualization
 

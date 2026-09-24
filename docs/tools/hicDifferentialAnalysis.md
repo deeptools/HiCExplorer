@@ -6,9 +6,8 @@ Replicate-aware, count-based differential analysis of TADs/boundaries, loops or 
 usage: hicDifferentialAnalysis [-h] [--version] {tads,loops,compartments} ...
 ```
 
-!!! note "New in this C++ rewrite"
-    `hicDifferentialAnalysis` has no Python HiCExplorer counterpart; it is a new tool added directly in
-    C++ (`cpp/PLAN.md` section 9.7).
+!!! note "New in version 4"
+    `hicDifferentialAnalysis` is new in version 4.
 
 Replicate-aware, count-based differential analysis of Hi-C contact matrices: TADs and TAD boundaries
 (`tads`), loops (`loops`) and A/B compartments (`compartments`). Counts are modelled with a negative

@@ -2,7 +2,7 @@
 
 Plots CHiCAGO viewpoints from the output of [chicChicagoScores](chicChicagoScores.md): one bait, or every bait in a genomic region, as a scatter plot or as arcs. It can also write the interactions as a pyGenomeTracks links file.
 
-This tool exists only in the C++ rewrite. It has no Python HiCExplorer counterpart. [chicPlotViewpoint](chicPlotViewpoint.md) reads the HDF5 files of the chicViewpoint workflow and does not read the output of chicChicagoScores.
+This tool is new in version 4. [chicPlotViewpoint](chicPlotViewpoint.md) reads the HDF5 files of the chicViewpoint workflow and does not read the output of chicChicagoScores.
 
 ```text
 usage: chicChicagoPlotViewpoint --scores SCORES (--baitID BAITID |

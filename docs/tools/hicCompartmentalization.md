@@ -13,7 +13,7 @@ usage: hicCompartmentalization --obsexp_matrices OBSEXP_MATRICES
 ```
 
 !!! note "Required arguments must be present for `--help`/`-h` to print"
-    Like several other tools in this rewrite, `hicCompartmentalization` validates its required
+    Like several other tools, `hicCompartmentalization` validates its required
     arguments before honoring `-h`; a bare `hicCompartmentalization -h` reports the missing required
     arguments instead of the usage text. Pass `-h` together with dummy values for the required options
     to see the full help text, or refer to the tables below.

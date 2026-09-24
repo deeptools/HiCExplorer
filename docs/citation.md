@@ -1,8 +1,7 @@
 # Citation
 
-This C++ rewrite reproduces the algorithms of the original Python HiCExplorer described in the papers
-below; please cite them if you use these tools. A citation entry specific to this C++ rewrite will be
-added once it has its own publication or software DOI.
+Please cite the following papers if you use HiCExplorer. An entry for version 4 will be added once it
+has its own publication or software DOI.
 
 Joachim Wolff, Rolf Backofen, Björn Grüning.
 **Loop detection using Hi-C data with HiCExplorer**, GigaScience, Volume 11, 2022, giac061,

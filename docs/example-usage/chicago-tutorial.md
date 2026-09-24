@@ -1,6 +1,6 @@
 # CHiCAGO analysis
 
-This tutorial scores a capture Hi-C sample with the CHiCAGO method (Cairns et al. 2016) using the C++ `chicChicago*` tools and plots the result. The example is the GM12878 replicate of the PCHiCdata package restricted to chromosomes 20 and 21 (`hicexplorer/test/test_data/chicago/`), a promoter capture Hi-C design with HindIII fragments. The tools are C++ only and have no Python HiCExplorer counterpart.
+This tutorial scores a capture Hi-C sample with the CHiCAGO method (Cairns et al. 2016) using the `chicChicago*` tools and plots the result. The example is the GM12878 replicate of the PCHiCdata package restricted to chromosomes 20 and 21 (`hicexplorer/test/test_data/chicago/`), a promoter capture Hi-C design with HindIII fragments.
 
 For the HiCExplorer HDF5 workflow (`chicViewpoint` and related tools) see the [Capture Hi-C analysis](capture-hic-tutorial.md).
 
