@@ -269,7 +269,7 @@ def merge_bins(hic, num_bins):
     return hic
 
 
-def main(args=None):
+def _main_python(args=None):
 
     args = parse_arguments().parse_args(args)
     hic = hm.hiCMatrix(args.matrix)
@@ -280,3 +280,9 @@ def main(args=None):
         merged_matrix = merge_bins(hic, args.numBins)
 
     merged_matrix.save(args.outFileName)
+
+
+def main(args=None):
+    """Run the C++ implementation; the Python implementation above is kept as _main_python."""
+    from hicexplorer._cpp import entry_point
+    entry_point('hicMergeMatrixBins')(args)

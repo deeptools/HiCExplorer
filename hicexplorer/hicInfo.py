@@ -51,7 +51,7 @@ $ hicInfo -m matrix1.h5 matrix2.h5 matrix3.h5
     return parser
 
 
-def main(args=None):
+def _main_python(args=None):
 
     args = parse_arguments().parse_args(args)
     for matrix in args.matrices:
@@ -195,3 +195,9 @@ def main(args=None):
             print(information.getvalue())
 
         information.close()
+
+
+def main(args=None):
+    """Run the C++ implementation; the Python implementation above is kept as _main_python."""
+    from hicexplorer._cpp import entry_point
+    entry_point('hicInfo')(args)

@@ -315,7 +315,7 @@ def call_multi_core(pInteractionFilesList, pTargetFileList, pTargetFType, pTarge
     return outfile_names_list, accepted_scores_list
 
 
-def main(args=None):
+def _main_python(args=None):
     args = parse_arguments().parse_args(args)
     viewpointObj = Viewpoint()
 
@@ -389,3 +389,9 @@ def main(args=None):
 
     outfile_names_list, accepted_scores_list = call_multi_core(interactionList, targetList, target_ftype, targetPosDict, run_target_list_compilation, args, viewpointObj)
     writeAggregateHDF(args.outFileName, outfile_names_list, accepted_scores_list, args)
+
+
+def main(args=None):
+    """Run the C++ implementation; the Python implementation above is kept as _main_python."""
+    from hicexplorer._cpp import entry_point
+    entry_point('chicAggregateStatistic')(args)

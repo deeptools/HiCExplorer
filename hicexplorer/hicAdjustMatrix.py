@@ -191,7 +191,7 @@ def adjustMatrix(pArgs):
     return hic_matrix
 
 
-def main(args=None):
+def _main_python(args=None):
 
     args = parse_arguments().parse_args(args)
 
@@ -199,3 +199,9 @@ def main(args=None):
 
     if hic_matrix is not None:
         hic_matrix.save(args.outFileName)
+
+
+def main(args=None):
+    """Run the C++ implementation; the Python implementation above is kept as _main_python."""
+    from hicexplorer._cpp import entry_point
+    entry_point('hicAdjustMatrix')(args)

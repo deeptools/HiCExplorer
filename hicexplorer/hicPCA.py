@@ -237,7 +237,7 @@ def correlateEigenvectorWithHistonMarkTrack(pEigenvector, bwTrack, chromosome,
         pEigenvector[index] = vector
 
 
-def main(args=None):
+def _main_python(args=None):
     args = parse_arguments().parse_args(args)
     if len(args.whichEigenvectors) != len(args.outputFileName):
         log.error("Number of output file names and number of eigenvectors"
@@ -410,3 +410,9 @@ def main(args=None):
     else:
         log.error("Output format not known: {}".format(args.format))
         exit(1)
+
+
+def main(args=None):
+    """Run the C++ implementation; the Python implementation above is kept as _main_python."""
+    from hicexplorer._cpp import entry_point
+    entry_point('hicPCA')(args)

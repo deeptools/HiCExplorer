@@ -137,6 +137,12 @@ def find_pattern(pPattern, fasta_file, out_file):
     temp.close()
 
 
-def main(args=None):
+def _main_python(args=None):
     args = parse_arguments().parse_args(args)
     find_pattern(args.searchPattern, args.fasta, args.outFile)
+
+
+def main(args=None):
+    """Run the C++ implementation; the Python implementation above is kept as _main_python."""
+    from hicexplorer._cpp import entry_point
+    entry_point('hicFindRestSite')(args)

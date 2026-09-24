@@ -42,7 +42,7 @@ def parse_arguments(args=None):
     return parser
 
 
-def main(args=None):
+def _main_python(args=None):
     args = parse_arguments().parse_args(args)
 
     hic = hm.hiCMatrix(args.matrices[0])
@@ -72,3 +72,9 @@ def main(args=None):
     hic.maskBins(sorted(nan_bins))
     hic.save(args.outFileName)
     return
+
+
+def main(args=None):
+    """Run the C++ implementation; the Python implementation above is kept as _main_python."""
+    from hicexplorer._cpp import entry_point
+    entry_point('hicSumMatrices')(args)

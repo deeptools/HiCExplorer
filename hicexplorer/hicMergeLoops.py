@@ -142,7 +142,7 @@ def readFile(pFile):
     return pd.read_csv(pFile, sep='\t', header=None)
 
 
-def main(args=None):
+def _main_python(args=None):
     args = parse_arguments().parse_args(args)
 
     lowest_resolution = args.lowestResolution
@@ -171,3 +171,9 @@ def main(args=None):
         dataframe, lowest_resolution, tuples_x, tuples_y)
     result_dataframe = dataframe.iloc[sorted(result_list_index), :]
     result_dataframe.to_csv(outfile_name, sep='\t', header=False, index=False)
+
+
+def main(args=None):
+    """Run the C++ implementation; the Python implementation above is kept as _main_python."""
+    from hicexplorer._cpp import entry_point
+    entry_point('hicMergeLoops')(args)

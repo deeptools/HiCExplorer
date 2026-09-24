@@ -53,7 +53,7 @@ def parse_arguments(args=None):
     return parser
 
 
-def main(args=None):
+def _main_python(args=None):
 
     args = parse_arguments().parse_args(args)
     if args.operation not in ['diff', 'ratio', 'log2ratio']:
@@ -94,3 +94,9 @@ def main(args=None):
     hic1.setMatrixValues(new_matrix)
     hic1.maskBins(sorted(nan_bins))
     hic1.save(args.outFileName)
+
+
+def main(args=None):
+    """Run the C++ implementation; the Python implementation above is kept as _main_python."""
+    from hicexplorer._cpp import entry_point
+    entry_point('hicCompareMatrices')(args)

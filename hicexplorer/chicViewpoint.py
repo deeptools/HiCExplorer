@@ -190,7 +190,7 @@ def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList,
     return
 
 
-def main(args=None):
+def _main_python(args=None):
     args = parse_arguments().parse_args(args)
 
     viewpointObj = Viewpoint()
@@ -310,3 +310,9 @@ def main(args=None):
                 log.debug(str(e))
                 log.debug('group_name {}'.format(group_name))
                 log.debug('gene name {}'.format(interaction_data[1][3]))
+
+
+def main(args=None):
+    """Run the C++ implementation; the Python implementation above is kept as _main_python."""
+    from hicexplorer._cpp import entry_point
+    entry_point('chicViewpoint')(args)

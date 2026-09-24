@@ -190,7 +190,7 @@ def parse_arguments(args=None):
     return parser
 
 
-def main(args=None):
+def _main_python(args=None):
     """
     Reads line by line two bam files that are not sorted.
     Each line in the two bam files should correspond
@@ -224,3 +224,9 @@ class Tester(object):
             self.root = os.path.dirname(
                 os.path.abspath(__file__)) + "/test/test_data/"
         self.bam_file_1 = os.path.join(self.root, "hic.bam")
+
+
+def main(args=None):
+    """Run the C++ implementation; the Python implementation above is kept as _main_python."""
+    from hicexplorer._cpp import entry_point
+    entry_point('hicBuildMatrixMicroC')(args)
