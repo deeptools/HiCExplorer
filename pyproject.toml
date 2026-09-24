@@ -1,0 +1,122 @@
+[build-system]
+requires = ["scikit-build-core>=0.10"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "HiCExplorer"
+dynamic = ["version"]
+description = "Set of programs to process, analyze and visualize Hi-C data"
+readme = "README.rst"
+license = {file = "LICENSE"}
+requires-python = ">=3.9"
+authors = [{name = "Joachim Wolff, Leily Rabbani, Bjoern Gruening, Vivek Bhardwaj, Fidel Ramírez", email = "deeptools@googlegroups.com"}]
+classifiers = [
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+]
+dependencies = [
+    "numpy >= 1.19",
+    "scipy >= 1.10",
+    "matplotlib == 3.8.4",
+    "ipykernel >= 6.25.2",
+    "pysam >= 0.21",
+    "intervaltree >= 3.1",
+    "biopython",
+    "tables >= 3.8",
+    "pandas >= 2.0",
+    "pybigwig >= 0.3",
+    "jinja2 >= 3.1.2",
+    "unidecode >= 1.3",
+    "hicmatrix >= 17",
+    "hic2cool >= 0.8.3",
+    "psutil >= 5.9",
+    "pygenometracks >= 3.8",
+    "fit_nbinom >= 1.2",
+    "cooler >= 0.9.3",
+    "krbalancing >= 0.0.5",
+    "pybedtools >= 0.9",
+    "future >= 0.18",
+    "tqdm >= 4.66",
+    "hyperopt >= 0.2.7",
+    "graphviz >= 0.20",
+    "scikit-learn >= 1.3,<1.4",
+    "imbalanced-learn >= 0.11",
+    "cleanlab >= 2.5",
+]
+
+[project.urls]
+Homepage = "http://hicexplorer.readthedocs.io"
+
+[project.scripts]
+chicAggregateStatistic = "hicexplorer._launch:chicAggregateStatistic"
+chicChicagoBackgroundModel = "hicexplorer._launch:chicChicagoBackgroundModel"
+chicChicagoPlotViewpoint = "hicexplorer._launch:chicChicagoPlotViewpoint"
+chicChicagoScores = "hicexplorer._launch:chicChicagoScores"
+chicChicagoSignificantInteractions = "hicexplorer._launch:chicChicagoSignificantInteractions"
+chicDifferentialTest = "hicexplorer._launch:chicDifferentialTest"
+chicExportData = "hicexplorer._launch:chicExportData"
+chicPlotViewpoint = "hicexplorer._launch:chicPlotViewpoint"
+chicQualityControl = "hicexplorer._launch:chicQualityControl"
+chicSignificantInteractions = "hicexplorer._launch:chicSignificantInteractions"
+chicViewpoint = "hicexplorer._launch:chicViewpoint"
+chicViewpointBackgroundModel = "hicexplorer._launch:chicViewpointBackgroundModel"
+hicAdjustMatrix = "hicexplorer._launch:hicAdjustMatrix"
+hicAggregateContacts = "hicexplorer._launch:hicAggregateContacts"
+hicAverageRegions = "hicexplorer._launch:hicAverageRegions"
+hicBuildMatrix = "hicexplorer._launch:hicBuildMatrix"
+hicBuildMatrixMicroC = "hicexplorer._launch:hicBuildMatrixMicroC"
+hicCompareMatrices = "hicexplorer._launch:hicCompareMatrices"
+hicCompartmentalization = "hicexplorer._launch:hicCompartmentalization"
+hicConvertFormat = "hicexplorer._launch:hicConvertFormat"
+hicCorrectMatrix = "hicexplorer._launch:hicCorrectMatrix"
+hicCorrelate = "hicexplorer._launch:hicCorrelate"
+hicCreateThresholdFile = "hicexplorer._launch:hicCreateThresholdFile"
+hicDetectLoops = "hicexplorer._launch:hicDetectLoops"
+hicDetectStripes = "hicexplorer._launch:hicDetectStripes"
+hicDifferentialAnalysis = "hicexplorer._launch:hicDifferentialAnalysis"
+hicDifferentialTAD = "hicexplorer._launch:hicDifferentialTAD"
+hicFindRestSite = "hicexplorer._launch:hicFindRestSite"
+hicFindTADs = "hicexplorer._launch:hicFindTADs"
+hicInfo = "hicexplorer._launch:hicInfo"
+hicInterIntraTAD = "hicexplorer._launch:hicInterIntraTAD"
+hicMergeDomains = "hicexplorer._launch:hicMergeDomains"
+hicMergeLoops = "hicexplorer._launch:hicMergeLoops"
+hicMergeMatrixBins = "hicexplorer._launch:hicMergeMatrixBins"
+hicMergeTADbins = "hicexplorer._launch:hicMergeTADbins"
+hicNormalize = "hicexplorer._launch:hicNormalize"
+hicPCA = "hicexplorer._launch:hicPCA"
+hicPlotAverageRegions = "hicexplorer._launch:hicPlotAverageRegions"
+hicPlotDistVsCounts = "hicexplorer._launch:hicPlotDistVsCounts"
+hicPlotMatrix = "hicexplorer._launch:hicPlotMatrix"
+hicPlotSVL = "hicexplorer._launch:hicPlotSVL"
+hicPlotTADs = "hicexplorer._launch:hicPlotTADs"
+hicPlotViewpoint = "hicexplorer._launch:hicPlotViewpoint"
+hicPrepareQCreport = "hicexplorer._launch:hicPrepareQCreport"
+hicQuickQC = "hicexplorer._launch:hicQuickQC"
+hicSumMatrices = "hicexplorer._launch:hicSumMatrices"
+hicTransform = "hicexplorer._launch:hicTransform"
+hicValidateLocations = "hicexplorer._launch:hicValidateLocations"
+hicHyperoptDetectLoops = "hicexplorer.hicHyperoptDetectLoops:main"
+hicHyperoptDetectLoopsHiCCUPS = "hicexplorer.hicHyperoptDetectLoopsHiCCUPS:main"
+hicTADClassifier = "hicexplorer.hicTADClassifier:main"
+hicTrainTADClassifier = "hicexplorer.hicTrainTADClassifier:main"
+hicexplorer = "hicexplorer.list_tools:main"
+hicQC = "hicexplorer._launch:hicPrepareQCreport"
+
+[tool.scikit-build]
+cmake.source-dir = "cpp"
+cmake.build-type = "Release"
+cmake.version = ">=3.24"
+wheel.packages = ["hicexplorer"]
+wheel.exclude = ["hicexplorer/test/**", "**/__pycache__/**"]
+sdist.include = ["cpp", "plot", "hicexplorer/_version.py"]
+sdist.exclude = ["cpp/build", "hicexplorer/test/test_data/**", "docs", "examples"]
+
+[tool.scikit-build.cmake.define]
+HICX_INSTALL_PYTHON_PACKAGE = "ON"
+HICX_BUILD_TESTS = "OFF"
+
+[tool.scikit-build.metadata.version]
+provider = "scikit_build_core.metadata.regex"
+input = "hicexplorer/_version.py"
+regex = "__version__ = '(?P<value>[^']+)'"
