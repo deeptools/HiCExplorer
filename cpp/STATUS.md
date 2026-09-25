@@ -333,6 +333,17 @@ shell).
     significant-call numbers above reproduced from scratch on real GM12878
     data (265,494 score rows, 1,169 significant calls), not just re-run
     from the agent's own report.
+  - **Shared format libraries, 2026-09-25:** every cool read and write goes
+    through coolercpp 0.4 and every `.hic` read and write through hicfilecpp
+    0.4. The `.hic` to cool conversion of hicConvertFormat is hic2cool
+    (`hic2cool::core`, pinned in `cmake/HicxHic2cool.cmake`), no longer a copy
+    in `hic_adapter.cpp`; hic2cool itself contains no HDF5 code and uses
+    coolercpp's threaded chunk writer. hicConvertFormat 33 of 33 against the
+    Python reference after the change.
+  - **Equivalence reference, 2026-09-25:** the Python modules now run the
+    executables, so the harness reference runs the original implementation
+    through `cpp/scripts/reference_bin/<tool>` (`_main_python`, selected by
+    `HICX_REFERENCE_PYTHON=1`) instead of `bin/<tool>`.
   - **Later CHiCAGO work, 2026-09 (merged, see `git log`):**
     - `hicConvertFormat --inputFormat chinput --rmap RMAP` writes a `.chinput`
       file as a matrix (`hicx::chicago::matrix_from_chinput`, one bin per

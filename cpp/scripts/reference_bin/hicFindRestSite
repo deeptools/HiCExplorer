@@ -1,0 +1,10 @@
+#!/usr/bin/env python
+# The original Python implementation of hicFindRestSite, run as the equivalence reference.
+import os
+
+os.environ["HICX_REFERENCE_PYTHON"] = "1"
+
+from hicexplorer.hicFindRestSite import _main_python
+
+if __name__ == "__main__":
+    _main_python()

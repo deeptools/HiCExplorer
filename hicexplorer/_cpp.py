@@ -62,9 +62,15 @@ def run(tool, args=None):
     return result.returncode
 
 
-def entry_point(tool):
-    """Return the console-script function of `tool`."""
+def entry_point(tool, python_main=None):
+    """Return the console-script function of `tool`.
+
+    With HICX_REFERENCE_PYTHON set, python_main (the original Python
+    implementation of the tool) runs instead of the executable; the
+    equivalence harness compares the two."""
     def main(args=None):
+        if python_main is not None and os.environ.get('HICX_REFERENCE_PYTHON'):
+            return python_main(args)
         status = run(tool, args)
         if status != 0:
             sys.exit(status)

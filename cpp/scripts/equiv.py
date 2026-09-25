@@ -313,8 +313,9 @@ def _default_py_python():
 
 DEFAULT_PY_PYTHON = _default_py_python()
 
-# The Python entry points live in bin/, one script per tool.
-PY_BIN = REPO_ROOT / "bin"
+# The Python reference entry points: one script per tool that runs the
+# original Python implementation (hicexplorer/<tool>.py _main_python).
+PY_BIN = SCRIPT_DIR / "reference_bin"
 
 # Class EN (PLAN.md 5.7) reruns the Python tool through this runner, which can
 # switch on a declared, seeded source of the reference's own nondeterminism.
@@ -425,6 +426,7 @@ def python_environment():
     """The environment of the Python reference runs."""
     env = dict(os.environ)
     env["PYTHONPATH"] = str(REPO_ROOT) + os.pathsep + env.get("PYTHONPATH", "")
+    env["HICX_REFERENCE_PYTHON"] = "1"
     env.update(PYTHON_SIDE_ENVIRONMENT)
     return env
 

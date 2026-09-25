@@ -70,7 +70,7 @@ target_include_directories(hicx4core PUBLIC
 
 target_link_libraries(hicx4core
     PUBLIC hicx::hdf5
-    PRIVATE hicx::blosc hicx::zlib hicx::hts hicx::lapack coolercpp::coolercpp hicfilecpp::hicfilecpp
+    PRIVATE hicx::blosc hicx::zlib hicx::hts hicx::lapack coolercpp::coolercpp hicfilecpp::hicfilecpp hic2cool::core
             hicx_compile_options)
 
 # np.argsort's tie order on a CPU with AVX512_SKX comes from x86-simd-sort, at
