@@ -31,6 +31,15 @@ bool ends_with(const std::string& text, const std::string& suffix) {
            text.compare(text.size() - suffix.size(), suffix.size(), suffix) == 0;
 }
 
+// The repr of a Python list of ints.
+std::string python_list(const std::vector<std::int32_t>& values) {
+    std::string text = "[";
+    for (std::size_t i = 0; i < values.size(); ++i) {
+        text += (i ? ", " : "") + std::to_string(values[i]);
+    }
+    return text + "]";
+}
+
 // hic2cool prints its progress; hicConvertFormat does not.
 hic2cool::Console quiet_console() {
     hic2cool::Console console;
