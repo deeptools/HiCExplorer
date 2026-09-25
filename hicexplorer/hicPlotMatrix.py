@@ -1117,4 +1117,4 @@ def plotTADs(pAxis, pNameOfLongRangeContactsFile, pHiCMatrix, pRegion, pChromoso
 def main(args=None):
     """Run the C++ implementation; the Python implementation above is kept as _main_python."""
     from hicexplorer._cpp import entry_point
-    entry_point('hicPlotMatrix')(args)
+    return entry_point('hicPlotMatrix', _main_python)(args)

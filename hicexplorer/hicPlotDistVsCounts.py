@@ -557,4 +557,4 @@ else:
 def main(args=None):
     """Run the C++ implementation; the Python implementation above is kept as _main_python."""
     from hicexplorer._cpp import entry_point
-    entry_point('hicPlotDistVsCounts')(args)
+    return entry_point('hicPlotDistVsCounts', _main_python)(args)
