@@ -4,10 +4,9 @@
 // the build obtains through cmake/HicxHicfilecpp.cmake). This adapter keeps
 // what HiCExplorer adds on top of it:
 //
-//   * hic2cool_convert: the Python reference converts .hic to cool with
-//     hic2cool (hicConvertFormat.py:124-138). The port writes the same cool
-//     and mcool files, dataset for dataset: hic2cool's layout, dtypes, chunks
-//     and filters, its attributes, its norm columns and its pixel order.
+//   * hic2cool_convert: hicConvertFormat converts .hic to cool with the hic2cool
+//     library (hic2cool::core), which writes hic2cool's layout, dtypes, chunks,
+//     filters, attributes, norm columns and pixel order.
 //   * write_hic: HiCExplorer matrices (fixed bins, as loaded from h5, cool or
 //     mcool) handed to hicfilecpp as pixels at one or several resolutions.
 

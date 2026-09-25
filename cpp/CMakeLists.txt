@@ -32,6 +32,7 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 include(HicxDependencies)
 include(HicxCoolercpp)
 include(HicxHicfilecpp)
+include(HicxHic2cool)
 
 add_library(hicx_compile_options INTERFACE)
 target_compile_options(hicx_compile_options INTERFACE

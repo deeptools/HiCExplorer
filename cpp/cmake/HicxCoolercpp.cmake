@@ -5,7 +5,7 @@
 # How coolercpp is obtained, in this order:
 #
 #  1. An installed coolercpp, found through its CMake package:
-#       find_package(coolercpp 0.3 CONFIG)
+#       find_package(coolercpp 0.4 CONFIG)
 #     Point CMAKE_PREFIX_PATH (or coolercpp_DIR) at the install prefix. The
 #     package must be built from the commit pinned below; coolercpp raises its
 #     minor version whenever its API grows, so 0.3 is the API this tree needs.
@@ -24,8 +24,8 @@
 
 include_guard(GLOBAL)
 
-set(HICX_COOLERCPP_COMMIT fe4d6c43b27f943e2267256952880267d44b87ea)
-set(HICX_COOLERCPP_VERSION 0.3)
+set(HICX_COOLERCPP_COMMIT 2078ff1fc038a999fd30013968c3c742a251e63e)
+set(HICX_COOLERCPP_VERSION 0.4)
 
 set(HICX_COOLERCPP_GIT_REPOSITORY "" CACHE STRING
     "Git repository (URL or local path) coolercpp is fetched from when no installed coolercpp is found")
