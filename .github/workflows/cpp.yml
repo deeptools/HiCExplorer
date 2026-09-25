@@ -13,7 +13,8 @@ concurrency:
   cancel-in-progress: true
 
 # coolercpp and hicfilecpp are separate repositories. Set the repository
-# variables COOLERCPP_REPOSITORY and HICFILECPP_REPOSITORY (owner/name) under
+# variables COOLERCPP_REPOSITORY, HICFILECPP_REPOSITORY and HIC2COOL_REPOSITORY
+# (owner/name) under
 # Settings > Secrets and variables > Actions > Variables. For private
 # repositories add a secret DEPS_TOKEN with read access to both.
 jobs:
@@ -35,8 +36,8 @@ jobs:
 
       - name: Check the dependency repositories are configured
         run: |
-          test -n "${{ vars.COOLERCPP_REPOSITORY }}" && test -n "${{ vars.HICFILECPP_REPOSITORY }}" || {
-            echo "Set the repository variables COOLERCPP_REPOSITORY and HICFILECPP_REPOSITORY."; exit 1; }
+          test -n "${{ vars.COOLERCPP_REPOSITORY }}" && test -n "${{ vars.HICFILECPP_REPOSITORY }}" && test -n "${{ vars.HIC2COOL_REPOSITORY }}" || {
+            echo "Set the repository variables COOLERCPP_REPOSITORY, HICFILECPP_REPOSITORY and HIC2COOL_REPOSITORY."; exit 1; }
 
       - uses: actions/checkout@v4
         with:
@@ -50,6 +51,13 @@ jobs:
           repository: ${{ vars.HICFILECPP_REPOSITORY }}
           token: ${{ secrets.DEPS_TOKEN || github.token }}
           path: deps/hicfilecpp
+          fetch-depth: 0
+
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ vars.HIC2COOL_REPOSITORY }}
+          token: ${{ secrets.DEPS_TOKEN || github.token }}
+          path: deps/hic2cool
           fetch-depth: 0
 
       - uses: conda-incubator/setup-miniconda@v3
@@ -67,7 +75,8 @@ jobs:
           cmake -S cpp -B cpp/build -G Ninja -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_PREFIX_PATH="$CONDA_PREFIX" \
             -DHICX_COOLERCPP_GIT_REPOSITORY="$GITHUB_WORKSPACE/deps/coolercpp" \
-            -DHICX_HICFILECPP_GIT_REPOSITORY="$GITHUB_WORKSPACE/deps/hicfilecpp"
+            -DHICX_HICFILECPP_GIT_REPOSITORY="$GITHUB_WORKSPACE/deps/hicfilecpp" \
+            -DHICX_HIC2COOL_GIT_REPOSITORY="$GITHUB_WORKSPACE/deps/hic2cool"
 
       - name: Build
         run: cmake --build cpp/build --parallel
@@ -78,7 +87,7 @@ jobs:
       - name: Build and smoke-test the Python package
         run: |
           pip install scikit-build-core pathspec
-          CMAKE_ARGS="-DCMAKE_PREFIX_PATH=$CONDA_PREFIX -DHICX_COOLERCPP_GIT_REPOSITORY=$GITHUB_WORKSPACE/deps/coolercpp -DHICX_HICFILECPP_GIT_REPOSITORY=$GITHUB_WORKSPACE/deps/hicfilecpp" \
+          CMAKE_ARGS="-DCMAKE_PREFIX_PATH=$CONDA_PREFIX -DHICX_COOLERCPP_GIT_REPOSITORY=$GITHUB_WORKSPACE/deps/coolercpp -DHICX_HICFILECPP_GIT_REPOSITORY=$GITHUB_WORKSPACE/deps/hicfilecpp -DHICX_HIC2COOL_GIT_REPOSITORY=$GITHUB_WORKSPACE/deps/hic2cool" \
             pip wheel . --no-deps --no-build-isolation -w wheelhouse
           pip install --no-deps wheelhouse/*.whl
           cd "$RUNNER_TEMP"
@@ -117,6 +126,13 @@ jobs:
           path: deps/hicfilecpp
           fetch-depth: 0
 
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ vars.HIC2COOL_REPOSITORY }}
+          token: ${{ secrets.DEPS_TOKEN || github.token }}
+          path: deps/hic2cool
+          fetch-depth: 0
+
       - uses: msys2/setup-msys2@v2
         with:
           msystem: ${{ matrix.msystem }}
@@ -137,7 +153,8 @@ jobs:
           cmake -S cpp -B cpp/build -G Ninja -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_PREFIX_PATH="$MINGW_PREFIX" \
             -DHICX_COOLERCPP_GIT_REPOSITORY="$GITHUB_WORKSPACE/deps/coolercpp" \
-            -DHICX_HICFILECPP_GIT_REPOSITORY="$GITHUB_WORKSPACE/deps/hicfilecpp"
+            -DHICX_HICFILECPP_GIT_REPOSITORY="$GITHUB_WORKSPACE/deps/hicfilecpp" \
+            -DHICX_HIC2COOL_GIT_REPOSITORY="$GITHUB_WORKSPACE/deps/hic2cool"
 
       - name: Build
         run: cmake --build cpp/build --parallel
