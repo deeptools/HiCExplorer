@@ -51,6 +51,18 @@ namespace hicx {
 // hicexplorer.utilities.check_cooler.
 [[nodiscard]] bool check_cooler(const std::string& path);
 
+// Sorts the columns of every row of `arrays` that is stored out of order,
+// stably (so duplicate columns keep their relative order), in place. The
+// cooler format requires each row's pixels to be stored in ascending column
+// order, but a real file need not honour it (cpp/STATUS.md 2026-10-01: a 4D
+// Nucleome GM12878 map has out-of-order rows); every reader that assembles a
+// CsrMatrix::Arrays from pixel rows read directly off disk, rather than
+// through CsrMatrix::from_coo (which always sorts), must call this before
+// CsrMatrix::adopt, because CsrMatrix code downstream (dense_block's
+// lower_bound window search in detect_loops_impl.cpp, for one) assumes the
+// per-row order the format promises.
+void sort_row_columns(CsrMatrix::Arrays& arrays);
+
 // One chunk of stored pixels, in storage order.
 struct PixelChunk {
     std::vector<std::int64_t> bin1;

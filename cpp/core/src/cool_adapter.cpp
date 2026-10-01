@@ -15,20 +15,7 @@
 
 namespace hicx {
 
-namespace {
-
-// Stored pixel rows per chunk when a pixel table is streamed. A chunk is held
-// twice while it is converted (about 60 bytes per pixel), so this bounds the
-// transient memory of a read at roughly 12 MB.
-constexpr std::int64_t kChunkPixels = 200000;
-// Rows per column read of a whole-table read. HDF5 sizes its conversion
-// buffers by the request, so one read of a 4 M row slice raised the peak of a
-// 4.2 M pixel load by 20 MB; at this size the transient stays small while the
-// destination arrays are still sized once.
-constexpr std::int64_t kReadRows = kChunkPixels;
-
-// Sorts the columns of a row that is stored out of order, as select_bins
-// returns them (cpp/tests/test_cool_chromosome_cut.cpp).
+// See the declaration in hicx/cool_adapter.hpp.
 void sort_row_columns(CsrMatrix::Arrays& arrays) {
     std::vector<std::pair<std::int32_t, double>> row_entries;
     for (std::int64_t row = 0; row < arrays.rows; ++row) {
@@ -53,6 +40,18 @@ void sort_row_columns(CsrMatrix::Arrays& arrays) {
         }
     }
 }
+
+namespace {
+
+// Stored pixel rows per chunk when a pixel table is streamed. A chunk is held
+// twice while it is converted (about 60 bytes per pixel), so this bounds the
+// transient memory of a read at roughly 12 MB.
+constexpr std::int64_t kChunkPixels = 200000;
+// Rows per column read of a whole-table read. HDF5 sizes its conversion
+// buffers by the request, so one read of a 4 M row slice raised the peak of a
+// 4.2 M pixel load by 20 MB; at this size the transient stays small while the
+// destination arrays are still sized once.
+constexpr std::int64_t kReadRows = kChunkPixels;
 
 // cooler splits a pixel table longer than this into 10,000 parts before
 // handing it to create_cooler (hicmatrix/lib/cool.py:366-368), and the 'sum'

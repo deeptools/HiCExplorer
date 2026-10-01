@@ -396,6 +396,15 @@ ChromosomeMatrix load_cool_chromosome(const hicx::CoolFile& cool,
     for (std::size_t i = 1; i < arrays.indptr.size(); ++i) {
         arrays.indptr[i] += arrays.indptr[i - 1];
     }
+    // The cooler format promises each row's pixels are stored in ascending
+    // column order, which neighborhood_merge's dense_block relies on
+    // (lower_bound window search); a real file need not honour it (a 4D
+    // Nucleome GM12878 map does not, cpp/STATUS.md 2026-10-01), which the
+    // unguarded assumption turned into a heap-buffer-overflow write and,
+    // without a sanitizer, an eventual double free. The general cool reader
+    // (cool_adapter.cpp) already defends against this; this loader does not
+    // go through it, so it defends itself the same way.
+    hicx::sort_row_columns(arrays);
 
     ChromosomeMatrix result;
     result.matrix = hicx::CsrMatrix::adopt(std::move(arrays));

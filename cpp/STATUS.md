@@ -333,6 +333,34 @@ shell).
     significant-call numbers above reproduced from scratch on real GM12878
     data (265,494 score rows, 1,169 significant calls), not just re-run
     from the agent's own report.
+  - **Fixed, 2026-10-01: hicDetectLoops crashed on a real 4D Nucleome GM12878
+    map.** Reported from another project (hic-multiome-unet's REGISTRY.md):
+    "aborts with a double free in neighborhood_merge". Reproduced under
+    AddressSanitizer: a heap-buffer-overflow write in
+    `detect_loops_impl.cpp`'s `dense_block`, which windows a candidate's
+    neighbourhood with `std::lower_bound` on the assumption that a row's
+    column indices are stored ascending. The cooler format promises that, but
+    this real file's cooler-chunked query delivers several rows out of order
+    (confirmed by dumping the raw pixel stream from `load_cool_chromosome`'s
+    `cool.for_each_pixel_chunk`, before any HiCExplorer processing: e.g. row 1
+    of GM12878 chr1 at 10 kb returns column 24894 then later column 26).
+    `lower_bound` on an unsorted range finds an arbitrary position, and the
+    resulting negative or oversized local column wrote outside `block.values`.
+    Python's loader goes through scipy's `csr_matrix`, which always sorts on
+    construction, so it never saw the problem. `cool_adapter.cpp` already has
+    a `sort_row_columns` helper for exactly this ("as select_bins returns
+    them"), used by its own two cooler readers; `hicDetectLoops.cpp`'s
+    separate `load_cool_chromosome` function built its `CsrMatrix::Arrays`
+    without it. Fix: exposed `sort_row_columns` in `hicx/cool_adapter.hpp`
+    and called it in `load_cool_chromosome` before `CsrMatrix::adopt`.
+    Verified: the exact crashing command (chr1+chr2 of the real file) no
+    longer crashes under ASan/UBSan, where it previously aborted in under 5
+    seconds; the full 23-chromosome genome-wide call that crashed in
+    production completes (9,661 loops, no sanitizer finding). `hicx_tests`
+    316/316 unchanged, ctest 10/10, hicDetectLoops 13/13 against the real
+    Python reference unchanged. No other code path in the C++ tree reads
+    cooler pixels without going through `cool_adapter.cpp`, so this is the
+    only place that needed the fix.
   - **Shared format libraries, 2026-09-25:** every cool read and write goes
     through coolercpp 0.4 and every `.hic` read and write through hicfilecpp
     0.4. The `.hic` to cool conversion of hicConvertFormat is hic2cool
