@@ -156,9 +156,16 @@ const char* const kHelp =
     "                        --nestedStep, enables sub-TAD detection: within each\n"
     "                        top-level domain, looks for boundaries at this finer\n"
     "                        depth range, writing <outPrefix>_nested_boundaries.bed,\n"
-    "                        _nested_domains.bed and _nested_boundaries.gff. All\n"
-    "                        three of --nestedMinDepth/--nestedMaxDepth/--nestedStep\n"
-    "                        are required together; omitted, no sub-TADs are found.\n"
+    "                        _nested_domains.bed, _nested_boundaries.gff and\n"
+    "                        _nested_score.bedgraph. The last is the domain's own\n"
+    "                        TAD-separation score computed fresh over this finer\n"
+    "                        depth range, independently of the top level's score\n"
+    "                        (over --minDepth..--maxDepth) in <outPrefix>_score.\n"
+    "                        bedgraph -- the two are not the same curve and the\n"
+    "                        nested boundaries are the minima of this one, not of\n"
+    "                        the top-level one. All three of --nestedMinDepth/\n"
+    "                        --nestedMaxDepth/--nestedStep are required together;\n"
+    "                        omitted, no sub-TADs are found.\n"
     "                        Must be at least 3 times the matrix bin size, same as\n"
     "                        --minDepth, otherwise the significance test has too\n"
     "                        few values per side to carry any power.\n"
@@ -1063,7 +1070,8 @@ void detect_nested_domains(const ScoreContext& context, const hicx::BinTable& bi
                            std::int64_t ctcf_window, std::int64_t ctcf_boundary_slack,
                            bool ctcf_require_pair, unsigned int threads,
                            std::ofstream& nested_boundaries_bed, std::ofstream& nested_domains_bed,
-                           std::ofstream& nested_gff, int& domain_counter) {
+                           std::ofstream& nested_gff, std::ofstream& nested_score,
+                           int& domain_counter) {
     const auto first_range = bins.region_bin_range(call.chrom, call.parent_start, call.parent_start + 1);
     const auto last_range = bins.region_bin_range(call.chrom, call.parent_end - 1, call.parent_end);
     if (!first_range.has_value() || !last_range.has_value()) {
@@ -1120,6 +1128,24 @@ void detect_nested_domains(const ScoreContext& context, const hicx::BinTable& bi
     }
 
     const std::vector<double> local_row_means = local.row_means();
+
+    // The TAD-separation score this domain's own search works from: computed
+    // fresh from `windows` above (nested_min_depth..nested_max_depth), not
+    // read off the top level's score (which used a different, wider depth
+    // range and therefore is not what peakdetect below is looking at).
+    // Written out so a caller can see the exact curve the minima a few lines
+    // down were picked from, instead of only the top-level one.
+    for (std::size_t index = 1; index < local.rows(); ++index) {
+        const std::int64_t right_center =
+            local.start[index] + (local.end[index] - local.start[index]) / 2;
+        const std::int64_t left_center =
+            local.start[index - 1] + (local.end[index - 1] - local.start[index - 1]) / 2;
+        if (right_center <= left_center) {
+            continue;
+        }
+        nested_score << local.chrom[index] << '\t' << left_center << '\t' << right_center
+                      << '\t' << format_fixed(local_row_means[index], 12) << '\n';
+    }
 
     std::vector<std::int64_t> widths(local.rows());
     for (std::size_t r = 0; r < local.rows(); ++r) {
@@ -1989,6 +2015,7 @@ int main(int argc, char** argv) {
             std::ofstream nested_boundaries_bed(args.out_prefix + "_nested_boundaries.bed");
             std::ofstream nested_domains_bed(args.out_prefix + "_nested_domains.bed");
             std::ofstream nested_gff(args.out_prefix + "_nested_boundaries.gff");
+            std::ofstream nested_score(args.out_prefix + "_nested_score.bedgraph");
             const unsigned int threads =
                 static_cast<unsigned int>(std::max(1, args.processors));
             int domain_counter = 1;
@@ -1999,11 +2026,13 @@ int main(int argc, char** argv) {
                     args.correct_for_multiple_testing, args.threshold_comparisons,
                     args.ctcf_file.has_value(), ctcf_sites, args.ctcf_window,
                     args.ctcf_boundary_slack, args.ctcf_require_convergent_pair, threads,
-                    nested_boundaries_bed, nested_domains_bed, nested_gff, domain_counter);
+                    nested_boundaries_bed, nested_domains_bed, nested_gff, nested_score,
+                    domain_counter);
             }
             nested_boundaries_bed.close();
             nested_domains_bed.close();
             nested_gff.close();
+            nested_score.close();
         }
 
         std::ofstream score(args.out_prefix + "_score.bedgraph");
