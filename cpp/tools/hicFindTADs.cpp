@@ -92,6 +92,9 @@ const char* const kUsage =
     "                   [--ctcfFile CTCFFILE] [--ctcfWindow CTCFWINDOW]\n"
     "                   [--ctcfBoundarySlack CTCFBOUNDARYSLACK]\n"
     "                   [--ctcfRequireConvergentPair]\n"
+    "                   [--nestedMinDepth INT bp] [--nestedMaxDepth INT bp]\n"
+    "                   [--nestedStep INT bp] [--nestedMinBoundaryDistance BP]\n"
+    "                   [--nestedMinDomainSize BP]\n"
     "                   [--chromosomes CHROMOSOMES [CHROMOSOMES ...]]\n"
     "                   [--numberOfProcessors NUMBEROFPROCESSORS] [--help]\n"
     "                   [--version]\n";
@@ -148,6 +151,26 @@ const char* const kHelp =
     "                        the boundary and a reverse ('-') site at or after it\n"
     "                        (the convergent anchor pair), instead of either one\n"
     "                        alone being enough.\n"
+    "  --nestedMinDepth INT bp\n"
+    "                        C++-only. Together with --nestedMaxDepth and\n"
+    "                        --nestedStep, enables sub-TAD detection: within each\n"
+    "                        top-level domain, looks for boundaries at this finer\n"
+    "                        depth range, writing <outPrefix>_nested_boundaries.bed,\n"
+    "                        _nested_domains.bed and _nested_boundaries.gff. All\n"
+    "                        three of --nestedMinDepth/--nestedMaxDepth/--nestedStep\n"
+    "                        are required together; omitted, no sub-TADs are found.\n"
+    "                        Must be at least 3 times the matrix bin size, same as\n"
+    "                        --minDepth, otherwise the significance test has too\n"
+    "                        few values per side to carry any power.\n"
+    "  --nestedMaxDepth INT bp\n"
+    "                        C++-only. See --nestedMinDepth.\n"
+    "  --nestedStep INT bp   C++-only. See --nestedMinDepth.\n"
+    "  --nestedMinBoundaryDistance BP\n"
+    "                        C++-only. Minimum distance between sub-TAD boundaries\n"
+    "                        (Default: 4 times the average nested bin size).\n"
+    "  --nestedMinDomainSize BP\n"
+    "                        C++-only. A top-level domain shorter than this is not\n"
+    "                        searched for sub-TADs (Default: 4 * --nestedMaxDepth).\n"
     "  --chromosomes CHROMOSOMES [CHROMOSOMES ...]\n"
     "                        Chromosomes and order in which the chromosomes should\n"
     "                        be plotted.\n"
@@ -171,6 +194,11 @@ struct Arguments {
     std::int64_t ctcf_window = 10000;
     std::int64_t ctcf_boundary_slack = 0;
     bool ctcf_require_convergent_pair = false;
+    std::optional<std::int64_t> nested_min_depth;
+    std::optional<std::int64_t> nested_max_depth;
+    std::optional<std::int64_t> nested_step;
+    std::optional<std::int64_t> nested_min_boundary_distance;
+    std::optional<std::int64_t> nested_min_domain_size;
     std::optional<std::vector<std::string>> chromosomes;
     int processors = 1;
 };
@@ -246,6 +274,29 @@ Arguments parse_arguments(int argc, char** argv) {
         .help("C++-only. Require both a forward site at or before the boundary and a "
               "reverse site at or after it, instead of either one alone being "
               "enough.");
+    optional.add({"--nestedMinDepth"})
+        .type("int")
+        .metavar("INT bp")
+        .help("C++-only. Together with --nestedMaxDepth and --nestedStep, enables "
+              "sub-TAD detection within each top-level domain.");
+    optional.add({"--nestedMaxDepth"})
+        .type("int")
+        .metavar("INT bp")
+        .help("C++-only. See --nestedMinDepth.");
+    optional.add({"--nestedStep"})
+        .type("int")
+        .metavar("INT bp")
+        .help("C++-only. See --nestedMinDepth.");
+    optional.add({"--nestedMinBoundaryDistance"})
+        .type("int")
+        .metavar("BP")
+        .help("C++-only. Minimum distance between sub-TAD boundaries (Default: 4 "
+              "times the average nested bin size).");
+    optional.add({"--nestedMinDomainSize"})
+        .type("int")
+        .metavar("BP")
+        .help("C++-only. A top-level domain shorter than this is not searched for "
+              "sub-TADs (Default: 4 * --nestedMaxDepth).");
     optional.add({"--chromosomes"})
         .nargs("+")
         .help("Chromosomes and order in which the chromosomes should be plotted.");
@@ -272,6 +323,11 @@ Arguments parse_arguments(int argc, char** argv) {
     args.ctcf_window = ns.integer("ctcfWindow");
     args.ctcf_boundary_slack = ns.integer("ctcfBoundarySlack");
     args.ctcf_require_convergent_pair = ns.flag("ctcfRequireConvergentPair");
+    args.nested_min_depth = ns.opt_integer("nestedMinDepth");
+    args.nested_max_depth = ns.opt_integer("nestedMaxDepth");
+    args.nested_step = ns.opt_integer("nestedStep");
+    args.nested_min_boundary_distance = ns.opt_integer("nestedMinBoundaryDistance");
+    args.nested_min_domain_size = ns.opt_integer("nestedMinDomainSize");
     if (ns.given("chromosomes")) {
         args.chromosomes = ns.strs("chromosomes");
     }
@@ -957,6 +1013,289 @@ struct BedgraphMatrix {
     }
 };
 
+// --------------------------------------------------------------------------
+// Optional nested (sub-TAD) detection: --nestedMinDepth/--nestedMaxDepth/
+// --nestedStep, all three required together. For a top-level domain large
+// enough to plausibly hold internal structure, reruns the same
+// TAD-separation-score -> minima -> delta -> Wilcoxon -> FDR/Bonferroni ->
+// (optional CTCF) pipeline the top level uses, confined to that domain's own
+// bin range and at a finer depth range, giving one additional hierarchy
+// level. Reuses the already truncated, z-scored matrix through `context`,
+// since a finer --nestedMaxDepth only ever needs data the top-level
+// truncation (to 2 * --maxDepth) already kept; no matrix work is repeated.
+// Each parent domain's sub-boundaries are corrected for multiple testing as
+// their own family, separately from every other domain's.
+struct NestedCall {
+    std::string chrom;
+    std::int64_t parent_start = 0;
+    std::int64_t parent_end = 0;
+    std::string parent_id;
+};
+
+void detect_nested_domains(const ScoreContext& context, const hicx::BinTable& bins,
+                           const NestedCall& call, std::int64_t nested_min_depth,
+                           std::int64_t nested_max_depth, std::int64_t nested_step,
+                           std::optional<std::int64_t> nested_min_boundary_distance,
+                           double delta_threshold,
+                           const std::string& correct_for_multiple_testing,
+                           double threshold_comparisons, bool has_ctcf,
+                           const std::unordered_map<std::string, std::vector<CtcfSite>>& ctcf_sites,
+                           std::int64_t ctcf_window, std::int64_t ctcf_boundary_slack,
+                           bool ctcf_require_pair, unsigned int threads,
+                           std::ofstream& nested_boundaries_bed, std::ofstream& nested_domains_bed,
+                           std::ofstream& nested_gff, int& domain_counter) {
+    const auto first_range = bins.region_bin_range(call.chrom, call.parent_start, call.parent_start + 1);
+    const auto last_range = bins.region_bin_range(call.chrom, call.parent_end - 1, call.parent_end);
+    if (!first_range.has_value() || !last_range.has_value()) {
+        return;
+    }
+    const std::int64_t first_bin = first_range->first;
+    const std::int64_t last_bin = last_range->first;  // inclusive
+    if (last_bin <= first_bin) {
+        return;
+    }
+
+    const std::vector<std::int64_t> windows =
+        incremental_step_size(nested_min_depth, nested_max_depth, nested_step);
+    if (windows.empty()) {
+        return;
+    }
+
+    const auto count = static_cast<std::size_t>(last_bin - first_bin + 1);
+    std::vector<char> keep(count, 0);
+    std::vector<double> scores(count * windows.size(), 0.0);
+    hicx::parallel_for(count, threads, [&](std::size_t idx) {
+        DenseBlock scratch;
+        const std::int64_t bin = first_bin + static_cast<std::int64_t>(idx);
+        bool usable = true;
+        for (std::size_t w = 0; w < windows.size(); ++w) {
+            bool defined = true;
+            const double value = cut_weight_mean(context, bin, windows[w], scratch, defined);
+            if (!defined || std::isnan(value)) {
+                usable = false;
+                break;
+            }
+            scores[idx * windows.size() + w] = value;
+        }
+        keep[idx] = usable ? 1 : 0;
+    });
+
+    BedgraphMatrix local;
+    local.columns = windows.size();
+    for (std::size_t idx = 0; idx < count; ++idx) {
+        if (keep[idx] == 0) {
+            continue;
+        }
+        const hicx::CutInterval& interval =
+            (*context.cut_intervals)[static_cast<std::size_t>(first_bin + static_cast<std::int64_t>(idx))];
+        local.chrom.push_back(interval.chrom);
+        local.start.push_back(interval.start);
+        local.end.push_back(interval.end);
+        local.values.insert(
+            local.values.end(), scores.begin() + static_cast<std::ptrdiff_t>(idx * windows.size()),
+            scores.begin() + static_cast<std::ptrdiff_t>((idx + 1) * windows.size()));
+    }
+    if (local.rows() < 3) {
+        return;  // not enough bins left to look for internal structure
+    }
+
+    const std::vector<double> local_row_means = local.row_means();
+
+    std::vector<std::int64_t> widths(local.rows());
+    for (std::size_t r = 0; r < local.rows(); ++r) {
+        widths[r] = local.end[r] - local.start[r];
+    }
+    std::vector<std::int64_t> sorted_widths = widths;
+    std::sort(sorted_widths.begin(), sorted_widths.end());
+    double average_bin_size = 0.0;
+    if (!sorted_widths.empty()) {
+        const std::size_t n = sorted_widths.size();
+        average_bin_size = n % 2 == 1
+                               ? static_cast<double>(sorted_widths[n / 2])
+                               : 0.5 * (static_cast<double>(sorted_widths[n / 2 - 1]) +
+                                        static_cast<double>(sorted_widths[n / 2]));
+    }
+    if (average_bin_size <= 0) {
+        return;
+    }
+    const double min_boundary_distance = nested_min_boundary_distance.has_value()
+                                             ? static_cast<double>(*nested_min_boundary_distance)
+                                             : average_bin_size * 4.0;
+    const auto lookahead =
+        static_cast<std::int64_t>(min_boundary_distance / average_bin_size);
+    if (lookahead < 1) {
+        return;
+    }
+
+    std::vector<Peak> maxima;
+    std::vector<Peak> minima;
+    peakdetect(local_row_means, local.chrom, lookahead, maxima, minima);
+    if (minima.empty()) {
+        return;
+    }
+    std::vector<std::int64_t> minimum_indices;
+    minimum_indices.reserve(minima.size());
+    for (const Peak& peak : minima) {
+        minimum_indices.push_back(peak.position);
+    }
+    const std::map<std::int64_t, double> delta_of_min =
+        delta_wrt_window(minimum_indices, local_row_means, local.chrom);
+
+    std::vector<char> usable(minimum_indices.size(), 0);
+    std::vector<double> raw_pvalues(minimum_indices.size(), kNaN);
+    hicx::parallel_for(minimum_indices.size(), threads, [&](std::size_t slot) {
+        const std::int64_t index = minimum_indices[slot];
+        const auto range = bins.region_bin_range(local.chrom[static_cast<std::size_t>(index)],
+                                                 local.start[static_cast<std::size_t>(index)],
+                                                 local.end[static_cast<std::size_t>(index)]);
+        if (!range.has_value()) {
+            return;
+        }
+        usable[slot] = 1;
+        const std::int64_t matrix_index = range->first;
+        std::int64_t left_bin = 0;
+        std::int64_t right_bin = 0;
+        if (!bins_at_distance(context, matrix_index, nested_min_depth, left_bin, right_bin)) {
+            raw_pvalues[slot] = kNaN;
+            return;
+        }
+        DenseBlock left_block;
+        DenseBlock right_block;
+        DenseBlock boundary_block;
+        const bool has_left = cut_weight_values(context, left_bin, nested_min_depth, left_block);
+        const bool has_right = cut_weight_values(context, right_bin, nested_min_depth, right_block);
+        const bool has_boundary =
+            cut_weight_values(context, matrix_index, nested_min_depth, boundary_block);
+        const std::size_t left_size = has_left ? left_block.values.size() : 0;
+        const std::size_t right_size = has_right ? right_block.values.size() : 0;
+        const std::size_t boundary_size = has_boundary ? boundary_block.values.size() : 0;
+        if (left_size == 0 || right_size == 0 || boundary_size == 0) {
+            raw_pvalues[slot] = kNaN;
+            return;
+        }
+        const double p1 = hicx::stats::ranksums(boundary_block.values, left_block.values).pvalue;
+        const double p2 = hicx::stats::ranksums(boundary_block.values, right_block.values).pvalue;
+        raw_pvalues[slot] = std::min(p1, p2);
+    });
+
+    std::vector<std::int64_t> pvalue_index;
+    std::vector<double> pvalues;
+    for (std::size_t slot = 0; slot < minimum_indices.size(); ++slot) {
+        if (usable[slot] == 0) {
+            continue;
+        }
+        pvalue_index.push_back(minimum_indices[slot]);
+        pvalues.push_back(raw_pvalues[slot]);
+    }
+    if (pvalue_index.empty()) {
+        return;
+    }
+
+    double pvalue_fdr = 0.0;
+    if (correct_for_multiple_testing == "fdr") {
+        for (double& p : pvalues) {
+            if (std::isnan(p)) {
+                p = 1.0;
+            }
+        }
+        pvalue_fdr = hicx::stats::benjamini_hochberg_cutoff(pvalues, threshold_comparisons);
+    } else if (correct_for_multiple_testing == "bonferroni") {
+        hicx::stats::bonferroni_in_place(pvalues);
+    }
+    std::map<std::int64_t, double> pvalue_of_min;
+    for (std::size_t i = 0; i < pvalue_index.size(); ++i) {
+        pvalue_of_min.emplace(pvalue_index[i], pvalues[i]);
+    }
+    const double threshold =
+        correct_for_multiple_testing == "fdr" ? pvalue_fdr : threshold_comparisons;
+
+    std::vector<std::int64_t> accepted;
+    std::map<std::int64_t, CtcfPairSupport> ctcf_match;
+    for (const std::int64_t index : pvalue_index) {
+        const auto delta_entry = delta_of_min.find(index);
+        const double delta = delta_entry == delta_of_min.end() ? kNaN : delta_entry->second;
+        const double pvalue = pvalue_of_min[index];
+        if (!(delta >= delta_threshold && pvalue <= threshold)) {
+            continue;
+        }
+        if (has_ctcf) {
+            const auto sites = ctcf_sites.find(local.chrom[static_cast<std::size_t>(index)]);
+            const CtcfPairSupport support =
+                sites == ctcf_sites.end()
+                    ? CtcfPairSupport{}
+                    : ctcf_support(sites->second, local.start[static_cast<std::size_t>(index)],
+                                   ctcf_window, ctcf_boundary_slack);
+            const bool satisfied = ctcf_require_pair
+                                       ? (support.forward.has_value() && support.reverse.has_value())
+                                       : (support.forward.has_value() || support.reverse.has_value());
+            if (!satisfied) {
+                continue;
+            }
+            ctcf_match.emplace(index, support);
+        }
+        accepted.push_back(index);
+    }
+    if (accepted.empty()) {
+        return;
+    }
+    std::sort(accepted.begin(), accepted.end());
+
+    // The parent span cut at each accepted boundary position gives the
+    // sub-domains; consecutive duplicate cuts (two boundaries in the same
+    // bin) collapse to one.
+    std::vector<std::int64_t> cuts;
+    cuts.push_back(call.parent_start);
+    for (const std::int64_t index : accepted) {
+        cuts.push_back(local.start[static_cast<std::size_t>(index)]);
+    }
+    cuts.push_back(call.parent_end);
+    std::vector<std::int64_t> unique_cuts;
+    for (const std::int64_t c : cuts) {
+        if (unique_cuts.empty() || unique_cuts.back() != c) {
+            unique_cuts.push_back(c);
+        }
+    }
+    if (unique_cuts.size() < 3) {
+        return;  // every candidate collapsed onto the parent's own edges
+    }
+
+    for (std::size_t i = 0; i < accepted.size(); ++i) {
+        const std::int64_t index = accepted[i];
+        char identifier[32];
+        std::snprintf(identifier, sizeof(identifier), "%s_B%03zu", call.parent_id.c_str(), i + 1);
+        nested_boundaries_bed << local.chrom[static_cast<std::size_t>(index)] << '\t'
+                             << local.start[static_cast<std::size_t>(index)] << '\t'
+                             << local.end[static_cast<std::size_t>(index)] << '\t' << identifier
+                             << '\t' << format_fixed(local_row_means[static_cast<std::size_t>(index)], 12)
+                             << "\t.\n";
+        nested_gff << local.chrom[static_cast<std::size_t>(index)] << "\tHiCExplorer\tnested_boundary\t"
+                   << local.start[static_cast<std::size_t>(index)] << '\t'
+                   << local.end[static_cast<std::size_t>(index)] << '\t'
+                   << format_fixed(local_row_means[static_cast<std::size_t>(index)], 12) << "\t.\t.\tID="
+                   << identifier << ";parent=" << call.parent_id << ";delta="
+                   << format_fixed(delta_of_min.at(index), 12) << ";pvalue="
+                   << format_fixed(pvalue_of_min.at(index), 12);
+        const auto matched_ctcf = ctcf_match.find(index);
+        if (matched_ctcf != ctcf_match.end()) {
+            if (matched_ctcf->second.forward.has_value()) {
+                nested_gff << ";ctcf_site_forward=" << matched_ctcf->second.forward->position;
+            }
+            if (matched_ctcf->second.reverse.has_value()) {
+                nested_gff << ";ctcf_site_reverse=" << matched_ctcf->second.reverse->position;
+            }
+        }
+        nested_gff << '\n';
+    }
+
+    for (std::size_t i = 0; i + 1 < unique_cuts.size(); ++i) {
+        const char* rgb = domain_counter % 2 == 0 ? "102,194,165" : "252,141,98";
+        nested_domains_bed << call.chrom << '\t' << unique_cuts[i] << '\t' << unique_cuts[i + 1]
+                           << "\tID_" << call.parent_id << '_' << (i + 1) << "\t0\t.\t"
+                           << unique_cuts[i] << '\t' << unique_cuts[i + 1] << '\t' << rgb << '\n';
+        ++domain_counter;
+    }
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -982,6 +1321,23 @@ int main(int argc, char** argv) {
         if (args.ctcf_file.has_value()) {
             ctcf_sites = read_ctcf_sites(*args.ctcf_file);
         }
+
+        const int nested_given = args.nested_min_depth.has_value() +
+                                 args.nested_max_depth.has_value() +
+                                 args.nested_step.has_value();
+        if (nested_given != 0 && nested_given != 3) {
+            std::fputs("hicFindTADs: --nestedMinDepth, --nestedMaxDepth and "
+                       "--nestedStep must all be given together\n",
+                       stderr);
+            return 1;
+        }
+        if (nested_given == 3 && *args.nested_max_depth <= *args.nested_min_depth) {
+            std::fputs("hicFindTADs: --nestedMaxDepth must be larger than "
+                       "--nestedMinDepth\n",
+                       stderr);
+            return 1;
+        }
+        const bool nested_enabled = nested_given == 3;
 
         hicx::ToolMatrix hic = hicx::ToolMatrix::load(args.matrix);
 
@@ -1065,6 +1421,26 @@ int main(int argc, char** argv) {
             return 1;
         } else {
             step = *args.step;
+        }
+
+        std::int64_t nested_min_domain_size = 0;
+        if (nested_enabled) {
+            if (*args.nested_min_depth < bin_size * 3) {
+                std::fputs("hicFindTADs: --nestedMinDepth must be at least 3 times "
+                           "the matrix bin size (otherwise the Wilcoxon rank-sum "
+                           "test has too few values per side to carry any power)\n",
+                           stderr);
+                return 1;
+            }
+            if (*args.nested_max_depth < bin_size * 3) {
+                std::fputs("hicFindTADs: --nestedMaxDepth must be at least 3 times "
+                           "the matrix bin size\n",
+                           stderr);
+                return 1;
+            }
+            nested_min_domain_size = args.nested_min_domain_size.has_value()
+                                        ? *args.nested_min_domain_size
+                                        : 4 * (*args.nested_max_depth);
         }
 
         const std::string score_suffix = "_tad_score.bm";
@@ -1520,6 +1896,7 @@ int main(int argc, char** argv) {
         std::ofstream boundaries_bed(args.out_prefix + "_boundaries.bed");
         std::ofstream domains_bed(args.out_prefix + "_domains.bed");
         std::ofstream gff(args.out_prefix + "_boundaries.gff");
+        std::vector<NestedCall> nested_calls;
         int count = 1;
         for (std::size_t position = 0; position < filtered.size(); ++position) {
             const std::int64_t index = filtered[position];
@@ -1573,15 +1950,41 @@ int main(int argc, char** argv) {
             const std::int64_t end =
                 bedgraph.start[static_cast<std::size_t>(filtered[position + 1])];
             const char* rgb = count % 2 == 0 ? "51,160,44" : "31,120,180";
-            domains_bed << bedgraph.chrom[at] << '\t' << start << '\t' << end << "\tID_"
-                        << delta_text << '_' << count << '\t'
+            std::string domain_id = "ID_" + delta_text + "_" + std::to_string(count);
+            domains_bed << bedgraph.chrom[at] << '\t' << start << '\t' << end << "\t"
+                        << domain_id << '\t'
                         << format_fixed(row_means[at], 12) << "\t.\t" << start << '\t'
                         << end << '\t' << rgb << '\n';
+            if (nested_enabled && end - start >= nested_min_domain_size) {
+                nested_calls.push_back(
+                    NestedCall{bedgraph.chrom[at], start, end, std::move(domain_id)});
+            }
             ++count;
         }
         boundaries_bed.close();
         domains_bed.close();
         gff.close();
+
+        if (nested_enabled) {
+            std::ofstream nested_boundaries_bed(args.out_prefix + "_nested_boundaries.bed");
+            std::ofstream nested_domains_bed(args.out_prefix + "_nested_domains.bed");
+            std::ofstream nested_gff(args.out_prefix + "_nested_boundaries.gff");
+            const unsigned int threads =
+                static_cast<unsigned int>(std::max(1, args.processors));
+            int domain_counter = 1;
+            for (const NestedCall& call : nested_calls) {
+                detect_nested_domains(
+                    context, bins, call, *args.nested_min_depth, *args.nested_max_depth,
+                    *args.nested_step, args.nested_min_boundary_distance, args.delta,
+                    args.correct_for_multiple_testing, args.threshold_comparisons,
+                    args.ctcf_file.has_value(), ctcf_sites, args.ctcf_window,
+                    args.ctcf_boundary_slack, args.ctcf_require_convergent_pair, threads,
+                    nested_boundaries_bed, nested_domains_bed, nested_gff, domain_counter);
+            }
+            nested_boundaries_bed.close();
+            nested_domains_bed.close();
+            nested_gff.close();
+        }
 
         std::ofstream score(args.out_prefix + "_score.bedgraph");
         for (std::size_t index = 1; index < rows; ++index) {
