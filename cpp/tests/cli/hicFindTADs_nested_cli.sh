@@ -29,13 +29,12 @@
 # sub-TAD discovery end to end. That was instead verified manually against
 # real GM12878 Hi-C data (gm12878_ENCSR946AKI_r8_25kb.cool, chr1): with
 # --nestedMinDepth 75000 --nestedMaxDepth 150000 --nestedStep 25000 on top of
-# --minDepth 75000 --maxDepth 250000 --step 25000 and
-# --ctcfRequireConvergentPair, 109 sub-boundaries split 51 top-level domains
-# into 160 sub-domains; without --ctcfRequireConvergentPair every one of
-# those 109 is still a real, strong local minimum of the domain's own score
-# (verified by hand against the deepest dip in several domains, including
-# one a p-value-gated earlier version of this feature had dropped despite it
-# being the clearest minimum in its whole domain). What is checked here is
+# --minDepth 75000 --maxDepth 250000 --step 25000 and --ctcfFile, 190
+# sub-boundaries split 73 top-level domains into 263 sub-domains, each on a
+# real CTCF site in the supporting orientation (verified by hand against the
+# deepest dip in several domains, including one a p-value-gated earlier
+# version of this feature had dropped despite it being the clearest minimum
+# in its whole domain). What is checked here is
 # the CLI contract:
 #  1. --nestedMinDepth/--nestedMaxDepth/--nestedStep must be given together;
 #     any two of the three without the third is refused.
