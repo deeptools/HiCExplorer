@@ -89,6 +89,7 @@ const char* const kUsage =
     "                   [--TAD_sep_score_prefix TAD_SEP_SCORE_PREFIX]\n"
     "                   [--thresholdComparisons THRESHOLDCOMPARISONS]\n"
     "                   [--delta DELTA] [--minBoundaryDistance MINBOUNDARYDISTANCE]\n"
+    "                   [--ctcfFile CTCFFILE] [--ctcfWindow CTCFWINDOW]\n"
     "                   [--chromosomes CHROMOSOMES [CHROMOSOMES ...]]\n"
     "                   [--numberOfProcessors NUMBEROFPROCESSORS] [--help]\n"
     "                   [--version]\n";
@@ -125,6 +126,17 @@ const char* const kHelp =
     "                        (Default: 0.01).\n"
     "  --minBoundaryDistance MINBOUNDARYDISTANCE\n"
     "                        Minimum distance between boundaries (in bp).\n"
+    "  --ctcfFile CTCFFILE   C++-only. A BED file (chrom, start, end, name, score,\n"
+    "                        strand) of CTCF binding site motif orientations. When\n"
+    "                        given, a TAD-separation score minimum is accepted as a\n"
+    "                        boundary only when a CTCF site within --ctcfWindow is\n"
+    "                        oriented toward it: a site at or before the boundary\n"
+    "                        must be on the '+' strand, one at or after it on the\n"
+    "                        '-' strand, the convergent orientation found at domain\n"
+    "                        boundaries.\n"
+    "  --ctcfWindow CTCFWINDOW\n"
+    "                        C++-only. Maximum distance in bp between a boundary\n"
+    "                        and a supporting CTCF site (Default: 10000).\n"
     "  --chromosomes CHROMOSOMES [CHROMOSOMES ...]\n"
     "                        Chromosomes and order in which the chromosomes should\n"
     "                        be plotted.\n"
@@ -144,6 +156,8 @@ struct Arguments {
     double threshold_comparisons = 0.01;
     double delta = 0.01;
     std::optional<std::int64_t> min_boundary_distance;
+    std::optional<std::string> ctcf_file;
+    std::int64_t ctcf_window = 10000;
     std::optional<std::vector<std::string>> chromosomes;
     int processors = 1;
 };
@@ -193,6 +207,20 @@ Arguments parse_arguments(int argc, char** argv) {
     optional.add({"--minBoundaryDistance"})
         .type("int")
         .help("Minimum distance between boundaries (in bp).");
+    optional.add({"--ctcfFile"})
+        .input({"bed", "narrowPeak", "txt"})
+        .help("C++-only. A BED file (chrom, start, end, name, score, strand) of CTCF "
+              "binding site motif orientations. When given, a TAD-separation score "
+              "minimum is accepted as a boundary only when a CTCF site within "
+              "--ctcfWindow is oriented toward it: a site at or before the boundary "
+              "must be on the '+' strand, one at or after it on the '-' strand, the "
+              "convergent orientation found at domain boundaries.");
+    optional.add({"--ctcfWindow"})
+        .type("int")
+        .default_value(std::int64_t{10000})
+        .metavar("BP")
+        .help("C++-only. Maximum distance between a boundary and a supporting CTCF "
+              "site.");
     optional.add({"--chromosomes"})
         .nargs("+")
         .help("Chromosomes and order in which the chromosomes should be plotted.");
@@ -215,6 +243,8 @@ Arguments parse_arguments(int argc, char** argv) {
     args.threshold_comparisons = ns.real("thresholdComparisons");
     args.delta = ns.real("delta");
     args.min_boundary_distance = ns.opt_integer("minBoundaryDistance");
+    args.ctcf_file = ns.opt_str("ctcfFile");
+    args.ctcf_window = ns.integer("ctcfWindow");
     if (ns.given("chromosomes")) {
         args.chromosomes = ns.strs("chromosomes");
     }
@@ -744,6 +774,114 @@ std::string format_fixed(double value, int decimals) {
     return buffer;
 }
 
+// --ctcfFile (C++-only, cpp/PLAN.md tier 9): requires a CTCF binding site in
+// the correct orientation for a TAD-separation score minimum to be accepted
+// as a boundary, the convergent-motif signature of domain boundaries (Rao
+// et al. 2014; Vietri Rudan et al. 2015, Cell Reports). A boundary sits
+// between two domains; a CTCF site supports it when its motif points toward
+// the boundary from whichever side it is on: '+' (forward) at or before the
+// boundary position, '-' (reverse) at or after it. Site positions are motif
+// midpoints, so a site exactly at the boundary matches either strand.
+struct CtcfSite {
+    std::int64_t position = 0;
+    char strand = 0;  // '+' or '-'
+};
+
+std::vector<std::string> ctcf_split_tabs(const std::string& line) {
+    std::vector<std::string> fields;
+    std::size_t start = 0;
+    while (true) {
+        const std::size_t marker = line.find('\t', start);
+        if (marker == std::string::npos) {
+            fields.push_back(line.substr(start));
+            break;
+        }
+        fields.push_back(line.substr(start, marker - start));
+        start = marker + 1;
+    }
+    return fields;
+}
+
+std::string ctcf_strip(const std::string& text) {
+    std::size_t begin = 0;
+    std::size_t end = text.size();
+    while (begin < end && std::isspace(static_cast<unsigned char>(text[begin])) != 0) {
+        ++begin;
+    }
+    while (end > begin && std::isspace(static_cast<unsigned char>(text[end - 1])) != 0) {
+        --end;
+    }
+    return text.substr(begin, end - begin);
+}
+
+// Reads a BED file of at least 6 columns (chrom, start, end, name, score,
+// strand), keeping only rows with strand '+' or '-' (a '.' carries no
+// orientation and is dropped); sites are returned sorted by position within
+// each chromosome. Throws on a short line or an unreadable file.
+std::unordered_map<std::string, std::vector<CtcfSite>> read_ctcf_sites(
+    const std::string& path) {
+    std::ifstream in(path);
+    if (!in) {
+        throw std::runtime_error("cannot open --ctcfFile '" + path + "'");
+    }
+    std::unordered_map<std::string, std::vector<CtcfSite>> by_chrom;
+    std::string line;
+    int line_number = 0;
+    while (std::getline(in, line)) {
+        ++line_number;
+        const std::string stripped = ctcf_strip(line);
+        if (stripped.empty()) {
+            continue;
+        }
+        const std::vector<std::string> fields = ctcf_split_tabs(stripped);
+        if (fields.size() < 6) {
+            throw std::runtime_error("--ctcfFile '" + path + "' line " +
+                                     std::to_string(line_number) +
+                                     " has fewer than 6 columns (chrom, start, end, "
+                                     "name, score, strand required)");
+        }
+        const std::string& strand_field = fields[5];
+        if (strand_field != "+" && strand_field != "-") {
+            continue;  // '.': no motif orientation, cannot support a boundary
+        }
+        const std::int64_t start = std::strtoll(fields[1].c_str(), nullptr, 10);
+        const std::int64_t end = std::strtoll(fields[2].c_str(), nullptr, 10);
+        by_chrom[fields[0]].push_back(CtcfSite{(start + end) / 2, strand_field[0]});
+    }
+    for (auto& [chrom, sites] : by_chrom) {
+        (void)chrom;
+        std::sort(sites.begin(), sites.end(),
+                 [](const CtcfSite& a, const CtcfSite& b) { return a.position < b.position; });
+    }
+    return by_chrom;
+}
+
+// The nearest site within `window` of `boundary_position` whose orientation
+// points toward it, preferring the closest match; nullopt when none does.
+std::optional<CtcfSite> ctcf_support(const std::vector<CtcfSite>& sites,
+                                     std::int64_t boundary_position, std::int64_t window) {
+    const auto first = std::lower_bound(
+        sites.begin(), sites.end(), boundary_position - window,
+        [](const CtcfSite& site, std::int64_t value) { return site.position < value; });
+    std::optional<CtcfSite> best;
+    std::int64_t best_distance = std::numeric_limits<std::int64_t>::max();
+    for (auto it = first; it != sites.end() && it->position <= boundary_position + window;
+         ++it) {
+        const bool oriented_toward_boundary =
+            (it->position <= boundary_position && it->strand == '+') ||
+            (it->position >= boundary_position && it->strand == '-');
+        if (!oriented_toward_boundary) {
+            continue;
+        }
+        const std::int64_t distance = std::abs(it->position - boundary_position);
+        if (distance < best_distance) {
+            best_distance = distance;
+            best = *it;
+        }
+    }
+    return best;
+}
+
 struct BedgraphMatrix {
     std::vector<std::string> chrom;
     std::vector<std::int64_t> start;
@@ -781,6 +919,11 @@ int main(int argc, char** argv) {
                          "ERROR:hicexplorer.hicFindTADs:used input: %s, ending %s\n",
                          args.matrix.c_str(), suffix.c_str());
             return 1;
+        }
+
+        std::unordered_map<std::string, std::vector<CtcfSite>> ctcf_sites;
+        if (args.ctcf_file.has_value()) {
+            ctcf_sites = read_ctcf_sites(*args.ctcf_file);
         }
 
         hicx::ToolMatrix hic = hicx::ToolMatrix::load(args.matrix);
@@ -1277,6 +1420,7 @@ int main(int argc, char** argv) {
         std::sort(candidates.begin(), candidates.end());
 
         std::vector<std::int64_t> filtered;
+        std::map<std::int64_t, CtcfSite> ctcf_match;
         for (const std::int64_t index : candidates) {
             const auto delta_entry = delta_of_min.find(index);
             const double delta =
@@ -1291,9 +1435,22 @@ int main(int argc, char** argv) {
             const double threshold = args.correct_for_multiple_testing == "fdr"
                                          ? pvalue_fdr
                                          : args.threshold_comparisons;
-            if (delta >= args.delta && pvalue_entry->second <= threshold) {
-                filtered.push_back(index);
+            if (!(delta >= args.delta && pvalue_entry->second <= threshold)) {
+                continue;
             }
+            if (args.ctcf_file.has_value()) {
+                const auto sites = ctcf_sites.find(bedgraph.chrom[static_cast<std::size_t>(index)]);
+                const std::optional<CtcfSite> support =
+                    sites == ctcf_sites.end()
+                        ? std::nullopt
+                        : ctcf_support(sites->second, bedgraph.start[static_cast<std::size_t>(index)],
+                                       args.ctcf_window);
+                if (!support.has_value()) {
+                    continue;
+                }
+                ctcf_match.emplace(index, *support);
+            }
+            filtered.push_back(index);
         }
 
         const std::set<std::int64_t> chromosome_ends(chr_end_idx.begin(),
@@ -1335,7 +1492,13 @@ int main(int argc, char** argv) {
                 << "\t.\t.\tID=" << identifier
                 << ";delta=" << format_fixed(delta_of_min[index], 12)
                 << ";pvalue=" << format_fixed(pvalue_of_min[index], 12)
-                << ";tad_sep=" << format_fixed(row_means[at], 12) << '\n';
+                << ";tad_sep=" << format_fixed(row_means[at], 12);
+            const auto matched_ctcf = ctcf_match.find(index);
+            if (matched_ctcf != ctcf_match.end()) {
+                gff << ";ctcf_site=" << matched_ctcf->second.position
+                    << ";ctcf_strand=" << matched_ctcf->second.strand;
+            }
+            gff << '\n';
 
             if (position + 1 == filtered.size() ||
                 bedgraph.chrom[at] !=
