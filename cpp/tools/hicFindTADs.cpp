@@ -91,7 +91,6 @@ const char* const kUsage =
     "                   [--delta DELTA] [--minBoundaryDistance MINBOUNDARYDISTANCE]\n"
     "                   [--ctcfFile CTCFFILE] [--ctcfWindow CTCFWINDOW]\n"
     "                   [--ctcfBoundarySlack CTCFBOUNDARYSLACK]\n"
-    "                   [--ctcfRequireConvergentPair]\n"
     "                   [--nestedMinDepth INT bp] [--nestedMaxDepth INT bp]\n"
     "                   [--nestedStep INT bp] [--nestedMinBoundaryDistance BP]\n"
     "                   [--nestedMinDomainSize BP]\n"
@@ -146,11 +145,6 @@ const char* const kHelp =
     "                        C++-only. Evaluate the +/- orientation test against any\n"
     "                        point within this many bp of the boundary instead of only\n"
     "                        the exact reported minimum (Default: 0).\n"
-    "  --ctcfRequireConvergentPair\n"
-    "                        C++-only. Require both a forward ('+') site at or before\n"
-    "                        the boundary and a reverse ('-') site at or after it\n"
-    "                        (the convergent anchor pair), instead of either one\n"
-    "                        alone being enough.\n"
     "  --nestedMinDepth INT bp\n"
     "                        C++-only. Together with --nestedMaxDepth and\n"
     "                        --nestedStep, enables sub-TAD detection: within each\n"
@@ -206,7 +200,6 @@ struct Arguments {
     std::optional<std::string> ctcf_file;
     std::int64_t ctcf_window = 10000;
     std::int64_t ctcf_boundary_slack = 0;
-    bool ctcf_require_convergent_pair = false;
     std::optional<std::int64_t> nested_min_depth;
     std::optional<std::int64_t> nested_max_depth;
     std::optional<std::int64_t> nested_step;
@@ -282,11 +275,6 @@ Arguments parse_arguments(int argc, char** argv) {
         .help("C++-only. Evaluate the +/- orientation test against any point within "
               "this many bp of the boundary instead of only the exact reported "
               "minimum.");
-    optional.add({"--ctcfRequireConvergentPair"})
-        .action(cli::Action::StoreTrue)
-        .help("C++-only. Require both a forward site at or before the boundary and a "
-              "reverse site at or after it, instead of either one alone being "
-              "enough.");
     optional.add({"--nestedMinDepth"})
         .type("int")
         .metavar("INT bp")
@@ -335,7 +323,6 @@ Arguments parse_arguments(int argc, char** argv) {
     args.ctcf_file = ns.opt_str("ctcfFile");
     args.ctcf_window = ns.integer("ctcfWindow");
     args.ctcf_boundary_slack = ns.integer("ctcfBoundarySlack");
-    args.ctcf_require_convergent_pair = ns.flag("ctcfRequireConvergentPair");
     args.nested_min_depth = ns.opt_integer("nestedMinDepth");
     args.nested_max_depth = ns.opt_integer("nestedMaxDepth");
     args.nested_step = ns.opt_integer("nestedStep");
@@ -890,13 +877,12 @@ std::string format_fixed(double value, int decimals) {
 // itself may be from the minimum. s = 0 (the default) is the original exact
 // single-bin test.
 //
-// --ctcfRequireConvergentPair tightens the requirement from "a site on
-// whichever side has one" to the actual convergent-anchor pair: a forward
-// site at or before the boundary AND a reverse site at or after it, both
-// present. Off by default (either orientation alone is enough), since a
-// sparse real site list already struggles to place a single site near every
-// true boundary; requiring a pair is the stricter, more literal reading of
-// the convergent-motif signature, for a denser --ctcfFile.
+// A boundary is supported by a site on whichever side has one -- forward
+// before it or reverse after it, either alone is enough, not both. A
+// stricter requirement for a real convergent *pair* (forward AND reverse
+// both present) was tried and dropped: a sparse real site list already
+// struggles to place a single site near every true boundary, so requiring
+// two only lost real boundaries without a matching gain in precision.
 struct CtcfSite {
     std::int64_t position = 0;
     char strand = 0;  // '+' or '-'
@@ -1290,7 +1276,7 @@ void finalize_nested_domain(const NestedCandidates& candidates,
                             double delta_threshold, bool has_ctcf,
                             const std::unordered_map<std::string, std::vector<CtcfSite>>& ctcf_sites,
                             std::int64_t ctcf_window, std::int64_t ctcf_boundary_slack,
-                            bool ctcf_require_pair, std::ofstream& nested_boundaries_bed,
+                            std::ofstream& nested_boundaries_bed,
                             std::ofstream& nested_domains_bed, std::ofstream& nested_gff,
                             int& domain_counter) {
     const NestedCall& call = candidates.call;
@@ -1325,10 +1311,7 @@ void finalize_nested_domain(const NestedCandidates& candidates,
                     ? CtcfPairSupport{}
                     : ctcf_support(sites->second, local.start[static_cast<std::size_t>(index)],
                                    ctcf_window, ctcf_boundary_slack);
-            const bool satisfied = ctcf_require_pair
-                                       ? (support.forward.has_value() && support.reverse.has_value())
-                                       : (support.forward.has_value() || support.reverse.has_value());
-            if (!satisfied) {
+            if (!support.forward.has_value() && !support.reverse.has_value()) {
                 continue;
             }
             ctcf_match.emplace(index, support);
@@ -1978,10 +1961,7 @@ int main(int argc, char** argv) {
                         ? CtcfPairSupport{}
                         : ctcf_support(sites->second, bedgraph.start[static_cast<std::size_t>(index)],
                                        args.ctcf_window, args.ctcf_boundary_slack);
-                const bool satisfied = args.ctcf_require_convergent_pair
-                                           ? (support.forward.has_value() && support.reverse.has_value())
-                                           : (support.forward.has_value() || support.reverse.has_value());
-                if (!satisfied) {
+                if (!support.forward.has_value() && !support.reverse.has_value()) {
                     continue;
                 }
                 ctcf_match.emplace(index, support);
@@ -2110,9 +2090,8 @@ int main(int argc, char** argv) {
                 }
                 finalize_nested_domain(all_candidates[d], pvalue_of_min, args.delta,
                                        args.ctcf_file.has_value(), ctcf_sites, args.ctcf_window,
-                                       args.ctcf_boundary_slack, args.ctcf_require_convergent_pair,
-                                       nested_boundaries_bed, nested_domains_bed, nested_gff,
-                                       domain_counter);
+                                       args.ctcf_boundary_slack, nested_boundaries_bed,
+                                       nested_domains_bed, nested_gff, domain_counter);
             }
             nested_boundaries_bed.close();
             nested_domains_bed.close();
