@@ -1164,16 +1164,22 @@ std::optional<NestedCandidates> collect_nested_candidates(
     // range and therefore is not what peakdetect below is looking at).
     // Written out so a caller can see the exact curve the minima a few lines
     // down were picked from, instead of only the top-level one.
-    for (std::size_t index = 1; index < local.rows(); ++index) {
-        const std::int64_t right_center =
-            local.start[index] + (local.end[index] - local.start[index]) / 2;
-        const std::int64_t left_center =
-            local.start[index - 1] + (local.end[index - 1] - local.start[index - 1]) / 2;
-        if (right_center <= left_center) {
+    //
+    // Each row is the bin's own interval (local.start[index]..local.end[index]),
+    // the same convention _nested_boundaries.bed/_nested_domains.bed already
+    // use, not the midpoint-of-neighbouring-bin-centres convention
+    // <outPrefix>_score.bedgraph uses: that convention exists only to match
+    // hicFindTADs.py's own score file byte for byte, which this C++-only file
+    // has no reference to match, and using it here would shift every row by
+    // half a bin relative to the boundaries/domains this score explains,
+    // putting a real local minimum visibly to one side of its own triangle.
+    for (std::size_t index = 0; index < local.rows(); ++index) {
+        if (local.end[index] <= local.start[index]) {
             continue;
         }
-        nested_score << local.chrom[index] << '\t' << left_center << '\t' << right_center
-                      << '\t' << format_fixed(local_row_means[index], 12) << '\n';
+        nested_score << local.chrom[index] << '\t' << local.start[index] << '\t'
+                      << local.end[index] << '\t' << format_fixed(local_row_means[index], 12)
+                      << '\n';
     }
 
     std::vector<std::int64_t> widths(local.rows());
