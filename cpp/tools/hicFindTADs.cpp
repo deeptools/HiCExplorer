@@ -90,6 +90,7 @@ const char* const kUsage =
     "                   [--thresholdComparisons THRESHOLDCOMPARISONS]\n"
     "                   [--delta DELTA] [--minBoundaryDistance MINBOUNDARYDISTANCE]\n"
     "                   [--ctcfFile CTCFFILE] [--ctcfWindow CTCFWINDOW]\n"
+    "                   [--ctcfBoundarySlack CTCFBOUNDARYSLACK]\n"
     "                   [--chromosomes CHROMOSOMES [CHROMOSOMES ...]]\n"
     "                   [--numberOfProcessors NUMBEROFPROCESSORS] [--help]\n"
     "                   [--version]\n";
@@ -137,6 +138,10 @@ const char* const kHelp =
     "  --ctcfWindow CTCFWINDOW\n"
     "                        C++-only. Maximum distance in bp between a boundary\n"
     "                        and a supporting CTCF site (Default: 10000).\n"
+    "  --ctcfBoundarySlack CTCFBOUNDARYSLACK\n"
+    "                        C++-only. Evaluate the +/- orientation test against any\n"
+    "                        point within this many bp of the boundary instead of only\n"
+    "                        the exact reported minimum (Default: 0).\n"
     "  --chromosomes CHROMOSOMES [CHROMOSOMES ...]\n"
     "                        Chromosomes and order in which the chromosomes should\n"
     "                        be plotted.\n"
@@ -158,6 +163,7 @@ struct Arguments {
     std::optional<std::int64_t> min_boundary_distance;
     std::optional<std::string> ctcf_file;
     std::int64_t ctcf_window = 10000;
+    std::int64_t ctcf_boundary_slack = 0;
     std::optional<std::vector<std::string>> chromosomes;
     int processors = 1;
 };
@@ -221,6 +227,13 @@ Arguments parse_arguments(int argc, char** argv) {
         .metavar("BP")
         .help("C++-only. Maximum distance between a boundary and a supporting CTCF "
               "site.");
+    optional.add({"--ctcfBoundarySlack"})
+        .type("int")
+        .default_value(std::int64_t{0})
+        .metavar("BP")
+        .help("C++-only. Evaluate the +/- orientation test against any point within "
+              "this many bp of the boundary instead of only the exact reported "
+              "minimum.");
     optional.add({"--chromosomes"})
         .nargs("+")
         .help("Chromosomes and order in which the chromosomes should be plotted.");
@@ -245,6 +258,7 @@ Arguments parse_arguments(int argc, char** argv) {
     args.min_boundary_distance = ns.opt_integer("minBoundaryDistance");
     args.ctcf_file = ns.opt_str("ctcfFile");
     args.ctcf_window = ns.integer("ctcfWindow");
+    args.ctcf_boundary_slack = ns.integer("ctcfBoundarySlack");
     if (ns.given("chromosomes")) {
         args.chromosomes = ns.strs("chromosomes");
     }
@@ -782,6 +796,17 @@ std::string format_fixed(double value, int decimals) {
 // the boundary from whichever side it is on: '+' (forward) at or before the
 // boundary position, '-' (reverse) at or after it. Site positions are motif
 // midpoints, so a site exactly at the boundary matches either strand.
+//
+// --ctcfBoundarySlack widens where "the boundary position" is allowed to sit
+// for that left/right test. hicFindTADs reports one bin as the minimum, but
+// the real inflection of the TAD-separation score is rarely that one exact
+// bin; a site just past it, on what looks like the wrong side of the single
+// reported bin, can still be the site the minimum is reporting. Slack s
+// relaxes the test to accept a '+' site anywhere at or before
+// boundary_position + s, and a '-' site anywhere at or after
+// boundary_position - s, while --ctcfWindow still bounds how far the site
+// itself may be from the minimum. s = 0 (the default) is the original exact
+// single-bin test.
 struct CtcfSite {
     std::int64_t position = 0;
     char strand = 0;  // '+' or '-'
@@ -857,9 +882,14 @@ std::unordered_map<std::string, std::vector<CtcfSite>> read_ctcf_sites(
 }
 
 // The nearest site within `window` of `boundary_position` whose orientation
-// points toward it, preferring the closest match; nullopt when none does.
+// points toward it, allowing the left/right test to be evaluated against any
+// point within `slack` of `boundary_position` rather than only the exact
+// position itself (see the comment on --ctcfBoundarySlack above); preferring
+// the closest match by actual distance to `boundary_position`, nullopt when
+// none qualifies.
 std::optional<CtcfSite> ctcf_support(const std::vector<CtcfSite>& sites,
-                                     std::int64_t boundary_position, std::int64_t window) {
+                                     std::int64_t boundary_position, std::int64_t window,
+                                     std::int64_t slack) {
     const auto first = std::lower_bound(
         sites.begin(), sites.end(), boundary_position - window,
         [](const CtcfSite& site, std::int64_t value) { return site.position < value; });
@@ -868,8 +898,8 @@ std::optional<CtcfSite> ctcf_support(const std::vector<CtcfSite>& sites,
     for (auto it = first; it != sites.end() && it->position <= boundary_position + window;
          ++it) {
         const bool oriented_toward_boundary =
-            (it->position <= boundary_position && it->strand == '+') ||
-            (it->position >= boundary_position && it->strand == '-');
+            (it->position <= boundary_position + slack && it->strand == '+') ||
+            (it->position >= boundary_position - slack && it->strand == '-');
         if (!oriented_toward_boundary) {
             continue;
         }
@@ -1444,7 +1474,7 @@ int main(int argc, char** argv) {
                     sites == ctcf_sites.end()
                         ? std::nullopt
                         : ctcf_support(sites->second, bedgraph.start[static_cast<std::size_t>(index)],
-                                       args.ctcf_window);
+                                       args.ctcf_window, args.ctcf_boundary_slack);
                 if (!support.has_value()) {
                     continue;
                 }
