@@ -3,9 +3,12 @@
 # detection): within each top-level domain wide enough to plausibly hold
 # internal structure, reruns the same TAD-separation-score pipeline at a
 # finer depth confined to that domain's own bin range, writing
-# <outPrefix>_nested_boundaries.bed, _nested_domains.bed and
-# _nested_boundaries.gff. No Python counterpart, so checked here rather than
-# through cpp/scripts/equiv.py.
+# <outPrefix>_nested_boundaries.bed, _nested_domains.bed,
+# _nested_boundaries.gff and _nested_score.bedgraph (the domain's own score
+# over the nested depth range, independent of the top level's score over its
+# own, wider depth range -- the nested boundaries are the minima of this
+# one, not of the top-level curve). No Python counterpart, so checked here
+# rather than through cpp/scripts/equiv.py.
 #
 # small_test_matrix.h5 (bin size 5000 here) is tuned to produce exactly one
 # real boundary and never two boundaries on the same chromosome, so no
@@ -90,6 +93,8 @@ expect "it writes an empty nested domains file" \
     test -e nested_ok_nested_domains.bed -a ! -s nested_ok_nested_domains.bed
 expect "it writes an empty nested boundaries GFF" \
     test -e nested_ok_nested_boundaries.gff -a ! -s nested_ok_nested_boundaries.gff
+expect "it writes an empty nested score bedgraph" \
+    test -e nested_ok_nested_score.bedgraph -a ! -s nested_ok_nested_score.bedgraph
 
 if [ "$failures" -ne 0 ]; then
     echo "$failures check(s) failed"
