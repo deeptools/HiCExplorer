@@ -7,8 +7,14 @@
 # _nested_boundaries.gff and _nested_score.bedgraph (the domain's own score
 # over the nested depth range, independent of the top level's score over its
 # own, wider depth range -- the nested boundaries are the minima of this
-# one, not of the top-level curve). No Python counterpart, so checked here
-# rather than through cpp/scripts/equiv.py.
+# one, not of the top-level curve). Unlike the top level, a nested minimum
+# is accepted by --delta alone, not additionally gated behind a Wilcoxon
+# p-value/FDR threshold: at a single domain's own small scale that test does
+# not reliably separate a real minimum from a slightly shallower one, and on
+# real data it dropped a domain's single clearest dip (by far the largest
+# delta nearby) over a borderline p-value. The p-value is still computed and
+# reported in the GFF (pvalue=) for information. No Python counterpart, so
+# checked here rather than through cpp/scripts/equiv.py.
 #
 # small_test_matrix.h5 (bin size 5000 here) is tuned to produce exactly one
 # real boundary and never two boundaries on the same chromosome, so no
@@ -16,9 +22,14 @@
 # sub-TAD discovery end to end. That was instead verified manually against
 # real GM12878 Hi-C data (gm12878_ENCSR946AKI_r8_25kb.cool, chr1): with
 # --nestedMinDepth 75000 --nestedMaxDepth 150000 --nestedStep 25000 on top of
-# --minDepth 75000 --maxDepth 250000 --step 25000, 15 sub-boundaries split 11
-# top-level domains into 26 sub-domains, each sub-boundary landing on a real
-# convergent CTCF pair with p<0.01. What is checked here is the CLI contract:
+# --minDepth 75000 --maxDepth 250000 --step 25000 and
+# --ctcfRequireConvergentPair, 109 sub-boundaries split 51 top-level domains
+# into 160 sub-domains; without --ctcfRequireConvergentPair every one of
+# those 109 is still a real, strong local minimum of the domain's own score
+# (verified by hand against the deepest dip in several domains, including
+# one a p-value-gated earlier version of this feature had dropped despite it
+# being the clearest minimum in its whole domain). What is checked here is
+# the CLI contract:
 #  1. --nestedMinDepth/--nestedMaxDepth/--nestedStep must be given together;
 #     any two of the three without the third is refused.
 #  2. --nestedMinDepth below 3 times the matrix bin size is refused (a
