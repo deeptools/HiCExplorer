@@ -173,17 +173,15 @@ const char* const kHelp =
     "                        C++-only. A top-level domain shorter than this is not\n"
     "                        searched for sub-TADs (Default: 4 * --nestedMaxDepth).\n"
     "  --nestedCoarsenFactor INT\n"
-    "                        C++-only. For each qualifying top-level domain, merges\n"
-    "                        this many adjacent bins of the matrix's own raw counts,\n"
-    "                        confined to that domain's own diamond (its bin range\n"
-    "                        plus the margin --nestedMaxDepth reaches), and\n"
-    "                        re-derives the observed/expected z-score fresh on that\n"
-    "                        local, coarsened submatrix before looking for\n"
-    "                        sub-boundaries -- rather than reusing the genome-wide\n"
-    "                        z-scored matrix at a finer window size. Both the\n"
-    "                        coarsening and the z-score are computed in memory, on\n"
-    "                        the fly, per domain; nothing is written to disk.\n"
-    "                        (Default: 4)\n"
+    "                        C++-only. Merges this many adjacent bins of the\n"
+    "                        matrix's own raw counts -- once, for the whole\n"
+    "                        chromosome, not per domain -- and re-derives the\n"
+    "                        observed/expected z-score fresh on that coarsened\n"
+    "                        matrix, independently per diagonal, before looking\n"
+    "                        for sub-boundaries within each domain's own bin\n"
+    "                        range. Both the coarsening and the z-score are\n"
+    "                        computed in memory, on the fly; nothing is written\n"
+    "                        to disk. (Default: 4)\n"
     "  --chromosomes CHROMOSOMES [CHROMOSOMES ...]\n"
     "                        Chromosomes and order in which the chromosomes should\n"
     "                        be plotted.\n"
@@ -314,8 +312,8 @@ Arguments parse_arguments(int argc, char** argv) {
     optional.add({"--nestedCoarsenFactor"})
         .type("int")
         .metavar("INT")
-        .help("C++-only. Bins to merge for the local, per-domain coarsened "
-              "re-analysis (Default: 4).");
+        .help("C++-only. Bins to merge, chromosome-wide, for the nested pass's "
+              "coarsened z-score (Default: 4).");
     optional.add({"--chromosomes"})
         .nargs("+")
         .help("Chromosomes and order in which the chromosomes should be plotted.");
@@ -1043,169 +1041,27 @@ struct BedgraphMatrix {
 // multiple testing as their own family, separately from every other
 // domain's.
 //
-// Unlike an earlier version of this feature, the pipeline does not reuse the
-// genome-wide z-scored matrix at a finer window size: the genome-wide
-// observed/expected profile it is standardised against is not representative
-// of a single domain's own, usually quite different, local contact decay, so
-// sub-boundaries called that way tended to land wherever the global windows
-// happened to put them rather than on the domain's real internal structure.
-// build_local_coarsened_matrix below instead extracts the domain's own
-// diamond (its bin range plus the margin --nestedMaxDepth reaches) from the
-// matrix's raw, pre-z-score counts, merges --nestedCoarsenFactor adjacent
-// bins to reduce per-cell noise, and re-derives the z-score fresh on that
-// local, coarsened submatrix. Both steps happen in memory, confined to the
-// one domain's diamond, each time detect_nested_domains is about to be
-// called for it; nothing genome-wide is recomputed and nothing is written to
-// disk.
+// The matrix this runs against (built once in main(), not per domain, as
+// `nested_context`/`nested_bins`) is the chromosome's raw, pre-z-score
+// counts with --nestedCoarsenFactor adjacent bins merged (hicx::merge_bins,
+// the same primitive hicMergeMatrixBins and hicBuildMatrix already use) and
+// then z-scored the same way and with the same per-chromosome independence
+// the top level's own matrix is (hicx::convert_to_obs_exp_matrix,
+// std-per-diagonal). An earlier version of this feature instead re-derived
+// that z-score per domain, from only that domain's own diamond: estimating
+// each diagonal's mean and standard deviation from the very region being
+// tested for internal structure is circular (a real sub-boundary partly
+// determines its own "expected" baseline) and gave implausibly strong,
+// not-to-be-trusted p-values. Coarsening and z-scoring the whole chromosome
+// once keeps the independent, domain-agnostic null model the top level
+// already relies on; only the peak *search* below is confined to one
+// domain's own bin range at a time.
 struct NestedCall {
     std::string chrom;
     std::int64_t parent_start = 0;
     std::int64_t parent_end = 0;
     std::string parent_id;
 };
-
-// The product of build_local_coarsened_matrix: a self-contained, owned
-// coarsened-and-z-scored submatrix plus the bin table over its own
-// cut_intervals. Deliberately holds no ScoreContext (which would point into
-// `data`/`bins` by address) because this type is returned by value; the
-// caller builds the ScoreContext itself, in its own stack frame, once this
-// has been received and will not be moved again, the same way `bins` and
-// `context` are built back to back for the top-level pass in main().
-struct LocalCoarseMatrix {
-    hicx::MatrixData data;
-    hicx::BinTable bins;
-};
-
-// Extracts the raw upper-triangle entries of `raw_data` whose row and column
-// both fall in [sub_first, sub_last] (inclusive, 0-based fine-resolution bin
-// indices) and reindexes them to a dense 0-based local submatrix.
-hicx::CsrMatrix extract_raw_submatrix(const hicx::MatrixData& raw_data,
-                                      std::int64_t sub_first, std::int64_t sub_last) {
-    const std::int64_t fine_count = sub_last - sub_first + 1;
-    const auto& indptr = raw_data.matrix.indptr();
-    const auto& indices = raw_data.matrix.indices();
-    const auto& values = raw_data.matrix.data();
-    std::vector<std::int32_t> rows_idx;
-    std::vector<std::int32_t> cols_idx;
-    std::vector<double> entries;
-    for (std::int64_t row = sub_first; row <= sub_last; ++row) {
-        const auto begin = static_cast<std::size_t>(indptr[static_cast<std::size_t>(row)]);
-        const auto end =
-            static_cast<std::size_t>(indptr[static_cast<std::size_t>(row) + 1]);
-        for (std::size_t k = begin; k < end; ++k) {
-            const std::int64_t col = indices[k];
-            if (col < sub_first || col > sub_last || values[k] == 0.0) {
-                continue;
-            }
-            rows_idx.push_back(static_cast<std::int32_t>(row - sub_first));
-            cols_idx.push_back(static_cast<std::int32_t>(col - sub_first));
-            entries.push_back(values[k]);
-        }
-    }
-    hicx::CsrMatrix sub = hicx::CsrMatrix::from_coo(fine_count, fine_count, rows_idx,
-                                                    cols_idx, entries, raw_data.matrix.dtype());
-    sub.set_symmetry(hicx::Symmetry::UpperTriangle);
-    return sub;
-}
-
-// Builds the local, coarsened, freshly z-scored submatrix for one domain's
-// diamond, or nullopt when the domain is too close to a chromosome edge or
-// too small, once coarsened, to carry any window at nested_max_depth.
-std::optional<LocalCoarseMatrix> build_local_coarsened_matrix(
-    const hicx::MatrixData& raw_data, const hicx::BinTable& raw_bins,
-    const NestedCall& call, std::int64_t original_bin_size,
-    std::int64_t coarsen_factor, std::int64_t nested_max_depth) {
-    const auto first_range =
-        raw_bins.region_bin_range(call.chrom, call.parent_start, call.parent_start + 1);
-    const auto last_range =
-        raw_bins.region_bin_range(call.chrom, call.parent_end - 1, call.parent_end);
-    if (!first_range.has_value() || !last_range.has_value()) {
-        return std::nullopt;
-    }
-    const std::int64_t domain_first_bin = first_range->first;
-    const std::int64_t domain_last_bin = last_range->first;
-    if (domain_last_bin <= domain_first_bin) {
-        return std::nullopt;
-    }
-
-    // The chromosome's own bin range, read directly off raw_data's cut_intervals
-    // rather than through chromosome_sizes()/region_bin_range: chromosome_sizes()
-    // reports the assembly's nominal chromosome length from the matrix's own
-    // metadata, which does not always equal the coordinate the bin table's last
-    // actual bin for that chromosome ends at, and region_bin_range(chrom, size-1,
-    // size) then finds nothing.
-    std::int64_t chrom_first_bin = -1;
-    std::int64_t chrom_last_bin = -1;
-    for (std::size_t i = 0; i < raw_data.cut_intervals.size(); ++i) {
-        if (raw_data.cut_intervals[i].chrom == call.chrom) {
-            if (chrom_first_bin < 0) {
-                chrom_first_bin = static_cast<std::int64_t>(i);
-            }
-            chrom_last_bin = static_cast<std::int64_t>(i);
-        }
-    }
-    if (chrom_first_bin < 0) {
-        return std::nullopt;
-    }
-
-    // Enough fine bins beyond the domain's own edges for every nested window
-    // to still have a full left/right neighbour once coarsened.
-    const std::int64_t margin_bins =
-        (nested_max_depth / original_bin_size) + coarsen_factor + 1;
-    const std::int64_t sub_first = std::max(chrom_first_bin, domain_first_bin - margin_bins);
-    const std::int64_t sub_last = std::min(chrom_last_bin, domain_last_bin + margin_bins);
-    const std::int64_t fine_count = sub_last - sub_first + 1;
-    if (fine_count < coarsen_factor * 3) {
-        return std::nullopt;
-    }
-
-    hicx::CsrMatrix fine_matrix = extract_raw_submatrix(raw_data, sub_first, sub_last);
-    const std::vector<hicx::CutInterval> fine_intervals(
-        raw_data.cut_intervals.begin() + sub_first, raw_data.cut_intervals.begin() + sub_last + 1);
-
-    std::vector<std::vector<std::int64_t>> bins_to_merge;
-    std::vector<hicx::CutInterval> coarse_intervals;
-    for (std::int64_t g = 0; g < fine_count; g += coarsen_factor) {
-        const std::int64_t last = std::min(g + coarsen_factor, fine_count) - 1;
-        std::vector<std::int64_t> group;
-        for (std::int64_t i = g; i <= last; ++i) {
-            group.push_back(i);
-        }
-        bins_to_merge.push_back(std::move(group));
-        hicx::CutInterval merged = fine_intervals[static_cast<std::size_t>(g)];
-        merged.end = fine_intervals[static_cast<std::size_t>(last)].end;
-        coarse_intervals.push_back(merged);
-    }
-    if (coarse_intervals.size() < 3) {
-        return std::nullopt;
-    }
-
-    hicx::CsrMatrix coarse_matrix = hicx::reduce_matrix(fine_matrix, bins_to_merge, true, false);
-    coarse_matrix.set_symmetry(hicx::Symmetry::UpperTriangle);
-
-    hicx::MatrixData local;
-    local.matrix = std::move(coarse_matrix);
-    local.cut_intervals = coarse_intervals;
-
-    const std::int64_t coarse_bin_size = original_bin_size * coarsen_factor;
-    const std::int64_t max_depth_in_coarse_bins = nested_max_depth / coarse_bin_size;
-    if (max_depth_in_coarse_bins <= 1) {
-        return std::nullopt;
-    }
-
-    hicx::ObsExpOptions options;
-    options.max_depth_bp = static_cast<double>(nested_max_depth) * 2.5;
-    options.zscore = true;
-    options.perchr = true;
-    hicx::convert_to_obs_exp_matrix(local, coarse_bin_size, options);
-    hicx::enlarge_bins(local.cut_intervals);
-    truncate_to_distance(local.matrix, 2 * max_depth_in_coarse_bins);
-
-    LocalCoarseMatrix result;
-    result.bins = hicx::BinTable(local.cut_intervals);
-    result.data = std::move(local);
-    return result;
-}
 
 void detect_nested_domains(const ScoreContext& context, const hicx::BinTable& bins,
                            const NestedCall& call, std::int64_t nested_min_depth,
@@ -1657,15 +1513,15 @@ int main(int argc, char** argv) {
         }
 
         BedgraphMatrix bedgraph;
-        // Only filled when nested_enabled: a snapshot of the raw (pre-z-score)
-        // counts, diagonal dropped, taken right after the line below that drops
-        // it and before anything masks or z-scores hic.data() in place. The
-        // per-domain nested pass needs the raw counts of each domain's own
-        // diamond to coarsen and re-z-score locally; the globally z-scored
-        // matrix the rest of this function goes on to compute no longer has
-        // them, so a copy is kept here before that transform overwrites it.
-        hicx::MatrixData nested_raw_data;
-        hicx::BinTable nested_raw_bins;
+        // Only filled when nested_enabled, right after the line below that drops
+        // the diagonal and before anything else masks or z-scores hic.data() in
+        // place: the coarsened, freshly z-scored matrix the nested pass searches
+        // (built once, genome-wide, not per domain -- see the comment above
+        // detect_nested_domains) needs the raw counts, which the globally
+        // z-scored matrix the rest of this function goes on to compute no
+        // longer has once that transform overwrites it in place.
+        std::optional<hicx::MatrixData> nested_coarse_data;
+        std::optional<hicx::BinTable> nested_bins;
         const bool reuse_existing =
             args.tad_sep_score_prefix.has_value() || file_exists(tad_score_file);
 
@@ -1673,8 +1529,8 @@ int main(int argc, char** argv) {
             std::fputs("hicFindTADs: --nested* requires computing the z-score matrix "
                        "fresh in this run; it cannot be combined with "
                        "--TAD_sep_score_prefix or a pre-existing score file, because "
-                       "the raw (pre-z-score) counts the per-domain coarsened "
-                       "re-analysis needs are not kept in that file\n",
+                       "the raw (pre-z-score) counts the nested pass's own "
+                       "coarsened z-score needs are not kept in that file\n",
                        stderr);
             return 1;
         }
@@ -1768,8 +1624,26 @@ int main(int argc, char** argv) {
             drop_diagonal(hic.matrix());
 
             if (nested_enabled) {
-                nested_raw_data = hic.data();
-                nested_raw_bins = hicx::BinTable(nested_raw_data.cut_intervals);
+                const hicx::MatrixData& nested_raw_data = hic.data();
+                hicx::MatrixData coarse = nested_coarsen_factor == 1
+                                              ? nested_raw_data
+                                              : hicx::merge_bins(nested_raw_data,
+                                                                 nested_coarsen_factor);
+                MaskState nested_mask = mask_bins(coarse, coarse.nan_bins);
+                hicx::ObsExpOptions nested_options;
+                nested_options.max_depth_bp = static_cast<double>(*args.nested_max_depth) * 2.5;
+                nested_options.zscore = true;
+                nested_options.perchr = true;
+                hicx::convert_to_obs_exp_matrix(coarse, nested_coarse_bin_size, nested_options);
+                hicx::enlarge_bins(coarse.cut_intervals);
+                (void)nested_mask;  // same simplification as below: real data has no NaN bins
+                const std::int64_t nested_max_depth_in_coarse_bins =
+                    *args.nested_max_depth / nested_coarse_bin_size;
+                if (nested_max_depth_in_coarse_bins > 1) {
+                    truncate_to_distance(coarse.matrix, 2 * nested_max_depth_in_coarse_bins);
+                    nested_bins = hicx::BinTable(coarse.cut_intervals);
+                    nested_coarse_data = std::move(coarse);
+                }
             }
 
             MaskState mask = mask_bins(hic.data(), hic.data().nan_bins);
@@ -2177,29 +2051,23 @@ int main(int argc, char** argv) {
         domains_bed.close();
         gff.close();
 
-        if (nested_enabled) {
+        if (nested_enabled && nested_coarse_data.has_value()) {
             std::ofstream nested_boundaries_bed(args.out_prefix + "_nested_boundaries.bed");
             std::ofstream nested_domains_bed(args.out_prefix + "_nested_domains.bed");
             std::ofstream nested_gff(args.out_prefix + "_nested_boundaries.gff");
             const unsigned int threads =
                 static_cast<unsigned int>(std::max(1, args.processors));
+            ScoreContext nested_score_context;
+            nested_score_context.matrix = &nested_coarse_data->matrix;
+            nested_score_context.cut_intervals = &nested_coarse_data->cut_intervals;
+            nested_score_context.bins = &*nested_bins;
+            for (const auto& [chrom, size] : nested_bins->chromosome_sizes()) {
+                nested_score_context.chromosome_sizes[chrom] = size;
+            }
             int domain_counter = 1;
             for (const NestedCall& call : nested_calls) {
-                std::optional<LocalCoarseMatrix> local = build_local_coarsened_matrix(
-                    nested_raw_data, nested_raw_bins, call, bin_size, nested_coarsen_factor,
-                    *args.nested_max_depth);
-                if (!local.has_value()) {
-                    continue;
-                }
-                ScoreContext local_context;
-                local_context.matrix = &local->data.matrix;
-                local_context.cut_intervals = &local->data.cut_intervals;
-                local_context.bins = &local->bins;
-                for (const auto& [chrom, size] : local->bins.chromosome_sizes()) {
-                    local_context.chromosome_sizes[chrom] = size;
-                }
                 detect_nested_domains(
-                    local_context, local->bins, call, *args.nested_min_depth,
+                    nested_score_context, *nested_bins, call, *args.nested_min_depth,
                     *args.nested_max_depth, *args.nested_step,
                     args.nested_min_boundary_distance, args.delta,
                     args.correct_for_multiple_testing, args.threshold_comparisons,
@@ -2210,6 +2078,13 @@ int main(int argc, char** argv) {
             nested_boundaries_bed.close();
             nested_domains_bed.close();
             nested_gff.close();
+        } else if (nested_enabled) {
+            // nested_coarse_data stayed empty: nested_max_depth does not clear
+            // even 2 coarse bins once truncated. Still write the (empty) files,
+            // the same contract as the "no domain qualified" case.
+            std::ofstream(args.out_prefix + "_nested_boundaries.bed");
+            std::ofstream(args.out_prefix + "_nested_domains.bed");
+            std::ofstream(args.out_prefix + "_nested_boundaries.gff");
         }
 
         std::ofstream score(args.out_prefix + "_score.bedgraph");
