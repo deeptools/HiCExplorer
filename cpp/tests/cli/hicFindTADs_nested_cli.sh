@@ -7,7 +7,14 @@
 # _nested_boundaries.gff and _nested_score.bedgraph (the domain's own score
 # over the nested depth range, independent of the top level's score over its
 # own, wider depth range -- the nested boundaries are the minima of this
-# one, not of the top-level curve). Unlike the top level, a nested minimum
+# one, not of the top-level curve). Unlike <outPrefix>_score.bedgraph, whose
+# rows are the midpoints between consecutive bin centres to match
+# hicFindTADs.py's own score file byte for byte, _nested_score.bedgraph has
+# no Python file to match and its rows are each bin's own raw interval, the
+# same one _nested_boundaries.bed/_nested_domains.bed use for that position
+# -- so a boundary's row in all three files shares the same start/end,
+# instead of the score being shifted half a bin from the boundary it
+# explains. Unlike the top level, a nested minimum
 # is accepted by --delta alone, not additionally gated behind a Wilcoxon
 # p-value/FDR threshold: at a single domain's own small scale that test does
 # not reliably separate a real minimum from a slightly shallower one, and on
