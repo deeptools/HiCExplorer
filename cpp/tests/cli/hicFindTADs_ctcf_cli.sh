@@ -18,6 +18,10 @@
 #  5. A correctly oriented site outside --ctcfWindow drops it.
 #  6. A site with strand '.' (no orientation) drops it.
 #  7. An empty --ctcfFile drops every boundary.
+#  9. --ctcfBoundarySlack: a site on the wrong side of the exact breakpoint is
+#     dropped at slack 0 (the default, the same test as without the flag) and
+#     kept once the slack reaches past the site, on both sides, while a site
+#     outside --ctcfWindow is still dropped no matter how large the slack is.
 #  8. A missing --ctcfFile, or one with a line short of the required 6
 #     columns, is refused and writes nothing.
 #
@@ -100,6 +104,23 @@ printf 'chr2L\t100\t200\n' > short.bed
 expect "a short line (fewer than 6 columns) is refused" bash -c \
     "! '$tool' -m '$matrix' ${common[*]} --ctcfFile short.bed --outPrefix short_run >/dev/null 2>&1"
 expect "the refused run wrote no boundaries file" test ! -e short_run_boundaries.bed
+
+"$tool" -m "$matrix" "${common[@]}" --ctcfFile right_plus.bed --ctcfWindow 5000 \
+    --ctcfBoundarySlack 0 --outPrefix slack0 >/dev/null 2>&1
+expect "slack 0 rejects a '+' site right of the breakpoint, same as no slack flag" \
+    test "$(wc -l < slack0_boundaries.bed)" -eq 0
+"$tool" -m "$matrix" "${common[@]}" --ctcfFile right_plus.bed --ctcfWindow 5000 \
+    --ctcfBoundarySlack 5000 --outPrefix slack_right >/dev/null 2>&1
+expect "slack past the site accepts a '+' site right of the breakpoint" \
+    test "$(wc -l < slack_right_boundaries.bed)" -eq 1
+"$tool" -m "$matrix" "${common[@]}" --ctcfFile left_minus.bed --ctcfWindow 5000 \
+    --ctcfBoundarySlack 5000 --outPrefix slack_left >/dev/null 2>&1
+expect "slack past the site accepts a '-' site left of the breakpoint" \
+    test "$(wc -l < slack_left_boundaries.bed)" -eq 1
+"$tool" -m "$matrix" "${common[@]}" --ctcfFile too_far.bed --ctcfWindow 5000 \
+    --ctcfBoundarySlack 50000 --outPrefix slack_far >/dev/null 2>&1
+expect "--ctcfWindow still bounds distance no matter how large the slack is" \
+    test "$(wc -l < slack_far_boundaries.bed)" -eq 0
 
 if [ "$failures" -ne 0 ]; then
     echo "$failures check(s) failed"
