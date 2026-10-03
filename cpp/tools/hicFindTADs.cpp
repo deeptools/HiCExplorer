@@ -91,6 +91,7 @@ const char* const kUsage =
     "                   [--delta DELTA] [--minBoundaryDistance MINBOUNDARYDISTANCE]\n"
     "                   [--ctcfFile CTCFFILE] [--ctcfWindow CTCFWINDOW]\n"
     "                   [--ctcfBoundarySlack CTCFBOUNDARYSLACK]\n"
+    "                   [--ctcfRequireConvergentPair]\n"
     "                   [--chromosomes CHROMOSOMES [CHROMOSOMES ...]]\n"
     "                   [--numberOfProcessors NUMBEROFPROCESSORS] [--help]\n"
     "                   [--version]\n";
@@ -142,6 +143,11 @@ const char* const kHelp =
     "                        C++-only. Evaluate the +/- orientation test against any\n"
     "                        point within this many bp of the boundary instead of only\n"
     "                        the exact reported minimum (Default: 0).\n"
+    "  --ctcfRequireConvergentPair\n"
+    "                        C++-only. Require both a forward ('+') site at or before\n"
+    "                        the boundary and a reverse ('-') site at or after it\n"
+    "                        (the convergent anchor pair), instead of either one\n"
+    "                        alone being enough.\n"
     "  --chromosomes CHROMOSOMES [CHROMOSOMES ...]\n"
     "                        Chromosomes and order in which the chromosomes should\n"
     "                        be plotted.\n"
@@ -164,6 +170,7 @@ struct Arguments {
     std::optional<std::string> ctcf_file;
     std::int64_t ctcf_window = 10000;
     std::int64_t ctcf_boundary_slack = 0;
+    bool ctcf_require_convergent_pair = false;
     std::optional<std::vector<std::string>> chromosomes;
     int processors = 1;
 };
@@ -234,6 +241,11 @@ Arguments parse_arguments(int argc, char** argv) {
         .help("C++-only. Evaluate the +/- orientation test against any point within "
               "this many bp of the boundary instead of only the exact reported "
               "minimum.");
+    optional.add({"--ctcfRequireConvergentPair"})
+        .action(cli::Action::StoreTrue)
+        .help("C++-only. Require both a forward site at or before the boundary and a "
+              "reverse site at or after it, instead of either one alone being "
+              "enough.");
     optional.add({"--chromosomes"})
         .nargs("+")
         .help("Chromosomes and order in which the chromosomes should be plotted.");
@@ -259,6 +271,7 @@ Arguments parse_arguments(int argc, char** argv) {
     args.ctcf_file = ns.opt_str("ctcfFile");
     args.ctcf_window = ns.integer("ctcfWindow");
     args.ctcf_boundary_slack = ns.integer("ctcfBoundarySlack");
+    args.ctcf_require_convergent_pair = ns.flag("ctcfRequireConvergentPair");
     if (ns.given("chromosomes")) {
         args.chromosomes = ns.strs("chromosomes");
     }
@@ -807,6 +820,14 @@ std::string format_fixed(double value, int decimals) {
 // boundary_position - s, while --ctcfWindow still bounds how far the site
 // itself may be from the minimum. s = 0 (the default) is the original exact
 // single-bin test.
+//
+// --ctcfRequireConvergentPair tightens the requirement from "a site on
+// whichever side has one" to the actual convergent-anchor pair: a forward
+// site at or before the boundary AND a reverse site at or after it, both
+// present. Off by default (either orientation alone is enough), since a
+// sparse real site list already struggles to place a single site near every
+// true boundary; requiring a pair is the stricter, more literal reading of
+// the convergent-motif signature, for a denser --ctcfFile.
 struct CtcfSite {
     std::int64_t position = 0;
     char strand = 0;  // '+' or '-'
@@ -881,35 +902,41 @@ std::unordered_map<std::string, std::vector<CtcfSite>> read_ctcf_sites(
     return by_chrom;
 }
 
-// The nearest site within `window` of `boundary_position` whose orientation
-// points toward it, allowing the left/right test to be evaluated against any
-// point within `slack` of `boundary_position` rather than only the exact
+// The nearest site within `window` of `boundary_position` on each orientation
+// that points toward it, allowing the left/right test to be evaluated against
+// any point within `slack` of `boundary_position` rather than only the exact
 // position itself (see the comment on --ctcfBoundarySlack above); preferring
-// the closest match by actual distance to `boundary_position`, nullopt when
-// none qualifies.
-std::optional<CtcfSite> ctcf_support(const std::vector<CtcfSite>& sites,
-                                     std::int64_t boundary_position, std::int64_t window,
-                                     std::int64_t slack) {
+// the closest match by actual distance to `boundary_position` on each side
+// independently. Either field is nullopt when that orientation has no
+// qualifying site.
+struct CtcfPairSupport {
+    std::optional<CtcfSite> forward;  // nearest qualifying '+' site
+    std::optional<CtcfSite> reverse;  // nearest qualifying '-' site
+};
+
+CtcfPairSupport ctcf_support(const std::vector<CtcfSite>& sites, std::int64_t boundary_position,
+                             std::int64_t window, std::int64_t slack) {
     const auto first = std::lower_bound(
         sites.begin(), sites.end(), boundary_position - window,
         [](const CtcfSite& site, std::int64_t value) { return site.position < value; });
-    std::optional<CtcfSite> best;
-    std::int64_t best_distance = std::numeric_limits<std::int64_t>::max();
+    CtcfPairSupport result;
+    std::int64_t best_forward_distance = std::numeric_limits<std::int64_t>::max();
+    std::int64_t best_reverse_distance = std::numeric_limits<std::int64_t>::max();
     for (auto it = first; it != sites.end() && it->position <= boundary_position + window;
          ++it) {
-        const bool oriented_toward_boundary =
-            (it->position <= boundary_position + slack && it->strand == '+') ||
-            (it->position >= boundary_position - slack && it->strand == '-');
-        if (!oriented_toward_boundary) {
-            continue;
-        }
         const std::int64_t distance = std::abs(it->position - boundary_position);
-        if (distance < best_distance) {
-            best_distance = distance;
-            best = *it;
+        if (it->position <= boundary_position + slack && it->strand == '+' &&
+            distance < best_forward_distance) {
+            best_forward_distance = distance;
+            result.forward = *it;
+        }
+        if (it->position >= boundary_position - slack && it->strand == '-' &&
+            distance < best_reverse_distance) {
+            best_reverse_distance = distance;
+            result.reverse = *it;
         }
     }
-    return best;
+    return result;
 }
 
 struct BedgraphMatrix {
@@ -1450,7 +1477,7 @@ int main(int argc, char** argv) {
         std::sort(candidates.begin(), candidates.end());
 
         std::vector<std::int64_t> filtered;
-        std::map<std::int64_t, CtcfSite> ctcf_match;
+        std::map<std::int64_t, CtcfPairSupport> ctcf_match;
         for (const std::int64_t index : candidates) {
             const auto delta_entry = delta_of_min.find(index);
             const double delta =
@@ -1470,15 +1497,18 @@ int main(int argc, char** argv) {
             }
             if (args.ctcf_file.has_value()) {
                 const auto sites = ctcf_sites.find(bedgraph.chrom[static_cast<std::size_t>(index)]);
-                const std::optional<CtcfSite> support =
+                const CtcfPairSupport support =
                     sites == ctcf_sites.end()
-                        ? std::nullopt
+                        ? CtcfPairSupport{}
                         : ctcf_support(sites->second, bedgraph.start[static_cast<std::size_t>(index)],
                                        args.ctcf_window, args.ctcf_boundary_slack);
-                if (!support.has_value()) {
+                const bool satisfied = args.ctcf_require_convergent_pair
+                                           ? (support.forward.has_value() && support.reverse.has_value())
+                                           : (support.forward.has_value() || support.reverse.has_value());
+                if (!satisfied) {
                     continue;
                 }
-                ctcf_match.emplace(index, *support);
+                ctcf_match.emplace(index, support);
             }
             filtered.push_back(index);
         }
@@ -1525,8 +1555,12 @@ int main(int argc, char** argv) {
                 << ";tad_sep=" << format_fixed(row_means[at], 12);
             const auto matched_ctcf = ctcf_match.find(index);
             if (matched_ctcf != ctcf_match.end()) {
-                gff << ";ctcf_site=" << matched_ctcf->second.position
-                    << ";ctcf_strand=" << matched_ctcf->second.strand;
+                if (matched_ctcf->second.forward.has_value()) {
+                    gff << ";ctcf_site_forward=" << matched_ctcf->second.forward->position;
+                }
+                if (matched_ctcf->second.reverse.has_value()) {
+                    gff << ";ctcf_site_reverse=" << matched_ctcf->second.reverse->position;
+                }
             }
             gff << '\n';
 

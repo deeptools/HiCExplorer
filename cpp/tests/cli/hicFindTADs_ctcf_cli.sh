@@ -22,6 +22,10 @@
 #     dropped at slack 0 (the default, the same test as without the flag) and
 #     kept once the slack reaches past the site, on both sides, while a site
 #     outside --ctcfWindow is still dropped no matter how large the slack is.
+# 10. --ctcfRequireConvergentPair: a single-sided site that single-side mode
+#     (the default) accepts is rejected once the flag requires both a
+#     forward site at or before and a reverse site at or after; a real
+#     convergent pair still passes, and the GFF records both matched sites.
 #  8. A missing --ctcfFile, or one with a line short of the required 6
 #     columns, is refused and writes nothing.
 #
@@ -60,7 +64,7 @@ printf 'chr2L\t22923900\t22924100\tctcf1\t500\t+\n' > left_plus.bed
 expect "a '+' site left of the breakpoint keeps the boundary" \
     test "$(wc -l < left_plus_boundaries.bed)" -eq 1
 expect "the GFF records the matched site's position and strand" \
-    grep -q 'ctcf_site=22924000;ctcf_strand=+' left_plus_boundaries.gff
+    grep -q 'ctcf_site_forward=22924000' left_plus_boundaries.gff
 
 printf 'chr2L\t22925900\t22926100\tctcf2\t500\t-\n' > right_minus.bed
 "$tool" -m "$matrix" "${common[@]}" --ctcfFile right_minus.bed --ctcfWindow 5000 \
@@ -104,6 +108,22 @@ printf 'chr2L\t100\t200\n' > short.bed
 expect "a short line (fewer than 6 columns) is refused" bash -c \
     "! '$tool' -m '$matrix' ${common[*]} --ctcfFile short.bed --outPrefix short_run >/dev/null 2>&1"
 expect "the refused run wrote no boundaries file" test ! -e short_run_boundaries.bed
+
+cat left_plus.bed right_minus.bed > both.bed
+"$tool" -m "$matrix" "${common[@]}" --ctcfFile left_plus.bed --ctcfWindow 5000 \
+    --ctcfRequireConvergentPair --outPrefix pair_oneside >/dev/null 2>&1
+expect "--ctcfRequireConvergentPair rejects a single-sided site that single-side mode accepts" \
+    test "$(wc -l < pair_oneside_boundaries.bed)" -eq 0
+"$tool" -m "$matrix" "${common[@]}" --ctcfFile both.bed --ctcfWindow 5000 \
+    --ctcfRequireConvergentPair --outPrefix pair_both >/dev/null 2>&1
+expect "--ctcfRequireConvergentPair accepts a real convergent pair" \
+    test "$(wc -l < pair_both_boundaries.bed)" -eq 1
+expect "the GFF records both matched sites" bash -c \
+    "grep -q 'ctcf_site_forward=22924000' pair_both_boundaries.gff && \
+     grep -q 'ctcf_site_reverse=22926000' pair_both_boundaries.gff"
+"$tool" -m "$matrix" "${common[@]}" --ctcfFile both.bed --ctcfWindow 5000 --outPrefix pair_default >/dev/null 2>&1
+expect "without the flag a pair still passes, same as single-side mode" \
+    test "$(wc -l < pair_default_boundaries.bed)" -eq 1
 
 "$tool" -m "$matrix" "${common[@]}" --ctcfFile right_plus.bed --ctcfWindow 5000 \
     --ctcfBoundarySlack 0 --outPrefix slack0 >/dev/null 2>&1
