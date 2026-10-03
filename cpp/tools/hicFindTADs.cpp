@@ -163,12 +163,18 @@ const char* const kHelp =
     "                        (over --minDepth..--maxDepth) in <outPrefix>_score.\n"
     "                        bedgraph -- the two are not the same curve and the\n"
     "                        nested boundaries are the minima of this one, not of\n"
-    "                        the top-level one. All three of --nestedMinDepth/\n"
-    "                        --nestedMaxDepth/--nestedStep are required together;\n"
-    "                        omitted, no sub-TADs are found.\n"
+    "                        the top-level one, filtered by --delta alone -- not by\n"
+    "                        a Wilcoxon p-value/FDR threshold the way top-level\n"
+    "                        boundaries are; that p-value is still computed and\n"
+    "                        reported in the GFF (pvalue=) but is not a gate, since\n"
+    "                        at a domain's own small scale it has too little power\n"
+    "                        to tell a real minimum apart from one slightly less\n"
+    "                        deep. All three of --nestedMinDepth/--nestedMaxDepth/\n"
+    "                        --nestedStep are required together; omitted, no\n"
+    "                        sub-TADs are found.\n"
     "                        Must be at least 3 times the matrix bin size, same as\n"
-    "                        --minDepth, otherwise the significance test has too\n"
-    "                        few values per side to carry any power.\n"
+    "                        --minDepth, otherwise that reported p-value has too few\n"
+    "                        values per side to mean anything.\n"
     "  --nestedMaxDepth INT bp\n"
     "                        C++-only. See --nestedMinDepth.\n"
     "  --nestedStep INT bp   C++-only. See --nestedMinDepth.\n"
@@ -1024,14 +1030,31 @@ struct BedgraphMatrix {
 // Optional nested (sub-TAD) detection: --nestedMinDepth/--nestedMaxDepth/
 // --nestedStep, all three required together. For a top-level domain large
 // enough to plausibly hold internal structure, reruns the same
-// TAD-separation-score -> minima -> delta -> Wilcoxon -> FDR/Bonferroni ->
-// (optional CTCF) pipeline the top level uses, confined to that domain's own
-// bin range and at a finer depth range, giving one additional hierarchy
-// level. Reuses the already truncated, z-scored matrix through `context`,
-// since a finer --nestedMaxDepth only ever needs data the top-level
-// truncation (to 2 * --maxDepth) already kept; no matrix work is repeated.
-// Each parent domain's sub-boundaries are corrected for multiple testing as
-// their own family, separately from every other domain's.
+// TAD-separation-score -> minima -> delta pipeline the top level uses,
+// confined to that domain's own bin range and at a finer depth range,
+// giving one additional hierarchy level. Reuses the already truncated,
+// z-scored matrix through `context`, since a finer --nestedMaxDepth only
+// ever needs data the top-level truncation (to 2 * --maxDepth) already
+// kept; no matrix work is repeated.
+//
+// A sub-boundary is accepted the same way a boundary is understood to begin
+// with: a local minimum of the domain's own TAD-separation score
+// (_nested_score.bedgraph), filtered by how deep it is relative to its
+// neighbourhood (--delta) -- not additionally gated behind a Wilcoxon
+// p-value/multiple-testing-correction threshold the way the top level's own
+// boundaries are. That significance test is still computed per candidate
+// and reported in the GFF (pvalue=), for information, but two earlier
+// versions that used it as a hard gate both failed on real data: correcting
+// each domain as its own small family (as few as half a dozen candidates)
+// made Benjamini-Hochberg's step-up procedure too strict for real signal to
+// clear, and pooling the correction across every domain on the chromosome
+// did not fix it either -- a domain's single clearest minimum (the largest
+// delta of any candidate nearby) sat at a raw p-value of 0.012, only
+// marginally above typical significance thresholds to begin with, an
+// artifact of the Wilcoxon test's limited power at a window as narrow as
+// --nestedMinDepth necessarily is (3 bins), not of how the correction was
+// scoped. No scoping of that test rescues a candidate whose raw p-value is
+// already borderline, so the fix is to stop gating on it.
 //
 // Two things this deliberately does *not* do, both tried and reverted:
 //
@@ -1059,34 +1082,40 @@ struct NestedCall {
     std::string parent_id;
 };
 
-void detect_nested_domains(const ScoreContext& context, const hicx::BinTable& bins,
-                           const NestedCall& call, std::int64_t nested_min_depth,
-                           std::int64_t nested_max_depth, std::int64_t nested_step,
-                           std::optional<std::int64_t> nested_min_boundary_distance,
-                           double delta_threshold,
-                           const std::string& correct_for_multiple_testing,
-                           double threshold_comparisons, bool has_ctcf,
-                           const std::unordered_map<std::string, std::vector<CtcfSite>>& ctcf_sites,
-                           std::int64_t ctcf_window, std::int64_t ctcf_boundary_slack,
-                           bool ctcf_require_pair, unsigned int threads,
-                           std::ofstream& nested_boundaries_bed, std::ofstream& nested_domains_bed,
-                           std::ofstream& nested_gff, std::ofstream& nested_score,
-                           int& domain_counter) {
+// Everything collect_nested_candidates finds for one domain, up to but not
+// including multiple-testing correction: the local score, the candidate
+// minima's delta values, and their raw (uncorrected) Wilcoxon p-values.
+// finalize_nested_domain turns this into output once every domain's p-values
+// have been corrected together.
+struct NestedCandidates {
+    NestedCall call;
+    BedgraphMatrix local;
+    std::vector<double> local_row_means;
+    std::map<std::int64_t, double> delta_of_min;
+    std::vector<std::int64_t> pvalue_index;  // indices into `local`
+    std::vector<double> pvalues;             // raw, NaN where untestable
+};
+
+std::optional<NestedCandidates> collect_nested_candidates(
+    const ScoreContext& context, const hicx::BinTable& bins, const NestedCall& call,
+    std::int64_t nested_min_depth, std::int64_t nested_max_depth, std::int64_t nested_step,
+    std::optional<std::int64_t> nested_min_boundary_distance, unsigned int threads,
+    std::ofstream& nested_score) {
     const auto first_range = bins.region_bin_range(call.chrom, call.parent_start, call.parent_start + 1);
     const auto last_range = bins.region_bin_range(call.chrom, call.parent_end - 1, call.parent_end);
     if (!first_range.has_value() || !last_range.has_value()) {
-        return;
+        return std::nullopt;
     }
     const std::int64_t first_bin = first_range->first;
     const std::int64_t last_bin = last_range->first;  // inclusive
     if (last_bin <= first_bin) {
-        return;
+        return std::nullopt;
     }
 
     const std::vector<std::int64_t> windows =
         incremental_step_size(nested_min_depth, nested_max_depth, nested_step);
     if (windows.empty()) {
-        return;
+        return std::nullopt;
     }
 
     const auto count = static_cast<std::size_t>(last_bin - first_bin + 1);
@@ -1124,7 +1153,7 @@ void detect_nested_domains(const ScoreContext& context, const hicx::BinTable& bi
             scores.begin() + static_cast<std::ptrdiff_t>((idx + 1) * windows.size()));
     }
     if (local.rows() < 3) {
-        return;  // not enough bins left to look for internal structure
+        return std::nullopt;  // not enough bins left to look for internal structure
     }
 
     const std::vector<double> local_row_means = local.row_means();
@@ -1162,7 +1191,7 @@ void detect_nested_domains(const ScoreContext& context, const hicx::BinTable& bi
                                         static_cast<double>(sorted_widths[n / 2]));
     }
     if (average_bin_size <= 0) {
-        return;
+        return std::nullopt;
     }
     const double min_boundary_distance = nested_min_boundary_distance.has_value()
                                              ? static_cast<double>(*nested_min_boundary_distance)
@@ -1170,14 +1199,14 @@ void detect_nested_domains(const ScoreContext& context, const hicx::BinTable& bi
     const auto lookahead =
         static_cast<std::int64_t>(min_boundary_distance / average_bin_size);
     if (lookahead < 1) {
-        return;
+        return std::nullopt;
     }
 
     std::vector<Peak> maxima;
     std::vector<Peak> minima;
     peakdetect(local_row_means, local.chrom, lookahead, maxima, minima);
     if (minima.empty()) {
-        return;
+        return std::nullopt;
     }
     std::vector<std::int64_t> minimum_indices;
     minimum_indices.reserve(minima.size());
@@ -1234,34 +1263,53 @@ void detect_nested_domains(const ScoreContext& context, const hicx::BinTable& bi
         pvalues.push_back(raw_pvalues[slot]);
     }
     if (pvalue_index.empty()) {
-        return;
+        return std::nullopt;
     }
 
-    double pvalue_fdr = 0.0;
-    if (correct_for_multiple_testing == "fdr") {
-        for (double& p : pvalues) {
-            if (std::isnan(p)) {
-                p = 1.0;
-            }
-        }
-        pvalue_fdr = hicx::stats::benjamini_hochberg_cutoff(pvalues, threshold_comparisons);
-    } else if (correct_for_multiple_testing == "bonferroni") {
-        hicx::stats::bonferroni_in_place(pvalues);
-    }
-    std::map<std::int64_t, double> pvalue_of_min;
-    for (std::size_t i = 0; i < pvalue_index.size(); ++i) {
-        pvalue_of_min.emplace(pvalue_index[i], pvalues[i]);
-    }
-    const double threshold =
-        correct_for_multiple_testing == "fdr" ? pvalue_fdr : threshold_comparisons;
+    NestedCandidates result;
+    result.call = call;
+    result.local = std::move(local);
+    result.local_row_means = std::move(local_row_means);
+    result.delta_of_min = std::move(delta_of_min);
+    result.pvalue_index = std::move(pvalue_index);
+    result.pvalues = std::move(pvalues);
+    return result;
+}
+
+// Turns one domain's NestedCandidates into output, once every domain's raw
+// p-values have been corrected together and `pvalue_of_min` (keyed by index
+// into `candidates.local`) holds this domain's share of that correction.
+void finalize_nested_domain(const NestedCandidates& candidates,
+                            const std::map<std::int64_t, double>& pvalue_of_min,
+                            double delta_threshold, bool has_ctcf,
+                            const std::unordered_map<std::string, std::vector<CtcfSite>>& ctcf_sites,
+                            std::int64_t ctcf_window, std::int64_t ctcf_boundary_slack,
+                            bool ctcf_require_pair, std::ofstream& nested_boundaries_bed,
+                            std::ofstream& nested_domains_bed, std::ofstream& nested_gff,
+                            int& domain_counter) {
+    const NestedCall& call = candidates.call;
+    const BedgraphMatrix& local = candidates.local;
+    const std::vector<double>& local_row_means = candidates.local_row_means;
+    const std::map<std::int64_t, double>& delta_of_min = candidates.delta_of_min;
 
     std::vector<std::int64_t> accepted;
     std::map<std::int64_t, CtcfPairSupport> ctcf_match;
-    for (const std::int64_t index : pvalue_index) {
+    for (const std::int64_t index : candidates.pvalue_index) {
         const auto delta_entry = delta_of_min.find(index);
         const double delta = delta_entry == delta_of_min.end() ? kNaN : delta_entry->second;
-        const double pvalue = pvalue_of_min[index];
-        if (!(delta >= delta_threshold && pvalue <= threshold)) {
+        // A domain is a single, small region: a Wilcoxon p-value/FDR gate
+        // tuned for the top level's chromosome-wide search is either too
+        // strict for a handful of candidates (per-domain correction) or
+        // swamped by every other domain's candidates (pooled correction),
+        // and either way a real, strong minimum (large delta) can fail it on
+        // a technicality despite being the clearest dip in the domain's own
+        // score. The nested pass instead uses the same criterion a TAD
+        // boundary is: a local minimum of the (diamond) score, filtered only
+        // by how deep it is relative to its neighbourhood (--delta). pvalue
+        // is still computed and corrected (see pvalue_of_min, built from the
+        // chromosome-wide correction in main()) and reported in the GFF for
+        // information, not as a gate.
+        if (!(delta >= delta_threshold)) {
             continue;
         }
         if (has_ctcf) {
@@ -2018,16 +2066,47 @@ int main(int argc, char** argv) {
             std::ofstream nested_score(args.out_prefix + "_nested_score.bedgraph");
             const unsigned int threads =
                 static_cast<unsigned int>(std::max(1, args.processors));
-            int domain_counter = 1;
+
+            // Phase 1: collect every domain's candidate minima and their raw
+            // Wilcoxon p-values, without correcting or accepting anything yet.
+            std::vector<NestedCandidates> all_candidates;
             for (const NestedCall& call : nested_calls) {
-                detect_nested_domains(
+                std::optional<NestedCandidates> candidates = collect_nested_candidates(
                     context, bins, call, *args.nested_min_depth, *args.nested_max_depth,
-                    *args.nested_step, args.nested_min_boundary_distance, args.delta,
-                    args.correct_for_multiple_testing, args.threshold_comparisons,
-                    args.ctcf_file.has_value(), ctcf_sites, args.ctcf_window,
-                    args.ctcf_boundary_slack, args.ctcf_require_convergent_pair, threads,
-                    nested_boundaries_bed, nested_domains_bed, nested_gff, nested_score,
-                    domain_counter);
+                    *args.nested_step, args.nested_min_boundary_distance, threads, nested_score);
+                if (candidates.has_value()) {
+                    all_candidates.push_back(std::move(*candidates));
+                }
+            }
+
+            // Phase 2: a boundary here is accepted by --delta alone (see the
+            // comment on the gate in finalize_nested_domain for why), so the
+            // Wilcoxon p-value is not corrected for multiple testing or used
+            // as a cutoff; it is only reported in the GFF, for information,
+            // exactly as computed per candidate.
+            std::vector<double> flat_pvalues;
+            std::vector<std::size_t> offsets;
+            offsets.reserve(all_candidates.size() + 1);
+            for (const NestedCandidates& candidates : all_candidates) {
+                offsets.push_back(flat_pvalues.size());
+                flat_pvalues.insert(flat_pvalues.end(), candidates.pvalues.begin(),
+                                    candidates.pvalues.end());
+            }
+            offsets.push_back(flat_pvalues.size());
+
+            // Phase 3: accept, filter by CTCF, and write, per domain.
+            int domain_counter = 1;
+            for (std::size_t d = 0; d < all_candidates.size(); ++d) {
+                std::map<std::int64_t, double> pvalue_of_min;
+                for (std::size_t k = 0; k < all_candidates[d].pvalue_index.size(); ++k) {
+                    pvalue_of_min.emplace(all_candidates[d].pvalue_index[k],
+                                          flat_pvalues[offsets[d] + k]);
+                }
+                finalize_nested_domain(all_candidates[d], pvalue_of_min, args.delta,
+                                       args.ctcf_file.has_value(), ctcf_sites, args.ctcf_window,
+                                       args.ctcf_boundary_slack, args.ctcf_require_convergent_pair,
+                                       nested_boundaries_bed, nested_domains_bed, nested_gff,
+                                       domain_counter);
             }
             nested_boundaries_bed.close();
             nested_domains_bed.close();
