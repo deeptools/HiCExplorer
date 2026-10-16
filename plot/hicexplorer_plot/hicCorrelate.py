@@ -87,6 +87,23 @@ def draw(data):
     labels = data["labels"]
     num_files = len(labels)
     results = np.array(data["results"], dtype='float')
+
+    # --method scc (cpp_only) has no per-bin vectors to scatter: the value at
+    # each matrix position is already reduced away inside the per-diagonal
+    # SCC computation. Only the clustered heatmap is drawn; outFileNameScatter
+    # is still accepted on the command line but left untouched.
+    if data.get("skipScatter"):
+        results = results + np.triu(results, 1).T
+        linkage = np.array(data["linkage"], dtype=np.float64).reshape(-1, 4)
+        plot_correlation(results, labels,
+                         data["outFileNameHeatmap"],
+                         linkage,
+                         data["zMax"],
+                         data["zMin"],
+                         data["colorMap"],
+                         pPlotNumbers=data["plotNumbers"])
+        return
+
     big_mat = np.ma.masked_invalid(np.load(data["big_mat"]))
 
     rows, cols = np.triu_indices(num_files)
