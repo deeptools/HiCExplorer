@@ -111,6 +111,12 @@ add_test(NAME hicFindTADs_nested_cli
          COMMAND ${HICX_BASH} "${CMAKE_CURRENT_SOURCE_DIR}/cli/hicFindTADs_nested_cli.sh"
                  $<TARGET_FILE:hicFindTADs> "${HICX_TEST_DATA}")
 
+# hicPrepareQCreport --prettyReport (C++-only, no Python counterpart): checked
+# here rather than through cpp/scripts/equiv.py.
+add_test(NAME hicPrepareQCreport_prettyReport_cli
+         COMMAND ${HICX_BASH} "${CMAKE_CURRENT_SOURCE_DIR}/cli/hicPrepareQCreport_prettyReport_cli.sh"
+                 $<TARGET_FILE:hicPrepareQCreport> "${HICX_TEST_DATA}")
+
 # hicPlotMatrix --matrix2 (cpp/PLAN.md tier 9): a v4-only upper/lower triangle
 # comparison heatmap with no Python counterpart, checked here element-wise
 # rather than through cpp/scripts/equiv.py.

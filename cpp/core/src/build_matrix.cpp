@@ -986,4 +986,285 @@ void write_qc_tables(const std::string& folder, const std::string& qc_log_text) 
     write_qc_report_tables(folder, {qc_log_text}, std::nullopt);
 }
 
+namespace {
+
+// The value of the first column that is exactly `name`, or that contains it
+// (the same match write_qc_report_tables's discarded_table block uses for a
+// column such as "dangling end" that the log may suffix, e.g. with a cut
+// length). Returns nullopt when no such column exists for this row.
+std::optional<double> qc_value_by_name_or_prefix(const QcFrame& frame, const std::string& name,
+                                                  std::size_t row) {
+    if (frame.has(name)) {
+        return frame.number(name, row);
+    }
+    for (const std::string& column : frame.columns) {
+        if (column.find(name) != std::string::npos) {
+            return frame.number(column, row);
+        }
+    }
+    return std::nullopt;
+}
+
+enum class QcStatus { Pass, Warn, Fail, Unknown };
+
+const char* qc_status_label(QcStatus status) {
+    switch (status) {
+        case QcStatus::Pass:
+            return "PASS";
+        case QcStatus::Warn:
+            return "WARN";
+        case QcStatus::Fail:
+            return "FAIL";
+        default:
+            return "N/A";
+    }
+}
+
+const char* qc_status_class(QcStatus status) {
+    switch (status) {
+        case QcStatus::Pass:
+            return "qc-pass";
+        case QcStatus::Warn:
+            return "qc-warn";
+        case QcStatus::Fail:
+            return "qc-fail";
+        default:
+            return "qc-unknown";
+    }
+}
+
+// `value` passes when it is at least `minimum`; within `margin` of the
+// shortfall below `minimum` (relative to `minimum`) is WARN, further below is
+// FAIL. Used for metrics a report wants to see enough of (valid pairs).
+QcStatus qc_status_at_least(std::optional<double> value, double minimum, double margin) {
+    if (!value.has_value()) {
+        return QcStatus::Unknown;
+    }
+    if (*value >= minimum) {
+        return QcStatus::Pass;
+    }
+    if (*value >= minimum * (1.0 - margin)) {
+        return QcStatus::Warn;
+    }
+    return QcStatus::Fail;
+}
+
+// `value` passes when it is at most `maximum`; within `margin` above
+// `maximum` (relative to `maximum`) is WARN, further above is FAIL. Used for
+// metrics a report wants to see little of (duplicates, dangling ends,
+// self-ligation, inter-chromosomal contacts).
+QcStatus qc_status_at_most(std::optional<double> value, double maximum, double margin) {
+    if (!value.has_value()) {
+        return QcStatus::Unknown;
+    }
+    if (*value <= maximum) {
+        return QcStatus::Pass;
+    }
+    if (*value <= maximum * (1.0 + margin)) {
+        return QcStatus::Warn;
+    }
+    return QcStatus::Fail;
+}
+
+std::string qc_html_escape(const std::string& text) {
+    std::string out;
+    out.reserve(text.size());
+    for (const char c : text) {
+        switch (c) {
+            case '&':
+                out += "&amp;";
+                break;
+            case '<':
+                out += "&lt;";
+                break;
+            case '>':
+                out += "&gt;";
+                break;
+            case '"':
+                out += "&quot;";
+                break;
+            default:
+                out += c;
+        }
+    }
+    return out;
+}
+
+std::string qc_percent(std::optional<double> value) {
+    if (!value.has_value()) {
+        return "n/a";
+    }
+    char buffer[32];
+    std::snprintf(buffer, sizeof(buffer), "%.1f%%", *value);
+    return buffer;
+}
+
+struct QcMetricRow {
+    std::string label;
+    std::optional<double> value_percent;
+    std::string rule;  // shown under the metric, e.g. "cutoff: >= 25%"
+    QcStatus status;
+};
+
+void qc_write_metric_row(std::ostream& out, const QcMetricRow& row) {
+    out << "<div class=\"qc-metric\"><div class=\"qc-metric-top\">"
+        << "<span class=\"qc-metric-label\">" << qc_html_escape(row.label) << "</span>"
+        << "<span class=\"qc-badge " << qc_status_class(row.status) << "\">"
+        << qc_status_label(row.status) << "</span></div>"
+        << "<div class=\"qc-metric-value\">" << qc_percent(row.value_percent) << "</div>"
+        << "<div class=\"qc-metric-rule\">" << qc_html_escape(row.rule) << "</div></div>\n";
+}
+
+}  // namespace
+
+void write_qc_pretty_report(const std::string& folder, const std::vector<std::string>& log_texts,
+                            const std::optional<std::vector<std::string>>& labels,
+                            const QcThresholds& thresholds) {
+    const QcFrame frame = build_qc_frame(log_texts, labels);
+    const double margin = thresholds.warn_margin_fraction;
+
+    std::ofstream out(folder + "/hicQC_report.html", std::ios::binary);
+    if (!out) {
+        throw std::runtime_error("could not write " + folder + "/hicQC_report.html");
+    }
+
+    out << R"HTML(<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>HiCExplorer QC report</title>
+<style>
+:root {
+  --qc-pass: #1b7a43; --qc-pass-bg: #e6f4ea;
+  --qc-warn: #8a5a00; --qc-warn-bg: #fff3cd;
+  --qc-fail: #a3242a; --qc-fail-bg: #fdecea;
+  --qc-unknown: #555; --qc-unknown-bg: #eee;
+  --qc-ink: #1f2430; --qc-muted: #5b6270; --qc-line: #e3e6eb;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; padding: 32px 24px 64px; background: #f6f7f9; color: var(--qc-ink);
+  font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+}
+h1 { font-size: 1.5rem; margin: 0 0 4px; }
+.qc-subtitle { color: var(--qc-muted); margin: 0 0 24px; font-size: 0.95rem; }
+.qc-samples { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; max-width: 1100px; }
+.qc-card { background: #fff; border: 1px solid var(--qc-line); border-radius: 10px; padding: 18px 20px; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
+.qc-card h2 { font-size: 1.05rem; margin: 0 0 2px; }
+.qc-card .qc-overall { margin: 0 0 14px; font-size: 0.85rem; color: var(--qc-muted); }
+.qc-metric { border-top: 1px solid var(--qc-line); padding: 10px 0; }
+.qc-metric:first-of-type { border-top: none; }
+.qc-metric-top { display: flex; justify-content: space-between; align-items: center; }
+.qc-metric-label { font-size: 0.88rem; }
+.qc-metric-value { font-size: 1.3rem; font-weight: 600; margin-top: 2px; }
+.qc-metric-rule { font-size: 0.75rem; color: var(--qc-muted); margin-top: 1px; }
+.qc-badge { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.03em; padding: 2px 9px; border-radius: 999px; }
+.qc-pass { color: var(--qc-pass); background: var(--qc-pass-bg); }
+.qc-warn { color: var(--qc-warn); background: var(--qc-warn-bg); }
+.qc-fail { color: var(--qc-fail); background: var(--qc-fail-bg); }
+.qc-unknown { color: var(--qc-unknown); background: var(--qc-unknown-bg); }
+.qc-note { max-width: 1100px; margin-top: 28px; font-size: 0.8rem; color: var(--qc-muted); line-height: 1.5; }
+</style>
+</head>
+<body>
+<h1>HiCExplorer QC report</h1>
+<p class="qc-subtitle">)HTML"
+        << frame.index.size() << " sample" << (frame.index.size() == 1 ? "" : "s")
+        << R"HTML(</p>
+<div class="qc-samples">
+)HTML";
+
+    for (std::size_t row = 0; row < frame.index.size(); ++row) {
+        const double sequenced = frame.has("Sequenced reads") ? frame.number("Sequenced reads", row) : 0.0;
+        const double valid = frame.has("Hi-C contacts") ? frame.number("Hi-C contacts", row) : 0.0;
+        const double mappable = frame.has("Pairs mappable, unique and high quality")
+                                    ? frame.number("Pairs mappable, unique and high quality", row)
+                                    : 0.0;
+
+        const std::optional<double> valid_pct =
+            sequenced > 0 ? std::optional<double>(100.0 * valid / sequenced) : std::nullopt;
+        const std::optional<double> inter_chrom_pct =
+            (valid > 0 && frame.has("inter chromosomal"))
+                ? std::optional<double>(100.0 * frame.number("inter chromosomal", row) / valid)
+                : std::nullopt;
+        std::optional<double> duplicated_pct;
+        if (mappable > 0) {
+            if (const auto value = qc_value_by_name_or_prefix(frame, "duplicated pairs", row)) {
+                duplicated_pct = 100.0 * (*value) / mappable;
+            }
+        }
+        std::optional<double> dangling_pct;
+        if (mappable > 0) {
+            if (const auto value = qc_value_by_name_or_prefix(frame, "dangling end", row)) {
+                dangling_pct = 100.0 * (*value) / mappable;
+            }
+        }
+        std::optional<double> self_ligation_pct;
+        if (mappable > 0) {
+            if (const auto value = qc_value_by_name_or_prefix(frame, "self ligation (removed)", row)) {
+                self_ligation_pct = 100.0 * (*value) / mappable;
+            }
+        }
+
+        const std::vector<QcMetricRow> metrics = {
+            {"Valid pairs", valid_pct,
+             "cutoff: >= " + qc_percent(thresholds.min_valid_pairs_percent) +
+                 " of sequenced reads (HiCExplorer usage guidance: usually 25-40%)",
+             qc_status_at_least(valid_pct, thresholds.min_valid_pairs_percent, margin)},
+            {"Inter-chromosomal contacts", inter_chrom_pct,
+             "cutoff: <= " + qc_percent(thresholds.max_inter_chromosomal_percent) +
+                 " of valid pairs (HiCExplorer usage guidance)",
+             qc_status_at_most(inter_chrom_pct, thresholds.max_inter_chromosomal_percent, margin)},
+            {"Duplicated pairs", duplicated_pct,
+             "cutoff: <= " + qc_percent(thresholds.max_duplicated_pairs_percent) +
+                 " of mappable pairs (default, adjust with --maxDuplicatedPairsPercent)",
+             qc_status_at_most(duplicated_pct, thresholds.max_duplicated_pairs_percent, margin)},
+            {"Dangling ends", dangling_pct,
+             "cutoff: <= " + qc_percent(thresholds.max_dangling_end_percent) +
+                 " of mappable pairs (default, adjust with --maxDanglingEndPercent)",
+             qc_status_at_most(dangling_pct, thresholds.max_dangling_end_percent, margin)},
+            {"Self-ligation", self_ligation_pct,
+             "cutoff: <= " + qc_percent(thresholds.max_self_ligation_percent) +
+                 " of mappable pairs (default, adjust with --maxSelfLigationPercent)",
+             qc_status_at_most(self_ligation_pct, thresholds.max_self_ligation_percent, margin)},
+        };
+
+        int failed = 0;
+        int warned = 0;
+        for (const QcMetricRow& metric : metrics) {
+            if (metric.status == QcStatus::Fail) {
+                ++failed;
+            } else if (metric.status == QcStatus::Warn) {
+                ++warned;
+            }
+        }
+        const char* overall = failed > 0 ? "has metrics that failed their cutoff"
+                             : warned > 0 ? "has metrics close to their cutoff"
+                                          : "passed every judged metric";
+
+        out << "<div class=\"qc-card\"><h2>" << qc_html_escape(frame.index[row]) << "</h2>"
+            << "<p class=\"qc-overall\">" << overall << "</p>\n";
+        for (const QcMetricRow& metric : metrics) {
+            qc_write_metric_row(out, metric);
+        }
+        out << "</div>\n";
+    }
+
+    out << R"HTML(</div>
+<p class="qc-note">Valid pairs and inter-chromosomal cutoffs follow HiCExplorer's own usage
+guidance. The duplicated pairs, dangling ends and self-ligation cutoffs have no
+published HiCExplorer standard behind them; they are conservative starting points,
+and every cutoff above is a hicPrepareQCreport command line option. A metric
+within )HTML"
+        << static_cast<int>(margin * 100 + 0.5)
+        << R"HTML(% of the wrong side of its cutoff is shown WARN rather than an outright PASS or FAIL.</p>
+</body>
+</html>
+)HTML";
+
+    if (!out) {
+        throw std::runtime_error("could not write " + folder + "/hicQC_report.html");
+    }
+}
+
 }  // namespace hicx

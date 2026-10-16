@@ -226,6 +226,36 @@ void write_qc_tables(const std::string& folder, const std::string& qc_log_text);
 void write_qc_report_tables(const std::string& folder, const std::vector<std::string>& log_texts,
                             const std::optional<std::vector<std::string>>& labels);
 
+// The pass/warn/fail cutoffs hicx::write_qc_pretty_report judges each sample
+// against. Two defaults (min_valid_pairs_percent, max_inter_chromosomal_percent)
+// come from HiCExplorer's own usage guidance (docs/content/example_usage.rst:
+// "usually 25%-40% of the reads are valid"; "good Hi-C libraries have lower
+// than 10% inter chromosomal contacts"). The rest have no published HiCExplorer
+// guidance behind them; they are conservative, commonly used starting points,
+// stated as such in the report itself, and every one is a CLI option so a lab
+// can set its own.
+struct QcThresholds {
+    double min_valid_pairs_percent = 25.0;
+    double max_inter_chromosomal_percent = 10.0;
+    double max_duplicated_pairs_percent = 20.0;
+    double max_dangling_end_percent = 10.0;
+    double max_self_ligation_percent = 10.0;
+    // A value within this fraction of the wrong side of a cutoff is WARN
+    // rather than FAIL/PASS outright, e.g. 0.2 makes 8-10% inter-chromosomal
+    // WARN against a 10% cutoff rather than a hard PASS/FAIL edge.
+    double warn_margin_fraction = 0.2;
+};
+
+// A self-contained, modern-styled HTML report at folder/hicQC_report.html:
+// one card per sample (row of the --logfiles/--labels input), the same
+// metrics write_qc_report_tables's tables hold, each judged PASS/WARN/FAIL
+// against `thresholds` and shown as a coloured badge. C++-only: no Python
+// HiCExplorer counterpart, and does not replace hicQC.html, which is
+// unchanged and still written alongside it when the caller also draws it.
+void write_qc_pretty_report(const std::string& folder, const std::vector<std::string>& log_texts,
+                            const std::optional<std::vector<std::string>>& labels,
+                            const QcThresholds& thresholds);
+
 }  // namespace hicx
 
 #endif  // HICX_BUILD_MATRIX_HPP
