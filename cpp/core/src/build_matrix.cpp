@@ -1115,6 +1115,113 @@ void qc_write_metric_row(std::ostream& out, const QcMetricRow& row) {
         << "<div class=\"qc-metric-rule\">" << qc_html_escape(row.rule) << "</div></div>\n";
 }
 
+// Every column that is exactly `prefix`, or (when none is) every column that
+// contains it, each with its own value -- the discarded-pairs columns can be
+// per restriction enzyme, e.g. two "dangling end" columns for a two-enzyme
+// run, and the original report lists each, not their sum.
+std::vector<std::pair<std::string, double>> qc_values_by_prefix_all(const QcFrame& frame,
+                                                                     const std::string& prefix,
+                                                                     std::size_t row) {
+    std::vector<std::pair<std::string, double>> out;
+    if (frame.has(prefix)) {
+        out.emplace_back(prefix, frame.number(prefix, row));
+        return out;
+    }
+    for (const std::string& column : frame.columns) {
+        if (column.find(prefix) != std::string::npos) {
+            out.emplace_back(column, frame.number(column, row));
+        }
+    }
+    return out;
+}
+
+// 1,234,567-style grouping, matching the original report's "{:,}" format.
+std::string qc_format_count(double value) {
+    const auto whole = static_cast<long long>(value + (value >= 0 ? 0.5 : -0.5));
+    std::string digits = std::to_string(whole < 0 ? -whole : whole);
+    std::string grouped;
+    int since_sep = 0;
+    for (auto it = digits.rbegin(); it != digits.rend(); ++it) {
+        if (since_sep == 3) {
+            grouped += ',';
+            since_sep = 0;
+        }
+        grouped += *it;
+        ++since_sep;
+    }
+    std::reverse(grouped.begin(), grouped.end());
+    return (whole < 0 ? "-" : "") + grouped;
+}
+
+// One row of a bar-chart section: a label, its count, its value as a
+// fraction of `denominator` (nullopt when there is nothing to divide by),
+// and an optional PASS/WARN/FAIL badge (Unknown status renders no badge).
+struct QcBarRow {
+    std::string label;
+    double count = 0.0;
+    std::optional<double> denominator;
+    QcStatus status = QcStatus::Unknown;
+};
+
+void qc_write_bar_section(std::ostream& out, const std::vector<QcBarRow>& rows) {
+    double max_fraction = 0.001;
+    for (const QcBarRow& row : rows) {
+        if (row.denominator.has_value() && *row.denominator > 0) {
+            max_fraction = std::max(max_fraction, row.count / *row.denominator);
+        }
+    }
+    out << "<div class=\"qc-bars\">\n";
+    for (const QcBarRow& row : rows) {
+        const std::optional<double> fraction =
+            (row.denominator.has_value() && *row.denominator > 0)
+                ? std::optional<double>(row.count / *row.denominator)
+                : std::nullopt;
+        const double width_percent = fraction.has_value() ? 100.0 * (*fraction) / max_fraction : 0.0;
+        out << "<div class=\"qc-bar-row\"><div class=\"qc-bar-label\">"
+            << qc_html_escape(row.label);
+        if (row.status != QcStatus::Unknown) {
+            out << " <span class=\"qc-badge qc-badge-sm " << qc_status_class(row.status) << "\">"
+                << qc_status_label(row.status) << "</span>";
+        }
+        out << "</div><div class=\"qc-bar-track\"><div class=\"qc-bar-fill "
+            << (row.status == QcStatus::Fail  ? "qc-bar-fail"
+               : row.status == QcStatus::Warn ? "qc-bar-warn"
+                                              : "qc-bar-plain")
+            << "\" style=\"width:" << width_percent << "%\"></div></div>"
+            << "<div class=\"qc-bar-value\">" << qc_format_count(row.count);
+        if (fraction.has_value()) {
+            out << " (" << qc_percent(100.0 * (*fraction)) << ")";
+        }
+        out << "</div></div>\n";
+    }
+    out << "</div>\n";
+}
+
+struct QcTableColumn {
+    std::string header;
+    std::vector<std::string> values;  // one per row, already formatted
+};
+
+void qc_write_table(std::ostream& out, const std::string& table_id,
+                    const std::vector<std::string>& row_labels,
+                    const std::vector<QcTableColumn>& columns) {
+    out << "<div class=\"qc-table-wrap\"><table class=\"qc-table\" id=\"" << table_id
+        << "\"><thead><tr><th>Sample</th>";
+    for (const QcTableColumn& column : columns) {
+        out << "<th>" << qc_html_escape(column.header) << "</th>";
+    }
+    out << "</tr></thead><tbody>\n";
+    for (std::size_t row = 0; row < row_labels.size(); ++row) {
+        out << "<tr><td class=\"qc-table-rowlabel\">" << qc_html_escape(row_labels[row])
+            << "</td>";
+        for (const QcTableColumn& column : columns) {
+            out << "<td>" << qc_html_escape(column.values[row]) << "</td>";
+        }
+        out << "</tr>\n";
+    }
+    out << "</tbody></table></div>\n";
+}
+
 }  // namespace
 
 void write_qc_pretty_report(const std::string& folder, const std::vector<std::string>& log_texts,
@@ -1122,6 +1229,54 @@ void write_qc_pretty_report(const std::string& folder, const std::vector<std::st
                             const QcThresholds& thresholds) {
     const QcFrame frame = build_qc_frame(log_texts, labels);
     const double margin = thresholds.warn_margin_fraction;
+    const std::size_t n = frame.index.size();
+
+    // Per-sample metrics judged against a cutoff, computed once and reused
+    // for the overview, the relevant section's bars and its badges.
+    struct QcJudged {
+        std::optional<double> valid_pct;
+        std::optional<double> inter_chrom_pct;
+        std::optional<double> duplicated_pct;
+        std::optional<double> dangling_pct;
+        std::optional<double> self_ligation_pct;
+        QcStatus valid_status = QcStatus::Unknown;
+        QcStatus inter_chrom_status = QcStatus::Unknown;
+        QcStatus duplicated_status = QcStatus::Unknown;
+        QcStatus dangling_status = QcStatus::Unknown;
+        QcStatus self_ligation_status = QcStatus::Unknown;
+    };
+    std::vector<QcJudged> judged(n);
+    for (std::size_t row = 0; row < n; ++row) {
+        const double sequenced = frame.has("Sequenced reads") ? frame.number("Sequenced reads", row) : 0.0;
+        const double valid = frame.has("Hi-C contacts") ? frame.number("Hi-C contacts", row) : 0.0;
+        const double mappable = frame.has("Pairs mappable, unique and high quality")
+                                    ? frame.number("Pairs mappable, unique and high quality", row)
+                                    : 0.0;
+        QcJudged& j = judged[row];
+        j.valid_pct = sequenced > 0 ? std::optional<double>(100.0 * valid / sequenced) : std::nullopt;
+        j.inter_chrom_pct = (valid > 0 && frame.has("inter chromosomal"))
+                                ? std::optional<double>(100.0 * frame.number("inter chromosomal", row) / valid)
+                                : std::nullopt;
+        if (mappable > 0) {
+            if (const auto value = qc_value_by_name_or_prefix(frame, "duplicated pairs", row)) {
+                j.duplicated_pct = 100.0 * (*value) / mappable;
+            }
+            if (const auto value = qc_value_by_name_or_prefix(frame, "dangling end", row)) {
+                j.dangling_pct = 100.0 * (*value) / mappable;
+            }
+            if (const auto value = qc_value_by_name_or_prefix(frame, "self ligation (removed)", row)) {
+                j.self_ligation_pct = 100.0 * (*value) / mappable;
+            }
+        }
+        j.valid_status = qc_status_at_least(j.valid_pct, thresholds.min_valid_pairs_percent, margin);
+        j.inter_chrom_status =
+            qc_status_at_most(j.inter_chrom_pct, thresholds.max_inter_chromosomal_percent, margin);
+        j.duplicated_status =
+            qc_status_at_most(j.duplicated_pct, thresholds.max_duplicated_pairs_percent, margin);
+        j.dangling_status = qc_status_at_most(j.dangling_pct, thresholds.max_dangling_end_percent, margin);
+        j.self_ligation_status =
+            qc_status_at_most(j.self_ligation_pct, thresholds.max_self_ligation_percent, margin);
+    }
 
     std::ofstream out(folder + "/hicQC_report.html", std::ios::binary);
     if (!out) {
@@ -1139,96 +1294,107 @@ void write_qc_pretty_report(const std::string& folder, const std::vector<std::st
   --qc-warn: #8a5a00; --qc-warn-bg: #fff3cd;
   --qc-fail: #a3242a; --qc-fail-bg: #fdecea;
   --qc-unknown: #555; --qc-unknown-bg: #eee;
-  --qc-ink: #1f2430; --qc-muted: #5b6270; --qc-line: #e3e6eb;
+  --qc-ink: #1f2430; --qc-muted: #5b6270; --qc-line: #e3e6eb; --qc-accent: #2a6099;
 }
 * { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
 body {
-  margin: 0; padding: 32px 24px 64px; background: #f6f7f9; color: var(--qc-ink);
+  margin: 0; background: #f6f7f9; color: var(--qc-ink);
   font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
 }
-h1 { font-size: 1.5rem; margin: 0 0 4px; }
-.qc-subtitle { color: var(--qc-muted); margin: 0 0 24px; font-size: 0.95rem; }
-.qc-samples { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; max-width: 1100px; }
-.qc-card { background: #fff; border: 1px solid var(--qc-line); border-radius: 10px; padding: 18px 20px; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
-.qc-card h2 { font-size: 1.05rem; margin: 0 0 2px; }
-.qc-card .qc-overall { margin: 0 0 14px; font-size: 0.85rem; color: var(--qc-muted); }
-.qc-metric { border-top: 1px solid var(--qc-line); padding: 10px 0; }
+a { color: var(--qc-accent); }
+#qc-nav {
+  position: fixed; top: 0; left: 0; width: 230px; height: 100%; overflow-y: auto;
+  background: #fff; border-right: 1px solid var(--qc-line); padding: 24px 18px;
+}
+#qc-nav h1 { font-size: 1.1rem; margin: 0 0 18px; }
+#qc-nav a {
+  display: block; padding: 6px 8px; border-radius: 6px; text-decoration: none;
+  color: var(--qc-ink); font-size: 0.85rem; margin-bottom: 2px;
+}
+#qc-nav a:hover { background: #f0f2f5; }
+#qc-nav a.qc-active { background: var(--qc-accent); color: #fff; }
+#qc-content { margin-left: 230px; padding: 32px 28px 80px; max-width: 1200px; }
+section { margin-bottom: 44px; }
+section h2 { font-size: 1.25rem; margin: 0 0 4px; scroll-margin-top: 16px; }
+.qc-sub { color: var(--qc-muted); margin: 0 0 16px; font-size: 0.88rem; }
+.qc-samples { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+.qc-card { background: #fff; border: 1px solid var(--qc-line); border-radius: 10px; padding: 16px 18px; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
+.qc-card h3 { font-size: 1rem; margin: 0 0 2px; }
+.qc-card .qc-overall { margin: 0 0 12px; font-size: 0.82rem; color: var(--qc-muted); }
+.qc-metric { border-top: 1px solid var(--qc-line); padding: 8px 0; }
 .qc-metric:first-of-type { border-top: none; }
 .qc-metric-top { display: flex; justify-content: space-between; align-items: center; }
-.qc-metric-label { font-size: 0.88rem; }
-.qc-metric-value { font-size: 1.3rem; font-weight: 600; margin-top: 2px; }
-.qc-metric-rule { font-size: 0.75rem; color: var(--qc-muted); margin-top: 1px; }
-.qc-badge { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.03em; padding: 2px 9px; border-radius: 999px; }
+.qc-metric-label { font-size: 0.85rem; }
+.qc-metric-value { font-size: 1.15rem; font-weight: 600; margin-top: 2px; }
+.qc-metric-rule { font-size: 0.72rem; color: var(--qc-muted); margin-top: 1px; }
+.qc-badge { font-size: 0.68rem; font-weight: 700; letter-spacing: 0.03em; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+.qc-badge-sm { font-size: 0.62rem; padding: 1px 6px; }
 .qc-pass { color: var(--qc-pass); background: var(--qc-pass-bg); }
 .qc-warn { color: var(--qc-warn); background: var(--qc-warn-bg); }
 .qc-fail { color: var(--qc-fail); background: var(--qc-fail-bg); }
 .qc-unknown { color: var(--qc-unknown); background: var(--qc-unknown-bg); }
-.qc-note { max-width: 1100px; margin-top: 28px; font-size: 0.8rem; color: var(--qc-muted); line-height: 1.5; }
+.qc-bars { background: #fff; border: 1px solid var(--qc-line); border-radius: 10px; padding: 14px 18px; margin-bottom: 10px; }
+.qc-bar-row { display: grid; grid-template-columns: 220px 1fr 160px; align-items: center; gap: 12px; padding: 7px 0; }
+.qc-bar-label { font-size: 0.85rem; }
+.qc-bar-track { background: #eef0f3; border-radius: 5px; height: 14px; overflow: hidden; }
+.qc-bar-fill { height: 100%; border-radius: 5px; transition: width 0.4s ease; }
+.qc-bar-plain { background: var(--qc-accent); }
+.qc-bar-warn { background: #d8a200; }
+.qc-bar-fail { background: #c0392b; }
+.qc-bar-value { font-size: 0.8rem; color: var(--qc-muted); text-align: right; white-space: nowrap; }
+.qc-note { font-size: 0.78rem; color: var(--qc-muted); line-height: 1.5; margin-top: 10px; }
+dl.qc-defs { font-size: 0.85rem; background: #fff; border: 1px solid var(--qc-line); border-radius: 10px; padding: 14px 18px; margin: 0 0 16px; }
+dl.qc-defs dt { font-weight: 700; margin-top: 8px; }
+dl.qc-defs dt:first-child { margin-top: 0; }
+dl.qc-defs dd { margin: 2px 0 0; color: var(--qc-muted); }
+.qc-table-wrap { overflow-x: auto; background: #fff; border: 1px solid var(--qc-line); border-radius: 10px; }
+table.qc-table { border-collapse: collapse; width: 100%; font-size: 0.82rem; }
+table.qc-table th, table.qc-table td { padding: 8px 12px; text-align: right; white-space: nowrap; border-bottom: 1px solid var(--qc-line); }
+table.qc-table th:first-child, table.qc-table td:first-child { text-align: left; position: sticky; left: 0; background: inherit; }
+table.qc-table thead th { background: #f0f2f5; cursor: pointer; user-select: none; }
+table.qc-table thead th:hover { background: #e4e7eb; }
+table.qc-table tbody tr:nth-of-type(even) { background: #fafbfc; }
+.qc-download { font-size: 0.78rem; margin-top: 8px; display: inline-block; }
 </style>
 </head>
 <body>
-<h1>HiCExplorer QC report</h1>
-<p class="qc-subtitle">)HTML"
-        << frame.index.size() << " sample" << (frame.index.size() == 1 ? "" : "s")
-        << R"HTML(</p>
-<div class="qc-samples">
+<nav id="qc-nav">
+<h1>HiCExplorer QC</h1>
+<a href="#overview">Overview</a>
+<a href="#sequenced">Pairs sequenced</a>
+<a href="#unmappable">Unmappable / non-unique</a>
+<a href="#discarded">Pairs discarded</a>
+<a href="#distance">Contact distance</a>
+<a href="#orientation">Read orientation</a>
+<a href="#fulltable">Full table</a>
+</nav>
+<div id="qc-content">
 )HTML";
 
-    for (std::size_t row = 0; row < frame.index.size(); ++row) {
-        const double sequenced = frame.has("Sequenced reads") ? frame.number("Sequenced reads", row) : 0.0;
-        const double valid = frame.has("Hi-C contacts") ? frame.number("Hi-C contacts", row) : 0.0;
-        const double mappable = frame.has("Pairs mappable, unique and high quality")
-                                    ? frame.number("Pairs mappable, unique and high quality", row)
-                                    : 0.0;
-
-        const std::optional<double> valid_pct =
-            sequenced > 0 ? std::optional<double>(100.0 * valid / sequenced) : std::nullopt;
-        const std::optional<double> inter_chrom_pct =
-            (valid > 0 && frame.has("inter chromosomal"))
-                ? std::optional<double>(100.0 * frame.number("inter chromosomal", row) / valid)
-                : std::nullopt;
-        std::optional<double> duplicated_pct;
-        if (mappable > 0) {
-            if (const auto value = qc_value_by_name_or_prefix(frame, "duplicated pairs", row)) {
-                duplicated_pct = 100.0 * (*value) / mappable;
-            }
-        }
-        std::optional<double> dangling_pct;
-        if (mappable > 0) {
-            if (const auto value = qc_value_by_name_or_prefix(frame, "dangling end", row)) {
-                dangling_pct = 100.0 * (*value) / mappable;
-            }
-        }
-        std::optional<double> self_ligation_pct;
-        if (mappable > 0) {
-            if (const auto value = qc_value_by_name_or_prefix(frame, "self ligation (removed)", row)) {
-                self_ligation_pct = 100.0 * (*value) / mappable;
-            }
-        }
-
+    // --- Overview --------------------------------------------------------
+    out << "<section id=\"overview\"><h2>Overview</h2><p class=\"qc-sub\">" << n << " sample"
+        << (n == 1 ? "" : "s") << ", five metrics judged against a cutoff (see the note at the end "
+                                   "of this report).</p>\n<div class=\"qc-samples\">\n";
+    for (std::size_t row = 0; row < n; ++row) {
+        const QcJudged& j = judged[row];
         const std::vector<QcMetricRow> metrics = {
-            {"Valid pairs", valid_pct,
-             "cutoff: >= " + qc_percent(thresholds.min_valid_pairs_percent) +
-                 " of sequenced reads (HiCExplorer usage guidance: usually 25-40%)",
-             qc_status_at_least(valid_pct, thresholds.min_valid_pairs_percent, margin)},
-            {"Inter-chromosomal contacts", inter_chrom_pct,
-             "cutoff: <= " + qc_percent(thresholds.max_inter_chromosomal_percent) +
-                 " of valid pairs (HiCExplorer usage guidance)",
-             qc_status_at_most(inter_chrom_pct, thresholds.max_inter_chromosomal_percent, margin)},
-            {"Duplicated pairs", duplicated_pct,
-             "cutoff: <= " + qc_percent(thresholds.max_duplicated_pairs_percent) +
-                 " of mappable pairs (default, adjust with --maxDuplicatedPairsPercent)",
-             qc_status_at_most(duplicated_pct, thresholds.max_duplicated_pairs_percent, margin)},
-            {"Dangling ends", dangling_pct,
-             "cutoff: <= " + qc_percent(thresholds.max_dangling_end_percent) +
-                 " of mappable pairs (default, adjust with --maxDanglingEndPercent)",
-             qc_status_at_most(dangling_pct, thresholds.max_dangling_end_percent, margin)},
-            {"Self-ligation", self_ligation_pct,
-             "cutoff: <= " + qc_percent(thresholds.max_self_ligation_percent) +
-                 " of mappable pairs (default, adjust with --maxSelfLigationPercent)",
-             qc_status_at_most(self_ligation_pct, thresholds.max_self_ligation_percent, margin)},
+            {"Valid pairs", j.valid_pct,
+             "cutoff: >= " + qc_percent(thresholds.min_valid_pairs_percent) + " of sequenced reads",
+             j.valid_status},
+            {"Inter-chromosomal contacts", j.inter_chrom_pct,
+             "cutoff: <= " + qc_percent(thresholds.max_inter_chromosomal_percent) + " of valid pairs",
+             j.inter_chrom_status},
+            {"Duplicated pairs", j.duplicated_pct,
+             "cutoff: <= " + qc_percent(thresholds.max_duplicated_pairs_percent) + " of mappable pairs",
+             j.duplicated_status},
+            {"Dangling ends", j.dangling_pct,
+             "cutoff: <= " + qc_percent(thresholds.max_dangling_end_percent) + " of mappable pairs",
+             j.dangling_status},
+            {"Self-ligation", j.self_ligation_pct,
+             "cutoff: <= " + qc_percent(thresholds.max_self_ligation_percent) + " of mappable pairs",
+             j.self_ligation_status},
         };
-
         int failed = 0;
         int warned = 0;
         for (const QcMetricRow& metric : metrics) {
@@ -1241,23 +1407,287 @@ h1 { font-size: 1.5rem; margin: 0 0 4px; }
         const char* overall = failed > 0 ? "has metrics that failed their cutoff"
                              : warned > 0 ? "has metrics close to their cutoff"
                                           : "passed every judged metric";
-
-        out << "<div class=\"qc-card\"><h2>" << qc_html_escape(frame.index[row]) << "</h2>"
+        out << "<div class=\"qc-card\"><h3>" << qc_html_escape(frame.index[row]) << "</h3>"
             << "<p class=\"qc-overall\">" << overall << "</p>\n";
         for (const QcMetricRow& metric : metrics) {
             qc_write_metric_row(out, metric);
         }
         out << "</div>\n";
     }
+    out << "</div></section>\n";
+
+    // --- Pairs sequenced ---------------------------------------------------
+    out << "<section id=\"sequenced\"><h2>Pairs sequenced</h2>"
+           "<p class=\"qc-sub\">Sequenced reads, pairs mappable/unique/high quality, and the valid "
+           "Hi-C contacts kept from them.</p>\n";
+    {
+        std::vector<QcBarRow> rows;
+        for (std::size_t row = 0; row < n; ++row) {
+            const double sequenced = frame.has("Sequenced reads") ? frame.number("Sequenced reads", row) : 0.0;
+            const double mappable = frame.has("Pairs mappable, unique and high quality")
+                                        ? frame.number("Pairs mappable, unique and high quality", row)
+                                        : 0.0;
+            const double valid = frame.has("Hi-C contacts") ? frame.number("Hi-C contacts", row) : 0.0;
+            rows.push_back({frame.index[row] + ": sequenced reads", sequenced, sequenced, QcStatus::Unknown});
+            rows.push_back(
+                {frame.index[row] + ": mappable, unique, high quality", mappable, sequenced, QcStatus::Unknown});
+            rows.push_back(
+                {frame.index[row] + ": Hi-C contacts (valid pairs)", valid, sequenced, QcStatus::Unknown});
+        }
+        qc_write_bar_section(out, rows);
+    }
+    out << "</section>\n";
+
+    // --- Unmappable and non-unique pairs ----------------------------------
+    out << "<section id=\"unmappable\"><h2>Unmappable and non-unique pairs</h2>"
+           "<p class=\"qc-sub\">Fraction of sequenced reads, per sample, that mapped uniquely and at "
+           "high quality (Hi-C contacts) against those that did not.</p>\n";
+    {
+        std::vector<QcBarRow> rows;
+        std::vector<std::string> row_labels;
+        std::vector<QcTableColumn> columns = {{"Hi-C contacts", {}}, {"Hi-C contacts %", {}},
+                                              {"Low mapping quality", {}}, {"Low mapping quality %", {}},
+                                              {"One mate not unique", {}}, {"One mate not unique %", {}},
+                                              {"One mate unmapped", {}}, {"One mate unmapped %", {}}};
+        for (std::size_t row = 0; row < n; ++row) {
+            const double sequenced = frame.has("Sequenced reads") ? frame.number("Sequenced reads", row) : 0.0;
+            row_labels.push_back(frame.index[row]);
+            for (const char* name :
+                {"Hi-C contacts", "Low mapping quality", "One mate not unique", "One mate unmapped"}) {
+                const double value = frame.has(name) ? frame.number(name, row) : 0.0;
+                rows.push_back({frame.index[row] + ": " + name, value, sequenced, QcStatus::Unknown});
+            }
+        }
+        std::size_t column_index = 0;
+        for (const char* name :
+            {"Hi-C contacts", "Low mapping quality", "One mate not unique", "One mate unmapped"}) {
+            for (std::size_t row = 0; row < n; ++row) {
+                const double sequenced =
+                    frame.has("Sequenced reads") ? frame.number("Sequenced reads", row) : 0.0;
+                const double value = frame.has(name) ? frame.number(name, row) : 0.0;
+                columns[column_index].values.push_back(qc_format_count(value));
+                columns[column_index + 1].values.push_back(
+                    sequenced > 0 ? qc_percent(100.0 * value / sequenced) : "n/a");
+            }
+            column_index += 2;
+        }
+        qc_write_bar_section(out, rows);
+        qc_write_table(out, "unmappable-table", row_labels, columns);
+        out << "<a class=\"qc-download\" href=\"unmapable_table.txt\">Download table (tab separated)"
+               "</a>\n";
+    }
+    out << "</section>\n";
+
+    // --- Pairs discarded ---------------------------------------------------
+    out << "<section id=\"discarded\"><h2>Pairs discarded</h2>"
+           "<p class=\"qc-sub\">Fraction of mappable, unique, high quality pairs discarded when "
+           "building the Hi-C matrix, per sample.</p>\n"
+           "<dl class=\"qc-defs\">"
+           "<dt>Dangling ends</dt><dd>Reads that start with the restriction site: digested but not "
+           "ligated.</dd>"
+           "<dt>Same fragment</dt><dd>Inward-facing mates up to 800 bp apart with no restriction "
+           "site between them; not a valid Hi-C pair.</dd>"
+           "<dt>Self circle</dt><dd>Pairs within 25 kb with outward read orientation.</dd>"
+           "<dt>Self ligation</dt><dd>Pairs with a restriction site between them, within 800 bp."
+           "</dd></dl>\n";
+    {
+        std::vector<QcBarRow> rows;
+        std::vector<std::string> row_labels;
+        static const char* const prefixes[] = {"One mate not close to rest site", "dangling end",
+                                                "duplicated pairs", "same fragment", "self circle",
+                                                "self ligation (removed)"};
+        // Columns are built after the per-sample pass below, since a prefix
+        // such as "dangling end" can match more than one real column (one
+        // per restriction enzyme) and every sample must get every column
+        // that *any* sample has, in a fixed order.
+        std::vector<std::string> discovered_columns;
+        std::vector<std::unordered_map<std::string, double>> per_row_values(n);
+        for (std::size_t row = 0; row < n; ++row) {
+            const double mappable = frame.has("Pairs mappable, unique and high quality")
+                                        ? frame.number("Pairs mappable, unique and high quality", row)
+                                        : 0.0;
+            row_labels.push_back(frame.index[row]);
+            for (const char* prefix : prefixes) {
+                for (const auto& [column, value] : qc_values_by_prefix_all(frame, prefix, row)) {
+                    per_row_values[row][column] = value;
+                    if (std::find(discovered_columns.begin(), discovered_columns.end(), column) ==
+                        discovered_columns.end()) {
+                        discovered_columns.push_back(column);
+                    }
+                    QcStatus status = QcStatus::Unknown;
+                    if (column == "duplicated pairs") {
+                        status = judged[row].duplicated_status;
+                    } else if (column.find("dangling end") != std::string::npos) {
+                        status = judged[row].dangling_status;
+                    } else if (column == "self ligation (removed)") {
+                        status = judged[row].self_ligation_status;
+                    }
+                    rows.push_back({frame.index[row] + ": " + column, value, mappable, status});
+                }
+            }
+        }
+        std::vector<QcTableColumn> columns;
+        for (const std::string& column : discovered_columns) {
+            columns.push_back({column, {}});
+            columns.push_back({column + " %", {}});
+        }
+        for (std::size_t row = 0; row < n; ++row) {
+            const double mappable = frame.has("Pairs mappable, unique and high quality")
+                                        ? frame.number("Pairs mappable, unique and high quality", row)
+                                        : 0.0;
+            for (std::size_t c = 0; c < discovered_columns.size(); ++c) {
+                const auto it = per_row_values[row].find(discovered_columns[c]);
+                const double value = it == per_row_values[row].end() ? 0.0 : it->second;
+                columns[2 * c].values.push_back(qc_format_count(value));
+                columns[2 * c + 1].values.push_back(mappable > 0 ? qc_percent(100.0 * value / mappable)
+                                                                 : "n/a");
+            }
+        }
+        qc_write_bar_section(out, rows);
+        qc_write_table(out, "discarded-table", row_labels, columns);
+        out << "<a class=\"qc-download\" href=\"discarded_table.txt\">Download table (tab separated)"
+               "</a>\n";
+    }
+    out << "</section>\n";
+
+    // --- Contact distance ---------------------------------------------------
+    out << "<section id=\"distance\"><h2>Contact distance</h2>"
+           "<p class=\"qc-sub\">Fraction of valid Hi-C contacts, per sample, by genomic distance. "
+           "HiCExplorer's own usage guidance: good Hi-C libraries have less than 10% "
+           "inter-chromosomal contacts.</p>\n";
+    {
+        std::vector<QcBarRow> rows;
+        std::vector<std::string> row_labels;
+        static const char* const names[] = {"inter chromosomal", "Intra short range (< 20kb)",
+                                            "Intra long range (>= 20kb)"};
+        std::vector<QcTableColumn> columns;
+        for (const char* name : names) {
+            columns.push_back({name, {}});
+            columns.push_back({std::string(name) + " %", {}});
+        }
+        for (std::size_t row = 0; row < n; ++row) {
+            const double valid = frame.has("Hi-C contacts") ? frame.number("Hi-C contacts", row) : 0.0;
+            row_labels.push_back(frame.index[row]);
+            std::size_t column_index = 0;
+            for (const char* name : names) {
+                const double value = frame.has(name) ? frame.number(name, row) : 0.0;
+                const QcStatus status =
+                    (std::string(name) == "inter chromosomal") ? judged[row].inter_chrom_status
+                                                                : QcStatus::Unknown;
+                rows.push_back({frame.index[row] + ": " + name, value, valid, status});
+                columns[column_index].values.push_back(qc_format_count(value));
+                columns[column_index + 1].values.push_back(valid > 0 ? qc_percent(100.0 * value / valid)
+                                                                     : "n/a");
+                column_index += 2;
+            }
+        }
+        qc_write_bar_section(out, rows);
+        qc_write_table(out, "distance-table", row_labels, columns);
+        out << "<a class=\"qc-download\" href=\"distance_table.txt\">Download table (tab separated)"
+               "</a>\n";
+    }
+    out << "</section>\n";
+
+    // --- Read orientation ---------------------------------------------------
+    out << "<section id=\"orientation\"><h2>Read orientation</h2>"
+           "<p class=\"qc-sub\">Fraction of the four read-pair orientations, per sample, informative "
+           "for ligation bias.</p>\n";
+    {
+        std::vector<QcBarRow> rows;
+        std::vector<std::string> row_labels;
+        static const char* const names[] = {"Read pair type: inward pairs", "Read pair type: outward pairs",
+                                            "Read pair type: left pairs", "Read pair type: right pairs"};
+        std::vector<QcTableColumn> columns;
+        for (const char* name : names) {
+            columns.push_back({name, {}});
+            columns.push_back({std::string(name) + " %", {}});
+        }
+        for (std::size_t row = 0; row < n; ++row) {
+            double total = 0.0;
+            for (const char* name : names) {
+                total += frame.has(name) ? frame.number(name, row) : 0.0;
+            }
+            row_labels.push_back(frame.index[row]);
+            std::size_t column_index = 0;
+            for (const char* name : names) {
+                const double value = frame.has(name) ? frame.number(name, row) : 0.0;
+                rows.push_back({frame.index[row] + ": " + name, value, total, QcStatus::Unknown});
+                columns[column_index].values.push_back(qc_format_count(value));
+                columns[column_index + 1].values.push_back(total > 0 ? qc_percent(100.0 * value / total)
+                                                                     : "n/a");
+                column_index += 2;
+            }
+        }
+        qc_write_bar_section(out, rows);
+        qc_write_table(out, "orientation-table", row_labels, columns);
+        out << "<a class=\"qc-download\" href=\"read_orientation_table.txt\">Download table (tab "
+               "separated)</a>\n";
+    }
+    out << "</section>\n";
+
+    // --- Full table ---------------------------------------------------------
+    out << "<section id=\"fulltable\"><h2>Full table</h2>"
+           "<p class=\"qc-sub\">Every field QC.log reports, one column per sample. Click a header to "
+           "sort.</p>\n";
+    {
+        std::vector<QcTableColumn> columns;
+        for (const std::string& name : frame.columns) {
+            QcTableColumn column{name, {}};
+            for (std::size_t row = 0; row < n; ++row) {
+                column.values.push_back(frame.column(name)[row].str());
+            }
+            columns.push_back(std::move(column));
+        }
+        qc_write_table(out, "full-table", frame.index, columns);
+        out << "<a class=\"qc-download\" href=\"QC_table.txt\">Download table (tab separated)</a>\n";
+    }
+    out << "</section>\n";
 
     out << R"HTML(</div>
-<p class="qc-note">Valid pairs and inter-chromosomal cutoffs follow HiCExplorer's own usage
-guidance. The duplicated pairs, dangling ends and self-ligation cutoffs have no
-published HiCExplorer standard behind them; they are conservative starting points,
-and every cutoff above is a hicPrepareQCreport command line option. A metric
-within )HTML"
+<p class="qc-note" style="margin-left:258px;max-width:900px;">Valid pairs and inter-chromosomal
+cutoffs follow HiCExplorer's own usage guidance. The duplicated pairs, dangling ends and
+self-ligation cutoffs have no published HiCExplorer standard behind them; they are conservative
+starting points, and every cutoff is a hicPrepareQCreport command line option
+(--minValidPairsPercent, --maxInterChromosomalPercent, --maxDuplicatedPairsPercent,
+--maxDanglingEndPercent, --maxSelfLigationPercent). A metric within )HTML"
         << static_cast<int>(margin * 100 + 0.5)
-        << R"HTML(% of the wrong side of its cutoff is shown WARN rather than an outright PASS or FAIL.</p>
+        << R"HTML(% of the wrong side of its cutoff is WARN rather than an outright PASS or FAIL.</p>
+<script>
+(function () {
+  var sections = Array.prototype.slice.call(document.querySelectorAll("section[id]"));
+  var links = Array.prototype.slice.call(document.querySelectorAll("#qc-nav a"));
+  function setActive() {
+    var top = window.scrollY + 80;
+    var current = sections[0];
+    sections.forEach(function (s) { if (s.offsetTop <= top) current = s; });
+    links.forEach(function (a) {
+      a.classList.toggle("qc-active", a.getAttribute("href") === "#" + current.id);
+    });
+  }
+  window.addEventListener("scroll", setActive, { passive: true });
+  setActive();
+
+  document.querySelectorAll("table.qc-table").forEach(function (table) {
+    var tbody = table.querySelector("tbody");
+    table.querySelectorAll("thead th").forEach(function (th, index) {
+      th.addEventListener("click", function () {
+        var ascending = th.getAttribute("data-asc") !== "true";
+        table.querySelectorAll("thead th").forEach(function (h) { h.removeAttribute("data-asc"); });
+        th.setAttribute("data-asc", ascending ? "true" : "false");
+        var rows = Array.prototype.slice.call(tbody.querySelectorAll("tr"));
+        rows.sort(function (a, b) {
+          var av = a.children[index].textContent.replace(/,/g, "");
+          var bv = b.children[index].textContent.replace(/,/g, "");
+          var an = parseFloat(av), bn = parseFloat(bv);
+          var cmp = (!isNaN(an) && !isNaN(bn)) ? an - bn : av.localeCompare(bv);
+          return ascending ? cmp : -cmp;
+        });
+        rows.forEach(function (row) { tbody.appendChild(row); });
+      });
+    });
+  });
+})();
+</script>
 </body>
 </html>
 )HTML";
