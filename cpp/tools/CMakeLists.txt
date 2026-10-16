@@ -77,6 +77,14 @@ target_link_libraries(hicDetectLoops PRIVATE hicx::core hicx_compile_options)
 add_executable(hicDetectStripes hicDetectStripes.cpp stripes_impl.cpp)
 target_link_libraries(hicDetectStripes PRIVATE hicx::core hicx_compile_options)
 
+# hicArrowhead has no Python counterpart (cpp/PLAN.md tier 9): a faithful
+# reimplementation of Juicer/Juicebox's own Arrowhead contact-domain caller.
+# Its algorithmic core is a second translation unit for the same reason as
+# hicDetectLoops'/hicDetectStripes': cpp/tests/test_arrowhead.cpp links
+# against exactly the code the tool runs.
+add_executable(hicArrowhead hicArrowhead.cpp arrowhead_impl.cpp)
+target_link_libraries(hicArrowhead PRIVATE hicx::core hicx_compile_options)
+
 # hicDifferentialTAD and hicInterIntraTAD cut their TAD blocks with the same
 # code, which is also what cpp/tests/test_tad_contacts.cpp links against.
 foreach(tool IN ITEMS hicDifferentialTAD hicInterIntraTAD)

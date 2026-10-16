@@ -48,17 +48,19 @@ add_executable(hicx_tests
     test_detect_stripes.cpp
     test_scc.cpp
     test_genomedisco.cpp
+    test_arrowhead.cpp
     # The computational cores of hicDetectLoops, of the two TAD statistics tools,
-    # of hicCompartmentalization, of hicMergeDomains, of hicDifferentialAnalysis
-    # and of hicDetectStripes, so that the tests link against exactly the
-    # translation units the tools run.
+    # of hicCompartmentalization, of hicMergeDomains, of hicDifferentialAnalysis,
+    # of hicDetectStripes and of hicArrowhead, so that the tests link against
+    # exactly the translation units the tools run.
     ../tools/detect_loops_impl.cpp
     ../tools/tad_contacts_impl.cpp
     ../tools/compartmentalization_impl.cpp
     ../tools/merge_domains_impl.cpp
     ../tools/diff_engine_impl.cpp
     ../tools/diff_contacts_impl.cpp
-    ../tools/stripes_impl.cpp)
+    ../tools/stripes_impl.cpp
+    ../tools/arrowhead_impl.cpp)
 
 target_link_libraries(hicx_tests PRIVATE hicx::core doctest_header hicx_compile_options)
 
@@ -145,6 +147,14 @@ add_test(NAME hicCorrelate_scc_cli
 add_test(NAME hicCorrelate_genomedisco_cli
          COMMAND ${HICX_BASH} "${CMAKE_CURRENT_SOURCE_DIR}/cli/hicCorrelate_genomedisco_cli.sh"
                  $<TARGET_FILE:hicCorrelate> "${HICX_TEST_DATA}")
+
+# hicArrowhead (cpp/PLAN.md tier 9): Juicer/Juicebox's own Arrowhead
+# contact-domain caller, C++-only, no Python counterpart and no local Java
+# reference to validate exact values against; checked here end to end
+# instead. See the script's header and tools/arrowhead_impl.hpp.
+add_test(NAME hicArrowhead_cli
+         COMMAND ${HICX_BASH} "${CMAKE_CURRENT_SOURCE_DIR}/cli/hicArrowhead_cli.sh"
+                 $<TARGET_FILE:hicArrowhead> "${HICX_TEST_DATA}")
 
 # chicChicagoPlotViewpoint (no Python counterpart): the figure data from
 # --plotData, scores from the ported chicChicago tools on the fixture.
