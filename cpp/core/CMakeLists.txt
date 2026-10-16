@@ -49,6 +49,7 @@ add_library(hicx4core
     src/obsexp_ops.cpp
     src/pairs_file.cpp
     src/plot_bridge.cpp
+    src/genomedisco.cpp
     src/reduce_matrix.cpp
     src/resource_usage.cpp
     src/scc.cpp

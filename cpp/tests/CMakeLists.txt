@@ -47,6 +47,7 @@ add_executable(hicx_tests
     test_diff_engine.cpp
     test_detect_stripes.cpp
     test_scc.cpp
+    test_genomedisco.cpp
     # The computational cores of hicDetectLoops, of the two TAD statistics tools,
     # of hicCompartmentalization, of hicMergeDomains, of hicDifferentialAnalysis
     # and of hicDetectStripes, so that the tests link against exactly the
@@ -132,6 +133,17 @@ add_test(NAME hicPlotMatrix_triangle_cli
 # not reproducible from a small checked-in fixture; see the script's header.
 add_test(NAME hicCorrelate_scc_cli
          COMMAND ${HICX_BASH} "${CMAKE_CURRENT_SOURCE_DIR}/cli/hicCorrelate_scc_cli.sh"
+                 $<TARGET_FILE:hicCorrelate> "${HICX_TEST_DATA}")
+
+# hicCorrelate --method genomedisco: GenomeDISCO's random-walk
+# reproducibility score, C++-only, no Python counterpart; checked here
+# rather than through cpp/scripts/equiv.py. There is no pip-installable
+# package to validate against (the real tool is Python 2 only); the
+# algorithm's own cross-check against a hand-transcribed reproduction of the
+# real source is on real GM12878/A549 data, not reproducible from a small
+# checked-in fixture; see the script's header.
+add_test(NAME hicCorrelate_genomedisco_cli
+         COMMAND ${HICX_BASH} "${CMAKE_CURRENT_SOURCE_DIR}/cli/hicCorrelate_genomedisco_cli.sh"
                  $<TARGET_FILE:hicCorrelate> "${HICX_TEST_DATA}")
 
 # chicChicagoPlotViewpoint (no Python counterpart): the figure data from

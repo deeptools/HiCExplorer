@@ -73,6 +73,7 @@
 #include "hicx/npz_file.hpp"
 #include "hicx/numpy_compat.hpp"
 #include "hicx/plot_bridge.hpp"
+#include "hicx/genomedisco.hpp"
 #include "hicx/resource_usage.hpp"
 #include "hicx/scc.hpp"
 #include "hicx/sparse_matrix.hpp"
@@ -96,7 +97,7 @@ const char* const kDescription =
 const char* const kUsage =
     "usage: hicCorrelate --matrices MATRICES [MATRICES ...] [--zMin ZMIN]\n"
     "                    [--zMax ZMAX] [--colorMap] [--plotNumbers]\n"
-    "                    [--method {pearson,spearman,scc}] [--log1p]\n"
+    "                    [--method {pearson,spearman,scc,genomedisco}] [--log1p]\n"
     "                    [--labels sample1 sample2 [sample1 sample2 ...]]\n"
     "                    [--range RANGE] --outFileNameHeatmap OUTFILENAMEHEATMAP\n"
     "                    --outFileNameScatter OUTFILENAMESCATTER\n"
@@ -138,12 +139,15 @@ const char* const kHelp =
     "                        of the heatmap. (default: False)\n"
     "\n"
     "Optional arguments:\n"
-    "  --method {pearson,spearman,scc}\n"
+    "  --method {pearson,spearman,scc,genomedisco}\n"
     "                        Correlation method to use. 'scc' is HiCRep's stratum-\n"
     "                        adjusted correlation coefficient (cpp_only, no\n"
     "                        HiCExplorer Python counterpart); see\n"
-    "                        --sccSmoothWindow, --sccMaxDistance, --sccDownsample\n"
-    "                        (Default: pearson).\n"
+    "                        --sccSmoothWindow, --sccMaxDistance, --sccDownsample.\n"
+    "                        'genomedisco' is GenomeDISCO's random-walk\n"
+    "                        reproducibility score (also cpp_only); see\n"
+    "                        --genomediscoTmin, --genomediscoTmax,\n"
+    "                        --genomediscoNoSubsample (Default: pearson).\n"
     "  --log1p               If set, then the log1p of the matrix values is used.\n"
     "                        This parameter has no effect for Spearman correlations\n"
     "                        but changes the output of Pearson correlation and, for\n"
@@ -191,7 +195,19 @@ const char* const kHelp =
     "--chromosomes restricts the set. --log1p and --range do not apply to it.\n"
     "Clustering and the heatmap work exactly as for pearson/spearman; there is no\n"
     "scatter plot (no per-bin vectors survive the per-diagonal reduction), so\n"
-    "--outFileNameScatter is still required but left untouched.\n";
+    "--outFileNameScatter is still required but left untouched.\n"
+    "\n"
+    "--method genomedisco (cpp_only): GenomeDISCO's random-walk reproducibility\n"
+    "score, reimplemented from the real kundajelab/genomedisco source (there is no\n"
+    "pip-installable package; the real tool is Python 2 only), using its own\n"
+    "recommended \"standard config\": sqrtvc normalization, downsampling the\n"
+    "higher-depth chromosome to the lower-depth one's total first (disable with\n"
+    "--genomediscoNoSubsample), converting to a transition matrix, and comparing\n"
+    "--genomediscoTmin..--genomediscoTmax steps of the random walk by L1 distance.\n"
+    "Like --method scc, it only accepts cool/mcool input, reports the mean over\n"
+    "shared chromosomes (excluding \"M\"/\"MT\"/\"chrM\" unless --chromosomes restricts\n"
+    "the set), ignores --log1p and --range, reuses the same clustering/heatmap, and\n"
+    "has no scatter plot.\n";
 
 class PythonError : public std::runtime_error {
   public:
@@ -253,29 +269,25 @@ double total_contacts(const hicx::CsrMatrix& csr) {
     return total;
 }
 
-// --method scc: computes the symmetric matrix of pairwise SCC scores and
-// drives the same clustering/heatmap path pearson/spearman use, but bypasses
-// the "big" union-of-positions vector pipeline entirely (hicx::scc needs the
-// raw, per-chromosome upper-triangle matrix for diagonal banding and
-// smoothing, not a reduction to one value per stored position).
-// hicrep loads its input with cooler's balance=False (hicrep.utils.
-// cool2pixels): the raw stored pixel counts, with no ICE/KR correction
-// applied. ToolMatrix::load applies HiCExplorer's own default correction
+// --method scc and --method genomedisco both load the raw, uncorrected
+// matrix: hicrep's cool2pixels uses cooler's balance=False, and
+// GenomeDISCO's own loader never looks at a weight column either.
+// ToolMatrix::load applies HiCExplorer's own default correction
 // (hicCorrelate's Python counterpart works on whatever hm.hiCMatrix(path)
-// gives, which is corrected by default for a cool file), so matching hicrep
-// needs its own, uncorrected load here instead. This also means --method
-// scc only accepts cool/mcool input, matching hicrep's own scope: an h5 or
-// .hic matrix is refused.
+// gives, which is corrected by default for a cool file), so matching either
+// reference needs its own, uncorrected load here instead. This also means
+// both methods only accept cool/mcool input, matching their own scope: an
+// h5 or .hic matrix is refused.
 struct RawCoolMatrix {
     hicx::CsrMatrix matrix;
     std::vector<hicx::CutInterval> cut_intervals;
     std::vector<std::pair<std::string, hicx::BinRange>> boundaries;
 };
 
-RawCoolMatrix load_raw_cool(const std::string& path) {
+RawCoolMatrix load_raw_cool(const std::string& path, const std::string& method) {
     if (!hicx::check_cooler(path)) {
-        throw PythonError("ValueError: --method scc only accepts cool/mcool input (hicrep's own "
-                          "scope); '" +
+        throw PythonError("ValueError: --method " + method +
+                          " only accepts cool/mcool input (its reference tool's own scope); '" +
                           path + "' is not a cooler file");
     }
     hicx::CoolLoadOptions options;
@@ -297,7 +309,7 @@ int run_scc(const std::vector<std::string>& matrix_paths, const std::vector<std:
     loaded.reserve(num_files);
     std::vector<double> totals(num_files, 0.0);
     for (std::size_t i = 0; i < num_files; ++i) {
-        loaded.push_back(load_raw_cool(matrix_paths[i]));
+        loaded.push_back(load_raw_cool(matrix_paths[i], "scc"));
         totals[i] = total_contacts(loaded.back().matrix);
     }
 
@@ -371,6 +383,109 @@ int run_scc(const std::vector<std::string>& matrix_paths, const std::vector<std:
     data.add("outFileNameScatter", plot::json_string(ns.str("outFileNameScatter")));
     data.add("labels", plot::json_strings(labels));
     data.add("method", plot::json_string("scc"));
+    data.add("log1p", plot::json_bool(false));
+    const std::optional<double> z_min = ns.opt_real("zMin");
+    const std::optional<double> z_max = ns.opt_real("zMax");
+    data.add("zMin", z_min.has_value() ? plot::json_number(*z_min) : "null");
+    data.add("zMax", z_max.has_value() ? plot::json_number(*z_max) : "null");
+    data.add("colorMap", plot::json_string(ns.str("colorMap")));
+    data.add("plotNumbers", plot::json_bool(ns.flag("plotNumbers")));
+    data.add("results", plot::json_list(result_rows));
+    data.add("linkage", plot::json_numbers(linkage));
+    data.add("leaves", plot::json_ints(leaves));
+    data.add("skipScatter", plot::json_bool(true));
+
+    hicx::report_resource_usage("hicCorrelate");
+    return plot::draw("hicCorrelate", data.str(), plot_data);
+}
+
+// --method genomedisco: the same shape as run_scc (raw uncorrected cool
+// load, per-chromosome-pair scoring averaged across shared chromosomes, the
+// existing clustering/heatmap), but GenomeDISCO's own subsampling target is
+// the pair's own (per-chromosome) depth, not a genome-wide total the way
+// hicrep's normalization is, so there is no analogue of run_scc's `totals`.
+// GenomeDISCO's own CLI is one chromosome per invocation and leaves
+// combining them to the caller (its Snakemake pipelines average externally);
+// the mean over chromosomes here is this port's own choice, the same
+// deviation hicx::scc documents for itself.
+int run_genomedisco(const std::vector<std::string>& matrix_paths, const std::vector<std::string>& labels,
+                    const std::optional<std::vector<std::string>>& chromosomes,
+                    const hicx::genomedisco::Options& gd_options, const cli::Namespace& ns,
+                    const std::optional<std::string>& plot_data) {
+    const std::size_t num_files = matrix_paths.size();
+    std::vector<RawCoolMatrix> loaded;
+    loaded.reserve(num_files);
+    for (std::size_t i = 0; i < num_files; ++i) {
+        loaded.push_back(load_raw_cool(matrix_paths[i], "genomedisco"));
+    }
+
+    std::vector<double> results(num_files * num_files, 0.0);
+    for (std::size_t a = 0; a < num_files; ++a) {
+        results[a * num_files + a] = 1.0;
+        for (std::size_t b = a + 1; b < num_files; ++b) {
+            const auto& boundaries_a = loaded[a].boundaries;
+            const auto& boundaries_b = loaded[b].boundaries;
+            double sum = 0.0;
+            int count = 0;
+            for (const auto& [chrom, range_a] : boundaries_a) {
+                if (chromosomes.has_value()) {
+                    if (!contains(*chromosomes, chrom)) {
+                        continue;
+                    }
+                } else if (chrom == "M" || chrom == "MT" || chrom == "chrM") {
+                    continue;  // consistent with --method scc's own default
+                }
+                const auto it = std::find_if(boundaries_b.begin(), boundaries_b.end(),
+                                             [&](const auto& entry) { return entry.first == chrom; });
+                if (it == boundaries_b.end()) {
+                    continue;
+                }
+                const hicx::BinRange& range_b = it->second;
+                if (range_a.last - range_a.first != range_b.last - range_b.first) {
+                    throw PythonError("ValueError: chromosome " + chrom +
+                                      " has a different number of bins between the input "
+                                      "matrices");
+                }
+                const hicx::genomedisco::ChromosomeEntries entries_a =
+                    extract_chromosome(loaded[a].matrix, range_a.first, range_a.last);
+                const hicx::genomedisco::ChromosomeEntries entries_b =
+                    extract_chromosome(loaded[b].matrix, range_b.first, range_b.last);
+                const double chrom_score =
+                    hicx::genomedisco::chromosome_score(entries_a, entries_b, gd_options);
+                if (std::isfinite(chrom_score)) {
+                    sum += chrom_score;
+                    ++count;
+                }
+            }
+            results[a * num_files + b] =
+                count > 0 ? sum / count : std::numeric_limits<double>::quiet_NaN();
+        }
+    }
+    std::vector<double> symmetric = results;
+    for (std::size_t a = 0; a < num_files; ++a) {
+        for (std::size_t b = a + 1; b < num_files; ++b) {
+            symmetric[b * num_files + a] = results[a * num_files + b];
+        }
+    }
+    hicx::cluster::Samples observations;
+    observations.samples = static_cast<std::int64_t>(num_files);
+    observations.features = static_cast<std::int64_t>(num_files);
+    observations.values = symmetric;
+    const std::vector<double> linkage = hicx::cluster::detail::complete_linkage(observations);
+    const std::vector<std::int64_t> leaves =
+        hicx::cluster::detail::dendrogram_leaves(linkage, static_cast<std::int64_t>(num_files));
+
+    std::vector<std::string> result_rows;
+    for (std::size_t row = 0; row < num_files; ++row) {
+        result_rows.push_back(plot::json_numbers(std::vector<double>(
+            results.begin() + static_cast<std::ptrdiff_t>(row * num_files),
+            results.begin() + static_cast<std::ptrdiff_t>((row + 1) * num_files))));
+    }
+    plot::JsonObject data;
+    data.add("outFileNameHeatmap", plot::json_string(ns.str("outFileNameHeatmap")));
+    data.add("outFileNameScatter", plot::json_string(ns.str("outFileNameScatter")));
+    data.add("labels", plot::json_strings(labels));
+    data.add("method", plot::json_string("genomedisco"));
     data.add("log1p", plot::json_bool(false));
     const std::optional<double> z_min = ns.opt_real("zMin");
     const std::optional<double> z_max = ns.opt_real("zMax");
@@ -767,11 +882,14 @@ int main(int argc, char** argv) {
         .help("If set, then the correlation number is plotted on top of the heatmap.");
     cli::ArgumentGroup& optional = parser.group("Optional arguments");
     optional.add({"--method"})
-        .choices({"pearson", "spearman", "scc"})
+        .choices({"pearson", "spearman", "scc", "genomedisco"})
         .default_value("pearson")
         .help("Correlation method to use. 'scc' is HiCRep's stratum-adjusted correlation "
               "coefficient (cpp_only, no HiCExplorer Python counterpart); see "
-              "--sccSmoothWindow, --sccMaxDistance, --sccDownsample (Default: %(default)s).");
+              "--sccSmoothWindow, --sccMaxDistance, --sccDownsample. 'genomedisco' is "
+              "GenomeDISCO's random-walk reproducibility score (also cpp_only); see "
+              "--genomediscoTmin, --genomediscoTmax, --genomediscoNoSubsample "
+              "(Default: %(default)s).");
     optional.add({"--log1p"})
         .action(cli::Action::StoreTrue)
         .help("If set, then the log1p of the matrix values is used.");
@@ -828,6 +946,30 @@ int main(int argc, char** argv) {
                   "total. Uses std::mt19937_64, not numpy's Mersenne Twister, so the "
                   "resampling procedure matches hicrep but not its exact draws.")
         .help("Downsample instead of normalize before computing --method scc.");
+    optional.add({"--genomediscoTmin"})
+        .type("int")
+        .default_value(std::int64_t{3})
+        .cpp_only("GenomeDISCO's --tmin, only for --method genomedisco: the first random-walk "
+                  "step whose score counts toward the reported value.")
+        .help("Minimum number of random-walk steps for --method genomedisco (Default: "
+              "%(default)s).");
+    optional.add({"--genomediscoTmax"})
+        .type("int")
+        .default_value(std::int64_t{3})
+        .cpp_only("GenomeDISCO's --tmax, only for --method genomedisco: the last random-walk "
+                  "step. example_parameters.txt, the real tool's own recommended \"standard "
+                  "config\", uses tmin = tmax = 3.")
+        .help("Maximum number of random-walk steps for --method genomedisco (Default: "
+              "%(default)s).");
+    optional.add({"--genomediscoNoSubsample"})
+        .action(cli::Action::StoreTrue)
+        .cpp_only("GenomeDISCO's recommended \"standard config\" (example_parameters.txt) "
+                  "downsamples the higher-depth chromosome to the lower-depth one's total "
+                  "contacts before normalizing, binomially per stored entry; this flag turns "
+                  "that off. Uses std::mt19937_64, not numpy's Mersenne Twister, so the "
+                  "resampling procedure matches the real tool but not its exact draws.")
+        .help("Normalize by each chromosome's own total instead of downsampling to the lower "
+              "depth before computing --method genomedisco.");
 
     const cli::Namespace ns = parser.parse(argc, argv);
     if (const int refused = hicx::plot::preflight("hicCorrelate", !ns.given("plotData")); refused != 0) {
@@ -863,6 +1005,18 @@ int main(int argc, char** argv) {
             scc_options.max_distance_bp = ns.integer("sccMaxDistance");
             scc_options.downsample = ns.flag("sccDownsample");
             return run_scc(matrices, labels, chromosomes, scc_options, ns, plot_data);
+        } catch (const std::exception& error) {
+            std::fprintf(stderr, "hicCorrelate: %s\n", error.what());
+            return 1;
+        }
+    }
+    if (method == "genomedisco") {
+        try {
+            hicx::genomedisco::Options gd_options;
+            gd_options.tmin = static_cast<int>(ns.integer("genomediscoTmin"));
+            gd_options.tmax = static_cast<int>(ns.integer("genomediscoTmax"));
+            gd_options.subsample = !ns.flag("genomediscoNoSubsample");
+            return run_genomedisco(matrices, labels, chromosomes, gd_options, ns, plot_data);
         } catch (const std::exception& error) {
             std::fprintf(stderr, "hicCorrelate: %s\n", error.what());
             return 1;
