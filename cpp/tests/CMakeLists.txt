@@ -49,6 +49,7 @@ add_executable(hicx_tests
     test_scc.cpp
     test_genomedisco.cpp
     test_hicspector.cpp
+    test_quasar.cpp
     test_arrowhead.cpp
     # The computational cores of hicDetectLoops, of the two TAD statistics tools,
     # of hicCompartmentalization, of hicMergeDomains, of hicDifferentialAnalysis,
@@ -157,6 +158,17 @@ add_test(NAME hicCorrelate_genomedisco_cli
 # from a small checked-in fixture; see the script's header.
 add_test(NAME hicCorrelate_hicspector_cli
          COMMAND ${HICX_BASH} "${CMAKE_CURRENT_SOURCE_DIR}/cli/hicCorrelate_hicspector_cli.sh"
+                 $<TARGET_FILE:hicCorrelate> "${HICX_TEST_DATA}")
+
+# hicCorrelate --method quasar: QuASAR-Rep's replicate reproducibility
+# score, C++-only, no Python counterpart; checked here rather than through
+# cpp/scripts/equiv.py. hifive is Python 2 only and cannot be built/run
+# here, so the algorithm's own cross-check against the real compiled
+# hifive.libraries._quasar extension is on real GM12878/A549 data under an
+# external Python 2 environment, not reproducible from a small checked-in
+# fixture; see the script's header.
+add_test(NAME hicCorrelate_quasar_cli
+         COMMAND ${HICX_BASH} "${CMAKE_CURRENT_SOURCE_DIR}/cli/hicCorrelate_quasar_cli.sh"
                  $<TARGET_FILE:hicCorrelate> "${HICX_TEST_DATA}")
 
 # hicArrowhead (cpp/PLAN.md tier 9): Juicer/Juicebox's own Arrowhead

@@ -51,6 +51,7 @@ add_library(hicx4core
     src/plot_bridge.cpp
     src/genomedisco.cpp
     src/hicspector.cpp
+    src/quasar.cpp
     src/reduce_matrix.cpp
     src/resource_usage.cpp
     src/scc.cpp
