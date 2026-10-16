@@ -48,6 +48,7 @@ add_executable(hicx_tests
     test_detect_stripes.cpp
     test_scc.cpp
     test_genomedisco.cpp
+    test_hicspector.cpp
     test_arrowhead.cpp
     # The computational cores of hicDetectLoops, of the two TAD statistics tools,
     # of hicCompartmentalization, of hicMergeDomains, of hicDifferentialAnalysis,
@@ -146,6 +147,16 @@ add_test(NAME hicCorrelate_scc_cli
 # checked-in fixture; see the script's header.
 add_test(NAME hicCorrelate_genomedisco_cli
          COMMAND ${HICX_BASH} "${CMAKE_CURRENT_SOURCE_DIR}/cli/hicCorrelate_genomedisco_cli.sh"
+                 $<TARGET_FILE:hicCorrelate> "${HICX_TEST_DATA}")
+
+# hicCorrelate --method hicspector: HiC-Spector's spectral reproducibility
+# score, C++-only, no Python counterpart; checked here rather than through
+# cpp/scripts/equiv.py. The real tool's own Python reference needs nothing
+# but numpy/scipy (unlike genomedisco's), so it is run directly as this
+# port's own validation oracle on real GM12878/A549 data, not reproducible
+# from a small checked-in fixture; see the script's header.
+add_test(NAME hicCorrelate_hicspector_cli
+         COMMAND ${HICX_BASH} "${CMAKE_CURRENT_SOURCE_DIR}/cli/hicCorrelate_hicspector_cli.sh"
                  $<TARGET_FILE:hicCorrelate> "${HICX_TEST_DATA}")
 
 # hicArrowhead (cpp/PLAN.md tier 9): Juicer/Juicebox's own Arrowhead
