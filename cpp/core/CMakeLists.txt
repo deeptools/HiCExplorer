@@ -51,6 +51,7 @@ add_library(hicx4core
     src/plot_bridge.cpp
     src/reduce_matrix.cpp
     src/resource_usage.cpp
+    src/scc.cpp
     src/simd_reduce.cpp
     src/scipy_special.cpp
     src/scipy_stats.cpp

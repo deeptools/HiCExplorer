@@ -46,6 +46,7 @@ add_executable(hicx_tests
     test_aggregate_support.cpp
     test_diff_engine.cpp
     test_detect_stripes.cpp
+    test_scc.cpp
     # The computational cores of hicDetectLoops, of the two TAD statistics tools,
     # of hicCompartmentalization, of hicMergeDomains, of hicDifferentialAnalysis
     # and of hicDetectStripes, so that the tests link against exactly the
@@ -123,6 +124,15 @@ add_test(NAME hicPrepareQCreport_prettyReport_cli
 add_test(NAME hicPlotMatrix_triangle_cli
          COMMAND ${HICX_BASH} "${CMAKE_CURRENT_SOURCE_DIR}/cli/hicPlotMatrix_triangle_cli.sh"
                  $<TARGET_FILE:hicPlotMatrix> $<TARGET_FILE:hicSumMatrices> "${HICX_TEST_DATA}")
+
+# hicCorrelate --method scc (cpp/PLAN.md tier 7 extension): HiCRep's
+# stratum-adjusted correlation coefficient, C++-only, no Python counterpart;
+# checked here rather than through cpp/scripts/equiv.py. The algorithm's own
+# validation against the real hicrep 0.2.6 package is on real GM12878 data,
+# not reproducible from a small checked-in fixture; see the script's header.
+add_test(NAME hicCorrelate_scc_cli
+         COMMAND ${HICX_BASH} "${CMAKE_CURRENT_SOURCE_DIR}/cli/hicCorrelate_scc_cli.sh"
+                 $<TARGET_FILE:hicCorrelate> "${HICX_TEST_DATA}")
 
 # chicChicagoPlotViewpoint (no Python counterpart): the figure data from
 # --plotData, scores from the ported chicChicago tools on the fixture.

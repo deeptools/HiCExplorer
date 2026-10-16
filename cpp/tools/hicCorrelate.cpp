@@ -74,6 +74,7 @@
 #include "hicx/numpy_compat.hpp"
 #include "hicx/plot_bridge.hpp"
 #include "hicx/resource_usage.hpp"
+#include "hicx/scc.hpp"
 #include "hicx/sparse_matrix.hpp"
 #include "hicx/stats_ops.hpp"
 #include "hicx/tool_matrix.hpp"
@@ -95,7 +96,7 @@ const char* const kDescription =
 const char* const kUsage =
     "usage: hicCorrelate --matrices MATRICES [MATRICES ...] [--zMin ZMIN]\n"
     "                    [--zMax ZMAX] [--colorMap] [--plotNumbers]\n"
-    "                    [--method {pearson,spearman}] [--log1p]\n"
+    "                    [--method {pearson,spearman,scc}] [--log1p]\n"
     "                    [--labels sample1 sample2 [sample1 sample2 ...]]\n"
     "                    [--range RANGE] --outFileNameHeatmap OUTFILENAMEHEATMAP\n"
     "                    --outFileNameScatter OUTFILENAMESCATTER\n"
@@ -137,8 +138,12 @@ const char* const kHelp =
     "                        of the heatmap. (default: False)\n"
     "\n"
     "Optional arguments:\n"
-    "  --method {pearson,spearman}\n"
-    "                        Correlation method to use (Default: pearson).\n"
+    "  --method {pearson,spearman,scc}\n"
+    "                        Correlation method to use. 'scc' is HiCRep's stratum-\n"
+    "                        adjusted correlation coefficient (cpp_only, no\n"
+    "                        HiCExplorer Python counterpart); see\n"
+    "                        --sccSmoothWindow, --sccMaxDistance, --sccDownsample\n"
+    "                        (Default: pearson).\n"
     "  --log1p               If set, then the log1p of the matrix values is used.\n"
     "                        This parameter has no effect for Spearman correlations\n"
     "                        but changes the output of Pearson correlation and, for\n"
@@ -174,7 +179,19 @@ const char* const kHelp =
     "figures are drawn by the hicexplorer_plot drawing layer with the calls of the\n"
     "Python tool (HICX_PLOT_PYTHON names the interpreter). The C++-only option\n"
     "--plotData FILE writes the data of the figures as JSON to FILE (and the vectors\n"
-    "to FILE.npy) instead of drawing them.\n";
+    "to FILE.npy) instead of drawing them.\n"
+    "\n"
+    "--method scc (cpp_only): HiCRep's stratum-adjusted correlation coefficient,\n"
+    "reimplemented from the hicrep 0.2.6 Python package, not from the paper alone.\n"
+    "Per chromosome pair, it trims to the diagonals below --sccMaxDistance,\n"
+    "normalizes by each matrix's genome-wide total contacts (or downsamples with\n"
+    "--sccDownsample), optionally smooths with --sccSmoothWindow, and takes a\n"
+    "weighted correlation per genomic-distance stratum; the matrix pair's score is\n"
+    "the mean over its shared chromosomes, excluding \"M\"/\"MT\"/\"chrM\" unless\n"
+    "--chromosomes restricts the set. --log1p and --range do not apply to it.\n"
+    "Clustering and the heatmap work exactly as for pearson/spearman; there is no\n"
+    "scatter plot (no per-bin vectors survive the per-diagonal reduction), so\n"
+    "--outFileNameScatter is still required but left untouched.\n";
 
 class PythonError : public std::runtime_error {
   public:
@@ -199,6 +216,175 @@ struct SampleEntries {
 
 bool contains(const std::vector<std::string>& list, const std::string& value) {
     return std::find(list.begin(), list.end(), value) != list.end();
+}
+
+// hicrep.utils.getSubCoo for one chromosome: the upper-triangle entries
+// local to [first, last), diagonal dropped, row/column offset by `first`.
+hicx::scc::ChromosomeEntries extract_chromosome(const hicx::CsrMatrix& csr, std::int64_t first,
+                                                std::int64_t last) {
+    hicx::scc::ChromosomeEntries out;
+    out.nbins = last - first;
+    const auto& indptr = csr.indptr();
+    const auto& indices = csr.indices();
+    const auto& data = csr.data();
+    for (std::int64_t row = first; row < last; ++row) {
+        for (auto k = static_cast<std::size_t>(indptr[static_cast<std::size_t>(row)]);
+             k < static_cast<std::size_t>(indptr[static_cast<std::size_t>(row) + 1]); ++k) {
+            const std::int64_t col = indices[k];
+            if (col <= row || col >= last || data[k] == 0.0) {
+                continue;
+            }
+            out.rows.push_back(static_cast<std::int32_t>(row - first));
+            out.cols.push_back(static_cast<std::int32_t>(col - first));
+            out.values.push_back(data[k]);
+        }
+    }
+    return out;
+}
+
+// coolerInfo(cool, 'sum'): the total of every stored pixel in the whole
+// file, used by --method scc to normalize each matrix by its own total
+// contacts (hicrep's n1/n2), not by the chromosome's own total.
+double total_contacts(const hicx::CsrMatrix& csr) {
+    double total = 0.0;
+    for (const double v : csr.data()) {
+        total += v;
+    }
+    return total;
+}
+
+// --method scc: computes the symmetric matrix of pairwise SCC scores and
+// drives the same clustering/heatmap path pearson/spearman use, but bypasses
+// the "big" union-of-positions vector pipeline entirely (hicx::scc needs the
+// raw, per-chromosome upper-triangle matrix for diagonal banding and
+// smoothing, not a reduction to one value per stored position).
+// hicrep loads its input with cooler's balance=False (hicrep.utils.
+// cool2pixels): the raw stored pixel counts, with no ICE/KR correction
+// applied. ToolMatrix::load applies HiCExplorer's own default correction
+// (hicCorrelate's Python counterpart works on whatever hm.hiCMatrix(path)
+// gives, which is corrected by default for a cool file), so matching hicrep
+// needs its own, uncorrected load here instead. This also means --method
+// scc only accepts cool/mcool input, matching hicrep's own scope: an h5 or
+// .hic matrix is refused.
+struct RawCoolMatrix {
+    hicx::CsrMatrix matrix;
+    std::vector<hicx::CutInterval> cut_intervals;
+    std::vector<std::pair<std::string, hicx::BinRange>> boundaries;
+};
+
+RawCoolMatrix load_raw_cool(const std::string& path) {
+    if (!hicx::check_cooler(path)) {
+        throw PythonError("ValueError: --method scc only accepts cool/mcool input (hicrep's own "
+                          "scope); '" +
+                          path + "' is not a cooler file");
+    }
+    hicx::CoolLoadOptions options;
+    options.apply_correction = false;
+    hicx::CoolLoadResult loaded = hicx::read_cool(path, options);
+    RawCoolMatrix out;
+    out.matrix = std::move(loaded.data.matrix);
+    out.cut_intervals = std::move(loaded.data.cut_intervals);
+    out.boundaries = hicx::BinTable(out.cut_intervals).chrom_bin_boundaries();
+    return out;
+}
+
+int run_scc(const std::vector<std::string>& matrix_paths, const std::vector<std::string>& labels,
+           const std::optional<std::vector<std::string>>& chromosomes,
+           const hicx::scc::Options& scc_options, const cli::Namespace& ns,
+           const std::optional<std::string>& plot_data) {
+    const std::size_t num_files = matrix_paths.size();
+    std::vector<RawCoolMatrix> loaded;
+    loaded.reserve(num_files);
+    std::vector<double> totals(num_files, 0.0);
+    for (std::size_t i = 0; i < num_files; ++i) {
+        loaded.push_back(load_raw_cool(matrix_paths[i]));
+        totals[i] = total_contacts(loaded.back().matrix);
+    }
+
+    std::vector<double> results(num_files * num_files, 0.0);
+    for (std::size_t a = 0; a < num_files; ++a) {
+        results[a * num_files + a] = 1.0;
+        for (std::size_t b = a + 1; b < num_files; ++b) {
+            const auto& boundaries_a = loaded[a].boundaries;
+            const auto& boundaries_b = loaded[b].boundaries;
+            double sum = 0.0;
+            int count = 0;
+            for (const auto& [chrom, range_a] : boundaries_a) {
+                if (chromosomes.has_value()) {
+                    if (!contains(*chromosomes, chrom)) {
+                        continue;
+                    }
+                } else if (chrom == "M" || chrom == "MT" || chrom == "chrM") {
+                    continue;  // hicrep's own --excludeChr default
+                }
+                const auto it = std::find_if(boundaries_b.begin(), boundaries_b.end(),
+                                             [&](const auto& entry) { return entry.first == chrom; });
+                if (it == boundaries_b.end()) {
+                    continue;
+                }
+                const hicx::BinRange& range_b = it->second;
+                if (range_a.last - range_a.first != range_b.last - range_b.first) {
+                    throw PythonError("ValueError: chromosome " + chrom +
+                                      " has a different number of bins between the input "
+                                      "matrices");
+                }
+                const hicx::scc::ChromosomeEntries entries_a =
+                    extract_chromosome(loaded[a].matrix, range_a.first, range_a.last);
+                const hicx::scc::ChromosomeEntries entries_b =
+                    extract_chromosome(loaded[b].matrix, range_b.first, range_b.last);
+                const hicx::CutInterval& first_bin =
+                    loaded[a].cut_intervals[static_cast<std::size_t>(range_a.first)];
+                const std::int64_t bin_size = first_bin.end - first_bin.start;
+                const double chrom_scc = hicx::scc::chromosome_scc(
+                    entries_a, entries_b, totals[a], totals[b], bin_size, scc_options);
+                if (std::isfinite(chrom_scc)) {
+                    sum += chrom_scc;
+                    ++count;
+                }
+            }
+            results[a * num_files + b] =
+                count > 0 ? sum / count : std::numeric_limits<double>::quiet_NaN();
+        }
+    }
+    std::vector<double> symmetric = results;
+    for (std::size_t a = 0; a < num_files; ++a) {
+        for (std::size_t b = a + 1; b < num_files; ++b) {
+            symmetric[b * num_files + a] = results[a * num_files + b];
+        }
+    }
+    hicx::cluster::Samples observations;
+    observations.samples = static_cast<std::int64_t>(num_files);
+    observations.features = static_cast<std::int64_t>(num_files);
+    observations.values = symmetric;
+    const std::vector<double> linkage = hicx::cluster::detail::complete_linkage(observations);
+    const std::vector<std::int64_t> leaves =
+        hicx::cluster::detail::dendrogram_leaves(linkage, static_cast<std::int64_t>(num_files));
+
+    std::vector<std::string> result_rows;
+    for (std::size_t row = 0; row < num_files; ++row) {
+        result_rows.push_back(plot::json_numbers(std::vector<double>(
+            results.begin() + static_cast<std::ptrdiff_t>(row * num_files),
+            results.begin() + static_cast<std::ptrdiff_t>((row + 1) * num_files))));
+    }
+    plot::JsonObject data;
+    data.add("outFileNameHeatmap", plot::json_string(ns.str("outFileNameHeatmap")));
+    data.add("outFileNameScatter", plot::json_string(ns.str("outFileNameScatter")));
+    data.add("labels", plot::json_strings(labels));
+    data.add("method", plot::json_string("scc"));
+    data.add("log1p", plot::json_bool(false));
+    const std::optional<double> z_min = ns.opt_real("zMin");
+    const std::optional<double> z_max = ns.opt_real("zMax");
+    data.add("zMin", z_min.has_value() ? plot::json_number(*z_min) : "null");
+    data.add("zMax", z_max.has_value() ? plot::json_number(*z_max) : "null");
+    data.add("colorMap", plot::json_string(ns.str("colorMap")));
+    data.add("plotNumbers", plot::json_bool(ns.flag("plotNumbers")));
+    data.add("results", plot::json_list(result_rows));
+    data.add("linkage", plot::json_numbers(linkage));
+    data.add("leaves", plot::json_ints(leaves));
+    data.add("skipScatter", plot::json_bool(true));
+
+    hicx::report_resource_usage("hicCorrelate");
+    return plot::draw("hicCorrelate", data.str(), plot_data);
 }
 
 SampleEntries load_sample(const std::string& path,
@@ -581,9 +767,11 @@ int main(int argc, char** argv) {
         .help("If set, then the correlation number is plotted on top of the heatmap.");
     cli::ArgumentGroup& optional = parser.group("Optional arguments");
     optional.add({"--method"})
-        .choices({"pearson", "spearman"})
+        .choices({"pearson", "spearman", "scc"})
         .default_value("pearson")
-        .help("Correlation method to use (Default: %(default)s).");
+        .help("Correlation method to use. 'scc' is HiCRep's stratum-adjusted correlation "
+              "coefficient (cpp_only, no HiCExplorer Python counterpart); see "
+              "--sccSmoothWindow, --sccMaxDistance, --sccDownsample (Default: %(default)s).");
     optional.add({"--log1p"})
         .action(cli::Action::StoreTrue)
         .help("If set, then the log1p of the matrix values is used.");
@@ -615,6 +803,31 @@ int main(int argc, char** argv) {
                   "drawing them (cpp/PLAN.md tier 7).")
         .help("Write the data the figures are drawn from as JSON to this file and do not draw "
               "them.");
+    optional.add({"--sccSmoothWindow"})
+        .type("int")
+        .default_value(std::int64_t{0})
+        .cpp_only("hicrep 0.2.6's --h: half-size of its edge-corrected 2D mean filter, applied "
+                  "only for --method scc. 0 (the default here) disables smoothing; hicrep "
+                  "itself requires an explicit value and suggests roughly 200000 / bin size, "
+                  "e.g. --binSize=10000 --sccSmoothWindow=20, 25000/10, 40000/5 (hicrep's own "
+                  "--help text; not guaranteed outside those bin sizes).")
+        .help("Half-size of the 2D mean filter used to smooth the matrices before computing "
+              "--method scc (Default: %(default)s).");
+    optional.add({"--sccMaxDistance"})
+        .type("int")
+        .default_value(std::int64_t{-1})
+        .cpp_only("hicrep's --dBPMax, only for --method scc. -1 (the default here) uses every "
+                  "diagonal of the chromosome. The original HiCRep paper used 5000000 for the "
+                  "human genome.")
+        .help("Only consider --method scc contacts at most this many bp from the diagonal "
+              "(Default: %(default)s, the whole chromosome).");
+    optional.add({"--sccDownsample"})
+        .action(cli::Action::StoreTrue)
+        .cpp_only("hicrep's --bDownSample, only for --method scc: downsample the matrix with "
+                  "more contacts to the other's total instead of normalizing each by its own "
+                  "total. Uses std::mt19937_64, not numpy's Mersenne Twister, so the "
+                  "resampling procedure matches hicrep but not its exact draws.")
+        .help("Downsample instead of normalize before computing --method scc.");
 
     const cli::Namespace ns = parser.parse(argc, argv);
     if (const int refused = hicx::plot::preflight("hicCorrelate", !ns.given("plotData")); refused != 0) {
@@ -642,6 +855,19 @@ int main(int argc, char** argv) {
         ns.given("chromosomes") ? std::optional(ns.strs("chromosomes")) : std::nullopt;
     const std::optional<std::string> range = ns.opt_str("range");
     const std::optional<std::string> plot_data = ns.opt_str("plotData");
+
+    if (method == "scc") {
+        try {
+            hicx::scc::Options scc_options;
+            scc_options.h = static_cast<int>(ns.integer("sccSmoothWindow"));
+            scc_options.max_distance_bp = ns.integer("sccMaxDistance");
+            scc_options.downsample = ns.flag("sccDownsample");
+            return run_scc(matrices, labels, chromosomes, scc_options, ns, plot_data);
+        } catch (const std::exception& error) {
+            std::fprintf(stderr, "hicCorrelate: %s\n", error.what());
+            return 1;
+        }
+    }
 
     try {
         const std::size_t num_files = matrices.size();
