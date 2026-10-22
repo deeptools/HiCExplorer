@@ -751,7 +751,7 @@ EigenResult eigenvectors_dsyevr(DenseSymmetric& covariance, const std::vector<in
 
 DenseCorrelationRows::DenseCorrelationRows(const CsrMatrix& matrix,
                                            std::vector<BinRange> blocks, Kind kind,
-                                           int threads)
+                                           int threads, DenseBlocks dense_blocks)
     : matrix_(&matrix), n_(matrix.rows()), kind_(kind), blocks_(std::move(blocks)) {
     require_full_square(matrix, "DenseCorrelationRows");
 
@@ -817,6 +817,48 @@ DenseCorrelationRows::DenseCorrelationRows(const CsrMatrix& matrix,
         }
     }
 
+    // Dense block mode, decided per block from the cost of the sparse
+    // accumulation, sum over the block's rows k of nnz_b(k)^2, against the
+    // nb^3 / 64 threshold described in the header.
+    dense_.resize(blocks_.size());
+    if (dense_blocks != DenseBlocks::Never) {
+        bool any_dense = false;
+        for (std::size_t b = 0; b < blocks_.size(); ++b) {
+            const BinRange& range = blocks_[b];
+            const std::int64_t nb = range.last - range.first;
+            if (nb < 64 || nb > kMaxDenseBlockBins) {
+                continue;
+            }
+            double sparse_cost = 0.0;
+            bool finite = true;
+            for (std::int64_t i = range.first; i < range.last && finite; ++i) {
+                const auto row_begin = indices.begin() + indptr[static_cast<std::size_t>(i)];
+                const auto row_end = indices.begin() + indptr[static_cast<std::size_t>(i) + 1];
+                const auto first = std::lower_bound(row_begin, row_end,
+                                                    static_cast<std::int32_t>(range.first));
+                const auto last =
+                    std::lower_bound(first, row_end, static_cast<std::int32_t>(range.last));
+                const double count = static_cast<double>(last - first);
+                sparse_cost += count * count;
+                for (auto it = first; it != last; ++it) {
+                    if (!std::isfinite(data[static_cast<std::size_t>(it - indices.begin())])) {
+                        finite = false;
+                        break;
+                    }
+                }
+            }
+            const double dense_cost = static_cast<double>(nb) * static_cast<double>(nb) *
+                                      static_cast<double>(nb) / 64.0;
+            if (finite && (dense_blocks == DenseBlocks::Always || sparse_cost >= dense_cost)) {
+                dense_[b] = std::make_unique<DenseBlock>();
+                any_dense = true;
+            }
+        }
+        if (any_dense) {
+            pin_blas_to_one_thread();
+        }
+    }
+
     if (kind_ != Kind::Pearson) {
         return;
     }
@@ -870,6 +912,30 @@ void DenseCorrelationRows::fill_covariance_row(std::int64_t i, double* out) cons
     const std::vector<double>& data = matrix_->data();
 
     double* accumulator = out + range.first;
+    if (DenseBlock* dense = dense_[static_cast<std::size_t>(block)].get()) {
+        std::shared_ptr<const std::vector<double>> gram;
+        {
+            const std::lock_guard<std::mutex> lock(dense->mutex);
+            if (!dense->gram) {
+                dense->gram = build_gram(static_cast<std::size_t>(block));
+            }
+            gram = dense->gram;
+        }
+        std::memcpy(accumulator,
+                    gram->data() + static_cast<std::size_t>((i - range.first) * nb),
+                    static_cast<std::size_t>(nb) * sizeof(double));
+        {
+            const std::lock_guard<std::mutex> lock(dense->mutex);
+            if (++dense->served == nb) {
+                dense->gram.reset();
+                dense->served = 0;
+            }
+        }
+        covariance_row_finalise(accumulator, accumulator, means_.data() + range.first,
+                                means_[static_cast<std::size_t>(i)], dnb, inverse,
+                                static_cast<std::size_t>(nb));
+        return;
+    }
     const std::size_t begin = static_cast<std::size_t>(indptr[static_cast<std::size_t>(i)]);
     const std::size_t end = static_cast<std::size_t>(indptr[static_cast<std::size_t>(i) + 1]);
     const bool whole_matrix = range.first == 0 && range.last == n_;
@@ -919,6 +985,50 @@ void DenseCorrelationRows::fill_covariance_row(std::int64_t i, double* out) cons
     covariance_row_finalise(accumulator, accumulator, means_.data() + range.first,
                             means_[static_cast<std::size_t>(i)], dnb, inverse,
                             static_cast<std::size_t>(nb));
+}
+
+std::shared_ptr<const std::vector<double>> DenseCorrelationRows::build_gram(
+    std::size_t b) const {
+    const std::lock_guard<std::mutex> build_lock(*build_mutex_);
+    const BinRange& range = blocks_[b];
+    const std::int64_t nb = range.last - range.first;
+    const std::size_t size = static_cast<std::size_t>(nb) * static_cast<std::size_t>(nb);
+    const std::vector<std::int64_t>& indptr = matrix_->indptr();
+    const std::vector<std::int32_t>& indices = matrix_->indices();
+    const std::vector<double>& data = matrix_->data();
+
+    // The block, row-major. Read as a column-major array by dsyrk it is A_b^T,
+    // so the column-major C = A_b^T A_b, which for the symmetric block equals
+    // A_b A_b, the product the sparse accumulation forms row by row.
+    std::vector<double> block(size, 0.0);
+    for (std::int64_t i = range.first; i < range.last; ++i) {
+        double* row = block.data() + static_cast<std::size_t>((i - range.first) * nb);
+        const std::size_t begin = static_cast<std::size_t>(indptr[static_cast<std::size_t>(i)]);
+        const std::size_t end = static_cast<std::size_t>(indptr[static_cast<std::size_t>(i) + 1]);
+        for (std::size_t k = begin; k < end; ++k) {
+            const std::int64_t column = indices[k];
+            if (column < range.first) {
+                continue;
+            }
+            if (column >= range.last) {
+                break;
+            }
+            row[column - range.first] = data[k];
+        }
+    }
+    auto gram = std::make_shared<std::vector<double>>(size);
+    const int n = static_cast<int>(nb);
+    const double one = 1.0;
+    const double zero = 0.0;
+    dsyrk_("U", "N", &n, &n, &one, block.data(), &n, &zero, gram->data(), &n);
+    // The column-major upper triangle is the row-major lower one; mirror it.
+    double* g = gram->data();
+    for (std::int64_t r = 0; r < nb; ++r) {
+        for (std::int64_t c = r + 1; c < nb; ++c) {
+            g[static_cast<std::size_t>(r * nb + c)] = g[static_cast<std::size_t>(c * nb + r)];
+        }
+    }
+    return gram;
 }
 
 void DenseCorrelationRows::fill_row(std::int64_t i, double* out) const {
