@@ -1,7 +1,7 @@
 # Benchmarks
 
 HiCExplorer 4 was benchmarked against HiCExplorer 3.7.6 on real data: a full
-single-chromosome Hi-C matrix (`hicTADClassifier/gm12878_chr1.cool`, 24,926 bins, 61.8M nonzero pixels)
+single-chromosome Hi-C matrix (`gm12878_chr1.cool`, 24,926 bins, 61.8M nonzero pixels)
 for `hicDetectLoops`, `hicFindTADs` and `hicPCA`, a real paired-end Hi-C sequencing run for
 `hicBuildMatrix` (92.7M sequenced reads, DpnII digestion, 10 kb bins) and a real full-genome capture
 Hi-C dataset for CHiCAGO. Wall clock and peak resident set size (RSS) were captured with

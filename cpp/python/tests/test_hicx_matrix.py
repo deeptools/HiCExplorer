@@ -14,7 +14,7 @@ from support import TEST_DATA, assert_e2, data, import_hicx_matrix, run_oracle
 
 hicx_matrix = import_hicx_matrix()
 
-GM = "hicTADClassifier/gm12878_chr1.cool"
+GM = "gm12878_chr1.cool"
 KR = "hicCorrectMatrix/gm12878_KR.cool"
 LOOPS = "hicDetectLoops/GSE63525_GM12878_insitu_primary_2_5mb.cool"
 MCOOL = "hicBuildMatrix/multi_small_test_matrix.mcool"

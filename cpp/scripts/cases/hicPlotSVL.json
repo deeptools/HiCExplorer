@@ -339,7 +339,7 @@
     "tier": 3,
     "args": [
       "-m",
-      "{data}/hicTADClassifier/gm12878_chr1.cool",
+      "{data}/gm12878_chr1.cool",
       "-o",
       "{out}/p_values.txt",
       "-od",

@@ -85,8 +85,6 @@ nav:
           - hicDifferentialTAD: tools/hicDifferentialTAD.md
           - hicMergeTADbins: tools/hicMergeTADbins.md
           - hicInterIntraTAD: tools/hicInterIntraTAD.md
-          - hicTADClassifier: tools/hicTADClassifier.md
-          - hicTrainTADClassifier: tools/hicTrainTADClassifier.md
       - Visualization:
           - Overview: tools/visualization.md
           - hicPlotMatrix: tools/hicPlotMatrix.md

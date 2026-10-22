@@ -21,6 +21,7 @@ New tools:
 
 Removed:
 
+- `hicTADClassifier` and `hicTrainTADClassifier` are removed.
 - `hicPlotTADs` is removed because it only called pyGenomeTracks. Use `pyGenomeTracks` directly with the
   same track files (`pyGenomeTracks --tracks tracks.ini --region chr1:1000000-4000000 -o image.png`). See the
   [pyGenomeTracks documentation](https://pygenometracks.readthedocs.io).

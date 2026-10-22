@@ -90,7 +90,7 @@ CASES = [
               "--correctionMethod", "ICE", "--filterThreshold", "-1.5", "5.0",
               "--perchr", "-o", "{out}"]},
     {"id": "ICE.gm12878_chr1.cool", "class": "E3", "output": "out.cool", "large": True,
-     "args": ["correct", "-m", str(DATA / "hicTADClassifier/gm12878_chr1.cool"),
+     "args": ["correct", "-m", str(DATA / "gm12878_chr1.cool"),
               "--correctionMethod", "ICE", "--filterThreshold", "-1.5", "5",
               "-o", "{out}"]},
     # The float64 default cannot lie inside the oracle's envelope on this input,
@@ -98,10 +98,10 @@ CASES = [
     # more than its own spread. The EN comparison is therefore run in v3.
     {"id": "KR.gm12878_chr1.cool.v3", "class": "EN", "output": "out.cool", "large": True,
      "cpp_extra": ["--compatMode", "v3"],
-     "args": ["correct", "-m", str(DATA / "hicTADClassifier/gm12878_chr1.cool"),
+     "args": ["correct", "-m", str(DATA / "gm12878_chr1.cool"),
               "--correctionMethod", "KR", "-o", "{out}"]},
     {"id": "KR.gm12878_chr1.cool.v4", "class": "EN", "output": "out.cool", "large": True,
-     "args": ["correct", "-m", str(DATA / "hicTADClassifier/gm12878_chr1.cool"),
+     "args": ["correct", "-m", str(DATA / "gm12878_chr1.cool"),
               "--correctionMethod", "KR", "-o", "{out}"]},
 ]
 
