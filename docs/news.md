@@ -29,7 +29,10 @@ Removed:
 New options and features:
 
 - `hicConvertFormat` reads CHiCAGO `.chinput` files (`--inputFormat chinput`, with `--rmap`), reads `.hic`
-  files of versions 6 to 9 and writes `.hic` files of versions 8 and 9 (`--outputFormat hic`).
+  files of versions 6 to 9 and writes `.hic` files of versions 8 and 9 (`--outputFormat hic`). A cool or
+  mcool file is converted to `.hic` by streaming its pixels with hicxchange's cool2hic, with raw counts as
+  pixels; `--hicNormalizations auto`, the default, keeps the normalization vectors the file stores and
+  computes VC, VC_SQRT, KR and SCALE only when it stores none.
 - `hicPlotMatrix --matrix2` draws two matrices as the upper and lower triangle of one heatmap.
 - `hicPCA --eigenSolver lanczos` computes the eigenvectors of large matrices with less time and memory.
 - `hicDifferentialTAD` and `chicSignificantInteractions` accept `--correctForMultipleTesting` and

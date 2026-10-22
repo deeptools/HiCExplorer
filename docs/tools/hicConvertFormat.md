@@ -14,7 +14,7 @@ usage: hicConvertFormat --matrices MATRICES [MATRICES ...] --outFileName
                         [--help] [--chromosomeSizes txt file] [--version]
                         [--bedFileHicpro BEDFILEHICPRO [BEDFILEHICPRO ...]]
                         [--hicVersion {8,9}]
-                        [--hicNormalizations {VC,VC_SQRT,KR,SCALE,none} [{VC,VC_SQRT,KR,SCALE,none} ...]]
+                        [--hicNormalizations {auto,VC,VC_SQRT,KR,SCALE,none} [{auto,VC,VC_SQRT,KR,SCALE,none} ...]]
                         [--threads THREADS]
 ```
 
@@ -36,7 +36,7 @@ Conversion of Hi-C matrices of different file formats. We support the conversion
 | `--correction_name CORRECTION_NAME` | Name of the column which stores the correction factors. Option only for cool input files. (Default: weight). |
 | `--correction_division` | If set, division is applied for correction. |
 | `--store_applied_correction` | Store the applied correction and do not set correction factors. |
-| `--chromosome CHROMOSOME` | Load only one chromosome. |
+| `--chromosome CHROMOSOME` | Load only one chromosome. Option only for cool input files; the other input formats ignore it. |
 | `--enforce_integer` | Enforce datatype of counts to integer. |
 | `--load_raw_values` | Load only 'count' data and do not apply a correction. |
 | `--resolutions RESOLUTIONS [RESOLUTIONS ...], -r RESOLUTIONS [RESOLUTIONS ...]` | List of resolutions that should be added. |
@@ -45,9 +45,9 @@ Conversion of Hi-C matrices of different file formats. We support the conversion
 | `--version` | show program's version number and exit |
 | `--bedFileHicpro BEDFILEHICPRO [BEDFILEHICPRO ...], -bf BEDFILEHICPRO [BEDFILEHICPRO ...]` | Bed file(s) of hicpro file format. |
 | `--hicVersion {8,9}` | Version of a .hic output file. (Default: 8). |
-| `--hicNormalizations {VC,VC_SQRT,KR,SCALE,none} [{VC,VC_SQRT,KR,SCALE,none} ...]` | Normalizations a .hic output file stores, computed as Juicer tools addNorm does. (Default: VC VC_SQRT KR SCALE). |
+| `--hicNormalizations {auto,VC,VC_SQRT,KR,SCALE,none} [{auto,VC,VC_SQRT,KR,SCALE,none} ...]` | Normalizations a .hic output file stores. `auto`: the normalization vectors a cool or mcool input stores in its bins table (VC, KR, SCALE and the other Juicer names, or every column of a file written by hic2cool; never cooler's `weight`), or VC, VC_SQRT, KR and SCALE computed as Juicer tools addNorm does when it stores none. `VC`, `VC_SQRT`, `KR`, `SCALE`: compute these. `none`: no normalization. (Default: auto). |
 | `--rmap RMAP [RMAP ...]` | C++-only. CHiCAGO `.rmap` file(s) that define the bins of a `chinput` input, one per input. |
-| `--threads THREADS` | Threads for compressing a .hic output file; the file does not depend on the number. (Default: 1). |
+| `--threads THREADS` | Threads for writing a .hic output file; the file does not depend on the number. (Default: 1). |
 
 ## Notes
 
@@ -109,6 +109,32 @@ The cool data format allows to use the following options:
 ```bash
 $ hicConvertFormat -m matrix.cool --inputFormat cool --outputFormat cool -o matrix.cool --correction_name KR
 ```
+##### cool to hic
+
+`--outputFormat hic` writes a Juicer `.hic` file of version 8 or 9 (`--hicVersion`). A cool or mcool input
+is converted with the cool2hic converter of hicxchange (the C++ hic2cool library), which
+reads the pixel table one chromosome pair at a time instead of loading the whole matrix. An mcool file is
+written with all its resolutions, or with those listed in `--resolutions`; for a single cool file,
+`--resolutions` adds coarser resolutions binned from it.
+
+The pixels of the `.hic` file are the raw counts. The `weight` column of a balanced cool file is neither
+applied to them nor written as a normalization vector, because `.hic` files name their vectors by Juicer
+normalization type, and hic2cool would turn a vector named `weight` back into a `weight` column that holds
+the inverse of cooler's weights. With the default `--hicNormalizations auto`, the normalization vectors
+stored in the bins table (for example the KR, VC and VC_SQRT columns of a file written by hic2cool) are
+carried into the `.hic` file at the stored resolutions, and when there are none, VC, VC_SQRT, KR and
+SCALE are computed at every resolution. `--hicNormalizations KR SCALE` computes the listed ones instead.
+The options `--correction_name`, `--correction_division`, `--store_applied_correction` and
+`--load_raw_values` have no effect on `.hic` output.
+
+```bash
+$ hicConvertFormat -m matrix.mcool --inputFormat cool --outputFormat hic -o matrix.hic --hicVersion 9 --threads 8
+```
+
+Two cases load the matrix instead: inputs in the other formats (h5, homer, HiC-Pro, 2D-text, chinput),
+and a cool input given with `--chromosome` or several, but not all, resolutions of an mcool file. Such a
+matrix stores no vectors, so `auto` computes the four.
+
 ##### Homer
 
 [Homer](http://homer.ucsd.edu/homer/index.html) is a software for 'motif discovery and next generation sequencing analysis' and supports Hi-C. HiCExplorer is able to read and write the interaction matrix from Homer. Homer stores the interaction matrix in a simple text file as a dense matrix. To write 

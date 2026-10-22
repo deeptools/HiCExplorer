@@ -23,11 +23,20 @@
 //     other formats convert the single resolution in --resolutions into a
 //     temporary cool file with hic2cool and continue as --inputFormat cool,
 //     which is the Python route in two steps.
-//   * --outputFormat hic, also beyond the Python, writes the loaded matrix as
-//     a Juicer .hic file of version --hicVersion with the normalizations of
-//     --hicNormalizations; coarser --resolutions are binned from the matrix.
-//     A cool file with a /resolutions group given to --inputFormat cool is
-//     written with every resolution, or with those in --resolutions.
+//   * --outputFormat hic, also beyond the Python, writes a Juicer .hic file
+//     of version --hicVersion. A cool or mcool input is streamed through
+//     hic2cool's cool2hic (hicx::cool_to_hic) without loading the matrix:
+//     raw counts, the stored normalization vectors carried and the Juicer
+//     ones computed only when none are stored (--hicNormalizations auto, the
+//     default), coarser --resolutions binned from it; an mcool file is
+//     written with every resolution group or with those in --resolutions.
+//     cooler's balancing weight is never applied to the pixels and not
+//     written as a vector: the .hic format names its vectors by Juicer
+//     normalization type, and hic2cool would turn a vector named 'weight'
+//     back into a bins/weight column holding the inverse of cooler's
+//     weights, which every HiCExplorer tool would apply. Other inputs, and a
+//     cool input cut to one --chromosome, are loaded and written by
+//     hicx::write_hic, which computes the normalizations.
 //
 //   * --inputFormat chinput (cpp/PLAN.md 9.15's CHiCAGO tools), beyond the
 //     Python: writes the real Hi-C matrix a CHiCAGO .chinput file's rows
@@ -35,11 +44,9 @@
 //     hicx::chicago::matrix_from_chinput, the reverse direction of
 //     chicChicagoBackgroundModel/chicChicagoScores' own --matrices option.
 //
-// Not supported, and refused rather than half done:
-//
-//   * --chromosome. Loading a single chromosome out of a cooler is a distinct
-//     cooler code path (cool.py:119-151) that the C++ cool reader does not
-//     have yet.
+// --chromosome loads one chromosome of a cool input through read_cool's
+// chrom_name, which is hicmatrix's chrnameList path (cool.py:119-161); as in
+// the Python, the other input formats ignore it.
 //
 // Defects reproduced on purpose, each pinned by
 // hicexplorer/test/general/test_hicConvertFormat.py:
@@ -96,8 +103,8 @@ const char* const kUsage =
     "                        [--bedFileHicpro BEDFILEHICPRO [BEDFILEHICPRO ...]]\n"
     "                        [--rmap RMAP [RMAP ...]]\n"
     "                        [--hicVersion {8,9}]\n"
-    "                        [--hicNormalizations {VC,VC_SQRT,KR,SCALE,none} "
-    "[{VC,VC_SQRT,KR,SCALE,none} ...]]\n"
+    "                        [--hicNormalizations {auto,VC,VC_SQRT,KR,SCALE,none} "
+    "[{auto,VC,VC_SQRT,KR,SCALE,none} ...]]\n"
     "                        [--threads THREADS]\n";
 
 const char* const kHelp =
@@ -157,11 +164,17 @@ const char* const kHelp =
     "                        from this file, the .chinput file only supplies the\n"
     "                        matrix values.\n"
     "  --hicVersion {8,9}    Version of a .hic output file. (Default: 8).\n"
-    "  --hicNormalizations {VC,VC_SQRT,KR,SCALE,none} [{VC,VC_SQRT,KR,SCALE,none} ...]\n"
-    "                        Normalizations a .hic output file stores, computed\n"
-    "                        as Juicer tools addNorm does. (Default: VC VC_SQRT KR\n"
-    "                        SCALE).\n"
-    "  --threads THREADS     Threads for compressing a .hic output file; the file\n"
+    "  --hicNormalizations {auto,VC,VC_SQRT,KR,SCALE,none} [{auto,VC,VC_SQRT,KR,SCALE,none} ...]\n"
+    "                        Normalizations a .hic output file stores. auto: the\n"
+    "                        normalization vectors a cool or mcool input stores\n"
+    "                        in its bins table (VC, KR, SCALE and the other\n"
+    "                        Juicer names, or every column of a file hic2cool\n"
+    "                        wrote; never cooler's weight), or VC, VC_SQRT, KR\n"
+    "                        and SCALE computed as Juicer tools addNorm does when\n"
+    "                        it stores none. VC, VC_SQRT, KR, SCALE: compute\n"
+    "                        these. none: no normalization. The pixels are the\n"
+    "                        raw counts. (Default: auto).\n"
+    "  --threads THREADS     Threads for writing a .hic output file; the file\n"
     "                        does not depend on the number. (Default: 1).\n";
 
 struct Arguments {
@@ -180,7 +193,7 @@ struct Arguments {
     bool enforce_integer = false;
     bool load_raw_values = false;
     std::string hic_version = "8";
-    std::vector<std::string> hic_normalizations{"VC", "VC_SQRT", "KR", "SCALE"};
+    std::vector<std::string> hic_normalizations{"auto"};
     bool hic_normalizations_seen = false;
     std::string threads = "1";
 };
@@ -303,16 +316,19 @@ Arguments parse_arguments(int argc, char** argv) {
         .help("Version of a .hic output file.");
     optional.add({"--hicNormalizations"})
         .nargs("+")
-        .choices({"VC", "VC_SQRT", "KR", "SCALE", "none"})
-        .default_value(json::Value::array({json::Value::string("VC"), json::Value::string("VC_SQRT"),
-                                           json::Value::string("KR"), json::Value::string("SCALE")}))
+        .choices({"auto", "VC", "VC_SQRT", "KR", "SCALE", "none"})
+        .default_value(json::Value::array({json::Value::string("auto")}))
         .cpp_only("The Python cannot write .hic files.")
-        .help("Normalizations a .hic output file stores, computed as Juicer tools addNorm does.");
+        .help("Normalizations a .hic output file stores. auto: the normalization vectors a cool "
+              "or mcool input stores in its bins table (VC, KR, SCALE and the other Juicer "
+              "names, or every column of a hic2cool file; never cooler's weight), and VC, "
+              "VC_SQRT, KR and SCALE computed as Juicer tools addNorm does when it stores none. "
+              "VC, VC_SQRT, KR, SCALE: compute these. none: no normalization.");
     optional.add({"--threads"})
         .type("int")
         .default_value(1)
-        .cpp_only("Threads for compressing a .hic output file, which the Python cannot write.")
-        .help("Threads for compressing a .hic output file; the file does not depend on the number.");
+        .cpp_only("Threads for writing a .hic output file, which the Python cannot write.")
+        .help("Threads for writing a .hic output file; the file does not depend on the number.");
 
     const cli::Namespace ns = parser.parse(argc, argv);
     Arguments args;
@@ -333,6 +349,9 @@ Arguments parse_arguments(int argc, char** argv) {
     args.hic_version = ns.str("hicVersion");
     args.hic_normalizations = ns.strs("hicNormalizations");
     args.hic_normalizations_seen = ns.given("hicNormalizations");
+    if (one_of("auto", args.hic_normalizations) && args.hic_normalizations.size() > 1) {
+        argument_error("argument --hicNormalizations: auto cannot be combined with other values");
+    }
     const std::int64_t threads = ns.integer("threads");
     if (threads < 1 || threads > 1024) {
         argument_error("argument --threads: invalid value: '" + ns.str("threads") + "'");
@@ -372,6 +391,12 @@ Loaded load_input(const Arguments& args, std::size_t index) {
         options.apply_correction = !args.load_raw_values;
         if (args.correction_division) {
             options.correction_operator = '/';
+        }
+        if (!args.chromosome.empty()) {
+            // Cool.chrnameList with the one name (hicConvertFormat.py:231-240):
+            // that chromosome's block, bins and weights only. The other input
+            // formats ignore the option, as their hicmatrix loaders do.
+            options.chrom_name = args.chromosome;
         }
         hicx::CoolLoadResult result = hicx::read_cool(matrix, options);
         loaded.data = std::move(result.data);
@@ -534,56 +559,126 @@ std::vector<std::string> mcool_resolutions(const std::string& path) {
     return groups;
 }
 
-// --outputFormat hic.
-int run_hic_output(const Arguments& args) {
+// --hicNormalizations as cool2hic's normalization mode: "auto", "none", or
+// the comma separated names to compute, in Juicer's order.
+std::string normalization_mode(const Arguments& args) {
+    if (one_of("none", args.hic_normalizations)) {
+        return "none";
+    }
+    if (one_of("auto", args.hic_normalizations)) {
+        return "auto";
+    }
+    std::string names;
+    for (const auto& norm : {"VC", "VC_SQRT", "KR", "SCALE"}) {
+        if (one_of(norm, args.hic_normalizations)) {
+            names += (names.empty() ? "" : ",") + std::string(norm);
+        }
+    }
+    return names;
+}
+
+// The options of hicx::write_hic, the route of a loaded matrix, which stores
+// no vectors, so auto computes all four.
+hicx::HicWriteOptions write_options(const Arguments& args, const std::string& mode) {
     hicx::HicWriteOptions options;
     options.version = std::stoi(args.hic_version);
     options.threads = static_cast<int>(std::stoll(args.threads));
     options.normalizations.clear();
-    if (!one_of("none", args.hic_normalizations)) {
+    if (mode == "auto") {
+        options.normalizations = {"VC", "VC_SQRT", "KR", "SCALE"};
+    } else if (mode != "none") {
         for (const auto& norm : {"VC", "VC_SQRT", "KR", "SCALE"}) {
             if (one_of(norm, args.hic_normalizations)) {
                 options.normalizations.emplace_back(norm);
             }
         }
     }
+    return options;
+}
+
+// --outputFormat hic.
+//
+// A cool or mcool input goes through hic2cool's cool2hic (hicx::cool_to_hic),
+// which streams the pixel table, carries stored normalization vectors and
+// computes the others; the pixels are the raw counts. Every other input (and
+// a cool input cut to one --chromosome) is loaded as a matrix and written by
+// hicx::write_hic, which computes the normalizations.
+int run_hic_output(const Arguments& args) {
+    const std::string mode = normalization_mode(args);
     std::vector<std::int64_t> resolutions;
     for (const auto& text : args.resolutions) {
         resolutions.push_back(std::stoll(text));
     }
+    const bool stream = args.input_format == "cool" && args.chromosome.empty();
     for (std::size_t i = 0; i < args.matrices.size(); ++i) {
-        std::vector<Loaded> loaded;
-        std::vector<std::int64_t> extra = resolutions;
-        const std::vector<std::string> groups =
-            args.input_format == "cool" ? mcool_resolutions(args.matrices[i])
-                                        : std::vector<std::string>{};
-        if (!groups.empty()) {
+        if (!stream && args.input_format == "cool" && !mcool_resolutions(args.matrices[i]).empty()) {
+            return reject("--chromosome with --outputFormat hic takes one resolution of a multi "
+                          "resolution cool file, given as " + args.matrices[i] +
+                          "::/resolutions/<resolution>.");
+        }
+        if (stream) {
+            hicx::CoolToHicOptions options;
+            options.version = std::stoi(args.hic_version);
+            options.threads = static_cast<int>(std::stoll(args.threads));
+            options.normalizations = mode;
+            const std::vector<std::string> groups = mcool_resolutions(args.matrices[i]);
+            std::vector<std::int64_t> chosen;
             for (const auto& group : groups) {
-                if (!resolutions.empty() &&
-                    std::find(resolutions.begin(), resolutions.end(), std::stoll(group)) ==
-                        resolutions.end()) {
-                    continue;
+                if (resolutions.empty() || std::find(resolutions.begin(), resolutions.end(),
+                                                     std::stoll(group)) != resolutions.end()) {
+                    chosen.push_back(std::stoll(group));
                 }
-                Arguments single = args;
-                single.matrices = {args.matrices[i] + "::/resolutions/" + group};
-                loaded.push_back(load_input(single, 0));
             }
-            if (loaded.empty()) {
+            if (!groups.empty() && chosen.empty()) {
                 return reject("None of --resolutions is a resolution of " + args.matrices[i]);
             }
-            extra.clear();
-        } else {
-            loaded.push_back(load_input(args, i));
+            if (chosen.size() > 1 && chosen.size() < groups.size()) {
+                // cool2hic writes every group of an mcool file or one of
+                // them; a subset of several groups is loaded and written by
+                // write_hic below.
+                std::vector<Loaded> loaded;
+                for (const std::int64_t group : chosen) {
+                    Arguments single = args;
+                    single.matrices = {args.matrices[i] + "::/resolutions/" + std::to_string(group)};
+                    single.load_raw_values = true;
+                    loaded.push_back(load_input(single, 0));
+                }
+                hicx::HicWriteOptions written = write_options(args, mode);
+                const auto assembly = loaded.front().metadata.find("genome-assembly");
+                if (assembly != loaded.front().metadata.end() && !assembly->second.empty()) {
+                    written.genome = assembly->second;
+                }
+                std::vector<const hicx::MatrixData*> matrices;
+                for (const auto& entry : loaded) {
+                    matrices.push_back(&entry.data);
+                }
+                hicx::write_hic(args.out_file_names[i], matrices, {}, written);
+                continue;
+            }
+            if (groups.empty()) {
+                options.add_resolutions = resolutions;
+            } else if (chosen.size() == 1 && groups.size() > 1) {
+                options.resolution = chosen.front();
+            }
+            try {
+                hicx::cool_to_hic(args.matrices[i], args.out_file_names[i], options);
+            } catch (const hicx::Hic2coolExit& exit) {
+                std::fprintf(stderr, "%s\n", exit.what());
+                return 1;
+            }
+            continue;
         }
-        const auto assembly = loaded.front().metadata.find("genome-assembly");
-        if (assembly != loaded.front().metadata.end() && !assembly->second.empty()) {
+        hicx::HicWriteOptions options = write_options(args, mode);
+        Arguments raw = args;
+        // The pixels of a .hic file are raw counts; a cool input's weights
+        // are not applied to them.
+        raw.load_raw_values = true;
+        Loaded loaded = load_input(raw, i);
+        const auto assembly = loaded.metadata.find("genome-assembly");
+        if (assembly != loaded.metadata.end() && !assembly->second.empty()) {
             options.genome = assembly->second;
         }
-        std::vector<const hicx::MatrixData*> matrices;
-        for (const auto& entry : loaded) {
-            matrices.push_back(&entry.data);
-        }
-        hicx::write_hic(args.out_file_names[i], matrices, extra, options);
+        hicx::write_hic(args.out_file_names[i], {&loaded.data}, resolutions, options);
     }
     return 0;
 }
@@ -600,10 +695,17 @@ int run(const Arguments& args) {
     if (args.input_format == "hic") {
         return run_hic_input(args);
     }
-    if (!args.chromosome.empty()) {
-        return reject("--chromosome is not supported yet: loading a single "
-                      "chromosome out of a cooler is a distinct cooler code path "
-                      "that the C++ cool reader does not have.");
+    if (!args.chromosome.empty() && args.input_format == "cool" &&
+        args.chromosome.find(':') == std::string::npos) {
+        // cooler's fetch raises ValueError on an unknown name; hicmatrix logs
+        // it and the load then fails, exit status 1 (cool.py:146-148).
+        for (const auto& matrix : args.matrices) {
+            const hicx::CoolFile cool(matrix);
+            if (!one_of(args.chromosome, cool.chrom_names())) {
+                report("ERROR", "Wrong chromosome format. Please check UCSC / ensembl notation.");
+                return reject("Error: Unknown sequence label: " + args.chromosome);
+            }
+        }
     }
 
     const bool format_was_h5 = args.input_format == "h5";
