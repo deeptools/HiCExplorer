@@ -1,0 +1,63 @@
+[
+  {
+    "id": "ext.hicSumMatrices.gm12878_r8_r12_25kb_chr19-22",
+    "tool": "hicSumMatrices",
+    "tier": 1,
+    "args": [
+      "-m",
+      "{data}/derived/matrix/gm12878_ENCSR946AKI_r8_25kb_chr19-22.cool",
+      "{data}/derived/matrix/gm12878_ENCSR946AKI_r12_25kb_chr19-22.cool",
+      "-o",
+      "{out}/sum.cool"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/sum.cool",
+        "format": "cool",
+        "class": "E1"
+      }
+    ],
+    "notes": "ENCODE ENCSR946AKI GM12878 replicates 8 + 12, 25 kb, chr19 to chr22 (step 1)."
+  },
+  {
+    "id": "ext.hicSumMatrices.gm12878_r8_r12_25kb_chr19-22.h5",
+    "tool": "hicSumMatrices",
+    "tier": 1,
+    "args": [
+      "-m",
+      "{data}/derived/matrix/gm12878_ENCSR946AKI_r8_25kb_chr19-22.h5",
+      "{data}/derived/matrix/gm12878_ENCSR946AKI_r12_25kb_chr19-22.h5",
+      "-o",
+      "{out}/sum.h5"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/sum.h5",
+        "format": "h5",
+        "class": "E2"
+      }
+    ],
+    "notes": "The same as h5 (step 5)."
+  },
+  {
+    "id": "ext.hicSumMatrices.gm12878_r8_r12_10kb.whole_genome",
+    "tool": "hicSumMatrices",
+    "tier": 1,
+    "args": [
+      "-m",
+      "{data}/cool/gm12878_ENCSR946AKI_r8_10kb.cool",
+      "{data}/cool/gm12878_ENCSR946AKI_r12_10kb.cool",
+      "-o",
+      "{out}/sum.cool"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/sum.cool",
+        "format": "cool",
+        "class": "E1"
+      }
+    ],
+    "notes": "ENCODE ENCSR946AKI GM12878 replicates 8 + 12 as published, 10 kb, whole genome (hg38, 161 M stored pixels in r8; SCALE/VC/weight bin columns).",
+    "large": true
+  }
+]
