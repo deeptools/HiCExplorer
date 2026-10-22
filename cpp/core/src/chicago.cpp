@@ -32,28 +32,35 @@ namespace hicx::chicago {
 
 namespace {
 
-// Splits [0, n) into up to `threads` contiguous chunks, runs `partial` on each
-// in its own std::thread (partial(first, last) -> double), and sums the
-// per-chunk results in chunk order, so the reduction order (and therefore the
-// floating-point result) does not depend on how many threads ran it.
+// Splits [0, n) into chunks of a fixed size, runs `partial(first, last) ->
+// double` on each, spread over up to `threads` std::threads, and sums the
+// chunk results in chunk order. The chunk boundaries depend on n only, so the
+// floating-point result is the same for every thread count.
+constexpr std::size_t kReduceChunk = std::size_t{1} << 16;
+
 double threaded_reduce(std::size_t n, int threads,
                         const std::function<double(std::size_t, std::size_t)>& partial) {
-    const int worker_count = std::max(1, threads);
-    if (worker_count == 1 || n < 4096) {
+    const std::size_t chunk_count = std::max<std::size_t>(1, (n + kReduceChunk - 1) / kReduceChunk);
+    if (chunk_count == 1) {
         return partial(0, n);
     }
-    std::vector<double> sums(static_cast<std::size_t>(worker_count), 0.0);
-    std::vector<std::thread> workers;
-    workers.reserve(static_cast<std::size_t>(worker_count));
-    const std::size_t chunk = (n + static_cast<std::size_t>(worker_count) - 1) /
-                               static_cast<std::size_t>(worker_count);
-    for (int w = 0; w < worker_count; ++w) {
-        const std::size_t first = static_cast<std::size_t>(w) * chunk;
-        const std::size_t last = std::min(n, first + chunk);
-        if (first >= last) break;
-        workers.emplace_back([&, w, first, last] { sums[static_cast<std::size_t>(w)] = partial(first, last); });
+    std::vector<double> sums(chunk_count, 0.0);
+    const std::size_t worker_count =
+        std::min(chunk_count, static_cast<std::size_t>(std::max(1, threads)));
+    auto run = [&](std::size_t worker) {
+        for (std::size_t c = worker; c < chunk_count; c += worker_count) {
+            const std::size_t first = c * kReduceChunk;
+            sums[c] = partial(first, std::min(n, first + kReduceChunk));
+        }
+    };
+    if (worker_count == 1) {
+        run(0);
+    } else {
+        std::vector<std::thread> workers;
+        workers.reserve(worker_count);
+        for (std::size_t w = 0; w < worker_count; ++w) workers.emplace_back(run, w);
+        for (std::thread& worker : workers) worker.join();
     }
-    for (std::thread& worker : workers) worker.join();
     double total = 0.0;
     for (double s : sums) total += s;
     return total;
@@ -64,10 +71,11 @@ double threaded_reduce(std::size_t n, int threads,
 // order, empty/default T for a chunk skipped because there were fewer rows
 // than workers), and hands the vector of per-chunk results to the caller to
 // merge however that T needs merging (an accumulating map, a concatenated
-// vector, ...). The caller's merge is the only place reduction order can
-// matter, and every merge used below is either an associative/commutative
-// combine (sum, AND, OR, set union) or an ordered concatenation of chunks
-// still in original row order, so the result never depends on `threads`.
+// vector, ...). The chunk boundaries depend on `threads`, so a merge must not
+// depend on them: every merge used below is a sum of integer-valued doubles
+// (read counts, exact in double), a min, AND, OR or set union, or an ordered
+// concatenation of chunks still in original row order. A sum of fractional
+// values goes through threaded_reduce instead.
 template <class T, class ChunkFn>
 std::vector<T> threaded_map(std::size_t n, int threads, ChunkFn&& chunk_fn) {
     const int worker_count = std::max(1, threads);
