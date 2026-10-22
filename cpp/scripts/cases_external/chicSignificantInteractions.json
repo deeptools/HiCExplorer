@@ -37,7 +37,7 @@
    }
   ],
   "threads_arg": "--threads",
-  "notes": "EP: the genome-wide promoter capture Hi-C sample EP_genomewide.chinput on the CHiCAGO hg19 HindIII design; K562: ENCODE K562 promoter capture Hi-C replicates 1 and 2 (HiCUP + bam2chicago on the same design). Fragment-level cools (one variable-size bin per HindIII fragment) from hicConvertFormat --inputFormat chinput, chromosomes kept with the 3.7.6 hicAdjustMatrix (derive_capture.sh). Bait-to-bait pixels hold 2N (both chinput rows summed); identical input on both sides. Viewpoints of the 3.7.6 chicViewpoint, 1,330 baits."
+  "notes": "EP: the genome-wide promoter capture Hi-C sample EP_genomewide.chinput on the CHiCAGO hg19 HindIII design; K562: ENCODE K562 promoter capture Hi-C replicates 1 and 2 (HiCUP + bam2chicago on the same design). Fragment-level cools (one variable-size bin per HindIII fragment) from hicConvertFormat --inputFormat chinput, chromosomes kept with the 3.7.6 hicAdjustMatrix (derive_capture.sh). Bait-to-bait pixels hold N once (the two chinput rows of a pair carry the same N; the larger where they differ); identical input on both sides. Viewpoints of the 3.7.6 chicViewpoint, 1,330 baits."
  },
  {
   "id": "ext.chicSignificantInteractions.EP_K562r1_frag.loose.single",
@@ -77,7 +77,7 @@
    }
   ],
   "threads_arg": "--threads",
-  "notes": "EP: the genome-wide promoter capture Hi-C sample EP_genomewide.chinput on the CHiCAGO hg19 HindIII design; K562: ENCODE K562 promoter capture Hi-C replicates 1 and 2 (HiCUP + bam2chicago on the same design). Fragment-level cools (one variable-size bin per HindIII fragment) from hicConvertFormat --inputFormat chinput, chromosomes kept with the 3.7.6 hicAdjustMatrix (derive_capture.sh). Bait-to-bait pixels hold 2N (both chinput rows summed); identical input on both sides. Loose p-value preselection."
+  "notes": "EP: the genome-wide promoter capture Hi-C sample EP_genomewide.chinput on the CHiCAGO hg19 HindIII design; K562: ENCODE K562 promoter capture Hi-C replicates 1 and 2 (HiCUP + bam2chicago on the same design). Fragment-level cools (one variable-size bin per HindIII fragment) from hicConvertFormat --inputFormat chinput, chromosomes kept with the 3.7.6 hicAdjustMatrix (derive_capture.sh). Bait-to-bait pixels hold N once (the two chinput rows of a pair carry the same N; the larger where they differ); identical input on both sides. Loose p-value preselection."
  },
  {
   "id": "ext.chicSignificantInteractions.K562_10kb.xfold.dual",
@@ -202,7 +202,7 @@
    }
   ],
   "threads_arg": "--threads",
-  "notes": "C++ only option. Reference: cpp/scripts/py_chicSignificantInteractions_calibrated.py (the unmodified 3.7.6 tool's p-values, Benjamini-Hochberg across all sample viewpoints). EP: the genome-wide promoter capture Hi-C sample EP_genomewide.chinput on the CHiCAGO hg19 HindIII design; K562: ENCODE K562 promoter capture Hi-C replicates 1 and 2 (HiCUP + bam2chicago on the same design). Fragment-level cools (one variable-size bin per HindIII fragment) from hicConvertFormat --inputFormat chinput, chromosomes kept with the 3.7.6 hicAdjustMatrix (derive_capture.sh). Bait-to-bait pixels hold 2N (both chinput rows summed); identical input on both sides.",
+  "notes": "C++ only option. Reference: cpp/scripts/py_chicSignificantInteractions_calibrated.py (the unmodified 3.7.6 tool's p-values, Benjamini-Hochberg across all sample viewpoints). EP: the genome-wide promoter capture Hi-C sample EP_genomewide.chinput on the CHiCAGO hg19 HindIII design; K562: ENCODE K562 promoter capture Hi-C replicates 1 and 2 (HiCUP + bam2chicago on the same design). Fragment-level cools (one variable-size bin per HindIII fragment) from hicConvertFormat --inputFormat chinput, chromosomes kept with the 3.7.6 hicAdjustMatrix (derive_capture.sh). Bait-to-bait pixels hold N once (the two chinput rows of a pair carry the same N; the larger where they differ); identical input on both sides.",
   "py_script": "cpp/scripts/py_chicSignificantInteractions_calibrated.py"
  },
  {

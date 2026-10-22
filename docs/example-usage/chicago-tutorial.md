@@ -25,7 +25,7 @@ hicConvertFormat -m GM_rep1.chinput --rmap h19_chr20and21.rmap \
     --inputFormat chinput --outputFormat cool -o GM_rep1.cool
 ```
 
-The cool file has one bin per restriction fragment (25,794 bins and 283,349 nonzero pixels here). Both directions of a bait-to-bait pair are summed. The matrix path derives cis pairs within the Brownian estimation distance, so trans counts are not available on it.
+The cool file has one bin per restriction fragment (25,794 bins and 283,349 nonzero pixels here). `bam2chicago.sh` lists a bait-to-bait pair twice, once with each bait as `baitID`, with the same N; the pixel holds that N once, and the matrix path emits both rows again. The matrix path derives cis pairs within the Brownian estimation distance, so trans counts are not available on it.
 
 ## Background model
 

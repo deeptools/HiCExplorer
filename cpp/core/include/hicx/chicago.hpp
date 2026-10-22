@@ -137,6 +137,16 @@ struct ChinputRecord {
 // end) or (other end, bait) then finds the same value, matching how every
 // other Hi-C matrix this project reads or writes is stored.
 //
+// Bait-to-bait pairs: bam2chicago lists such a pair twice, once with each
+// bait as baitID, and counts the same read pairs in both rows
+// (chicagoTools bam2chicago.sh:83-171), so both rows carry the same N. The
+// cell stores that N once. Rows of the same direction are summed; of the
+// two directions the larger total is stored, which is the common N for
+// bam2chicago output and the less filtered row where a row-wise filter has
+// made them differ (see the comment in chicago.cpp). chinput_from_matrices
+// emits both directions again with the cell's value, so a bam2chicago file
+// round-trips to its own N for every pair it derives.
+//
 // A .chinput row whose baitID or otherEndID is not one of the .rmap's own
 // fragment ids fails loudly (a real design/data mismatch, not something to
 // silently drop rows over).
@@ -257,6 +267,12 @@ struct ChiInteraction {
 // the matrix-input equivalent of pre-summing several replicate .chinput
 // files before this pipeline sees them (see the note on chicChicagoBackground
 // Model's own --chinput cardinality).
+//
+// Bait-to-bait pairs are emitted the way bam2chicago writes them: every bait
+// derives its own row for every fragment in range, other baits included, so
+// baits A and B give the two rows (A, B) and (B, A), each with the matrix
+// value at the pair (bam2chicago counts the same read pairs in both rows,
+// see matrix_from_chinput).
 //
 // Coordinate convention: a .rmap fragment is CHiCAGO's own 1-based,
 // inclusive-of-both-ends span (contiguous fragments: the next fragment's

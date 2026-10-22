@@ -25,7 +25,7 @@
     "class": "EX"
    }
   ],
-  "notes": "EP_genomewide_cpp.cool: the same chinput as a fragment-level cool (hicConvertFormat --inputFormat chinput, derive_capture.sh); bait-to-bait pixels hold 2N. Bait 412750 (DHX35, chr20), 30 interactions with score >= 5. Class EX, no Python counterpart: exit status and non-empty outputs are gated; the chinput-versus-matrix agreement and score sanity were measured outside the harness (report)."
+  "notes": "EP_genomewide_cpp.cool: the same chinput as a fragment-level cool (hicConvertFormat --inputFormat chinput, derive_capture.sh); bait-to-bait pixels hold the N of the pair once. Bait 412750 (DHX35, chr20), 30 interactions with score >= 5. Class EX, no Python counterpart: exit status and non-empty outputs are gated; the chinput-versus-matrix agreement and score sanity were measured outside the harness (report)."
  },
  {
   "id": "ext.chicChicagoPlotViewpoint.arcs.chr20_region.links",
@@ -65,7 +65,7 @@
     "class": "EX"
    }
   ],
-  "notes": "EP_genomewide_cpp.cool: the same chinput as a fragment-level cool (hicConvertFormat --inputFormat chinput, derive_capture.sh); bait-to-bait pixels hold 2N. Every bait in chr20:36.5-38.5 Mb as arcs, plus the pyGenomeTracks links file. Class EX, no Python counterpart: exit status and non-empty outputs are gated; the chinput-versus-matrix agreement and score sanity were measured outside the harness (report)."
+  "notes": "EP_genomewide_cpp.cool: the same chinput as a fragment-level cool (hicConvertFormat --inputFormat chinput, derive_capture.sh); bait-to-bait pixels hold the N of the pair once. Every bait in chr20:36.5-38.5 Mb as arcs, plus the pyGenomeTracks links file. Class EX, no Python counterpart: exit status and non-empty outputs are gated; the chinput-versus-matrix agreement and score sanity were measured outside the harness (report)."
  },
  {
   "id": "ext.chicChicagoPlotViewpoint.scatter.plotData",

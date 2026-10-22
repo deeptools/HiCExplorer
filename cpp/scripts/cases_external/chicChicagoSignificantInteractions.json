@@ -53,7 +53,7 @@
     "class": "EX"
    }
   ],
-  "notes": "EP_genomewide_cpp.cool: the same chinput as a fragment-level cool (hicConvertFormat --inputFormat chinput, derive_capture.sh); bait-to-bait pixels hold 2N. Scores from the matrix route, threshold 3. Class EX, no Python counterpart: exit status and non-empty outputs are gated; the chinput-versus-matrix agreement and score sanity were measured outside the harness (report).",
+  "notes": "EP_genomewide_cpp.cool: the same chinput as a fragment-level cool (hicConvertFormat --inputFormat chinput, derive_capture.sh); bait-to-bait pixels hold the N of the pair once. Scores from the matrix route, threshold 3. Class EX, no Python counterpart: exit status and non-empty outputs are gated; the chinput-versus-matrix agreement and score sanity were measured outside the harness (report).",
   "threads_arg": "--threads"
  }
 ]

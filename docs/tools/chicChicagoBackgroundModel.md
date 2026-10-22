@@ -25,7 +25,7 @@ The model has three parts: a cubic distance function of the expected count again
 The counts come from one of two sources:
 
 - `--chinput`: a CHiCAGO `.chinput` file with one row per (bait, other end) pair, cis and trans. Several replicates have to be summed per pair beforehand; the tool reads one file.
-- `--matrices`: one or more Hi-C matrices in cool, h5 or `.hic` format, one bin per restriction fragment. The (bait, other end) counts are derived from the matrix, one chromosome at a time. Only cis pairs within `--maxLBrownEst` are derived, so trans-based technical-noise estimation has no input on this path and a `.chinput` file is needed when trans counts matter. A `.chinput` file can be written as a matrix with [hicConvertFormat](hicConvertFormat.md) `--inputFormat chinput`.
+- `--matrices`: one or more Hi-C matrices in cool, h5 or `.hic` format, one bin per restriction fragment. The (bait, other end) counts are derived from the matrix, one chromosome at a time. Only cis pairs within `--maxLBrownEst` are derived, so trans-based technical-noise estimation has no input on this path and a `.chinput` file is needed when trans counts matter. A `.chinput` file can be written as a matrix with [hicConvertFormat](hicConvertFormat.md) `--inputFormat chinput`. A bait-to-bait pair gives two rows, one per bait, both with the pixel value, as `bam2chicago.sh` writes them.
 
 The design tables `--nperbin`, `--nbaitsperbin` and `--proxOE` are the `.npb`, `.nbpb` and `.poe` files that `makeDesignFiles.py` from chicagoTools produces from the `.rmap` and `.baitmap`. See [File formats](../file-formats.md#chicago-formats).
 

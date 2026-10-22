@@ -225,9 +225,13 @@ baitID	otherEndID	N	otherEndLen	distSign
 403463	403462	1	3820	-4644
 ```
 
-`bam2chicago.sh` of chicagoTools writes the file from the aligned reads. `hicConvertFormat --inputFormat
-chinput --rmap FILE.rmap` writes it as a matrix; both directions of a reciprocal bait-to-bait pair are
-summed in the matrix.
+`bam2chicago.sh` of chicagoTools writes the file from the aligned reads. It lists a bait-to-bait pair
+twice, once with each bait as `baitID`, and both rows count the same read pairs, so they carry the same
+N. `hicConvertFormat --inputFormat chinput --rmap FILE.rmap` writes the file as a matrix and stores that N
+once in the pixel of the pair. Should the two rows differ (a file filtered row by row after
+`bam2chicago.sh`), the pixel takes the larger N; rows repeated in the same direction are summed.
+`chicChicagoBackgroundModel` and `chicChicagoScores` with `--matrices` emit both rows of a bait-to-bait
+pair again with the pixel value, as `bam2chicago.sh` does.
 
 #### Output of the tools
 

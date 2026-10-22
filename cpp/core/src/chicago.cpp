@@ -497,22 +497,27 @@ hicx::MatrixData matrix_from_chinput(const std::string& chinput_path, const std:
         bin_of_id[f.id] = bin;
     }
 
-    // A bait2bait pair's interaction can be listed once in EACH bait's own
-    // .chinput row (from bait A's perspective, otherEndID = B, and from bait
-    // B's perspective, otherEndID = A). Whether the two carry the same N
-    // (a single capture experiment reporting the same underlying count from
-    // both sides) or genuinely different, additive N (a reciprocal-capture
-    // design's two independent captures, real Javierre et al. 2016 data
-    // checked this session: distinct N *and* distinct otherEndLen on the two
-    // rows) depends on how the .chinput file was produced and cannot be told
-    // apart from the file's own contents; there is no single rule that is
-    // correct for both. Summing both directions is the safer default for a
-    // real matrix cell (a real observed-contact total no more mismatched
-    // than the matrix that will be read back through chinput_from_matrices
-    // needs it to be), so every row canonicalised to the same (min bin, max
-    // bin) cell is added together here, matching an ordinary Hi-C matrix's
-    // own semantics and CsrMatrix::from_coo's own duplicate-coordinate
-    // behaviour.
+    // A bait-to-bait pair is listed twice in a .chinput file, once with each
+    // bait as baitID. bam2chicago builds both rows from the same read pairs:
+    // bedtools pairtobed reports a read pair once per bait fragment it
+    // overlaps (chicagoTools bam2chicago.sh:83), the read end on that bait is
+    // flipped to the right (:86-96), the other end is assigned its .rmap
+    // fragment (:107), and the pairs are pooled per (baitID, otherEndID)
+    // (:159-171). A read pair joining baits A and B is therefore counted in
+    // row (A, B) and in row (B, A), and both rows carry the same N. R Chicago
+    // relies on it ("B2B interactions appear twice, once each way",
+    // chicago.R .addTLB). The matrix stores the read pairs of a fragment pair
+    // once, so such a pair contributes its N once, not the sum of both rows.
+    //
+    // Rule: rows of the same direction (the same baitID and otherEndID, which
+    // bam2chicago never repeats but a concatenation of files does) are
+    // summed; of the two directions of a pair the larger total is stored.
+    // For bam2chicago output that is the common N. The two rows differ only
+    // after a row-wise filter has run on the file, for instance R's
+    // readSample (otherEndLen range per row, minNPerBait per bait) before
+    // mergeSamples, which removes read pairs from one direction and never
+    // adds any; the larger total is the one closer to the observed count. A
+    // pair listed in one direction only keeps that row's N.
     //
     // A 64-bit combined key is exact and collision-free: both row and column
     // bin indices fit comfortably in 32 bits for every design this project
@@ -521,7 +526,11 @@ hicx::MatrixData matrix_from_chinput(const std::string& chinput_path, const std:
         return (static_cast<std::uint64_t>(static_cast<std::uint32_t>(row)) << 32) |
                static_cast<std::uint32_t>(col);
     };
-    std::unordered_map<std::uint64_t, double> cell_value;
+    struct DirectionTotals {
+        double bait_first = 0.0;   // rows whose bait bin is the smaller bin
+        double bait_second = 0.0;  // rows whose bait bin is the larger bin
+    };
+    std::unordered_map<std::uint64_t, DirectionTotals> cell_value;
     const auto rows_in = read_chinput(chinput_path);
     cell_value.reserve(rows_in.size());
     for (const auto& r : rows_in) {
@@ -534,8 +543,12 @@ hicx::MatrixData matrix_from_chinput(const std::string& chinput_path, const std:
         }
         std::int64_t row = bait_it->second;
         std::int64_t col = oe_it->second;
-        if (row > col) std::swap(row, col);
-        cell_value[pair_key(row, col)] += r.N;
+        DirectionTotals& totals = cell_value[pair_key(std::min(row, col), std::max(row, col))];
+        if (row <= col) {
+            totals.bait_first += r.N;
+        } else {
+            totals.bait_second += r.N;
+        }
     }
 
     std::vector<std::int32_t> rows, cols;
@@ -543,10 +556,10 @@ hicx::MatrixData matrix_from_chinput(const std::string& chinput_path, const std:
     rows.reserve(cell_value.size());
     cols.reserve(cell_value.size());
     values.reserve(cell_value.size());
-    for (const auto& [key, n] : cell_value) {
+    for (const auto& [key, totals] : cell_value) {
         rows.push_back(static_cast<std::int32_t>(static_cast<std::uint32_t>(key >> 32)));
         cols.push_back(static_cast<std::int32_t>(static_cast<std::uint32_t>(key)));
-        values.push_back(n);
+        values.push_back(std::max(totals.bait_first, totals.bait_second));
     }
 
     const std::int64_t n_bins = static_cast<std::int64_t>(data.cut_intervals.size());
