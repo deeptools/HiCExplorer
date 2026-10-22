@@ -59,7 +59,7 @@ Input: a full-genome capture Hi-C design (837,161 HindIII fragments, 22,076 bait
 
 The matrix column starts from the cool file that `hicConvertFormat --inputFormat chinput` writes from the
 same `.chinput` file, with each bait-to-bait pair stored once. It derives cis pairs within the
-Brownian estimation distance only. The conversion itself streams the `.chinput` file twice and takes 105 s at 1.7 GB peak
+Brownian estimation distance only. The conversion itself streams the `.chinput` file twice and takes 51 s at 1.6 GB peak
 memory for the 119.8M rows (116.8M pixels). On a 949-bait subset (17.4M rows), R needs 256.8 s at 5.4 GB and the
 C++ tools about 72 s with 8 threads. On the two-chromosome test fixture, R needs 4.5 s and the C++ tools
 about 2.2 s.

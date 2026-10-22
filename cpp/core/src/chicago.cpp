@@ -540,7 +540,7 @@ void for_each_chinput_line(const std::string& path, Visit&& visit) {
 }  // namespace
 
 hicx::MatrixData matrix_from_chinput(const std::string& chinput_path, const std::string& rmap_path) {
-    const auto rmap = read_rmap(rmap_path);
+    auto rmap = read_rmap(rmap_path);
     if (rmap.empty()) {
         throw std::runtime_error(rmap_path + ": empty .rmap file");
     }
@@ -550,18 +550,15 @@ hicx::MatrixData matrix_from_chinput(const std::string& chinput_path, const std:
 
     hicx::MatrixData data;
     data.cut_intervals.reserve(rmap.size());
-    std::unordered_map<long, std::int32_t> bin_of_id;
-    bin_of_id.reserve(rmap.size());
     for (const auto& f : rmap) {
-        const auto bin = static_cast<std::int32_t>(data.cut_intervals.size());
         data.cut_intervals.push_back(hicx::CutInterval{f.chrom, f.start - 1, f.end, 1.0, ""});
-        bin_of_id[f.id] = bin;
     }
     const std::int64_t n_bins = static_cast<std::int64_t>(data.cut_intervals.size());
 
-    // Fragment ids of a .rmap are small integers in practice (1 .. number of
-    // fragments), so a dense table replaces the hash lookup on the two ids
-    // of every row; the hash map stays for ids too sparse to tabulate.
+    // Fragment id -> bin. Fragment ids of a .rmap are small integers in
+    // practice (1 .. number of fragments), so a dense table replaces a hash
+    // lookup on the two ids of every row; the hash map is built only for ids
+    // too sparse to tabulate. A repeated id maps to its last fragment.
     long max_id = 0;
     bool ids_dense = true;
     for (const auto& f : rmap) {
@@ -570,10 +567,20 @@ hicx::MatrixData matrix_from_chinput(const std::string& chinput_path, const std:
     }
     ids_dense = ids_dense && max_id <= 4 * static_cast<long>(rmap.size()) + 1024;
     std::vector<std::int32_t> dense_bin;
+    std::unordered_map<long, std::int32_t> bin_of_id;
     if (ids_dense) {
         dense_bin.assign(static_cast<std::size_t>(max_id) + 1, -1);
-        for (const auto& [id, bin] : bin_of_id) dense_bin[static_cast<std::size_t>(id)] = bin;
+    } else {
+        bin_of_id.reserve(rmap.size());
     }
+    for (std::size_t i = 0; i < rmap.size(); ++i) {
+        if (ids_dense) {
+            dense_bin[static_cast<std::size_t>(rmap[i].id)] = static_cast<std::int32_t>(i);
+        } else {
+            bin_of_id[rmap[i].id] = static_cast<std::int32_t>(i);
+        }
+    }
+    std::vector<RmapFragment>().swap(rmap);  // the bin table holds all that is needed
     auto bin_of = [&](long id) -> std::int32_t {
         if (ids_dense) {
             return (id >= 0 && id <= max_id) ? dense_bin[static_cast<std::size_t>(id)] : -1;
