@@ -1,0 +1,74 @@
+[
+ {
+  "id": "ext.chicAggregateStatistic.EP_K562r1_frag.hdf5target",
+  "tool": "chicAggregateStatistic",
+  "tier": 6,
+  "args": [
+   "--interactionFile",
+   "{data}/derived/capture/viewpoints_EP_K562r1_frag_chr20-22.hdf5",
+   "--targetFile",
+   "{data}/derived/capture/target_EP_K562r1_frag_chr20-22.hdf5",
+   "--outFileName",
+   "{out}/aggregate.hdf5",
+   "-t",
+   "4"
+  ],
+  "outputs": [
+   {
+    "path": "{out}/aggregate.hdf5",
+    "format": "chic_hdf5",
+    "class": "E1"
+   }
+  ],
+  "threads_arg": "--threads",
+  "notes": "EP: the genome-wide promoter capture Hi-C sample EP_genomewide.chinput on the CHiCAGO hg19 HindIII design; K562: ENCODE K562 promoter capture Hi-C replicates 1 and 2 (HiCUP + bam2chicago on the same design). Fragment-level cools (one variable-size bin per HindIII fragment) from hicConvertFormat --inputFormat chinput, chromosomes kept with the 3.7.6 hicAdjustMatrix (derive_capture.sh). Bait-to-bait pixels hold 2N (both chinput rows summed); identical input on both sides. Target file of the 3.7.6 chicSignificantInteractions (xfold 2, p 0.01, dual)."
+ },
+ {
+  "id": "ext.chicAggregateStatistic.K562_10kb.hdf5target",
+  "tool": "chicAggregateStatistic",
+  "tier": 6,
+  "args": [
+   "--interactionFile",
+   "{data}/derived/capture/viewpoints_K562r1_r2_10kb_chr20.hdf5",
+   "--targetFile",
+   "{data}/derived/capture/target_K562r1_r2_10kb_chr20.hdf5",
+   "--outFileName",
+   "{out}/aggregate.hdf5",
+   "-t",
+   "2"
+  ],
+  "outputs": [
+   {
+    "path": "{out}/aggregate.hdf5",
+    "format": "chic_hdf5",
+    "class": "E1"
+   }
+  ],
+  "threads_arg": "--threads",
+  "notes": "ENCODE K562 promoter capture Hi-C replicates 1 and 2, binned at 10 kb (fixed bins), chr20 kept with the 3.7.6 hicAdjustMatrix (derive_capture.sh). Target file of the 3.7.6 chicSignificantInteractions (xfold 2, p 0.01, dual)."
+ },
+ {
+  "id": "ext.chicAggregateStatistic.K562_10kb.bed3_promoters",
+  "tool": "chicAggregateStatistic",
+  "tier": 6,
+  "args": [
+   "--interactionFile",
+   "{data}/derived/capture/viewpoints_K562r1_r2_10kb_chr20.hdf5",
+   "--targetFile",
+   "{data}/derived/capture/targets_promoters_chr20.bed",
+   "--outFileName",
+   "{out}/aggregate.hdf5",
+   "-t",
+   "1"
+  ],
+  "outputs": [
+   {
+    "path": "{out}/aggregate.hdf5",
+    "format": "chic_hdf5",
+    "class": "E1"
+   }
+  ],
+  "threads_arg": "--threads",
+  "notes": "ENCODE K562 promoter capture Hi-C replicates 1 and 2, binned at 10 kb (fixed bins), chr20 kept with the 3.7.6 hicAdjustMatrix (derive_capture.sh). BED target list: the 100 chr20 refGene promoters (TSS +-2 kb) of tracks/chicago_tracks/promoters.bed, one list for every reference point."
+ }
+]
