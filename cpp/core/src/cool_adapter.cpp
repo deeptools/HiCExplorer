@@ -41,6 +41,49 @@ void sort_row_columns(CsrMatrix::Arrays& arrays) {
     }
 }
 
+// See the declaration in hicx/cool_adapter.hpp.
+void sort_and_sum_row_columns(CsrMatrix::Arrays& arrays) {
+    // One scan finds the first row that is not strictly increasing; a well
+    // formed file ends here.
+    std::int64_t first_bad = arrays.rows;
+    for (std::int64_t row = 0; row < arrays.rows && first_bad == arrays.rows; ++row) {
+        const auto begin = static_cast<std::size_t>(arrays.indptr[static_cast<std::size_t>(row)]);
+        const auto end = static_cast<std::size_t>(arrays.indptr[static_cast<std::size_t>(row) + 1]);
+        for (std::size_t k = begin + 1; k < end; ++k) {
+            if (arrays.indices[k - 1] >= arrays.indices[k]) {
+                first_bad = row;
+                break;
+            }
+        }
+    }
+    if (first_bad == arrays.rows) {
+        return;
+    }
+    sort_row_columns(arrays);
+    // Merge equal columns, compacting in place from the first affected row.
+    // indptr[row + 1] is overwritten with the compacted end, so the original
+    // end is kept in `begin` for the next row.
+    auto write = static_cast<std::size_t>(arrays.indptr[static_cast<std::size_t>(first_bad)]);
+    std::size_t begin = write;
+    for (std::int64_t row = first_bad; row < arrays.rows; ++row) {
+        const auto end = static_cast<std::size_t>(arrays.indptr[static_cast<std::size_t>(row) + 1]);
+        const std::size_t row_start = write;
+        for (std::size_t k = begin; k < end; ++k) {
+            if (write > row_start && arrays.indices[write - 1] == arrays.indices[k]) {
+                arrays.data[write - 1] += arrays.data[k];
+            } else {
+                arrays.indices[write] = arrays.indices[k];
+                arrays.data[write] = arrays.data[k];
+                ++write;
+            }
+        }
+        begin = end;
+        arrays.indptr[static_cast<std::size_t>(row) + 1] = static_cast<std::int64_t>(write);
+    }
+    arrays.indices.resize(write);
+    arrays.data.resize(write);
+}
+
 namespace {
 
 // Stored pixel rows per chunk when a pixel table is streamed. A chunk is held
@@ -290,6 +333,7 @@ std::optional<CsrMatrix> CoolFile::read_from_index(std::int64_t first, std::int6
                 count.read_into(lo, hi, std::span<double>(arrays.data.data() + at, n));
             }
             arrays.indptr = std::move(index);
+            sort_and_sum_row_columns(arrays);
             return CsrMatrix::adopt(std::move(arrays));
         }
         // A block: the row span also holds the pixels whose column lies past
@@ -331,7 +375,7 @@ std::optional<CsrMatrix> CoolFile::read_from_index(std::int64_t first, std::int6
             arrays.indptr[static_cast<std::size_t>(row - first) + 1] =
                 static_cast<std::int64_t>(arrays.indices.size());
         }
-        sort_row_columns(arrays);
+        sort_and_sum_row_columns(arrays);
         return CsrMatrix::adopt(std::move(arrays));
     });
 }
@@ -362,6 +406,7 @@ CsrMatrix CoolFile::read_matrix() const {
     for (std::size_t i = 1; i < arrays.indptr.size(); ++i) {
         arrays.indptr[i] += arrays.indptr[i - 1];
     }
+    sort_and_sum_row_columns(arrays);
     return CsrMatrix::adopt(std::move(arrays));
 }
 
@@ -389,7 +434,7 @@ CsrMatrix CoolFile::read_block(std::int64_t first, std::int64_t last) const {
     for (std::size_t i = 1; i < arrays.indptr.size(); ++i) {
         arrays.indptr[i] += arrays.indptr[i - 1];
     }
-    sort_row_columns(arrays);
+    sort_and_sum_row_columns(arrays);
     return CsrMatrix::adopt(std::move(arrays));
 }
 

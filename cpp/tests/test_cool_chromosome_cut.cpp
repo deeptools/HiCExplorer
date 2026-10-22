@@ -75,3 +75,33 @@ TEST_CASE("the in-place chromosome cut of read_cool equals select_bins, two chro
     check_every_chromosome(kData +
                            "/hicDifferentialTAD/GSM2644945_Untreated-R1.100000_chr1_chr2.cool");
 }
+
+// sort_and_sum_row_columns: scipy's COO to CSR conversion (hicmatrix builds
+// its matrix as csr_matrix((data, (bin1, bin2)))) sums a pixel stored twice and
+// orders each row by column; a row without either stays as it is.
+TEST_CASE("sort_and_sum_row_columns sums duplicate pixels like scipy") {
+    hicx::CsrMatrix::Arrays arrays;
+    arrays.rows = 4;
+    arrays.cols = 4;
+    arrays.dtype = "int32";
+    // row 0: 0 1 2 (fine); row 1: 3 1 3 1 (unsorted, duplicates);
+    // row 2: empty; row 3: 3 3 (duplicate).
+    arrays.indptr = {0, 3, 7, 7, 9};
+    arrays.indices = {0, 1, 2, 3, 1, 3, 1, 3, 3};
+    arrays.data = {1, 2, 3, 4, 5, 6, 7, 8, 9};
+    hicx::sort_and_sum_row_columns(arrays);
+    CHECK(arrays.indptr == std::vector<std::int64_t>{0, 3, 5, 5, 6});
+    CHECK(arrays.indices == std::vector<std::int32_t>{0, 1, 2, 1, 3, 3});
+    CHECK(arrays.data == std::vector<double>{1, 2, 3, 12, 10, 17});
+
+    hicx::CsrMatrix::Arrays clean;
+    clean.rows = 2;
+    clean.cols = 2;
+    clean.indptr = {0, 2, 3};
+    clean.indices = {0, 1, 1};
+    clean.data = {1, 2, 3};
+    hicx::sort_and_sum_row_columns(clean);
+    CHECK(clean.indptr == std::vector<std::int64_t>{0, 2, 3});
+    CHECK(clean.indices == std::vector<std::int32_t>{0, 1, 1});
+    CHECK(clean.data == std::vector<double>{1, 2, 3});
+}
