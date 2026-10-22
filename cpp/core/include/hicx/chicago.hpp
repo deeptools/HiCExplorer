@@ -150,6 +150,10 @@ struct ChinputRecord {
 // A .chinput row whose baitID or otherEndID is not one of the .rmap's own
 // fragment ids fails loudly (a real design/data mismatch, not something to
 // silently drop rows over).
+//
+// The file is streamed twice (row counts per matrix row, then placement into
+// the CSR arrays), so memory is about 13 bytes per .chinput row and the rows
+// are never held as records.
 [[nodiscard]] hicx::MatrixData matrix_from_chinput(const std::string& chinput_path,
                                                      const std::string& rmap_path);
 

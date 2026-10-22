@@ -481,33 +481,199 @@ std::vector<ChinputRecord> read_chinput(const std::string& path, int threads) {
     return out;
 }
 
+namespace {
+
+// Streams the data lines of a .chinput file to `visit` in file order, one
+// block of the file in memory at a time: '#' comment lines, empty lines and
+// the first non-comment line when it is the column header are skipped, the
+// same lines read_chinput skips.
+template <class Visit>
+void for_each_chinput_line(const std::string& path, Visit&& visit) {
+    std::ifstream in(path, std::ios::binary);
+    if (!in) {
+        throw std::runtime_error("cannot open chinput file: " + path);
+    }
+    constexpr std::size_t kBlock = std::size_t{16} << 20;
+    std::string buffer;
+    std::string carry;
+    bool header_checked = false;
+    auto handle = [&](std::string_view line) {
+        if (!line.empty() && line.back() == '\r') line.remove_suffix(1);
+        if (line.empty() || line[0] == '#') return;
+        if (!header_checked) {
+            header_checked = true;
+            if (line.rfind("baitID", 0) == 0) return;
+        }
+        visit(line);
+    };
+    buffer.resize(kBlock);
+    while (in) {
+        in.read(buffer.data(), static_cast<std::streamsize>(kBlock));
+        const std::size_t got = static_cast<std::size_t>(in.gcount());
+        if (got == 0) break;
+        std::string_view block(buffer.data(), got);
+        std::size_t pos = 0;
+        if (!carry.empty()) {
+            const std::size_t eol = block.find('\n');
+            if (eol == std::string_view::npos) {
+                carry.append(block);
+                continue;
+            }
+            carry.append(block.substr(0, eol));
+            handle(carry);
+            carry.clear();
+            pos = eol + 1;
+        }
+        while (pos < got) {
+            const std::size_t eol = block.find('\n', pos);
+            if (eol == std::string_view::npos) {
+                carry.assign(block.substr(pos));
+                break;
+            }
+            handle(block.substr(pos, eol - pos));
+            pos = eol + 1;
+        }
+    }
+    if (!carry.empty()) handle(carry);
+}
+
+}  // namespace
+
 hicx::MatrixData matrix_from_chinput(const std::string& chinput_path, const std::string& rmap_path) {
     const auto rmap = read_rmap(rmap_path);
     if (rmap.empty()) {
         throw std::runtime_error(rmap_path + ": empty .rmap file");
     }
+    if (rmap.size() >= static_cast<std::size_t>(std::numeric_limits<std::int32_t>::max())) {
+        throw std::runtime_error(rmap_path + ": more fragments than a matrix index holds");
+    }
 
     hicx::MatrixData data;
     data.cut_intervals.reserve(rmap.size());
-    std::unordered_map<long, std::int64_t> bin_of_id;
+    std::unordered_map<long, std::int32_t> bin_of_id;
     bin_of_id.reserve(rmap.size());
     for (const auto& f : rmap) {
-        const std::int64_t bin = static_cast<std::int64_t>(data.cut_intervals.size());
+        const auto bin = static_cast<std::int32_t>(data.cut_intervals.size());
         data.cut_intervals.push_back(hicx::CutInterval{f.chrom, f.start - 1, f.end, 1.0, ""});
         bin_of_id[f.id] = bin;
     }
+    const std::int64_t n_bins = static_cast<std::int64_t>(data.cut_intervals.size());
 
-    // A bait-to-bait pair is listed twice in a .chinput file, once with each
-    // bait as baitID. bam2chicago builds both rows from the same read pairs:
-    // bedtools pairtobed reports a read pair once per bait fragment it
-    // overlaps (chicagoTools bam2chicago.sh:83), the read end on that bait is
-    // flipped to the right (:86-96), the other end is assigned its .rmap
-    // fragment (:107), and the pairs are pooled per (baitID, otherEndID)
-    // (:159-171). A read pair joining baits A and B is therefore counted in
-    // row (A, B) and in row (B, A), and both rows carry the same N. R Chicago
-    // relies on it ("B2B interactions appear twice, once each way",
-    // chicago.R .addTLB). The matrix stores the read pairs of a fragment pair
-    // once, so such a pair contributes its N once, not the sum of both rows.
+    // Fragment ids of a .rmap are small integers in practice (1 .. number of
+    // fragments), so a dense table replaces the hash lookup on the two ids
+    // of every row; the hash map stays for ids too sparse to tabulate.
+    long max_id = 0;
+    bool ids_dense = true;
+    for (const auto& f : rmap) {
+        if (f.id < 0) ids_dense = false;
+        max_id = std::max(max_id, f.id);
+    }
+    ids_dense = ids_dense && max_id <= 4 * static_cast<long>(rmap.size()) + 1024;
+    std::vector<std::int32_t> dense_bin;
+    if (ids_dense) {
+        dense_bin.assign(static_cast<std::size_t>(max_id) + 1, -1);
+        for (const auto& [id, bin] : bin_of_id) dense_bin[static_cast<std::size_t>(id)] = bin;
+    }
+    auto bin_of = [&](long id) -> std::int32_t {
+        if (ids_dense) {
+            return (id >= 0 && id <= max_id) ? dense_bin[static_cast<std::size_t>(id)] : -1;
+        }
+        const auto it = bin_of_id.find(id);
+        return it == bin_of_id.end() ? -1 : it->second;
+    };
+    auto parse_id = [](std::string_view s) {
+        long v = 0;
+        std::from_chars(s.data(), s.data() + s.size(), v);
+        return v;
+    };
+    // The two ids of a data line as bins; a line with fewer than 5 fields
+    // yields nothing, as in read_chinput, and an id missing from the .rmap
+    // fails loudly (a real design/data mismatch).
+    auto bins_of_line = [&](std::string_view line, std::int32_t& bait_bin, std::int32_t& oe_bin,
+                            std::string_view& n_field) {
+        std::string_view fields[5];
+        std::size_t n_fields = 0;
+        std::string_view rest = line;
+        while (n_fields < 5) {
+            const auto tab = rest.find('\t');
+            if (tab == std::string_view::npos) {
+                fields[n_fields++] = rest;
+                break;
+            }
+            fields[n_fields++] = rest.substr(0, tab);
+            rest.remove_prefix(tab + 1);
+        }
+        if (n_fields < 5) return false;
+        const long bait_id = parse_id(fields[0]);
+        const long oe_id = parse_id(fields[1]);
+        bait_bin = bin_of(bait_id);
+        oe_bin = bin_of(oe_id);
+        if (bait_bin < 0 || oe_bin < 0) {
+            throw std::runtime_error(chinput_path + ": fragment id not found in " + rmap_path + " (baitID " +
+                                     std::to_string(bait_id) + ", otherEndID " + std::to_string(oe_id) + ")");
+        }
+        n_field = fields[2];
+        return true;
+    };
+
+    // Two passes over the file instead of one table of every row: the first
+    // counts the rows per matrix row (the smaller of the two bins), the
+    // second places each row's column, N and direction straight into its
+    // CSR slot. Peak memory is then the CSR arrays of the rows plus one
+    // direction byte per row, about 13 bytes per .chinput row, against the
+    // former hash map of pixels next to every parsed row.
+    std::vector<std::int64_t> indptr(static_cast<std::size_t>(n_bins) + 1, 0);
+    for_each_chinput_line(chinput_path, [&](std::string_view line) {
+        std::int32_t bait_bin = 0, oe_bin = 0;
+        std::string_view n_field;
+        if (!bins_of_line(line, bait_bin, oe_bin, n_field)) return;
+        ++indptr[static_cast<std::size_t>(std::min(bait_bin, oe_bin)) + 1];
+    });
+    for (std::size_t i = 1; i < indptr.size(); ++i) indptr[i] += indptr[i - 1];
+    const std::size_t n_rows_in = static_cast<std::size_t>(indptr.back());
+
+    std::vector<std::int32_t> indices(n_rows_in);
+    std::vector<double> values(n_rows_in);
+    // 1 when the bait bin is the larger bin of the pair (the row was
+    // transposed into the upper triangle), 0 otherwise.
+    std::vector<std::uint8_t> transposed(n_rows_in);
+    {
+        std::vector<std::int64_t> cursor(indptr.begin(), indptr.end() - 1);
+        std::size_t placed = 0;
+        for_each_chinput_line(chinput_path, [&](std::string_view line) {
+            std::int32_t bait_bin = 0, oe_bin = 0;
+            std::string_view n_field;
+            if (!bins_of_line(line, bait_bin, oe_bin, n_field)) return;
+            const std::int32_t row = std::min(bait_bin, oe_bin);
+            const auto k = static_cast<std::size_t>(cursor[static_cast<std::size_t>(row)]++);
+            if (k >= static_cast<std::size_t>(indptr[static_cast<std::size_t>(row) + 1])) {
+                throw std::runtime_error(chinput_path + ": file changed while it was read");
+            }
+            double n = 0.0;
+            std::from_chars(n_field.data(), n_field.data() + n_field.size(), n);
+            indices[k] = std::max(bait_bin, oe_bin);
+            values[k] = n;
+            transposed[k] = bait_bin > oe_bin ? 1 : 0;
+            ++placed;
+        });
+        if (placed != n_rows_in) {
+            throw std::runtime_error(chinput_path + ": file changed while it was read");
+        }
+    }
+
+    // Per matrix row: order the entries by column, then combine the rows of
+    // one pixel. A bait-to-bait pair is listed twice in a .chinput file, once
+    // with each bait as baitID. bam2chicago builds both rows from the same
+    // read pairs: bedtools pairtobed reports a read pair once per bait
+    // fragment it overlaps (chicagoTools bam2chicago.sh:83), the read end on
+    // that bait is flipped to the right (:86-96), the other end is assigned
+    // its .rmap fragment (:107), and the pairs are pooled per (baitID,
+    // otherEndID) (:159-171). A read pair joining baits A and B is therefore
+    // counted in row (A, B) and in row (B, A), and both rows carry the same
+    // N. R Chicago relies on it ("B2B interactions appear twice, once each
+    // way", chicago.R .addTLB). The matrix stores the read pairs of a
+    // fragment pair once, so such a pair contributes its N once, not the sum
+    // of both rows.
     //
     // Rule: rows of the same direction (the same baitID and otherEndID, which
     // bam2chicago never repeats but a concatenation of files does) are
@@ -519,52 +685,53 @@ hicx::MatrixData matrix_from_chinput(const std::string& chinput_path, const std:
     // adds any; the larger total is the one closer to the observed count. A
     // pair listed in one direction only keeps that row's N.
     //
-    // A 64-bit combined key is exact and collision-free: both row and column
-    // bin indices fit comfortably in 32 bits for every design this project
-    // ships (same reasoning as fit_chicago_background's own pair_key).
-    auto pair_key = [](std::int64_t row, std::int64_t col) {
-        return (static_cast<std::uint64_t>(static_cast<std::uint32_t>(row)) << 32) |
-               static_cast<std::uint32_t>(col);
-    };
-    struct DirectionTotals {
-        double bait_first = 0.0;   // rows whose bait bin is the smaller bin
-        double bait_second = 0.0;  // rows whose bait bin is the larger bin
-    };
-    std::unordered_map<std::uint64_t, DirectionTotals> cell_value;
-    const auto rows_in = read_chinput(chinput_path);
-    cell_value.reserve(rows_in.size());
-    for (const auto& r : rows_in) {
-        const auto bait_it = bin_of_id.find(r.bait_id);
-        const auto oe_it = bin_of_id.find(r.other_end_id);
-        if (bait_it == bin_of_id.end() || oe_it == bin_of_id.end()) {
-            throw std::runtime_error(chinput_path + ": fragment id not found in " + rmap_path +
-                                     " (baitID " + std::to_string(r.bait_id) + ", otherEndID " +
-                                     std::to_string(r.other_end_id) + ")");
+    // The pixels of a row are written back in place from the row's start;
+    // the write position never passes the read position, so one compaction
+    // pass over the arrays builds the final CSR.
+    std::vector<std::pair<std::uint64_t, double>> scratch;
+    std::size_t write = 0;
+    for (std::int64_t row = 0; row < n_bins; ++row) {
+        const auto begin = static_cast<std::size_t>(indptr[static_cast<std::size_t>(row)]);
+        const auto end = static_cast<std::size_t>(indptr[static_cast<std::size_t>(row) + 1]);
+        indptr[static_cast<std::size_t>(row)] = static_cast<std::int64_t>(write);
+        if (begin == end) continue;
+        scratch.clear();
+        for (std::size_t k = begin; k < end; ++k) {
+            scratch.emplace_back((static_cast<std::uint64_t>(static_cast<std::uint32_t>(indices[k])) << 1) |
+                                     transposed[k],
+                                 values[k]);
         }
-        std::int64_t row = bait_it->second;
-        std::int64_t col = oe_it->second;
-        DirectionTotals& totals = cell_value[pair_key(std::min(row, col), std::max(row, col))];
-        if (row <= col) {
-            totals.bait_first += r.N;
-        } else {
-            totals.bait_second += r.N;
+        // Stable, so rows of one direction add up in file order, the order
+        // the former hash map summed them in.
+        std::stable_sort(scratch.begin(), scratch.end(),
+                         [](const auto& a, const auto& b) { return a.first < b.first; });
+        std::size_t i = 0;
+        while (i < scratch.size()) {
+            const std::uint64_t col = scratch[i].first >> 1;
+            double direction_total[2] = {0.0, 0.0};
+            for (; i < scratch.size() && (scratch[i].first >> 1) == col; ++i) {
+                direction_total[scratch[i].first & 1U] += scratch[i].second;
+            }
+            indices[write] = static_cast<std::int32_t>(col);
+            values[write] = std::max(direction_total[0], direction_total[1]);
+            ++write;
         }
     }
+    indptr[static_cast<std::size_t>(n_bins)] = static_cast<std::int64_t>(write);
+    std::vector<std::uint8_t>().swap(transposed);
+    std::vector<std::pair<std::uint64_t, double>>().swap(scratch);
+    indices.resize(write);
+    values.resize(write);
 
-    std::vector<std::int32_t> rows, cols;
-    std::vector<double> values;
-    rows.reserve(cell_value.size());
-    cols.reserve(cell_value.size());
-    values.reserve(cell_value.size());
-    for (const auto& [key, totals] : cell_value) {
-        rows.push_back(static_cast<std::int32_t>(static_cast<std::uint32_t>(key >> 32)));
-        cols.push_back(static_cast<std::int32_t>(static_cast<std::uint32_t>(key)));
-        values.push_back(std::max(totals.bait_first, totals.bait_second));
-    }
-
-    const std::int64_t n_bins = static_cast<std::int64_t>(data.cut_intervals.size());
-    data.matrix = hicx::CsrMatrix::from_coo(n_bins, n_bins, rows, cols, std::move(values), "float64");
-    data.matrix.set_symmetry(hicx::Symmetry::UpperTriangle);
+    hicx::CsrMatrix::Arrays arrays;
+    arrays.rows = n_bins;
+    arrays.cols = n_bins;
+    arrays.indptr = std::move(indptr);
+    arrays.indices = std::move(indices);
+    arrays.data = std::move(values);
+    arrays.dtype = "float64";
+    arrays.symmetry = hicx::Symmetry::UpperTriangle;
+    data.matrix = hicx::CsrMatrix::adopt(std::move(arrays));
     return data;
 }
 
@@ -598,23 +765,14 @@ std::vector<ChinputRecord> chinput_from_matrices(const std::vector<std::string>&
     std::set<std::string> bait_chroms;
     for (const auto& b : baitmap) bait_chroms.insert(b.chrom);
 
-    // N and distSign are per (baitID, otherEndID) pair; keeping them in one
-    // map instead of two halves the per-entry bookkeeping overhead (a real
-    // cost at genome scale: tens of millions of pairs, each previously
-    // costing two tree-node allocations instead of one). A 64-bit combined
-    // key is exact and collision-free here, same as fit_chicago_background's
-    // own pair_key (both bait and other-end ids fit comfortably in 32 bits
-    // for every design this project ships).
-    struct PairAgg {
-        double n = 0.0;
-        long dist_sign = 0;
-    };
-    auto pair_key = [](long bait, long oe) {
-        return (static_cast<std::uint64_t>(static_cast<std::uint32_t>(bait)) << 32) |
-               static_cast<std::uint32_t>(oe);
-    };
-    std::unordered_map<std::uint64_t, PairAgg> pairs;   // pair_key(baitID, otherEndID) -> {N, distSign}
-    std::unordered_map<long, long> other_end_len;        // otherEndID -> end - start
+    // One row per (bait, candidate fragment) with an observed contact,
+    // appended as it is derived. A matrix yields each pair once (a bait
+    // visits each fragment in range once), so rows only need combining when
+    // several matrices are given or a bait id repeats in the .baitmap; that
+    // happens in one sort-and-merge pass at the end instead of through a
+    // hash map of every pair, which held about as much memory again as the
+    // rows themselves on a genome-wide design.
+    std::vector<ChinputRecord> out;
 
     for (const std::string& path : matrix_paths) {
         for (const std::string& chrom : bait_chroms) {
@@ -774,27 +932,37 @@ std::vector<ChinputRecord> chinput_from_matrices(const std::vector<std::string>&
                     }
                     if (value == 0.0) continue;  // no observed contact, no chinput row
 
-                    PairAgg& a = pairs[pair_key(bait.id, c.frag->id)];
-                    a.n += value;
-                    a.dist_sign = c.dist_sign;
-                    other_end_len[c.frag->id] = c.frag->end - c.frag->start;
+                    ChinputRecord r;
+                    r.bait_id = bait.id;
+                    r.other_end_id = c.frag->id;
+                    r.N = value;
+                    r.other_end_len = c.frag->end - c.frag->start;
+                    r.has_dist_sign = true;
+                    r.dist_sign = c.dist_sign;
+                    out.push_back(r);
                 }
             }
         }
     }
 
-    std::vector<ChinputRecord> out;
-    out.reserve(pairs.size());
-    for (const auto& [key, a] : pairs) {
-        ChinputRecord r;
-        r.bait_id = static_cast<long>(static_cast<std::uint32_t>(key >> 32));
-        r.other_end_id = static_cast<long>(static_cast<std::uint32_t>(key));
-        r.N = a.n;
-        r.other_end_len = other_end_len.at(r.other_end_id);
-        r.has_dist_sign = true;
-        r.dist_sign = a.dist_sign;
-        out.push_back(std::move(r));
+    // Ordered by (baitID, otherEndID), the order bam2chicago sorts its
+    // output into for a numeric baitID; rows of one pair are summed in the
+    // order they were derived (matrix by matrix, as the former map did).
+    std::stable_sort(out.begin(), out.end(), [](const ChinputRecord& a, const ChinputRecord& b) {
+        return a.bait_id != b.bait_id ? a.bait_id < b.bait_id : a.other_end_id < b.other_end_id;
+    });
+    std::size_t write = 0;
+    for (std::size_t i = 0; i < out.size(); ++i) {
+        if (write > 0 && out[write - 1].bait_id == out[i].bait_id &&
+            out[write - 1].other_end_id == out[i].other_end_id) {
+            out[write - 1].N += out[i].N;
+            out[write - 1].dist_sign = out[i].dist_sign;
+        } else {
+            out[write++] = out[i];
+        }
     }
+    out.resize(write);
+    out.shrink_to_fit();
     return out;
 }
 
