@@ -20,7 +20,7 @@
   ],
   "outputs": [],
   "threads_arg": "--threads",
-  "notes": "EP: the genome-wide promoter capture Hi-C sample EP_genomewide.chinput on the CHiCAGO hg19 HindIII design; K562: ENCODE K562 promoter capture Hi-C replicates 1 and 2 (HiCUP + bam2chicago on the same design). Fragment-level cools (one variable-size bin per HindIII fragment) from hicConvertFormat --inputFormat chinput, chromosomes kept with the 3.7.6 hicAdjustMatrix (derive_capture.sh). Bait-to-bait pixels hold 2N (both chinput rows summed); identical input on both sides. The one bait (ADAMTS1_423843, chr21) on which the 3.7.6 chicViewpoint fails on the fragment cool at +-200 kb: 'operands could not be broadcast together with shapes (158,) (157,)', exit 1. The C++ port reproduces the message and the exit status. A 3.7.6 defect with variable-size bins.",
+  "notes": "EP: the genome-wide promoter capture Hi-C sample EP_genomewide.chinput on the CHiCAGO hg19 HindIII design; K562: ENCODE K562 promoter capture Hi-C replicates 1 and 2 (HiCUP + bam2chicago on the same design). Fragment-level cools (one variable-size bin per HindIII fragment) from hicConvertFormat --inputFormat chinput, chromosomes kept with the 3.7.6 hicAdjustMatrix (derive_capture.sh). Bait-to-bait pixels hold N once (the two chinput rows of a pair carry the same N; the larger where they differ); identical input on both sides. The one bait (ADAMTS1_423843, chr21) on which the 3.7.6 chicViewpoint fails on the fragment cool at +-200 kb: 'operands could not be broadcast together with shapes (158,) (157,)', exit 1. The C++ port reproduces the message and the exit status. A 3.7.6 defect with variable-size bins.",
   "expect_exit": 1
  },
  {
@@ -51,7 +51,7 @@
    }
   ],
   "threads_arg": "--threads",
-  "notes": "EP: the genome-wide promoter capture Hi-C sample EP_genomewide.chinput on the CHiCAGO hg19 HindIII design; K562: ENCODE K562 promoter capture Hi-C replicates 1 and 2 (HiCUP + bam2chicago on the same design). Fragment-level cools (one variable-size bin per HindIII fragment) from hicConvertFormat --inputFormat chinput, chromosomes kept with the 3.7.6 hicAdjustMatrix (derive_capture.sh). Bait-to-bait pixels hold 2N (both chinput rows summed); identical input on both sides. 1,330 baits on two matrices, background model of the 3.7.6 chicViewpointBackgroundModel on EP and both K562 replicates."
+  "notes": "EP: the genome-wide promoter capture Hi-C sample EP_genomewide.chinput on the CHiCAGO hg19 HindIII design; K562: ENCODE K562 promoter capture Hi-C replicates 1 and 2 (HiCUP + bam2chicago on the same design). Fragment-level cools (one variable-size bin per HindIII fragment) from hicConvertFormat --inputFormat chinput, chromosomes kept with the 3.7.6 hicAdjustMatrix (derive_capture.sh). Bait-to-bait pixels hold N once (the two chinput rows of a pair carry the same N; the larger where they differ); identical input on both sides. 1,330 baits on two matrices, background model of the 3.7.6 chicViewpointBackgroundModel on EP and both K562 replicates."
  },
  {
   "id": "ext.chicViewpoint.K562r1_r2_10kb_chr20",
@@ -168,7 +168,7 @@
   ],
   "outputs": [],
   "threads_arg": "--threads",
-  "notes": "EP: the genome-wide promoter capture Hi-C sample EP_genomewide.chinput on the CHiCAGO hg19 HindIII design; K562: ENCODE K562 promoter capture Hi-C replicates 1 and 2 (HiCUP + bam2chicago on the same design). Fragment-level cools (one variable-size bin per HindIII fragment) from hicConvertFormat --inputFormat chinput, chromosomes kept with the 3.7.6 hicAdjustMatrix (derive_capture.sh). Bait-to-bait pixels hold 2N (both chinput rows summed); identical input on both sides. A range beyond the model's fixate range on a variable-bin model: the model's positions are multiples of the median bin size (2,513 bp), so readBackgroundDataFile's lookup of -500000 raises KeyError: -500000 and the 3.7.6 tool exits 1; the C++ port does the same.",
+  "notes": "EP: the genome-wide promoter capture Hi-C sample EP_genomewide.chinput on the CHiCAGO hg19 HindIII design; K562: ENCODE K562 promoter capture Hi-C replicates 1 and 2 (HiCUP + bam2chicago on the same design). Fragment-level cools (one variable-size bin per HindIII fragment) from hicConvertFormat --inputFormat chinput, chromosomes kept with the 3.7.6 hicAdjustMatrix (derive_capture.sh). Bait-to-bait pixels hold N once (the two chinput rows of a pair carry the same N; the larger where they differ); identical input on both sides. A range beyond the model's fixate range on a variable-bin model: the model's positions are multiples of the median bin size (2,513 bp), so readBackgroundDataFile's lookup of -500000 raises KeyError: -500000 and the 3.7.6 tool exits 1; the C++ port does the same.",
   "expect_exit": 1
  }
 ]

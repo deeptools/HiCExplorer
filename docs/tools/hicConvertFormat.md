@@ -58,7 +58,7 @@ However, most Hi-C softwares are only supporting their own data format which mak
 interaction matrices, both for import and for export. 
 
 Import:
-    - chinput (C++ only, needs `--rmap`; bins are the restriction fragments and both directions of a bait-to-bait pair are summed)
+    - chinput (C++ only, needs `--rmap`; bins are the restriction fragments and a bait-to-bait pair, listed once per bait with the same N, is stored once; if the two rows differ, the larger N)
     - hic
     - cool
     - h5

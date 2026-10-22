@@ -37,8 +37,9 @@ cd "$O"
 
 # 1. Fragment-level cools (one bin per .rmap fragment) from the chinputs.
 #    Bait-to-bait pairs are listed once per bait in a chinput with the same N
-#    (99.9 % of chr20 pairs in EP, 100 % in K562); hicConvertFormat sums both
-#    rows, so a bait-to-bait pixel holds 2N. Same matrix for both sides of every case.
+#    (100 % of pairs in K562; EP was filtered by R before export: 97.9 % of its
+#    pairs in both directions with the same N); hicConvertFormat stores N once
+#    (the larger N where the two rows differ). Same matrix for both sides of every case.
 "$CPP_BIN/hicConvertFormat" --matrices "$C/EP_genomewide.chinput" --rmap "$C/Digest_Human_HindIII.rmap" \
     --inputFormat chinput --outputFormat cool -o EP_genomewide_cpp.cool
 for r in 1 2; do

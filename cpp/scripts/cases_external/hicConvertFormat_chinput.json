@@ -23,7 +23,7 @@
     "class": "EX"
    }
   ],
-  "notes": "EP_genomewide.chinput: genome-wide promoter capture Hi-C on the CHiCAGO hg19 HindIII design, 22,076 baits, 119.8 M rows. Output checked once outside the harness: identical bins, pixels and counts to /mnt/processed/wolffjoa/hicexplorer_bench/chicago_genomewide/EP_genomewide_v2.cool; total = sum of N over all rows (bait-to-bait pairs summed over both rows). Class EX, no Python counterpart: exit status and non-empty outputs are gated; the chinput-versus-matrix agreement and score sanity were measured outside the harness (report).",
+  "notes": "EP_genomewide.chinput: genome-wide promoter capture Hi-C on the CHiCAGO hg19 HindIII design, 22,076 baits, 119.8 M rows. Output checked outside the harness: identical bins and pixel coordinates to /mnt/processed/wolffjoa/hicexplorer_bench/chicago_genomewide/EP_genomewide_v2.cool and identical counts on every pixel that is not bait-to-bait; a bait-to-bait pixel holds the N of its pair once (2026-10-22: 3,012,361 pixels half of the former two-row sum, 62,710 one-direction pairs unchanged, 1,406 pairs with different N per row at the larger N). Class EX, no Python counterpart: exit status and non-empty outputs are gated; the chinput-versus-matrix agreement and score sanity were measured outside the harness (report).",
   "large": true
  },
  {

@@ -24,6 +24,7 @@
 #include <cstdio>
 #include <fstream>
 #include <map>
+#include <set>
 #include <sstream>
 #include <string>
 #include <utility>
@@ -476,17 +477,11 @@ TEST_CASE("chinput_from_matrices: sums bin pairs across a fixed-resolution matri
 
 TEST_CASE("chicago: matrix_from_chinput round-trips through chinput_from_matrices on real GM12878 data") {
     // GM_rep1.chinput -> a real cool matrix (matrix_from_chinput) ->
-    // chinput_from_matrices: chinput_from_matrices is inherently directed
-    // (one derived row per bait, per nearby fragment, exactly like a real
-    // .chinput file reports each bait's own observations separately), so its
-    // row count still matches GM_rep1_within_maxLBrownEst.chinput's own row
-    // count one for one. What changes is the *value*: matrix_from_chinput
-    // sums both directions of a bait2bait pair into one matrix cell rather
-    // than picking one (real data, checked this session on a different
-    // design, can carry genuinely different N on the two directional rows,
-    // not always the identical value this particular GM12878 fixture happens
-    // to have), so both of a bait2bait pair's directed rows now derive that
-    // same summed total back out, not each row's own original N.
+    // chinput_from_matrices. GM_rep1.chinput is bam2chicago output, which
+    // lists every bait-to-bait pair in both directions with the same N
+    // (bam2chicago.sh:83-171). The matrix stores that N once, and
+    // chinput_from_matrices emits both directions again, so every derived row
+    // carries its own reference row's N, bait-to-bait rows included.
     const std::string tmp_cool = "matrix_from_chinput_roundtrip.cool";
     std::remove(tmp_cool.c_str());
     {
@@ -498,36 +493,79 @@ TEST_CASE("chicago: matrix_from_chinput round-trips through chinput_from_matrice
 
     auto rmap = hicx::chicago::read_rmap(kChicago + "h19_chr20and21.rmap");
     auto baitmap = hicx::chicago::read_baitmap(kChicago + "h19_chr20and21.baitmap");
+    std::set<long> bait_ids;
+    for (const auto& b : baitmap) bait_ids.insert(b.id);
     hicx::chicago::FilterSettings fs;
     auto derived = hicx::chicago::chinput_from_matrices({tmp_cool}, rmap, baitmap, fs);
     auto reference = hicx::chicago::read_chinput(kChicago + "GM_rep1_within_maxLBrownEst.chinput");
     CHECK(derived.size() == reference.size());
 
-    // canonical (min id, max id) -> summed N over every reference row that
-    // canonicalises to it (1 row for a non-bait2bait pair, 2 for a
-    // bait2bait pair, matching what matrix_from_chinput stored at that cell).
-    std::map<std::pair<long, long>, double> canonical_sum;
-    for (const auto& ref : reference) {
-        long a = ref.bait_id;
-        long b = ref.other_end_id;
-        if (a > b) std::swap(a, b);
-        canonical_sum[{a, b}] += ref.N;
-    }
-
     std::map<std::pair<long, long>, const hicx::chicago::ChinputRecord*> derived_by_key;
     for (const auto& r : derived) derived_by_key[{r.bait_id, r.other_end_id}] = &r;
     std::size_t checked = 0;
+    std::size_t bait_to_bait = 0;
     for (const auto& ref : reference) {
         const auto it = derived_by_key.find({ref.bait_id, ref.other_end_id});
         REQUIRE(it != derived_by_key.end());
-        long a = ref.bait_id;
-        long b = ref.other_end_id;
-        if (a > b) std::swap(a, b);
-        CHECK(it->second->N == doctest::Approx(canonical_sum.at({a, b})));
+        CHECK(it->second->N == ref.N);
+        CHECK(it->second->other_end_len == ref.other_end_len);
+        CHECK(it->second->dist_sign == ref.dist_sign);
+        if (bait_ids.count(ref.other_end_id) != 0) {
+            ++bait_to_bait;
+            CHECK(derived_by_key.count({ref.other_end_id, ref.bait_id}) == 1);
+        }
         ++checked;
     }
     CHECK(checked == reference.size());
+    CHECK(bait_to_bait > 0);
     std::remove(tmp_cool.c_str());
+}
+
+TEST_CASE("chicago: matrix_from_chinput stores a bait-to-bait pair once") {
+    // Unit fixture on the GM12878 design with the first four baits a, b, c,
+    // d and a non-bait fragment oe: pair (a, b) is listed in both directions
+    // with the same N (bam2chicago output), pair (a, oe) twice in the same
+    // direction (a concatenation of two files), pair (b, c) in both
+    // directions with different N (a row-wise filter has run), and pair
+    // (c, d) in one direction only.
+    auto rmap = hicx::chicago::read_rmap(kChicago + "h19_chr20and21.rmap");
+    auto baitmap = hicx::chicago::read_baitmap(kChicago + "h19_chr20and21.baitmap");
+    REQUIRE(baitmap.size() >= 4);
+    const long a = baitmap[0].id;
+    const long b = baitmap[1].id;
+    const long c = baitmap[2].id;
+    const long d = baitmap[3].id;
+    std::set<long> bait_ids;
+    for (const auto& x : baitmap) bait_ids.insert(x.id);
+    long oe = a + 1;
+    while (bait_ids.count(oe) != 0) ++oe;
+
+    const std::string tmp = "matrix_from_chinput_b2b.chinput";
+    {
+        std::ofstream out(tmp);
+        out << "##\tsamplename=unit\n"
+            << "baitID\totherEndID\tN\totherEndLen\tdistSign\n"
+            << a << "\t" << b << "\t4\t100\t1000\n"
+            << b << "\t" << a << "\t4\t100\t-1000\n"
+            << a << "\t" << oe << "\t2\t100\t500\n"
+            << a << "\t" << oe << "\t3\t100\t500\n"
+            << b << "\t" << c << "\t5\t100\t1000\n"
+            << c << "\t" << b << "\t7\t100\t-1000\n"
+            << d << "\t" << c << "\t6\t100\t-1000\n";
+    }
+    const hicx::MatrixData data = hicx::chicago::matrix_from_chinput(tmp, kChicago + "h19_chr20and21.rmap");
+    std::remove(tmp.c_str());
+
+    std::map<long, std::int64_t> bin_of;
+    for (std::size_t i = 0; i < rmap.size(); ++i) bin_of[rmap[i].id] = static_cast<std::int64_t>(i);
+    auto value = [&](long x, long y) {
+        return data.matrix.at(std::min(bin_of.at(x), bin_of.at(y)), std::max(bin_of.at(x), bin_of.at(y)));
+    };
+    CHECK(value(a, b) == 4.0);   // same N in both directions: stored once
+    CHECK(value(a, oe) == 5.0);  // same direction twice: summed
+    CHECK(value(b, c) == 7.0);   // different N: the larger direction
+    CHECK(value(c, d) == 6.0);   // one direction only
+    CHECK(data.matrix.upper_triangle_nnz() == 4);
 }
 
 TEST_CASE("chicago: matrix_from_chinput fails loudly on a fragment id absent from the .rmap") {
