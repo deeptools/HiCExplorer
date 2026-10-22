@@ -4,14 +4,12 @@ Class E5 of cpp/PLAN.md 5.1: the Jaccard index of the called intervals must be
 at least 0.99. The lines are compared as whole records, so a call that differs
 in any column counts as a disagreement.
 
-This exists for hicMergeLoops. Its reference breaks a tie between two equally
-wide overlapping loop anchors by CPython's set iteration order, which depends
-on the insertion order into a set built by intervaltree's tree traversal and is
-therefore not reproducible without reimplementing both. The port reproduces the
-part that is reproducible, the hash and the table size, and the residue is a
-handful of lines out of about 16,000. Comparing that at E0 would either fail a
-correct port or force the tolerance into the case file, and PLAN.md 9.5 forbids
-a per-case tolerance; a class is the right place for it.
+It was written for hicMergeLoops, whose reference breaks a tie between two
+equally wide overlapping loop anchors by CPython's set iteration order. Since
+2026-10-22 the port reimplements intervaltree's tree and CPython's set layout
+and is byte identical, so its cases are E0; hicDifferentialTAD still declares
+E5 outputs. A per-case tolerance is forbidden by PLAN.md 9.5, so a class is the
+place for set agreement.
 
 E0 through E4 fall back to the byte comparison, so declaring a case at E0 still
 means byte identical.

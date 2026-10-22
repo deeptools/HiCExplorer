@@ -16,10 +16,10 @@
       {
         "path": "{out}/merged.bedgraph",
         "format": "interval",
-        "class": "E5"
+        "class": "E0"
       }
     ],
-    "notes": "hicDetectLoops 3.7.6 calls on GSE63525 GM12878 (hg19): chromosome 17 at 10 kb and chr17-19 at 25 kb. Class E5 as hicMergeLoops.three_files.r25000."
+    "notes": "hicDetectLoops 3.7.6 calls on GSE63525 GM12878 (hg19): chromosome 17 at 10 kb and chr17-19 at 25 kb. E0 since the port reproduces the reference's set iteration order exactly (E5 until 2026-10-22)."
   },
   {
     "id": "ext.hicMergeLoops.gse63525_10kb_chr17_25kb.r10000",
@@ -60,9 +60,9 @@
       {
         "path": "{out}/merged.bedgraph",
         "format": "interval",
-        "class": "E5"
+        "class": "E0"
       }
     ],
-    "notes": "hicDetectLoops 3.7.6 calls on GSE234292 wild type and knockout replicate 1 (mm10, 25 kb raw counts)."
+    "notes": "hicDetectLoops 3.7.6 calls on GSE234292 wild type and knockout replicate 1 (mm10, 25 kb raw counts). Both inputs share one resolution, so every overlap is a tie between equally wide loops and the reference decides it by CPython set iteration order (deterministic: identical output under PYTHONHASHSEED 0, 1, 7, 12345 and random). E0; the earlier hash-slot approximation differed in 13 of 398 rows."
   }
 ]
