@@ -46,7 +46,7 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 REPO_ROOT = SCRIPT_DIR.parent.parent
 DATA = REPO_ROOT / "hicexplorer" / "test" / "test_data"
 CPP_BIN = REPO_ROOT / "cpp" / "build" / "tools" / "hicCorrectMatrix"
-PY_BIN = REPO_ROOT / "bin" / "hicCorrectMatrix"
+PY_BIN = SCRIPT_DIR / "reference_bin" / "hicCorrectMatrix"
 VENV = Path("/tmp/claude-1000167729/-home-mh-hannover-local-wolffjoa/"
             "3de46a4d-41bb-4fb9-aea9-26cceef9ad01/scratchpad/hicx-venv/bin/python")
 

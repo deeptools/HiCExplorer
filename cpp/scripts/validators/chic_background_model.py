@@ -420,7 +420,7 @@ def _run_downstream(context, options, model, label):
     workdir = Path(context["workdir"]) / "downstream" / label
     workdir.mkdir(parents=True, exist_ok=True)
     python = str(context["py_python"])
-    bin_dir = Path(context["repo_root"]) / "bin"
+    bin_dir = Path(context["repo_root"]) / "cpp" / "scripts" / "reference_bin"
     distance = str(min(options.fixateRange, DOWNSTREAM_MAX_RANGE))
     interactions = workdir / "interactions.hdf5"
     significant = workdir / "significant.hdf5"

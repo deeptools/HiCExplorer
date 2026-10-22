@@ -276,7 +276,7 @@ def code_hash(case, repo_root, entry_script):
     files = set(_package_files(repo_root, python=False))
     if case.get("noise") or case.get("validators"):
         files.update(_package_files(repo_root, python=True))
-        files.update((repo_root / "bin").glob("*"))
+        files.update((scripts / "reference_bin").glob("*"))
         files.add(scripts / "noise_runner.py")
         files.update((scripts / "validators").glob("*.py"))
     files.update(import_closure([entry_script], repo_root))

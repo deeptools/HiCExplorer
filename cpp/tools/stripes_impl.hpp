@@ -159,7 +159,7 @@ struct Candidate {
     std::int64_t pos3 = 0;  // long axis start
     std::int64_t pos4 = 0;  // long axis end
     int frame_index = 0;    // which 200-bin frame this came from (for cross-frame dedup)
-    double mean = 0.0;      // mean raw count over the box, stripenn.py 'Mean'
+    double mean = 0.0;      // mean contact value over the box, stripenn.py 'Mean'
     // The same box's mean count shifted by the background window in the
     // narrow-axis direction, computed once at detection time from the same
     // dense frame the box was found in -- an apples-to-apples comparison,

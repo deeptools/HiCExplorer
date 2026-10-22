@@ -156,6 +156,11 @@ struct CoolLoadOptions {
     // the whole matrix, so the NaN bin list is not the same one a whole file
     // load followed by a selection would produce.
     std::optional<std::string> chrom_name;
+    // Cool.distance (hiCMatrix pDistance), used together with chrom_name on a
+    // fixed bin size cooler (cool.py:122-145): only pixels with
+    // bin2 - bin1 < distance / binsize are kept, their counts as float32.
+    // The weights are applied afterwards like on any other load.
+    std::optional<std::int64_t> distance;
 };
 
 struct CoolLoadResult {
@@ -168,6 +173,25 @@ struct CoolLoadResult {
     // Cooler.info with every value rendered the way Python's str() would.
     std::map<std::string, std::string> metadata;
 };
+
+// The correction a load applies: Cool.load's weight step (cool.py:165-200),
+// the factors of every bin of the file and the operator. nullopt when the load
+// applies none (apply_correction off, no such column, every factor NaN, or at
+// most one stored pixel).
+struct CoolCorrection {
+    std::vector<double> factors;
+    char op = '*';
+};
+[[nodiscard]] std::optional<CoolCorrection> cool_correction(const CoolFile& cool,
+                                                            const CoolLoadOptions& options);
+
+// CoolFile::for_each_pixel_chunk with the load's correction applied to every
+// count; a pixel whose corrected value is NaN or 0 is dropped, as Cool.load
+// drops it. For tools that stream a band instead of holding the matrix.
+void for_each_corrected_pixel_chunk(const CoolFile& cool, std::int64_t row_first,
+                                    std::int64_t row_last, std::int64_t col_first,
+                                    std::int64_t col_last, const CoolLoadOptions& options,
+                                    const std::function<void(const PixelChunk&)>& visit);
 
 // hicmatrix.lib.Cool.load.
 [[nodiscard]] CoolLoadResult read_cool(const std::string& uri,
