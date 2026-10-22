@@ -81,6 +81,9 @@ noweight "$O/gse63525_gm12878_chr17_19_10000.cool" "$O/gse63525_gm12878_chr17_19
 for s in GSM7461656_HiC_wt_rep1 GSM7461658_HiC_BPTFko_rep1; do
     noweight "$O/${s}_chr17_19_25000.cool" "$O/${s}_chr17_19_25000_raw.cool"
 done
+for s in gm12878_ENCSR946AKI_r8 a549; do
+    noweight "$O/${s}_chr17_19_25kb.cool" "$O/${s}_chr17_19_25kb_raw.cool"
+done
 
 # --- annotation tracks
 # ENCODE GM12878 CTCF IDR peaks hg19 without the chr prefix (GSE63525 naming), sorted
