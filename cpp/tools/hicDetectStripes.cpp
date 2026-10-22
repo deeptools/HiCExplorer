@@ -39,7 +39,7 @@
 // own planting convention exactly (plant_one() builds a "horizontal" plant
 // as (anchor, anchor + d) for d = 1..length -- narrow axis at the start --
 // and a "vertical" one as (anchor - d, anchor) -- narrow axis at the end).
-// `enrichment` is the box's mean raw count divided by the chromosome's
+// `enrichment` is the box's mean contact value divided by the chromosome's
 // expected count at its offset from the diagonal.
 
 #include <algorithm>
@@ -295,8 +295,9 @@ ChromosomeMatrix load_cool_chromosome(const hicx::CoolFile& cool,
     arrays.cols = last - first;
     arrays.symmetry = hicx::Symmetry::Full;
     arrays.indptr.assign(static_cast<std::size_t>(arrays.rows) + 1, 0);
-    arrays.dtype = cool.count_dtype();
-    cool.for_each_pixel_chunk(first, last, first, last, [&](const hicx::PixelChunk& chunk) {
+    arrays.dtype = "float64";
+    hicx::for_each_corrected_pixel_chunk(cool, first, last, first, last, hicx::CoolLoadOptions(),
+                                         [&](const hicx::PixelChunk& chunk) {
         for (std::size_t k = 0; k < chunk.bin1.size(); ++k) {
             const std::int64_t row = chunk.bin1[k];
             const std::int64_t column = chunk.bin2[k];
@@ -323,14 +324,14 @@ ChromosomeMatrix load_cool_chromosome(const hicx::CoolFile& cool,
     return result;
 }
 
-// A simple (anchor, distance) -> raw count lookup over the chromosome's band,
+// A simple (anchor, distance) -> contact value lookup over the chromosome's band,
 // used only for the background sample and the enrichment denominator, kept
 // local to this file (stripes_impl.hpp's own API is the detection engine).
 struct AnchorDistanceBand {
     std::int64_t n_bins = 0;
     std::int64_t max_distance = 0;
     std::vector<double> raw;  // [a * max_distance + (d - 1)]
-    std::vector<double> expected;  // per distance, mean raw count
+    std::vector<double> expected;  // per distance, mean contact value
 
     [[nodiscard]] double at(std::int64_t anchor, std::int64_t distance) const {
         if (anchor < 0 || anchor >= n_bins || distance < 1 || distance > max_distance) {
@@ -499,7 +500,9 @@ int main(int argc, char** argv) {
                     last = static_cast<std::int64_t>(bin) + 1;
                 }
                 if (first >= 0) {
-                    cool->for_each_pixel_chunk(first, last, first, last, [&](const hicx::PixelChunk& chunk) {
+                    hicx::for_each_corrected_pixel_chunk(*cool, first, last, first, last,
+                                                         hicx::CoolLoadOptions(),
+                                                         [&](const hicx::PixelChunk& chunk) {
                         for (std::size_t k = 0; k < chunk.bin1.size(); ++k) {
                             if (chunk.count[k] != 0.0) {
                                 whole_chromosome_nonzero.push_back(chunk.count[k]);
