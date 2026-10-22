@@ -49,9 +49,5 @@ jobs:
           py.test hicexplorer --doctest-modules --ignore=hicexplorer/test/
 
       - name: Tests
-        run: py.test hicexplorer/test/general/ --doctest-modules --capture=sys -n 4 --ignore=hicexplorer/test/general/test_hicTADClassifier.py --ignore=hicexplorer/test/general/test_hicTrainTADClassifier.py
+        run: py.test hicexplorer/test/general/ --doctest-modules --capture=sys -n 4
 
-      - name: TAD classifier tests
-        run: |
-          py.test hicexplorer/test/general/test_hicTADClassifier.py
-          py.test hicexplorer/test/general/test_hicTrainTADClassifier.py

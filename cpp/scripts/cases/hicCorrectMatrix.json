@@ -484,7 +484,7 @@
     "args": [
       "correct",
       "-m",
-      "{data}/hicTADClassifier/gm12878_chr1.cool",
+      "{data}/gm12878_chr1.cool",
       "--correctionMethod",
       "KR",
       "-o",
@@ -506,7 +506,7 @@
     "args": [
       "correct",
       "-m",
-      "{data}/hicTADClassifier/gm12878_chr1.cool",
+      "{data}/gm12878_chr1.cool",
       "--correctionMethod",
       "ICE",
       "--filterThreshold",
@@ -639,7 +639,7 @@
     "args": [
       "diagnostic_plot",
       "--matrix",
-      "{data}/hicTADClassifier/gm12878_chr1.cool",
+      "{data}/gm12878_chr1.cool",
       "--chromosomes",
       "1",
       "--perchr",

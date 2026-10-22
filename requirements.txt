@@ -22,4 +22,3 @@ future >= 0.18
 tqdm >= 4.66
 hyperopt >= 0.2.7
 python-graphviz >= 0.20
-cleanlab >= 2.5

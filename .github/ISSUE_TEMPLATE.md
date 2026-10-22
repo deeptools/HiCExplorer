@@ -9,7 +9,6 @@ assignees: ''
 
 **Welcome to the HiCExplorer GitHub repository!**
 
-If your issue concern `HiCPlotTADs`, please post your issue to the [pyGenomeTracks github repo](https://github.com/deeptools/pyGenomeTracks/issues/new/choose).
 
 **Before opening the issue please check
  that the following requirements are met :**

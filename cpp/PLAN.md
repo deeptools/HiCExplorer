@@ -530,7 +530,7 @@ Measured, on this machine, against the reference oracle:
 | input | runs | normalisation factors observed |
 |---|---|---|
 | `Li_et_al_2015.h5`, 11,104 bins, 1.66 M stored nonzeros | 6 | 0.0190883, 0.0190885, 0.0190887, 0.0190889, 0.0190894, 0.0190899 |
-| `hicTADClassifier/gm12878_chr1.cool`, 24,926 bins, 61.8 M stored nonzeros | 3 | 0.00660838, 0.00663618, 0.00666417 |
+| `gm12878_chr1.cool`, 24,926 bins, 61.8 M stored nonzeros | 3 | 0.00660838, 0.00663618, 0.00666417 |
 
 Comparing the five `Li` output matrices pairwise: the sparsity pattern is stable
 across runs, but the **maximum pairwise relative difference is 1.503e-04 on the
@@ -702,7 +702,7 @@ Working-set sizes of the inputs, for reference:
 |---|---|---|---|---|
 | `Li_et_al_2015.h5` | 11,104 | 1,661,678 | 3,313,107 | 19.9 MB stored / 39.8 MB symmetric |
 | `hicPCA/mm9_reduced_chr1.cool` | 9,760 | 470,730 | - | 5.6 MB |
-| `hicTADClassifier/gm12878_chr1.cool` | 24,926 | 61,804,782 | 123,587,194 | **741.9 MB** stored / 1,483 MB symmetric |
+| `gm12878_chr1.cool` | 24,926 | 61,804,782 | 123,587,194 | **741.9 MB** stored / 1,483 MB symmetric |
 
 Note the shape of the KR and ICE rows: 9.2 and 9.1 GB for a matrix whose stored
 form is 742 MB. Both correction methods cost roughly 12x their data.
@@ -2343,7 +2343,7 @@ Validation inputs are the repository's real files. The full corpus is 532 MB in
 | `small_test_matrix_50kb_res.h5` / `.cool` | 111,138 / 105,170 B | | `hicMergeMatrixBins`, `hicNormalize` |
 | `matrix.mcool` | 2,444,203 B | 5 resolution groups named `/0`../`/4` (the legacy layout, **not** `/resolutions/<res>`), format-version 2 | the mcool reader; a reader that only understands `/resolutions/` will fail here |
 | `hicBuildMatrix/multi_small_test_matrix.mcool` | 441,383 B | `/resolutions/{5000,10000,20000}` | the other mcool layout |
-| `hicTADClassifier/gm12878_chr1.cool` | 79,370,717 B | 24,926 bins, 10 kb, chr1 only, 61,804,782 stored nonzeros (123,587,194 symmetric), `W = 741.9 MB` | **the memory benchmark**: KR, ICE, threading determinism, the budget gate |
+| `gm12878_chr1.cool` | 79,370,717 B | 24,926 bins, 10 kb, chr1 only, 61,804,782 stored nonzeros (123,587,194 symmetric), `W = 741.9 MB` | **the memory benchmark**: KR, ICE, threading determinism, the budget gate |
 | `hicDifferentialTAD/GSM2644945_Untreated-R1.100000_chr1_chr2.cool` | 21,983,415 B | 100 kb | `hicDifferentialTAD`, `hicInterIntraTAD` |
 | `hicDifferentialTAD/GSM2644947_Auxin2days-R1.100000_chr1_chr2.cool` | 28,429,077 B | 3,790 bins, 100 kb, chr1+chr2, 4,208,340 nnz | as above; the two-chromosome case |
 | `hicDifferentialTAD/GSM2644945_Untreated-R1.100000_chr1.h5` | 9,654,418 B | | h5 form of the same |
@@ -2467,7 +2467,7 @@ is simpler). One case:
 - id: hicCorrectMatrix.KR.gm12878_chr1
   tool: hicCorrectMatrix
   tier: 3
-  args: ["correct", "-m", "{data}/hicTADClassifier/gm12878_chr1.cool",
+  args: ["correct", "-m", "{data}/gm12878_chr1.cool",
          "--correctionMethod", "KR", "--filterThreshold", "-1.5", "5",
          "-o", "{out}/kr.cool"]
   outputs:

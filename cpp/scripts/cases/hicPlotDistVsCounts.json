@@ -77,7 +77,7 @@
     "id": "hicPlotDistVsCounts.gm12878_chr1_perchr",
     "tool": "hicPlotDistVsCounts",
     "tier": 7,
-    "args": ["--matrices", "{data}/hicTADClassifier/gm12878_chr1.cool", "--plotFile", "{out}/plot.png",
+    "args": ["--matrices", "{data}/gm12878_chr1.cool", "--plotFile", "{out}/plot.png",
              "--perchr", "--outFileData", "{out}/data.txt"],
     "outputs": [
       {"path": "{out}/plot.png", "format": "png", "class": "E6"},

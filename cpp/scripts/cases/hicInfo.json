@@ -45,7 +45,7 @@
     "id": "hicInfo.gm12878.cool.metadata",
     "tool": "hicInfo",
     "tier": 1,
-    "args": ["-m", "{data}/hicTADClassifier/gm12878_chr1.cool"],
+    "args": ["-m", "{data}/gm12878_chr1.cool"],
     "large": true,
     "outputs": [
       {"path": "{out}/stdout.txt", "format": "text", "class": "E0"}
@@ -57,7 +57,7 @@
     "id": "hicInfo.gm12878.cool.no_metadata",
     "tool": "hicInfo",
     "tier": 1,
-    "args": ["-m", "{data}/hicTADClassifier/gm12878_chr1.cool", "-nm"],
+    "args": ["-m", "{data}/gm12878_chr1.cool", "-nm"],
     "large": true,
     "outputs": [
       {"path": "{out}/stdout.txt", "format": "text", "class": "E0"}

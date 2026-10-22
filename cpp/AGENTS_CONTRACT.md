@@ -108,7 +108,7 @@ directories would silently not be committed.
    before the C++ code that replaces it.
 2. **Validate on real data, not toys.** Equivalence runs use the repository's
    real matrices (`hicexplorer/test/test_data/`, e.g. `Li_et_al_2015.cool`,
-   `hicTADClassifier/gm12878_chr1.cool` at 79 MB, the 100 kb
+   `gm12878_chr1.cool` at 79 MB, the 100 kb
    GSM2644945/GSM2644947 cool and h5 matrices) and real BAM input where the
    tool consumes alignments. Hand-written 5x5 matrices are for unit tests only
    and never count as validation.

@@ -556,8 +556,8 @@ mattered repeatedly:
 | hicCorrelate | 7 | E0, one figure E6 (RMS 1.17) | 1.3W x n, three-matrix case alpha 4.5 | weak | yes | done | 11/11 (reproduced) | Complete-linkage clustering with scipy's leaf order. Refuses non-finite values; mixed float32/float64 inputs meet only E3. Exits 1 for labels and range errors where the Python exits 0. |
 | hicPrepareQCreport (alias hicQC) | 7 | E0 tables and charts, HTML E0 after `pandas_styler_uuid` | n/a | none | yes | done | 6/6 (reproduced) | Exits 1 for label-row mismatches where the Python exits 0. |
 | chicPlotViewpoint | 7 | E0 tar members | 1.3W | weak | yes | done | 8/8 (reproduced) | |
-| hicTADClassifier | 8 | E7 | 1.3W | weak | yes | not started | - | |
-| hicTrainTADClassifier | 8 | E7 | 1.3W | weak | yes | not started | - | F13. |
+| hicTADClassifier | 8 | n/a | n/a | none | no | removed | n/a | Removed in version 4 with its module, pretrained models, tests and docs (2026-10-22). |
+| hicTrainTADClassifier | 8 | n/a | n/a | none | no | removed | n/a | Removed in version 4 together with hicTADClassifier. |
 | hicHyperoptDetectLoops | 8 | E7 | inherits | partial | yes | not started | - | |
 | hicHyperoptDetectLoopsHiCCUPS | 8 | E7 | n/a | weak | yes | not started | - | |
 

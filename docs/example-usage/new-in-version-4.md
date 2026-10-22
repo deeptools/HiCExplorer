@@ -38,7 +38,7 @@ splits it into complementary halves as pseudo-replicates (`--splitReplicates`) a
 change into the regions of a BED file (`--plantRegions`, `--plantFold 2`), so the differences are known.
 
 ```bash
-G=hicexplorer/test/test_data/hicTADClassifier/gm12878_chr1.cool
+G=hicexplorer/test/test_data/gm12878_chr1.cool
 hicDifferentialAnalysis tads -a $G $G -b $G $G --splitReplicates 11 --blocks r1 r2 r1 r2 \
     -d gm12878_chr1_domains.bed --plantRegions gm12878_chr1_plants.bed --plantFold 2 \
     --plantSeed 5 -o diff --threads 8
