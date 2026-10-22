@@ -1,0 +1,89 @@
+[
+ {
+  "id": "ext.hicConvertFormat.chinput.EP_genomewide.cool",
+  "tool": "hicConvertFormat",
+  "tier": 9,
+  "reference": "none",
+  "args": [
+   "--matrices",
+   "{data}/capture/EP_genomewide.chinput",
+   "--rmap",
+   "{data}/capture/Digest_Human_HindIII.rmap",
+   "--inputFormat",
+   "chinput",
+   "--outputFormat",
+   "cool",
+   "-o",
+   "{out}/EP.cool"
+  ],
+  "outputs": [
+   {
+    "path": "{out}/EP.cool",
+    "format": "cool",
+    "class": "EX"
+   }
+  ],
+  "notes": "EP_genomewide.chinput: genome-wide promoter capture Hi-C on the CHiCAGO hg19 HindIII design, 22,076 baits, 119.8 M rows. Output checked once outside the harness: identical bins, pixels and counts to /mnt/processed/wolffjoa/hicexplorer_bench/chicago_genomewide/EP_genomewide_v2.cool; total = sum of N over all rows (bait-to-bait pairs summed over both rows). Class EX, no Python counterpart: exit status and non-empty outputs are gated; the chinput-versus-matrix agreement and score sanity were measured outside the harness (report).",
+  "large": true
+ },
+ {
+  "id": "ext.hicConvertFormat.chinput.K562_rep1.h5",
+  "tool": "hicConvertFormat",
+  "tier": 9,
+  "reference": "none",
+  "args": [
+   "--matrices",
+   "{data}/capture/k562_rep1.chinput",
+   "--rmap",
+   "{data}/capture/Digest_Human_HindIII.rmap",
+   "--inputFormat",
+   "chinput",
+   "--outputFormat",
+   "h5",
+   "-o",
+   "{out}/K562_rep1.h5"
+  ],
+  "outputs": [
+   {
+    "path": "{out}/K562_rep1.h5",
+    "format": "h5",
+    "class": "EX"
+   }
+  ],
+  "notes": "ENCODE K562 promoter capture Hi-C replicate 1 chinput (bam2chicago), to h5. Class EX, no Python counterpart: exit status and non-empty outputs are gated; the chinput-versus-matrix agreement and score sanity were measured outside the harness (report)."
+ },
+ {
+  "id": "ext.hicConvertFormat.chinput.K562_rep1_rep2.cool",
+  "tool": "hicConvertFormat",
+  "tier": 9,
+  "reference": "none",
+  "args": [
+   "--matrices",
+   "{data}/capture/k562_rep1.chinput",
+   "{data}/capture/k562_rep2.chinput",
+   "--rmap",
+   "{data}/capture/Digest_Human_HindIII.rmap",
+   "{data}/capture/Digest_Human_HindIII.rmap",
+   "--inputFormat",
+   "chinput",
+   "--outputFormat",
+   "cool",
+   "-o",
+   "{out}/rep1.cool",
+   "{out}/rep2.cool"
+  ],
+  "outputs": [
+   {
+    "path": "{out}/rep1.cool",
+    "format": "cool",
+    "class": "EX"
+   },
+   {
+    "path": "{out}/rep2.cool",
+    "format": "cool",
+    "class": "EX"
+   }
+  ],
+  "notes": "Both ENCODE K562 replicates in one call, one .rmap per chinput. Class EX, no Python counterpart: exit status and non-empty outputs are gated; the chinput-versus-matrix agreement and score sanity were measured outside the harness (report)."
+ }
+]

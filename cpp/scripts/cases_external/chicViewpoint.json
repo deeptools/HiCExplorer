@@ -1,0 +1,174 @@
+[
+ {
+  "id": "ext.chicViewpoint.EP_frag.ADAMTS1.range200000.reference_error",
+  "tool": "chicViewpoint",
+  "tier": 6,
+  "args": [
+   "--matrices",
+   "{data}/derived/capture/EP_frag_chr20-22.cool",
+   "--referencePoints",
+   "{data}/derived/capture/baits_ADAMTS1.bed",
+   "--backgroundModelFile",
+   "{data}/derived/capture/background_frag_chr20-22.txt",
+   "--range",
+   "200000",
+   "200000",
+   "-o",
+   "{out}/viewpoints.hdf5",
+   "-t",
+   "1"
+  ],
+  "outputs": [],
+  "threads_arg": "--threads",
+  "notes": "EP: the genome-wide promoter capture Hi-C sample EP_genomewide.chinput on the CHiCAGO hg19 HindIII design; K562: ENCODE K562 promoter capture Hi-C replicates 1 and 2 (HiCUP + bam2chicago on the same design). Fragment-level cools (one variable-size bin per HindIII fragment) from hicConvertFormat --inputFormat chinput, chromosomes kept with the 3.7.6 hicAdjustMatrix (derive_capture.sh). Bait-to-bait pixels hold 2N (both chinput rows summed); identical input on both sides. The one bait (ADAMTS1_423843, chr21) on which the 3.7.6 chicViewpoint fails on the fragment cool at +-200 kb: 'operands could not be broadcast together with shapes (158,) (157,)', exit 1. The C++ port reproduces the message and the exit status. A 3.7.6 defect with variable-size bins.",
+  "expect_exit": 1
+ },
+ {
+  "id": "ext.chicViewpoint.EP_K562r1_frag_chr20-22",
+  "tool": "chicViewpoint",
+  "tier": 6,
+  "args": [
+   "--matrices",
+   "{data}/derived/capture/EP_frag_chr20-22.cool",
+   "{data}/derived/capture/K562_rep1_frag_chr20-22.cool",
+   "--referencePoints",
+   "{data}/derived/capture/baits_chr20-22.bed",
+   "--backgroundModelFile",
+   "{data}/derived/capture/background_frag_chr20-22.txt",
+   "--range",
+   "500000",
+   "500000",
+   "-o",
+   "{out}/viewpoints.hdf5",
+   "-t",
+   "4"
+  ],
+  "outputs": [
+   {
+    "path": "{out}/viewpoints.hdf5",
+    "format": "chic_hdf5",
+    "class": "ED"
+   }
+  ],
+  "threads_arg": "--threads",
+  "notes": "EP: the genome-wide promoter capture Hi-C sample EP_genomewide.chinput on the CHiCAGO hg19 HindIII design; K562: ENCODE K562 promoter capture Hi-C replicates 1 and 2 (HiCUP + bam2chicago on the same design). Fragment-level cools (one variable-size bin per HindIII fragment) from hicConvertFormat --inputFormat chinput, chromosomes kept with the 3.7.6 hicAdjustMatrix (derive_capture.sh). Bait-to-bait pixels hold 2N (both chinput rows summed); identical input on both sides. 1,330 baits on two matrices, background model of the 3.7.6 chicViewpointBackgroundModel on EP and both K562 replicates."
+ },
+ {
+  "id": "ext.chicViewpoint.K562r1_r2_10kb_chr20",
+  "tool": "chicViewpoint",
+  "tier": 6,
+  "args": [
+   "--matrices",
+   "{data}/derived/capture/K562_rep1_10kb_chr20.cool",
+   "{data}/derived/capture/K562_rep2_10kb_chr20.cool",
+   "--referencePoints",
+   "{data}/derived/capture/baits_chr20_qc_10kb.bed",
+   "--backgroundModelFile",
+   "{data}/derived/capture/background_10kb_chr20.txt",
+   "--range",
+   "500000",
+   "500000",
+   "-o",
+   "{out}/viewpoints.hdf5",
+   "-t",
+   "2"
+  ],
+  "outputs": [
+   {
+    "path": "{out}/viewpoints.hdf5",
+    "format": "chic_hdf5",
+    "class": "ED"
+   }
+  ],
+  "threads_arg": "--threads",
+  "notes": "ENCODE K562 promoter capture Hi-C replicates 1 and 2, binned at 10 kb (fixed bins), chr20 kept with the 3.7.6 hicAdjustMatrix (derive_capture.sh). 573 QC-passed chr20 baits, 3.7.6 background model of the two replicates."
+ },
+ {
+  "id": "ext.chicViewpoint.K562r1_r2_10kb_chr20.range_beyond_model.no_smoothing",
+  "tool": "chicViewpoint",
+  "tier": 6,
+  "args": [
+   "--matrices",
+   "{data}/derived/capture/K562_rep1_10kb_chr20.cool",
+   "{data}/derived/capture/K562_rep2_10kb_chr20.cool",
+   "--referencePoints",
+   "{data}/derived/capture/baits_chr20_qc_10kb.bed",
+   "--backgroundModelFile",
+   "{data}/derived/capture/background_10kb_chr20.txt",
+   "--range",
+   "800000",
+   "1000000",
+   "--averageContactBin",
+   "0",
+   "-o",
+   "{out}/viewpoints.hdf5",
+   "-t",
+   "1"
+  ],
+  "outputs": [
+   {
+    "path": "{out}/viewpoints.hdf5",
+    "format": "chic_hdf5",
+    "class": "ED"
+   }
+  ],
+  "threads_arg": "--threads",
+  "notes": "ENCODE K562 promoter capture Hi-C replicates 1 and 2, binned at 10 kb (fixed bins), chr20 kept with the 3.7.6 hicAdjustMatrix (derive_capture.sh). Range beyond the model's 500 kb fixate range, --averageContactBin 0."
+ },
+ {
+  "id": "ext.chicViewpoint.EP_frag_chr1",
+  "tool": "chicViewpoint",
+  "tier": 6,
+  "args": [
+   "--matrices",
+   "{data}/derived/capture/EP_frag_chr1.cool",
+   "--referencePoints",
+   "{data}/derived/capture/baits_chr1.bed",
+   "--backgroundModelFile",
+   "{data}/derived/capture/background_frag_chr20-22.txt",
+   "--range",
+   "500000",
+   "500000",
+   "--averageContactBin",
+   "3",
+   "-o",
+   "{out}/viewpoints.hdf5",
+   "-t",
+   "4"
+  ],
+  "outputs": [
+   {
+    "path": "{out}/viewpoints.hdf5",
+    "format": "chic_hdf5",
+    "class": "ED"
+   }
+  ],
+  "threads_arg": "--threads",
+  "notes": "EP fragment-level cool, chr1 (64,395 bins); all 2,272 chr1 baits, +-500 kb, the chr20-22 background model.",
+  "large": true
+ },
+ {
+  "id": "ext.chicViewpoint.EP_frag.range_beyond_model.reference_error",
+  "tool": "chicViewpoint",
+  "tier": 6,
+  "args": [
+   "--matrices",
+   "{data}/derived/capture/EP_frag_chr20-22.cool",
+   "--referencePoints",
+   "{data}/derived/capture/baits_chr21.bed",
+   "--backgroundModelFile",
+   "{data}/derived/capture/background_frag_chr20-22.txt",
+   "--range",
+   "1000000",
+   "1000000",
+   "-o",
+   "{out}/viewpoints.hdf5",
+   "-t",
+   "1"
+  ],
+  "outputs": [],
+  "threads_arg": "--threads",
+  "notes": "EP: the genome-wide promoter capture Hi-C sample EP_genomewide.chinput on the CHiCAGO hg19 HindIII design; K562: ENCODE K562 promoter capture Hi-C replicates 1 and 2 (HiCUP + bam2chicago on the same design). Fragment-level cools (one variable-size bin per HindIII fragment) from hicConvertFormat --inputFormat chinput, chromosomes kept with the 3.7.6 hicAdjustMatrix (derive_capture.sh). Bait-to-bait pixels hold 2N (both chinput rows summed); identical input on both sides. A range beyond the model's fixate range on a variable-bin model: the model's positions are multiples of the median bin size (2,513 bp), so readBackgroundDataFile's lookup of -500000 raises KeyError: -500000 and the 3.7.6 tool exits 1; the C++ port does the same.",
+  "expect_exit": 1
+ }
+]
