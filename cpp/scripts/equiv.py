@@ -182,6 +182,9 @@ HARNESS_VERSION = "1.3"
 SCRIPT_DIR = Path(__file__).resolve().parent
 REPO_ROOT = SCRIPT_DIR.parent.parent
 CASES_DIR = SCRIPT_DIR / "cases"
+# The external-data cases (real public datasets outside the repository) live in
+# cases_external and are selected with --cases-dir, together with --data.
+EXTERNAL_CASES_DIR = SCRIPT_DIR / "cases_external"
 DEFAULT_DATA = REPO_ROOT / "hicexplorer" / "test" / "test_data"
 DEFAULT_CPP_BIN = REPO_ROOT / "cpp" / "build" / "tools"
 DEFAULT_OUT = REPO_ROOT / "cpp" / "build" / "equivalence"
@@ -2743,6 +2746,9 @@ def main(argv=None):
         target.add_argument("--case", action="append")
         target.add_argument("--cpp-bin", default=str(DEFAULT_CPP_BIN))
         target.add_argument("--data", default=str(DEFAULT_DATA))
+        target.add_argument("--cases-dir", default=None,
+                            help="directory of case files (default: cases/; the external-data "
+                                 "cases are in cases_external/)")
         target.add_argument("--out", default=str(DEFAULT_OUT))
         target.add_argument("--tmpdir", default=tempfile.gettempdir())
         target.add_argument("--jobs", default="auto",
@@ -2836,6 +2842,9 @@ def main(argv=None):
     list_parser.set_defaults(handler=command_list)
 
     options = parser.parse_args(argv)
+    global CASES_DIR
+    if getattr(options, "cases_dir", None):
+        CASES_DIR = Path(options.cases_dir).resolve()
     if not hasattr(options, "determinism"):
         options.determinism = False
     signal.signal(signal.SIGTERM, _stop_on_signal)
