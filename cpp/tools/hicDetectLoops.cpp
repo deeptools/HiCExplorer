@@ -324,96 +324,6 @@ hicx::CsrMatrix upper_band(const hicx::CsrMatrix& matrix, double distance_limit,
     return hicx::CsrMatrix::adopt(std::move(arrays));
 }
 
-// hicmatrix.lib.Cool.load for a single chromosome with pDistance set
-// (cool.py:120-146). The pixels of the chromosome block are read, the ones
-// further from the diagonal than `distance // binsize` bins are dropped, and
-// the counts are stored as float32, which is the dtype of the lil_matrix the
-// Python stages them in and therefore the dtype obs_exp_matrix casts back to.
-//
-// The block is read through coolercpp's range query one chunk of pixel rows
-// at a time and the band is cut while reading, so only the band is ever held.
-// Loading the whole pixel table first and cutting afterwards held the 742 MB
-// table of gm12878_chr1.cool next to the 51 MB band (peak 877 MB).
-ChromosomeMatrix load_cool_chromosome(const hicx::CoolFile& cool,
-                                      const std::vector<hicx::CutInterval>& bins,
-                                      const std::string& chromosome,
-                                      std::int64_t max_loop_distance) {
-    std::int64_t first = -1;
-    std::int64_t last = 0;
-    for (std::size_t bin = 0; bin < bins.size(); ++bin) {
-        if (bins[bin].chrom != chromosome) {
-            continue;
-        }
-        if (first < 0) {
-            first = static_cast<std::int64_t>(bin);
-        }
-        last = static_cast<std::int64_t>(bin) + 1;
-    }
-    if (first < 0) {
-        throw std::runtime_error("Chromosome name not in matrix. '" + chromosome + "'");
-    }
-
-    // cooler.Cooler.binsize: the file's bin-size attribute, absent for a
-    // variable bin cooler, in which case the Python fetches the whole
-    // chromosome and never applies the distance filter.
-    std::optional<std::int64_t> file_bin_size;
-    const hicx::json::Value* attribute = cool.info_value("bin-size");
-    if (attribute != nullptr && attribute->is_number()) {
-        const double value = attribute->as_double();
-        if (value > 0) {
-            file_bin_size = static_cast<std::int64_t>(value);
-        }
-    }
-
-    hicx::CsrMatrix::Arrays arrays;
-    arrays.rows = last - first;
-    arrays.cols = last - first;
-    arrays.symmetry = hicx::Symmetry::Full;
-    arrays.indptr.assign(static_cast<std::size_t>(arrays.rows) + 1, 0);
-    const bool restrict_distance = file_bin_size.has_value();
-    const std::int64_t band = restrict_distance ? max_loop_distance / *file_bin_size : 0;
-    arrays.dtype = restrict_distance ? "float32" : cool.count_dtype();
-
-    cool.for_each_pixel_chunk(first, last, first, last, [&](const hicx::PixelChunk& chunk) {
-        for (std::size_t k = 0; k < chunk.bin1.size(); ++k) {
-            const std::int64_t row = chunk.bin1[k];
-            const std::int64_t column = chunk.bin2[k];
-            if (restrict_distance && (column - row) >= band) {
-                continue;
-            }
-            double value = chunk.count[k];
-            if (restrict_distance) {
-                value = static_cast<double>(static_cast<float>(value));
-            }
-            if (value == 0.0) {
-                continue;  // lil_matrix does not store a zero
-            }
-            arrays.indices.push_back(static_cast<std::int32_t>(column - first));
-            arrays.data.push_back(value);
-            ++arrays.indptr[static_cast<std::size_t>(row - first) + 1];
-        }
-    });
-    for (std::size_t i = 1; i < arrays.indptr.size(); ++i) {
-        arrays.indptr[i] += arrays.indptr[i - 1];
-    }
-    // The cooler format promises each row's pixels are stored in ascending
-    // column order, which neighborhood_merge's dense_block relies on
-    // (lower_bound window search); a real file need not honour it (a 4D
-    // Nucleome GM12878 map does not, cpp/STATUS.md 2026-10-01), which the
-    // unguarded assumption turned into a heap-buffer-overflow write and,
-    // without a sanitizer, an eventual double free. The general cool reader
-    // (cool_adapter.cpp) already defends against this; this loader does not
-    // go through it, so it defends itself the same way.
-    hicx::sort_row_columns(arrays);
-
-    ChromosomeMatrix result;
-    result.matrix = hicx::CsrMatrix::adopt(std::move(arrays));
-    result.cut_intervals.assign(bins.begin() + static_cast<std::ptrdiff_t>(first),
-                                bins.begin() + static_cast<std::ptrdiff_t>(last));
-    result.bin_size = hicx::BinTable(result.cut_intervals).bin_size();
-    return result;
-}
-
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -455,7 +365,6 @@ int main(int argc, char** argv) {
     std::vector<std::string> chromosomes;
     hicx::MatrixData whole;
     std::optional<hicx::CoolFile> cool;
-    std::vector<hicx::CutInterval> cool_bins;
     if (!is_cooler) {
         whole = hicx::read_hicexplorer_h5(args.matrix);
         // hiCMatrix.__init__ with pUpperTriangleOnly unset calls
@@ -473,7 +382,6 @@ int main(int argc, char** argv) {
         }
     } else {
         cool.emplace(args.matrix);
-        cool_bins = cool->read_bins();
         if (args.chromosomes.has_value()) {
             chromosomes = *args.chromosomes;
         } else {
@@ -504,8 +412,18 @@ int main(int argc, char** argv) {
         ChromosomeMatrix block;
         try {
             if (is_cooler) {
-                block = load_cool_chromosome(*cool, cool_bins, chromosome,
-                                             args.max_loop_distance);
+                const std::vector<std::string>& names = cool->chrom_names();
+                if (std::find(names.begin(), names.end(), chromosome) == names.end()) {
+                    throw std::runtime_error("Chromosome name not in matrix. '" +
+                                             chromosome + "'");
+                }
+                hicx::CoolLoadOptions load_options;
+                load_options.chrom_name = chromosome;
+                load_options.distance = args.max_loop_distance;
+                hicx::CoolLoadResult loaded = hicx::read_cool(args.matrix, load_options);
+                block.matrix = std::move(loaded.data.matrix);
+                block.cut_intervals = std::move(loaded.data.cut_intervals);
+                block.bin_size = hicx::BinTable(block.cut_intervals).bin_size();
             } else {
                 // keepOnlyTheseChr: a monotone selection of that chromosome's
                 // bins out of the whole matrix.

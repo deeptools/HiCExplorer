@@ -393,6 +393,66 @@ CsrMatrix CoolFile::read_block(std::int64_t first, std::int64_t last) const {
     return CsrMatrix::adopt(std::move(arrays));
 }
 
+namespace {
+
+// 'weight' is multiplicative, the hic2cool tables KR, VC and SQRT_VC are
+// divisive (cool.py:195-200).
+char default_correction_operator(const CoolLoadOptions& options) {
+    if (options.correction_operator.has_value()) {
+        return *options.correction_operator;
+    }
+    const std::string& table = options.correction_factor_table;
+    return (table == "KR" || table == "VC" || table == "SQRT_VC") ? '/' : '*';
+}
+
+}  // namespace
+
+std::optional<CoolCorrection> cool_correction(const CoolFile& cool,
+                                              const CoolLoadOptions& options) {
+    if (!options.apply_correction || !cool.has_column(options.correction_factor_table) ||
+        cool.nnz() <= 1) {
+        return std::nullopt;
+    }
+    CoolCorrection correction;
+    correction.factors = cool.read_column(options.correction_factor_table);
+    if (std::all_of(correction.factors.begin(), correction.factors.end(),
+                    [](double v) { return std::isnan(v); })) {
+        return std::nullopt;
+    }
+    correction.op = default_correction_operator(options);
+    return correction;
+}
+
+void for_each_corrected_pixel_chunk(const CoolFile& cool, std::int64_t row_first,
+                                    std::int64_t row_last, std::int64_t col_first,
+                                    std::int64_t col_last, const CoolLoadOptions& options,
+                                    const std::function<void(const PixelChunk&)>& visit) {
+    const std::optional<CoolCorrection> correction = cool_correction(cool, options);
+    if (!correction.has_value()) {
+        cool.for_each_pixel_chunk(row_first, row_last, col_first, col_last, visit);
+        return;
+    }
+    const bool divide = correction->op == '/';
+    PixelChunk corrected;
+    cool.for_each_pixel_chunk(row_first, row_last, col_first, col_last, [&](const PixelChunk& chunk) {
+        corrected.bin1.clear();
+        corrected.bin2.clear();
+        corrected.count.clear();
+        for (std::size_t k = 0; k < chunk.bin1.size(); ++k) {
+            const double factor = correction->factors[static_cast<std::size_t>(chunk.bin1[k])] *
+                                  correction->factors[static_cast<std::size_t>(chunk.bin2[k])];
+            const double value = divide ? chunk.count[k] / factor : chunk.count[k] * factor;
+            if (std::isnan(value) || value == 0.0) {
+                continue;
+            }
+            corrected.bin1.push_back(chunk.bin1[k]);
+            corrected.bin2.push_back(chunk.bin2[k]);
+            corrected.count.push_back(value);
+        }
+        visit(corrected);
+    });
+}
+
 CoolLoadResult read_cool(const std::string& uri, const CoolLoadOptions& options) {
     const CoolFile cool(uri);
     CoolLoadResult result;
@@ -430,7 +490,43 @@ CoolLoadResult read_cool(const std::string& uri, const CoolLoadOptions& options)
                 last = 0;
             }
         }
-        result.data.matrix = cool.read_block(first, last);
+        std::optional<std::int64_t> file_bin_size;
+        const json::Value* attribute = cool.info_value("bin-size");
+        if (attribute != nullptr && attribute->is_number() && attribute->as_double() > 0) {
+            file_bin_size = static_cast<std::int64_t>(attribute->as_double());
+        }
+        if (options.distance.has_value() && file_bin_size.has_value()) {
+            const std::int64_t band = *options.distance / *file_bin_size;
+            CsrMatrix::Arrays arrays;
+            arrays.rows = last - first;
+            arrays.cols = last - first;
+            arrays.symmetry = Symmetry::Full;
+            arrays.indptr.assign(static_cast<std::size_t>(arrays.rows) + 1, 0);
+            arrays.dtype = "float32";
+            cool.for_each_pixel_chunk(first, last, first, last, [&](const PixelChunk& chunk) {
+                for (std::size_t k = 0; k < chunk.bin1.size(); ++k) {
+                    const std::int64_t row = chunk.bin1[k];
+                    const std::int64_t column = chunk.bin2[k];
+                    if (column - row >= band) {
+                        continue;
+                    }
+                    const double value = static_cast<double>(static_cast<float>(chunk.count[k]));
+                    if (value == 0.0) {
+                        continue;  // lil_matrix does not store a zero
+                    }
+                    arrays.indices.push_back(static_cast<std::int32_t>(column - first));
+                    arrays.data.push_back(value);
+                    ++arrays.indptr[static_cast<std::size_t>(row - first) + 1];
+                }
+            });
+            for (std::size_t i = 1; i < arrays.indptr.size(); ++i) {
+                arrays.indptr[i] += arrays.indptr[i - 1];
+            }
+            sort_row_columns(arrays);
+            result.data.matrix = CsrMatrix::adopt(std::move(arrays));
+        } else {
+            result.data.matrix = cool.read_block(first, last);
+        }
     } else {
         result.data.matrix = cool.read_matrix();
     }
@@ -462,12 +558,7 @@ CoolLoadResult read_cool(const std::string& uri, const CoolLoadOptions& options)
                 } else {
                     // 'weight' is multiplicative, the hic2cool tables KR, VC
                     // and SQRT_VC are divisive.
-                    result.correction_operator =
-                        (options.correction_factor_table == "KR" ||
-                         options.correction_factor_table == "VC" ||
-                         options.correction_factor_table == "SQRT_VC")
-                            ? '/'
-                            : '*';
+                    result.correction_operator = default_correction_operator(options);
                     const json::Value* generated = cool.info_value("generated-by");
                     if (generated != nullptr && generated->is_string()) {
                         const std::string& text = generated->as_string();
