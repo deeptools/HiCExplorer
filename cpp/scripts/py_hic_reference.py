@@ -16,14 +16,24 @@ and PYTHONPATH at the repository root.
   hicConvertFormat converts that file with --inputFormat cool. That is the route
   a Python user takes in two steps.
 - --outputFormat hic: Python has no .hic writer. The script loads every input
-  matrix the way hicConvertFormat loads it (MatrixFileHandler with the same
-  correction options, hicConvertFormat.py:229-242; every resolution group of a
-  multi resolution cool file) and writes, at the output path, an .npz file with
-  what the .hic file must hold: the version, the normalizations, the
-  chromosomes, the resolutions and, per resolution, the non-zero finite pixels
-  of the upper triangle. Coarser --resolutions of a single matrix are summed
-  from its pixels in row order, in float32. comparators/hic.py reads the .hic
-  file the C++ tool writes and compares it with this file.
+  matrix the way hicConvertFormat loads it (MatrixFileHandler,
+  hicConvertFormat.py:229-242; every resolution group of a multi resolution
+  cool file, or those in --resolutions) and writes, at the output path, an
+  .npz file with what the .hic file must hold: the version, the
+  normalizations, the chromosomes, the resolutions and, per resolution, the
+  non-zero finite pixels of the upper triangle. A cool input is loaded with
+  raw counts: the C++ tool never applies a balancing weight to the pixels of
+  a .hic file. Coarser --resolutions of a single matrix are summed from its
+  pixels in row order, in float32. comparators/hic.py reads the .hic file the
+  C++ tool writes and compares it with this file.
+
+  --hicNormalizations auto (the default) carries the normalization columns a
+  cool input stores (cool2hic's rule: Juicer names, or every column of a file
+  hic2cool wrote, never 'weight') and computes VC, VC_SQRT, KR and SCALE only
+  when there are none. Carried vectors exist only at the stored resolutions,
+  and comparators/hic.py checks every expected name at every resolution, so
+  the expected list holds the carried names only when no resolution is added;
+  otherwise it is empty and the carried vectors go unchecked here.
 """
 from __future__ import annotations
 
@@ -59,7 +69,7 @@ def parse(argv):
     parser.add_argument("--chromosome")
     parser.add_argument("--bedFileHicpro", "-bf", nargs="+")
     parser.add_argument("--hicVersion", default="8")
-    parser.add_argument("--hicNormalizations", nargs="+", default=list(NORMALIZATION_ORDER))
+    parser.add_argument("--hicNormalizations", nargs="+", default=["auto"])
     parser.add_argument("--threads", default="1")
     return parser.parse_args(argv)
 
@@ -105,9 +115,9 @@ def load(args, uri):
     handler = MatrixFileHandler(pFileType=args.inputFormat, pMatrixFile=uri,
                                 pCorrectionFactorTable=args.correction_name,
                                 pCorrectionOperator="/" if args.correction_division else None,
-                                pChrnameList=None,
+                                pChrnameList=[args.chromosome] if args.chromosome else None,
                                 pEnforceInteger=args.enforce_integer,
-                                pApplyCorrectionCoolerLoad=not args.load_raw_values)
+                                pApplyCorrectionCoolerLoad=False)
     matrix, cut_intervals, _nan_bins, _distance_counts, _correction_factors = handler.load()
     return matrix, cut_intervals
 
@@ -148,9 +158,38 @@ def coarsen(pixels, factor):
     return unique[:, 0], unique[:, 1], unique[:, 2], unique[:, 3], sums
 
 
+JUICER_NORMS = {"VC", "VC_SQRT", "KR", "SCALE", "GW_KR", "GW_VC", "GW_SCALE", "INTER_KR",
+                "INTER_VC", "INTER_SCALE"}
+
+
+def carried_norms(uris):
+    """The bins columns cool2hic carries out of these coolers, in its order."""
+    carried = []
+    for uri in uris:
+        path, _, group = uri.partition("::")
+        with h5py.File(path, "r") as handle:
+            root = handle[group or "/"]
+            generated = root.attrs.get("generated-by", "")
+            if isinstance(generated, bytes):
+                generated = generated.decode()
+            n_bins = int(root["indexes/chrom_offset"][-1])
+            for column in root["bins"].keys():
+                if column in ("chrom", "start", "end", "weight"):
+                    continue
+                if not str(generated).startswith("hic2cool") and column not in JUICER_NORMS:
+                    continue
+                item = root["bins"][column]
+                if not isinstance(item, h5py.Dataset) or len(item) != n_bins:
+                    continue
+                if column not in carried:
+                    carried.append(column)
+    return carried
+
+
 def hic_output(args):
-    wanted = [] if "none" in args.hicNormalizations else \
+    computed = [] if "none" in args.hicNormalizations else \
         [n for n in NORMALIZATION_ORDER if n in args.hicNormalizations]
+    auto = "auto" in args.hicNormalizations and "none" not in args.hicNormalizations
     extra = [int(r) for r in (args.resolutions or [])]
     for index, (matrix_path, out) in enumerate(zip(args.matrices, args.outFileName)):
         levels = []
@@ -159,13 +198,30 @@ def hic_output(args):
             with h5py.File(matrix_path, "r") as handle:
                 if "resolutions" in handle:
                     groups = sorted(handle["resolutions"].keys(), key=int)
+        uris = []
         if groups:
             for group in groups:
                 if extra and int(group) not in extra:
                     continue
-                levels.append(load(args, matrix_path + "::/resolutions/" + group))
+                uris.append(matrix_path + "::/resolutions/" + group)
         else:
-            levels.append(load(args, matrix_path))
+            uris.append(matrix_path)
+        for uri in uris:
+            levels.append(load(args, uri))
+        wanted = computed
+        if auto:
+            # The C++ tool streams a cool input through cool2hic, except a
+            # --chromosome cut and a subset of several mcool groups, which it
+            # loads; a loaded matrix stores no vectors.
+            streamed = args.inputFormat == "cool" and not args.chromosome and \
+                (len(uris) == 1 or len(uris) == len(groups))
+            carried = carried_norms(uris) if streamed else []
+            if not carried:
+                wanted = list(NORMALIZATION_ORDER)
+            elif groups or not [r for r in extra if r not in {layout(c)[2] for _, c in levels}]:
+                wanted = carried
+            else:
+                wanted = []
         arrays = {"version": np.int64(int(args.hicVersion)),
                   "normalizations": np.array(wanted, dtype="U16")}
         resolutions = {}

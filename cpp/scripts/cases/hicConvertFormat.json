@@ -464,7 +464,7 @@
         "class": "E2"
       }
     ],
-    "notes": "Class EX, version 9, float counts of a KR corrected matrix as loaded by hicConvertFormat, two normalizations, four compression threads."
+    "notes": "Class EX, version 9, a cool file with a weight column: the pixels are its raw counts (a .hic file never holds balanced values, and the weight is not written as a vector), two normalizations computed, four threads."
   },
   {
     "id": "hicConvertFormat.h5_to_hic.GSM2644945_Untreated_chr1.v9",
@@ -516,6 +516,38 @@
       }
     ],
     "notes": "Class EX, a multi resolution cool file given to --inputFormat cool: every resolution group (5, 10 and 20 kb) is written as its own .hic resolution."
+  },
+  {
+    "id": "hicConvertFormat.mcool_to_hic.multi_small_test_matrix.subset.v9",
+    "tier": 1,
+    "py_script": "cpp/scripts/py_hic_reference.py",
+    "args": ["--matrices", "{data}/hicBuildMatrix/multi_small_test_matrix.mcool",
+             "--outFileName", "{out}/matrix.hic",
+             "--inputFormat", "cool", "--outputFormat", "hic", "--hicVersion", "9",
+             "--resolutions", "5000", "20000"],
+    "outputs": [{"path": "{out}/matrix.hic", "format": "hic", "class": "E2"}],
+    "notes": "Class EX, two of the three resolution groups of an mcool file. cool2hic writes every group or one, so this subset is loaded group by group and written by write_hic; the groups store no vectors, so auto computes the four."
+  },
+  {
+    "id": "hicConvertFormat.cool_to_hic.GSE63525_hic2cool.auto.v8",
+    "tier": 1,
+    "py_script": "cpp/scripts/py_hic_reference.py",
+    "args": ["--matrices", "{data}/hicDetectLoops/GSE63525_GM12878_insitu_primary_2_5mb.cool",
+             "--outFileName", "{out}/matrix.hic",
+             "--inputFormat", "cool", "--outputFormat", "hic", "--threads", "2"],
+    "outputs": [{"path": "{out}/matrix.hic", "format": "hic", "class": "E2"}],
+    "notes": "Class EX, --hicNormalizations auto (the default) on a hic2cool file: its KR, VC and VC_SQRT columns are carried as the .hic vectors and nothing is computed. The comparator checks every carried name has a vector of Juicer's length for every chromosome."
+  },
+  {
+    "id": "hicConvertFormat.cool_to_hic.gm12878_KR.none.v9",
+    "tier": 1,
+    "py_script": "cpp/scripts/py_hic_reference.py",
+    "args": ["--matrices", "{data}/hicCorrectMatrix/gm12878_KR.cool",
+             "--outFileName", "{out}/matrix.hic",
+             "--inputFormat", "cool", "--outputFormat", "hic", "--hicVersion", "9",
+             "--hicNormalizations", "none", "--resolutions", "5000000"],
+    "outputs": [{"path": "{out}/matrix.hic", "format": "hic", "class": "E2"}],
+    "notes": "Class EX, --hicNormalizations none with an added resolution binned from the raw counts."
   },
   {
     "id": "hicConvertFormat.hic_to_cool.GM12878_chr21_chr22.v7.250000",

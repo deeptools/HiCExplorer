@@ -46,6 +46,35 @@ void hic2cool_convert_mcool(const std::string& hic_path, const std::string& outf
 // The base pair resolutions of a .hic file, in file order.
 [[nodiscard]] std::vector<std::int64_t> hic_resolutions(const std::string& hic_path);
 
+// cool and mcool input to .hic: hic2cool's cool2hic_convert, which streams
+// the pixel table one chromosome pair at a time instead of loading the
+// matrix. The pixels are the stored raw counts; no balancing weight is ever
+// applied to them.
+struct CoolToHicOptions {
+    // .hic version, 8 or 9.
+    int version = 8;
+    // "auto": carry the normalization vectors the bins table stores (Juicer
+    // named columns, or every column of a file hic2cool wrote, never cooler's
+    // 'weight'), and compute VC, VC_SQRT, KR and SCALE only when it stores
+    // none. "none": no normalization. Otherwise a comma separated list out of
+    // VC, VC_SQRT, KR and SCALE to compute.
+    std::string normalizations = "auto";
+    // Coarser resolutions to add, binned from the finest resolution written.
+    std::vector<std::int64_t> add_resolutions;
+    // 0: every resolution group of an mcool file (or the one of a cool
+    // file); otherwise the group of that resolution.
+    std::int64_t resolution = 0;
+    int threads = 1;
+    // Empty: the cool file's genome-assembly attribute, else "unknown".
+    std::string genome;
+};
+
+// Writes `cool_uri` (a cool file, an mcool file or a URI
+// "file.mcool::/resolutions/10000") as the .hic file `path`. Throws
+// Hic2coolExit with hic2cool's message on a refused input.
+void cool_to_hic(const std::string& cool_uri, const std::string& path,
+                 const CoolToHicOptions& options);
+
 struct HicWriteOptions {
     // .hic version, 8 or 9.
     int version = 8;
