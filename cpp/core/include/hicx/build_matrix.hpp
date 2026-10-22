@@ -240,16 +240,21 @@ struct QcThresholds {
     double max_duplicated_pairs_percent = 20.0;
     double max_dangling_end_percent = 10.0;
     double max_self_ligation_percent = 10.0;
-    // A value within this fraction of the wrong side of a cutoff is WARN
-    // rather than FAIL/PASS outright, e.g. 0.2 makes 8-10% inter-chromosomal
-    // WARN against a 10% cutoff rather than a hard PASS/FAIL edge.
+    // A value on the right side of its cutoff, or exactly on it, is PASS. A
+    // value on the wrong side by at most this fraction of the cutoff is WARN,
+    // and one further out is FAIL. With 0.2, inter-chromosomal contacts are
+    // PASS up to 10 %, WARN above 10 % up to 12 % and FAIL above 12 % against
+    // the 10 % cutoff; valid pairs are PASS from 25 %, WARN from 20 % up to
+    // 25 % and FAIL below 20 % against the 25 % cutoff. The margin is not a
+    // command line option.
     double warn_margin_fraction = 0.2;
 };
 
 // A self-contained, modern-styled HTML report at folder/hicQC_report.html:
 // one card per sample (row of the --logfiles/--labels input), the same
 // metrics write_qc_report_tables's tables hold, each judged PASS/WARN/FAIL
-// against `thresholds` and shown as a coloured badge. C++-only: no Python
+// against `thresholds` (see QcThresholds::warn_margin_fraction for the WARN
+// band) and shown as a coloured badge. C++-only: no Python
 // HiCExplorer counterpart, and does not replace hicQC.html, which is
 // unchanged and still written alongside it when the caller also draws it.
 void write_qc_pretty_report(const std::string& folder, const std::vector<std::string>& log_texts,

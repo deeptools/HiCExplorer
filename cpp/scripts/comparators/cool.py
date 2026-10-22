@@ -8,6 +8,12 @@ implementations writing the same matrix.
 E2 and above ignore the layout and compare the pixel table as a COO set, so a
 file written with a different chunk size still passes as long as the matrix is
 the same.
+
+Floating point content follows the declared class everywhere, not only in the
+pixel counts: a float attribute (the root `sum`, `bins/weight` statistics) and
+a float bin column (`bins/weight`) are bit compared at E0, E1 and E2 and
+compared with base.values_agree at ED, E3 and E4. Integer, string and boolean
+content is compared exactly at every class.
 """
 from __future__ import annotations
 
@@ -18,7 +24,7 @@ except ImportError as error:  # pragma: no cover
         "the cool comparator needs numpy and h5py; run equiv.py with the "
         "reference venv interpreter named in cpp/AGENTS_CONTRACT.md") from error
 
-from .base import Result, fail
+from .base import Result, fail, values_agree
 
 # Attributes that carry the identity of the writing implementation, not the
 # content of the matrix.
@@ -80,7 +86,7 @@ def compare(path_a, path_b, cls, opts=None):
             # An mcool: the coolers live in groups and the file root carries
             # the provenance hicmatrix writes there for the first resolution
             # only (hicmatrix/lib/cool.py:422-426). Nothing else compares it.
-            diffs += _compare_attrs(file_a, file_b, "/", ignored)
+            diffs += _compare_attrs(file_a, file_b, "/", ignored, cls)
             if sorted(file_a.keys()) != sorted(file_b.keys()):
                 diffs.append(f"root children {sorted(file_a.keys())} vs "
                              f"{sorted(file_b.keys())}")
@@ -89,7 +95,7 @@ def compare(path_a, path_b, cls, opts=None):
             group_b = file_b[group_path]
             if cls == "E1":
                 diffs += _compare_structure(group_a, group_b, group_path)
-            diffs += _compare_attrs(group_a, group_b, group_path, ignored)
+            diffs += _compare_attrs(group_a, group_b, group_path, ignored, cls)
             pixel_diffs, pixel_metrics = _compare_pixels(group_a, group_b, cls,
                                                          group_path)
             diffs += pixel_diffs
@@ -145,7 +151,42 @@ def _arrays_identical(a, b):
     return np.array_equal(a, b)
 
 
-def _compare_attrs(group_a, group_b, prefix, ignored=frozenset()):
+_BIT_EXACT_CLASSES = ("E0", "E1", "E2")
+
+
+def _float_mismatches(left, right, cls):
+    """Indices of float values that disagree at cls; both arrays share a shape.
+
+    At E0, E1 and E2 the values must be bit identical (NaN equal to NaN, the
+    sign of zero kept); otherwise values_agree decides per element.
+    """
+    left = np.asarray(left, dtype=float).ravel()
+    right = np.asarray(right, dtype=float).ravel()
+    with np.errstate(invalid="ignore"):
+        differing = ~((left == right) & (np.signbit(left) == np.signbit(right))
+                      | (np.isnan(left) & np.isnan(right)))
+    positions = np.flatnonzero(differing)
+    if cls in _BIT_EXACT_CLASSES:
+        return positions
+    return [position for position in positions
+            if not values_agree(float(left[position]), float(right[position]), cls)]
+
+
+def _is_float(value):
+    return np.asarray(value).dtype.kind == "f"
+
+
+def _attrs_agree(left, right, cls):
+    if _is_float(left) and _is_float(right):
+        if np.shape(left) != np.shape(right):
+            return False
+        return len(_float_mismatches(left, right, cls)) == 0
+    if isinstance(left, np.ndarray) or isinstance(right, np.ndarray):
+        return np.array_equal(left, right)
+    return left == right
+
+
+def _compare_attrs(group_a, group_b, prefix, ignored=frozenset(), cls="E0"):
     diffs = []
     keys_a = set(group_a.attrs) - NORMALISED_ATTRS - set(ignored)
     keys_b = set(group_b.attrs) - NORMALISED_ATTRS - set(ignored)
@@ -156,11 +197,7 @@ def _compare_attrs(group_a, group_b, prefix, ignored=frozenset()):
     for key in sorted(keys_a & keys_b):
         left = group_a.attrs[key]
         right = group_b.attrs[key]
-        if isinstance(left, np.ndarray) or isinstance(right, np.ndarray):
-            same = np.array_equal(left, right)
-        else:
-            same = left == right
-        if not same:
+        if not _attrs_agree(left, right, cls):
             diffs.append(f"{prefix}: attribute {key}: {left!r} vs {right!r}")
     return diffs
 
@@ -223,7 +260,15 @@ def _compare_bins(group_a, group_b, cls, prefix):
     for column in columns_a:
         left = group_a["bins/" + column][:]
         right = group_b["bins/" + column][:]
-        if not _arrays_identical(left, right):
+        if (cls not in _BIT_EXACT_CLASSES and left.dtype.kind == "f"
+                and right.dtype.kind == "f" and left.shape == right.shape):
+            bad = _float_mismatches(left, right, cls)
+            if len(bad):
+                position = bad[0]
+                diffs.append(f"{prefix}: bins/{column} differs at {len(bad)} bins "
+                             f"at {cls}, first bin {position}: "
+                             f"{left[position]!r} vs {right[position]!r}")
+        elif not _arrays_identical(left, right):
             diffs.append(f"{prefix}: bins/{column} differs")
     for name in ("chroms/name", "chroms/length"):
         if not _arrays_identical(group_a[name][:], group_b[name][:]):
