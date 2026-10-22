@@ -58,6 +58,17 @@
 // file layer is the rest, which is where the next work is if this tool ever
 // needs to be faster.
 //
+// Dense chromosome blocks (2026-10-22). On a well-filled block the row
+// accumulation is sum_k nnz(k)^2 scattered multiply-adds, which on
+// ext.hicTransform.pearson.perChromosome.a549.h5 (four 25 kb chromosomes of
+// 1,869 to 2,578 bins, about 60 % filled) cost 45 s of CPU against the
+// Python's 14 s; the Pearson kind pays it twice, once for the diagonal. Such
+// blocks now take their accumulator rows from one dsyrk per block
+// (DenseCorrelationRows::DenseBlocks::Auto, see transform_ops.hpp): 4.5 s of
+// CPU, output byte identical on that case because raw counts make every
+// partial sum exact. Sparse blocks, and every block over 4,096 bins such as
+// the whole-matrix Li_et_al_2015.h5 run above, keep the row accumulation.
+//
 // Two optimisations measured, one kept:
 //
 //  * **Flattening the inner accumulation when the block is the whole matrix**,
@@ -273,7 +284,9 @@ class CorrelationRowSource : public hicx::DenseRowSource {
   public:
     CorrelationRowSource(const hicx::CsrMatrix& matrix, std::vector<hicx::BinRange> blocks,
                          hicx::DenseCorrelationRows::Kind kind, int threads)
-        : rows_(matrix, std::move(blocks), kind, threads), dtype_("float64") {}
+        : rows_(matrix, std::move(blocks), kind, threads,
+              hicx::DenseCorrelationRows::DenseBlocks::Auto),
+          dtype_("float64") {}
 
     [[nodiscard]] std::int64_t rows() const override { return rows_.size(); }
     [[nodiscard]] const std::string& dtype() const override { return dtype_; }

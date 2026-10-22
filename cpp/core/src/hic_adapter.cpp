@@ -81,6 +81,28 @@ void hic2cool_convert_mcool(const std::string& hic_path, const std::string& outf
     }
 }
 
+// ----------------------------------------------------------- cool_to_hic
+
+void cool_to_hic(const std::string& cool_uri, const std::string& path,
+                 const CoolToHicOptions& options) {
+    hic2cool::Cool2hicOptions convert;
+    convert.resolution = 0;
+    convert.add_resolutions = options.add_resolutions;
+    convert.nproc = std::max(options.threads, 1);
+    convert.hic_version = options.version;
+    convert.normalizations = options.normalizations;
+    convert.genome = options.genome;
+    convert.silent = true;
+    convert.resolution = options.resolution;
+    try {
+        hic2cool::cool2hic_convert(cool_uri, path, convert, quiet_console());
+    } catch (const hic2cool::ExitError& error) {
+        std::error_code ignored;
+        std::filesystem::remove(path, ignored);
+        throw Hic2coolExit(error.what());
+    }
+}
+
 // ------------------------------------------------------------- write_hic
 
 namespace {

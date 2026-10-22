@@ -79,27 +79,34 @@ const char* const kHelp =
     "                        guidance; the rest (duplicated pairs, dangling ends,\n"
     "                        self-ligation) are conservative defaults with no\n"
     "                        published HiCExplorer standard behind them. Every\n"
-    "                        cutoff below is a command line option.\n"
+    "                        cutoff below is a command line option. A metric on\n"
+    "                        the right side of its cutoff, or exactly on it, is\n"
+    "                        PASS; one past the cutoff by at most 20 % of the\n"
+    "                        cutoff is WARN; one further past it is FAIL.\n"
     "  --minValidPairsPercent PCT\n"
     "                        C++-only. Valid (Hi-C contact) pairs, as a percentage\n"
-    "                        of sequenced reads, below which a sample FAILs the\n"
-    "                        valid pairs metric. (Default: 25.0).\n"
+    "                        of sequenced reads. PASS at or above PCT, WARN below\n"
+    "                        PCT down to 0.8 * PCT, FAIL below 0.8 * PCT.\n"
+    "                        (Default: 25.0).\n"
     "  --maxInterChromosomalPercent PCT\n"
     "                        C++-only. Inter-chromosomal contacts, as a percentage\n"
-    "                        of valid pairs, above which a sample FAILs the inter-\n"
-    "                        chromosomal metric. (Default: 10.0).\n"
+    "                        of valid pairs. PASS at or below PCT, WARN above PCT\n"
+    "                        up to 1.2 * PCT, FAIL above 1.2 * PCT. (Default:\n"
+    "                        10.0).\n"
     "  --maxDuplicatedPairsPercent PCT\n"
     "                        C++-only. Duplicated pairs, as a percentage of\n"
-    "                        mappable pairs, above which a sample FAILs the\n"
-    "                        duplicated pairs metric. (Default: 20.0).\n"
+    "                        mappable pairs. PASS at or below PCT, WARN above PCT\n"
+    "                        up to 1.2 * PCT, FAIL above 1.2 * PCT. (Default:\n"
+    "                        20.0).\n"
     "  --maxDanglingEndPercent PCT\n"
     "                        C++-only. Dangling ends, as a percentage of mappable\n"
-    "                        pairs, above which a sample FAILs the dangling ends\n"
-    "                        metric. (Default: 10.0).\n"
+    "                        pairs. PASS at or below PCT, WARN above PCT up to\n"
+    "                        1.2 * PCT, FAIL above 1.2 * PCT. (Default: 10.0).\n"
     "  --maxSelfLigationPercent PCT\n"
     "                        C++-only. Self-ligated pairs, as a percentage of\n"
-    "                        mappable pairs, above which a sample FAILs the self-\n"
-    "                        ligation metric. (Default: 10.0).\n";
+    "                        mappable pairs. PASS at or below PCT, WARN above PCT\n"
+    "                        up to 1.2 * PCT, FAIL above 1.2 * PCT. (Default:\n"
+    "                        10.0).\n";
 
 std::string read_file(const std::string& path) {
     std::ifstream in(path, std::ios::binary);
@@ -164,32 +171,32 @@ int main(int argc, char** argv) {
         .type("float")
         .default_value(25.0)
         .cpp_only("Only read with --prettyReport.")
-        .help("Valid pairs below this percentage of sequenced reads FAILs the valid pairs "
-              "metric.");
+        .help("Valid pairs as a percentage of sequenced reads: PASS at or above this value, "
+              "WARN below it down to 0.8 times it, FAIL below that.");
     optional.add({"--maxInterChromosomalPercent"})
         .type("float")
         .default_value(10.0)
         .cpp_only("Only read with --prettyReport.")
-        .help("Inter-chromosomal contacts above this percentage of valid pairs FAILs the "
-              "inter-chromosomal metric.");
+        .help("Inter-chromosomal contacts as a percentage of valid pairs: PASS at or below this value, "
+              "WARN above it up to 1.2 times it, FAIL above that.");
     optional.add({"--maxDuplicatedPairsPercent"})
         .type("float")
         .default_value(20.0)
         .cpp_only("Only read with --prettyReport.")
-        .help("Duplicated pairs above this percentage of mappable pairs FAILs the duplicated "
-              "pairs metric.");
+        .help("Duplicated pairs as a percentage of mappable pairs: PASS at or below this value, "
+              "WARN above it up to 1.2 times it, FAIL above that.");
     optional.add({"--maxDanglingEndPercent"})
         .type("float")
         .default_value(10.0)
         .cpp_only("Only read with --prettyReport.")
-        .help("Dangling ends above this percentage of mappable pairs FAILs the dangling ends "
-              "metric.");
+        .help("Dangling ends as a percentage of mappable pairs: PASS at or below this value, "
+              "WARN above it up to 1.2 times it, FAIL above that.");
     optional.add({"--maxSelfLigationPercent"})
         .type("float")
         .default_value(10.0)
         .cpp_only("Only read with --prettyReport.")
-        .help("Self-ligated pairs above this percentage of mappable pairs FAILs the "
-              "self-ligation metric.");
+        .help("Self-ligated pairs as a percentage of mappable pairs: PASS at or below this value, "
+              "WARN above it up to 1.2 times it, FAIL above that.");
 
     const cli::Namespace ns = parser.parse(argc, argv);
     if (const int refused = hicx::plot::preflight("hicPrepareQCreport", !ns.given("plotData")); refused != 0) {

@@ -50,6 +50,12 @@ void dgeev_(const char* jobvl, const char* jobvr, const int* n, double* a,
             const int* lda, double* wr, double* wi, double* vl, const int* ldvl,
             double* vr, const int* ldvr, double* work, const int* lwork, int* info);
 
+// dsyrk: C = alpha A A^T + beta C on one triangle of C. DenseCorrelationRows'
+// dense block mode forms the Gram matrix of a dense chromosome block with it.
+void dsyrk_(const char* uplo, const char* trans, const int* n, const int* k,
+            const double* alpha, const double* a, const int* lda, const double* beta,
+            double* c, const int* ldc);
+
 // dlamch: machine parameters. dsyevr's documented most-accurate abstol is
 // 2 * dlamch('S'), the safe minimum.
 double dlamch_(const char* cmach);

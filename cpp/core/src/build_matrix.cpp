@@ -1033,9 +1033,9 @@ const char* qc_status_class(QcStatus status) {
     }
 }
 
-// `value` passes when it is at least `minimum`; within `margin` of the
-// shortfall below `minimum` (relative to `minimum`) is WARN, further below is
-// FAIL. Used for metrics a report wants to see enough of (valid pairs).
+// PASS when `value` is at least `minimum`; WARN when it is below `minimum`
+// but at least minimum * (1 - margin); FAIL below that. Used for metrics a
+// report wants to see enough of (valid pairs).
 QcStatus qc_status_at_least(std::optional<double> value, double minimum, double margin) {
     if (!value.has_value()) {
         return QcStatus::Unknown;
@@ -1049,8 +1049,8 @@ QcStatus qc_status_at_least(std::optional<double> value, double minimum, double 
     return QcStatus::Fail;
 }
 
-// `value` passes when it is at most `maximum`; within `margin` above
-// `maximum` (relative to `maximum`) is WARN, further above is FAIL. Used for
+// PASS when `value` is at most `maximum`; WARN when it is above `maximum`
+// but at most maximum * (1 + margin); FAIL above that. Used for
 // metrics a report wants to see little of (duplicates, dangling ends,
 // self-ligation, inter-chromosomal contacts).
 QcStatus qc_status_at_most(std::optional<double> value, double maximum, double margin) {
@@ -1404,8 +1404,8 @@ table.qc-table tbody tr:nth-of-type(even) { background: #fafbfc; }
                 ++warned;
             }
         }
-        const char* overall = failed > 0 ? "has metrics that failed their cutoff"
-                             : warned > 0 ? "has metrics close to their cutoff"
+        const char* overall = failed > 0 ? "has metrics past their cutoff by more than the margin"
+                             : warned > 0 ? "has metrics past their cutoff, within the margin"
                                           : "passed every judged metric";
         out << "<div class=\"qc-card\"><h3>" << qc_html_escape(frame.index[row]) << "</h3>"
             << "<p class=\"qc-overall\">" << overall << "</p>\n";
@@ -1649,9 +1649,10 @@ cutoffs follow HiCExplorer's own usage guidance. The duplicated pairs, dangling 
 self-ligation cutoffs have no published HiCExplorer standard behind them; they are conservative
 starting points, and every cutoff is a hicPrepareQCreport command line option
 (--minValidPairsPercent, --maxInterChromosomalPercent, --maxDuplicatedPairsPercent,
---maxDanglingEndPercent, --maxSelfLigationPercent). A metric within )HTML"
+--maxDanglingEndPercent, --maxSelfLigationPercent). A metric on the right side of its cutoff,
+or exactly on it, is PASS. A metric past its cutoff by at most )HTML"
         << static_cast<int>(margin * 100 + 0.5)
-        << R"HTML(% of the wrong side of its cutoff is WARN rather than an outright PASS or FAIL.</p>
+        << R"HTML(% of the cutoff (the margin) is WARN, and one further past it is FAIL.</p>
 <script>
 (function () {
   var sections = Array.prototype.slice.call(document.querySelectorAll("section[id]"));

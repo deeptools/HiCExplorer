@@ -316,6 +316,9 @@ ChromosomeMatrix load_cool_chromosome(const hicx::CoolFile& cool,
     for (std::size_t i = 1; i < arrays.indptr.size(); ++i) {
         arrays.indptr[i] += arrays.indptr[i - 1];
     }
+    // Duplicate pixels summed and rows put in column order, as every read
+    // through the matrix layer does.
+    hicx::sort_and_sum_row_columns(arrays);
     ChromosomeMatrix result;
     result.matrix = hicx::CsrMatrix::adopt(std::move(arrays));
     result.cut_intervals.assign(bins.begin() + static_cast<std::ptrdiff_t>(first),

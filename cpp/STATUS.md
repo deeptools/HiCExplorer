@@ -515,7 +515,7 @@ mattered repeatedly:
 | Tool | Tier | Class | Mem | Py test | Char. test | Port | Equiv | Notes |
 |---|---|---|---|---|---|---|---|---|
 | hicInfo | 1 | E0 | 0W cool / 1.05W h5 | none | written | done | 25/25 (reproduced) | Byte identical on all 184 cool and h5 matrices in `test_data`, reproduced on six. `--no_metadata` on `gm12878_chr1.cool`: 829.2 MB against 842.9 MB, the tightest budget in the corpus. |
-| hicConvertFormat | 1 | E1 cool / E2 h5 / E0 text | 1.3W | partial | written | done | 33/33 (reproduced) | `.hic` versions 6 to 9 read into cool, mcool, h5 and text, and versions 8 and 9 written from h5, cool and mcool, through hicfilecpp. Versions 6 and 7 are refused on output. `.hic` to cool is E1 against hic2cool, the new directions EX (F59). `--chromosome` refuses explicitly. Reproduces F15. Open: h5 `extra_list` dtype for hicpro and homer sources. |
+| hicConvertFormat | 1 | E1 cool / E2 h5 / E0 text | 1.3W | partial | written | done | 33/33 (reproduced) | `.hic` versions 6 to 9 read into cool, mcool, h5 and text, and versions 8 and 9 written: from cool and mcool through hicxchange's cool2hic (streaming, `--hicNormalizations auto` by default carries the stored vectors; 2026-10-22), from h5 and the text formats through hicfilecpp. Versions 6 and 7 are refused on output. `.hic` to cool is E1 against hic2cool, the new directions EX (F59). `--chromosome` loads one chromosome of a cool input, as 3.7.6 (2026-10-22). Duplicate cooler pixels are summed in the matrix layer, as hicmatrix does. Reproduces F15. Open: h5 `extra_list` dtype for hicpro and homer sources. |
 | hicSumMatrices | 1 | E1/E2 | 3.0W | none | written | done | 11/11 (reproduced) | Reproduces F18. |
 | hicCompareMatrices | 1 | E1/E2, ED on `log2ratio` | 3.0W | partial | written | done | 18/18 (reproduced) | |
 | hicAdjustMatrix | 1 | E1/E2 | 1.3W | partial | written | done | 21/21 (reproduced) | Reproduces F14, F28. |
@@ -764,7 +764,6 @@ unaffected by design.
 | chicViewpointBackgroundModel | fitted parameters judged by per-distribution likelihood and downstream calls, not EN | orchestrating session |
 | hicDetectLoops, hicDifferentialTAD, hicInterIntraTAD | output independent of the thread count (F23, F33) | implementing agents, reported |
 | hicFindTADs | no abort at 12 or more processes (F22) | implementing agent, reported |
-| hicConvertFormat | `--chromosome` refuses explicitly | implementing agent, reported |
 | hicDifferentialTAD | C++-only `--sharedMask` and `--correctForMultipleTesting` (PLAN 5.8 dual mode); the defaults stay byte-identical to the Python | project owner request (false positives), orchestrating session |
 | hicConvertFormat, hicfilecpp | writing `.hic` versions 6 and 7 is refused with the reason; there is no Juicer tools release to validate a writer against | orchestrating session, 2026-09-14 |
 | hicConvertFormat, hicfilecpp | `.hic` output (new, EX): bytes differ from Juicer tools' while pixels, expected values and VC, VC_SQRT, KR and SCALE vectors match. No FRAG, GW or INTER norms, and none of `pre`'s filters or statistics. Norms are always computed, where Juicer skips them when its heap looks small. The matrix is written as loaded, correction applied unless `--load_raw_values`. A missing norm, chromosome or resolution is an error on reading | implementing agent, reported; recorded in hicfilecpp `docs/DEVIATIONS.md` |

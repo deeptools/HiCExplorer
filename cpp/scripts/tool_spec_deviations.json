@@ -55,6 +55,15 @@
             ],
             "kind": "status",
             "reason": "The C++ port also writes .hic files (--outputFormat hic, PLAN 9.1); cpp/STATUS.md records .hic output as a new EX direction in the hicConvertFormat row and under the deviations of hicConvertFormat and hicfilecpp."
+        },
+        {
+            "where": "",
+            "dest": "inputFormat",
+            "fields": [
+                "choices"
+            ],
+            "kind": "status",
+            "reason": "The C++ port also reads CHiCAGO .chinput files (--inputFormat chinput with --rmap, cpp/PLAN.md 9.15)."
         }
     ],
     "hicDifferentialAnalysis": [
@@ -77,6 +86,72 @@
             ],
             "kind": "cpp_only_tool",
             "reason": "No Python counterpart: a tier 9 feature (cpp/PLAN.md 9.3), validated as class EX by cpp/scripts/stripe_calibration.py and the harness cases in cpp/scripts/cases/hicDetectStripes.json. tool_specs.py checks the structure of its spec only."
+        }
+    ],
+    "hicArrowhead": [
+        {
+            "where": "",
+            "dest": "",
+            "fields": [
+                "tool"
+            ],
+            "kind": "cpp_only_tool",
+            "reason": "No Python counterpart: the Arrowhead algorithm of Juicer tools, validated as class EX by its unit tests and the harness cases in cpp/scripts/cases_external/hicArrowhead.json. tool_specs.py checks the structure of its spec only."
+        }
+    ],
+    "chicChicagoBackgroundModel": [
+        {
+            "where": "",
+            "dest": "",
+            "fields": [
+                "tool"
+            ],
+            "kind": "cpp_only_tool",
+            "reason": "No Python counterpart: the CHiCAGO method (cpp/PLAN.md 9.15), validated against R CHiCAGO by test_chicago in hicx_tests. tool_specs.py checks the structure of its spec only."
+        }
+    ],
+    "chicChicagoScores": [
+        {
+            "where": "",
+            "dest": "",
+            "fields": [
+                "tool"
+            ],
+            "kind": "cpp_only_tool",
+            "reason": "No Python counterpart: the CHiCAGO method (cpp/PLAN.md 9.15), validated against R CHiCAGO by test_chicago in hicx_tests. tool_specs.py checks the structure of its spec only."
+        }
+    ],
+    "chicChicagoSignificantInteractions": [
+        {
+            "where": "",
+            "dest": "",
+            "fields": [
+                "tool"
+            ],
+            "kind": "cpp_only_tool",
+            "reason": "No Python counterpart: the CHiCAGO method (cpp/PLAN.md 9.15), validated against R CHiCAGO by test_chicago in hicx_tests. tool_specs.py checks the structure of its spec only."
+        }
+    ],
+    "chicChicagoPlotViewpoint": [
+        {
+            "where": "",
+            "dest": "",
+            "fields": [
+                "tool"
+            ],
+            "kind": "cpp_only_tool",
+            "reason": "No Python counterpart: the CHiCAGO method (cpp/PLAN.md 9.15). tool_specs.py checks the structure of its spec only."
+        }
+    ],
+    "hicCorrelate": [
+        {
+            "where": "",
+            "dest": "method",
+            "fields": [
+                "choices"
+            ],
+            "kind": "status",
+            "reason": "The C++ port adds the reproducibility measures scc (HiCRep), genomedisco, hicspector and quasar (QuASAR-Rep), each validated against its reference implementation."
         }
     ]
 }

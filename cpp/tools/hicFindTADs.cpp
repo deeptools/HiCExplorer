@@ -255,6 +255,7 @@ Arguments parse_arguments(int argc, char** argv) {
         .type("int")
         .help("Minimum distance between boundaries (in bp).");
     optional.add({"--ctcfFile"})
+        .cpp_only("Boundary selection by CTCF motif orientation, new in version 4.")
         .input({"bed", "narrowPeak", "txt"})
         .help("C++-only. A BED file (chrom, start, end, name, score, strand) of CTCF "
               "binding site motif orientations. When given, a TAD-separation score "
@@ -263,12 +264,14 @@ Arguments parse_arguments(int argc, char** argv) {
               "must be on the '+' strand, one at or after it on the '-' strand, the "
               "convergent orientation found at domain boundaries.");
     optional.add({"--ctcfWindow"})
+        .cpp_only("Used with --ctcfFile, new in version 4.")
         .type("int")
         .default_value(std::int64_t{10000})
         .metavar("BP")
         .help("C++-only. Maximum distance between a boundary and a supporting CTCF "
               "site.");
     optional.add({"--ctcfBoundarySlack"})
+        .cpp_only("Used with --ctcfFile, new in version 4.")
         .type("int")
         .default_value(std::int64_t{0})
         .metavar("BP")
@@ -276,24 +279,29 @@ Arguments parse_arguments(int argc, char** argv) {
               "this many bp of the boundary instead of only the exact reported "
               "minimum.");
     optional.add({"--nestedMinDepth"})
+        .cpp_only("Nested domain calling, new in version 4.")
         .type("int")
         .metavar("INT bp")
         .help("C++-only. Together with --nestedMaxDepth and --nestedStep, enables "
               "sub-TAD detection within each top-level domain.");
     optional.add({"--nestedMaxDepth"})
+        .cpp_only("Nested domain calling, new in version 4.")
         .type("int")
         .metavar("INT bp")
         .help("C++-only. See --nestedMinDepth.");
     optional.add({"--nestedStep"})
+        .cpp_only("Nested domain calling, new in version 4.")
         .type("int")
         .metavar("INT bp")
         .help("C++-only. See --nestedMinDepth.");
     optional.add({"--nestedMinBoundaryDistance"})
+        .cpp_only("Nested domain calling, new in version 4.")
         .type("int")
         .metavar("BP")
         .help("C++-only. Minimum distance between sub-TAD boundaries (Default: 4 "
               "times the average nested bin size).");
     optional.add({"--nestedMinDomainSize"})
+        .cpp_only("Nested domain calling, new in version 4.")
         .type("int")
         .metavar("BP")
         .help("C++-only. A top-level domain shorter than this is not searched for "

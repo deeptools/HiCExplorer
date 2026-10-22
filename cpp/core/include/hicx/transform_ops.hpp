@@ -73,6 +73,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -279,6 +280,28 @@ void covariance_to_pearson_in_place(DenseSymmetric& covariance, int threads);
 // `blocks` are the bin ranges the correlation is taken within: one range over
 // every bin is hicTransform's whole-matrix branch, one range per chromosome is
 // --perChromosome. A row outside every range is all zeros.
+//
+// Dense block mode (DenseBlocks::Auto, used by hicTransform). The row
+// accumulation costs sum_k nnz(k)^2 scattered multiply-adds per block, which
+// is cheap on a sparse block and the whole cost of the run on a dense one:
+// on ext.hicTransform.pearson.perChromosome.a549.h5, four chromosome blocks of
+// 1,869 to 2,578 bins that are about 60 % filled, it was 45 s of CPU against
+// the Python's 14 s, which hands the same product to BLAS through np.cov. A
+// block whose accumulation would cost at least nb^3 / 64 multiply-adds (fill
+// of about 12.5 % or more), that has at most kMaxDenseBlockBins bins and only
+// finite values, therefore takes its accumulator rows from the Gram matrix
+// A_b A_b^T of the dense block, formed by one single-threaded dsyrk. The
+// finalisation, the means and the Pearson scaling are unchanged; only the
+// summation order of the accumulator differs, so the result agrees with the
+// sparse path to rounding (asserted in cpp/tests/test_transform_ops.cpp), not
+// bit for bit, which is why hicPCA, whose eigensolver output is compared at
+// ED, keeps the sparse path. A Gram matrix is built when a row of its block
+// is first requested and released once every row of the block has been
+// served, so a pass over the rows in order holds at most one per worker; a
+// later pass rebuilds it, bit for bit, since dsyrk runs on one BLAS thread
+// and the builds are serialised. DenseBlocks::Always skips the cost test (the
+// size and finiteness conditions still apply); it exists for the unit test,
+// whose real blocks are too sparse to be chosen automatically.
 class DenseCorrelationRows {
   public:
     enum class Kind {
@@ -294,8 +317,19 @@ class DenseCorrelationRows {
     // `threads` splits the diagonal pass Kind::Pearson needs. It changes no
     // value: every row is produced by one worker over a fixed contiguous
     // range.
+    enum class DenseBlocks { Never, Auto, Always };
+
     DenseCorrelationRows(const CsrMatrix& matrix, std::vector<BinRange> blocks, Kind kind,
-                         int threads = 1);
+                         int threads = 1, DenseBlocks dense_blocks = DenseBlocks::Never);
+
+    // The largest block dense block mode will densify: two nb x nb blocks of
+    // doubles, 256 MB, are live while its Gram matrix is formed.
+    static constexpr std::int64_t kMaxDenseBlockBins = 4096;
+
+    // Whether block `b` (an index into `blocks`) runs in dense block mode.
+    [[nodiscard]] bool block_is_dense(std::size_t b) const {
+        return b < dense_.size() && dense_[b] != nullptr;
+    }
 
     [[nodiscard]] std::int64_t size() const noexcept { return n_; }
 
@@ -319,6 +353,21 @@ class DenseCorrelationRows {
     // and, for Pearson, sqrt of the covariance diagonal.
     std::vector<double> means_;
     std::vector<double> scaling_;
+
+    // Dense block mode: per block, null for a sparse block, otherwise the
+    // lazily built Gram matrix (row-major nb x nb) and how many of its rows
+    // have been served since it was built.
+    struct DenseBlock {
+        std::mutex mutex;
+        std::shared_ptr<const std::vector<double>> gram;
+        std::int64_t served = 0;
+    };
+    std::vector<std::unique_ptr<DenseBlock>> dense_;
+    // Serialises Gram builds, which bounds the transient dense input blocks to
+    // one and keeps every dsyrk call on a single BLAS thread.
+    std::unique_ptr<std::mutex> build_mutex_ = std::make_unique<std::mutex>();
+
+    [[nodiscard]] std::shared_ptr<const std::vector<double>> build_gram(std::size_t b) const;
 };
 
 // --------------------------------------------------------------------------

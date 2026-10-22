@@ -63,6 +63,16 @@ namespace hicx {
 // per-row order the format promises.
 void sort_row_columns(CsrMatrix::Arrays& arrays);
 
+// sort_row_columns, then every run of equal columns in a row merged into one
+// entry holding their sum, in place. A cooler need not store each (bin1, bin2)
+// pixel once (the IMR90 4DN mcool's 250 kb group stores 34,561 pixels twice),
+// and hicmatrix builds its matrix as scipy's csr_matrix((data, (bin1, bin2))),
+// whose COO to CSR conversion sums duplicates (cpp/PLAN.md 2.3 rule 1). Every
+// read of a cooler's pixels into a CsrMatrix goes through this, so every tool
+// sees the summed matrix. Rows already strictly increasing are left as they
+// are, so a well formed file costs one scan.
+void sort_and_sum_row_columns(CsrMatrix::Arrays& arrays);
+
 // One chunk of stored pixels, in storage order.
 struct PixelChunk {
     std::vector<std::int64_t> bin1;

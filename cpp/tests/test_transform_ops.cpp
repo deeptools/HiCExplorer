@@ -11,6 +11,7 @@
 
 #include <doctest/doctest.h>
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
@@ -527,6 +528,58 @@ TEST_CASE("a block of DenseCorrelationRows is the covariance of that block alone
         }
         CHECK(identical);
         CHECK(off_block_is_zero);
+    }
+}
+
+TEST_CASE("dense block mode agrees with the sparse accumulation to rounding") {
+    // hicTransform's dense block mode replaces the row accumulation of a
+    // well-filled block by one dsyrk. On raw integer counts every partial sum
+    // is exact, so the two agree bit for bit; the matrix is therefore obs/exp
+    // transformed first, which makes the values non-integer and the summation
+    // order visible, and the two are compared at E3 (1e-12 of max(1, |b|)).
+    hicx::ToolMatrix hic =
+        hicx::ToolMatrix::load(data_path("small_test_matrix_50kb_res.h5"));
+    hicx::keep_only_chromosomes(hic.data(), {"chr2L", "chrX"});
+    hic.refresh_boundaries();
+    CsrMatrix whole = hic.matrix();
+    whole.materialize_full();
+    hicx::obs_exp_in_place(whole);
+
+    std::vector<hicx::BinRange> blocks;
+    for (const std::pair<std::string, hicx::BinRange>& entry : hic.boundaries()) {
+        blocks.push_back(entry.second);
+    }
+    for (const auto kind : {hicx::DenseCorrelationRows::Kind::Covariance,
+                            hicx::DenseCorrelationRows::Kind::Pearson}) {
+        const hicx::DenseCorrelationRows sparse(whole, blocks, kind, 1);
+        const hicx::DenseCorrelationRows dense(
+            whole, blocks, kind, 4, hicx::DenseCorrelationRows::DenseBlocks::Always);
+        bool any_dense = false;
+        for (std::size_t b = 0; b < blocks.size(); ++b) {
+            CHECK_FALSE(sparse.block_is_dense(b));
+            any_dense = any_dense || dense.block_is_dense(b);
+        }
+        REQUIRE(any_dense);
+        // On these real blocks the cost test keeps the sparse path.
+        const hicx::DenseCorrelationRows automatic(
+            whole, blocks, kind, 1, hicx::DenseCorrelationRows::DenseBlocks::Auto);
+        for (std::size_t b = 0; b < blocks.size(); ++b) {
+            CHECK_FALSE(automatic.block_is_dense(b));
+        }
+
+        const std::vector<double> want = all_rows(sparse);
+        const std::vector<double> got = all_rows(dense);
+        // A second pass rebuilds every released Gram matrix and must
+        // reproduce the first bit for bit.
+        const std::vector<double> again = all_rows(dense);
+        double worst = 0.0;
+        bool repeatable = true;
+        for (std::size_t k = 0; k < want.size(); ++k) {
+            worst = std::max(worst, std::fabs(got[k] - want[k]) / std::max(1.0, std::fabs(want[k])));
+            repeatable = repeatable && (got[k] == again[k]);
+        }
+        CHECK(worst <= 1e-12);
+        CHECK(repeatable);
     }
 }
 
