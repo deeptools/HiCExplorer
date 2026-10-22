@@ -107,10 +107,10 @@ def main():
         "python_reordered": work / "background_python_reordered.txt",
     }
     common = ["--matrices", *MATRICES, "--referencePoints", REFERENCE_POINTS, "-t", "1", "-o"]
-    run([PYTHON, REPO_ROOT / "bin" / "chicViewpointBackgroundModel", *common, models["python"]],
+    run([PYTHON, SCRIPT_DIR / "reference_bin" / "chicViewpointBackgroundModel", *common, models["python"]],
         work, python_env())
     run([Path(options.cpp_bin) / "chicViewpointBackgroundModel", *common, models["cpp"]], work)
-    run([PYTHON, SCRIPT_DIR / "noise_runner.py", REPO_ROOT / "bin" / "chicViewpointBackgroundModel",
+    run([PYTHON, SCRIPT_DIR / "noise_runner.py", SCRIPT_DIR / "reference_bin" / "chicViewpointBackgroundModel",
          *common, models["python_reordered"]], work,
         python_env({"HICX_NOISE_SHIM": "fit_nbinom_order", "HICX_NOISE_RUN": "1"}))
 
@@ -118,12 +118,12 @@ def main():
     interaction_pvalues = {}
     for name, model in models.items():
         interactions = work / f"interactions_{name}.hdf5"
-        run([PYTHON, REPO_ROOT / "bin" / "chicViewpoint", "--matrices", *MATRICES,
+        run([PYTHON, SCRIPT_DIR / "reference_bin" / "chicViewpoint", "--matrices", *MATRICES,
              "--referencePoints", REFERENCE_POINTS, "--backgroundModelFile", model,
              "--range", *options.range, "-o", interactions, "-t", "1"], work, python_env())
         significant = work / f"significant_{name}.hdf5"
         target = work / f"target_{name}.hdf5"
-        run([PYTHON, REPO_ROOT / "bin" / "chicSignificantInteractions",
+        run([PYTHON, SCRIPT_DIR / "reference_bin" / "chicSignificantInteractions",
              "--interactionFile", interactions, "--backgroundModelFile", model,
              "--range", *options.range, "--pValue", options.pvalue,
              "--xFoldBackground", options.xfold,
