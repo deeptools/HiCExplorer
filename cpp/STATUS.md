@@ -375,8 +375,11 @@ shell).
   - **Later CHiCAGO work, 2026-09 (merged, see `git log`):**
     - `hicConvertFormat --inputFormat chinput --rmap RMAP` writes a `.chinput`
       file as a matrix (`hicx::chicago::matrix_from_chinput`, one bin per
-      fragment). Both directions of a bait-to-bait pair are summed, because
-      reciprocal-capture data carries different `N` per direction.
+      fragment). A bait-to-bait pair stores its `N` once (2026-10-22): bam2chicago
+      lists such a pair in both directions with the same `N` (bam2chicago.sh
+      :83-171, R Chicago .addTLB "B2B interactions appear twice"); rows of one
+      direction are summed and the larger of the two directions is kept. Peak
+      memory on the genome-wide EP sample 1.6 GB (was 15.0 GB).
     - `read_chinput`, `read_sample`, `add_tlb`, the normalisations and the
       technical-noise estimate run threaded (`--threads`) with a fixed merge
       order, so the output does not depend on the thread count. Peak memory
