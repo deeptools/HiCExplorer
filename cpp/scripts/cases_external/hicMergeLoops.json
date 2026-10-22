@@ -1,0 +1,68 @@
+[
+  {
+    "id": "ext.hicMergeLoops.gse63525_10kb_chr17_25kb.r25000",
+    "tool": "hicMergeLoops",
+    "tier": 6,
+    "args": [
+      "-i",
+      "{data}/derived/analysis/gse63525_gm12878_10kb_chr17_loops.bedgraph",
+      "{data}/derived/analysis/gse63525_gm12878_25kb_loops.bedgraph",
+      "-o",
+      "{out}/merged.bedgraph",
+      "-r",
+      "25000"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/merged.bedgraph",
+        "format": "interval",
+        "class": "E5"
+      }
+    ],
+    "notes": "hicDetectLoops 3.7.6 calls on GSE63525 GM12878 (hg19): chromosome 17 at 10 kb and chr17-19 at 25 kb. Class E5 as hicMergeLoops.three_files.r25000."
+  },
+  {
+    "id": "ext.hicMergeLoops.gse63525_10kb_chr17_25kb.r10000",
+    "tool": "hicMergeLoops",
+    "tier": 6,
+    "args": [
+      "-i",
+      "{data}/derived/analysis/gse63525_gm12878_10kb_chr17_loops.bedgraph",
+      "{data}/derived/analysis/gse63525_gm12878_25kb_loops.bedgraph",
+      "-o",
+      "{out}/merged.bedgraph",
+      "-r",
+      "10000"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/merged.bedgraph",
+        "format": "interval",
+        "class": "E0"
+      }
+    ],
+    "notes": "As the r25000 case with -r 10000."
+  },
+  {
+    "id": "ext.hicMergeLoops.gse234292_wt_ko.r25000",
+    "tool": "hicMergeLoops",
+    "tier": 6,
+    "args": [
+      "-i",
+      "{data}/derived/analysis/GSM7461656_HiC_wt_rep1_25kb_loops.bedgraph",
+      "{data}/derived/analysis/GSM7461658_HiC_BPTFko_rep1_25kb_loops.bedgraph",
+      "-o",
+      "{out}/merged.bedgraph",
+      "-r",
+      "25000"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/merged.bedgraph",
+        "format": "interval",
+        "class": "E5"
+      }
+    ],
+    "notes": "hicDetectLoops 3.7.6 calls on GSE234292 wild type and knockout replicate 1 (mm10, 25 kb raw counts)."
+  }
+]

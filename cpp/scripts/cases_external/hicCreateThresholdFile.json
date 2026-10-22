@@ -1,0 +1,50 @@
+[
+  {
+    "id": "ext.hicCreateThresholdFile.r10000.0_2mb",
+    "tool": "hicCreateThresholdFile",
+    "tier": 6,
+    "args": [
+      "--range",
+      "0",
+      "2000000",
+      "-tv",
+      "0.05",
+      "-r",
+      "10000",
+      "-o",
+      "{out}/threshold.txt"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/threshold.txt",
+        "format": "plain",
+        "class": "E0"
+      }
+    ],
+    "notes": "The table used as -pp by ext.hicDetectLoops.gse63525_gm12878_10kb_raw.threshold_file (10 kb, the GSE63525 resolution). The tool reads no data."
+  },
+  {
+    "id": "ext.hicCreateThresholdFile.r25000.minus1mb_3mb",
+    "tool": "hicCreateThresholdFile",
+    "tier": 6,
+    "args": [
+      "--range",
+      "-1000000",
+      "3000000",
+      "-tv",
+      "0.01",
+      "-r",
+      "25000",
+      "-o",
+      "{out}/threshold.txt"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/threshold.txt",
+        "format": "plain",
+        "class": "E0"
+      }
+    ],
+    "notes": "25 kb, the ENCODE and GSE234292 resolution, -1 to 3 Mb."
+  }
+]

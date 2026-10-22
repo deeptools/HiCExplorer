@@ -146,3 +146,5 @@ done
     --rangeInBins 30 30 -cb center -o "$O/gse63525_gm12878_10kb_ctcf_average_bins.npz"
 # a distance-dependent p-value threshold file for hicDetectLoops -pp (10 kb, 0 to 2 Mb)
 "$PYBIN/hicCreateThresholdFile" --range 0 2000000 -tv 0.05 -r 10000 -o "$O/threshold_10kb_0_2mb.txt"
+# two wild type TADs (chr18) to thin 2-fold in a planted calibration of hicDifferentialAnalysis tads
+printf 'chr18\t6625000\t7525000\tA\nchr18\t15175000\t16200000\tA\n' > "$O/GSE234292_planted_tads.bed"
