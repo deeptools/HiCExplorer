@@ -85,14 +85,11 @@
       "-o",
       "{out}/loops.bedgraph"
     ],
-    "outputs": [
-      {
-        "path": "{out}/loops.bedgraph",
-        "format": "bedpe",
-        "class": "ED"
-      }
-    ],
-    "notes": "GEO GSE234292 mESC wild type replicate 1 (mm10), chr17-19 at 25 kb with the deposited weight, --expected mean_nonzero. -t 1: with several chromosomes in parallel the 3.7.6 tool writes them in completion order, so one chromosome at a time and the threads within it. --chromosomes is given: without it the 3.7.6 tool reorders a cool file's chromosomes by size (largest, smallest, ...), a documented row-order deviation of the port (cpp/tools/hicDetectLoops.cpp header)."
+    "outputs": [],
+    "notes": "GEO GSE234292 mESC wild type replicate 1 (mm10), chr17-19 at 25 kb with the deposited weight, --expected mean_nonzero. -t 1: with several chromosomes in parallel the 3.7.6 tool writes them in completion order, so one chromosome at a time and the threads within it. --chromosomes is given: without it the 3.7.6 tool reorders a cool file's chromosomes by size (largest, smallest, ...), a documented row-order deviation of the port (cpp/tools/hicDetectLoops.cpp header). Both 3.7.6 and the C++ tool detect 0 loops on the balanced matrix and write no loop file, so the case checks the log line.",
+    "stderr_contains": [
+      "Number of detected loops for all regions: 0"
+    ]
   },
   {
     "id": "ext.hicDetectLoops.gse63525_gm12878_10kb_raw.chr17",
