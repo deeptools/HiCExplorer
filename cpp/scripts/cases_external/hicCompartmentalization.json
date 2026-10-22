@@ -1,0 +1,74 @@
+[
+  {
+    "id": "ext.hicCompartmentalization.gse63525_100kb.defaults",
+    "tool": "hicCompartmentalization",
+    "tier": 7,
+    "args": [
+      "-m",
+      "{data}/derived/analysis/gse63525_gm12878_100kb_obsexp.cool",
+      "--pca",
+      "{data}/derived/analysis/gse63525_gm12878_100kb_pca1.bedgraph",
+      "-o",
+      "{out}/ratio.png",
+      "--outputMatrix",
+      "{out}/matrix.npz"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/ratio.png_dat",
+        "format": "plain",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/matrix.npz",
+        "format": "npz",
+        "class": "E2"
+      },
+      {
+        "path": "{out}/ratio.png",
+        "format": "png",
+        "class": "E6"
+      }
+    ],
+    "notes": "hicPCA 3.7.6 obs/exp matrix and first eigenvector of GSE63525 GM12878 chr17-19 100 kb (derive_analysis.sh)."
+  },
+  {
+    "id": "ext.hicCompartmentalization.gse63525_100kb.quantile20.outliers",
+    "tool": "hicCompartmentalization",
+    "tier": 7,
+    "args": [
+      "-m",
+      "{data}/derived/analysis/gse63525_gm12878_100kb_obsexp.cool",
+      "--pca",
+      "{data}/derived/analysis/gse63525_gm12878_100kb_pca1.bedgraph",
+      "-o",
+      "{out}/ratio.png",
+      "--quantile",
+      "20",
+      "--outliers",
+      "2.5",
+      "--offset",
+      "2",
+      "--outputMatrix",
+      "{out}/matrix.npz"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/ratio.png_dat",
+        "format": "plain",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/matrix.npz",
+        "format": "npz",
+        "class": "E2"
+      },
+      {
+        "path": "{out}/ratio.png",
+        "format": "png",
+        "class": "E6"
+      }
+    ],
+    "notes": "As the defaults case with --quantile 20 --outliers 2.5 --offset 2."
+  }
+]

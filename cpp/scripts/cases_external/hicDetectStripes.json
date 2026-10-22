@@ -1,0 +1,54 @@
+[
+  {
+    "id": "ext.hicDetectStripes.v4.gse63525_10kb.chr17",
+    "tool": "hicDetectStripes",
+    "tier": 9,
+    "reference": "none",
+    "args": [
+      "-m",
+      "{data}/derived/analysis/gse63525_gm12878_chr17_19_10000.cool",
+      "--chromosomes",
+      "17",
+      "-t",
+      "4",
+      "-o",
+      "{out}/stripes.tsv"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/stripes.tsv",
+        "format": "text",
+        "class": "EX"
+      }
+    ],
+    "stderr_contains": [
+      "INFO:hicexplorer.hicDetectStripes:Number of detected stripes:"
+    ],
+    "notes": "v4-only stripe caller on GSE63525 GM12878 chromosome 17 at 10 kb (hg19, KR weight), defaults. No 3.7.6 counterpart."
+  },
+  {
+    "id": "ext.hicDetectStripes.v4.encode_r8_25kb",
+    "tool": "hicDetectStripes",
+    "tier": 9,
+    "reference": "none",
+    "args": [
+      "-m",
+      "{data}/derived/analysis/gm12878_ENCSR946AKI_r8_chr17_19_25kb.cool",
+      "-t",
+      "4",
+      "-o",
+      "{out}/stripes.tsv"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/stripes.tsv",
+        "format": "text",
+        "class": "EX"
+      }
+    ],
+    "stderr_contains": [
+      "INFO:hicexplorer.hicDetectStripes:Number of detected stripes:"
+    ],
+    "notes": "v4-only stripe caller on ENCODE GM12878 r8 chr17-19 at 25 kb (hg38, weight)."
+  }
+]

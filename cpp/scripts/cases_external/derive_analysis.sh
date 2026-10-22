@@ -148,3 +148,5 @@ done
 "$PYBIN/hicCreateThresholdFile" --range 0 2000000 -tv 0.05 -r 10000 -o "$O/threshold_10kb_0_2mb.txt"
 # two wild type TADs (chr18) to thin 2-fold in a planted calibration of hicDifferentialAnalysis tads
 printf 'chr18\t6625000\t7525000\tA\nchr18\t15175000\t16200000\tA\n' > "$O/GSE234292_planted_tads.bed"
+# ENCODE GM12878 CTCF IDR peaks GRCh38 on chr17-19 as BED3 (hicAverageRegions on the ENCODE cools)
+awk 'BEGIN { OFS = "\t" } $1 == "chr17" || $1 == "chr18" || $1 == "chr19" { print $1, $2, $3 }' "$O/gm12878_ctcf_GRCh38.narrowPeak" > "$O/gm12878_ctcf_GRCh38_chr17_19.bed"
