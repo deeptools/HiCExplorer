@@ -1,0 +1,506 @@
+[
+  {
+    "id": "ext.hicConvertFormat.hic_to_cool.gm12878_combined30.1Mb",
+    "tool": "hicConvertFormat",
+    "tier": 1,
+    "args": [
+      "--matrices",
+      "{data}/hic/GSE63525_GM12878_combined_30.hic",
+      "--outFileName",
+      "{out}/matrix.cool",
+      "--inputFormat",
+      "hic",
+      "--outputFormat",
+      "cool",
+      "--resolutions",
+      "1000000"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/matrix_1000000.cool",
+        "format": "cool",
+        "class": "E1"
+      }
+    ],
+    "notes": "GEO GSE63525 GM12878 in situ combined_30 .hic (hg19, 40 GB, chromosome names without chr), 1 Mb, against hic2cool through the 3.7.6 tool.",
+    "large": true
+  },
+  {
+    "id": "ext.hicConvertFormat.hic_to_cool.k562_combined30.500kb_and_2500kb",
+    "tool": "hicConvertFormat",
+    "tier": 1,
+    "args": [
+      "--matrices",
+      "{data}/hic/GSE63525_K562_combined_30.hic",
+      "--outFileName",
+      "{out}/matrix.cool",
+      "--inputFormat",
+      "hic",
+      "--outputFormat",
+      "cool",
+      "--resolutions",
+      "500000",
+      "2500000"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/matrix_500000.cool",
+        "format": "cool",
+        "class": "E1"
+      },
+      {
+        "path": "{out}/matrix_2500000.cool",
+        "format": "cool",
+        "class": "E1"
+      }
+    ],
+    "notes": "GEO GSE63525 K562 combined_30 .hic (hg19), 500 kb and 2.5 Mb.",
+    "large": true
+  },
+  {
+    "id": "ext.hicConvertFormat.hic_to_h5.gm12878_combined30.1Mb",
+    "tool": "hicConvertFormat",
+    "tier": 1,
+    "args": [
+      "--matrices",
+      "{data}/hic/GSE63525_GM12878_combined_30.hic",
+      "--outFileName",
+      "{out}/matrix.h5",
+      "--inputFormat",
+      "hic",
+      "--outputFormat",
+      "h5",
+      "--resolutions",
+      "1000000"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/matrix.h5",
+        "format": "h5",
+        "class": "E2"
+      }
+    ],
+    "notes": "GSE63525 GM12878 combined_30 at 1 Mb. 3.7.6 cannot write this direction from .hic; the reference is the two-step route of py_hic_reference.py (hic2cool, then the 3.7.6 hicConvertFormat --inputFormat cool).",
+    "py_script": "cpp/scripts/py_hic_reference.py",
+    "large": true
+  },
+  {
+    "id": "ext.hicConvertFormat.hic_to_ginteractions.gm12878_combined30.1Mb",
+    "tool": "hicConvertFormat",
+    "tier": 1,
+    "args": [
+      "--matrices",
+      "{data}/hic/GSE63525_GM12878_combined_30.hic",
+      "--outFileName",
+      "{out}/matrix.ginteractions",
+      "--inputFormat",
+      "hic",
+      "--outputFormat",
+      "ginteractions",
+      "--resolutions",
+      "1000000"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/matrix.ginteractions.tsv",
+        "format": "text",
+        "class": "E0"
+      }
+    ],
+    "notes": "GSE63525 GM12878 combined_30 at 1 Mb. 3.7.6 cannot write this direction from .hic; the reference is the two-step route of py_hic_reference.py (hic2cool, then the 3.7.6 hicConvertFormat --inputFormat cool).",
+    "py_script": "cpp/scripts/py_hic_reference.py",
+    "large": true
+  },
+  {
+    "id": "ext.hicConvertFormat.hic_to_hicpro.gm12878_combined30.1Mb",
+    "tool": "hicConvertFormat",
+    "tier": 1,
+    "args": [
+      "--matrices",
+      "{data}/hic/GSE63525_GM12878_combined_30.hic",
+      "--outFileName",
+      "{out}/matrix.hicpro",
+      "--inputFormat",
+      "hic",
+      "--outputFormat",
+      "hicpro",
+      "--resolutions",
+      "1000000",
+      "--bedFileHicpro",
+      "{out}/matrix.bed"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/matrix.hicpro",
+        "format": "text",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/matrix.bed",
+        "format": "text",
+        "class": "E0"
+      }
+    ],
+    "notes": "GSE63525 GM12878 combined_30 at 1 Mb. 3.7.6 cannot write this direction from .hic; the reference is the two-step route of py_hic_reference.py (hic2cool, then the 3.7.6 hicConvertFormat --inputFormat cool).",
+    "py_script": "cpp/scripts/py_hic_reference.py",
+    "large": true
+  },
+  {
+    "id": "ext.hicConvertFormat.hic_to_mcool.gm12878_combined30.1Mb_2500kb",
+    "tool": "hicConvertFormat",
+    "tier": 1,
+    "args": [
+      "--matrices",
+      "{data}/hic/GSE63525_GM12878_combined_30.hic",
+      "--outFileName",
+      "{out}/matrix.mcool",
+      "--inputFormat",
+      "hic",
+      "--outputFormat",
+      "mcool",
+      "--resolutions",
+      "1000000",
+      "2500000"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/matrix.mcool",
+        "format": "mcool",
+        "class": "EX"
+      }
+    ],
+    "notes": "v4 only: 3.7.6 has no hic -> mcool with --resolutions. Each resolution group must hold the same bins and bit-identical pixels as hic2cool's own conversion of the same file (derive_matrix.sh step 6, written by the 3.7.6 hicConvertFormat).",
+    "reference": "none",
+    "large": true,
+    "validators": [
+      {
+        "name": "cool_pixels_match",
+        "output": "{out}/matrix.mcool",
+        "options": {
+          "expected": "{data}/derived/matrix/gm12878_combined30_1000000.cool",
+          "uri": "::/resolutions/1000000"
+        }
+      },
+      {
+        "name": "cool_pixels_match",
+        "output": "{out}/matrix.mcool",
+        "options": {
+          "expected": "{data}/derived/matrix/gm12878_combined30_2500000.cool",
+          "uri": "::/resolutions/2500000"
+        }
+      }
+    ]
+  },
+  {
+    "id": "ext.hicConvertFormat.cool_to_hic.v8.gm12878_r8_25kb_chr19-22",
+    "tool": "hicConvertFormat",
+    "tier": 1,
+    "args": [
+      "--matrices",
+      "{data}/derived/matrix/gm12878_ENCSR946AKI_r8_25kb_chr19-22.cool",
+      "--outFileName",
+      "{out}/matrix.hic",
+      "--inputFormat",
+      "cool",
+      "--outputFormat",
+      "hic",
+      "--resolutions",
+      "50000",
+      "100000",
+      "250000"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/matrix.hic",
+        "format": "hic",
+        "class": "E2"
+      }
+    ],
+    "notes": "ENCODE ENCSR946AKI GM12878 replicate 8 (hg38, 25 kb), raw counts of chr19 to chr22, derived by derive_matrix.sh step 1. .hic version 8 at 25, 50, 100 and 250 kb; comparators/hic.py reads the C++ .hic back and requires the pixels the 3.7.6 loader sees (py_hic_reference.py) bit for bit, plus full-length normalization vectors: the pixel round trip.",
+    "py_script": "cpp/scripts/py_hic_reference.py"
+  },
+  {
+    "id": "ext.hicConvertFormat.cool_to_hic.v9.gm12878_r8_10kb_chr21-22",
+    "tool": "hicConvertFormat",
+    "tier": 1,
+    "args": [
+      "--matrices",
+      "{data}/derived/matrix/gm12878_ENCSR946AKI_r8_10kb_chr21-22.cool",
+      "--outFileName",
+      "{out}/matrix.hic",
+      "--inputFormat",
+      "cool",
+      "--outputFormat",
+      "hic",
+      "--hicVersion",
+      "9",
+      "--resolutions",
+      "50000",
+      "--threads",
+      "4"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/matrix.hic",
+        "format": "hic",
+        "class": "E2"
+      }
+    ],
+    "notes": "ENCODE ENCSR946AKI GM12878 r8 10 kb, chr21 and chr22 (step 1), .hic version 9 at 10 and 50 kb, checked as above.",
+    "py_script": "cpp/scripts/py_hic_reference.py"
+  },
+  {
+    "id": "ext.hicConvertFormat.cool_to_hic.v9.weighted_whole_genome_r12_25kb",
+    "tool": "hicConvertFormat",
+    "tier": 1,
+    "args": [
+      "--matrices",
+      "{data}/cool/gm12878_ENCSR946AKI_r12_25kb.cool",
+      "--outFileName",
+      "{out}/matrix.hic",
+      "--inputFormat",
+      "cool",
+      "--outputFormat",
+      "hic",
+      "--hicVersion",
+      "9",
+      "--load_raw_values",
+      "--resolutions",
+      "1000000",
+      "--threads",
+      "4"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/matrix.hic",
+        "format": "hic",
+        "class": "E2"
+      }
+    ],
+    "notes": "The whole-genome ENCODE r12 25 kb cool as published (hic2cool output with SCALE/VC/weight columns, 25 chromosomes), raw counts, version 9 at 25 kb and 1 Mb.",
+    "py_script": "cpp/scripts/py_hic_reference.py",
+    "large": true
+  },
+  {
+    "id": "ext.hicConvertFormat.cool_to_h5.gm12878_r8_25kb_chr19-22",
+    "tool": "hicConvertFormat",
+    "tier": 1,
+    "args": [
+      "--matrices",
+      "{data}/derived/matrix/gm12878_ENCSR946AKI_r8_25kb_chr19-22.cool",
+      "--outFileName",
+      "{out}/matrix.h5",
+      "--inputFormat",
+      "cool",
+      "--outputFormat",
+      "h5"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/matrix.h5",
+        "format": "h5",
+        "class": "E2"
+      }
+    ],
+    "notes": "ENCODE ENCSR946AKI GM12878 replicate 8 (hg38, 25 kb), raw counts of chr19 to chr22, derived by derive_matrix.sh step 1."
+  },
+  {
+    "id": "ext.hicConvertFormat.h5_to_cool.a549_25kb_chr19-22",
+    "tool": "hicConvertFormat",
+    "tier": 1,
+    "args": [
+      "--matrices",
+      "{data}/derived/matrix/a549_25kb_chr19-22.h5",
+      "--outFileName",
+      "{out}/matrix.cool",
+      "--inputFormat",
+      "h5",
+      "--outputFormat",
+      "cool"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/matrix.cool",
+        "format": "cool",
+        "class": "E1"
+      }
+    ],
+    "notes": "ENCODE A549 25 kb chr19 to chr22 as h5 (3.7.6 cool -> h5, step 5), back to cool."
+  },
+  {
+    "id": "ext.hicConvertFormat.cool_to_ginteractions.gm12878_r12_25kb_chr19-22",
+    "tool": "hicConvertFormat",
+    "tier": 1,
+    "args": [
+      "--matrices",
+      "{data}/derived/matrix/gm12878_ENCSR946AKI_r12_25kb_chr19-22.cool",
+      "--outFileName",
+      "{out}/matrix.ginteractions",
+      "--inputFormat",
+      "cool",
+      "--outputFormat",
+      "ginteractions"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/matrix.ginteractions.tsv",
+        "format": "text",
+        "class": "E0"
+      }
+    ],
+    "notes": "ENCODE ENCSR946AKI GM12878 replicate 12 (hg38, 25 kb), raw counts of chr19 to chr22, derived by derive_matrix.sh step 1."
+  },
+  {
+    "id": "ext.hicConvertFormat.cool_to_homer.gm12878_r8_25kb_chr22",
+    "tool": "hicConvertFormat",
+    "tier": 1,
+    "args": [
+      "--matrices",
+      "{data}/derived/matrix/gm12878_ENCSR946AKI_r8_25kb_chr19-22.cool",
+      "--outFileName",
+      "{out}/matrix.homer",
+      "--inputFormat",
+      "cool",
+      "--outputFormat",
+      "homer",
+      "--chromosome",
+      "chr22"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/matrix.homer",
+        "format": "text",
+        "class": "E0"
+      }
+    ],
+    "notes": "ENCODE ENCSR946AKI GM12878 replicate 8 (hg38, 25 kb), raw counts of chr19 to chr22, derived by derive_matrix.sh step 1, --chromosome chr22 (2,033 bins, dense table)."
+  },
+  {
+    "id": "ext.hicConvertFormat.cool_to_homer.gm12878_r8_25kb_chr22_subset",
+    "tool": "hicConvertFormat",
+    "tier": 1,
+    "args": [
+      "--matrices",
+      "{data}/derived/matrix/gm12878_ENCSR946AKI_r8_25kb_chr22.cool",
+      "--outFileName",
+      "{out}/matrix.homer",
+      "--inputFormat",
+      "cool",
+      "--outputFormat",
+      "homer"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/matrix.homer",
+        "format": "text",
+        "class": "E0"
+      }
+    ],
+    "notes": "ENCODE GM12878 r8 25 kb, chr22 only (2,033 bins, derive_matrix.sh step 1), dense homer table."
+  },
+  {
+    "id": "ext.hicConvertFormat.cool_to_hicpro.a549_25kb_chr19-22",
+    "tool": "hicConvertFormat",
+    "tier": 1,
+    "args": [
+      "--matrices",
+      "{data}/derived/matrix/a549_25kb_chr19-22.cool",
+      "--outFileName",
+      "{out}/matrix.hicpro",
+      "--inputFormat",
+      "cool",
+      "--outputFormat",
+      "hicpro",
+      "--bedFileHicpro",
+      "{out}/matrix.bed"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/matrix.hicpro",
+        "format": "text",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/matrix.bed",
+        "format": "text",
+        "class": "E0"
+      }
+    ],
+    "notes": "ENCODE A549 25 kb chr19 to chr22 (step 1), 6.1 M pixels."
+  },
+  {
+    "id": "ext.hicConvertFormat.cool_to_mcool.gm12878_r8_25kb_chr19-22",
+    "tool": "hicConvertFormat",
+    "tier": 1,
+    "args": [
+      "--matrices",
+      "{data}/derived/matrix/gm12878_ENCSR946AKI_r8_25kb_chr19-22.cool",
+      "--outFileName",
+      "{out}/matrix.mcool",
+      "--inputFormat",
+      "cool",
+      "--outputFormat",
+      "mcool",
+      "-r",
+      "25000",
+      "50000",
+      "100000",
+      "1000000"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/matrix.mcool",
+        "format": "mcool",
+        "class": "E1"
+      }
+    ],
+    "notes": "ENCODE ENCSR946AKI GM12878 replicate 8 (hg38, 25 kb), raw counts of chr19 to chr22, derived by derive_matrix.sh step 1, coarsened to 50 kb, 100 kb and 1 Mb."
+  },
+  {
+    "id": "ext.hicConvertFormat.mcool_group_to_cool.imr90_1Mb",
+    "tool": "hicConvertFormat",
+    "tier": 1,
+    "args": [
+      "--matrices",
+      "{data}/mcool/imr90.mcool::/resolutions/1000000",
+      "--outFileName",
+      "{out}/matrix.cool",
+      "--inputFormat",
+      "cool",
+      "--outputFormat",
+      "cool"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/matrix.cool",
+        "format": "cool",
+        "class": "E1"
+      }
+    ],
+    "notes": "IMR90 mcool (hg38, cooler 0.7.6 file), the balanced 1 Mb group read by URI and written as cool."
+  },
+  {
+    "id": "ext.hicConvertFormat.mcool_group_to_cool.imr90_250kb",
+    "tool": "hicConvertFormat",
+    "tier": 1,
+    "args": [
+      "--matrices",
+      "{data}/mcool/imr90.mcool::/resolutions/250000",
+      "--outFileName",
+      "{out}/matrix.cool",
+      "--inputFormat",
+      "cool",
+      "--outputFormat",
+      "cool"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/matrix.cool",
+        "format": "cool",
+        "class": "E1"
+      }
+    ],
+    "notes": "IMR90 mcool (hg38), the balanced 250 kb group read by URI and written as cool. This group stores 34,561 duplicate (bin1, bin2) pixels; 3.7.6 sums them (scipy COO to CSR).",
+    "large": true
+  }
+]

@@ -1,0 +1,118 @@
+[
+  {
+    "id": "ext.hicPlotMatrix.region.log1p.gm12878_r8",
+    "tool": "hicPlotMatrix",
+    "tier": 7,
+    "args": [
+      "--matrix",
+      "{data}/derived/matrix/gm12878_ENCSR946AKI_r8_25kb_chr19-22.cool",
+      "--region",
+      "chr21:30000000-36000000",
+      "--log1p",
+      "--outFileName",
+      "{out}/matrix.png"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/matrix.png",
+        "format": "png",
+        "class": "E6"
+      }
+    ],
+    "notes": "ENCODE ENCSR946AKI GM12878 replicate 8 (hg38, 25 kb), raw counts of chr19 to chr22, derived by derive_matrix.sh step 1."
+  },
+  {
+    "id": "ext.hicPlotMatrix.region_region2.a549.h5",
+    "tool": "hicPlotMatrix",
+    "tier": 7,
+    "args": [
+      "--matrix",
+      "{data}/derived/matrix/a549_25kb_chr19-22.h5",
+      "--region",
+      "chr19:40000000-45000000",
+      "--region2",
+      "chr19:42000000-47000000",
+      "--log",
+      "--outFileName",
+      "{out}/matrix.png",
+      "--colorMap",
+      "hot_r"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/matrix.png",
+        "format": "png",
+        "class": "E6"
+      }
+    ],
+    "notes": "ENCODE A549 25 kb as h5, two regions, log."
+  },
+  {
+    "id": "ext.hicPlotMatrix.perChr.gm12878_r12",
+    "tool": "hicPlotMatrix",
+    "tier": 7,
+    "args": [
+      "--matrix",
+      "{data}/derived/matrix/gm12878_ENCSR946AKI_r12_25kb_chr19-22.cool",
+      "--perChromosome",
+      "--log1p",
+      "--outFileName",
+      "{out}/matrix.png"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/matrix.png",
+        "format": "png",
+        "class": "E6"
+      }
+    ],
+    "notes": "ENCODE ENCSR946AKI GM12878 replicate 12 (hg38, 25 kb), raw counts of chr19 to chr22, derived by derive_matrix.sh step 1, every chromosome."
+  },
+  {
+    "id": "ext.hicPlotMatrix.region.weighted_whole_genome_10kb",
+    "tool": "hicPlotMatrix",
+    "tier": 7,
+    "args": [
+      "--matrix",
+      "{data}/cool/gm12878_ENCSR946AKI_r8_10kb.cool",
+      "--region",
+      "chr2:100000000-102000000",
+      "--log1p",
+      "--outFileName",
+      "{out}/matrix.png"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/matrix.png",
+        "format": "png",
+        "class": "E6"
+      }
+    ],
+    "notes": "The published whole-genome ENCODE r8 10 kb cool (weight column), a 2 Mb region of chr2."
+  },
+  {
+    "id": "ext.hicPlotMatrix.matrix2.gm12878_r8_vs_a549",
+    "tool": "hicPlotMatrix",
+    "tier": 7,
+    "args": [
+      "--matrix",
+      "{data}/derived/matrix/gm12878_ENCSR946AKI_r8_25kb_chr19-22.cool",
+      "--matrix2",
+      "{data}/derived/matrix/a549_25kb_chr19-22.cool",
+      "--region",
+      "chr21:30000000-36000000",
+      "--log1p",
+      "--outFileName",
+      "{out}/matrix.png"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/matrix.png",
+        "format": "png",
+        "class": "EX"
+      }
+    ],
+    "notes": "v4 only (--matrix2): GM12878 r8 in the upper and A549 in the lower triangle of one heatmap; the figure must be written.",
+    "reference": "none"
+  }
+]

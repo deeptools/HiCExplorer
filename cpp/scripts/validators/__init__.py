@@ -40,6 +40,9 @@ _KNOWN = {
     "chic_background_likelihood": "chic_background_model",
     "chic_background_downstream": "chic_background_model",
     "differential_analysis_table": "differential_analysis",
+    "plotdata_ranking": "extval_matrix",
+    "cool_pixels_match": "extval_matrix",
+    "qc_pretty_report": "extval_matrix",
 }
 
 
