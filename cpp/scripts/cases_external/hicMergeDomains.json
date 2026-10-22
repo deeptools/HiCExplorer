@@ -1,0 +1,103 @@
+[
+  {
+    "id": "ext.hicMergeDomains.gse63525_three_resolutions.ctcf",
+    "tool": "hicMergeDomains",
+    "tier": 5,
+    "args": [
+      "-d",
+      "{data}/derived/analysis/gse63525_gm12878_10kb_domains.bed",
+      "{data}/derived/analysis/gse63525_gm12878_25kb_domains.bed",
+      "{data}/derived/analysis/gse63525_gm12878_100kb_domains.bed",
+      "-om",
+      "{out}/merged.bed",
+      "-or",
+      "{out}/relations.txt",
+      "-ot",
+      "{out}/tree",
+      "-p",
+      "{data}/derived/analysis/gm12878_ctcf_hg19_nochr.narrowPeak"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/merged.bed",
+        "format": "text",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/relations.txt",
+        "format": "text",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_17.pdf",
+        "format": "rendered",
+        "class": "E7"
+      },
+      {
+        "path": "{out}/tree_18.pdf",
+        "format": "rendered",
+        "class": "E7"
+      },
+      {
+        "path": "{out}/tree_19.pdf",
+        "format": "rendered",
+        "class": "E7"
+      }
+    ],
+    "path_prepend": [
+      "{deps}/bin"
+    ],
+    "notes": "hicFindTADs 3.7.6 domains of GSE63525 GM12878 chr17-19 at 10, 25 and 100 kb (derive_analysis.sh), merged with the ENCODE GM12878 CTCF IDR peaks (hg19, chr prefix removed to match). Tree PDFs as in hicMergeDomains.two_files.pdf."
+  },
+  {
+    "id": "ext.hicMergeDomains.gse63525_10_25kb.value20000.png",
+    "tool": "hicMergeDomains",
+    "tier": 5,
+    "args": [
+      "-d",
+      "{data}/derived/analysis/gse63525_gm12878_10kb_domains.bed",
+      "{data}/derived/analysis/gse63525_gm12878_25kb_domains.bed",
+      "-om",
+      "{out}/merged.bed",
+      "-or",
+      "{out}/relations.txt",
+      "-ot",
+      "{out}/tree",
+      "-of",
+      "png",
+      "-v",
+      "20000"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/merged.bed",
+        "format": "text",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/relations.txt",
+        "format": "text",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_17.png",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_18.png",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_19.png",
+        "format": "rendered",
+        "class": "E0"
+      }
+    ],
+    "path_prepend": [
+      "{deps}/bin"
+    ],
+    "notes": "GSE63525 GM12878 10 and 25 kb hicFindTADs 3.7.6 domains, no protein file, -v 20000, PNG trees."
+  }
+]

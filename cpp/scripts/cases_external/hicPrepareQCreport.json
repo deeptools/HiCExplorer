@@ -1,0 +1,245 @@
+[
+  {
+    "id": "ext.hicPrepareQCreport.SRR927086_two_HindIII_samples",
+    "tool": "hicPrepareQCreport",
+    "tier": 7,
+    "args": [
+      "--logfiles",
+      "{data}/derived/matrix/qc_SRR927086_2M_HindIII/QC.log",
+      "{data}/derived/matrix/qc_SRR927086_second2M_HindIII/QC.log",
+      "--labels",
+      "pairs_1-2M",
+      "pairs_2-4M",
+      "--outputFolder",
+      "{out}/qc"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/qc/QC_table.txt",
+        "format": "text",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/qc/unmapable_table.txt",
+        "format": "text",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/qc/discarded_table.txt",
+        "format": "text",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/qc/distance_table.txt",
+        "format": "text",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/qc/read_orientation_table.txt",
+        "format": "text",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/qc/pairs_sequenced.png",
+        "format": "png",
+        "class": "E6"
+      },
+      {
+        "path": "{out}/qc/unmappable_and_non_unique.png",
+        "format": "png",
+        "class": "E6"
+      },
+      {
+        "path": "{out}/qc/pairs_discarded.png",
+        "format": "png",
+        "class": "E6"
+      },
+      {
+        "path": "{out}/qc/distance.png",
+        "format": "png",
+        "class": "E6"
+      },
+      {
+        "path": "{out}/qc/read_orientation.png",
+        "format": "png",
+        "class": "E6"
+      },
+      {
+        "path": "{out}/qc/hicQC.html",
+        "format": "text",
+        "class": "E0",
+        "options": {
+          "normalise": [
+            "pandas_styler_uuid"
+          ]
+        }
+      }
+    ],
+    "notes": "QC.log of the 3.7.6 hicBuildMatrix on the first 2,000,000 SRR927086 pairs against hg19 HindIII at 100 kb (derive_matrix.sh step 8), and the log of read pairs 2,000,001 to 4,000,000 (step 10).",
+    "memory": {
+      "alpha": 0.0,
+      "beta": 0.0
+    }
+  },
+  {
+    "id": "ext.hicPrepareQCreport.SRR927086_2M.HindIII_and_microc_refused",
+    "tool": "hicPrepareQCreport",
+    "tier": 7,
+    "args": [
+      "--logfiles",
+      "{data}/derived/matrix/qc_SRR927086_2M_HindIII/QC.log",
+      "{data}/derived/matrix/qc_SRR927086_2M_microc/QC.log",
+      "--labels",
+      "HindIII",
+      "MicroC_mode",
+      "--outputFolder",
+      "{out}/qc"
+    ],
+    "outputs": [],
+    "notes": "QC.log of the 3.7.6 hicBuildMatrix on the first 2,000,000 SRR927086 pairs against hg19 HindIII at 100 kb (derive_matrix.sh step 8), and the 3.7.6 hicBuildMatrixMicroC log of the same reads (step 8). The Micro-C log lacks the restriction-site lines, and 3.7.6 stops with pandas' 'All arrays must be of the same length'; the C++ tool must exit 1 as well.",
+    "expect_exit": 1,
+    "memory": {
+      "alpha": 0.0,
+      "beta": 0.0
+    }
+  },
+  {
+    "id": "ext.hicPrepareQCreport.SRR927086_2M.prettyReport",
+    "tool": "hicPrepareQCreport",
+    "tier": 7,
+    "args": [
+      "--logfiles",
+      "{data}/derived/matrix/qc_SRR927086_2M_HindIII/QC.log",
+      "{data}/derived/matrix/qc_SRR927086_second2M_HindIII/QC.log",
+      "--labels",
+      "pairs_1-2M",
+      "pairs_2-4M",
+      "--outputFolder",
+      "{out}/qc",
+      "--prettyReport"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/qc/hicQC_report.html",
+        "format": "html",
+        "class": "EX"
+      },
+      {
+        "path": "{out}/qc/QC_table.txt",
+        "format": "text",
+        "class": "EX"
+      }
+    ],
+    "notes": "QC.log of the 3.7.6 hicBuildMatrix on the first 2,000,000 SRR927086 pairs against hg19 HindIII at 100 kb (derive_matrix.sh step 8). C++ only (--prettyReport): the card report is written and every PASS/WARN/FAIL badge equals the status recomputed from QC_table.txt with the default cutoffs and the 20 % WARN margin (validator qc_pretty_report). Budget 256 MB: the run also draws the five charts in the drawing interpreter (about 160 MB measured), and a case without a reference has no Python peak to pair it with.",
+    "reference": "none",
+    "memory": {
+      "budget_mb": 256
+    },
+    "validators": [
+      {
+        "name": "qc_pretty_report",
+        "output": "{out}/qc",
+        "options": {
+          "folder": "qc"
+        }
+      }
+    ]
+  },
+  {
+    "id": "ext.hicPrepareQCreport.SRR927086_2M.prettyReport.strict_cutoffs",
+    "tool": "hicPrepareQCreport",
+    "tier": 7,
+    "args": [
+      "--logfiles",
+      "{data}/derived/matrix/qc_SRR927086_2M_HindIII/QC.log",
+      "--outputFolder",
+      "{out}/qc",
+      "--prettyReport",
+      "--minValidPairsPercent",
+      "60",
+      "--maxInterChromosomalPercent",
+      "5",
+      "--maxDuplicatedPairsPercent",
+      "1",
+      "--maxDanglingEndPercent",
+      "1",
+      "--maxSelfLigationPercent",
+      "1"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/qc/hicQC_report.html",
+        "format": "html",
+        "class": "EX"
+      }
+    ],
+    "notes": "QC.log of the 3.7.6 hicBuildMatrix on the first 2,000,000 SRR927086 pairs against hg19 HindIII at 100 kb (derive_matrix.sh step 8). C++ only: cutoffs moved so that the real values land on the WARN and FAIL sides; the badges must follow the given cutoffs.",
+    "reference": "none",
+    "memory": {
+      "budget_mb": 256
+    },
+    "validators": [
+      {
+        "name": "qc_pretty_report",
+        "output": "{out}/qc",
+        "options": {
+          "folder": "qc",
+          "thresholds": {
+            "valid": 60.0,
+            "inter": 5.0,
+            "duplicated": 1.0,
+            "dangling": 1.0,
+            "self_ligation": 1.0
+          }
+        }
+      }
+    ]
+  },
+  {
+    "id": "ext.hicPrepareQCreport.SRR927086_2M.prettyReport.warn_band",
+    "tool": "hicPrepareQCreport",
+    "tier": 7,
+    "args": [
+      "--logfiles",
+      "{data}/derived/matrix/qc_SRR927086_2M_HindIII/QC.log",
+      "--outputFolder",
+      "{out}/qc",
+      "--prettyReport",
+      "--minValidPairsPercent",
+      "70",
+      "--maxInterChromosomalPercent",
+      "60",
+      "--maxDanglingEndPercent",
+      "1.7",
+      "--maxSelfLigationPercent",
+      "1.5"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/qc/hicQC_report.html",
+        "format": "html",
+        "class": "EX"
+      }
+    ],
+    "notes": "QC.log of the 3.7.6 hicBuildMatrix on the first 2,000,000 SRR927086 pairs against hg19 HindIII at 100 kb (derive_matrix.sh step 8). C++ only: cutoffs placed so that valid pairs (62.3 %), inter-chromosomal (65.1 %), dangling ends (1.86 %) and self-ligation (1.73 %) fall inside the 20 % WARN band; every badge must read WARN except duplicated pairs.",
+    "reference": "none",
+    "memory": {
+      "budget_mb": 256
+    },
+    "validators": [
+      {
+        "name": "qc_pretty_report",
+        "output": "{out}/qc",
+        "options": {
+          "folder": "qc",
+          "thresholds": {
+            "valid": 70.0,
+            "inter": 60.0,
+            "dangling": 1.7,
+            "self_ligation": 1.5
+          }
+        }
+      }
+    ]
+  }
+]

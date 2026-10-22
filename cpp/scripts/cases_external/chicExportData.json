@@ -1,0 +1,242 @@
+[
+ {
+  "id": "ext.chicExportData.viewpoints_frag.txt",
+  "tool": "chicExportData",
+  "tier": 6,
+  "args": [
+   "-f",
+   "{data}/derived/capture/viewpoints_EP_K562r1_frag_chr20-22.hdf5",
+   "-o",
+   "{out}/data.tar.gz",
+   "-om",
+   "all",
+   "-t",
+   "4"
+  ],
+  "outputs": [
+   {
+    "path": "{out}/data.tar.gz",
+    "format": "tar_members",
+    "class": "E0"
+   }
+  ],
+  "threads_arg": "--threads",
+  "notes": "EP: the genome-wide promoter capture Hi-C sample EP_genomewide.chinput on the CHiCAGO hg19 HindIII design; K562: ENCODE K562 promoter capture Hi-C replicates 1 and 2 (HiCUP + bam2chicago on the same design). Fragment-level cools (one variable-size bin per HindIII fragment) from hicConvertFormat --inputFormat chinput, chromosomes kept with the 3.7.6 hicAdjustMatrix (derive_capture.sh). Bait-to-bait pixels hold 2N (both chinput rows summed); identical input on both sides. 2 x 1,330 viewpoint members."
+ },
+ {
+  "id": "ext.chicExportData.viewpoints_10kb.decimalPlaces3",
+  "tool": "chicExportData",
+  "tier": 6,
+  "args": [
+   "-f",
+   "{data}/derived/capture/viewpoints_K562r1_r2_10kb_chr20.hdf5",
+   "-o",
+   "{out}/data.tar.gz",
+   "--decimalPlaces",
+   "3",
+   "-t",
+   "2"
+  ],
+  "outputs": [
+   {
+    "path": "{out}/data.tar.gz",
+    "format": "tar_members",
+    "class": "E0"
+   }
+  ],
+  "threads_arg": "--threads",
+  "notes": "ENCODE K562 promoter capture Hi-C replicates 1 and 2, binned at 10 kb (fixed bins), chr20 kept with the 3.7.6 hicAdjustMatrix (derive_capture.sh)."
+ },
+ {
+  "id": "ext.chicExportData.significant_frag.txt",
+  "tool": "chicExportData",
+  "tier": 6,
+  "args": [
+   "-f",
+   "{data}/derived/capture/significant_EP_K562r1_frag_chr20-22.hdf5",
+   "-o",
+   "{out}/data.tar.gz",
+   "-om",
+   "all",
+   "-t",
+   "1"
+  ],
+  "outputs": [
+   {
+    "path": "{out}/data.tar.gz",
+    "format": "tar_members",
+    "class": "E0"
+   }
+  ],
+  "threads_arg": "--threads",
+  "notes": "EP: the genome-wide promoter capture Hi-C sample EP_genomewide.chinput on the CHiCAGO hg19 HindIII design; K562: ENCODE K562 promoter capture Hi-C replicates 1 and 2 (HiCUP + bam2chicago on the same design). Fragment-level cools (one variable-size bin per HindIII fragment) from hicConvertFormat --inputFormat chinput, chromosomes kept with the 3.7.6 hicAdjustMatrix (derive_capture.sh). Bait-to-bait pixels hold 2N (both chinput rows summed); identical input on both sides."
+ },
+ {
+  "id": "ext.chicExportData.significant_10kb.txt",
+  "tool": "chicExportData",
+  "tier": 6,
+  "args": [
+   "-f",
+   "{data}/derived/capture/significant_K562r1_r2_10kb_chr20.hdf5",
+   "-o",
+   "{out}/data.tar.gz",
+   "-om",
+   "all",
+   "-t",
+   "2"
+  ],
+  "outputs": [
+   {
+    "path": "{out}/data.tar.gz",
+    "format": "tar_members",
+    "class": "E0"
+   }
+  ],
+  "threads_arg": "--threads",
+  "notes": "ENCODE K562 promoter capture Hi-C replicates 1 and 2, binned at 10 kb (fixed bins), chr20 kept with the 3.7.6 hicAdjustMatrix (derive_capture.sh)."
+ },
+ {
+  "id": "ext.chicExportData.target_10kb.txt",
+  "tool": "chicExportData",
+  "tier": 6,
+  "args": [
+   "-f",
+   "{data}/derived/capture/target_K562r1_r2_10kb_chr20.hdf5",
+   "-o",
+   "{out}/data.tar.gz",
+   "-om",
+   "all",
+   "-t",
+   "1"
+  ],
+  "outputs": [
+   {
+    "path": "{out}/data.tar.gz",
+    "format": "tar_members",
+    "class": "E0"
+   }
+  ],
+  "threads_arg": "--threads",
+  "notes": "ENCODE K562 promoter capture Hi-C replicates 1 and 2, binned at 10 kb (fixed bins), chr20 kept with the 3.7.6 hicAdjustMatrix (derive_capture.sh)."
+ },
+ {
+  "id": "ext.chicExportData.aggregate_frag.txt",
+  "tool": "chicExportData",
+  "tier": 6,
+  "args": [
+   "-f",
+   "{data}/derived/capture/aggregate_EP_K562r1_frag_chr20-22.hdf5",
+   "-o",
+   "{out}/data.tar.gz",
+   "-om",
+   "all",
+   "-t",
+   "1"
+  ],
+  "outputs": [
+   {
+    "path": "{out}/data.tar.gz",
+    "format": "tar_members",
+    "class": "E0"
+   }
+  ],
+  "threads_arg": "--threads",
+  "notes": "EP: the genome-wide promoter capture Hi-C sample EP_genomewide.chinput on the CHiCAGO hg19 HindIII design; K562: ENCODE K562 promoter capture Hi-C replicates 1 and 2 (HiCUP + bam2chicago on the same design). Fragment-level cools (one variable-size bin per HindIII fragment) from hicConvertFormat --inputFormat chinput, chromosomes kept with the 3.7.6 hicAdjustMatrix (derive_capture.sh). Bait-to-bait pixels hold 2N (both chinput rows summed); identical input on both sides."
+ },
+ {
+  "id": "ext.chicExportData.differential_10kb.txt",
+  "tool": "chicExportData",
+  "tier": 6,
+  "args": [
+   "-f",
+   "{data}/derived/capture/differential_K562r1_r2_10kb_chr20.hdf5",
+   "-o",
+   "{out}/data.tar.gz",
+   "-om",
+   "all",
+   "-t",
+   "2"
+  ],
+  "outputs": [
+   {
+    "path": "{out}/data.tar.gz",
+    "format": "tar_members",
+    "class": "E0"
+   }
+  ],
+  "threads_arg": "--threads",
+  "notes": "ENCODE K562 promoter capture Hi-C replicates 1 and 2, binned at 10 kb (fixed bins), chr20 kept with the 3.7.6 hicAdjustMatrix (derive_capture.sh)."
+ },
+ {
+  "id": "ext.chicExportData.differential_frag.geneName",
+  "tool": "chicExportData",
+  "tier": 6,
+  "args": [
+   "-f",
+   "{data}/derived/capture/differential_EP_K562r1_frag_chr20-22.hdf5",
+   "-o",
+   "{out}/data.tar.gz",
+   "-om",
+   "geneName",
+   "-omn",
+   "DHX35_412750",
+   "-t",
+   "1"
+  ],
+  "outputs": [
+   {
+    "path": "{out}/EP_frag_chr20-22_K562_rep1_frag_chr20-22_genes_DHX35_412750_accepted_differential.txt",
+    "format": "text",
+    "class": "E0"
+   },
+   {
+    "path": "{out}/EP_frag_chr20-22_K562_rep1_frag_chr20-22_genes_DHX35_412750_all_differential.txt",
+    "format": "text",
+    "class": "E0"
+   },
+   {
+    "path": "{out}/EP_frag_chr20-22_K562_rep1_frag_chr20-22_genes_DHX35_412750_rejected_differential.txt",
+    "format": "text",
+    "class": "E0"
+   }
+  ],
+  "threads_arg": "--threads",
+  "notes": "EP: the genome-wide promoter capture Hi-C sample EP_genomewide.chinput on the CHiCAGO hg19 HindIII design; K562: ENCODE K562 promoter capture Hi-C replicates 1 and 2 (HiCUP + bam2chicago on the same design). Fragment-level cools (one variable-size bin per HindIII fragment) from hicConvertFormat --inputFormat chinput, chromosomes kept with the 3.7.6 hicAdjustMatrix (derive_capture.sh). Bait-to-bait pixels hold 2N (both chinput rows summed); identical input on both sides."
+ },
+ {
+  "id": "ext.chicExportData.viewpoints_plot12.bigwig",
+  "tool": "chicExportData",
+  "tier": 6,
+  "args": [
+   "-f",
+   "{data}/derived/capture/viewpoints_EP_K562r1_frag_plot12.hdf5",
+   "-o",
+   "{out}/data.tar.gz",
+   "-om",
+   "all",
+   "-oft",
+   "bigwig",
+   "--range",
+   "500000",
+   "500000",
+   "--backgroundModelFile",
+   "{data}/derived/capture/background_frag_chr20-22.txt",
+   "--chromosomeSizes",
+   "{data}/derived/capture/hg19_nochr.chrom.sizes",
+   "-t",
+   "1"
+  ],
+  "outputs": [
+   {
+    "path": "{out}/data.tar.gz",
+    "format": "tar_members",
+    "class": "E1",
+    "options": {
+     "ordered": false
+    }
+   }
+  ],
+  "threads_arg": "--threads",
+  "notes": "EP: the genome-wide promoter capture Hi-C sample EP_genomewide.chinput on the CHiCAGO hg19 HindIII design; K562: ENCODE K562 promoter capture Hi-C replicates 1 and 2 (HiCUP + bam2chicago on the same design). Fragment-level cools (one variable-size bin per HindIII fragment) from hicConvertFormat --inputFormat chinput, chromosomes kept with the 3.7.6 hicAdjustMatrix (derive_capture.sh). Bait-to-bait pixels hold 2N (both chinput rows summed); identical input on both sides. bigwig export of 12 chr20 viewpoints, chromosome sizes from the .rmap."
+ }
+]

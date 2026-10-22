@@ -1,0 +1,248 @@
+[
+ {
+  "id": "ext.chicQualityControl.EP_K562r1_K562r2_frag_chr20-22",
+  "tool": "chicQualityControl",
+  "tier": 6,
+  "args": [
+   "--matrices",
+   "{data}/derived/capture/EP_frag_chr20-22.cool",
+   "{data}/derived/capture/K562_rep1_frag_chr20-22.cool",
+   "{data}/derived/capture/K562_rep2_frag_chr20-22.cool",
+   "--referencePoints",
+   "{data}/derived/capture/baits_chr20-22.bed",
+   "--sparsity",
+   "0.05",
+   "--outFileName",
+   "{out}/referencepoints.bed",
+   "-t",
+   "4",
+   "-oh",
+   "{out}/histogram.png",
+   "-os",
+   "{out}/sparsity.png"
+  ],
+  "outputs": [
+   {
+    "path": "{out}/referencepoints.bed",
+    "format": "text",
+    "class": "E0"
+   },
+   {
+    "path": "{out}/referencepoints.bed_raw_filter",
+    "format": "text",
+    "class": "E0"
+   },
+   {
+    "path": "{out}/referencepoints.bed_rejected_filter",
+    "format": "text",
+    "class": "E0"
+   },
+   {
+    "path": "{out}/referencepoints.bed_failed_reference_points",
+    "format": "text",
+    "class": "E0"
+   },
+   {
+    "path": "{out}/referencepoints.bed_report",
+    "format": "text",
+    "class": "E0"
+   },
+   {
+    "path": "{out}/sparsity.png",
+    "format": "png",
+    "class": "E6"
+   },
+   {
+    "path": "{out}/histogram.png",
+    "format": "png",
+    "class": "E6"
+   }
+  ],
+  "threads_arg": "--threads",
+  "notes": "EP: the genome-wide promoter capture Hi-C sample EP_genomewide.chinput on the CHiCAGO hg19 HindIII design; K562: ENCODE K562 promoter capture Hi-C replicates 1 and 2 (HiCUP + bam2chicago on the same design). Fragment-level cools (one variable-size bin per HindIII fragment) from hicConvertFormat --inputFormat chinput, chromosomes kept with the 3.7.6 hicAdjustMatrix (derive_capture.sh). Bait-to-bait pixels hold 2N (both chinput rows summed); identical input on both sides. All 1,330 baits of chr20, chr21 and chr22 on three matrices; the 3.7.6 reference accepts all of them."
+ },
+ {
+  "id": "ext.chicQualityControl.K562r1_r2_10kb_chr20",
+  "tool": "chicQualityControl",
+  "tier": 6,
+  "args": [
+   "--matrices",
+   "{data}/derived/capture/K562_rep1_10kb_chr20.cool",
+   "{data}/derived/capture/K562_rep2_10kb_chr20.cool",
+   "--referencePoints",
+   "{data}/derived/capture/baits_chr20.bed",
+   "--sparsity",
+   "0.05",
+   "--outFileName",
+   "{out}/referencepoints.bed",
+   "-t",
+   "2",
+   "-oh",
+   "{out}/histogram.png",
+   "-os",
+   "{out}/sparsity.png"
+  ],
+  "outputs": [
+   {
+    "path": "{out}/referencepoints.bed",
+    "format": "text",
+    "class": "E0"
+   },
+   {
+    "path": "{out}/referencepoints.bed_raw_filter",
+    "format": "text",
+    "class": "E0"
+   },
+   {
+    "path": "{out}/referencepoints.bed_rejected_filter",
+    "format": "text",
+    "class": "E0"
+   },
+   {
+    "path": "{out}/referencepoints.bed_failed_reference_points",
+    "format": "text",
+    "class": "E0"
+   },
+   {
+    "path": "{out}/referencepoints.bed_report",
+    "format": "text",
+    "class": "E0"
+   },
+   {
+    "path": "{out}/sparsity.png",
+    "format": "png",
+    "class": "E6"
+   },
+   {
+    "path": "{out}/histogram.png",
+    "format": "png",
+    "class": "E6"
+   }
+  ],
+  "threads_arg": "--threads",
+  "notes": "ENCODE K562 promoter capture Hi-C replicates 1 and 2, binned at 10 kb (fixed bins), chr20 kept with the 3.7.6 hicAdjustMatrix (derive_capture.sh). All 619 chr20 baits; 573 accepted, 46 rejected by the 3.7.6 reference at sparsity 0.05."
+ },
+ {
+  "id": "ext.chicQualityControl.K562r1_10kb_chr20.fixateRange200000",
+  "tool": "chicQualityControl",
+  "tier": 6,
+  "args": [
+   "--matrices",
+   "{data}/derived/capture/K562_rep1_10kb_chr20.cool",
+   "--referencePoints",
+   "{data}/derived/capture/baits_chr20.bed",
+   "--sparsity",
+   "0.1",
+   "--fixateRange",
+   "200000",
+   "--outFileName",
+   "{out}/referencepoints.bed",
+   "-t",
+   "3",
+   "-oh",
+   "{out}/histogram.png",
+   "-os",
+   "{out}/sparsity.png"
+  ],
+  "outputs": [
+   {
+    "path": "{out}/referencepoints.bed",
+    "format": "text",
+    "class": "E0"
+   },
+   {
+    "path": "{out}/referencepoints.bed_raw_filter",
+    "format": "text",
+    "class": "E0"
+   },
+   {
+    "path": "{out}/referencepoints.bed_rejected_filter",
+    "format": "text",
+    "class": "E0"
+   },
+   {
+    "path": "{out}/referencepoints.bed_failed_reference_points",
+    "format": "text",
+    "class": "E0"
+   },
+   {
+    "path": "{out}/referencepoints.bed_report",
+    "format": "text",
+    "class": "E0"
+   },
+   {
+    "path": "{out}/sparsity.png",
+    "format": "png",
+    "class": "E6"
+   },
+   {
+    "path": "{out}/histogram.png",
+    "format": "png",
+    "class": "E6"
+   }
+  ],
+  "threads_arg": "--threads",
+  "notes": "ENCODE K562 promoter capture Hi-C replicates 1 and 2, binned at 10 kb (fixed bins), chr20 kept with the 3.7.6 hicAdjustMatrix (derive_capture.sh). One matrix, sparsity 0.1 within 200 kb."
+ },
+ {
+  "id": "ext.chicQualityControl.EP_genomewide",
+  "tool": "chicQualityControl",
+  "tier": 6,
+  "args": [
+   "--matrices",
+   "{data}/derived/capture/EP_genomewide_cpp.cool",
+   "--referencePoints",
+   "{data}/derived/capture/baits_genomewide.bed",
+   "--sparsity",
+   "0.05",
+   "--outFileName",
+   "{out}/referencepoints.bed",
+   "-t",
+   "4",
+   "-oh",
+   "{out}/histogram.png",
+   "-os",
+   "{out}/sparsity.png"
+  ],
+  "outputs": [
+   {
+    "path": "{out}/referencepoints.bed",
+    "format": "text",
+    "class": "E0"
+   },
+   {
+    "path": "{out}/referencepoints.bed_raw_filter",
+    "format": "text",
+    "class": "E0"
+   },
+   {
+    "path": "{out}/referencepoints.bed_rejected_filter",
+    "format": "text",
+    "class": "E0"
+   },
+   {
+    "path": "{out}/referencepoints.bed_failed_reference_points",
+    "format": "text",
+    "class": "E0"
+   },
+   {
+    "path": "{out}/referencepoints.bed_report",
+    "format": "text",
+    "class": "E0"
+   },
+   {
+    "path": "{out}/sparsity.png",
+    "format": "png",
+    "class": "E6"
+   },
+   {
+    "path": "{out}/histogram.png",
+    "format": "png",
+    "class": "E6"
+   }
+  ],
+  "threads_arg": "--threads",
+  "notes": "EP genome-wide fragment-level cool (837,161 bins, 116.8 M pixels) from hicConvertFormat --inputFormat chinput; all 22,076 baits of the design (3.7.6: 22,007 accepted, 69 rejected; 49 s, 7.8 GB).",
+  "large": true
+ }
+]

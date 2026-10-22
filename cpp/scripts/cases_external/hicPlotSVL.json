@@ -1,0 +1,107 @@
+[
+  {
+    "id": "ext.hicPlotSVL.gse234292_wt_vs_ko_25kb",
+    "tool": "hicPlotSVL",
+    "tier": 7,
+    "args": [
+      "-m",
+      "{data}/derived/analysis/GSM7461656_HiC_wt_rep1_chr17_19_25000.cool",
+      "{data}/derived/analysis/GSM7461658_HiC_BPTFko_rep1_chr17_19_25000.cool",
+      "-o",
+      "{out}/p_values.txt",
+      "-od",
+      "{out}/data.txt",
+      "-pfn",
+      "{out}/plot.png"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/data.txt",
+        "format": "text",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/p_values.txt",
+        "format": "text",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/plot.png",
+        "format": "png",
+        "class": "E6"
+      }
+    ],
+    "notes": "GSE234292 mESC wild type against BPTF knockout replicate 1, chr17-19 25 kb (weights)."
+  },
+  {
+    "id": "ext.hicPlotSVL.encode_r8_r12_25kb.distance1000000",
+    "tool": "hicPlotSVL",
+    "tier": 7,
+    "args": [
+      "-m",
+      "{data}/derived/analysis/gm12878_ENCSR946AKI_r8_chr17_19_25kb.cool",
+      "{data}/derived/analysis/gm12878_ENCSR946AKI_r12_chr17_19_25kb.cool",
+      "-d",
+      "1000000",
+      "-t",
+      "4",
+      "-o",
+      "{out}/p_values.txt",
+      "-od",
+      "{out}/data.txt",
+      "-pfn",
+      "{out}/plot.png"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/data.txt",
+        "format": "text",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/p_values.txt",
+        "format": "text",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/plot.png",
+        "format": "png",
+        "class": "E6"
+      }
+    ],
+    "notes": "ENCODE GM12878 replicates 8 and 12 (hg38) chr17-19 25 kb, -d 1 Mb."
+  },
+  {
+    "id": "ext.hicPlotSVL.gse63525_10kb.chromosomes",
+    "tool": "hicPlotSVL",
+    "tier": 7,
+    "args": [
+      "-m",
+      "{data}/derived/analysis/gse63525_gm12878_chr17_19_10000.cool",
+      "--chromosomes",
+      "17",
+      "19",
+      "-t",
+      "2",
+      "-o",
+      "{out}/p_values.txt",
+      "-od",
+      "{out}/data.txt",
+      "-pfn",
+      "{out}/plot.png"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/data.txt",
+        "format": "text",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/plot.png",
+        "format": "png",
+        "class": "E6"
+      }
+    ],
+    "notes": "GSE63525 GM12878 10 kb, one matrix, chromosomes 17 and 19."
+  }
+]

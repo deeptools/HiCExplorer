@@ -1,0 +1,100 @@
+[
+  {
+    "id": "ext.hicQuickQC.SRR927086_2M.HindIII.lines1000000",
+    "tool": "hicQuickQC",
+    "tier": 4,
+    "args": [
+      "-s",
+      "{data}/derived/matrix/SRR927086_1_first2000000.bam",
+      "{data}/derived/matrix/SRR927086_2_first2000000.bam",
+      "--QCfolder",
+      "{out}/qc",
+      "-seq",
+      "AAGCTT",
+      "--danglingSequence",
+      "AGCT",
+      "--restrictionCutFile",
+      "{data}/derived/matrix/hg19_HindIII.bed",
+      "--lines",
+      "1000000"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/qc/QC.log",
+        "format": "plain",
+        "class": "E0",
+        "options": {
+          "normalise": [
+            "quickqc_temporary_matrix"
+          ]
+        }
+      },
+      {
+        "path": "{out}/qc/QC_table.txt",
+        "format": "plain",
+        "class": "E0",
+        "options": {
+          "normalise": [
+            "quickqc_temporary_matrix"
+          ]
+        }
+      },
+      {
+        "path": "{out}/qc/discarded_table.txt",
+        "format": "plain",
+        "class": "E0",
+        "options": {
+          "normalise": [
+            "quickqc_temporary_matrix"
+          ]
+        }
+      },
+      {
+        "path": "{out}/qc/distance_table.txt",
+        "format": "plain",
+        "class": "E0",
+        "options": {
+          "normalise": [
+            "quickqc_temporary_matrix"
+          ]
+        }
+      },
+      {
+        "path": "{out}/qc/read_orientation_table.txt",
+        "format": "plain",
+        "class": "E0",
+        "options": {
+          "normalise": [
+            "quickqc_temporary_matrix"
+          ]
+        }
+      },
+      {
+        "path": "{out}/qc/unmapable_table.txt",
+        "format": "plain",
+        "class": "E0",
+        "options": {
+          "normalise": [
+            "quickqc_temporary_matrix"
+          ]
+        }
+      },
+      {
+        "path": "{out}/qc/hicQC.html",
+        "format": "text",
+        "class": "E0",
+        "options": {
+          "normalise": [
+            "quickqc_temporary_name",
+            "pandas_styler_uuid"
+          ]
+        }
+      }
+    ],
+    "notes": "SRA SRR927086 (GM12878 in situ HindIII Hi-C, hg19), the first 2,000,000 read pairs of the minibwa-aligned read 1 and read 2 SAM files as BAM (derive_matrix.sh step 2), against the genome-wide hg19 HindIII sites of the 3.7.6 hicFindRestSite (step 4). The first 1,000,000 pairs (--lines), the QC log and tables with the temporary matrix name normalised, as in the repository case. Budget 192 MB as in the repository hicQuickQC cases.",
+    "large": true,
+    "memory": {
+      "budget_mb": 192
+    }
+  }
+]

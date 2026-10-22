@@ -1,0 +1,179 @@
+[
+  {
+    "id": "ext.hicCorrectMatrix.diagnostic_plot.gm12878_r8_25kb_chr19-22",
+    "tool": "hicCorrectMatrix",
+    "tier": 7,
+    "args": [
+      "diagnostic_plot",
+      "--matrix",
+      "{data}/derived/matrix/gm12878_ENCSR946AKI_r8_25kb_chr19-22.cool",
+      "--plotName",
+      "{out}/diagnostic.png"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/diagnostic.png",
+        "format": "png",
+        "class": "E6"
+      }
+    ],
+    "notes": "ENCODE ENCSR946AKI GM12878 replicate 8 (hg38, 25 kb), raw counts of chr19 to chr22, derived by derive_matrix.sh step 1."
+  },
+  {
+    "id": "ext.hicCorrectMatrix.diagnostic_plot.a549.perchr",
+    "tool": "hicCorrectMatrix",
+    "tier": 7,
+    "args": [
+      "diagnostic_plot",
+      "--matrix",
+      "{data}/derived/matrix/a549_25kb_chr19-22.cool",
+      "--perchr",
+      "--plotName",
+      "{out}/diagnostic.png"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/diagnostic.png",
+        "format": "png",
+        "class": "E6"
+      }
+    ],
+    "notes": "ENCODE A549 25 kb chr19 to chr22, per chromosome."
+  },
+  {
+    "id": "ext.hicCorrectMatrix.ICE.gm12878_r8_25kb_chr19-22",
+    "tool": "hicCorrectMatrix",
+    "tier": 3,
+    "args": [
+      "correct",
+      "-m",
+      "{data}/derived/matrix/gm12878_ENCSR946AKI_r8_25kb_chr19-22.h5",
+      "--correctionMethod",
+      "ICE",
+      "--filterThreshold",
+      "-1.5",
+      "5.0",
+      "--iterNum",
+      "500",
+      "--filteredBed",
+      "{out}/filtered.bed",
+      "-o",
+      "{out}/ice.h5"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/ice.h5",
+        "format": "h5",
+        "class": "E3"
+      },
+      {
+        "path": "{out}/filtered.bed",
+        "format": "bed",
+        "class": "E0"
+      }
+    ],
+    "notes": "ENCODE ENCSR946AKI GM12878 replicate 8 (hg38, 25 kb), raw counts of chr19 to chr22, derived by derive_matrix.sh step 1, as h5 (step 5); ICE with the usual -1.5 5 MAD filter.",
+    "threads_arg": "--threads"
+  },
+  {
+    "id": "ext.hicCorrectMatrix.KR.gm12878_r8_25kb_chr19-22",
+    "tool": "hicCorrectMatrix",
+    "tier": 3,
+    "args": [
+      "correct",
+      "-m",
+      "{data}/derived/matrix/gm12878_ENCSR946AKI_r8_25kb_chr19-22.h5",
+      "--correctionMethod",
+      "KR",
+      "-o",
+      "{out}/kr.h5"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/kr.h5",
+        "format": "h5",
+        "class": "ED"
+      }
+    ],
+    "notes": "ENCODE ENCSR946AKI GM12878 replicate 8 (hg38, 25 kb), raw counts of chr19 to chr22, derived by derive_matrix.sh step 1, as h5; Knight-Ruiz.",
+    "threads_arg": "--threads"
+  },
+  {
+    "id": "ext.hicCorrectMatrix.KR.perchr.a549_25kb_chr19-22",
+    "tool": "hicCorrectMatrix",
+    "tier": 3,
+    "args": [
+      "correct",
+      "-m",
+      "{data}/derived/matrix/a549_25kb_chr19-22.h5",
+      "--correctionMethod",
+      "KR",
+      "--perchr",
+      "-o",
+      "{out}/kr.h5"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/kr.h5",
+        "format": "h5",
+        "class": "ED"
+      }
+    ],
+    "notes": "ENCODE A549 25 kb chr19 to chr22 as h5; KR per chromosome, default --compatMode v4 (float64 balancing).",
+    "threads_arg": "--threads"
+  },
+  {
+    "id": "ext.hicCorrectMatrix.KR.perchr.a549_25kb_chr19-22.compatMode_v3",
+    "tool": "hicCorrectMatrix",
+    "tier": 3,
+    "args": [
+      "correct",
+      "-m",
+      "{data}/derived/matrix/a549_25kb_chr19-22.h5",
+      "--correctionMethod",
+      "KR",
+      "--perchr",
+      "-o",
+      "{out}/kr.h5"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/kr.h5",
+        "format": "h5",
+        "class": "ED"
+      }
+    ],
+    "notes": "As the case above with the C++-only --compatMode v3 (cpp_args), which reproduces krbalancing's float32 input rounding and float32 rescaling accumulators.",
+    "threads_arg": "--threads",
+    "cpp_args": [
+      "--compatMode",
+      "v3"
+    ]
+  },
+  {
+    "id": "ext.hicCorrectMatrix.ICE.a549_25kb_chr19-22.cool_input",
+    "tool": "hicCorrectMatrix",
+    "tier": 3,
+    "args": [
+      "correct",
+      "-m",
+      "{data}/derived/matrix/a549_25kb_chr19-22.cool",
+      "--correctionMethod",
+      "ICE",
+      "--filterThreshold",
+      "-2",
+      "4",
+      "-o",
+      "{out}/ice.h5"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/ice.h5",
+        "format": "cool",
+        "class": "E3"
+      }
+    ],
+    "notes": "ENCODE A549 25 kb chr19 to chr22 read from cool, ICE, output named .h5: both tools reuse the cool handler of the load and write a cool file under the .h5 name.",
+    "threads_arg": "--threads"
+  }
+]

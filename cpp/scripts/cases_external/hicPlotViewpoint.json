@@ -1,0 +1,93 @@
+[
+  {
+    "id": "ext.hicPlotViewpoint.gse63525_25kb.chr17_point",
+    "tool": "hicPlotViewpoint",
+    "tier": 7,
+    "args": [
+      "--matrix",
+      "{data}/derived/analysis/gse63525_gm12878_chr17_19_25000.cool",
+      "--region",
+      "17:40000000-42500000",
+      "-rp",
+      "17:41200000",
+      "--outFileName",
+      "{out}/viewpoint.png",
+      "-i",
+      "{out}/interactions"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/viewpoint.png",
+        "format": "png",
+        "class": "E6"
+      },
+      {
+        "path": "{out}/interactions_gse63525_gm12878_chr17_19_25000.cool.bedgraph",
+        "format": "text",
+        "class": "E0"
+      }
+    ],
+    "notes": "GSE63525 GM12878 chr17 25 kb (hg19, KR weight), viewpoint at 41.2 Mb (BRCA1 locus), 2.5 Mb region."
+  },
+  {
+    "id": "ext.hicPlotViewpoint.encode_r8_r12_25kb.region",
+    "tool": "hicPlotViewpoint",
+    "tier": 7,
+    "args": [
+      "--matrix",
+      "{data}/derived/analysis/gm12878_ENCSR946AKI_r8_chr17_19_25kb.cool",
+      "{data}/derived/analysis/gm12878_ENCSR946AKI_r12_chr17_19_25kb.cool",
+      "--region",
+      "chr17:42000000-46000000",
+      "-rp",
+      "chr17:43000000-43125000",
+      "--outFileName",
+      "{out}/viewpoint.png",
+      "-i",
+      "{out}/vp",
+      "--dpi",
+      "120"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/viewpoint.png",
+        "format": "png",
+        "class": "E6"
+      },
+      {
+        "path": "{out}/vp_gm12878_ENCSR946AKI_r8_chr17_19_25kb.cool.bedgraph",
+        "format": "text",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/vp_gm12878_ENCSR946AKI_r12_chr17_19_25kb.cool.bedgraph",
+        "format": "text",
+        "class": "E0"
+      }
+    ],
+    "notes": "ENCODE GM12878 replicates 8 and 12 (hg38, weight), a 125 kb viewpoint region on chr17, both matrices in one plot."
+  },
+  {
+    "id": "ext.hicPlotViewpoint.gse234292_wt_25kb.chr19",
+    "tool": "hicPlotViewpoint",
+    "tier": 7,
+    "args": [
+      "--matrix",
+      "{data}/derived/analysis/GSM7461656_HiC_wt_rep1_chr17_19_25000.cool",
+      "--region",
+      "chr19:10000000-13000000",
+      "-rp",
+      "chr19:11500000",
+      "--outFileName",
+      "{out}/viewpoint.png"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/viewpoint.png",
+        "format": "png",
+        "class": "E6"
+      }
+    ],
+    "notes": "GSE234292 mESC wild type replicate 1 (mm10) chr19 25 kb."
+  }
+]
