@@ -1,0 +1,260 @@
+[
+  {
+    "id": "ext.hicDifferentialAnalysis.v4.gse234292_tads_wt_vs_ko",
+    "tool": "hicDifferentialAnalysis",
+    "tier": 9,
+    "reference": "none",
+    "args": [
+      "tads",
+      "-a",
+      "{data}/derived/analysis/GSM7461656_HiC_wt_rep1_chr17_19_25000.cool",
+      "{data}/derived/analysis/GSM7461657_HiC_wt_rep2_chr17_19_25000.cool",
+      "-b",
+      "{data}/derived/analysis/GSM7461658_HiC_BPTFko_rep1_chr17_19_25000.cool",
+      "{data}/derived/analysis/GSM7461659_HiC_BPTFko_rep2_chr17_19_25000.cool",
+      "-d",
+      "{data}/derived/analysis/GSM7461656_HiC_wt_rep1_25kb_domains.bed",
+      "-o",
+      "{out}/diff",
+      "--threads",
+      "4"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/diff_tads.tsv",
+        "format": "text",
+        "class": "EX"
+      },
+      {
+        "path": "{out}/diff_boundaries.tsv",
+        "format": "text",
+        "class": "EX"
+      }
+    ],
+    "validators": [
+      {
+        "name": "differential_analysis_table",
+        "output": "{out}/diff_tads.tsv",
+        "options": {
+          "exploratory": false,
+          "min_rows": 300
+        }
+      },
+      {
+        "name": "differential_analysis_table",
+        "output": "{out}/diff_boundaries.tsv",
+        "options": {
+          "exploratory": false,
+          "min_rows": 200
+        }
+      }
+    ],
+    "notes": "GEO GSE234292 mESC wild type (2 replicates) against BPTF knockout (2 replicates), mm10 chr17-19 25 kb raw counts, wild type replicate 1 domains from hicFindTADs 3.7.6. No 3.7.6 counterpart."
+  },
+  {
+    "id": "ext.hicDifferentialAnalysis.v4.gse234292_tads_wt_vs_ko.blocks",
+    "tool": "hicDifferentialAnalysis",
+    "tier": 9,
+    "reference": "none",
+    "args": [
+      "tads",
+      "-a",
+      "{data}/derived/analysis/GSM7461656_HiC_wt_rep1_chr17_19_25000.cool",
+      "{data}/derived/analysis/GSM7461657_HiC_wt_rep2_chr17_19_25000.cool",
+      "-b",
+      "{data}/derived/analysis/GSM7461658_HiC_BPTFko_rep1_chr17_19_25000.cool",
+      "{data}/derived/analysis/GSM7461659_HiC_BPTFko_rep2_chr17_19_25000.cool",
+      "--blocks",
+      "r1",
+      "r2",
+      "r1",
+      "r2",
+      "-d",
+      "{data}/derived/analysis/GSM7461656_HiC_wt_rep1_25kb_domains.bed",
+      "-o",
+      "{out}/diff",
+      "--threads",
+      "4"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/diff_tads.tsv",
+        "format": "text",
+        "class": "EX"
+      },
+      {
+        "path": "{out}/diff_boundaries.tsv",
+        "format": "text",
+        "class": "EX"
+      }
+    ],
+    "validators": [
+      {
+        "name": "differential_analysis_table",
+        "output": "{out}/diff_tads.tsv",
+        "options": {
+          "exploratory": false,
+          "min_rows": 300
+        }
+      },
+      {
+        "name": "differential_analysis_table",
+        "output": "{out}/diff_boundaries.tsv",
+        "options": {
+          "exploratory": false,
+          "min_rows": 200
+        }
+      }
+    ],
+    "notes": "As ext.hicDifferentialAnalysis.v4.gse234292_tads_wt_vs_ko with the replicate number as a block factor."
+  },
+  {
+    "id": "ext.hicDifferentialAnalysis.v4.gse234292_tads_wt_split_planted",
+    "tool": "hicDifferentialAnalysis",
+    "tier": 9,
+    "reference": "none",
+    "args": [
+      "tads",
+      "-a",
+      "{data}/derived/analysis/GSM7461656_HiC_wt_rep1_chr17_19_25000.cool",
+      "{data}/derived/analysis/GSM7461657_HiC_wt_rep2_chr17_19_25000.cool",
+      "-b",
+      "{data}/derived/analysis/GSM7461656_HiC_wt_rep1_chr17_19_25000.cool",
+      "{data}/derived/analysis/GSM7461657_HiC_wt_rep2_chr17_19_25000.cool",
+      "--splitReplicates",
+      "11",
+      "--blocks",
+      "r1",
+      "r2",
+      "r1",
+      "r2",
+      "-d",
+      "{data}/derived/analysis/GSM7461656_HiC_wt_rep1_25kb_domains.bed",
+      "--plantRegions",
+      "{data}/derived/analysis/GSE234292_planted_tads.bed",
+      "--plantFold",
+      "2",
+      "--plantSeed",
+      "5",
+      "-o",
+      "{out}/diff",
+      "--threads",
+      "4"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/diff_tads.tsv",
+        "format": "text",
+        "class": "EX"
+      },
+      {
+        "path": "{out}/diff_boundaries.tsv",
+        "format": "text",
+        "class": "EX"
+      }
+    ],
+    "validators": [
+      {
+        "name": "differential_analysis_table",
+        "output": "{out}/diff_tads.tsv",
+        "options": {
+          "exploratory": false,
+          "min_rows": 300,
+          "called": [
+            "chr18:6625000-7525000",
+            "chr18:15175000-16200000"
+          ],
+          "max_called_fraction": 0.05
+        }
+      },
+      {
+        "name": "differential_analysis_table",
+        "output": "{out}/diff_boundaries.tsv",
+        "options": {
+          "exploratory": false,
+          "min_rows": 200
+        }
+      }
+    ],
+    "notes": "Calibration on real data: the two wild type replicates split binomially into two halves, two wild type TADs on chr18 thinned 2-fold in condition A (GSE234292_planted_tads.bed). The planted TADs must be called and at most 5 % of all TADs."
+  },
+  {
+    "id": "ext.hicDifferentialAnalysis.v4.gse234292_loops_wt_vs_ko",
+    "tool": "hicDifferentialAnalysis",
+    "tier": 9,
+    "reference": "none",
+    "args": [
+      "loops",
+      "-a",
+      "{data}/derived/analysis/GSM7461656_HiC_wt_rep1_chr17_19_25000.cool",
+      "{data}/derived/analysis/GSM7461657_HiC_wt_rep2_chr17_19_25000.cool",
+      "-b",
+      "{data}/derived/analysis/GSM7461658_HiC_BPTFko_rep1_chr17_19_25000.cool",
+      "{data}/derived/analysis/GSM7461659_HiC_BPTFko_rep2_chr17_19_25000.cool",
+      "--loops",
+      "{data}/derived/analysis/GSM7461656_HiC_wt_rep1_25kb_loops.bedgraph",
+      "{data}/derived/analysis/GSM7461658_HiC_BPTFko_rep1_25kb_loops.bedgraph",
+      "-o",
+      "{out}/diff",
+      "--threads",
+      "4"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/diff_loops.tsv",
+        "format": "text",
+        "class": "EX"
+      }
+    ],
+    "validators": [
+      {
+        "name": "differential_analysis_table",
+        "output": "{out}/diff_loops.tsv",
+        "options": {
+          "exploratory": false,
+          "min_rows": 200
+        }
+      }
+    ],
+    "notes": "GSE234292 wild type against knockout, 25 kb raw counts; the loops are hicDetectLoops 3.7.6 calls on the raw-count wild type and knockout replicate 1."
+  },
+  {
+    "id": "ext.hicDifferentialAnalysis.v4.gse234292_compartments_wt_vs_ko",
+    "tool": "hicDifferentialAnalysis",
+    "tier": 9,
+    "reference": "none",
+    "args": [
+      "compartments",
+      "-a",
+      "{data}/derived/analysis/GSM7461656_HiC_wt_rep1_chr17_19_100000.cool",
+      "{data}/derived/analysis/GSM7461657_HiC_wt_rep2_chr17_19_100000.cool",
+      "-b",
+      "{data}/derived/analysis/GSM7461658_HiC_BPTFko_rep1_chr17_19_100000.cool",
+      "{data}/derived/analysis/GSM7461659_HiC_BPTFko_rep2_chr17_19_100000.cool",
+      "--gcTrack",
+      "{data}/derived/analysis/mm10_gc_chr17_19_100kb.bedgraph",
+      "-o",
+      "{out}/diff",
+      "--threads",
+      "4"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/diff_compartments.tsv",
+        "format": "text",
+        "class": "EX"
+      }
+    ],
+    "validators": [
+      {
+        "name": "differential_analysis_table",
+        "output": "{out}/diff_compartments.tsv",
+        "options": {
+          "exploratory": false,
+          "min_rows": 1500
+        }
+      }
+    ],
+    "notes": "GSE234292 wild type against knockout at 100 kb, chr17-19, GC content of mm10 in 100 kb bins (derive_analysis.sh, UCSC mm10)."
+  }
+]

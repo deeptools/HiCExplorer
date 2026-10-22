@@ -1,0 +1,16 @@
+[
+  {
+    "id": "ext.hicArrowhead.v4.gse63525_gm12878_25kb",
+    "tool": "hicArrowhead", "tier": 9, "reference": "none",
+    "args": ["-m", "{data}/derived/analysis/gse63525_gm12878_chr17_19_25000.cool", "-o", "{out}/domains.txt"],
+    "outputs": [{"path": "{out}/domains.txt", "format": "text", "class": "EX"}],
+    "notes": "v4-only Arrowhead on GEO GSE63525 GM12878 combined_30 (hg19), chr17-19 at 25 kb, KR weight. No 3.7.6 counterpart. Compared by hand with the GSE63525 Arrowhead domain list on chromosomes 17-19 (domain ends within one or two bins)."
+  },
+  {
+    "id": "ext.hicArrowhead.v4.gse63525_gm12878_10kb.chr17",
+    "tool": "hicArrowhead", "tier": 9, "reference": "none",
+    "args": ["-m", "{data}/derived/analysis/gse63525_gm12878_chr17_19_10000.cool", "--chromosomes", "17", "-o", "{out}/domains.txt"],
+    "outputs": [{"path": "{out}/domains.txt", "format": "text", "class": "EX"}],
+    "notes": "v4-only Arrowhead on GSE63525 GM12878 chr17 at 10 kb (the resolution of most GSE63525 Arrowhead domains), compared by hand with the published list."
+  }
+]

@@ -1,0 +1,103 @@
+[
+  {
+    "id": "ext.hicAverageRegions.gse63525_25kb.ctcf_motifs.range",
+    "tool": "hicAverageRegions",
+    "tier": 7,
+    "args": [
+      "--matrix",
+      "{data}/derived/analysis/gse63525_gm12878_chr17_19_25000.cool",
+      "--regions",
+      "{data}/derived/analysis/gm12878_ctcf_motifs_hg19_chr17_19_nochr.bed",
+      "--range",
+      "500000",
+      "500000",
+      "-o",
+      "{out}/average.npz"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/average.npz",
+        "format": "npz",
+        "class": "E2"
+      }
+    ],
+    "notes": "GSE63525 GM12878 chr17-19 25 kb (KR weight) around the stranded CTCF motifs at HiCCUPS anchors (hg19, no chr)."
+  },
+  {
+    "id": "ext.hicAverageRegions.gse63525_10kb.ctcf_motifs.rangeInBins.center",
+    "tool": "hicAverageRegions",
+    "tier": 7,
+    "args": [
+      "--matrix",
+      "{data}/derived/analysis/gse63525_gm12878_chr17_19_10000.cool",
+      "--regions",
+      "{data}/derived/analysis/gm12878_ctcf_motifs_hg19_chr17_19_nochr.bed",
+      "--rangeInBins",
+      "30",
+      "30",
+      "-cb",
+      "center",
+      "-o",
+      "{out}/average.npz"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/average.npz",
+        "format": "npz",
+        "class": "E2"
+      }
+    ],
+    "notes": "GSE63525 GM12878 chr17-19 10 kb, +-30 bins around the motif centres."
+  },
+  {
+    "id": "ext.hicAverageRegions.gse63525_25kb.ctcf_motifs.strand",
+    "tool": "hicAverageRegions",
+    "tier": 7,
+    "args": [
+      "--matrix",
+      "{data}/derived/analysis/gse63525_gm12878_chr17_19_25000.cool",
+      "--regions",
+      "{data}/derived/analysis/gm12878_ctcf_motifs_hg19_chr17_19_nochr.bed",
+      "--range",
+      "250000",
+      "250000",
+      "-cb",
+      "start",
+      "--considerStrandDirection",
+      "-o",
+      "{out}/average.npz"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/average.npz",
+        "format": "npz",
+        "class": "E2"
+      }
+    ],
+    "notes": "Motif strand respected (column 6 of the motif BED)."
+  },
+  {
+    "id": "ext.hicAverageRegions.encode_r8_25kb.ctcf_peaks_GRCh38",
+    "tool": "hicAverageRegions",
+    "tier": 7,
+    "args": [
+      "--matrix",
+      "{data}/derived/analysis/gm12878_ENCSR946AKI_r8_chr17_19_25kb.cool",
+      "--regions",
+      "{data}/derived/analysis/gm12878_ctcf_GRCh38_chr17_19.bed",
+      "--range",
+      "500000",
+      "500000",
+      "-o",
+      "{out}/average.npz"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/average.npz",
+        "format": "npz",
+        "class": "E2"
+      }
+    ],
+    "notes": "ENCODE GM12878 r8 chr17-19 25 kb (hg38, weight) around the 4,358 ENCODE GM12878 CTCF IDR peaks GRCh38 on chr17-19."
+  }
+]

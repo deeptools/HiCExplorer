@@ -1,0 +1,151 @@
+[
+  {
+    "id": "ext.hicPCA.gse63525_100kb.lieberman.geneTrack",
+    "tool": "hicPCA",
+    "tier": 5,
+    "args": [
+      "-m",
+      "{data}/derived/analysis/gse63525_gm12878_chr17_19_100000.cool",
+      "-o",
+      "{out}/pca1.bedgraph",
+      "{out}/pca2.bedgraph",
+      "-f",
+      "bedgraph",
+      "--whichEigenvectors",
+      "1",
+      "2",
+      "--method",
+      "lieberman",
+      "--extraTrack",
+      "{data}/derived/analysis/hg19_refGene_chr17_19_nochr.bed"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/pca1.bedgraph",
+        "format": "bedgraph",
+        "class": "ED"
+      },
+      {
+        "path": "{out}/pca2.bedgraph",
+        "format": "bedgraph",
+        "class": "ED"
+      }
+    ],
+    "notes": "GSE63525 GM12878 chr17-19 at 100 kb (hg19, KR weight), dense per chromosome, eigenvector sign by hg19 refGene transcripts (derive_analysis.sh)."
+  },
+  {
+    "id": "ext.hicPCA.gse63525_100kb.dist_norm.ligation.intermediates",
+    "tool": "hicPCA",
+    "tier": 5,
+    "args": [
+      "-m",
+      "{data}/derived/analysis/gse63525_gm12878_chr17_19_100000.cool",
+      "-o",
+      "{out}/pca1.bedgraph",
+      "{out}/pca2.bedgraph",
+      "-f",
+      "bedgraph",
+      "--whichEigenvectors",
+      "1",
+      "2",
+      "--method",
+      "dist_norm",
+      "--ligation_factor",
+      "--extraTrack",
+      "{data}/derived/analysis/hg19_refGene_chr17_19_nochr.bed",
+      "--pearsonMatrix",
+      "{out}/pearson.cool",
+      "--obsexpMatrix",
+      "{out}/obsexp.cool"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/pca1.bedgraph",
+        "format": "bedgraph",
+        "class": "ED"
+      },
+      {
+        "path": "{out}/pca2.bedgraph",
+        "format": "bedgraph",
+        "class": "ED"
+      },
+      {
+        "path": "{out}/obsexp.cool",
+        "format": "cool",
+        "class": "ED"
+      }
+    ],
+    "notes": "GSE63525 GM12878 100 kb, dist_norm with ligation factor, obs/exp written as cool (the pearson cool is not compared, as in hicPCA.intermediateMatrices.cool.small_test_matrix)."
+  },
+  {
+    "id": "ext.hicPCA.gse234292_wt_rep1_100kb.lieberman.ignoreMaskedBins",
+    "tool": "hicPCA",
+    "tier": 5,
+    "args": [
+      "-m",
+      "{data}/derived/analysis/GSM7461656_HiC_wt_rep1_chr17_19_100000.cool",
+      "-o",
+      "{out}/pca1.bedgraph",
+      "{out}/pca2.bedgraph",
+      "-f",
+      "bedgraph",
+      "--whichEigenvectors",
+      "1",
+      "2",
+      "--method",
+      "lieberman",
+      "--ignoreMaskedBins"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/pca1.bedgraph",
+        "format": "bedgraph",
+        "class": "ED"
+      },
+      {
+        "path": "{out}/pca2.bedgraph",
+        "format": "bedgraph",
+        "class": "ED"
+      }
+    ],
+    "notes": "GSE234292 mESC wild type replicate 1 chr17-19 at 100 kb (mm10, deposited weight), --ignoreMaskedBins, no sign track."
+  },
+  {
+    "id": "ext.hicPCA.lanczos.gse63525_100kb.dist_norm",
+    "tool": "hicPCA",
+    "tier": 5,
+    "args": [
+      "-m",
+      "{data}/derived/analysis/gse63525_gm12878_chr17_19_100000.cool",
+      "-o",
+      "{out}/pca1.bedgraph",
+      "{out}/pca2.bedgraph",
+      "-f",
+      "bedgraph",
+      "--whichEigenvectors",
+      "1",
+      "2",
+      "--method",
+      "dist_norm",
+      "--extraTrack",
+      "{data}/derived/analysis/hg19_refGene_chr17_19_nochr.bed"
+    ],
+    "cpp_args": [
+      "--eigenSolver",
+      "lanczos"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/pca1.bedgraph",
+        "format": "bedgraph",
+        "class": "ED"
+      },
+      {
+        "path": "{out}/pca2.bedgraph",
+        "format": "bedgraph",
+        "class": "ED"
+      }
+    ],
+    "notes": "v4 --eigenSolver lanczos (C++ only, cpp_args) compared with the dense 3.7.6 eigensolver, as hicPCA.lanczos.* in the repository cases."
+  }
+]
