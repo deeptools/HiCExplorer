@@ -36,7 +36,7 @@ Conversion of Hi-C matrices of different file formats. We support the conversion
 | `--correction_name CORRECTION_NAME` | Name of the column which stores the correction factors. Option only for cool input files. (Default: weight). |
 | `--correction_division` | If set, division is applied for correction. |
 | `--store_applied_correction` | Store the applied correction and do not set correction factors. |
-| `--chromosome CHROMOSOME` | Load only one chromosome. |
+| `--chromosome CHROMOSOME` | Load only one chromosome. Option only for cool input files; the other input formats ignore it. |
 | `--enforce_integer` | Enforce datatype of counts to integer. |
 | `--load_raw_values` | Load only 'count' data and do not apply a correction. |
 | `--resolutions RESOLUTIONS [RESOLUTIONS ...], -r RESOLUTIONS [RESOLUTIONS ...]` | List of resolutions that should be added. |

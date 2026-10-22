@@ -56,6 +56,38 @@
     "notes": "272 bins of int32 counts written as a dense gzipped table with no trailing newline. E0 is on the decompressed content: gzip stores a timestamp, so the compressed bytes can never match."
   },
   {
+    "id": "hicConvertFormat.cool_to_cool.chromosome.gm12878_KR_chr2",
+    "tier": 1,
+    "args": ["--matrices", "{data}/hicCorrectMatrix/gm12878_KR.cool",
+             "--outFileName", "{out}/matrix.cool",
+             "--inputFormat", "cool", "--outputFormat", "cool",
+             "--chromosome", "2"],
+    "outputs": [{"path": "{out}/matrix.cool", "format": "cool", "class": "E1"}],
+    "notes": "--chromosome on a cool input: hicmatrix's chrnameList path (cool.py:119-161) loads only chromosome 2's block, bins and weight column out of the 25 chromosomes, applies the weights, and the cool written holds that one chromosome."
+  },
+  {
+    "id": "hicConvertFormat.cool_to_homer.chromosome.GSE63525_KR_chr22",
+    "tier": 1,
+    "args": ["--matrices", "{data}/hicDetectLoops/GSE63525_GM12878_insitu_primary_2_5mb.cool",
+             "--outFileName", "{out}/matrix.homer",
+             "--inputFormat", "cool", "--outputFormat", "homer",
+             "--chromosome", "22", "--correction_name", "KR"],
+    "outputs": [{"path": "{out}/matrix.homer", "format": "text", "class": "E0"}],
+    "notes": "--chromosome with a hic2cool file and its divisive KR column (the operator follows from the column name): chromosome 22 at 2.5 Mb as a dense homer table."
+  },
+  {
+    "id": "hicConvertFormat.cool_to_cool.chromosome.unknown_name",
+    "tier": 1,
+    "args": ["--matrices", "{data}/hicCorrectMatrix/gm12878_KR.cool",
+             "--outFileName", "{out}/matrix.cool",
+             "--inputFormat", "cool", "--outputFormat", "cool",
+             "--chromosome", "chr2"],
+    "outputs": [],
+    "expect_exit": 1,
+    "memory": {"budget_mb": 64},
+    "notes": "A name the cooler does not have: cooler's fetch raises ValueError, hicmatrix logs it and the load fails, exit status 1 in both."
+  },
+  {
     "id": "hicConvertFormat.h5_to_homer.Li_cut",
     "tier": 1,
     "args": ["--matrices", "{data}/Li_cut.h5",

@@ -35,11 +35,9 @@
 //     hicx::chicago::matrix_from_chinput, the reverse direction of
 //     chicChicagoBackgroundModel/chicChicagoScores' own --matrices option.
 //
-// Not supported, and refused rather than half done:
-//
-//   * --chromosome. Loading a single chromosome out of a cooler is a distinct
-//     cooler code path (cool.py:119-151) that the C++ cool reader does not
-//     have yet.
+// --chromosome loads one chromosome of a cool input through read_cool's
+// chrom_name, which is hicmatrix's chrnameList path (cool.py:119-161); as in
+// the Python, the other input formats ignore it.
 //
 // Defects reproduced on purpose, each pinned by
 // hicexplorer/test/general/test_hicConvertFormat.py:
@@ -373,6 +371,12 @@ Loaded load_input(const Arguments& args, std::size_t index) {
         if (args.correction_division) {
             options.correction_operator = '/';
         }
+        if (!args.chromosome.empty()) {
+            // Cool.chrnameList with the one name (hicConvertFormat.py:231-240):
+            // that chromosome's block, bins and weights only. The other input
+            // formats ignore the option, as their hicmatrix loaders do.
+            options.chrom_name = args.chromosome;
+        }
         hicx::CoolLoadResult result = hicx::read_cool(matrix, options);
         loaded.data = std::move(result.data);
         loaded.hic2cool_version = result.hic2cool_version;
@@ -600,10 +604,17 @@ int run(const Arguments& args) {
     if (args.input_format == "hic") {
         return run_hic_input(args);
     }
-    if (!args.chromosome.empty()) {
-        return reject("--chromosome is not supported yet: loading a single "
-                      "chromosome out of a cooler is a distinct cooler code path "
-                      "that the C++ cool reader does not have.");
+    if (!args.chromosome.empty() && args.input_format == "cool" &&
+        args.chromosome.find(':') == std::string::npos) {
+        // cooler's fetch raises ValueError on an unknown name; hicmatrix logs
+        // it and the load then fails, exit status 1 (cool.py:146-148).
+        for (const auto& matrix : args.matrices) {
+            const hicx::CoolFile cool(matrix);
+            if (!one_of(args.chromosome, cool.chrom_names())) {
+                report("ERROR", "Wrong chromosome format. Please check UCSC / ensembl notation.");
+                return reject("Error: Unknown sequence label: " + args.chromosome);
+            }
+        }
     }
 
     const bool format_was_h5 = args.input_format == "h5";

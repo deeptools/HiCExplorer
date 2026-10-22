@@ -66,6 +66,8 @@ def parse(argv):
 
 def passthrough(args):
     options = ["--correction_name", args.correction_name]
+    if args.chromosome:
+        options += ["--chromosome", args.chromosome]
     for flag in ("correction_division", "store_applied_correction", "enforce_integer", "load_raw_values"):
         if getattr(args, flag):
             options.append("--" + flag)
