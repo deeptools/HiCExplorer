@@ -134,10 +134,10 @@ const char* const kHelp =
     "                        strand) of CTCF binding site motif orientations. When\n"
     "                        given, a TAD-separation score minimum is accepted as a\n"
     "                        boundary only when a CTCF site within --ctcfWindow is\n"
-    "                        oriented toward it: a site at or before the boundary\n"
-    "                        must be on the '+' strand, one at or after it on the\n"
-    "                        '-' strand, the convergent orientation found at domain\n"
-    "                        boundaries.\n"
+    "                        oriented into the adjacent domain: a site at or\n"
+    "                        before the boundary must be on the '-' strand, one at\n"
+    "                        or after it on the '+' strand, the divergent\n"
+    "                        orientation found at domain boundaries.\n"
     "  --ctcfWindow CTCFWINDOW\n"
     "                        C++-only. Maximum distance in bp between a boundary\n"
     "                        and a supporting CTCF site (Default: 10000).\n"
@@ -260,9 +260,9 @@ Arguments parse_arguments(int argc, char** argv) {
         .help("C++-only. A BED file (chrom, start, end, name, score, strand) of CTCF "
               "binding site motif orientations. When given, a TAD-separation score "
               "minimum is accepted as a boundary only when a CTCF site within "
-              "--ctcfWindow is oriented toward it: a site at or before the boundary "
-              "must be on the '+' strand, one at or after it on the '-' strand, the "
-              "convergent orientation found at domain boundaries.");
+              "--ctcfWindow is oriented into the adjacent domain: a site at or before "
+              "the boundary must be on the '-' strand, one at or after it on the '+' "
+              "strand, the divergent orientation found at domain boundaries.");
     optional.add({"--ctcfWindow"})
         .cpp_only("Used with --ctcfFile, new in version 4.")
         .type("int")
@@ -867,11 +867,15 @@ std::string format_fixed(double value, int decimals) {
 
 // --ctcfFile (C++-only, cpp/PLAN.md tier 9): requires a CTCF binding site in
 // the correct orientation for a TAD-separation score minimum to be accepted
-// as a boundary, the convergent-motif signature of domain boundaries (Rao
-// et al. 2014; Vietri Rudan et al. 2015, Cell Reports). A boundary sits
-// between two domains; a CTCF site supports it when its motif points toward
-// the boundary from whichever side it is on: '+' (forward) at or before the
-// boundary position, '-' (reverse) at or after it. Site positions are motif
+// as a boundary. Loops are anchored by convergent motifs, forward at the
+// upstream and reverse at the downstream anchor (Rao et al. 2014), so the
+// motifs of a domain point into it: forward just after its start, reverse
+// just before its end. A boundary between two domains therefore carries a
+// divergent pair (Gomez-Marin et al. 2015, PNAS; Fudenberg et al. 2016, Cell
+// Reports): '-' (reverse) at or before the boundary position, '+' (forward)
+// at or after it. Measured on the GSE63525 GM12878 Arrowhead domains with
+// ENCODE CTCF peak motifs: 82.7 % '+' within 10 kb after a domain start,
+// 81.4 % '-' within 10 kb before a domain end. Site positions are motif
 // midpoints, so a site exactly at the boundary matches either strand.
 //
 // --ctcfBoundarySlack widens where "the boundary position" is allowed to sit
@@ -879,15 +883,15 @@ std::string format_fixed(double value, int decimals) {
 // the real inflection of the TAD-separation score is rarely that one exact
 // bin; a site just past it, on what looks like the wrong side of the single
 // reported bin, can still be the site the minimum is reporting. Slack s
-// relaxes the test to accept a '+' site anywhere at or before
-// boundary_position + s, and a '-' site anywhere at or after
+// relaxes the test to accept a '-' site anywhere at or before
+// boundary_position + s, and a '+' site anywhere at or after
 // boundary_position - s, while --ctcfWindow still bounds how far the site
 // itself may be from the minimum. s = 0 (the default) is the original exact
 // single-bin test.
 //
-// A boundary is supported by a site on whichever side has one -- forward
-// before it or reverse after it, either alone is enough, not both. A
-// stricter requirement for a real convergent *pair* (forward AND reverse
+// A boundary is supported by a site on whichever side has one -- reverse
+// before it or forward after it, either alone is enough, not both. A
+// stricter requirement for a real divergent *pair* (reverse AND forward
 // both present) was tried and dropped: a sparse real site list already
 // struggles to place a single site near every true boundary, so requiring
 // two only lost real boundaries without a matching gain in precision.
@@ -988,12 +992,12 @@ CtcfPairSupport ctcf_support(const std::vector<CtcfSite>& sites, std::int64_t bo
     for (auto it = first; it != sites.end() && it->position <= boundary_position + window;
          ++it) {
         const std::int64_t distance = std::abs(it->position - boundary_position);
-        if (it->position <= boundary_position + slack && it->strand == '+' &&
+        if (it->position >= boundary_position - slack && it->strand == '+' &&
             distance < best_forward_distance) {
             best_forward_distance = distance;
             result.forward = *it;
         }
-        if (it->position >= boundary_position - slack && it->strand == '-' &&
+        if (it->position <= boundary_position + slack && it->strand == '-' &&
             distance < best_reverse_distance) {
             best_reverse_distance = distance;
             result.reverse = *it;
