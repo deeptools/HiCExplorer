@@ -51,3 +51,10 @@ lower than 10% inter chromosomal contacts"). The duplicated pairs, dangling end
 and self-ligation cutoffs have no published HiCExplorer standard behind them
 and are conservative starting points. hicQC.html and the QC tables are written
 as without the option.
+
+The report has a light and a dark theme (the button next to the title; the
+query `?theme=light` or `?theme=dark` selects one when the page is opened) and
+three colour schemes for the charts. The charts are drawn with Plotly 2.35.2,
+loaded from cdn.plot.ly when the page is opened. Without network access or
+JavaScript (for example where a server strips scripts from HTML outputs) the
+charts are missing, while the verdict cards and every table still show.

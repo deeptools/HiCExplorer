@@ -250,11 +250,15 @@ struct QcThresholds {
     double warn_margin_fraction = 0.2;
 };
 
-// A self-contained, modern-styled HTML report at folder/hicQC_report.html:
-// one card per sample (row of the --logfiles/--labels input), the same
-// metrics write_qc_report_tables's tables hold, each judged PASS/WARN/FAIL
-// against `thresholds` (see QcThresholds::warn_margin_fraction for the WARN
-// band) and shown as a coloured badge. C++-only: no Python
+// An HTML report at folder/hicQC_report.html in the design of the
+// falcoAmadeus report (light/dark theme, palette picker, a summary sidebar
+// with the worst verdict per section, collapsible section cards). The
+// overview has one card per sample (row of the --logfiles/--labels input)
+// with five metrics, each judged PASS/WARN/FAIL against `thresholds` (see
+// QcThresholds::warn_margin_fraction for the WARN band) and shown as a
+// coloured badge; the other sections hold write_qc_report_tables's numbers
+// as plain HTML tables plus grouped Plotly bar charts (Plotly 2.35.2 from
+// cdn.plot.ly; without JavaScript the tables and cards still render). C++-only: no Python
 // HiCExplorer counterpart, and does not replace hicQC.html, which is
 // unchanged and still written alongside it when the caller also draws it.
 void write_qc_pretty_report(const std::string& folder, const std::vector<std::string>& log_texts,
