@@ -14,7 +14,7 @@
 
 include_guard(GLOBAL)
 
-set(HICX_HIC2COOL_COMMIT 4c550d1d7388f793fbcd3b175d6949c54058e603)
+set(HICX_HIC2COOL_COMMIT 48d0042042f3a1d823847c7096d9afba37fed15d)
 
 set(HICX_HIC2COOL_GIT_REPOSITORY "" CACHE STRING
     "Git repository (URL or local path) hic2cool is fetched from")
