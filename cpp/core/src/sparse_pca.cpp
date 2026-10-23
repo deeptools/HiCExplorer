@@ -248,8 +248,19 @@ EigenResult covariance_eigenvectors_lanczos(const CsrMatrix& obs_exp, const std:
         Spectra::SymEigsSolver<SpectraCovariance> solver(adapter, static_cast<Eigen::Index>(nev),
                                                         static_cast<Eigen::Index>(ncv));
         solver.init(start.data());
-        solver.compute(Spectra::SortRule::LargestAlge, kMaxRestarts, kLanczosTolerance,
-                       Spectra::SortRule::LargestAlge);
+        try {
+            solver.compute(Spectra::SortRule::LargestAlge, kMaxRestarts, kLanczosTolerance,
+                           Spectra::SortRule::LargestAlge);
+        } catch (const std::exception&) {
+            // Spectra throws ("TridiagEigen: eigen decomposition failed") on a
+            // Krylov breakdown, which a nearly empty chromosome block causes;
+            // treated like non-convergence.
+            ncv = std::min(n, 2 * ncv);
+            if (ncv <= nev) {
+                break;
+            }
+            continue;
+        }
         report.ncv = ncv;
         report.iterations += solver.num_iterations();
         report.products += solver.num_operations();
@@ -277,9 +288,9 @@ EigenResult covariance_eigenvectors_lanczos(const CsrMatrix& obs_exp, const std:
             break;
         }
     }
-    throw std::runtime_error(
-        "the Lanczos eigensolver did not converge on a chromosome of " + std::to_string(n) +
-        " bins; --eigenSolver dense computes the same eigenvectors with a dense matrix");
+    // The dense solver computes the same eigenvectors; used for this block only.
+    report.dense_fallback = true;
+    return dense_fallback(op, which);
 }
 
 }  // namespace hicx

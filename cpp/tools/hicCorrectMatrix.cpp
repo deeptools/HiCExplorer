@@ -133,8 +133,8 @@ const char* const kHelp =
     "  correct               Run Knight-Ruiz matrix balancing algorithm (KR) or the\n"
     "                        iterative matrix correction (ICE).\n"
     "  diagnostic_plot       Plots a histogram of the coverage per bin together with\n"
-    "                        the modified z-score. Not implemented in the C++ port,\n"
-    "                        see cpp/PLAN.md tier 7.\n"
+    "                        the modified z-score based on the median absolute\n"
+    "                        deviation method (Iglewicz and Hoaglin 1993).\n"
     "\n"
     "  --help, -h            show this help message and exit\n"
     "  --version             show program's version number and exit\n";
