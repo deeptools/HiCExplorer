@@ -1,5 +1,8 @@
 #include "convert.hpp"
 
+#include <limits>
+#include <optional>
+
 namespace hicx::python {
 
 // --------------------------------------------------------------------------
@@ -242,6 +245,141 @@ void apply_eliminate_zeros(Sparse& matrix, const std::vector<std::int64_t>& indp
     matrix.matrix.attr("indices") = indices;
     matrix.indices = indices;
     set_data(matrix, take_elements(matrix.data, keep));
+}
+
+hicx::CsrMatrix to_csr_matrix(const Sparse& matrix) {
+    if (matrix.format != 'r') {
+        raise_error("TypeError", "to_csr_matrix: a csr matrix is required");
+    }
+    std::vector<std::int64_t> indptr = index_vector(matrix.indptr);
+    const std::vector<std::int64_t> wide = index_vector(matrix.indices);
+    std::vector<std::int32_t> indices(wide.begin(), wide.end());
+    std::vector<double> data;
+    const std::string dtype = dtype_name(matrix.data);
+    dispatch_numeric(matrix.data, "to_csr_matrix", [&]<class T>() {
+        if constexpr (std::is_arithmetic_v<T>) {
+            const std::vector<T> values = to_vector<T>(matrix.data);
+            data.assign(values.begin(), values.end());
+        } else {
+            raise_unsupported_dtype(matrix.data, "to_csr_matrix");
+        }
+    });
+    return hicx::CsrMatrix(matrix.rows, matrix.cols, std::move(indptr), std::move(indices),
+                           std::move(data), dtype);
+}
+
+py::object csr_matrix_object(const hicx::CsrMatrix& matrix) {
+    py::array data = from_vector(matrix.data());
+    data = data.attr("astype")(matrix.dtype());
+    const py::array indices = from_vector(matrix.indices());
+    const py::array indptr = from_vector(matrix.indptr());
+    return py::module_::import("scipy.sparse").attr("csr_matrix")(
+        py::make_tuple(data, indices, indptr), py::arg("shape") = py::make_tuple(matrix.rows(), matrix.cols()));
+}
+
+std::vector<hicx::CutInterval> cut_intervals(py::handle intervals) {
+    std::vector<hicx::CutInterval> out;
+    for (const py::handle item : intervals) {
+        const py::tuple fields = py::reinterpret_borrow<py::object>(item).cast<py::tuple>();
+        if (fields.size() != 4) {
+            raise_error("ValueError", "a cut interval is (chrom, start, end, extra), got " + repr_of(item));
+        }
+        hicx::CutInterval interval;
+        const py::object chrom = fields[0];
+        if (PyBytes_Check(chrom.ptr())) {
+            PyObject* text = PyUnicode_DecodeASCII(PyBytes_AS_STRING(chrom.ptr()), PyBytes_GET_SIZE(chrom.ptr()),
+                                                   "strict");
+            if (text == nullptr) {
+                throw_python_error();
+            }
+            interval.chrom = utf8(py::reinterpret_steal<py::object>(text));
+        } else {
+            interval.chrom = str_of(chrom);
+        }
+        interval.start = to_int64(fields[1]);
+        interval.end = to_int64(fields[2]);
+        const py::object extra = fields[3];
+        if (is_str(extra) || PyBytes_Check(extra.ptr())) {
+            interval.extra = std::numeric_limits<double>::quiet_NaN();
+            interval.extra_text = is_str(extra) ? utf8(extra) : std::string(py::bytes(extra));
+        } else {
+            interval.extra = to_double(extra);
+        }
+        out.push_back(std::move(interval));
+    }
+    return out;
+}
+
+py::list cut_intervals_object(const std::vector<hicx::CutInterval>& intervals, py::handle like) {
+    py::object types[4] = {py::type::of(py::str("")), py::type::of(py::int_(0)), py::type::of(py::int_(0)),
+                           py::type::of(py::float_(0.0))};
+    if (!like.is_none()) {
+        const py::tuple example = py::reinterpret_borrow<py::object>(like).cast<py::tuple>();
+        for (std::size_t k = 0; k < 4 && k < example.size(); ++k) {
+            types[k] = py::type::of(example[k]);
+        }
+    }
+    py::list out;
+    for (const hicx::CutInterval& interval : intervals) {
+        const py::object extra = interval.extra_text.empty() ? types[3](py::float_(interval.extra))
+                                                             : py::object(to_str(interval.extra_text));
+        out.append(py::make_tuple(types[0](to_str(interval.chrom)), types[1](py::int_(interval.start)),
+                                  types[2](py::int_(interval.end)), extra));
+    }
+    return out;
+}
+
+namespace {
+
+std::optional<std::vector<double>> optional_doubles(py::handle value) {
+    if (value.is_none()) {
+        return std::nullopt;
+    }
+    const py::array array = py::array::ensure(value);
+    if (!array) {
+        throw_python_error();
+    }
+    std::vector<double> out;
+    dispatch_numeric(array, "matrix_data", [&]<class T>() {
+        if constexpr (std::is_arithmetic_v<T>) {
+            const std::vector<T> values = to_vector<T>(array);
+            out.assign(values.begin(), values.end());
+        } else {
+            raise_unsupported_dtype(array, "matrix_data");
+        }
+    });
+    return out;
+}
+
+}  // namespace
+
+hicx::MatrixData matrix_data(py::handle hic) {
+    hicx::MatrixData data;
+    data.matrix = to_csr_matrix(sparse(hic.attr("matrix"), "matrix_data", "r"));
+    data.cut_intervals = cut_intervals(hic.attr("cut_intervals"));
+    const py::object nan_bins = hic.attr("nan_bins");
+    if (!nan_bins.is_none()) {
+        const std::optional<std::vector<double>> bins = optional_doubles(nan_bins);
+        for (const double b : *bins) {
+            data.nan_bins.push_back(static_cast<std::int64_t>(b));
+        }
+    }
+    data.correction_factors = optional_doubles(hic.attr("correction_factors"));
+    data.distance_counts = optional_doubles(hic.attr("distance_counts"));
+    return data;
+}
+
+void assign_matrix_data(py::handle hic, const hicx::MatrixData& data) {
+    const py::object old_intervals = hic.attr("cut_intervals");
+    const py::object like = py::len(old_intervals) > 0 ? py::object(old_intervals[py::int_(0)])
+                                                         : py::object(py::none());
+    hic.attr("matrix") = csr_matrix_object(data.matrix);
+    hic.attr("cut_intervals") = cut_intervals_object(data.cut_intervals, like);
+    hic.attr("nan_bins") = from_vector(data.nan_bins);
+    hic.attr("correction_factors") =
+        data.correction_factors ? py::object(from_vector(*data.correction_factors)) : py::object(py::none());
+    hic.attr("distance_counts") =
+        data.distance_counts ? py::object(from_vector(*data.distance_counts)) : py::object(py::none());
 }
 
 // --------------------------------------------------------------------------

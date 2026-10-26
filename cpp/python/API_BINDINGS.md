@@ -90,8 +90,12 @@ real and complex dtype (anything else raises TypeError naming the dtype);
 read-only arrays as numpy does), `from_vector`, `take_elements`,
 `numpy_scalar<T>`; `sparse(object, name, "rco")` reads a scipy
 csr/csc/coo matrix (`entries()` lists the stored entries in `tocoo()` order),
-`set_data`, `apply_eliminate_zeros`; `to_int64`, `to_double`, `parse_int`
-(Python's own `int()`).
+`set_data`, `apply_eliminate_zeros`; `to_csr_matrix` and `csr_matrix_object`
+between scipy and the tools' `hicx::CsrMatrix`; `cut_intervals`,
+`cut_intervals_object`, `matrix_data` and `assign_matrix_data` between a
+hiCMatrix object and `hicx::MatrixData` (the tools' matrix with its bins,
+NaN bins and correction factors), keeping the field types of
+`cut_intervals`; `to_int64`, `to_double`, `parse_int` (Python's own `int()`).
 
 `support/errors.hpp`: `raise_error(type, message)`, `raise_os_error(errno, filename)`
 (the OSError subclass open() raises), `throw_python_error()` after a failed

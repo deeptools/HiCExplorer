@@ -31,6 +31,9 @@
 #include <pybind11/pybind11.h>
 
 #include "errors.hpp"
+#include "hicx/bins.hpp"
+#include "hicx/matrix_data.hpp"
+#include "hicx/sparse_matrix.hpp"
 #include "hicx/utilities.hpp"
 
 namespace hicx::python {
@@ -219,6 +222,35 @@ void set_data(Sparse& matrix, py::array data);
 // `keep` positions.
 void apply_eliminate_zeros(Sparse& matrix, const std::vector<std::int64_t>& indptr,
                            const std::vector<std::size_t>& keep);
+
+// scipy.sparse and the tools' matrix type hicx::CsrMatrix, which holds the
+// values as double with the dtype's name (int64 values beyond 2**53 are not
+// exact there). to_csr_matrix takes csr input (canonical or not, in storage
+// order); csr_matrix_object builds a scipy.sparse.csr_matrix of the dtype.
+[[nodiscard]] hicx::CsrMatrix to_csr_matrix(const Sparse& matrix);
+[[nodiscard]] py::object csr_matrix_object(const hicx::CsrMatrix& matrix);
+
+// --------------------------------------------------------------------------
+// hicmatrix.HiCMatrix.hiCMatrix objects
+
+// cut_intervals, a list of (chrom, start, end, extra) tuples: chrom a str
+// (bytes decoded as ASCII), start and end Python or numpy integers, extra a
+// number or, as some h5 files have it, text (CutInterval::extra_text).
+[[nodiscard]] std::vector<hicx::CutInterval> cut_intervals(py::handle intervals);
+// The list back. Each field takes the type of the same field of `like`, an
+// interval tuple of the original list (an h5 file's hiCMatrix has numpy.str_,
+// numpy.int64 and numpy.float64, a cool file's str, int and float); with
+// `like` None the fields are str, int and float.
+[[nodiscard]] py::list cut_intervals_object(const std::vector<hicx::CutInterval>& intervals,
+                                            py::handle like);
+
+// The attributes matrix (csr), cut_intervals, nan_bins, correction_factors
+// and distance_counts (None or arrays) of a hiCMatrix-like object.
+[[nodiscard]] hicx::MatrixData matrix_data(py::handle hic);
+// Writes them back: matrix as a new csr_matrix, nan_bins and the optional
+// arrays as float64/int64 arrays, cut_intervals with the field types the
+// object's list had.
+void assign_matrix_data(py::handle hic, const hicx::MatrixData& data);
 
 // --------------------------------------------------------------------------
 // Python numbers

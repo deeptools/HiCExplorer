@@ -4,6 +4,7 @@
 
 #include <pybind11/pybind11.h>
 
+#include "support/convert.hpp"
 #include "support/errors.hpp"
 
 namespace py = pybind11;
@@ -30,4 +31,10 @@ PYBIND11_MODULE(_hicx, module) {
 #include "api_registry.inc"
 #undef HICX_API_MODULE
     module.attr("MODULES") = py::tuple(names);
+
+    // For the tests of the conversion helpers (hicexplorer/test/api/test_convert.py):
+    // reads a hiCMatrix-like object into hicx::MatrixData and writes it back.
+    module.def("_roundtrip_matrix_data", [](py::handle source, py::handle target) {
+        hicx::python::assign_matrix_data(target, hicx::python::matrix_data(source));
+    });
 }
