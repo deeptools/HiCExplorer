@@ -11,6 +11,7 @@
 set(HICX_API_MODULES
     hicAverageRegions
     hicCompartmentalization
+    hicPCA
     hicPlotSVL
     readBed
     utilities

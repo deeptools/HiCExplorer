@@ -113,3 +113,35 @@ TEST_CASE("compartments: within_vs_between of a rectangular array stops at its e
     CHECK(hicx::compartments::within_vs_between(square, 2) ==
           hicx::compartments::within_vs_between(square, 2, 2, 2));
 }
+
+#include <stdexcept>
+
+#include "hicx/pca_tracks.hpp"
+
+TEST_CASE("pca_tracks: pearsonr is scipy 1.14's statistic bit for bit") {
+    // scipy.stats.pearsonr in the 3.7.6 environment
+    const hicx::pca::Pearson small = hicx::pca::pearsonr({1.0, 2.5, 3.0, -4.0, 7.25}, {0.5, 0.25, 2.0, 1.0, -3.0});
+    CHECK(small.statistic == -0x1.5076cf3511c24p-1);
+    std::vector<double> x(300);
+    std::vector<double> y(300);
+    for (std::size_t i = 0; i < 300; ++i) {
+        // np.linspace(0, 1, 300) ** 2 and np.cos(np.arange(300) * 0.1)
+        const double t = static_cast<double>(i) * (1.0 / 299.0);
+        x[i] = (i == 299 ? 1.0 : t) * (i == 299 ? 1.0 : t);
+        y[i] = std::cos(static_cast<double>(i) * 0.1);
+    }
+    CHECK(hicx::pca::pearsonr(x, y).statistic < 0);
+    CHECK(hicx::pca::pearsonr({1.0, 2.0}, {3.0, 1.0}).statistic == -1.0);
+    const hicx::pca::Pearson constant = hicx::pca::pearsonr({1.0, 1.0, 1.0}, {1.0, 2.0, 3.0});
+    CHECK(constant.constant);
+    CHECK(std::isnan(constant.statistic));
+    CHECK_THROWS_AS((void)hicx::pca::pearsonr({1.0}, {1.0}), std::invalid_argument);
+}
+
+TEST_CASE("pca_tracks: histone_flip") {
+    CHECK(hicx::pca::histone_flip(1.0, 2.0, true));
+    CHECK_FALSE(hicx::pca::histone_flip(2.0, 1.0, true));
+    CHECK(hicx::pca::histone_flip(2.0, 1.0, false));
+    CHECK_FALSE(hicx::pca::histone_flip(0.0, 1.0, true));
+    CHECK_FALSE(hicx::pca::histone_flip(1.0, 0.0, false));
+}
