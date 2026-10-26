@@ -18,9 +18,10 @@ What is compared, per call:
 
 Floats are compared exactly (bit for bit, NaN equal to NaN, 0.0 and -0.0
 distinct) unless the case gives rtol/atol, which must then be justified in
-the case's `note`. Strings that contain the case's directory are compared
-with the directory replaced by <CASE_DIR>, so the two runs may use different
-directories.
+the case's `note`. Strings and bytes that contain the case's directory or the
+directory of the cases file (and so the repository's test data) are compared
+with those replaced by <CASE_DIR> and <CASES_DIR>, so the two runs may use
+different directories and checkouts.
 
 This module is imported by both interpreters and needs only the standard
 library at import time, numpy and scipy when it canonicalises.
@@ -43,6 +44,7 @@ import sys
 
 ROOT_LOGGER = 'hicexplorer'
 CASE_DIR = '<CASE_DIR>'
+CASES_DIR = '<CASES_DIR>'
 # tags of the float leaves of the canonical form, compared with the tolerances
 FLOAT = '<float>'
 COMPLEX = '<complex>'
@@ -161,6 +163,9 @@ def run_case(module, case, directory):
     """Runs the case in this interpreter and returns its canonical record."""
     case.materialise(directory)
     args, kwargs = case.fresh_arguments(directory)
+    # paths below the case directory and below the cases file's directory
+    # (the repository's test data) are compared without their location
+    places = ((directory, CASE_DIR), (os.path.dirname(os.path.abspath(module.__file__)), CASES_DIR))
     logger = logging.getLogger(ROOT_LOGGER)
     handler = _Records()
     old_level = logger.level
@@ -173,17 +178,17 @@ def run_case(module, case, directory):
             result = getattr(module, case.driver)(target, *args, **kwargs)
         else:
             result = target(*args, **kwargs)
-        record['return'] = canon(result, directory)
+        record['return'] = canon(result, places)
         record['identity'] = [i for i, a in enumerate(args) if result is a and not _interned(a)]
     except Exception as error:  # the exception is the result
-        record['raise'] = (_qualified_type(error), _replace_dir(str(error), directory))
+        record['raise'] = (_qualified_type(error), _replace_dir(str(error), places))
     finally:
         logger.removeHandler(handler)
         logger.setLevel(old_level)
     if case.compare_args and 'raise' not in record:
-        record['args'] = canon(args, directory)
-        record['kwargs'] = canon(kwargs, directory)
-    record['logs'] = [(n, lvl, _replace_dir(m, directory)) for n, lvl, m in handler.records]
+        record['args'] = canon(args, places)
+        record['kwargs'] = canon(kwargs, places)
+    record['logs'] = [(n, lvl, _replace_dir(m, places)) for n, lvl, m in handler.records]
     return record
 
 
@@ -197,8 +202,14 @@ def _qualified_type(error):
     return cls.__qualname__ if module == 'builtins' else module + '.' + cls.__qualname__
 
 
-def _replace_dir(text, directory):
-    return text.replace(directory, CASE_DIR) if directory else text
+def _replace_dir(text, places):
+    """`text` with each place (path, tag) replaced by its tag."""
+    for path, tag in places or ():
+        if isinstance(text, bytes):
+            text = text.replace(os.fsencode(path), tag.encode())
+        else:
+            text = text.replace(path, tag)
+    return text
 
 
 def safe_name(case_id):
@@ -230,7 +241,7 @@ def _type_name(value):
     return cls.__qualname__ if module == 'builtins' else module + '.' + cls.__qualname__
 
 
-def canon(value, directory=None):
+def canon(value, places=None):
     """Plain data describing `value`, types included."""
     try:
         import numpy as np
@@ -245,34 +256,34 @@ def canon(value, directory=None):
         if isinstance(value, np.bytes_):
             return ('npscalar', value.dtype.str, bytes(value))
         if isinstance(value, np.str_):
-            return ('npscalar', value.dtype.str, _replace_dir(str(value), directory))
+            return ('npscalar', value.dtype.str, _replace_dir(str(value), places))
         return ('npscalar', value.dtype.str, value.item())
     if isinstance(value, int):
         return (_type_name(value), int(value))
     if isinstance(value, float):
         return (_type_name(value), (FLOAT, float(value)))
     if isinstance(value, str):
-        return (_type_name(value), _replace_dir(str(value), directory))
+        return (_type_name(value), _replace_dir(str(value), places))
     if isinstance(value, bytes):
-        return (_type_name(value), bytes(value))
+        return (_type_name(value), _replace_dir(bytes(value), places))
     if isinstance(value, tuple) and hasattr(value, '_fields'):
         return ('namedtuple', type(value).__module__, type(value).__name__, tuple(value._fields),
-                [canon(v, directory) for v in value])
+                [canon(v, places) for v in value])
     if isinstance(value, (list, tuple)):
-        return (_type_name(value), [canon(v, directory) for v in value])
+        return (_type_name(value), [canon(v, places) for v in value])
     if isinstance(value, dict):
-        return (_type_name(value), [(canon(k, directory), canon(v, directory)) for k, v in value.items()])
+        return (_type_name(value), [(canon(k, places), canon(v, places)) for k, v in value.items()])
     if isinstance(value, (set, frozenset)):
-        return (_type_name(value), sorted((canon(v, directory) for v in value), key=repr))
+        return (_type_name(value), sorted((canon(v, places) for v in value), key=repr))
     if np is not None and isinstance(value, np.ndarray):
         if value.dtype.kind == 'O':
-            items = [canon(v, directory) for v in value.ravel().tolist()]
+            items = [canon(v, places) for v in value.ravel().tolist()]
         else:
             items = value.ravel(order='C').tolist()
             if value.dtype.kind in 'fc':
                 items = [(FLOAT, v) if isinstance(v, float) else (COMPLEX, v) for v in items]
             elif value.dtype.kind == 'U':
-                items = [_replace_dir(v, directory) for v in items]
+                items = [_replace_dir(v, places) for v in items]
         return ('ndarray', _type_name(value), value.dtype.str, tuple(value.shape), items)
     try:
         import scipy.sparse as sparse
@@ -287,13 +298,13 @@ def canon(value, directory=None):
             parts = (canon(value.toarray()),)
         return ('sparse', _type_name(value), value.format, tuple(value.shape), value.dtype.str, parts)
     if isinstance(value, BaseException):
-        return ('exception', _qualified_type(value), _replace_dir(str(value), directory))
+        return ('exception', _qualified_type(value), _replace_dir(str(value), places))
     if isinstance(value, type):
         return ('type', value.__module__, value.__qualname__)
     if isinstance(value, io.IOBase) or type(value).__name__ == 'GzipFile':
-        return ('file', _type_name(value), _replace_dir(str(getattr(value, 'name', '')), directory),
+        return ('file', _type_name(value), _replace_dir(str(getattr(value, 'name', '')), places),
                 bool(getattr(value, 'closed', False)))
-    return ('object', _type_name(value), _replace_dir(repr(value), directory))
+    return ('object', _type_name(value), _replace_dir(repr(value), places))
 
 
 # ---------------------------------------------------------------------------
