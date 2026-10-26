@@ -197,6 +197,21 @@ std::string temporary_file() {
     return name.data();
 }
 
+void write_npy(const std::string& path, const std::string& dtype,
+               const std::vector<std::int64_t>& shape, const std::string& bytes) {
+    const std::string header = npz::npy_header(dtype, shape);
+    std::FILE* file = std::fopen(path.c_str(), "wb");
+    if (file == nullptr) {
+        throw std::runtime_error("cannot write " + path);
+    }
+    bool ok = std::fwrite(header.data(), 1, header.size(), file) == header.size();
+    ok = ok && std::fwrite(bytes.data(), 1, bytes.size(), file) == bytes.size();
+    ok = (std::fclose(file) == 0) && ok;
+    if (!ok) {
+        throw std::runtime_error("cannot write " + path);
+    }
+}
+
 void write_npy_float64(const std::string& path, const std::vector<double>& values,
                        std::int64_t rows, std::int64_t cols) {
     const std::string header = npz::npy_header("<f8", {rows, cols});
