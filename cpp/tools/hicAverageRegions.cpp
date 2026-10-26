@@ -61,6 +61,7 @@
 #include <vector>
 
 #include "hicx/argparse.hpp"
+#include "hicx/average_regions.hpp"
 #include "hicx/bins.hpp"
 #include "hicx/npz_file.hpp"
 #include "hicx/resource_usage.hpp"
@@ -307,9 +308,8 @@ int main(int argc, char** argv) {
             const std::int64_t end_value = std::stoll(viewpoint_end);
             // int(float(start) + (float(end) - float(start)) / 2), truncated
             // towards zero.
-            const std::int64_t center_value = static_cast<std::int64_t>(
-                static_cast<double>(start_value) +
-                (static_cast<double>(end_value) - static_cast<double>(start_value)) / 2.0);
+            const std::int64_t center_value = hicx::average_regions::center_of(
+                static_cast<double>(start_value), static_cast<double>(end_value));
 
             std::int64_t start_bin = 0;
             std::int64_t end_bin = 0;
@@ -318,24 +318,16 @@ int main(int argc, char** argv) {
                 // calculateViewpointRange
                 const std::int64_t max_length =
                     bins.bin_pos(static_cast<std::size_t>(chrom_range->last - 1)).end;
-                std::int64_t region_start = 0;
-                std::int64_t region_end = 0;
+                std::int64_t anchor = center_value;
                 if (args.coordinates_to_bin_mapping == "start") {
-                    region_start = start_value - args.range_up;
-                    region_end = start_value + args.range_down;
+                    anchor = start_value;
                 } else if (args.coordinates_to_bin_mapping == "end") {
-                    region_start = end_value - args.range_up;
-                    region_end = end_value + args.range_down;
-                } else {
-                    region_start = center_value - args.range_up;
-                    region_end = center_value + args.range_down;
+                    anchor = end_value;
                 }
-                if (region_start < 0) {
-                    region_start = 0;
-                }
-                if (region_end > max_length) {
-                    region_end = max_length - 1;
-                }
+                const hicx::average_regions::Window window = hicx::average_regions::viewpoint_range(
+                    anchor, args.range_up, args.range_down, max_length);
+                const std::int64_t region_start = window.start;
+                const std::int64_t region_end = window.end;
                 const std::optional<std::pair<std::int64_t, std::int64_t>> range =
                     bins.region_bin_range(chrom, region_start, region_end);
                 if (!range.has_value()) {
@@ -386,14 +378,10 @@ int main(int argc, char** argv) {
                     }
                     viewpoint_index = range->second;
                 }
-                start_bin = viewpoint_index - args.bins_up;
-                end_bin = viewpoint_index + args.bins_down;
-                if (start_bin < chrom_range->first) {
-                    start_bin = chrom_range->first;
-                }
-                if (end_bin > chrom_range->last) {
-                    end_bin = chrom_range->last;
-                }
+                const hicx::average_regions::Window window = hicx::average_regions::viewpoint_range_bins(
+                    viewpoint_index, args.bins_up, args.bins_down, chrom_range->first, chrom_range->last);
+                start_bin = window.start;
+                end_bin = window.end;
             }
 
             Region region;
