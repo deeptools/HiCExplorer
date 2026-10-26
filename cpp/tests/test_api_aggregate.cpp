@@ -47,3 +47,47 @@ TEST_CASE("average_regions: bin window clamps to the chromosome's bins, last bin
     CHECK_FALSE(w.start_out_of_range);
     CHECK_FALSE(w.end_out_of_range);
 }
+
+#include "hicx/sparse_matrix.hpp"
+#include "hicx/svl.hpp"
+
+namespace {
+
+// [[1 2 0], [2 3 4], [0 4 5]] as the full matrix and as its upper triangle.
+hicx::CsrMatrix svl_fixture(bool upper, const std::string& dtype) {
+    if (upper) {
+        hicx::CsrMatrix m(3, 3, {0, 2, 4, 5}, {0, 1, 1, 2, 2}, {1, 2, 3, 4, 5}, dtype);
+        m.set_symmetry(hicx::Symmetry::UpperTriangle);
+        return m;
+    }
+    return hicx::CsrMatrix(3, 3, {0, 2, 5, 7}, {0, 1, 0, 1, 2, 1, 2}, {1, 2, 2, 3, 4, 4, 5}, dtype);
+}
+
+}  // namespace
+
+TEST_CASE("svl: short and long range sums of a block") {
+    for (const bool upper : {false, true}) {
+        const hicx::svl::BlockSums ints = hicx::svl::block_sums(svl_fixture(upper, "int32"), 0, 3, 0.0);
+        CHECK(ints.kind == hicx::DType::Integer);
+        CHECK(ints.smaller_int == 9);
+        CHECK(ints.greater_int == 12);
+        CHECK(ints.ratio == 9.0 / 12.0);
+        CHECK(ints.kept);
+        const hicx::svl::BlockSums floats = hicx::svl::block_sums(svl_fixture(upper, "float32"), 0, 3, 1.0);
+        CHECK(floats.kind == hicx::DType::Float32);
+        CHECK(floats.smaller == 21.0);
+        CHECK(floats.greater == 0.0);
+        CHECK_FALSE(floats.kept);
+        const hicx::svl::BlockSums block = hicx::svl::block_sums(svl_fixture(upper, "float64"), 1, 3, 0.5);
+        CHECK(block.smaller == 8.0);
+        CHECK(block.greater == 8.0);
+        CHECK(block.ratio == 1.0);
+    }
+}
+
+TEST_CASE("svl: stored zeros of a full block are the Python's IndexError") {
+    hicx::CsrMatrix m(2, 2, {0, 2, 3}, {0, 1, 1}, {1, 0, 3}, "float64");
+    CHECK_THROWS_AS((void)hicx::svl::block_sums(m, 0, 2, 1.0), hicx::svl::ExplicitZeros);
+    // outside the block they do not matter
+    CHECK(hicx::svl::block_sums(m, 1, 2, 1.0).smaller == 3.0);
+}

@@ -1,31 +1,19 @@
-"""hicPlotSVL: a thin layer over the C++ executable hicPlotSVL.
+"""hicPlotSVL, implemented in C++.
 
-main() runs the executable and parse_arguments() is built from its --help-json
-(hicexplorer._cpp). The other names of this module are kept for API
-compatibility and are not used by the tool.
+main() runs the C++ executable hicPlotSVL and parse_arguments() is built from
+its --help-json (hicexplorer._cpp). compute_relation_short_long_range keeps
+the name, the signature and the behaviour it had in HiCExplorer 3.7.6; its
+body calls hicexplorer._hicx.hicPlotSVL (cpp/python/src/api/hicPlotSVL.cpp).
 """
 import warnings
 warnings.simplefilter(action="ignore", category=RuntimeWarning)
 warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
-import argparse
-from io import StringIO
-from multiprocessing import Process, Queue
-import time
-import numpy as np
-import cooler
 import matplotlib
 matplotlib.use('Agg')
-import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
-import matplotlib as mpl
-from scipy.stats import ranksums
-
-from hicmatrix import HiCMatrix as hm
-from hicexplorer._version import __version__
-from hicexplorer.utilities import toString
-from hicmatrix.HiCMatrix import check_cooler
 import logging
 log = logging.getLogger(__name__)
+
+from hicexplorer._hicx import hicPlotSVL as _impl
 
 
 def parse_arguments(args=None):
@@ -35,39 +23,7 @@ def parse_arguments(args=None):
 
 
 def compute_relation_short_long_range(pHiCMatrix, pChromosomes, pDistance, pIsCooler, pQueue):
-    # hic_matrix = hm.hiCMatrix(
-    #             pMatrixFile=args.matrix, pChrnameList=[args.region])
-    svl_relations = []
-    sum_smaller = []
-    sum_greater = []
-    for chromosome in pChromosomes:
-        if pIsCooler:
-            hic_matrix_obj = hm.hiCMatrix(
-                pMatrixFile=pHiCMatrix, pChrnameList=[chromosome])
-            max_distance = pDistance / hic_matrix_obj.getBinSize()
-            hic_matrix = hic_matrix_obj.matrix
-
-        else:
-            # in case it is h5 pHiCMatrix is an HiCMatrix object
-            indices_chromosome = pHiCMatrix.getChrBinRange(chromosome)
-            hic_matrix = pHiCMatrix.matrix[indices_chromosome[0]:indices_chromosome[1], indices_chromosome[0]:indices_chromosome[1]]
-            max_distance = pDistance / pHiCMatrix.getBinSize()
-
-        instances, features = hic_matrix.nonzero()
-        distances = np.absolute(instances - features)
-        mask = distances <= max_distance
-
-        sum_smaller_max_distance = np.sum(hic_matrix.data[mask])
-        sum_greater_max_distance = np.sum(hic_matrix.data[~mask])
-        svl_relation = sum_smaller_max_distance / sum_greater_max_distance
-        if np.isinf(svl_relation) or np.isnan(svl_relation):
-            continue
-        svl_relations.append(svl_relation)
-        sum_smaller.append(sum_smaller_max_distance)
-        sum_greater.append(sum_greater_max_distance)
-
-    pQueue.put([svl_relations, sum_smaller, sum_greater])
-    return
+    return _impl.compute_relation_short_long_range(pHiCMatrix, pChromosomes, pDistance, pIsCooler, pQueue)
 
 
 def main(args=None):

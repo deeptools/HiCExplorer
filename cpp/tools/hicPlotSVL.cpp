@@ -76,6 +76,7 @@
 #include "hicx/resource_usage.hpp"
 #include "hicx/sparse_matrix.hpp"
 #include "hicx/stats_ops.hpp"
+#include "hicx/svl.hpp"
 #include "hicx/tool_matrix.hpp"
 #include "hicx/version.hpp"
 
@@ -241,183 +242,39 @@ struct ChromosomeSvl {
     std::string greater;
 };
 
-// The entries of matrix[first:last, first:last] with the lower triangle
-// filled in, in scipy's row major order, exact zeros skipped, passed to
-// visit(row, column, value).
-//
-// For Symmetry::UpperTriangle a row's entries below the diagonal are the
-// column's entries above it, so they are collected per column first. That
-// transposed copy of the block is the one allocation this tool makes beyond
-// the matrix itself, and it is only needed when the order of summation
-// matters, which is for float matrices.
-template <class Visit>
-void visit_block_row_major(const hicx::CsrMatrix& matrix, std::int64_t first,
-                           std::int64_t last, Visit&& visit) {
-    const auto& indptr = matrix.indptr();
-    const auto& indices = matrix.indices();
-    const auto& data = matrix.data();
-    const auto n = static_cast<std::size_t>(last - first);
-    if (matrix.symmetry() != hicx::Symmetry::UpperTriangle) {
-        for (std::int64_t row = first; row < last; ++row) {
-            for (auto k = static_cast<std::size_t>(indptr[static_cast<std::size_t>(row)]);
-                 k < static_cast<std::size_t>(indptr[static_cast<std::size_t>(row) + 1]); ++k) {
-                const std::int64_t column = indices[k];
-                if (column >= first && column < last && data[k] != 0.0) {
-                    visit(row, column, data[k]);
-                }
-            }
-        }
-        return;
-    }
-    std::vector<std::size_t> column_start(n + 1, 0);
-    for (std::int64_t row = first; row < last; ++row) {
-        for (auto k = static_cast<std::size_t>(indptr[static_cast<std::size_t>(row)]);
-             k < static_cast<std::size_t>(indptr[static_cast<std::size_t>(row) + 1]); ++k) {
-            const std::int64_t column = indices[k];
-            if (column > row && column < last && data[k] != 0.0) {
-                ++column_start[static_cast<std::size_t>(column - first) + 1];
-            }
-        }
-    }
-    for (std::size_t c = 0; c < n; ++c) {
-        column_start[c + 1] += column_start[c];
-    }
-    std::vector<std::int32_t> lower_column(column_start[n]);
-    std::vector<double> lower_value(column_start[n]);
-    std::vector<std::size_t> cursor(column_start.begin(), column_start.end() - 1);
-    for (std::int64_t row = first; row < last; ++row) {
-        for (auto k = static_cast<std::size_t>(indptr[static_cast<std::size_t>(row)]);
-             k < static_cast<std::size_t>(indptr[static_cast<std::size_t>(row) + 1]); ++k) {
-            const std::int64_t column = indices[k];
-            if (column > row && column < last && data[k] != 0.0) {
-                const std::size_t slot = cursor[static_cast<std::size_t>(column - first)]++;
-                lower_column[slot] = static_cast<std::int32_t>(row);
-                lower_value[slot] = data[k];
-            }
-        }
-    }
-    for (std::int64_t row = first; row < last; ++row) {
-        const auto local = static_cast<std::size_t>(row - first);
-        for (std::size_t p = column_start[local]; p < column_start[local + 1]; ++p) {
-            visit(row, static_cast<std::int64_t>(lower_column[p]), lower_value[p]);
-        }
-        for (auto k = static_cast<std::size_t>(indptr[static_cast<std::size_t>(row)]);
-             k < static_cast<std::size_t>(indptr[static_cast<std::size_t>(row) + 1]); ++k) {
-            const std::int64_t column = indices[k];
-            if (column >= row && column < last && data[k] != 0.0) {
-                visit(row, column, data[k]);
-            }
-        }
-    }
-}
-
-// compute_relation_short_long_range (:95-127) for one chromosome block.
+// compute_relation_short_long_range (:95-127) for one chromosome block
+// (hicx::svl, shared with the Python API).
 ChromosomeSvl svl_for_block(const hicx::CsrMatrix& matrix, std::int64_t first,
                             std::int64_t last, double max_distance,
                             const std::string& chromosome, const std::string& path) {
-    const auto& indptr = matrix.indptr();
-    const auto& indices = matrix.indices();
-    const auto& data = matrix.data();
-    const bool upper = matrix.symmetry() == hicx::Symmetry::UpperTriangle;
-
-    if (!upper) {
-        // hic_matrix.nonzero() skips stored zeros but hic_matrix.data does
-        // not, so the boolean mask is shorter than the array it indexes and
-        // numpy raises IndexError inside the worker.
-        for (std::int64_t row = first; row < last; ++row) {
-            for (auto k = static_cast<std::size_t>(indptr[static_cast<std::size_t>(row)]);
-                 k < static_cast<std::size_t>(indptr[static_cast<std::size_t>(row) + 1]); ++k) {
-                if (indices[k] >= first && indices[k] < last && data[k] == 0.0) {
-                    throw WorkerFailure(
-                        "chromosome '" + chromosome + "' of " + path +
-                        " stores explicit zeros, which make hicPlotSVL.py:118 index the "
-                        "matrix data with a mask of a different length");
-                }
-            }
-        }
+    hicx::svl::BlockSums sums;
+    try {
+        sums = hicx::svl::block_sums(matrix, first, last, max_distance);
+    } catch (const hicx::svl::ExplicitZeros&) {
+        throw WorkerFailure(
+            "chromosome '" + chromosome + "' of " + path +
+            " stores explicit zeros, which make hicPlotSVL.py:118 index the "
+            "matrix data with a mask of a different length");
     }
-    const auto is_short = [max_distance](std::int64_t row, std::int64_t column) {
-        const std::int64_t distance = row > column ? row - column : column - row;
-        return static_cast<double>(distance) <= max_distance;
-    };
-
     ChromosomeSvl result;
-    const hicx::DType kind = matrix.dtype_kind();
-    if (kind == hicx::DType::Integer) {
-        // Integer sums do not depend on the order of the additions, so the
-        // stored triangle is enough. numpy's int64 accumulator wraps, hence
-        // the unsigned arithmetic.
-        std::uint64_t smaller = 0;
-        std::uint64_t greater = 0;
-        for (std::int64_t row = first; row < last; ++row) {
-            for (auto k = static_cast<std::size_t>(indptr[static_cast<std::size_t>(row)]);
-                 k < static_cast<std::size_t>(indptr[static_cast<std::size_t>(row) + 1]); ++k) {
-                const std::int64_t column = indices[k];
-                if (column < first || column >= last || data[k] == 0.0) {
-                    continue;
-                }
-                const auto value = static_cast<std::uint64_t>(static_cast<std::int64_t>(data[k]));
-                const std::uint64_t times = (upper && column != row) ? 2U : 1U;
-                (is_short(row, column) ? smaller : greater) += times * value;
-            }
-        }
-        const auto small_sum = static_cast<std::int64_t>(smaller);
-        const auto large_sum = static_cast<std::int64_t>(greater);
-        const double ratio = static_cast<double>(small_sum) / static_cast<double>(large_sum);
-        if (std::isinf(ratio) || std::isnan(ratio)) {
-            return result;
-        }
-        result.kept = true;
-        result.ratio_value = ratio;
-        result.ratio = hicx::npy::float_repr(ratio);
-        result.smaller = std::to_string(small_sum);
-        result.greater = std::to_string(large_sum);
-        return result;
-    }
-
-    if (kind == hicx::DType::Float32) {
-        hicx::npy::PairwiseSumStream<float> smaller;
-        hicx::npy::PairwiseSumStream<float> greater;
-        visit_block_row_major(matrix, first, last,
-                              [&](std::int64_t row, std::int64_t column, double value) {
-                                  (is_short(row, column) ? smaller : greater)
-                                      .add(static_cast<float>(value));
-                              });
-        const float small_sum = smaller.result();
-        const float large_sum = greater.result();
-        const float ratio = small_sum / large_sum;
-        if (std::isinf(ratio) || std::isnan(ratio)) {
-            return result;
-        }
-        result.kept = true;
-        result.ratio_value = static_cast<double>(ratio);
-        result.float32 = true;
-        // '{}'.format(np.float32(x)) goes through float.__format__, so the
-        // file shows the float64 repr of the widened value
-        // (48.16666793823242), not numpy's float32 str (48.166668).
-        result.ratio = hicx::npy::float_repr(static_cast<double>(ratio));
-        result.smaller = hicx::npy::float_repr(static_cast<double>(small_sum));
-        result.greater = hicx::npy::float_repr(static_cast<double>(large_sum));
-        return result;
-    }
-
-    hicx::npy::PairwiseSumStream<double> smaller;
-    hicx::npy::PairwiseSumStream<double> greater;
-    visit_block_row_major(matrix, first, last,
-                          [&](std::int64_t row, std::int64_t column, double value) {
-                              (is_short(row, column) ? smaller : greater).add(value);
-                          });
-    const double small_sum = smaller.result();
-    const double large_sum = greater.result();
-    const double ratio = small_sum / large_sum;
-    if (std::isinf(ratio) || std::isnan(ratio)) {
+    if (!sums.kept) {
         return result;
     }
     result.kept = true;
-    result.ratio_value = ratio;
-    result.ratio = hicx::npy::float_repr(ratio);
-    result.smaller = hicx::npy::float_repr(small_sum);
-    result.greater = hicx::npy::float_repr(large_sum);
+    result.ratio_value = sums.ratio;
+    if (sums.kind == hicx::DType::Integer) {
+        result.ratio = hicx::npy::float_repr(sums.ratio);
+        result.smaller = std::to_string(sums.smaller_int);
+        result.greater = std::to_string(sums.greater_int);
+        return result;
+    }
+    // '{}'.format(np.float32(x)) goes through float.__format__, so the file
+    // shows the float64 repr of the widened value (48.16666793823242), not
+    // numpy's float32 str (48.166668).
+    result.float32 = sums.kind == hicx::DType::Float32;
+    result.ratio = hicx::npy::float_repr(sums.ratio);
+    result.smaller = hicx::npy::float_repr(sums.smaller);
+    result.greater = hicx::npy::float_repr(sums.greater);
     return result;
 }
 

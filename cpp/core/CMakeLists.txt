@@ -71,7 +71,8 @@ add_library(hicx4core
     src/unidecode_table.cpp
     src/utilities.cpp
     src/dgeev_selected.cpp
-    src/sparse_pca.cpp)
+    src/sparse_pca.cpp
+    src/svl.cpp)
 
 target_include_directories(hicx4core PUBLIC
     "${CMAKE_CURRENT_SOURCE_DIR}/include"
