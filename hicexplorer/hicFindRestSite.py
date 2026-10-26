@@ -1,8 +1,9 @@
 """hicFindRestSite: a thin layer over the C++ executable hicFindRestSite.
 
 main() runs the executable and parse_arguments() is built from its --help-json
-(hicexplorer._cpp). The other names of this module are kept for API
-compatibility and are not used by the tool.
+(hicexplorer._cpp). find_pattern calls hicexplorer._hicx.hicFindRestSite
+(C++, cpp/python/src/api/hicFindRestSite.cpp), the same scan the executable
+runs.
 """
 import warnings
 warnings.simplefilter(action="ignore", category=RuntimeWarning)
@@ -21,6 +22,8 @@ from hicexplorer._version import __version__
 
 import logging
 log = logging.getLogger(__name__)
+
+from hicexplorer._hicx import hicFindRestSite as _impl
 
 
 def parse_arguments(args=None):
@@ -71,45 +74,7 @@ def find_pattern(pPattern, fasta_file, out_file):
 
     """
 
-    temp = NamedTemporaryFile(suffix=".bed", delete=False, mode='wt')
-
-    for pattern in pPattern:
-        rev_compl = str(Seq(pattern).reverse_complement())
-        try:
-            fasta_file_name = fasta_file.name
-        except AttributeError:
-            fasta_file_name = fasta_file
-
-        encoding = guess_type(fasta_file_name)[1]  # uses file extension
-        _open = partial(gzip.open, mode='rt') if encoding == 'gzip' else open
-
-        with _open(fasta_file_name) as f:
-            for record in SeqIO.parse(f, 'fasta'):
-                # find all the occurrences of pattern
-                for match in re.finditer(pattern, str(record.seq), re.IGNORECASE):
-                    _ = temp.write('{}\t{}\t{}\t.\t0\t+\n'.format(record.name,
-                                                                  match.start(),
-                                                                  match.end()))
-                if rev_compl != pattern:
-                    # search for the reverse complement only if the pattern is not palindromic
-                    for match in re.finditer(rev_compl, str(record.seq), re.IGNORECASE):
-                        _ = temp.write('{}\t{}\t{}\t.\t0\t-\n'.format(record.name, match.start(),
-                                                                      match.end()))
-
-    log.info("Sorting file ...")
-    tmpfile_name = temp.name
-    temp.close()
-    subprocess.check_output(["cat", tmpfile_name])
-    # sort bed file using system tools
-    cmd = 'sort -k1,1 -k2,2n -u {}'.format(tmpfile_name)
-    # LC_ALL=C is to set the appropriate collation order
-    proc = subprocess.Popen(cmd.split(" "), stdout=subprocess.PIPE, env={'LC_ALL': ' C'}, universal_newlines=True)
-    stdout, _ = proc.communicate()
-
-    out_file.write(stdout)
-    out_file.close()
-
-    temp.close()
+    return _impl.find_pattern(pPattern, fasta_file, out_file)
 
 
 def main(args=None):

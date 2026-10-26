@@ -18,8 +18,10 @@
 #ifndef HICX_FASTA_READER_HPP
 #define HICX_FASTA_READER_HPP
 
+#include <cstdint>
 #include <functional>
 #include <string>
+#include <vector>
 
 // The functions live in hicx::fasta rather than in hicx because
 // core/src/build_matrix.cpp already defines a hicx::reverse_complement for the
@@ -46,6 +48,38 @@ void read_fasta(const std::string& path, bool gzipped,
 
 // str(Seq(text).reverse_complement()).
 [[nodiscard]] std::string reverse_complement(const std::string& text);
+
+// One line of hicFindRestSite's BED output.
+struct RestrictionSite {
+    std::string chrom;
+    std::int64_t start = 0;
+    std::int64_t end = 0;
+    char strand = '+';
+};
+
+// hicexplorer.hicFindRestSite.find_pattern without its file handles: every
+// match of each pattern (re.finditer with re.IGNORECASE: non-overlapping, left
+// to right) in every record of the FASTA, then of its reverse complement when
+// that differs, written pattern by pattern, and the list sorted and
+// de-duplicated the way `sort -k1,1 -k2,2n -u` does it:
+//
+//   1. the key is the chromosome name compared byte by byte, then the start
+//      compared numerically;
+//   2. `-u` de-duplicates on the key, not on the line, so two sites sharing a
+//      chromosome and a start collapse even when their end or strand differ;
+//   3. the merge is stable and `-u` disables the last-resort comparison, so
+//      the survivor of a collision is the first one written.
+//
+// The FASTA is read once per pattern, as the Python reopens it. A pattern of
+// letters and '.' is matched by a direct scanner; any other pattern by
+// std::regex in ECMAScript mode, which is not Python's dialect: the two agree
+// on letters, '.', character classes and the usual quantifiers, a
+// Python-specific construct behaves differently.
+[[nodiscard]] std::vector<RestrictionSite> find_restriction_sites(
+    const std::vector<std::string>& patterns, const std::string& fasta_path);
+
+// The sites as hicFindRestSite writes them: chrom, start, end, '.', 0, strand.
+[[nodiscard]] std::string restriction_sites_bed(const std::vector<RestrictionSite>& sites);
 
 }  // namespace hicx::fasta
 
