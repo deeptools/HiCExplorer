@@ -96,6 +96,8 @@ jobs:
           hicInfo --version
           hicInfo -m "$GITHUB_WORKSPACE/hicexplorer/test/test_data/small_test_matrix.h5"
           python -c "from hicexplorer import _cpp; print(_cpp.find_executable('hicInfo'))"
+          # the public Python API is C++ through the extension in the wheel
+          python -c "from hicexplorer._hicx import utilities as u; print(u.genomicRegion('chr1:1,000-2,000'))"
 
   windows:
     name: ${{ matrix.name }} (experimental)

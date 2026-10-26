@@ -67,6 +67,7 @@ sdist.exclude = ["cpp/build", "hicexplorer/test/test_data/**", "docs", "examples
 
 [tool.scikit-build.cmake.define]
 HICX_INSTALL_PYTHON_PACKAGE = "ON"
+HICX_BUILD_PYTHON = "ON"
 HICX_BUILD_TESTS = "OFF"
 
 [tool.scikit-build.metadata.version]
