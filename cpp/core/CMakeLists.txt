@@ -30,6 +30,7 @@ add_library(hicx4core
     src/chicago.cpp
     src/cool_adapter.cpp
     src/fasta_reader.cpp
+    src/find_tads.cpp
     src/h5_file.cpp
     src/hdf5_util.cpp
     src/hic_adapter.cpp
@@ -41,6 +42,7 @@ add_library(hicx4core
     src/math/kr_balancing.cpp
     src/math/sparse_kernels.cpp
     src/matrix_ops.cpp
+    src/merge_domains.cpp
     src/npz_file.cpp
     src/numpy_compat.cpp
     src/numpy_random.cpp
@@ -60,6 +62,7 @@ add_library(hicx4core
     src/simd_reduce.cpp
     src/scipy_special.cpp
     src/scipy_stats.cpp
+    src/tad_contacts.cpp
     src/tar_gz.cpp
     src/sparse_matrix.cpp
     src/stats_ops.cpp

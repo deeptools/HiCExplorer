@@ -86,9 +86,9 @@ add_executable(hicArrowhead hicArrowhead.cpp arrowhead_impl.cpp)
 target_link_libraries(hicArrowhead PRIVATE hicx::core hicx_compile_options)
 
 # hicDifferentialTAD and hicInterIntraTAD cut their TAD blocks with the same
-# code, which is also what cpp/tests/test_tad_contacts.cpp links against.
+# code, hicx/tad_contacts.hpp in libhicx4.
 foreach(tool IN ITEMS hicDifferentialTAD hicInterIntraTAD)
-    add_executable(${tool} "${tool}.cpp" tad_contacts_impl.cpp)
+    add_executable(${tool} "${tool}.cpp")
     target_link_libraries(${tool} PRIVATE hicx::core hicx_compile_options)
 endforeach()
 
@@ -99,9 +99,8 @@ add_executable(hicDifferentialAnalysis hicDifferentialAnalysis.cpp diff_engine_i
                                        diff_contacts_impl.cpp)
 target_link_libraries(hicDifferentialAnalysis PRIVATE hicx::core hicx_compile_options)
 
-# hicMergeDomains keeps its algorithm in a second translation unit for the same
-# reason: cpp/tests/test_merge_domains.cpp links against it.
-add_executable(hicMergeDomains hicMergeDomains.cpp merge_domains_impl.cpp)
+# hicMergeDomains keeps its algorithm in libhicx4 (hicx/merge_domains.hpp).
+add_executable(hicMergeDomains hicMergeDomains.cpp)
 target_link_libraries(hicMergeDomains PRIVATE hicx::core hicx_compile_options)
 
 # hicPCA additionally reads and writes bigWig, through the same libBigWig that

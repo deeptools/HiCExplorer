@@ -6,7 +6,7 @@
 // inter sums to the intra sum.
 //
 // The geometry, and every quirk of it, is shared with hicDifferentialTAD and
-// documented in tad_contacts_impl.hpp. What is specific to this tool is the
+// documented in hicx/tad_contacts.hpp. What is specific to this tool is the
 // text, which is Python's str() of whatever object the Python happens to hold:
 //
 //  * A column that was not computed because the neighbour does not exist is
@@ -16,11 +16,11 @@
 //  * A sum is the numpy scalar scipy's `.sum()` returns, so its type follows
 //    the matrix dtype: int64 for an integer matrix, float32 or float64
 //    otherwise, and a ratio follows numpy's promotion of the two operands.
-//    tad_contacts_impl's PyNumber carries that.
+//    hicx/tad_contacts.hpp's PyNumber carries that.
 //  * A block with no cells makes the density a ZeroDivisionError. The worker
 //    reports it and the tool exits with status 1 before writing anything. On
 //    an h5 matrix this happens for the last TAD of every chromosome with at
-//    least three TADs (point 3 of tad_contacts_impl.hpp), so the Python tool
+//    least three TADs (point 3 of hicx/tad_contacts.hpp), so the Python tool
 //    cannot process an h5 matrix at all; pinned by
 //    test_hicInterIntraTAD.py::test_h5_input_raises_zero_division and
 //    reproduced here.
@@ -35,7 +35,7 @@
 // Threading: one independent problem per TAD, hicx::parallel_for into
 // preallocated slots, written in file order, so the output does not depend on
 // --threads. The Python's does in the degenerate cases listed in
-// tad_contacts_impl.hpp; this port reproduces --threads 1.
+// hicx/tad_contacts.hpp; this port reproduces --threads 1.
 
 #include <algorithm>
 #include <cstdio>
@@ -50,7 +50,7 @@
 #include "hicx/plot_bridge.hpp"
 #include "hicx/resource_usage.hpp"
 #include "hicx/version.hpp"
-#include "tad_contacts_impl.hpp"
+#include "hicx/tad_contacts.hpp"
 
 namespace {
 

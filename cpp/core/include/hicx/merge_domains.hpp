@@ -1,9 +1,9 @@
 // The computational core of hicMergeDomains, a port of
 // hicexplorer/hicMergeDomains.py.
 //
-// It lives in its own translation unit, as detect_loops_impl does, so that
-// cpp/tests/test_merge_domains.cpp links against exactly the code the tool
-// runs. Every function here is a literal port of the Python function of the
+// It is part of libhicx4, so that the tool, the public Python API of
+// hicexplorer.hicMergeDomains (cpp/python/src/api/hicMergeDomains.cpp) and
+// cpp/tests/test_merge_domains.cpp run exactly the same code. Every function here is a literal port of the Python function of the
 // same name. The Python works on lists of lists of strings with index loops,
 // and several of its results depend on details of that representation, so the
 // port keeps the representation instead of reinterpreting the algorithm:
@@ -23,12 +23,13 @@
 // scipy.cluster.hierarchy.linkage and dendrogram at hicMergeDomains.py:2 and
 // never calls either.
 
-#ifndef HICX_TOOLS_MERGE_DOMAINS_IMPL_HPP
-#define HICX_TOOLS_MERGE_DOMAINS_IMPL_HPP
+#ifndef HICX_MERGE_DOMAINS_HPP
+#define HICX_MERGE_DOMAINS_HPP
 
 #include <cstddef>
 #include <cstdint>
 #include <functional>
+#include <optional>
 #include <ostream>
 #include <stdexcept>
 #include <string>
@@ -165,6 +166,17 @@ struct MergedDomains {
 // graphviz.parameters.FORMATS (graphviz 0.20.3).
 [[nodiscard]] bool is_graphviz_format(const std::string& format);
 
+// shutil.which(program) as subprocess resolves it: the first executable
+// regular file of that name in a PATH entry.
+[[nodiscard]] std::optional<std::string> find_on_path(const std::string& program);
+
+// graphviz.Digraph.render(filename, cleanup=True), graphviz 0.20.3, without
+// the print of create_tree that precedes it: writes the DOT source to
+// graph.filename (creating missing parent directories), runs
+// `dot -Kdot -T<format> -O <name>` in the file's directory and removes the
+// source again. Throws PythonError when dot fails, leaving the source.
+void render_graph(const TreeGraph& graph, const std::string& format);
+
 }  // namespace hicx::merge_domains
 
-#endif  // HICX_TOOLS_MERGE_DOMAINS_IMPL_HPP
+#endif  // HICX_MERGE_DOMAINS_HPP

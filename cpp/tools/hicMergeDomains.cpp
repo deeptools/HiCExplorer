@@ -3,7 +3,7 @@
 // Merges TAD domain files called at several resolutions into one list, filters
 // boundaries against protein peaks, derives parent and child relations between
 // overlapping TADs and draws one relation tree per chromosome. The algorithm is
-// in merge_domains_impl.cpp; this file is the command line and the graphviz
+// in cpp/core/src/merge_domains.cpp; this file is the command line and the graphviz
 // rendering.
 //
 // Two facts about the reference that decide what "equivalent" means here:
@@ -34,16 +34,9 @@
 // inputs, almost all of it interpreter start up and list membership tests;
 // the port's cost is reading the files.
 
-#include <sys/types.h>
-#include <sys/wait.h>
-#include <unistd.h>
-
-#include <cerrno>
 #include <cstdio>
-#include <cstdlib>
-#include <cstring>
-#include <filesystem>
 #include <fstream>
+#include <functional>
 #include <optional>
 #include <string>
 #include <vector>
@@ -51,7 +44,7 @@
 #include "hicx/argparse.hpp"
 #include "hicx/resource_usage.hpp"
 #include "hicx/version.hpp"
-#include "merge_domains_impl.hpp"
+#include "hicx/merge_domains.hpp"
 
 namespace {
 
@@ -217,112 +210,6 @@ Arguments parse_arguments(int argc, char** argv) {
     return args;
 }
 
-// shutil.which('dot') as subprocess resolves it: the first executable regular
-// file named dot in a PATH entry.
-std::optional<std::string> find_on_path(const std::string& program) {
-    const char* path = std::getenv("PATH");
-    if (path == nullptr) {
-        return std::nullopt;
-    }
-    std::string entries(path);
-    std::size_t start = 0;
-    while (start <= entries.size()) {
-        std::size_t colon = entries.find(':', start);
-        if (colon == std::string::npos) {
-            colon = entries.size();
-        }
-        std::string directory = entries.substr(start, colon - start);
-        if (directory.empty()) {
-            directory = ".";
-        }
-        const std::string candidate = directory + "/" + program;
-        std::error_code error;
-        if (std::filesystem::is_regular_file(candidate, error) &&
-            ::access(candidate.c_str(), X_OK) == 0) {
-            return candidate;
-        }
-        start = colon + 1;
-    }
-    return std::nullopt;
-}
-
-std::string lower(const std::string& text) {
-    std::string out;
-    for (const char c : text) {
-        out.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(c))));
-    }
-    return out;
-}
-
-// graphviz.Digraph.render(filename, cleanup=True), graphviz 0.20.3:
-// saving.save (creating missing parent directories), backend.rendering.render
-// with outfile=None, which runs [dot, -Kdot, -T<format>, -O, <file name>] with
-// the working directory set to the file's parent when it has one, then
-// os.remove of the source.
-void render_graph(const md::TreeGraph& graph, const std::string& format) {
-    std::fputs(("Saved relation tree of " + graph.chrom + "\n").c_str(), stdout);
-    std::fflush(stdout);
-
-    const std::filesystem::path source(graph.filename);
-    if (source.has_parent_path()) {
-        std::filesystem::create_directories(source.parent_path());
-    }
-    {
-        std::ofstream out(graph.filename, std::ios::binary | std::ios::trunc);
-        if (!out) {
-            throw md::PythonError("cannot write the DOT source " + graph.filename);
-        }
-        out << graph.source;
-        if (!out.flush()) {
-            throw md::PythonError("cannot write the DOT source " + graph.filename);
-        }
-    }
-
-    const std::string type_flag = "-T" + lower(format);
-    const std::string file_name = source.filename().string();
-    const std::string directory = source.has_parent_path() ? source.parent_path().string()
-                                                           : std::string();
-    std::fflush(stderr);
-    const pid_t child = ::fork();
-    if (child < 0) {
-        throw md::PythonError(std::string("fork failed: ") + std::strerror(errno));
-    }
-    if (child == 0) {
-        if (!directory.empty() && ::chdir(directory.c_str()) != 0) {
-            std::fprintf(stderr, "hicMergeDomains: cannot change into %s: %s\n",
-                         directory.c_str(), std::strerror(errno));
-            ::_exit(127);
-        }
-        const char* const dot_argv[] = {"dot", "-Kdot", type_flag.c_str(), "-O",
-                                        file_name.c_str(), nullptr};
-        ::execvp("dot", const_cast<char* const*>(dot_argv));
-        std::fprintf(stderr, "hicMergeDomains: cannot execute dot: %s\n",
-                     std::strerror(errno));
-        ::_exit(127);
-    }
-    int status = 0;
-    while (::waitpid(child, &status, 0) < 0) {
-        if (errno != EINTR) {
-            throw md::PythonError(std::string("waitpid failed: ") + std::strerror(errno));
-        }
-    }
-    if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
-        // graphviz raises CalledProcessError before the cleanup, so the source
-        // stays on disk.
-        throw md::PythonError(
-            "graphviz.backend.execute.CalledProcessError: dot -Kdot " + type_flag + " -O " +
-            file_name + " returned non-zero exit status " +
-            std::to_string(WIFEXITED(status) ? WEXITSTATUS(status) : -1) + " for " +
-            graph.filename);
-    }
-    std::error_code error;
-    std::filesystem::remove(source, error);
-    if (error) {
-        throw md::PythonError("cannot remove the DOT source " + graph.filename + ": " +
-                              error.message());
-    }
-}
-
 void write_file(const std::string& path, const std::function<void(std::ostream&)>& body) {
     std::ofstream out(path, std::ios::binary | std::ios::trunc);
     if (!out) {
@@ -357,7 +244,7 @@ int main(int argc, char** argv) {
                          args.output_tree_plot_format.c_str());
             return 1;
         }
-        if (!find_on_path("dot").has_value()) {
+        if (!md::find_on_path("dot").has_value()) {
             std::fputs("hicMergeDomains: graphviz's dot executable was not found on PATH. "
                        "It renders the relation tree, which is written whenever more than "
                        "one domain file is given. Nothing was written.\n",
@@ -385,7 +272,10 @@ int main(int argc, char** argv) {
                        [&](std::ostream& out) { md::write_relation_list(out, relations); });
             md::create_tree(relations, pool, merged, args.output_tree_plot_prefix,
                             [&](const md::TreeGraph& graph) {
-                                render_graph(graph, args.output_tree_plot_format);
+                                std::fputs(("Saved relation tree of " + graph.chrom + "\n").c_str(),
+                                           stdout);
+                                std::fflush(stdout);
+                                md::render_graph(graph, args.output_tree_plot_format);
                             });
         }
     } catch (const md::ReferenceNeverTerminates& error) {
