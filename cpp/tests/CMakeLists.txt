@@ -54,12 +54,11 @@ add_executable(hicx_tests
     test_python_api_core.cpp
     test_api_aggregate.cpp
     # The computational cores of hicDetectLoops, of the two TAD statistics tools,
-    # of hicCompartmentalization, of hicMergeDomains, of hicDifferentialAnalysis,
+    # of hicMergeDomains, of hicDifferentialAnalysis,
     # of hicDetectStripes and of hicArrowhead, so that the tests link against
     # exactly the translation units the tools run.
     ../tools/detect_loops_impl.cpp
     ../tools/tad_contacts_impl.cpp
-    ../tools/compartmentalization_impl.cpp
     ../tools/merge_domains_impl.cpp
     ../tools/diff_engine_impl.cpp
     ../tools/diff_contacts_impl.cpp

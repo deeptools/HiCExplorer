@@ -1,10 +1,10 @@
-// Computational core of hicCompartmentalization, in its own translation unit so
-// that cpp/tests/test_compartmentalization.cpp links against exactly the code
-// the tool runs. The design notes and the reproduced quirks are in
-// hicCompartmentalization.cpp.
+// Computational core of hicCompartmentalization, shared by the tool, the
+// Python API (hicexplorer._hicx.hicCompartmentalization) and
+// cpp/tests/test_compartmentalization.cpp. The design notes and the
+// reproduced quirks are in cpp/tools/hicCompartmentalization.cpp.
 
-#ifndef HICX_TOOLS_COMPARTMENTALIZATION_IMPL_HPP
-#define HICX_TOOLS_COMPARTMENTALIZATION_IMPL_HPP
+#ifndef HICX_COMPARTMENTALIZATION_HPP
+#define HICX_COMPARTMENTALIZATION_HPP
 
 #include <cstdint>
 #include <string>
@@ -97,8 +97,17 @@ class SymmetricRows {
     std::vector<std::int32_t> column_rows_;
 };
 
-// count_interactions (hicCompartmentalization.py:93-129) followed by the
-// np.nan_to_num of :212, as a quantiles-by-quantiles row major array.
+// count_interactions (hicCompartmentalization.py:93-129) as a
+// quantiles-by-quantiles row major array: interaction_sum / number_of_bins,
+// NaN where a block holds no finite value.
+//
+// The arguments are those of normalised_sum_per_quantile below.
+[[nodiscard]] std::vector<double> count_interactions(
+    const CsrMatrix& matrix, const std::vector<std::vector<std::int64_t>>& bin_ids,
+    const std::vector<std::int64_t>& quantile_of_row, std::int64_t quantiles,
+    const std::vector<std::int64_t>& offsets, std::int64_t chromosome_count);
+
+// count_interactions followed by the np.nan_to_num of :212.
 //
 //   bin_ids[k]          the bins of pca row k, get_indices of :87
 //   quantile_of_row[k]  the searchsorted quantile of pca row k
@@ -115,6 +124,11 @@ void nan_to_num_in_place(std::vector<double>& values);
 // within_vs_between_compartments (hicCompartmentalization.py:132-153).
 [[nodiscard]] std::vector<double> within_vs_between(const std::vector<double>& normalised,
                                                     std::int64_t quantiles);
+// The same for a rows-by-cols row major float64 array that need not be
+// quantiles by quantiles: numpy's slices stop at the array's edges.
+[[nodiscard]] std::vector<double> within_vs_between(const std::vector<double>& values,
+                                                    std::int64_t rows, std::int64_t cols,
+                                                    std::int64_t quantiles);
 
 // One line of np.savetxt(fname, X) with its default fmt '%.18e', delimiter ' '
 // and newline '\n'. Python's '%e' spells every NaN 'nan', never '-nan'.
@@ -122,4 +136,4 @@ void nan_to_num_in_place(std::vector<double>& values);
 
 }  // namespace hicx::compartments
 
-#endif  // HICX_TOOLS_COMPARTMENTALIZATION_IMPL_HPP
+#endif  // HICX_COMPARTMENTALIZATION_HPP

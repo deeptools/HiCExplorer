@@ -114,9 +114,7 @@ target_link_libraries(hicPCA PRIVATE hicx::core hicx::bigwig hicx::zlib
 add_executable(chicExportData chicExportData.cpp)
 target_link_libraries(chicExportData PRIVATE hicx::core hicx::bigwig hicx_compile_options)
 
-# hicCompartmentalization keeps its computational core in a second translation
-# unit, like hicDetectLoops, so that cpp/tests/test_compartmentalization.cpp
-# links against exactly the code the tool runs.
-add_executable(hicCompartmentalization hicCompartmentalization.cpp
-                                       compartmentalization_impl.cpp)
+# hicCompartmentalization's computational core is in cpp/core
+# (hicx/compartmentalization.hpp), shared with the Python API.
+add_executable(hicCompartmentalization hicCompartmentalization.cpp)
 target_link_libraries(hicCompartmentalization PRIVATE hicx::core hicx_compile_options)

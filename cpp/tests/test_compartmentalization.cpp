@@ -1,5 +1,5 @@
 // Unit tests for the computational core of hicCompartmentalization
-// (tools/compartmentalization_impl.hpp).
+// (core/include/hicx/compartmentalization.hpp).
 //
 // Every expected value was produced by the reference environment (numpy 1.26.4,
 // scipy 1.14.1), either by numpy directly or by running
@@ -18,7 +18,7 @@
 
 #include <doctest/doctest.h>
 
-#include "../tools/compartmentalization_impl.hpp"
+#include "hicx/compartmentalization.hpp"
 #include "hicx/sparse_matrix.hpp"
 
 namespace cm = hicx::compartments;

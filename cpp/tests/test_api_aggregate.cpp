@@ -6,6 +6,7 @@
 
 #include <doctest/doctest.h>
 
+#include <cmath>
 #include <cstdint>
 
 #include "hicx/average_regions.hpp"
@@ -90,4 +91,25 @@ TEST_CASE("svl: stored zeros of a full block are the Python's IndexError") {
     CHECK_THROWS_AS((void)hicx::svl::block_sums(m, 0, 2, 1.0), hicx::svl::ExplicitZeros);
     // outside the block they do not matter
     CHECK(hicx::svl::block_sums(m, 1, 2, 1.0).smaller == 3.0);
+}
+
+#include <vector>
+
+#include "hicx/compartmentalization.hpp"
+
+TEST_CASE("compartments: within_vs_between of a rectangular array stops at its edges") {
+    // [[1 2 3], [4 5 6]] with four quantiles: q = 1 sums a[0:1, 0:1] + a[3:4, 3:4]
+    // (empty) over a[0:1, 3:4] (empty) + a[3:4, 0:1] (empty)
+    const std::vector<double> values{1, 2, 3, 4, 5, 6};
+    const std::vector<double> ratios = hicx::compartments::within_vs_between(values, 2, 3, 4);
+    REQUIRE(ratios.size() == 3);
+    CHECK(std::isinf(ratios[0]));
+    // q = 2: a[0:2, 0:2] + a[2:4, 2:4] = 12 + 0 over a[0:2, 2:4] + a[2:4, 0:2] = 9 + 0
+    CHECK(ratios[1] == 12.0 / 9.0);
+    // q = 3: a[0:3, 0:3] + a[1:4, 1:4] = 21 + 11 over a[0:3, 1:4] + a[1:4, 0:3] = 16 + 15
+    CHECK(ratios[2] == 32.0 / 31.0);
+    // the square overload is the general one
+    const std::vector<double> square{1, 2, 3, 4};
+    CHECK(hicx::compartments::within_vs_between(square, 2) ==
+          hicx::compartments::within_vs_between(square, 2, 2, 2));
 }

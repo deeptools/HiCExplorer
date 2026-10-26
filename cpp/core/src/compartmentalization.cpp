@@ -1,4 +1,4 @@
-#include "compartmentalization_impl.hpp"
+#include "hicx/compartmentalization.hpp"
 
 #include <algorithm>
 #include <array>
@@ -349,7 +349,7 @@ class PairwiseStream {
 
 }  // namespace
 
-std::vector<double> normalised_sum_per_quantile(
+std::vector<double> count_interactions(
     const CsrMatrix& matrix, const std::vector<std::vector<std::int64_t>>& bin_ids,
     const std::vector<std::int64_t>& quantile_of_row, std::int64_t quantiles,
     const std::vector<std::int64_t>& offsets, std::int64_t chromosome_count) {
@@ -461,6 +461,15 @@ std::vector<double> normalised_sum_per_quantile(
     for (std::size_t k = 0; k < Q * Q; ++k) {
         result[k] = interaction_sum[k] / number_of_bins[k];
     }
+    return result;
+}
+
+std::vector<double> normalised_sum_per_quantile(
+    const CsrMatrix& matrix, const std::vector<std::vector<std::int64_t>>& bin_ids,
+    const std::vector<std::int64_t>& quantile_of_row, std::int64_t quantiles,
+    const std::vector<std::int64_t>& offsets, std::int64_t chromosome_count) {
+    std::vector<double> result =
+        count_interactions(matrix, bin_ids, quantile_of_row, quantiles, offsets, chromosome_count);
     nan_to_num_in_place(result);
     return result;
 }
@@ -478,7 +487,7 @@ void nan_to_num_in_place(std::vector<double>& values) {
 
 namespace {
 
-double slice_sum(const std::vector<double>& matrix, std::size_t quantiles,
+double slice_sum(const std::vector<double>& matrix, std::size_t cols,
                  std::size_t row_begin, std::size_t row_end, std::size_t col_begin,
                  std::size_t col_end) {
     // numpy reduces a non contiguous slice through a contiguous buffered copy,
@@ -487,7 +496,7 @@ double slice_sum(const std::vector<double>& matrix, std::size_t quantiles,
     copy.reserve((row_end - row_begin) * (col_end - col_begin));
     for (std::size_t i = row_begin; i < row_end; ++i) {
         for (std::size_t j = col_begin; j < col_end; ++j) {
-            copy.push_back(matrix[i * quantiles + j]);
+            copy.push_back(matrix[i * cols + j]);
         }
     }
     return npy::pairwise_sum(copy);
@@ -497,13 +506,30 @@ double slice_sum(const std::vector<double>& matrix, std::size_t quantiles,
 
 std::vector<double> within_vs_between(const std::vector<double>& normalised,
                                       std::int64_t quantiles) {
-    const auto Q = static_cast<std::size_t>(quantiles);
+    return within_vs_between(normalised, quantiles, quantiles, quantiles);
+}
+
+std::vector<double> within_vs_between(const std::vector<double>& values, std::int64_t rows,
+                                      std::int64_t cols, std::int64_t quantiles) {
     std::vector<double> ratios;
-    for (std::size_t q = 1; q < Q; ++q) {
-        const double within = slice_sum(normalised, Q, 0, q, 0, q) +
-                              slice_sum(normalised, Q, Q - q, Q, Q - q, Q);
-        const double between = slice_sum(normalised, Q, 0, q, Q - q, Q) +
-                               slice_sum(normalised, Q, Q - q, Q, 0, q);
+    const auto R = static_cast<std::size_t>(rows);
+    const auto C = static_cast<std::size_t>(cols);
+    // the end of a[:index] or the start of a[index:] for a dimension of `size`
+    const auto clamp = [](std::int64_t index, std::size_t size) {
+        return std::min(static_cast<std::size_t>(index), size);
+    };
+    for (std::int64_t q = 1; q < quantiles; ++q) {
+        const std::int64_t tail = quantiles - q;
+        const std::size_t r_head = clamp(q, R);
+        const std::size_t c_head = clamp(q, C);
+        const std::size_t r_tail = clamp(tail, R);
+        const std::size_t r_end = clamp(quantiles, R);
+        const std::size_t c_tail = clamp(tail, C);
+        const std::size_t c_end = clamp(quantiles, C);
+        const double within = slice_sum(values, C, 0, r_head, 0, c_head) +
+                              slice_sum(values, C, r_tail, r_end, c_tail, c_end);
+        const double between = slice_sum(values, C, 0, r_head, c_tail, c_end) +
+                               slice_sum(values, C, r_tail, r_end, 0, c_head);
         ratios.push_back(within / between);
     }
     return ratios;

@@ -67,7 +67,7 @@
 // 8192 element buffer and the pairwise kernel of hicx::npy, the slices of
 // within_vs_between are summed as the contiguous copies numpy reduces, the
 // quantiles are np.nanquantile's linear interpolation and the boundaries under
-// --outliers np.linspace's. Nothing is threaded: see compartmentalization_impl.
+// --outliers np.linspace's. Nothing is threaded: see hicx/compartmentalization.hpp.
 
 #include <cerrno>
 #include <cmath>
@@ -80,7 +80,7 @@
 #include <string>
 #include <vector>
 
-#include "compartmentalization_impl.hpp"
+#include "hicx/compartmentalization.hpp"
 #include "hicx/argparse.hpp"
 #include "hicx/bins.hpp"
 #include "hicx/npz_file.hpp"

@@ -24,6 +24,7 @@ add_library(hicx4core
     src/bedtools_ops.cpp
     src/bins.cpp
     src/clustering.cpp
+    src/compartmentalization.cpp
     src/correct_ops.cpp
     src/build_matrix.cpp
     src/chic_hdf5.cpp
