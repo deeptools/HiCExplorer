@@ -378,13 +378,13 @@ hicexplorer.parserCommon	module		43
 hicexplorer.parserCommon	def	getParentArgParse(args=None)	8	pure Python	
 hicexplorer.parserCommon	def	writableFile(string)	8	pure Python	
 hicexplorer.parserCommon	class	CustomFormatter	14	pure Python	
-hicexplorer.readBed	module		252		
-hicexplorer.readBed	class	ReadBed	241	pure Python	cpp/core/include/hicx/read_bed.hpp;cpp/tests/test_python_api_core.cpp
-hicexplorer.readBed	method	ReadBed.__init__(self, file_handle)	33	pure Python	
-hicexplorer.readBed	method	ReadBed.get_no_comment_line(self)	14	pure Python	
-hicexplorer.readBed	method	ReadBed.guess_file_type(self, line_values)	23	pure Python	cpp/core/include/hicx/read_bed.hpp;cpp/core/src/read_bed.cpp;cpp/tests/test_python_api_core.cpp
-hicexplorer.readBed	method	ReadBed.next(self)	18	pure Python	cpp/core/include/hicx/utilities.hpp
-hicexplorer.readBed	method	ReadBed.get_bed_interval(self, bed_line)	114	pure Python	cpp/core/include/hicx/read_bed.hpp
+hicexplorer.readBed	module		88		
+hicexplorer.readBed	class	ReadBed	71	C++-backed (hicexplorer._hicx)	
+hicexplorer.readBed	method	ReadBed.__init__(self, file_handle)	6	C++-backed (hicexplorer._hicx)	
+hicexplorer.readBed	method	ReadBed.get_no_comment_line(self)	7	C++-backed (hicexplorer._hicx)	
+hicexplorer.readBed	method	ReadBed.guess_file_type(self, line_values)	4	C++-backed (hicexplorer._hicx)	
+hicexplorer.readBed	method	ReadBed.next(self)	5	C++-backed (hicexplorer._hicx)	
+hicexplorer.readBed	method	ReadBed.get_bed_interval(self, bed_line)	23	C++-backed (hicexplorer._hicx)	
 hicexplorer.reduceMatrix	module		232		
 hicexplorer.reduceMatrix	def	reduce_matrix(matrix, bins_to_merge, use_triu=True, diagonal=False)	221	pure Python	cpp/core/include/hicx/reduce_matrix.hpp;cpp/core/src/reduce_matrix.cpp;cpp/tests/test_adjust_ops.cpp;cpp/tests/test_reduce_matrix.cpp;cpp/tools/build_matrix_impl.hpp;cpp/tools/hicConvertFormat.cpp;cpp/tools/hicMergeMatrixBins.cpp;cpp/tools/hicMergeTADbins.cpp
 hicexplorer.utilities	module		226		
