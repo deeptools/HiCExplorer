@@ -35,6 +35,7 @@ add_library(hicx4core
     src/hdf5_util.cpp
     src/hic_adapter.cpp
     src/hic_matrix.cpp
+    src/iterative_correction.cpp
     src/json_lite.cpp
     src/lbfgsb.cpp
     src/lbfgsb_scipy.cpp
