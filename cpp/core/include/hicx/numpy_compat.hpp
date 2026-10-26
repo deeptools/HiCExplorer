@@ -40,8 +40,18 @@ inline float pairwise_sum(const std::vector<float>& data) {
     return pairwise_sum(data.data(), data.size());
 }
 
+// The pairwise kernel over the whole range in one call, without the 8192
+// element buffers of a reduction: what np.add.reduceat applies to each
+// segment after its first value (scipy's csr.sum(axis=1)).
+double pairwise_sum_unbuffered(const double* data, std::size_t n);
+float pairwise_sum_unbuffered(const float* data, std::size_t n);
+
 // repr() of a Python float, which is also str() of a numpy.float64 scalar.
 std::string float_repr(double value);
+
+// str() of a numpy.float32 scalar (and of float32 array elements): the
+// shortest digits that round trip in single precision, in repr()'s layout.
+std::string float32_repr(float value);
 
 // np.sum over a sequence that is produced one value at a time and never held
 // as an array. Bit identical to pairwise_sum() over the same values in the

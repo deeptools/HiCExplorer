@@ -80,6 +80,14 @@ float pairwise_sum(const float* a, std::size_t n) {
     return buffered_pairwise_sum(a, n);
 }
 
+double pairwise_sum_unbuffered(const double* a, std::size_t n) {
+    return pairwise_block(a, n);
+}
+
+float pairwise_sum_unbuffered(const float* a, std::size_t n) {
+    return pairwise_block(a, n);
+}
+
 template <typename T>
 PairwiseSumStream<T>::PairwiseSumStream() {
     buffer_.reserve(kReduceBufferSize);
@@ -108,7 +116,10 @@ T PairwiseSumStream<T>::result() const {
 template class PairwiseSumStream<double>;
 template class PairwiseSumStream<float>;
 
-std::string float_repr(double value) {
+namespace {
+
+template <typename T>
+std::string shortest_repr(T value) {
     if (std::isnan(value)) {
         return "nan";
     }
@@ -117,14 +128,14 @@ std::string float_repr(double value) {
     }
 
     const bool negative = std::signbit(value);
-    const double magnitude = negative ? -value : value;
+    const T magnitude = negative ? -value : value;
 
     // Shortest round tripping digits plus the decimal exponent.
     std::array<char, 64> buffer{};
     auto [end, ec] = std::to_chars(buffer.data(), buffer.data() + buffer.size(),
                                    magnitude, std::chars_format::scientific);
     if (ec != std::errc()) {
-        return std::to_string(value);
+        return std::to_string(static_cast<double>(value));
     }
     const std::string scientific(buffer.data(), end);
 
@@ -185,6 +196,16 @@ std::string float_repr(double value) {
         out.append(digits, static_cast<std::size_t>(decpt), std::string::npos);
     }
     return out;
+}
+
+}  // namespace
+
+std::string float_repr(double value) {
+    return shortest_repr(value);
+}
+
+std::string float32_repr(float value) {
+    return shortest_repr(value);
 }
 
 std::string int_with_thousands_separator(std::int64_t value) {

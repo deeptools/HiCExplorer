@@ -1,14 +1,20 @@
-# hicx_matrix: Python bindings that read one region of a cool, mcool,
-# HiCExplorer h5 or .hic matrix (cpp/PLAN.md tier 10, item 10.2).
+# The Python extensions (pybind11):
 #
-#   cmake -S cpp -B <build> -DHICX_BUILD_PYTHON=ON -DPython_EXECUTABLE=<python3.12>
-#   cmake --build <build> --target hicx_matrix
+#   hicexplorer._hicx  the C++ implementation of the public Python API
+#                      (src/api, cpp/python/API_BINDINGS.md), shipped in
+#                      the wheel next to the hicexplorer package
+#   hicx_matrix        reads one region of a cool, mcool, HiCExplorer h5 or
+#                      .hic matrix (cpp/PLAN.md tier 10, item 10.2)
 #
-# The module lands in <build>/python; put that directory on PYTHONPATH.
-# pybind11 is fetched at a pinned release tag and never taken from the
-# environment, so every build of this revision compiles the same bindings.
+#   cmake -S cpp -B <build> -DHICX_BUILD_PYTHON=ON -DPython_EXECUTABLE=<python3>
+#
+# hicx_matrix lands in <build>/python, _hicx in <build>/python/hicexplorer,
+# which a source checkout's hicexplorer package finds on its own
+# (hicexplorer/__init__.py). pybind11 is fetched at a pinned release tag and
+# never taken from the environment, so every build of this revision compiles
+# the same bindings.
 
-find_package(Python 3.12 COMPONENTS Interpreter Development REQUIRED)
+find_package(Python 3.10 COMPONENTS Interpreter Development.Module REQUIRED)
 
 include(FetchContent)
 set(HICX_PYBIND11_TAG v2.13.6)
@@ -40,3 +46,39 @@ target_link_libraries(hicx_matrix PRIVATE
 
 set_target_properties(hicx_matrix PROPERTIES
     LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}")
+
+# ---------------------------------------------------------------------------
+# hicexplorer._hicx
+
+include("${CMAKE_CURRENT_SOURCE_DIR}/src/api/modules.cmake")
+
+set(_hicx_registry "")
+set(_hicx_module_sources "")
+foreach(_module IN LISTS HICX_API_MODULES)
+    if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/src/api/${_module}.cpp")
+        message(FATAL_ERROR "src/api/modules.cmake lists ${_module}, but src/api/${_module}.cpp does not exist")
+    endif()
+    string(APPEND _hicx_registry "HICX_API_MODULE(${_module})\n")
+    list(APPEND _hicx_module_sources "src/api/${_module}.cpp")
+endforeach()
+set(_hicx_generated "${CMAKE_CURRENT_BINARY_DIR}/generated")
+file(CONFIGURE OUTPUT "${_hicx_generated}/api_registry.inc"
+     CONTENT "// Generated from src/api/modules.cmake.\n${_hicx_registry}")
+
+pybind11_add_module(_hicx MODULE NO_EXTRAS
+    src/api/module.cpp
+    src/api/support/convert.cpp
+    src/api/support/errors.cpp
+    src/api/support/runtime.cpp
+    ${_hicx_module_sources})
+
+target_include_directories(_hicx PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/api"
+    "${_hicx_generated}")
+
+target_link_libraries(_hicx PRIVATE
+    hicx::core
+    hicx_compile_options)
+
+set_target_properties(_hicx PROPERTIES
+    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/hicexplorer")

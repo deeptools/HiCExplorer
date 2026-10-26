@@ -22,11 +22,17 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 option(HICX_BUILD_TESTS "Build the C++ unit tests" ON)
 option(HICX_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" OFF)
-# The hicx_matrix Python module (python/, pybind11), off by default because it
-# needs a Python 3.12 with its development headers.
-# Install the tools and the drawing package into a Python wheel layout.
+# Install the tools, the drawing package and the hicexplorer._hicx extension
+# into a Python wheel layout.
 option(HICX_INSTALL_PYTHON_PACKAGE "Install the executables for the Python package" OFF)
-option(HICX_BUILD_PYTHON "Build the hicx_matrix Python module" OFF)
+# The Python extensions (python/, pybind11): hicexplorer._hicx, which the
+# hicexplorer package needs, and hicx_matrix. Off by default because they
+# need a Python with its development headers; the wheel build turns it on.
+option(HICX_BUILD_PYTHON "Build the Python extensions hicexplorer._hicx and hicx_matrix" OFF)
+if(HICX_INSTALL_PYTHON_PACKAGE AND NOT HICX_BUILD_PYTHON)
+    message(STATUS "hicexplorer4: HICX_INSTALL_PYTHON_PACKAGE needs the extension, enabling HICX_BUILD_PYTHON")
+    set(HICX_BUILD_PYTHON ON CACHE BOOL "Build the Python extensions hicexplorer._hicx and hicx_matrix" FORCE)
+endif()
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 include(HicxDependencies)

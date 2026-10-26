@@ -49,6 +49,8 @@ add_library(hicx4core
     src/obsexp_ops.cpp
     src/pairs_file.cpp
     src/plot_bridge.cpp
+    src/py_text.cpp
+    src/read_bed.cpp
     src/genomedisco.cpp
     src/hicspector.cpp
     src/quasar.cpp
@@ -65,6 +67,8 @@ add_library(hicx4core
     src/text_table.cpp
     src/tool_matrix.cpp
     src/transform_ops.cpp
+    src/unidecode_table.cpp
+    src/utilities.cpp
     src/dgeev_selected.cpp
     src/sparse_pca.cpp)
 

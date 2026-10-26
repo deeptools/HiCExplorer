@@ -4,7 +4,9 @@ name: Python (HiCExplorer)
 # the C++ tools through hicexplorer.<tool>.main(). So this workflow builds the
 # C++ tools first, with the dependency repositories checked out exactly as in
 # cpp.yml, installs the package built from the same sources, and runs the
-# Python test suite against the executables in cpp/build/tools.
+# Python test suite against the executables in cpp/build/tools and the
+# extension hicexplorer._hicx in cpp/build/python/hicexplorer, which the
+# source tree's package finds through HICX_BIN_DIR.
 on:
   push:
     branches: [version4-cpp]
@@ -80,7 +82,8 @@ jobs:
             -DCMAKE_PREFIX_PATH="$CONDA_PREFIX" \
             -DHICX_COOLERCPP_GIT_REPOSITORY="$GITHUB_WORKSPACE/deps/coolercpp" \
             -DHICX_HICFILECPP_GIT_REPOSITORY="$GITHUB_WORKSPACE/deps/hicfilecpp" \
-            -DHICX_HIC2COOL_GIT_REPOSITORY="$GITHUB_WORKSPACE/deps/hic2cool"
+            -DHICX_HIC2COOL_GIT_REPOSITORY="$GITHUB_WORKSPACE/deps/hic2cool" \
+            -DHICX_BUILD_PYTHON=ON -DPython_EXECUTABLE="$(command -v python)"
           cmake --build cpp/build --parallel
 
       - name: Install the package
