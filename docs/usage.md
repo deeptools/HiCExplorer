@@ -53,3 +53,26 @@ Tools that accept a `--threads` / `--numberOfProcessors` option are deterministi
 thread count: the number of threads changes only wall-clock time and peak memory, never the numeric
 result. This was checked as part of each tool's equivalence validation (see `cpp/STATUS.md` in the
 repository for the per-tool ledger).
+
+## Calling the tools from Python
+
+Every tool has a module `hicexplorer.<tool>` with two functions:
+
+- `main(args)` runs the C++ executable of the tool with the argument list `args` (default
+  `sys.argv[1:]`). Output goes to the caller's `sys.stdout` and `sys.stderr`, and a non-zero exit status
+  raises `SystemExit` with that status, as running the command would.
+- `parse_arguments()` returns an `argparse.ArgumentParser` built from the executable's `--help-json`
+  specification, with the options, defaults, choices and subcommands of the C++ tool. It checks a command
+  line without running the tool.
+
+```python
+from hicexplorer import hicFindTADs
+
+hicFindTADs.main(['--matrix', 'matrix.cool', '--outPrefix', 'tads',
+                  '--correctForMultipleTesting', 'fdr'])
+```
+
+The command-line tools are the C++ executables themselves, installed into the environment's `bin`
+directory. `main()` finds them in the directory named by `HICX_BIN_DIR`, then in the environment's
+scripts directory, then on `PATH`. The tool modules contain no Python implementation of the tools; other functions still present
+in them are kept for compatibility with existing imports and are not what the tools run.

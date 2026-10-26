@@ -1,6 +1,8 @@
 """pytest over cpp/scripts/tool_specs.py: one test per ported tool.
 
-    HICX_CPP_BIN=BUILD/tools PYTHONPATH=. $VENV/bin/python -m pytest cpp/scripts/test_tool_specs.py
+    HICX_CPP_BIN=BUILD/tools $VENV/bin/python -m pytest cpp/scripts/test_tool_specs.py
+
+The Python parsers come from the upstream reference tree (reference_tree.py).
 
 Skipped when HICX_CPP_BIN is not set.
 """

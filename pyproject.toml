@@ -44,66 +44,26 @@ dependencies = [
 Homepage = "http://hicexplorer.readthedocs.io"
 
 [project.scripts]
-chicAggregateStatistic = "hicexplorer._launch:chicAggregateStatistic"
-chicChicagoBackgroundModel = "hicexplorer._launch:chicChicagoBackgroundModel"
-chicChicagoPlotViewpoint = "hicexplorer._launch:chicChicagoPlotViewpoint"
-chicChicagoScores = "hicexplorer._launch:chicChicagoScores"
-chicChicagoSignificantInteractions = "hicexplorer._launch:chicChicagoSignificantInteractions"
-chicDifferentialTest = "hicexplorer._launch:chicDifferentialTest"
-chicExportData = "hicexplorer._launch:chicExportData"
-chicPlotViewpoint = "hicexplorer._launch:chicPlotViewpoint"
-chicQualityControl = "hicexplorer._launch:chicQualityControl"
-chicSignificantInteractions = "hicexplorer._launch:chicSignificantInteractions"
-chicViewpoint = "hicexplorer._launch:chicViewpoint"
-chicViewpointBackgroundModel = "hicexplorer._launch:chicViewpointBackgroundModel"
-hicAdjustMatrix = "hicexplorer._launch:hicAdjustMatrix"
-hicAggregateContacts = "hicexplorer._launch:hicAggregateContacts"
-hicAverageRegions = "hicexplorer._launch:hicAverageRegions"
-hicBuildMatrix = "hicexplorer._launch:hicBuildMatrix"
-hicBuildMatrixMicroC = "hicexplorer._launch:hicBuildMatrixMicroC"
-hicCompareMatrices = "hicexplorer._launch:hicCompareMatrices"
-hicCompartmentalization = "hicexplorer._launch:hicCompartmentalization"
-hicConvertFormat = "hicexplorer._launch:hicConvertFormat"
-hicCorrectMatrix = "hicexplorer._launch:hicCorrectMatrix"
-hicCorrelate = "hicexplorer._launch:hicCorrelate"
-hicCreateThresholdFile = "hicexplorer._launch:hicCreateThresholdFile"
-hicDetectLoops = "hicexplorer._launch:hicDetectLoops"
-hicDetectStripes = "hicexplorer._launch:hicDetectStripes"
-hicDifferentialAnalysis = "hicexplorer._launch:hicDifferentialAnalysis"
-hicDifferentialTAD = "hicexplorer._launch:hicDifferentialTAD"
-hicFindRestSite = "hicexplorer._launch:hicFindRestSite"
-hicFindTADs = "hicexplorer._launch:hicFindTADs"
-hicInfo = "hicexplorer._launch:hicInfo"
-hicInterIntraTAD = "hicexplorer._launch:hicInterIntraTAD"
-hicMergeDomains = "hicexplorer._launch:hicMergeDomains"
-hicMergeLoops = "hicexplorer._launch:hicMergeLoops"
-hicMergeMatrixBins = "hicexplorer._launch:hicMergeMatrixBins"
-hicMergeTADbins = "hicexplorer._launch:hicMergeTADbins"
-hicNormalize = "hicexplorer._launch:hicNormalize"
-hicPCA = "hicexplorer._launch:hicPCA"
-hicPlotAverageRegions = "hicexplorer._launch:hicPlotAverageRegions"
-hicPlotDistVsCounts = "hicexplorer._launch:hicPlotDistVsCounts"
-hicPlotMatrix = "hicexplorer._launch:hicPlotMatrix"
-hicPlotSVL = "hicexplorer._launch:hicPlotSVL"
-hicPlotViewpoint = "hicexplorer._launch:hicPlotViewpoint"
-hicPrepareQCreport = "hicexplorer._launch:hicPrepareQCreport"
-hicQuickQC = "hicexplorer._launch:hicQuickQC"
-hicSumMatrices = "hicexplorer._launch:hicSumMatrices"
-hicTransform = "hicexplorer._launch:hicTransform"
-hicValidateLocations = "hicexplorer._launch:hicValidateLocations"
+# Only the Python drivers are console scripts. The C++ tools are installed as
+# executables into the scripts directory themselves (cpp/cmake/HicxInstall.cmake),
+# so a tool starts with no Python in between.
 hicHyperoptDetectLoops = "hicexplorer.hicHyperoptDetectLoops:main"
 hicHyperoptDetectLoopsHiCCUPS = "hicexplorer.hicHyperoptDetectLoopsHiCCUPS:main"
 hicexplorer = "hicexplorer.list_tools:main"
-hicQC = "hicexplorer._launch:hicPrepareQCreport"
 
 [tool.scikit-build]
 cmake.source-dir = "cpp"
 cmake.build-type = "Release"
 cmake.version = ">=3.24"
 wheel.packages = ["hicexplorer"]
-wheel.exclude = ["hicexplorer/test/**", "**/__pycache__/**"]
+wheel.exclude = ["hicexplorer/test/**", "**/__pycache__/**", "/include/**", "/lib/**"]
 sdist.include = ["cpp", "plot", "hicexplorer/_version.py"]
 sdist.exclude = ["cpp/build", "hicexplorer/test/test_data/**", "docs", "examples"]
+
+# hicexplorer/lib matches the "lib" line of .gitignore, which package
+# discovery honours, so it is named here or the wheel lacks it.
+[tool.scikit-build.wheel.force-include]
+"hicexplorer/lib" = "hicexplorer/lib"
 
 [tool.scikit-build.cmake.define]
 HICX_INSTALL_PYTHON_PACKAGE = "ON"

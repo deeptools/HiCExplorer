@@ -2,10 +2,11 @@
 
     python -m pytest cpp/scripts/test_equiv_cache.py
 
-Runs the Python side of two synthetic cases in a throwaway repository, data
-directory and cache: case A runs hicexplorer.toolA, which imports
-hicexplorer.helper, on a.txt; case B runs hicexplorer.toolB, which imports
-hicexplorer.other_helper, on b.txt. Every test first shows both cases run
+Runs the Python side of two synthetic cases in a throwaway repository,
+reference tree, data directory and cache: case A runs hicexplorer.toolA of the
+reference tree, which imports hicexplorer.helper, on a.txt, through a launcher
+that imports the harness module launch_helper; case B runs hicexplorer.toolB,
+which imports hicexplorer.other_helper, on b.txt. Every test first shows both cases run
 fresh and then come from the cache, then changes one thing that can change a
 Python result and checks that the affected case runs fresh again while an
 unaffected one stays cached. The interpreter fingerprint is replaced by a
@@ -25,6 +26,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import equiv  # noqa: E402
 import reference_cache  # noqa: E402
+import reference_tree  # noqa: E402
 
 TOOL = '''import sys
 from hicexplorer.{helper} import transform
@@ -39,7 +41,7 @@ def main():
 '''
 
 LAUNCHER = '''#!/usr/bin/env python
-from hicexplorer.{tool} import main
+{extra}from hicexplorer.{tool} import main
 
 main()
 '''
@@ -48,15 +50,19 @@ main()
 class World:
     def __init__(self, root, monkeypatch):
         self.repo = root / "repo"
-        package = self.repo / "hicexplorer"
+        self.repo.mkdir()
+        self.reference = root / "reference"
+        package = self.reference / "hicexplorer"
         package.mkdir(parents=True)
         (self.repo / "bin").mkdir()
+        (self.repo / "bin" / "launch_helper.py").write_text("VALUE = 1\n")
         (package / "__init__.py").write_text("")
         (package / "helper.py").write_text("def transform(text):\n    return text.upper()\n")
         (package / "other_helper.py").write_text("def transform(text):\n    return text[::-1]\n")
         for tool, helper in (("toolA", "helper"), ("toolB", "other_helper")):
             (package / f"{tool}.py").write_text(TOOL.format(helper=helper))
-            (self.repo / "bin" / tool).write_text(LAUNCHER.format(tool=tool))
+            extra = "import launch_helper  # noqa: F401\n" if tool == "toolA" else ""
+            (self.repo / "bin" / tool).write_text(LAUNCHER.format(tool=tool, extra=extra))
         self.data = root / "data"
         self.data.mkdir()
         (self.data / "a.txt").write_text("alpha")
@@ -67,6 +73,8 @@ class World:
                             "modules": {"fit_nbinom": None}, "path": []}
         monkeypatch.setattr(equiv, "REPO_ROOT", self.repo)
         monkeypatch.setattr(equiv, "PY_BIN", self.repo / "bin")
+        monkeypatch.setattr(equiv, "reference_root", lambda: self.reference)
+        monkeypatch.setattr(reference_tree, "digest_of", reference_tree.tree_digest)
         monkeypatch.setattr(reference_cache, "interpreter_fingerprint",
                             lambda python, env, cache_dir, repo_root:
                             json.loads(json.dumps(self.fingerprint)))
@@ -129,9 +137,11 @@ def test_one_changed_input_byte(world):
     assert world.run("B") is True
 
 
-def test_one_changed_line_in_an_imported_source_file(world):
+def test_one_changed_line_in_the_reference_tree(world):
+    # The reference tree is pinned to one commit and enters every key as one
+    # digest, so any change to it reruns every case.
     world.both_cached_after_first_run()
-    helper = world.repo / "hicexplorer" / "helper.py"
+    helper = world.reference / "hicexplorer" / "helper.py"
     # A different size and a later mtime, so the interpreter does not reuse
     # the bytecode it cached for the old line (it checks size and mtime).
     helper.write_text("def transform(text):\n    return text.lower()  # lower case\n")
@@ -139,7 +149,29 @@ def test_one_changed_line_in_an_imported_source_file(world):
     os.utime(helper, ns=(stat.st_atime_ns, stat.st_mtime_ns + 5_000_000_000))
     assert world.run("A") is False
     assert world.last_output == "alpha"
+    assert world.run("B") is False
     assert world.run("B") is True
+
+
+def test_one_changed_line_in_a_harness_module_the_entry_script_imports(world):
+    world.both_cached_after_first_run()
+    (world.repo / "bin" / "launch_helper.py").write_text("VALUE = 2\n")
+    assert world.run("A") is False
+    assert world.run("B") is True
+
+
+def test_the_repository_package_is_not_the_reference(world):
+    # A hicexplorer package in the repository (the product) neither enters
+    # the key nor is what the reference imports.
+    world.both_cached_after_first_run()
+    package = world.repo / "hicexplorer"
+    package.mkdir()
+    (package / "__init__.py").write_text("raise ImportError('product package imported')\n")
+    (package / "helper.py").write_text("def transform(text):\n    return 'wrong'\n")
+    assert world.run("A") is True
+    world.options.cache = "off"
+    assert world.run("A") is False
+    assert world.last_output == "ALPHA"
 
 
 def test_a_changed_argument(world):

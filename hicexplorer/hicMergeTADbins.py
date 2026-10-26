@@ -1,4 +1,9 @@
-#!/usr/bin/env python
+"""hicMergeTADbins: a thin layer over the C++ executable hicMergeTADbins.
+
+main() runs the executable and parse_arguments() is built from its --help-json
+(hicexplorer._cpp). The other names of this module are kept for API
+compatibility and are not used by the tool.
+"""
 # -*- coding: utf-8 -*-
 import warnings
 warnings.simplefilter(action="ignore", category=RuntimeWarning)
@@ -15,32 +20,10 @@ import logging
 log = logging.getLogger(__name__)
 
 
-def parse_arguments():
-    parser = argparse.ArgumentParser(
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        description="""
-Uses a BED file of domains or TAD boundaries to merge
-the bin counts of a Hi-C matrix per TAD.
-
-The output matrix contains the total counts per TAD and
-the total contacts with all other TADs.""")
-
-    # define the arguments
-    parser.add_argument('--matrix', '-m',
-                        help='Path to Hi-C matrix to use.',
-                        required=True)
-
-    parser.add_argument('--domains',
-                        help='Path to a bed file containing the domains.',
-                        type=argparse.FileType('r'),
-                        required=True)
-
-    parser.add_argument('--outFile', '-o',
-                        help='Name for the resulting matrix file.',
-                        required=True)
-    parser.add_argument('--version', action='version',
-                        version='%(prog)s {}'.format(__version__))
-    return parser
+def parse_arguments(args=None):
+    """The argparse parser of hicMergeTADbins, built from the C++ executable's --help-json."""
+    from hicexplorer._cpp import build_parser
+    return build_parser('hicMergeTADbins')
 
 
 def merge_tad_bins(hic, boundary_id_list, filename):
@@ -133,21 +116,7 @@ def get_boundary_bin_id(hic, bed_fh):
     return np.sort(list(boundaries))
 
 
-def _main_python(args=None):
-
-    args = parse_arguments().parse_args(args)
-    hic_ma = hm.hiCMatrix(args.matrix)
-    hic_ma.restoreMaskedBins()
-
-    # the bin id of boundary positions
-    boundary_id_list = get_boundary_bin_id(hic_ma, args.domains)
-
-    # make a reduce matrix by merging the TAD bins
-    log.info("Generating matrix with merged bins")
-    merge_tad_bins(hic_ma, boundary_id_list, args.outFile)
-
-
 def main(args=None):
-    """Run the C++ implementation; the Python implementation above is kept as _main_python."""
+    """Run the C++ implementation of hicMergeTADbins with `args` (default sys.argv[1:])."""
     from hicexplorer._cpp import entry_point
-    return entry_point('hicMergeTADbins', _main_python)(args)
+    return entry_point('hicMergeTADbins')(args)

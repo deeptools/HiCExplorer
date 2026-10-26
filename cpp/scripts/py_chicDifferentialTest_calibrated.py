@@ -176,4 +176,6 @@ def main(argv):
 
 
 if __name__ == "__main__":
+    import reference_tree  # the reference tree, not the package (reference_tree.py)
+    reference_tree.check_imported()
     main(sys.argv[1:])

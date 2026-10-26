@@ -4,8 +4,8 @@ does not have (cpp/PLAN.md tier 9, item 9.1, class EX).
 
     py_hic_reference.py <hicConvertFormat arguments>
 
-Run it as equiv.py runs every py_script: with the reference venv interpreter
-and PYTHONPATH at the repository root.
+Run it as equiv.py runs every py_script: with the reference interpreter and
+the upstream reference tree first on PYTHONPATH (reference_tree.py).
 
 - --inputFormat hic --outputFormat cool: hicConvertFormat itself.
 - --inputFormat hic --outputFormat mcool without --resolutions: hicConvertFormat
@@ -263,4 +263,6 @@ def main(argv):
 
 
 if __name__ == "__main__":
+    import reference_tree  # the reference tree, not the package (reference_tree.py)
+    reference_tree.check_imported()
     sys.exit(main(sys.argv[1:]))

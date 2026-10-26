@@ -1,3 +1,9 @@
+"""hicMergeMatrixBins: a thin layer over the C++ executable hicMergeMatrixBins.
+
+main() runs the executable and parse_arguments() is built from its --help-json
+(hicexplorer._cpp). The other names of this module are kept for API
+compatibility and are not used by the tool.
+"""
 import warnings
 warnings.simplefilter(action="ignore", category=RuntimeWarning)
 warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
@@ -14,53 +20,9 @@ from hicexplorer._version import __version__
 
 
 def parse_arguments(args=None):
-
-    parser = argparse.ArgumentParser(
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-        add_help=False,
-        description='Merges bins from a Hi-C matrix. For example, '
-        'using a matrix containing 5kb bins, a matrix '
-        'of 50kb bins can be derived using --numBins 10. '
-        'From one type of downstream analysis to another, '
-        'different bin sizes are used. For example to call TADs, '
-        'unmerged matrices are recommended while to display '
-        'Hi-C matrices, bins of approximately 2000bp usually '
-        'yield the best representations with `hicPlotMatrix` for small regions, '
-        'and even larger bins (50kb) are recommended for whole chromosome '
-        'representations or for `hicPlotDistVsCounts`.')
-
-    parserRequired = parser.add_argument_group('Required arguments')
-
-    parserRequired.add_argument('--matrix', '-m',
-                                help='Matrix to reduce in h5 format.',
-                                metavar='matrix.h5',
-                                required=True)
-
-    parserRequired.add_argument('--outFileName', '-o',
-                                help='File name to save the resulting matrix. '
-                                'The output is also a .h5 file. But don\'t add '
-                                'the suffix.',
-                                required=True)
-
-    parserRequired.add_argument('--numBins', '-nb',
-                                help='Number of bins to merge.',
-                                metavar='int',
-                                type=int,
-                                required=True)
-
-    parserOpt = parser.add_argument_group('Optional arguments')
-
-    parserOpt.add_argument('--runningWindow',
-                           help='Set to merge for using a running '
-                           'window of length --numBins.',
-                           action='store_true')
-
-    parserOpt.add_argument('--help', '-h', action='help', help='Show this help message and exit.')
-
-    parserOpt.add_argument('--version', action='version',
-                           version='%(prog)s {}'.format(__version__))
-
-    return parser
+    """The argparse parser of hicMergeMatrixBins, built from the C++ executable's --help-json."""
+    from hicexplorer._cpp import build_parser
+    return build_parser('hicMergeMatrixBins')
 
 
 def remove_nans_if_needed(hic):
@@ -269,20 +231,7 @@ def merge_bins(hic, num_bins):
     return hic
 
 
-def _main_python(args=None):
-
-    args = parse_arguments().parse_args(args)
-    hic = hm.hiCMatrix(args.matrix)
-
-    if args.runningWindow:
-        merged_matrix = running_window_merge(hic, args.numBins)
-    else:
-        merged_matrix = merge_bins(hic, args.numBins)
-
-    merged_matrix.save(args.outFileName)
-
-
 def main(args=None):
-    """Run the C++ implementation; the Python implementation above is kept as _main_python."""
+    """Run the C++ implementation of hicMergeMatrixBins with `args` (default sys.argv[1:])."""
     from hicexplorer._cpp import entry_point
-    return entry_point('hicMergeMatrixBins', _main_python)(args)
+    return entry_point('hicMergeMatrixBins')(args)

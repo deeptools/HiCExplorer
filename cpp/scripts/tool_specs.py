@@ -4,9 +4,13 @@ of the Python tool it ports (cpp/PLAN.md tier 10, item 10.1).
 
     python cpp/scripts/tool_specs.py --cpp-bin BUILD/tools [--tool NAME ...] [--json OUT]
 
-Run it with the reference venv interpreter (cpp/AGENTS_CONTRACT.md), with the
-repository root on PYTHONPATH so that `hicexplorer.<tool>.parse_arguments()`
-imports. Exit status 0 when every difference is an allowed one.
+Run it with the reference interpreter (cpp/AGENTS_CONTRACT.md). The Python
+parsers are those of the upstream reference tree (reference_tree.py; option
+--reference-root, else $HICX_REFERENCE_ROOT or the default), read in a child
+process that has that tree first on PYTHONPATH: the package of this
+repository builds its parse_arguments() from the C++ --help-json, so comparing
+with it would compare the C++ with itself. Exit status 0 when every
+difference is an allowed one.
 
 What is compared, per argument (matched by dest): the option strings, the
 action, the type, nargs, choices, the default and required; per parser the
@@ -25,13 +29,14 @@ matches a difference.
 """
 
 import argparse
-import importlib
 import json
 import os
 import subprocess
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, HERE)
+import reference_tree  # noqa: E402
 REPO = os.path.dirname(os.path.dirname(HERE))
 DEVIATIONS = os.path.join(HERE, "tool_spec_deviations.json")
 SCHEMA = "hicexplorer-tool-spec"
@@ -201,9 +206,48 @@ def load_cpp_spec(cpp_bin, tool):
 PARSER_MODULES = {"hicQC": "hicexplorer.hicPrepareQCreport"}
 
 
-def load_python_parser(tool):
-    module = importlib.import_module(PARSER_MODULES.get(tool, "hicexplorer." + tool))
-    return module.parse_arguments()
+# The child process that reads the reference parsers: it imports every
+# requested tool module of the reference tree and prints
+# {tool: python_parser_spec or {"error": message}} as JSON.
+_DUMP_SCRIPT = r"""
+import importlib, json, sys
+sys.path.insert(1, sys.argv[1])
+import reference_tree, tool_specs
+reference_tree.check_imported()
+out = {}
+for tool in sys.argv[2:]:
+    try:
+        module = importlib.import_module(tool_specs.PARSER_MODULES.get(tool, "hicexplorer." + tool))
+        out[tool] = tool_specs.python_parser_spec(module.parse_arguments())
+    except Exception as error:  # noqa: BLE001
+        out[tool] = {"error": repr(error)}
+print(json.dumps(out))
+"""
+_PYTHON_SPECS = {}
+REFERENCE_ROOT = None   # --reference-root; None: reference_tree.default_root()
+
+
+def load_python_specs(tools):
+    """The parser specs of the reference tree's tools, read in one child process."""
+    missing = [tool for tool in tools if tool not in _PYTHON_SPECS]
+    if missing:
+        root = reference_tree.ensure(REFERENCE_ROOT)
+        # cwd is the reference root: `python -c` puts the working directory
+        # first on sys.path, and the repository root holds the thin package.
+        result = subprocess.run([sys.executable, "-c", _DUMP_SCRIPT, HERE] + missing,
+                                cwd=str(root), env=reference_tree.environment(root),
+                                capture_output=True, text=True)
+        if result.returncode != 0:
+            raise RuntimeError(f"reading the reference parsers failed: {result.stderr[-1500:]}")
+        _PYTHON_SPECS.update(json.loads(result.stdout.splitlines()[-1]))
+    return {tool: _PYTHON_SPECS[tool] for tool in tools}
+
+
+def python_spec_of(tool):
+    spec = load_python_specs([tool])[tool]
+    if "error" in spec:
+        raise RuntimeError(f"reference parser of {tool}: {spec['error']}")
+    return spec
 
 
 def allowlist():
@@ -253,7 +297,8 @@ def check_tool(tool, cpp_bin):
     """(unexpected differences, allowed differences, stale allowlist entries)."""
     if tool in cpp_only_tools():
         return spec_structure_problems(load_cpp_spec(cpp_bin, tool)), [], []
-    differences = compare(tool, python_parser_spec(load_python_parser(tool)),
+    load_python_specs([t for t in ported_tools() if t not in cpp_only_tools()])
+    differences = compare(tool, python_spec_of(tool),
                           cpp_parser_spec(load_cpp_spec(cpp_bin, tool)))
     entries = allowlist().get(tool, [])
     used = [False] * len(entries)
@@ -279,7 +324,10 @@ def main():
     parser.add_argument("--cpp-bin", required=True)
     parser.add_argument("--tool", nargs="*")
     parser.add_argument("--json")
+    parser.add_argument("--reference-root", default=None)
     args = parser.parse_args()
+    global REFERENCE_ROOT
+    REFERENCE_ROOT = args.reference_root
     report = {}
     failed = False
     for tool in args.tool or ported_tools():

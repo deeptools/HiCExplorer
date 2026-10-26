@@ -1,3 +1,9 @@
+"""hicPlotDistVsCounts: a thin layer over the C++ executable hicPlotDistVsCounts.
+
+main() runs the executable and parse_arguments() is built from its --help-json
+(hicexplorer._cpp). The other names of this module are kept for API
+compatibility and are not used by the tool.
+"""
 import warnings
 warnings.simplefilter(action="ignore", category=RuntimeWarning)
 warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
@@ -27,84 +33,9 @@ log = logging.getLogger(__name__)
 
 
 def parse_arguments(args=None):
-    parser = argparse.ArgumentParser(
-        add_help=False,
-        description='This program creates distance vs. Hi-C counts plots. It can use several matrix files to compare '
-                    'them at once. If the `--perchr` option is given, each chromosome is plotted independently. '
-                    'When plotting multiple matrices, denser matrices are scaled down to match the sum of the smallest matrix.')
-
-    parserRequired = parser.add_argument_group('Required arguments')
-
-    # define the arguments
-    parserRequired.add_argument('--matrices', '-m',
-                                help='Hi-C normalized (corrected) matrices. Each path should be separated by a space.',
-                                nargs="+",
-                                required=True)
-
-    parserRequired.add_argument('--plotFile', '-o',
-                                help='File name to save the file. The given file '
-                                'ending will be used '
-                                'to determine the image format. '
-                                'The available options are: .png, .emf, '
-                                '.eps, .pdf and .svg.',
-                                type=argparse.FileType('w'),
-                                metavar='file name',
-                                required=True)
-
-    parserOpt = parser.add_argument_group('Optional arguments')
-
-    parserOpt.add_argument('--labels',
-                           help='Label to assign to each matrix file. Each label should be separated by a space. Quote '
-                           'labels that contain spaces: E.g. --labels label1 "labels 2". If no labels are given '
-                           'then the file name is used.',
-                           nargs="+")
-
-    parserOpt.add_argument('--skipDiagonal', '-s',
-                           help='If set, diagonal counts are not included.',
-                           action='store_true')
-
-    parserOpt.add_argument('--maxdepth',
-                           help='Maximum distance from diagonal to use. In other words, distances up to maxDepth are '
-                           'computed. Default is 3 million bp.',
-                           metavar='INT bp',
-                           type=int,
-                           default=int(3e6))
-
-    parserOpt.add_argument('--perchr',
-                           help='If given, computes and display distance versus Hi-C counts plots for each chromosome stored '
-                           'in the matrices passed to --matrices.',
-                           action='store_true')
-
-    parserOpt.add_argument('--chromosomeExclude',
-                           help='Exclude the given list of chromosomes. This is useful for example to exclude '
-                           'the Y chromosome. The names of the chromosomes should be separated by space.',
-                           nargs='+')
-
-    parserOpt.add_argument('--domains',
-                           help='Bed file with domains coordinates: instead of evaluating the distance vs. Hi-C counts for intra chromosomal counts,'
-                           ' compute it for intra-domains.',
-                           default=None,
-                           type=argparse.FileType('r')
-                           )
-
-    parserOpt.add_argument('--outFileData',
-                           help='If given, the data underlying the plots is saved on this file.',
-                           type=argparse.FileType('w'),
-                           )
-
-    parserOpt.add_argument('--plotsize',
-                           help='Width and height of the plot (in inches). Default is 6*number of cols, 4 * number of '
-                           'rows. The maximum number of rows is 4. Example: --plotsize 6 5',
-                           nargs=2,
-                           type=float
-                           )
-
-    parserOpt.add_argument('--help', '-h', action='help', help='show this help message and exit')
-
-    parserOpt.add_argument('--version', action='version',
-                           version='%(prog)s {}'.format(__version__))
-
-    return parser
+    """The argparse parser of hicPlotDistVsCounts, built from the C++ executable's --help-json."""
+    from hicexplorer._cpp import build_parser
+    return build_parser('hicPlotDistVsCounts')
 
 
 def compute_distance_mean(hicmat, maxdepth=None, perchr=False, custom_cut_intervals=None):
@@ -363,126 +294,6 @@ def from_bed_to_cut_interval(hicmat, fh):
     return new_cut_intervals
 
 
-def _main_python(args=None):
-    """
-    for each distance, compare the
-    distribution of two samples,
-    report number of cases were they differ
-    """
-
-    args = parse_arguments().parse_args(args)
-    mpl.rcParams['pdf.fonttype'] = 42
-
-    mean_dict = OrderedDict()
-    matrix_sum = {}
-    if args.labels is None:
-        labels = OrderedDict([(x, os.path.basename(x)) for x in args.matrices])
-    else:
-        labels = OrderedDict(zip(args.matrices, args.labels))
-
-    chroms = set()
-    for matrix_file in args.matrices:
-        hic_ma = HiCMatrix.hiCMatrix(matrix_file)
-        matrix_sum[matrix_file] = hic_ma.matrix.sum()
-        if args.chromosomeExclude is None:
-            args.chromosomeExclude = []
-
-        chrtokeep = [x for x in list(hic_ma.interval_trees) if x not in args.chromosomeExclude]
-        hic_ma.keepOnlyTheseChr(chrtokeep)
-
-        if args.domains:
-            custom_cut_interval = from_bed_to_cut_interval(hic_ma, args.domains)
-        else:
-            custom_cut_interval = None
-        mean_dict[matrix_file] = compute_distance_mean(hic_ma, maxdepth=args.maxdepth, perchr=args.perchr, custom_cut_intervals=custom_cut_interval)
-        chroms = chroms.union([k for k in list(mean_dict[matrix_file]) if len(mean_dict[matrix_file][k]) > 1])
-
-    # compute scale factors such that values are comparable
-    min_sum = min(matrix_sum.values())
-    scale_factor = dict([(matrix_file, float(min_sum) / mat_sum) for matrix_file, mat_sum in matrix_sum.items()])
-    log.info("The scale factors used are: {}".format(scale_factor))
-    if len(args.matrices) > 1 and args.perchr:
-        # in this case, for each chromosome a plot is made that combines the data from the
-        # hic matrices
-        max_cols = 4
-        num_rows = int(np.ceil(float(len(chroms)) / max_cols))
-        num_cols = min(len(chroms), max_cols)
-
-    else:
-        num_cols = num_rows = 1
-
-    if args.plotsize is None:
-        width = 6
-        height = 4
-    else:
-        width, height = args.plotsize
-    fig = plt.figure(figsize=(width * num_cols, height * num_rows))
-
-    axs = np.empty((num_rows, num_cols), dtype='object')
-    for matrix_file in args.matrices:
-        idx = 0
-        for chrom, mean_values in mean_dict[matrix_file].items():
-            if len(mean_values) <= 1:
-                log.debug("No values found for: {}, chromosome: {}\n".format(matrix_file, chrom))
-                continue
-            x, y, z = zip(*[(k, v, nb) for k, (v, nb) in mean_values.items() if v > 0])
-            if len(x) <= 1:
-                log.debug("No values found for: {}, chromosome: {}\n".format(matrix_file, chrom))
-                continue
-            if args.perchr and len(args.matrices) == 1:
-                col = 0
-                row = 0
-            else:
-                col = idx % num_cols
-                row = idx // num_cols
-            if axs[row, col] is None:
-                ax = plt.subplot2grid((num_rows, num_cols), (row, col))
-                ax.set_xlabel('genomic distance')
-                ax.set_ylabel('corrected Hi-C counts')
-                try:
-                    ax.set_yscale('log')
-                    ax.set_xscale('log')
-                except ValueError:
-                    continue
-            else:
-                ax = axs[row, col]
-            y = np.array(y) * scale_factor[matrix_file]
-            if args.perchr and len(args.matrices) > 1:
-                label = labels[matrix_file]
-                ax.set_title(chrom)
-            elif args.perchr:
-                label = chrom
-            else:
-                label = labels[matrix_file]
-
-            ax.plot(x, y, label=label)
-            axs[row, col] = ax
-            idx += 1
-            if args.outFileData is not None:
-                x_vals = np.stack(x).T
-                y_vals = np.stack(y).T
-                z_vals = np.stack(z).T
-                table_to_export = pd.DataFrame({'Matrix': labels[matrix_file],
-                                                'Chromosome': chrom,
-                                                'Distance': x_vals,
-                                                'Contacts': y_vals,
-                                                'Number_bins': z_vals,
-                                                'Scale_factor': scale_factor[matrix_file]})
-                table_to_export.to_csv(args.outFileData, sep='\t')
-
-    for ax in axs.reshape(-1):
-        if ax is None:
-            continue
-        ax.legend(prop={'size': 'small'})
-        ax.set_xlim(0, args.maxdepth)
-        handles, labels = ax.get_legend_handles_labels()
-        lgd = ax.legend(handles, labels, loc='center left', bbox_to_anchor=(1, 0.5))
-
-    plt.tight_layout()
-    plt.savefig(args.plotFile.name, bbox_inches='tight', bbox_extra_artists=(lgd,))
-    plt.close(fig)
-
-
 if sys.version_info >= (3, 12):
     compute_distance_mean.__doc__ += """
     >>> from scipy.sparse import csr_matrix
@@ -555,6 +366,6 @@ else:
 
 
 def main(args=None):
-    """Run the C++ implementation; the Python implementation above is kept as _main_python."""
+    """Run the C++ implementation of hicPlotDistVsCounts with `args` (default sys.argv[1:])."""
     from hicexplorer._cpp import entry_point
-    return entry_point('hicPlotDistVsCounts', _main_python)(args)
+    return entry_point('hicPlotDistVsCounts')(args)

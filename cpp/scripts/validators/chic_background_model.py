@@ -171,6 +171,9 @@ def _dump_distributions(out_path, tool_args):
     import numpy as np  # pylint: disable=C0415
     from hicmatrix import HiCMatrix as hm  # pylint: disable=C0415
 
+    sys.path.append(str(Path(__file__).resolve().parent.parent))
+    import reference_tree  # pylint: disable=C0415
+    reference_tree.check_imported()
     from hicexplorer import chicViewpointBackgroundModel as tool  # pylint: disable=C0415
     from hicexplorer.lib import Viewpoint  # pylint: disable=C0415
 

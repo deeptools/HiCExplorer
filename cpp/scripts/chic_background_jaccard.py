@@ -55,8 +55,11 @@ def run(argv, cwd, env=None):
 
 
 def python_env(extra=None):
-    env = dict(os.environ)
-    env["PYTHONPATH"] = str(REPO_ROOT) + os.pathsep + env.get("PYTHONPATH", "")
+    """The environment of the reference runs: the upstream reference tree
+    (reference_tree.py) first on PYTHONPATH."""
+    sys.path.insert(0, str(SCRIPT_DIR))
+    import reference_tree  # pylint: disable=C0415
+    env = reference_tree.environment(reference_tree.ensure())
     env.update(extra or {})
     return env
 

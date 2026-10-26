@@ -1,3 +1,9 @@
+"""chicViewpoint: a thin layer over the C++ executable chicViewpoint.
+
+main() runs the executable and parse_arguments() is built from its --help-json
+(hicexplorer._cpp). The other names of this module are kept for API
+compatibility and are not used by the tool.
+"""
 import argparse
 import sys
 import os
@@ -18,65 +24,9 @@ from hicexplorer._version import __version__
 
 
 def parse_arguments(args=None):
-    parser = argparse.ArgumentParser(add_help=False,
-                                     formatter_class=argparse.RawDescriptionHelpFormatter,
-                                     description="""
-Computes per input matrix all viewpoints which are defined in the reference points file.
-
-""")
-
-    parserRequired = parser.add_argument_group('Required arguments')
-
-    parserRequired.add_argument('--matrices', '-m',
-                                help='Path to the Hi-C matrices which store the captured Hi-C data per sample.',
-                                required=True,
-                                nargs='+')
-
-    parserRequired.add_argument('--range',
-                                help='Defines the region upstream and downstream of a reference point which should be considered in the analysis. Please remember to use the same fixate range setting as '
-                                'for the background model computation and that distances of the range larger than the fixate range use the background model of those.'
-                                'Format is --region upstream downstream',
-                                required=True,
-                                type=int,
-                                nargs=2)
-
-    parserRequired.add_argument('--referencePoints', '-rp', help='Reference point file. Needs to be in the format: \'chr 100\' for a '
-                                'single reference point or \'chr 100 200\' for a reference region and with a single reference point per line',
-                                required=True)
-    parserRequired.add_argument('--backgroundModelFile', '-bmf',
-                                help='path to the background file computed by chicViewpointBackgroundModel',
-                                required=True)
-    parserRequired.add_argument('--outFileName', '-o',
-                                help='This hdf5 file contains all created viewpoint files.',
-                                required=False,
-                                default='chic_files.hdf5')
-    parserOpt = parser.add_argument_group('Optional arguments')
-    parserOpt.add_argument('--threads', '-t',
-                           help='Number of threads (uses the python multiprocessing module)'
-                           ' (Default: %(default)s).',
-                           required=False,
-                           default=4,
-                           type=int)
-    parserOpt.add_argument('--averageContactBin',
-                           help='Average the contacts of n bins via a sliding window approach to smooth the values and be less sensitive for outliers'
-                           ' (Default: %(default)s).',
-                           type=int,
-                           default=5)
-
-    parserOpt.add_argument('--fixateRange', '-fs',
-                           help='Fixate range of background model starting at distance x. E.g. all values greater 500kb are set to the value of the 500kb bin'
-                           ' (Default: %(default)s).',
-                           required=False,
-                           default=500000,
-                           type=int
-                           )
-
-    parserOpt.add_argument("--help", "-h", action="help",
-                           help="show this help message and exit")
-
-    parserOpt.add_argument('--version', action='version',
-                           version='%(prog)s {}'.format(__version__))
-    return parser
+    """The argparse parser of chicViewpoint, built from the C++ executable's --help-json."""
+    from hicexplorer._cpp import build_parser
+    return build_parser('chicViewpoint')
 
 
 def adjustViewpointData(pViewpointObj, pData, pBackground, pReferencePoint, pRegionStart, pRegionEnd):
@@ -190,129 +140,7 @@ def compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList,
     return
 
 
-def _main_python(args=None):
-    args = parse_arguments().parse_args(args)
-
-    viewpointObj = Viewpoint()
-
-    referencePoints, gene_list = viewpointObj.readReferencePointFile(
-        args.referencePoints)
-
-    referencePointsPerThread = len(referencePoints) // args.threads
-
-    queue = [None] * args.threads
-    process = [None] * args.threads
-    background_model = viewpointObj.readBackgroundDataFile(
-        args.backgroundModelFile, args.range, args.fixateRange)
-    background_model_mean_values = viewpointObj.readBackgroundDataFile(
-        args.backgroundModelFile, args.range, args.fixateRange, pMean=True)
-
-    # create hdf5 output file
-    interactionFileH5Object = h5py.File(args.outFileName, 'w')
-    interactionFileH5Object.attrs['type'] = 'interactions'
-    interactionFileH5Object.attrs['version'] = __version__
-
-    interactionFileH5Object.attrs['range'] = args.range
-    interactionFileH5Object.attrs['averageContactBin'] = args.averageContactBin
-    interactionFileH5Object.attrs['fixateRange'] = args.fixateRange
-
-    fail_flag = False
-    fail_message = ''
-    matrix_collection = {}
-    resolution = 0
-    for matrix in args.matrices:
-        hic_ma = hm.hiCMatrix(matrix)
-        viewpointObj.hicMatrix = hic_ma
-        file_list_sample = [None] * args.threads
-        interaction_data_list_sample = [None] * args.threads
-
-        all_data_collected = False
-
-        if resolution == 0:
-            resolution = hic_ma.getBinSize()
-            interactionFileH5Object.attrs['resolution'] = resolution
-
-        for i in range(args.threads):
-
-            if i < args.threads - 1:
-                referencePointsThread = referencePoints[i * referencePointsPerThread:(i + 1) * referencePointsPerThread]
-                geneListThread = gene_list[i * referencePointsPerThread:(i + 1) * referencePointsPerThread]
-
-            else:
-                referencePointsThread = referencePoints[i * referencePointsPerThread:]
-                geneListThread = gene_list[i * referencePointsPerThread:]
-
-            if len(referencePointsThread) == 0:
-                process[i] = None
-                queue[i] = None
-                file_list_sample[i] = []
-                continue
-            queue[i] = Queue()
-            process[i] = Process(target=compute_viewpoint, kwargs=dict(
-                pViewpointObj=viewpointObj,
-                pArgs=args,
-                pQueue=queue[i],
-                pReferencePoints=referencePointsThread,
-                pGeneList=geneListThread,
-                pMatrix=matrix,
-                pBackgroundModel=background_model,
-                pBackgroundModelRelativeInteractions=background_model_mean_values
-            )
-            )
-
-            process[i].start()
-
-        while not all_data_collected:
-            for i in range(args.threads):
-                if queue[i] is not None and not queue[i].empty():
-                    file_list_ = queue[i].get()
-                    if 'Fail:' in file_list_:
-                        fail_flag = True
-                        fail_message = file_list_[6:]
-                    interaction_data_list_sample[i] = file_list_
-                    process[i].join()
-                    process[i].terminate()
-                    process[i] = None
-
-            all_data_collected = True
-
-            for i in range(args.threads):
-                if process[i] is not None:
-                    all_data_collected = False
-            time.sleep(1)
-
-        if fail_flag:
-            log.error(fail_message)
-            exit(1)
-
-        interaction_data_list = []
-        for sublist in interaction_data_list_sample:
-            if sublist is not None:
-                for item in sublist:
-                    interaction_data_list.append(item)
-        matrix_collection[matrix] = interaction_data_list
-
-    for matrix in matrix_collection:
-
-        matrixGroup = interactionFileH5Object.create_group(os.path.basename(matrix).split('.')[0])
-        geneGroup = matrixGroup.create_group('genes')
-
-        for i, interaction_data in enumerate(matrix_collection[matrix]):
-            if interaction_data[1][0] not in matrixGroup:
-                chromosomeObject = matrixGroup.create_group(interaction_data[1][0])
-
-            group_name = viewpointObj.writeInteractionFileHDF5(
-                chromosomeObject, interaction_data[1][3], interaction_data[1], referencePoints[i][1:])
-
-            try:
-                geneGroup[group_name] = chromosomeObject[group_name]
-            except Exception as e:
-                log.debug(str(e))
-                log.debug('group_name {}'.format(group_name))
-                log.debug('gene name {}'.format(interaction_data[1][3]))
-
-
 def main(args=None):
-    """Run the C++ implementation; the Python implementation above is kept as _main_python."""
+    """Run the C++ implementation of chicViewpoint with `args` (default sys.argv[1:])."""
     from hicexplorer._cpp import entry_point
-    return entry_point('chicViewpoint', _main_python)(args)
+    return entry_point('chicViewpoint')(args)

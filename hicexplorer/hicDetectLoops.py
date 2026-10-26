@@ -1,3 +1,9 @@
+"""hicDetectLoops: a thin layer over the C++ executable hicDetectLoops.
+
+main() runs the executable and parse_arguments() is built from its --help-json
+(hicexplorer._cpp). The other names of this module are kept for API
+compatibility and are not used by the tool.
+"""
 import argparse
 from multiprocessing import Process, Queue
 from multiprocessing.sharedctypes import Array, RawArray
@@ -33,97 +39,9 @@ def get_linenumber():
 
 
 def parse_arguments(args=None):
-
-    parser = argparse.ArgumentParser(
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        add_help=False,
-        description="""
-Computes enriched regions (peaks) or long range contacts on the given contact matrix.
-""")
-
-    parserRequired = parser.add_argument_group('Required arguments')
-
-    parserRequired.add_argument('--matrix', '-m',
-                                help='The matrix to compute the loop detection on.',
-                                required=True)
-    parserRequired.add_argument('--outFileName', '-o',
-                                help='Outfile name to store the detected loops. The file will in bedgraph format.',
-                                required=True)
-    parserOpt = parser.add_argument_group('Optional arguments')
-    parserOpt.add_argument('--peakWidth', '-pw',
-                           type=int,
-                           default=2,
-                           help='The width of the peak region in bins. The square around the peak will include (2 * peakWidth)^2 bins'
-                           ' (Default: %(default)s).')
-
-    parserOpt.add_argument('--windowSize', '-w',
-                           type=int,
-                           default=5,
-                           help='The window size for the neighborhood region the peak is located in. All values from this region (exclude the values from the peak '
-                           ' region) are tested against the peak region for significant difference. The square will have the size of (2 * windowSize)^2 bins'
-                           ' (Default: %(default)s).')
-    parserOpt.add_argument('--pValuePreselection', '-pp',
-                           help='Only candidates with p-values less the given threshold will be considered as candidates. '
-                                'For each genomic distance a negative binomial distribution is fitted and for each pixel a p-value given by the cumulative density function is given. '
-                                'This does NOT influence the p-value for the neighborhood testing. Can a single value or a threshold file created by hicCreateThresholdFile'
-                                ' (Default: %(default)s).',
-                           default=0.1)
-    parserOpt.add_argument('--peakInteractionsThreshold', '-pit',
-                           type=float,
-                           help='The minimum number of interactions a detected peaks needs to have to be considered'
-                                ' (Default: %(default)s).',
-                           default=10)
-    parserOpt.add_argument('--obsExpThreshold', '-oet',
-                           type=float,
-                           help='The minimum number of obs/exp interactions a detected peaks needs to have to be considered'
-                                ' (Default: %(default)s).',
-                           default=1.5)
-    parserOpt.add_argument('--pValue', '-p',
-                           type=float,
-                           default=0.025,
-                           help='Rejection level for Anderson-Darling or Wilcoxon-rank sum test for H0. H0 is peak region and background have the same distribution'
-                                ' (Default: %(default)s).')
-
-    parserOpt.add_argument('--maxLoopDistance',
-                           type=int,
-                           default=2000000,
-                           help='Maximum genomic distance of a loop, usually loops are within a distance of ~2MB'
-                           ' (Default: %(default)s).')
-    parserOpt.add_argument('--chromosomes',
-                           help='Chromosomes to include in the analysis. If not set, all chromosomes are included.',
-                           nargs='+')
-
-    parserOpt.add_argument('--threads', '-t',
-                           help='Number of threads to use, the parallelization is implemented per chromosome'
-                           ' (Default: %(default)s).',
-                           required=False,
-                           default=4,
-                           type=int
-                           )
-    parserOpt.add_argument('--threadsPerChromosome', '-tpc',
-                           help='Number of threads to use per parallel thread processing a chromosome. E.g. --threads = 4 and --threadsPerChromosome = 4 makes 4 * 4 = 16 threads in total'
-                           ' (Default: %(default)s).',
-                           required=False,
-                           default=4,
-                           type=int
-                           )
-    parserOpt.add_argument('--expected', '-exp',
-                           help='Method to compute the expected value per distance: Either the mean (mean),'
-                           ' the mean of non-zero values (mean_nonzero) or '
-                           'the mean of non-zero values with ligation factor correction (mean_nonzero_ligation)'
-                           ' (Default: %(default)s).',
-                           required=False,
-                           type=str,
-                           default="mean",
-                           choices=['mean', 'mean_nonzero', 'mean_nonzero_ligation']
-                           )
-    parserOpt.add_argument('--help', '-h', action='help',
-                           help='show this help message and exit')
-
-    parserOpt.add_argument('--version', action='version',
-                           version='%(prog)s {}'.format(__version__))
-
-    return parser
+    """The argparse parser of hicDetectLoops, built from the C++ executable's --help-json."""
+    from hicexplorer._cpp import build_parser
+    return build_parser('hicDetectLoops')
 
 
 def create_distance_distribution(pDataObsExp, pDistances, pWindowSize, pMinDistance, pMaxDistance, pQueue):
@@ -952,148 +870,7 @@ def read_threshold_file(pFile):
     return distance_value_dict
 
 
-def _main_python(args=None):
-    args = parse_arguments().parse_args(args)
-
-    if args.windowSize <= args.peakWidth:
-        log.error('The window size ({}) must be larger than the peakWidth ({})'.format(args.windowSize, args.peakWidth))
-        exit(1)
-    is_cooler = check_cooler(args.matrix)
-    if args.threadsPerChromosome < 1:
-        args.threadsPerChromosome = 1
-
-    mapped_loops = []
-
-    if not is_cooler:
-        hic_matrix = hm.hiCMatrix(args.matrix)
-        matrix = deepcopy(hic_matrix.matrix)
-        cut_intervals = deepcopy(hic_matrix.cut_intervals)
-
-    if args.chromosomes is None:
-        # get all chromosomes from cooler file
-        if not is_cooler:
-            chromosomes_list = list(hic_matrix.chrBinBoundaries)
-        else:
-            chromosome_sizes = cooler.Cooler(args.matrix).chromsizes
-
-            # shuffle the processing order of chromosomes.
-            # with this one large chromosome and 4 smalls are in a row
-            # peak memory is reduced and more chromosomes can be processed in parallel on low memory systems.
-            sorted_sizes_desc = chromosome_sizes.sort_values(ascending=False)
-
-            size = sorted_sizes_desc.size
-            chromosome_names_list = sorted_sizes_desc.index.tolist()
-            chromosomes_list = []
-            i = 0
-            j = args.threads  # biggest + thread smallest; 2nd biggest chr + 4 - 8 smallest
-            k = size - 1
-            while i < size:
-                chromosomes_list.append(chromosome_names_list[i])
-                while j > 0 and k > 0:
-                    if k == i:
-                        break
-                    chromosomes_list.append(chromosome_names_list[k])
-                    k -= 1
-                    j -= 1
-                j = args.threads - 1
-                if i == k:
-                    break
-                i += 1
-    else:
-        chromosomes_list = args.chromosomes
-
-    if len(chromosomes_list) < args.threads:
-        args.threads = len(chromosomes_list)
-    if len(chromosomes_list) == 1:
-        single_core = True
-    else:
-        single_core = False
-
-    fail_flag = False
-    fail_message = ''
-    if single_core:
-        for chromosome in chromosomes_list:
-            if is_cooler:
-                hic_matrix = hm.hiCMatrix(
-                    pMatrixFile=args.matrix, pChrnameList=[chromosome], pDistance=args.maxLoopDistance, pNoIntervalTree=True, pUpperTriangleOnly=True)
-            else:
-                hic_matrix.setMatrix(
-                    deepcopy(matrix), deepcopy(cut_intervals))
-                hic_matrix.keepOnlyTheseChr([chromosome])
-            loops = compute_loops(hic_matrix, chromosome, args, is_cooler)
-            if loops is None:
-                log.error('No loops could be detected. Please change your input parameters, use a matrix with a better read coverage or contact the develops on https://github.com/deeptools/HiCExplorer/issues')
-                exit(1)
-            if isinstance(loops, str) and 'Fail: ' in loops:
-                log.error(loops[6:])
-                exit(1)
-            if loops is not None:
-                mapped_loops.extend(loops)
-    else:
-        queue = [None] * args.threads
-        process = [None] * args.threads
-        all_data_processed = False
-        all_threads_done = False
-        thread_done = [False] * args.threads
-        count_call_of_read_input = 0
-        while not all_data_processed or not all_threads_done:
-            for i in range(args.threads):
-                if queue[i] is None and not all_data_processed:
-                    if count_call_of_read_input >= len(chromosomes_list):
-                        all_data_processed = True
-                        continue
-                    queue[i] = Queue()
-                    thread_done[i] = False
-                    process[i] = Process(target=compute_loops, kwargs=dict(
-                        pHiCMatrix=args.matrix,
-                        pRegion=chromosomes_list[count_call_of_read_input],
-                        pArgs=args,
-                        pIsCooler=is_cooler,
-                        pQueue=queue[i]
-                    ))
-                    process[i].start()
-
-                    if count_call_of_read_input < len(chromosomes_list):
-                        count_call_of_read_input += 1
-                    else:
-                        all_data_processed = True
-                elif queue[i] is not None and not queue[i].empty():
-                    result = queue[i].get()
-                    if result is not None and isinstance(result, str) and 'Fail: ' in result:
-                        fail_flag = True
-                        fail_message = result
-                    if result[0] is not None:
-                        mapped_loops.extend(result[0])
-
-                    queue[i] = None
-                    process[i].join()
-                    process[i].terminate()
-                    process[i] = None
-                    thread_done[i] = True
-                elif all_data_processed and queue[i] is None:
-                    thread_done[i] = True
-                else:
-                    time.sleep(1)
-
-            if all_data_processed:
-                all_threads_done = True
-                for thread in thread_done:
-                    if not thread:
-                        all_threads_done = False
-
-    if fail_flag:
-        if fail_message is not None:
-            log.error(fail_message[6:])
-        else:
-            log.error('An error occurred.')
-        exit(1)
-    if len(mapped_loops) > 0:
-        write_bedgraph(mapped_loops, args.outFileName)
-    log.info("Number of detected loops for all regions: {}".format(
-        len(mapped_loops)))
-
-
 def main(args=None):
-    """Run the C++ implementation; the Python implementation above is kept as _main_python."""
+    """Run the C++ implementation of hicDetectLoops with `args` (default sys.argv[1:])."""
     from hicexplorer._cpp import entry_point
-    return entry_point('hicDetectLoops', _main_python)(args)
+    return entry_point('hicDetectLoops')(args)

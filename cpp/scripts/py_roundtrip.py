@@ -12,8 +12,8 @@ cpp/PLAN.md 2.7 quirk 1 does not enter.
     py_roundtrip.py <input> <output> [--enforce-integer] [--no-symmetric]
                                      [--no-apply-correction]
 
-Run it with the reference venv interpreter named in cpp/AGENTS_CONTRACT.md and
-with PYTHONPATH pointing at the repository root.
+Run it with the reference interpreter named in cpp/AGENTS_CONTRACT.md and
+the upstream reference tree first on PYTHONPATH (reference_tree.py).
 """
 from __future__ import annotations
 

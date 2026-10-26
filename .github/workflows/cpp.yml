@@ -3,9 +3,9 @@ name: C++ (HiCExplorer v4)
 on:
   push:
     branches: [version4-cpp]
-    paths: ['cpp/**', 'hicexplorer/test/test_data/**', '.github/workflows/cpp.yml']
+    paths: ['cpp/**', 'plot/**', 'pyproject.toml', 'hicexplorer/_cpp.py', 'hicexplorer/test/test_data/**', '.github/workflows/cpp.yml']
   pull_request:
-    paths: ['cpp/**', 'hicexplorer/test/test_data/**', '.github/workflows/cpp.yml']
+    paths: ['cpp/**', 'plot/**', 'pyproject.toml', 'hicexplorer/_cpp.py', 'hicexplorer/test/test_data/**', '.github/workflows/cpp.yml']
   workflow_dispatch:
 
 concurrency:
@@ -91,8 +91,11 @@ jobs:
             pip wheel . --no-deps --no-build-isolation -w wheelhouse
           pip install --no-deps wheelhouse/*.whl
           cd "$RUNNER_TEMP"
+          # the command is the C++ executable itself, not a Python console script
+          test "$(head -c 2 "$(command -v hicInfo)")" != '#!'
           hicInfo --version
           hicInfo -m "$GITHUB_WORKSPACE/hicexplorer/test/test_data/small_test_matrix.h5"
+          python -c "from hicexplorer import _cpp; print(_cpp.find_executable('hicInfo'))"
 
   windows:
     name: ${{ matrix.name }} (experimental)

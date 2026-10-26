@@ -2434,9 +2434,12 @@ cpp/scripts/equiv.py report   [--out DIR] [--format {md,json}]
 cpp/scripts/equiv.py list     [--tool NAME]
 ```
 
-- `--cpp-bin` defaults to `cpp/build/tools`; `--py-python` defaults to the venv
-  in the contract; `PYTHONPATH` is set to the repo root so the *repo* Python
-  runs, not the installed 3.7.6 package.
+- `--cpp-bin` defaults to `cpp/build/tools`; `--py-python` defaults to the
+  conda env in the contract; `PYTHONPATH` of the reference processes starts
+  with the upstream reference tree (`reference_tree.py`, upstream `c2ad8630`
+  extracted outside the repository, `--reference-root`), so neither the repo's
+  thin package nor the installed 3.7.6 package runs as the reference.
+  (Revised 2026-10-26, when the Python implementations left the package.)
 - `--jobs` runs cases in parallel, each in its own temporary work directory
   under `$TMPDIR`, never under the repo. (Revised 2026-09-15, contract rule 13.)
   - **Default:** `--jobs auto`, half the physical cores.

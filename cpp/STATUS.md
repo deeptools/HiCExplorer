@@ -372,6 +372,20 @@ shell).
     executables, so the harness reference runs the original implementation
     through `cpp/scripts/reference_bin/<tool>` (`_main_python`, selected by
     `HICX_REFERENCE_PYTHON=1`) instead of `bin/<tool>`.
+  - **Equivalence reference out of the package, 2026-10-26:** the package
+    holds no Python implementation of a tool any more (`_main_python` and
+    `HICX_REFERENCE_PYTHON` are gone). The reference is upstream HiCExplorer at
+    the fork point `c2ad8630`, extracted by `cpp/scripts/reference_tree.py`
+    (`git archive c2ad8630 hicexplorer`, without `hicexplorer/test`) into a
+    reference root outside the repository, by default
+    `~/.cache/hicexplorer-equiv/reference/c2ad8630c48e-<version>`, created on
+    demand; `--reference-root` or `HICX_REFERENCE_ROOT` choose another. Only
+    the reference processes have that tree first on PYTHONPATH, and every
+    reference entry point fails unless `hicexplorer` was imported from it
+    (the conda env's site-packages also holds a released 3.7.6). One overlay:
+    `_version.py` carries the version under test, as the in-package reference
+    did, because outputs embed the version. `tool_specs.py` reads the
+    reference parsers from the same tree.
   - **Later CHiCAGO work, 2026-09 (merged, see `git log`):**
     - `hicConvertFormat --inputFormat chinput --rmap RMAP` writes a `.chinput`
       file as a matrix (`hicx::chicago::matrix_from_chinput`, one bin per

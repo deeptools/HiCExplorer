@@ -1,3 +1,9 @@
+"""hicValidateLocations: a thin layer over the C++ executable hicValidateLocations.
+
+main() runs the executable and parse_arguments() is built from its --help-json
+(hicexplorer._cpp). The other names of this module are kept for API
+compatibility and are not used by the tool.
+"""
 import warnings
 warnings.simplefilter(action="ignore", category=RuntimeWarning)
 warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
@@ -16,68 +22,9 @@ import cooler
 
 
 def parse_arguments(args=None):
-
-    parser = argparse.ArgumentParser(
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        add_help=False,
-        description="""
-This script overlaps the loop locations with protein locations to determine the accuracy of the loop detection.
-Loops need to have format as follows:
-
-`chr start end chr start end`
-
-The protein peaks need to be in narrowPeaks or broadPeak format.
-
-A protein match is successfull if at the bin of the x and y location a protein peak is overlapped.
-A bin is assumed to have a protein if one or more protein peaks falling within the bin region.
-The value of the protein is not considered, only match or non-match.
-""")
-
-    parserRequired = parser.add_argument_group('Required arguments')
-
-    parserRequired.add_argument('--data', '-d',
-                                help='The loop file from hicDetectLoops. To use files from other sources, '
-                                'please follow \'chr start end chr start end\' format. For TAD data use the boundaries.bed file and not the domains file!',
-                                required=True)
-    parserRequired.add_argument('--validationData', '-vd',
-                                help='The data file to validate the given locations. Can be narrowPeak, broadPeak (both in bed), or cool',
-                                required=True)
-    parserRequired.add_argument('--validationType', '-vt',
-                                help='The type of the validation data. Can be bed, or cool format',
-                                choices=['bed', 'cool'],
-                                default='bed')
-    parserRequired.add_argument('--method', '-m',
-                                help='The method used (for the moment only loop is possible)'
-                                ' (Default: %(default)s).',
-                                choices=['loops', 'tad'],
-                                default='loops')
-    parserRequired.add_argument('--resolution', '-r',
-                                help='The used resolution of the Hi-C interaction matrix.',
-                                required=True,
-                                type=int)
-    parserOpt = parser.add_argument_group('Optional arguments')
-    parserOpt.add_argument('--outFileName', '-o',
-                           help='The prefix name of the output files. Two file are written: output_matched_locations and output_statistics.'
-                           'First file contains all loop locations with protein location matches, second file contains statistics about this matching.'
-                           )
-    parserOpt.add_argument('--chrPrefixLoops', '-cl',
-                           help='Adding / removing / do nothing a \'chr\'-prefix to chromosome name of the loops.',
-                           choices=[None, 'add', 'remove'],
-                           default=None
-                           )
-    parserOpt.add_argument('--chrPrefixProtein', '-cp',
-                           help='Adding / removing / do nothing a \'chr\'-prefix to chromosome name of the protein.',
-                           choices=[None, 'add', 'remove'],
-                           default=None
-                           )
-
-    parserOpt.add_argument('--help', '-h', action='help',
-                           help='show this help message and exit')
-
-    parserOpt.add_argument('--version', action='version',
-                           version='%(prog)s {}'.format(__version__))
-
-    return parser
+    """The argparse parser of hicValidateLocations, built from the C++ executable's --help-json."""
+    from hicexplorer._cpp import build_parser
+    return build_parser('hicValidateLocations')
 
 
 def readThreeColumn(pFile, pChrPrefixProtein):
@@ -189,102 +136,7 @@ def writeLoopFile(pOutFileName, pLoopDataFrame):
     pLoopDataFrame.to_csv(pOutFileName, sep='\t', header=False, index=False)
 
 
-def _main_python(args=None):
-
-    args = parse_arguments().parse_args(args)
-
-    if args.method == 'loops':
-
-        loop_df = readLoopFile(args.data, args.chrPrefixLoops)
-        if loop_df is None:
-            log.error('Empty loop file')
-            return
-        loop_df_bedtool = BedTool.from_dataframe(loop_df)
-        loop_df = loop_df_bedtool.sort().to_dataframe(
-            disable_auto_names=True, header=None)
-        if args.validationType == 'bed':
-            protein_df = readThreeColumn(args.validationData, args.chrPrefixProtein)
-            if protein_df is None:
-                log.error('Empty protein file')
-                return
-            protein_df_bedtool = BedTool.from_dataframe(protein_df)
-            protein_df = protein_df_bedtool.sort().to_dataframe(
-                disable_auto_names=True, header=None)
-
-            protein_df_resolution = applyBinning(protein_df, args.resolution)
-
-            overlap_mask_df = overlapLoop(loop_df, protein_df_resolution)
-            loop_df_ = loop_df[overlap_mask_df]
-
-            number_of_proteins = len(protein_df_resolution)
-        elif args.validationType == 'cool':
-            number_of_proteins, overlap_mask_df = correlateCool(args.validationData, loop_df)
-            loop_df_ = loop_df[overlap_mask_df]
-
-        print('Protein peaks: {}'.format(number_of_proteins))
-        print('Matched Loops: {}'.format(len(loop_df_)))
-        print('Total Loops: {}'.format(len(loop_df)))
-
-        print('Loops match protein: {}'.format(len(loop_df_) / len(loop_df)))
-
-        if args.outFileName:
-            loop_df_ = loop_df[overlap_mask_df]
-            writeLoopFile(args.outFileName + '_matched_locations', loop_df_)
-
-            with open(args.outFileName + '_statistics', 'w') as file:
-                file.write(
-                    '# HiCExplorer hicValidateLocations {}\n'.format(__version__))
-                file.write('# Overlap of loop file {} with protein file {}\n#\n'.format(
-                    args.data, args.validationData))
-                file.write('Protein peaks: {}\n'.format(
-                    number_of_proteins))
-                file.write('Matched Loops: {}\n'.format(len(loop_df_)))
-                file.write('Total Loops: {}\n'.format(len(loop_df)))
-                file.write('Loops match protein: {}\n'.format(
-                    len(loop_df_) / len(loop_df)))
-    elif args.method == 'tad':
-        tad_df = readThreeColumn(args.data, args.chrPrefixLoops)
-        protein_df = readThreeColumn(args.validationData, args.chrPrefixProtein)
-
-        tad_df_bedtool = BedTool.from_dataframe(tad_df)
-        tad_df = tad_df_bedtool.sort().to_dataframe(
-            disable_auto_names=True, header=None)
-
-        protein_df_bedtool = BedTool.from_dataframe(protein_df)
-        protein_df = protein_df_bedtool.sort().to_dataframe(
-            disable_auto_names=True, header=None)
-
-        tad_df_resolution = applyBinning(tad_df, args.resolution, pMerge=False)
-        protein_df_resolution = applyBinning(protein_df, args.resolution)
-        log.debug('tad_df_resolution {}'.format(tad_df_resolution))
-        log.debug('protein_df_resolution {}'.format(protein_df_resolution))
-
-        overlap_mask_df = overlapTAD(tad_df_resolution, protein_df_resolution).to_frame()
-
-        tad_df_ = tad_df[overlap_mask_df['name']]
-
-        print('Protein peaks: {}'.format(len(protein_df_resolution)))
-        print('Matched TADs: {}'.format(len(tad_df_)))
-        print('Total TADs: {}'.format(len(tad_df)))
-
-        print('TADs match protein: {}'.format(len(tad_df_) / len(tad_df)))
-        if args.outFileName:
-            with open(args.outFileName + '_statistics', 'w') as file:
-                file.write(
-                    '# HiCExplorer hicValidateLocations {}\n'.format(__version__))
-                file.write('# Overlap of TAD file {} with protein file {}\n#\n'.format(
-                    args.data, args.validationData))
-                file.write('Protein peaks: {}\n'.format(
-                    len(protein_df_resolution)))
-                file.write('Matched Loops: {}\n'.format(len(tad_df_)))
-                file.write('Total Loops: {}\n'.format(len(tad_df)))
-                file.write('Loops match protein: {}\n'.format(
-                    len(tad_df_) / len(tad_df)))
-
-            tad_df_.to_csv(args.outFileName, sep='\t', header=False, index=False)
-
-
 def main(args=None):
-    """Run the C++ implementation; the Python implementation above is kept as _main_python."""
+    """Run the C++ implementation of hicValidateLocations with `args` (default sys.argv[1:])."""
     from hicexplorer._cpp import entry_point
-    return entry_point('hicValidateLocations', _main_python)(args)
+    return entry_point('hicValidateLocations')(args)

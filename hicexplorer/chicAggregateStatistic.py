@@ -1,3 +1,9 @@
+"""chicAggregateStatistic: a thin layer over the C++ executable chicAggregateStatistic.
+
+main() runs the executable and parse_arguments() is built from its --help-json
+(hicexplorer._cpp). The other names of this module are kept for API
+compatibility and are not used by the tool.
+"""
 import argparse
 import sys
 import errno
@@ -21,46 +27,9 @@ from .lib import Viewpoint
 
 
 def parse_arguments(args=None):
-    parser = argparse.ArgumentParser(add_help=False,
-                                     formatter_class=argparse.RawDescriptionHelpFormatter,
-                                     description="""
-chicAggregateStatistic is a preprocessing tool for chicDifferentialTest. It takes two consecutive viewpoint files and one target file and creates one
-file containing all locations which should be tested for differential interactions. Either one target file for two consecutive viewpoint files or one
-target file for all viewpoints is accepted.
-"""
-                                     )
-    parserRequired = parser.add_argument_group('Required arguments')
-
-    parserRequired.add_argument('--interactionFile', '-if',
-                                help='path to the interaction files which should be used for aggregation of the statistics.',
-                                required=True)
-
-    parserRequired.add_argument('--targetFile', '-tf',
-                                help='path to the target files which contains the target regions to prepare data for differential analysis. This is either the target file in the hdf format created by chicSignificantInteractions or a regular, three column bed file.'
-                                )
-
-    parserOpt = parser.add_argument_group('Optional arguments')
-
-    parserOpt.add_argument('--outFileName', '-o',
-                           help='File name to save the result'
-                           ' (Default: %(default)s).',
-                           required=False,
-                           default='aggregate_target.hdf')
-
-    parserOpt.add_argument('--threads', '-t',
-                           help='Number of threads (uses the python multiprocessing module)ist'
-                           ' (Default: %(default)s).',
-                           required=False,
-                           default=4,
-                           type=int
-                           )
-
-    parserOpt.add_argument("--help", "-h", action="help",
-                           help="show this help message and exit")
-
-    parserOpt.add_argument('--version', action='version',
-                           version='%(prog)s {}'.format(__version__))
-    return parser
+    """The argparse parser of chicAggregateStatistic, built from the C++ executable's --help-json."""
+    from hicexplorer._cpp import build_parser
+    return build_parser('chicAggregateStatistic')
 
 
 def filter_scores_target_list(pScoresDictionary, pTargetFType, pTargetPosDict, pTargetList=None, pTargetIntervalTree=None, pTargetFile=None):
@@ -315,83 +284,7 @@ def call_multi_core(pInteractionFilesList, pTargetFileList, pTargetFType, pTarge
     return outfile_names_list, accepted_scores_list
 
 
-def _main_python(args=None):
-    args = parse_arguments().parse_args(args)
-    viewpointObj = Viewpoint()
-
-    interactionList = []
-    interactionDict = {}
-
-    targetList = []
-    present_genes = {}
-    target_ftype = ''
-    targetPosDict = None
-    # read hdf file
-    interactionFileHDF5Object = h5py.File(args.interactionFile, 'r')
-    keys_interactionFile = list(interactionFileHDF5Object.keys())
-
-    if h5py.is_hdf5(args.targetFile):
-        targetDict, present_genes = viewpointObj.readTargetHDFFile(args.targetFile)
-        target_ftype = 'hdf5'
-
-    else:
-        with open(args.targetFile) as file:
-            for line in file.readlines():
-                if line.startswith('#'):
-                    continue
-                _line = line.strip().split('\t')
-                break
-        if len(_line) == 4:
-            log.info('Targets BED contains 4 columns, aggregating on column 4')
-            target_ftype = 'bed4'
-            present_genes, targetDict, targetPosDict = utilities.readTargetBed(args.targetFile)
-        elif len(_line) == 3:
-            targetList = [args.targetFile]
-            target_ftype = 'bed3'
-        else:
-            log.error('BED of targets list must have 3 or 4 columns')
-
-    if len(keys_interactionFile) > 1:
-
-        for i, sample in enumerate(keys_interactionFile):
-            for sample2 in keys_interactionFile[i + 1:]:
-
-                matrix_obj1 = interactionFileHDF5Object[sample]
-                matrix_obj2 = interactionFileHDF5Object[sample2]
-
-                chromosomeList1 = sorted(list(matrix_obj1.keys()))
-                chromosomeList2 = sorted(list(matrix_obj2.keys()))
-                chromosomeList1.remove('genes')
-                chromosomeList2.remove('genes')
-                for chromosome1, chromosome2 in zip(chromosomeList1, chromosomeList2):
-                    geneList1 = sorted(list(matrix_obj1[chromosome1].keys()))
-                    geneList2 = sorted(list(matrix_obj2[chromosome2].keys()))
-
-                    for gene1, gene2 in zip(geneList1, geneList2):
-                        if target_ftype != 'bed3':
-                            if gene1 in present_genes[sample][sample2]:
-                                interactionDict[gene1] = [[sample, chromosome1, gene1], [sample2, chromosome2, gene2]]
-                        else:
-                            interactionList.append([[sample, chromosome1, gene1], [sample2, chromosome2, gene2]])
-    else:
-        log.error('To aggregate and prepare the data for the differential test, at least two matrices need to be stored, but only one is present.')
-
-    interactionFileHDF5Object.close()
-
-    if target_ftype != 'bed3':
-        key_outer_matrix = present_genes.keys()
-        for keys_outer in key_outer_matrix:
-            keys_inner_matrix = present_genes[keys_outer].keys()
-            for keys_inner in keys_inner_matrix:
-                for gene in present_genes[keys_outer][keys_inner]:
-                    interactionList.append(interactionDict[gene])
-                    targetList.append(targetDict[gene])
-
-    outfile_names_list, accepted_scores_list = call_multi_core(interactionList, targetList, target_ftype, targetPosDict, run_target_list_compilation, args, viewpointObj)
-    writeAggregateHDF(args.outFileName, outfile_names_list, accepted_scores_list, args)
-
-
 def main(args=None):
-    """Run the C++ implementation; the Python implementation above is kept as _main_python."""
+    """Run the C++ implementation of chicAggregateStatistic with `args` (default sys.argv[1:])."""
     from hicexplorer._cpp import entry_point
-    return entry_point('chicAggregateStatistic', _main_python)(args)
+    return entry_point('chicAggregateStatistic')(args)

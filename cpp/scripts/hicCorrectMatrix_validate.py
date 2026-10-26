@@ -190,7 +190,11 @@ def run(argv, out_path, label):
     marker = tempfile.NamedTemporaryFile(delete=False)
     marker.close()
     command = ["/usr/bin/time", "-f", "%U %S %M", "-o", marker.name] + argv
-    environment = dict(os.environ, PYTHONPATH=str(REPO_ROOT))
+    # The reference runs see the upstream reference tree (reference_tree.py)
+    # first on PYTHONPATH; the C++ runs need no PYTHONPATH and get the same.
+    sys.path.insert(0, str(SCRIPT_DIR))
+    import reference_tree  # pylint: disable=C0415
+    environment = reference_tree.environment(reference_tree.ensure())
     started = time.perf_counter()
     completed = subprocess.run(command, capture_output=True, text=True,
                                env=environment, cwd=str(REPO_ROOT), check=False)

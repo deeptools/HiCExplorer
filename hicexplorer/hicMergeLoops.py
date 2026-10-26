@@ -1,3 +1,9 @@
+"""hicMergeLoops: a thin layer over the C++ executable hicMergeLoops.
+
+main() runs the executable and parse_arguments() is built from its --help-json
+(hicexplorer._cpp). The other names of this module are kept for API
+compatibility and are not used by the tool.
+"""
 import warnings
 warnings.simplefilter(action="ignore", category=RuntimeWarning)
 warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
@@ -14,51 +20,9 @@ from hicexplorer._version import __version__
 
 
 def parse_arguments(args=None):
-
-    parser = argparse.ArgumentParser(
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        add_help=False,
-        description="""
-This script merges the locations of loops detected at several resolutions.
-
-Loops in the inputFiles need to have the following format:
-
-chr start end chr start end
-
-Loops are merged if the x and y position of a loop overlap with the x and y position of another loop; all loops are considered as an overlap within +/- the bin size of the lowest resolution.
-I.e. for a loop with coordinates x and y, the overlap with all other loops is checked for (x - lowest resolution) and (y + lowest resolution).
-If two or more locations are to be merged, the loop at the lowest resolution is taken as the merged loop.
-
-Example usage:
-
-`$ hicMergeLoops -i gm12878_10kb.bedgraph gm12878_5kb.bedgraph gm12878_25kb.bedgraph -o merged_result.bedgraph -r 25000`
-
-Please recall: We work with binned data i.e. the lowest resolution is therefore the one where we merge the most bases into one bin. In the above example the lowest resultion is 25kb, the highest resolution is 5kb.
-""")
-
-    parserRequired = parser.add_argument_group('Required arguments')
-
-    parserRequired.add_argument('--inputFiles', '-i',
-                                help='The loop files from hicDetectLoops. To use files from other sources, '
-                                'please follow \'chr start end chr start end\' format and remove any header.',
-                                required=True,
-                                nargs='+')
-    parserRequired.add_argument('--outFileName', '-o',
-                                help='The name of the merged loop file.',
-                                required=True)
-    parserRequired.add_argument('--lowestResolution', '-r',  # loop or domain
-                                help='The lowest resolution of all loop files, i.e. 5kb, 10kb and 25kb, please use 25000.',
-                                required=True,
-                                type=int)
-    parserOpt = parser.add_argument_group('Optional arguments')
-
-    parserOpt.add_argument('--help', '-h', action='help',
-                           help='show this help message and exit')
-
-    parserOpt.add_argument('--version', action='version',
-                           version='%(prog)s {}'.format(__version__))
-
-    return parser
+    """The argparse parser of hicMergeLoops, built from the C++ executable's --help-json."""
+    from hicexplorer._cpp import build_parser
+    return build_parser('hicMergeLoops')
 
 
 def mergeLoops(pDataFrame, pLowestResolution, pTupleX, pTupleY):
@@ -142,38 +106,7 @@ def readFile(pFile):
     return pd.read_csv(pFile, sep='\t', header=None)
 
 
-def _main_python(args=None):
-    args = parse_arguments().parse_args(args)
-
-    lowest_resolution = args.lowestResolution
-
-    files = args.inputFiles
-    outfile_name = args.outFileName
-
-    dataframe = None
-
-    for file in files:
-        if dataframe is None:
-            dataframe = readFile(file)
-        else:
-            dataframe = pd.concat([dataframe, readFile(file)])
-
-    dataframe_bedtool = BedTool.from_dataframe(dataframe)
-    dataframe = dataframe_bedtool.sort().to_dataframe(
-        disable_auto_names=True, header=None)
-
-    dataframe.drop_duplicates(keep=False, inplace=True)
-
-    tuples_x = [tuple(x) for x in dataframe[[0, 1, 2]].values]
-    tuples_y = [tuple(x) for x in dataframe[[3, 4, 5]].values]
-
-    result_list_index = mergeLoops(
-        dataframe, lowest_resolution, tuples_x, tuples_y)
-    result_dataframe = dataframe.iloc[sorted(result_list_index), :]
-    result_dataframe.to_csv(outfile_name, sep='\t', header=False, index=False)
-
-
 def main(args=None):
-    """Run the C++ implementation; the Python implementation above is kept as _main_python."""
+    """Run the C++ implementation of hicMergeLoops with `args` (default sys.argv[1:])."""
     from hicexplorer._cpp import entry_point
-    return entry_point('hicMergeLoops', _main_python)(args)
+    return entry_point('hicMergeLoops')(args)

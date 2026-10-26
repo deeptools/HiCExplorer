@@ -1,3 +1,9 @@
+"""hicSumMatrices: a thin layer over the C++ executable hicSumMatrices.
+
+main() runs the executable and parse_arguments() is built from its --help-json
+(hicexplorer._cpp). The other names of this module are kept for API
+compatibility and are not used by the tool.
+"""
 import warnings
 warnings.simplefilter(action="ignore", category=RuntimeWarning)
 warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
@@ -10,71 +16,12 @@ log = logging.getLogger(__name__)
 
 
 def parse_arguments(args=None):
-
-    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-                                     add_help=False,
-                                     description=('Adds Hi-C matrices of the same size. Format '
-                                                  'has to be hdf5 (.h5) or npz. In order to minimize the '
-                                                  'the loss of information, it is recommended to '
-                                                  'to sum uncorrected matrices (before hicCorrectMatrix).'))
-
-    parserRequired = parser.add_argument_group('Required arguments')
-
-    parserRequired.add_argument('--matrices', '-m',
-                                help='Space-delimited names of the matrices to add. The matrices must have the same shape/size. '
-                                'You can verify their size by using `hicInfo`.',
-                                metavar='.h5 or cooler file format',
-                                nargs='+',
-                                required=True)
-
-    parserRequired.add_argument('--outFileName', '-o',
-                                help='File name to save the resulting matrix. The output is from the same file type '
-                                'as the input. Please add the file ending suffix (either .h5 or .cool), if it is not given, '
-                                'there will be no output.',
-                                required=True)
-
-    parserOpt = parser.add_argument_group('Optional arguments')
-
-    parserOpt.add_argument("-h", "--help", action="help", help="show this help message and exit")
-    parserOpt.add_argument('--version', action='version',
-                           version='%(prog)s {}'.format(__version__))
-
-    return parser
-
-
-def _main_python(args=None):
-    args = parse_arguments().parse_args(args)
-
-    hic = hm.hiCMatrix(args.matrices[0])
-    summed_matrix = hic.matrix
-    nan_bins = set(hic.nan_bins)
-    for matrix in args.matrices[1:]:
-        hic_to_append = hm.hiCMatrix(matrix)
-        if hic.chrBinBoundaries != hic_to_append.chrBinBoundaries:
-            log.error("The two matrices have different chromosome order. Use the tool `hicConvertFormat` to change the order.\n"
-                      "{}: {}\n"
-                      "{}: {}".format(args.matrices[0], list(hic.chrBinBoundaries),
-                                      matrix, list(hic_to_append.chrBinBoundaries)))
-            exit(1)
-
-        try:
-            summed_matrix = summed_matrix + hic_to_append.matrix
-            if len(hic_to_append.nan_bins):
-                nan_bins = nan_bins.union(hic_to_append.nan_bins)
-        except Exception:
-            log.exception(
-                "\nMatrix {} seems to be corrupted or of different shape".format(matrix))
-            exit(1)
-
-    # save only the upper triangle of the
-    # symmetric matrix
-    hic.setMatrixValues(summed_matrix)
-    hic.maskBins(sorted(nan_bins))
-    hic.save(args.outFileName)
-    return
+    """The argparse parser of hicSumMatrices, built from the C++ executable's --help-json."""
+    from hicexplorer._cpp import build_parser
+    return build_parser('hicSumMatrices')
 
 
 def main(args=None):
-    """Run the C++ implementation; the Python implementation above is kept as _main_python."""
+    """Run the C++ implementation of hicSumMatrices with `args` (default sys.argv[1:])."""
     from hicexplorer._cpp import entry_point
-    return entry_point('hicSumMatrices', _main_python)(args)
+    return entry_point('hicSumMatrices')(args)

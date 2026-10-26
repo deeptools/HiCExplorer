@@ -3,15 +3,17 @@
 committed test BAM files (cpp/PLAN.md tier 9, item 9.2, class EX).
 
     cd <repository root>
-    PYTHONPATH=. $VENV/bin/python cpp/scripts/make_bam_route_pairs.py \\
+    REF=$($PY cpp/scripts/reference_tree.py | cut -f1)
+    HICX_REFERENCE_ROOT=$REF PYTHONPATH=$REF $PY cpp/scripts/make_bam_route_pairs.py \\
         --mode {valid,all} --order {sorted,input} [--columns {full,reserved}] \\
         [--chrom-names {chrom,chr}] --out hicexplorer/test/test_data/hicBuildMatrix/pairs/NAME \\
         -- <hicBuildMatrix arguments>
 
 The hicBuildMatrix arguments write {data} for hicexplorer/test/test_data, and
 leave out --outFileName, --QCfolder, --outBam and --threads. An --out name
-ending in .gz is bgzip compressed. $VENV is the reference venv of
-cpp/AGENTS_CONTRACT.md. Every read ID is written as '.', which the
+ending in .gz is bgzip compressed. $PY is the reference interpreter of
+cpp/AGENTS_CONTRACT.md, and $REF the upstream reference tree whose
+hicBuildMatrix the script runs (reference_tree.py). Every read ID is written as '.', which the
 specification allows, to keep the files small.
 
 --mode valid
@@ -311,4 +313,6 @@ def main():
 
 
 if __name__ == "__main__":
+    import reference_tree  # the reference tree, not the package (reference_tree.py)
+    reference_tree.check_imported()
     main()
