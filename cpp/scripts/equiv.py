@@ -336,6 +336,7 @@ _REFERENCE_ROOT_OPTION = None
 def reference_root():
     return reference_tree.ensure(_REFERENCE_ROOT_OPTION)
 
+
 # Class EN (PLAN.md 5.7) reruns the Python tool through this runner, which can
 # switch on a declared, seeded source of the reference's own nondeterminism.
 NOISE_RUNNER = SCRIPT_DIR / "noise_runner.py"
@@ -448,6 +449,11 @@ def python_environment():
     return env
 
 
+def reference_roots(data):
+    """The roots a reference output may embed, rewritten on a cache restore."""
+    return {"data": data, "repo": str(REPO_ROOT), "reference": str(reference_root())}
+
+
 def cache_for(options):
     cache = getattr(options, "_reference_cache", None)
     if cache is None:
@@ -529,8 +535,7 @@ def run_python_side(case, options, workdir, data, env):
         if mode == "use":
             meta = cache_for(options).lookup(side["key"])
             if meta is not None and cache_for(options).restore(
-                    meta, workdir, roots={"data": data, "repo": str(REPO_ROOT),
-                           "reference": str(reference_root())}):
+                    meta, workdir, roots=reference_roots(data)):
                 measurement = Measurement(meta["measurement"])
                 measurement["command"] = " ".join(shlex.quote(part) for part in argv)
                 side.update(cached=True, measurement=measurement,
@@ -575,8 +580,7 @@ def run_python_side(case, options, workdir, data, env):
     if mode != "off" and healthy and not _STOPPING.is_set():
         cache_for(options).store(side["key"], document, workdir, measurement,
                                  side["noise_record"],
-                                 roots={"data": data, "repo": str(REPO_ROOT),
-                           "reference": str(reference_root())})
+                                 roots=reference_roots(data))
         side["stored"] = True
     return side
 
