@@ -136,26 +136,39 @@ bool write_all(int fd, const std::string& text) {
     return true;
 }
 
-// <directory of the binary>/../plot, when it holds the package.
-void prepend_package_path() {
+// The directory of the running executable, or "" when unknown.
+std::string binary_directory() {
     char exe[PATH_MAX];
     const ssize_t n = ::readlink("/proc/self/exe", exe, sizeof exe - 1);
     if (n <= 0) {
-        return;
+        return {};
     }
     exe[n] = '\0';
     const std::string path(exe);
     const std::string::size_type slash = path.rfind('/');
-    if (slash == std::string::npos) {
+    return slash == std::string::npos ? std::string() : path.substr(0, slash);
+}
+
+// The drawing package next to the binary: <bin>/../plot (the build tree,
+// where cpp/tools/CMakeLists.txt copies it) or <bin>/../share/hicexplorer/plot
+// (the wheel and install layout of cmake/HicxInstall.cmake).
+void prepend_package_path() {
+    const std::string binary_dir = binary_directory();
+    if (binary_dir.empty()) {
         return;
     }
-    const std::string binary_dir = path.substr(0, slash);
     const std::string::size_type parent_slash = binary_dir.rfind('/');
     const std::string root =
         parent_slash == std::string::npos ? std::string(".") : binary_dir.substr(0, parent_slash);
-    const std::string package = root + "/plot";
-    struct stat info {};
-    if (::stat((package + "/hicexplorer_plot/__main__.py").c_str(), &info) != 0) {
+    std::string package;
+    for (const std::string candidate : {root + "/plot", root + "/share/hicexplorer/plot"}) {
+        struct stat info {};
+        if (::stat((candidate + "/hicexplorer_plot/__main__.py").c_str(), &info) == 0) {
+            package = candidate;
+            break;
+        }
+    }
+    if (package.empty()) {
         return;
     }
     const char* old = std::getenv("PYTHONPATH");
@@ -205,8 +218,17 @@ namespace {
 // the BLAS thread caps set in this process's environment, which the checking
 // and the drawing process inherit.
 std::string prepare_drawing_environment() {
+    // Without HICX_PLOT_PYTHON: the python3 installed next to the executable
+    // (the environment the package was installed into, also when it is not
+    // activated), else python3 on PATH.
     const char* configured = std::getenv("HICX_PLOT_PYTHON");
-    std::string python = configured != nullptr && *configured != '\0' ? configured : "python3";
+    std::string python = "python3";
+    if (configured != nullptr && *configured != '\0') {
+        python = configured;
+    } else if (const std::string dir = binary_directory(); !dir.empty() &&
+               ::access((dir + "/python3").c_str(), X_OK) == 0) {
+        python = dir + "/python3";
+    }
     prepend_package_path();
     // The drawing process does no linear algebra, but numpy's OpenBLAS starts
     // one spinning thread per core at import. Measured on hicPlotAverageRegions
