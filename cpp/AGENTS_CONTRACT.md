@@ -24,26 +24,36 @@ Dependencies live in the shared conda env
 `~/miniconda3/envs/__hicexplorer@3.7.6`. Conda/mamba installs into it are
 forbidden (it is used by Galaxy jobs and the local conda solver is broken).
 
-A throwaway venv layered on top of it provides pytest without polluting it:
+The reference implementation is not the repository's `hicexplorer` package
+(a thin layer over the C++ executables) but upstream HiCExplorer at the fork
+point `c2ad8630`, extracted outside the repository by
+`cpp/scripts/reference_tree.py` (default
+`~/.cache/hicexplorer-equiv/reference/c2ad8630c48e-<version>`, created on
+demand; `--reference-root` or `HICX_REFERENCE_ROOT`). Run a reference tool:
+
+```
+PY=~/miniconda3/envs/__hicexplorer@3.7.6/bin/python3
+REF=$($PY cpp/scripts/reference_tree.py | cut -f1)
+HICX_REFERENCE_ROOT=$REF PYTHONPATH=$REF $PY cpp/scripts/reference_bin/hicInfo -m <matrix>
+```
+
+PYTHONPATH must name the reference root: the env's site-packages holds a
+released hicexplorer 3.7.6, and the reference entry points refuse to run on
+any `hicexplorer` but the reference root's.
+
+A throwaway venv layered on top of the env provides pytest without polluting it:
 
 ```
 SP=/tmp/claude-1000167729/-home-mh-hannover-local-wolffjoa/3de46a4d-41bb-4fb9-aea9-26cceef9ad01/scratchpad
 $SP/hicx-venv/bin/python        # python 3.12, all HiCExplorer deps + pytest 9
 ```
 
-Run a reference tool on the v4 tree like this (the repo code, not the installed
-3.7.6 package):
+Run the Python test suite (the package's tools run the C++ executables, found
+through `HICX_BIN_DIR`):
 
 ```
 cd ~/src/HiCExplorer-v4
-PYTHONPATH=$PWD $SP/hicx-venv/bin/python bin/hicInfo -m <matrix>
-```
-
-Run the Python test suite the same way:
-
-```
-cd ~/src/HiCExplorer-v4
-PYTHONPATH=$PWD $SP/hicx-venv/bin/python -m pytest hicexplorer/test/general/test_hicInfo.py -q
+HICX_BIN_DIR=$PWD/build/tools PYTHONPATH=$PWD $SP/hicx-venv/bin/python -m pytest hicexplorer/test/general/test_hicInfo.py -q
 ```
 
 ### C++ build dependencies

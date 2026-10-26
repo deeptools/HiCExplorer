@@ -4,8 +4,8 @@
 
     py_pairs_bam_route_reference.py <hicBuildMatrix --pairsFile arguments>
 
-Run it as equiv.py runs every py_script: with the reference venv interpreter
-and PYTHONPATH at the repository root.
+Run it as equiv.py runs every py_script: with the reference interpreter and
+the upstream reference tree first on PYTHONPATH (reference_tree.py).
 
 The .pairs file must be one that cpp/scripts/make_bam_route_pairs.py --mode
 valid wrote: it carries exactly the read pairs the Python hicBuildMatrix keeps
@@ -114,4 +114,6 @@ def main(argv):
 
 
 if __name__ == "__main__":
+    import reference_tree  # the reference tree, not the package (reference_tree.py)
+    reference_tree.check_imported()
     sys.exit(main(sys.argv[1:]))

@@ -4,8 +4,9 @@
 
     py_pairs_cooler_reference.py <hicBuildMatrix --pairsFile arguments>
 
-Run it as equiv.py runs every py_script: with the reference venv interpreter
-(cooler 0.10.2) and PYTHONPATH at the repository root.
+Run it as equiv.py runs every py_script: with the reference interpreter
+(cooler 0.10.2) and the upstream reference tree first on PYTHONPATH
+(reference_tree.py).
 
 cooler bins every pair of a file. hicBuildMatrix --pairsFile first applies the
 filters that its pairs route keeps (build_matrix_pairs_impl.hpp, P1 to P4), so

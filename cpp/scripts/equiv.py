@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 """Python versus C++ equivalence harness for HiCExplorer v4.
 
-Runs the same case against the 3.7.6 Python tool and against the C++ port,
+Runs the same case against the Python reference tool and against the C++ port,
 compares every declared output with the comparator for its format at the
 equivalence class the case declares, and then applies three resource gates:
 memory, CPU time and determinism.
 
     cpp/scripts/equiv.py run          [--tool NAME]... [--tier N]... [--case ID]...
                                       [--cpp-bin DIR] [--py-python PATH] [--jobs N]
+                                      [--reference-root DIR]
                                       [--out DIR] [--keep-workdirs]
                                       [--skip-memory-gate] [--skip-time-gate]
                                       [--determinism] [--noise-runs N]
@@ -19,12 +20,18 @@ memory, CPU time and determinism.
 
 Cases live in cpp/scripts/cases/<tool>.json. See cpp/PLAN.md section 9 for the
 specification this implements. A case normally names a `tool` and the runner
-executes bin/<tool> against <cpp-bin>/<tool>; a tier 0 case that exercises the
+executes reference_bin/<tool> against <cpp-bin>/<tool>; a tier 0 case that exercises the
 file layer before any tool exists gives `py_script` (a path relative to the
 repository root) and `cpp_binary` (a path relative to --cpp-bin) instead.
 A case may also give `cpp_args`, appended to the C++ command line only, for an
 option the port has and the Python does not (hicCompartmentalization --noPlot);
 its notes must say why the two command lines differ.
+
+The Python reference is upstream HiCExplorer at the fork point, extracted
+outside the package into the reference root (reference_tree.py: commit,
+location, creation on demand, and why the installed 3.7.6 package of the
+interpreter is never what the reference imports). Only the reference
+processes see it on PYTHONPATH.
 
 Run it with the reference venv interpreter named in cpp/AGENTS_CONTRACT.md, so
 that the cool and h5 comparators find h5py, PyTables and numpy:
@@ -175,6 +182,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import comparators  # noqa: E402  pylint: disable=C0413
 import reference_cache
+import reference_tree
 import validators  # noqa: E402  pylint: disable=C0413
 
 HARNESS_VERSION = "1.3"
@@ -299,26 +307,34 @@ RSS_TRACE_INTERVAL = 0.1              # PLAN.md 10, for large: true cases
 def _default_py_python():
     """Interpreter that runs the Python reference implementation.
 
-    HICX_PY_PYTHON wins; otherwise the throwaway venv named in
-    cpp/AGENTS_CONTRACT.md is used if it still exists, and finally the
-    interpreter running the harness.
+    HICX_PY_PYTHON wins; otherwise the python3 of the conda env named in
+    cpp/AGENTS_CONTRACT.md, which holds the reference's dependencies, if it
+    exists, and finally the interpreter running the harness.
     """
     from_env = os.environ.get("HICX_PY_PYTHON")
     if from_env:
         return Path(from_env)
-    contract_venv = Path(
-        "/tmp/claude-1000167729/-home-mh-hannover-local-wolffjoa/"
-        "3de46a4d-41bb-4fb9-aea9-26cceef9ad01/scratchpad/hicx-venv/bin/python")
-    if contract_venv.exists():
-        return contract_venv
+    contract_env = Path(os.path.expanduser(
+        "~/miniconda3/envs/__hicexplorer@3.7.6/bin/python3"))
+    if contract_env.exists():
+        return contract_env
     return Path(sys.executable)
 
 
 DEFAULT_PY_PYTHON = _default_py_python()
 
-# The Python reference entry points: one script per tool that runs the
-# original Python implementation (hicexplorer/<tool>.py _main_python).
+# The Python reference entry points: one script per tool that runs main() of
+# the tool in the upstream reference tree (reference_tree.py).
 PY_BIN = SCRIPT_DIR / "reference_bin"
+
+# The reference root (reference_tree.py): --reference-root, else
+# $HICX_REFERENCE_ROOT, else the default under the cache directory. Resolved,
+# created if missing and verified once, by reference_root().
+_REFERENCE_ROOT_OPTION = None
+
+
+def reference_root():
+    return reference_tree.ensure(_REFERENCE_ROOT_OPTION)
 
 # Class EN (PLAN.md 5.7) reruns the Python tool through this runner, which can
 # switch on a declared, seeded source of the reference's own nondeterminism.
@@ -427,9 +443,7 @@ def compare_locked(*args, **kwargs):
 
 def python_environment():
     """The environment of the Python reference runs."""
-    env = dict(os.environ)
-    env["PYTHONPATH"] = str(REPO_ROOT) + os.pathsep + env.get("PYTHONPATH", "")
-    env["HICX_REFERENCE_PYTHON"] = "1"
+    env = reference_tree.environment(reference_root())
     env.update(PYTHON_SIDE_ENVIRONMENT)
     return env
 
@@ -481,12 +495,13 @@ def python_side_key(case, options, data, env):
         fingerprint = reference_cache.interpreter_fingerprint(
             str(options.py_python), env, cache.directory, REPO_ROOT)
         inherited = os.environ.get("PYTHONPATH", "").replace(str(REPO_ROOT), "<repo>")
-        environment = {"PYTHONPATH": "<repo>" + os.pathsep + inherited,
+        environment = {"PYTHONPATH": "<reference>" + os.pathsep + inherited,
                        "set": dict(PYTHON_SIDE_ENVIRONMENT),
                        "path_prepend": _path_prepend_stamps(case)}
         document = reference_cache.key_document(
             case=case, runs=noise_runs_of(case, options), data=data, repo_root=REPO_ROOT,
             entry_script=python_tool_of(case), fingerprint=fingerprint,
+            reference_digest=reference_tree.digest_of(reference_root()),
             environment=environment)
         memo[case["id"]] = (document, reference_cache.key_of(document))
     return memo[case["id"]]
@@ -514,7 +529,8 @@ def run_python_side(case, options, workdir, data, env):
         if mode == "use":
             meta = cache_for(options).lookup(side["key"])
             if meta is not None and cache_for(options).restore(
-                    meta, workdir, roots={"data": data, "repo": str(REPO_ROOT)}):
+                    meta, workdir, roots={"data": data, "repo": str(REPO_ROOT),
+                           "reference": str(reference_root())}):
                 measurement = Measurement(meta["measurement"])
                 measurement["command"] = " ".join(shlex.quote(part) for part in argv)
                 side.update(cached=True, measurement=measurement,
@@ -559,7 +575,8 @@ def run_python_side(case, options, workdir, data, env):
     if mode != "off" and healthy and not _STOPPING.is_set():
         cache_for(options).store(side["key"], document, workdir, measurement,
                                  side["noise_record"],
-                                 roots={"data": data, "repo": str(REPO_ROOT)})
+                                 roots={"data": data, "repo": str(REPO_ROOT),
+                           "reference": str(reference_root())})
         side["stored"] = True
     return side
 
@@ -2770,6 +2787,13 @@ def main(argv=None):
                                  "class EN (PLAN.md 9.1)")
         target.add_argument("--threads-high", type=int, default=DEFAULT_THREADS_HIGH,
                             help="the high thread count in the determinism check")
+        add_reference_root(target)
+
+    def add_reference_root(target):
+        target.add_argument("--reference-root", default=None,
+                            help="the upstream reference tree (reference_tree.py; default: "
+                                 "$HICX_REFERENCE_ROOT, else <cache>/reference/<commit>-"
+                                 "<version>), created when missing")
 
     run_parser = subparsers.add_parser("run", help="run cases and compare")
     add_selection(run_parser)
@@ -2804,6 +2828,7 @@ def main(argv=None):
     cache_parser = subparsers.add_parser("cache", help="the Python reference cache")
     cache_parser.add_argument("action", choices=("stats", "prune", "verify"))
     cache_parser.add_argument("--cache-dir", default=None)
+    add_reference_root(cache_parser)
     cache_parser.add_argument("--py-python", default=str(DEFAULT_PY_PYTHON))
     cache_parser.add_argument("--data", default=str(DEFAULT_DATA))
     cache_parser.add_argument("--tmpdir", default=tempfile.gettempdir())
@@ -2842,7 +2867,11 @@ def main(argv=None):
     list_parser.set_defaults(handler=command_list)
 
     options = parser.parse_args(argv)
-    global CASES_DIR
+    global CASES_DIR, _REFERENCE_ROOT_OPTION
+    _REFERENCE_ROOT_OPTION = getattr(options, "reference_root", None)
+    if options.command in ("run", "cache"):
+        print(f"reference tree: {reference_root()} (upstream {reference_tree.REFERENCE_COMMIT})",
+              file=sys.stderr)
     if getattr(options, "cases_dir", None):
         CASES_DIR = Path(options.cases_dir).resolve()
     if not hasattr(options, "determinism"):

@@ -26,17 +26,21 @@ Python result (key_document):
   * the SHA-256 of the content of every input the arguments name under
     {data}, directories expanded, and of every file a pyGenomeTracks .ini
     input names;
-  * the SHA-256 of the reference code the case runs: its entry script (bin/
-    <tool> or the case's py_script) and every module of the repository it
-    imports, found by following the import statements; every non-Python file
-    of the hicexplorer package; for a case with a noise source or validators,
-    whose child processes run further tools, the whole package, noise_runner.py
-    and the validators;
+  * the SHA-256 of the reference code the case runs: the digest of the
+    upstream reference tree (reference_tree.py, every file of its hicexplorer
+    package); the case's entry script (reference_bin/<tool> or the case's
+    py_script) and every harness module of the repository it imports, found
+    by following the import statements (the repository's own hicexplorer
+    package is the product, not the reference, and never enters the key); for
+    a case with a noise source or validators, whose child processes run
+    further tools, every reference_bin entry point, noise_runner.py and the
+    validators;
   * the interpreter: its version and the versions of the scientific packages,
     and the content of single-file modules the reference imports from outside
     the repository (fit_nbinom);
   * the environment the harness sets for the Python side, with the
-    repository path written as <repo>, and the inherited PYTHONPATH.
+    repository path written as <repo>, the reference tree as <reference>, and
+    the inherited PYTHONPATH.
 
 The Python side runs in a working directory whose path equiv.py pads to a
 fixed length (make_workdir), whatever --tmpdir is. A file that embeds that
@@ -80,7 +84,7 @@ import tempfile
 import time
 from pathlib import Path
 
-CACHE_FORMAT_VERSION = 3
+CACHE_FORMAT_VERSION = 4
 
 # Distribution names whose versions enter every key.
 SCIENTIFIC_PACKAGES = (
@@ -226,26 +230,19 @@ def _imported_names(path, package):
 
 
 def import_closure(entry_scripts, repo_root):
-    """Every file of the repository the entry scripts import, transitively."""
+    """Every harness file of the repository the entry scripts import,
+    transitively. The repository's hicexplorer package is not followed: the
+    reference imports the reference tree's (reference_tree.py)."""
     repo_root = Path(repo_root)
+    scripts = Path(__file__).resolve().parent
     files, queue = set(), [Path(p) for p in entry_scripts if Path(p).is_file()]
     while queue:
         path = queue.pop()
         if path in files:
             continue
         files.add(path)
-        try:
-            relative = path.relative_to(repo_root)
-        except ValueError:
-            relative = None
-        package = ""
-        if relative is not None and relative.parts and relative.parts[0] == "hicexplorer":
-            parts = list(relative.with_suffix("").parts)
-            package = ".".join(parts if path.name == "__init__.py" else parts[:-1])
-            if path.name == "__init__.py":
-                package = ".".join(parts[:-1])
-        roots = [repo_root, path.parent]
-        for name in _imported_names(path, package):
+        roots = [scripts, path.parent]
+        for name in _imported_names(path, ""):
             target = _module_file(name, roots)
             if target is None:
                 continue
@@ -253,34 +250,23 @@ def import_closure(entry_scripts, repo_root):
                 target.relative_to(repo_root)
             except ValueError:
                 continue
-            if "test" in target.relative_to(repo_root).parts[:2]:
+            if target.relative_to(repo_root).parts[0] == "hicexplorer":
                 continue
             queue.append(target)
     return files
 
 
-def _package_files(repo_root, python):
-    package = Path(repo_root) / "hicexplorer"
-    for path in sorted(package.rglob("*")):
-        if not path.is_file() or "__pycache__" in path.parts:
-            continue
-        if path.relative_to(package).parts[0] == "test":
-            continue
-        if (path.suffix == ".py") == python:
-            yield path
-
-
-def code_hash(case, repo_root, entry_script):
+def code_hash(case, repo_root, entry_script, reference_digest):
     repo_root = Path(repo_root)
     scripts = Path(__file__).resolve().parent
-    files = set(_package_files(repo_root, python=False))
+    files = set()
     if case.get("noise") or case.get("validators"):
-        files.update(_package_files(repo_root, python=True))
         files.update((scripts / "reference_bin").glob("*"))
         files.add(scripts / "noise_runner.py")
         files.update((scripts / "validators").glob("*.py"))
     files.update(import_closure([entry_script], repo_root))
     digest = hashlib.sha256()
+    digest.update(f"reference\0{reference_digest}\0".encode())
     for path in sorted(files):
         if not path.is_file():
             continue
@@ -358,7 +344,8 @@ def interpreter_fingerprint(python, env, cache_dir, repo_root):
 # key
 
 
-def key_document(*, case, runs, data, repo_root, entry_script, fingerprint, environment):
+def key_document(*, case, runs, data, repo_root, entry_script, fingerprint, environment,
+                 reference_digest):
     fingerprint = {key: value for key, value in fingerprint.items()
                    if key not in ("path", "executable_prefix")}
     return {
@@ -372,7 +359,7 @@ def key_document(*, case, runs, data, repo_root, entry_script, fingerprint, envi
         "validators": sorted(entry.get("name", "") for entry in case.get("validators", [])),
         "large": bool(case.get("large")),
         "inputs": input_hashes(case["args"], data),
-        "code": code_hash(case, repo_root, entry_script),
+        "code": code_hash(case, repo_root, entry_script, reference_digest),
         "interpreter": fingerprint,
         "environment": environment,
     }
