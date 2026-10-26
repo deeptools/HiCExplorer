@@ -57,6 +57,7 @@ add_library(hicx4core
     src/hicspector.cpp
     src/quasar.cpp
     src/reduce_matrix.cpp
+    src/reduce_matrix_entries.cpp
     src/resource_usage.cpp
     src/scc.cpp
     src/simd_reduce.cpp

@@ -12,5 +12,6 @@ set(HICX_API_MODULES
     iterativeCorrection
     lib_cnb
     readBed
+    reduceMatrix
     utilities
 )

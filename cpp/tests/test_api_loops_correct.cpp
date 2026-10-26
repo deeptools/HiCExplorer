@@ -19,6 +19,8 @@
 #include "hicx/iterative_correction.hpp"
 #include "hicx/math/ice.hpp"
 #include "hicx/math/sparse_kernels.hpp"
+#include "hicx/reduce_matrix.hpp"
+#include "hicx/reduce_matrix_entries.hpp"
 #include "hicx/sparse_matrix.hpp"
 #include "hicx/stats_ops.hpp"
 
@@ -144,4 +146,53 @@ TEST_CASE("iterative_correction: symmetry measure and guards") {
     tiny.data = {1e-200, 1.0};
     CHECK(hicx::iterative_correction::correct(tiny, 50, 1e-5).outcome ==
           hicx::iterative_correction::Outcome::LargeValuesInLoop);
+}
+
+TEST_CASE("reduce_entries: agrees with the tools' reduce_matrix on a CSR") {
+    SymmetricPair pair = make_pair(90, 0.3, 9);
+    std::vector<std::int32_t> row(pair.full.row.begin(), pair.full.row.end());
+    std::vector<std::int32_t> col(pair.full.col.begin(), pair.full.col.end());
+    const hicx::CsrMatrix full = hicx::CsrMatrix::from_coo(90, 90, row, col, pair.full.data, "float64");
+    std::vector<std::vector<std::int64_t>> groups;
+    std::vector<std::int64_t> group_of(90, -1);
+    for (std::int64_t i = 0; i < 90; i += 3) {
+        if (i == 30) {
+            continue;  // a dropped group
+        }
+        groups.push_back({i, i + 1, i + 2});
+        for (std::int64_t j = i; j < i + 3; ++j) {
+            group_of[static_cast<std::size_t>(j)] = static_cast<std::int64_t>(groups.size()) - 1;
+        }
+    }
+    hicx::reduce_entries::Arithmetic a;
+    a.cast = [](double v) { return v; };
+    a.add = [](double x, double y) { return x + y; };
+    a.subtract = [](double x, double y) { return x - y; };
+    a.twice = [](double x) { return x * 2.0; };
+    hicx::reduce_entries::Entries entries;
+    entries.rows = entries.cols = 90;
+    entries.row = pair.full.row;
+    entries.col = pair.full.col;
+    entries.data = pair.full.data;
+    for (const bool diagonal : {true, false}) {
+        const hicx::CsrMatrix tool = hicx::reduce_matrix(full, groups, true, diagonal);
+        const hicx::reduce_entries::Cells api = hicx::reduce_entries::reduce(
+            hicx::reduce_entries::upper_triangle(entries), group_of, static_cast<std::int64_t>(groups.size()), true,
+            diagonal, a);
+        std::size_t k = 0;
+        for (std::int64_t r = 0; r < tool.rows(); ++r) {
+            for (std::int64_t c = 0; c < tool.cols(); ++c) {
+                const double expected = tool.at(r, c);
+                if (expected == 0.0) {
+                    continue;
+                }
+                REQUIRE(k < api.data.size());
+                CHECK(api.row[k] == r);
+                CHECK(api.col[k] == c);
+                CHECK(api.data[k] == expected);
+                ++k;
+            }
+        }
+        CHECK(k == api.data.size());
+    }
 }

@@ -1,12 +1,20 @@
+"""hicexplorer.reduceMatrix, implemented in C++.
+
+reduce_matrix keeps its 3.7.6 signature and results; the body calls
+hicexplorer._hicx.reduceMatrix (cpp/python/src/api/reduceMatrix.cpp,
+cpp/core/include/hicx/reduce_matrix_entries.hpp).
+"""
 import warnings
 warnings.simplefilter(action="ignore", category=RuntimeWarning)
 warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
-from scipy.sparse import coo_matrix, dia_matrix, triu
-import numpy as np
-import time
+# the doctests below use these names
+from scipy.sparse import coo_matrix, dia_matrix, triu  # noqa: F401
+import numpy as np  # noqa: F401
 
 import logging
 log = logging.getLogger(__name__)
+
+from hicexplorer._hicx import reduceMatrix as _impl
 
 
 def reduce_matrix(matrix, bins_to_merge, use_triu=True, diagonal=False):
@@ -143,90 +151,4 @@ def reduce_matrix(matrix, bins_to_merge, use_triu=True, diagonal=False):
      [0.8 0.7 0. ]
      [nan 0.  0. ]]
     """
-
-    if use_triu:
-        ma = triu(matrix, k=0, format='coo')
-    else:
-        ma = matrix.tocoo()
-    M = len(bins_to_merge)
-    start_time = time.time()
-
-    if M == ma.shape[0]:
-        return matrix
-
-    # check for nans and make a warning in case they are
-    # present
-    num_nan = len(np.flatnonzero(np.isnan(np.array(ma.data))))
-    if num_nan > 0:
-        log.warning("*Warning*\nmatrix contains {} NaN values.".format(num_nan))
-
-    # each original col and row index is converted
-    # to a new index based on the bins_to_merge.
-    # For example, if rows 1 and 10 are to be merged
-    # then all rows whose value is 1 or 10 are given
-    # as new value the index in the bins_to_merge list.
-
-    map_ = np.zeros(ma.shape[0], dtype=int) - 1     # -1 such that all cases not replaced by the next loop
-    # can be identified later. Those cases that remain as -1
-    # are for the rows/cols not appearing in the bins_to_merge
-    for k, v in enumerate(bins_to_merge):
-        for x in v:
-            map_[x] = k
-
-    new_row = np.take(map_, ma.row)
-    new_col = np.take(map_, ma.col)
-
-    # remove rows and cols with -1. Those
-    # correspond to regions that are not part of
-    # the bins_to_merge to be merged
-    keep = (new_row > -1) & (new_col > -1)
-    ma.data = ma.data[keep]
-    new_row = new_row[keep]
-    new_col = new_col[keep]
-
-    # The following line converts each combination
-    # of row and col into a list of bins. For example,
-    # for each case in which row = 1 and col =3 or
-    # row = 3 and col = 1 a unique bin id is given
-    # The trick I use to get the unique bin ids is
-    # to order and convert the pair (row,col) into
-    # a complex number  ( for the pair 3,1 the
-    # complex es 1,3j.
-    uniq, bin_array = np.unique(new_row + 1j * new_col, return_inverse=True)
-
-    elapsed_time = time.time() - start_time
-    start_time = time.time()
-    log.debug("time complex unique: {:.5f}".format(elapsed_time))
-    # sum the bins. For each bin, all values associated
-    # to the bin members are added. Those values are in
-    # the ma.data array.
-    sum_array = np.bincount(bin_array, weights=ma.data)
-
-    # To reconstruct the new matrix the row and col
-    # positions need to be obtained. They correspond
-    # to the positions of the unique values in the bin_array.
-    uniq, ind = np.unique(bin_array, return_index=True)
-    new_row_ = new_row[ind]
-    new_col_ = new_col[ind]
-
-    result = coo_matrix((sum_array, (new_row_, new_col_)),
-                        shape=(M, M), dtype=ma.dtype)
-    elapsed_time = time.time() - start_time
-
-    log.debug("time create sparse matrix: {:.5f}".format(elapsed_time))
-
-    if use_triu:
-        diagmatrix = dia_matrix(([result.diagonal()], [0]),
-                                shape=(M, M), dtype=ma.dtype)
-
-        # to make set the main diagonal to zero I
-        # multiply the diagonal by 2
-        if diagonal is False:
-            diagmatrix *= 2
-        # make result symmetric
-        matrix = result + result.T - diagmatrix
-    else:
-        matrix = result
-    matrix.eliminate_zeros()
-
-    return matrix
+    return _impl.reduce_matrix(matrix, bins_to_merge, use_triu, diagonal)
