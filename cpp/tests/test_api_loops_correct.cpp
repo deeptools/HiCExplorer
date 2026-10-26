@@ -19,6 +19,7 @@
 #include "hicx/iterative_correction.hpp"
 #include "hicx/math/ice.hpp"
 #include "hicx/math/sparse_kernels.hpp"
+#include "hicx/merge_loops.hpp"
 #include "hicx/reduce_matrix.hpp"
 #include "hicx/reduce_matrix_entries.hpp"
 #include "hicx/scipy_coo.hpp"
@@ -239,4 +240,41 @@ TEST_CASE("scipy_coo: tocsr sums duplicates and keeps zeros") {
     CHECK(csr.indptr == std::vector<std::int64_t>{0, 2, 3});
     CHECK(csr.indices == std::vector<std::int64_t>{0, 1, 0});
     CHECK(csr.data == std::vector<double>{3.0, 0.0, 4.0});
+}
+
+TEST_CASE("merge_loops: the constructed frame of cases_hicMergeLoops.py") {
+    // ROWS of hicexplorer/test/api/cases_hicMergeLoops.py at resolution
+    // 10000; 3.7.6 returns [0, 3]
+    const std::vector<std::int64_t> chrom = {0, 0, 0, 1, 1};
+    const std::vector<std::int64_t> xb = {10000, 10000, 12000, 50000, 52000};
+    const std::vector<std::int64_t> xe = {20000, 15000, 17000, 60000, 57000};
+    const std::vector<std::int64_t> yb = {250000, 250000, 252000, 90000, 92000};
+    const std::vector<std::int64_t> ye = {260000, 255000, 257000, 100000, 97000};
+    hicx::merge_loops::Intervals x;
+    hicx::merge_loops::Intervals y;
+    x.tree = y.tree = chrom;
+    x.begin = xb;
+    x.end = xe;
+    y.begin = yb;
+    y.end = ye;
+    x.tree_count = y.tree_count = 2;
+    x.dictionary = y.dictionary = {0, 1};
+    std::vector<hicx::merge_loops::Loop> loops;
+    for (std::size_t r = 0; r < chrom.size(); ++r) {
+        hicx::merge_loops::Loop loop;
+        loop.x_tree = loop.y_tree = chrom[r];
+        loop.y_guard = true;
+        const std::int64_t fx = 10000 - (xe[r] - xb[r]);
+        const std::int64_t fy = 10000 - (ye[r] - yb[r]);
+        loop.x_begin = xb[r] - fx - 1;
+        loop.x_end = xe[r] + fx + 1;
+        loop.y_begin = yb[r] - fy - 1;
+        loop.y_end = ye[r] + fy + 1;
+        loops.push_back(loop);
+    }
+    const hicx::merge_loops::Result result = hicx::merge_loops::merge(x, y, loops);
+    CHECK(result.error == hicx::merge_loops::Error::None);
+    CHECK(result.ids == std::vector<std::int64_t>{0, 3});
+    loops[0].x_tree = -1;
+    CHECK(hicx::merge_loops::merge(x, y, loops).error == hicx::merge_loops::Error::UnboundX);
 }
