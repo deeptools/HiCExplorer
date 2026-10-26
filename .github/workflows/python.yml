@@ -1,17 +1,25 @@
 name: Python (HiCExplorer)
 
+# The Python package is a thin layer over the C++ executables: its tests run
+# the C++ tools through hicexplorer.<tool>.main(). So this workflow builds the
+# C++ tools first, with the dependency repositories checked out exactly as in
+# cpp.yml, installs the package built from the same sources, and runs the
+# Python test suite against the executables in cpp/build/tools.
 on:
   push:
     branches: [version4-cpp]
-    paths-ignore: ['cpp/**', 'docs/**', '**.md']
+    paths-ignore: ['docs/**', '**.md']
   pull_request:
-    paths-ignore: ['cpp/**', 'docs/**', '**.md']
+    paths-ignore: ['docs/**', '**.md']
   workflow_dispatch:
 
 concurrency:
   group: python-${{ github.ref }}
   cancel-in-progress: true
 
+# The repository variables COOLERCPP_REPOSITORY, HICFILECPP_REPOSITORY and
+# HIC2COOL_REPOSITORY (owner/name) and the optional secret DEPS_TOKEN are the
+# ones cpp.yml uses.
 jobs:
   test:
     name: ${{ matrix.os }} py${{ matrix.python }}
@@ -19,13 +27,39 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
-        python: ['3.8', '3.9', '3.10', '3.11', '3.12']
+        os: [ubuntu-24.04, macos-14]
+        python: ['3.10', '3.11', '3.12']
     defaults:
       run:
         shell: bash -el {0}
     steps:
       - uses: actions/checkout@v4
+
+      - name: Check the dependency repositories are configured
+        run: |
+          test -n "${{ vars.COOLERCPP_REPOSITORY }}" && test -n "${{ vars.HICFILECPP_REPOSITORY }}" && test -n "${{ vars.HIC2COOL_REPOSITORY }}" || {
+            echo "Set the repository variables COOLERCPP_REPOSITORY, HICFILECPP_REPOSITORY and HIC2COOL_REPOSITORY."; exit 1; }
+
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ vars.COOLERCPP_REPOSITORY }}
+          token: ${{ secrets.DEPS_TOKEN || github.token }}
+          path: deps/coolercpp
+          fetch-depth: 0
+
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ vars.HICFILECPP_REPOSITORY }}
+          token: ${{ secrets.DEPS_TOKEN || github.token }}
+          path: deps/hicfilecpp
+          fetch-depth: 0
+
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ vars.HIC2COOL_REPOSITORY }}
+          token: ${{ secrets.DEPS_TOKEN || github.token }}
+          path: deps/hic2cool
+          fetch-depth: 0
 
       - uses: conda-incubator/setup-miniconda@v3
         with:
@@ -37,17 +71,35 @@ jobs:
       - name: Install dependencies
         run: |
           mamba install --yes python=${{ matrix.python }} --file requirements.txt
-          mamba install --yes pytest flake8 pytest-xdist pytest-forked nose configparser
-          pip install .
+          mamba install --yes cmake ninja compilers hdf5 blosc zlib htslib libopenblas liblapack graphviz
+          mamba install --yes pytest flake8 pytest-xdist pytest-forked configparser scikit-build-core pathspec
+
+      - name: Build the C++ tools
+        run: |
+          cmake -S cpp -B cpp/build -G Ninja -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_PREFIX_PATH="$CONDA_PREFIX" \
+            -DHICX_COOLERCPP_GIT_REPOSITORY="$GITHUB_WORKSPACE/deps/coolercpp" \
+            -DHICX_HICFILECPP_GIT_REPOSITORY="$GITHUB_WORKSPACE/deps/hicfilecpp" \
+            -DHICX_HIC2COOL_GIT_REPOSITORY="$GITHUB_WORKSPACE/deps/hic2cool"
+          cmake --build cpp/build --parallel
+
+      - name: Install the package
+        run: |
+          CMAKE_ARGS="-DCMAKE_PREFIX_PATH=$CONDA_PREFIX -DHICX_COOLERCPP_GIT_REPOSITORY=$GITHUB_WORKSPACE/deps/coolercpp -DHICX_HICFILECPP_GIT_REPOSITORY=$GITHUB_WORKSPACE/deps/hicfilecpp -DHICX_HIC2COOL_GIT_REPOSITORY=$GITHUB_WORKSPACE/deps/hic2cool" \
+            pip install . --no-deps --no-build-isolation
+          cd "$RUNNER_TEMP" && hicInfo --version
 
       - name: Lint
-        run: flake8 . --exclude=.venv,.build,planemo_test_env,build --ignore=E501,F401,F403,E402,F999,F405,E712,W504
+        run: flake8 . --exclude=.venv,.build,planemo_test_env,build,deps --ignore=E501,F401,F403,E402,F999,F405,E712,W504
 
       - name: Doctests and number of test cases
+        env:
+          HICX_BIN_DIR: ${{ github.workspace }}/cpp/build/tools
         run: |
           py.test hicexplorer/test/test_pytest_collected_items.py --doctest-modules --capture=sys
           py.test hicexplorer --doctest-modules --ignore=hicexplorer/test/
 
-      - name: Tests
+      - name: Tests against the C++ tools
+        env:
+          HICX_BIN_DIR: ${{ github.workspace }}/cpp/build/tools
         run: py.test hicexplorer/test/general/ --doctest-modules --capture=sys -n 4
-
