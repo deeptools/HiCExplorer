@@ -10,6 +10,7 @@
 #include <string>
 #include <vector>
 
+#include "hicx/build_matrix_api.hpp"
 #include "hicx/fasta_reader.hpp"
 #include "hicx/parser_common.hpp"
 
@@ -56,4 +57,29 @@ TEST_CASE("parser_common: open(path, 'w').close()") {
     CHECK(hicx::parser_common::truncate_for_writing(std::string(HICX_TEST_OUTPUT_DIR) + "/no/such/file") == ENOENT);
     CHECK(hicx::parser_common::close_for_writing(987654) == EBADF);
     CHECK(hicx::parser_common::writable_file_message("x") == "x file can be opened for writting");
+}
+
+TEST_CASE("build_matrix_api: posixpath and Tester paths") {
+    namespace api = hicx::build_matrix_api;
+    CHECK(api::normpath("") == ".");
+    CHECK(api::normpath("/a/./b/../c//d/") == "/a/c/d");
+    CHECK(api::normpath("//a/b") == "//a/b");
+    CHECK(api::normpath("///a/../..") == "/");
+    CHECK(api::normpath("../x/../../y") == "../../y");
+    CHECK(api::abspath("x/y.py", "/cwd/dir") == "/cwd/dir/x/y.py");
+    CHECK(api::dirname("/a/b/c.py") == "/a/b");
+    CHECK(api::dirname("/c.py") == "/");
+    CHECK(api::dirname("c.py").empty());
+    CHECK(api::dirname("/a//b//c") == "/a//b");
+    CHECK(api::join("/root/", "hic.bam") == "/root/hic.bam");
+    CHECK(api::join("/root", "hic.bam") == "/root/hic.bam");
+    CHECK(api::join("/root", "/abs") == "/abs");
+    const auto lib = api::tester_paths(std::nullopt, "/pkg/hicexplorer/lib/buildMatrixMethods.py", "/", 2);
+    CHECK(lib.root == "/pkg/hicexplorer/test/test_data/");
+    CHECK(lib.bam_file_1 == "/pkg/hicexplorer/test/test_data/hic.bam");
+    const auto micro_c = api::tester_paths(std::string(), "/pkg/hicexplorer/hicBuildMatrixMicroC.py", "/", 1);
+    CHECK(micro_c.root == "/pkg/hicexplorer/test/test_data/");
+    const auto env = api::tester_paths(std::string("/data"), "/x.py", "/", 1);
+    CHECK(env.root == "/data");
+    CHECK(env.bam_file_1 == "/data/hic.bam");
 }

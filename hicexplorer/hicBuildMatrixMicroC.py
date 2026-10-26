@@ -2,7 +2,9 @@
 
 main() runs the executable and parse_arguments() is built from its --help-json
 (hicexplorer._cpp). The other names of this module are kept for API
-compatibility and are not used by the tool.
+compatibility and are not used by the tool; they are C++ too
+(hicexplorer._hicx.lib_buildMatrixMethods through the star import below, and
+hicexplorer._hicx.hicBuildMatrixMicroC for Tester).
 """
 import argparse
 import os
@@ -21,6 +23,8 @@ log = logging.getLogger(__name__)
 
 from hicexplorer.lib.buildMatrixMethods import *
 
+from hicexplorer._hicx import hicBuildMatrixMicroC as _impl
+
 
 def parse_arguments(args=None):
     """The argparse parser of hicBuildMatrixMicroC, built from the C++ executable's --help-json."""
@@ -30,13 +34,7 @@ def parse_arguments(args=None):
 
 class Tester(object):
     def __init__(self):
-        hic_test_data_dir = os.environ.get('HIC_TEST_DATA_DIR', False)
-        if hic_test_data_dir:
-            self.root = hic_test_data_dir
-        else:
-            self.root = os.path.dirname(
-                os.path.abspath(__file__)) + "/test/test_data/"
-        self.bam_file_1 = os.path.join(self.root, "hic.bam")
+        _impl.Tester___init__(self, __file__)
 
 
 def main(args=None):
