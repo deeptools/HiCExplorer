@@ -26,6 +26,7 @@
 #include <map>
 #include <memory>
 #include <optional>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <thread>
@@ -1037,13 +1038,28 @@ int run_build_matrix(const Arguments& args) {
 }
 
 // buildMatrixMethods.py:1362, QC.main(["-l", QC.log, "-o", QCfolder]): the
-// tables are written by run_build_matrix, and the five PNGs and hicQC.html are
-// drawn here with hicPrepareQCreport's default --dpi 200. Called by the tools
-// after everything else, because on success it does not return.
+// tables are written by run_build_matrix; hicQC.html is written here and the
+// five PNGs are drawn with hicPrepareQCreport's default --dpi 200. Called by
+// the tools after everything else, because on success it does not return.
 int draw_qc_report(const std::string& qc_folder) {
+    std::string charts;
+    try {
+        // The reference reads QCfolder/QC.log back (QC.main(["-l", ...])).
+        std::ifstream log_file(qc_folder + "/QC.log", std::ios::binary);
+        if (!log_file) {
+            throw std::runtime_error("could not read " + qc_folder + "/QC.log");
+        }
+        std::ostringstream log_text;
+        log_text << log_file.rdbuf();
+        charts = hicx::write_qc_report_html(qc_folder, {log_text.str()}, std::nullopt);
+    } catch (const std::exception& error) {
+        std::fprintf(stderr, "%s: %s\n", g_tool, error.what());
+        return 1;
+    }
     hicx::plot::JsonObject data;
     data.add("outputFolder", hicx::plot::json_string(qc_folder));
     data.add("dpi", hicx::plot::json_int(200));
+    data.add("charts", charts);
     return hicx::plot::draw("hicPrepareQCreport", data.str(), std::nullopt);
 }
 

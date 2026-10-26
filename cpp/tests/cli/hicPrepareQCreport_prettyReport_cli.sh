@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # hicPrepareQCreport --prettyReport (C++-only, no Python counterpart): a
 # second HTML report at OUTPUTFOLDER/hicQC_report.html, independent of and
-# unchanged from the existing hicQC.html the tool already draws through the
-# Python plotting layer. It follows the falcoAmadeus report design: a header
+# unchanged from the existing hicQC.html the tool writes in C++ (also with
+# --plotData, which only skips the figures). It follows the falcoAmadeus report design: a header
 # with a light/dark theme toggle and a plot palette picker, a summary sidebar
 # with the worst verdict of every section, and one collapsible card per
 # section (overview with five metrics per sample judged PASS/WARN/FAIL against
@@ -44,8 +44,11 @@ expect "without --prettyReport, no hicQC_report.html is written" test ! -e base/
 expect "with --prettyReport, hicQC_report.html is written" test -e pretty/hicQC_report.html
 expect "it writes a PASS badge for at least one metric" \
     grep -q 'qc-badge qc-pass">PASS' pretty/hicQC_report.html
-expect "hicQC.html itself is unaffected (still delegated, not drawn without a Python environment here)" \
-    test ! -e pretty/hicQC.html
+expect "hicQC.html is written with --plotData, which skips only the figures" \
+    grep -q '<title>HiCExplorer QC report</title>' pretty/hicQC.html
+expect "hicQC.html is the same with and without --prettyReport, up to the table ids" \
+    cmp -s <(sed -E 's/T_[0-9a-f]{5}/T_xxxxx/g' base/hicQC.html) \
+           <(sed -E 's/T_[0-9a-f]{5}/T_xxxxx/g' pretty/hicQC.html)
 
 "$tool" --logfiles "$log" --outputFolder strict --prettyReport \
     --maxInterChromosomalPercent 0.0001 --plotData strict/plotdata.json >/dev/null 2>&1
