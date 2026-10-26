@@ -1,0 +1,418 @@
+module	kind	name(signature)	lines	implementation	C++ code that names it (candidate backing)
+hicexplorer	module		22		
+hicexplorer._cpp	module		214		
+hicexplorer._cpp	def	find_executable(tool)	11	C++-backed (runs/reads the executable)	
+hicexplorer._cpp	def	run(tool, args=None)	25	C++-backed (runs/reads the executable)	
+hicexplorer._cpp	def	entry_point(tool)	10	C++-backed (runs/reads the executable)	
+hicexplorer._cpp	def	tool_spec(tool)	10	C++-backed (runs/reads the executable)	
+hicexplorer._cpp	def	build_parser(tool, prog=None)	13	C++-backed (runs/reads the executable)	
+hicexplorer._version	module		3		
+hicexplorer.chicAggregateStatistic	module		290		cpp/tools/chicAggregateStatistic.cpp
+hicexplorer.chicAggregateStatistic	def	parse_arguments(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.chicAggregateStatistic	def	filter_scores_target_list(pScoresDictionary, pTargetFType, pTargetPosDict, pTargetList=None, pTargetIntervalTree=None, pTargetFile=None)	66	pure Python	cpp/tools/chicAggregateStatistic.cpp
+hicexplorer.chicAggregateStatistic	def	writeAggregateHDF(pOutFileName, pOutfileNamesList, pAcceptedScoresList, pArgs)	65	pure Python	cpp/tools/chicAggregateStatistic.cpp
+hicexplorer.chicAggregateStatistic	def	run_target_list_compilation(pInteractionFilesList, pTargetList, pTargetFType, pTargetPosDict, pArgs, pViewpointObj, pQueue=None, pOneTarget=False)	42	pure Python	
+hicexplorer.chicAggregateStatistic	def	call_multi_core(pInteractionFilesList, pTargetFileList, pTargetFType, pTargetPosDict, pFunctionName, pArgs, pViewpointObj)	71	pure Python	cpp/tools/chicAggregateStatistic.cpp
+hicexplorer.chicAggregateStatistic	def	main(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.chicChicagoBackgroundModel	module		13		cpp/tools/chicChicagoBackgroundModel.cpp
+hicexplorer.chicChicagoBackgroundModel	def	parse_arguments(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.chicChicagoBackgroundModel	def	main(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.chicChicagoPlotViewpoint	module		13		cpp/tools/chicChicagoPlotViewpoint.cpp
+hicexplorer.chicChicagoPlotViewpoint	def	parse_arguments(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.chicChicagoPlotViewpoint	def	main(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.chicChicagoScores	module		13		cpp/tools/chicChicagoScores.cpp
+hicexplorer.chicChicagoScores	def	parse_arguments(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.chicChicagoScores	def	main(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.chicChicagoSignificantInteractions	module		13		cpp/tools/chicChicagoSignificantInteractions.cpp
+hicexplorer.chicChicagoSignificantInteractions	def	parse_arguments(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.chicChicagoSignificantInteractions	def	main(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.chicDifferentialTest	module		293		cpp/tools/chicDifferentialTest.cpp
+hicexplorer.chicDifferentialTest	def	parse_arguments(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.chicDifferentialTest	def	readInteractionFile(pInteractionFile)	21	pure Python	cpp/core/include/hicx/chic_hdf5.hpp;cpp/tools/chicPlotViewpoint.cpp
+hicexplorer.chicDifferentialTest	def	chisquare_test(pDataFile1, pDataFile2, pAlpha)	30	pure Python	
+hicexplorer.chicDifferentialTest	def	fisher_exact_test(pDataFile1, pDataFile2, pAlpha)	18	pure Python	
+hicexplorer.chicDifferentialTest	def	writeResult(pOutFileName, pData, pHeaderOld, pHeaderNew, pAlpha, pTest)	39	pure Python	
+hicexplorer.chicDifferentialTest	def	writeResultHDF(pOutFileName, pAcceptedData, pRejectedData, pAllResultData, pInputData, pAlpha, pTest)	91	pure Python	cpp/tools/chicDifferentialTest.cpp
+hicexplorer.chicDifferentialTest	def	run_statistical_tests(pInteractionFilesList, pArgs, pViewpointObject, pQueue=None)	46	pure Python	cpp/tools/chicDifferentialTest.cpp
+hicexplorer.chicDifferentialTest	def	main(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.chicExportData	module		188		cpp/tools/chicExportData.cpp
+hicexplorer.chicExportData	def	parse_arguments(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.chicExportData	def	exportData(pFileList, pArgs, pViewpointObject, pDecimalPlace, pChromosomeSizes, pBackgroundData, pFileType, pQueue)	135	pure Python	cpp/tools/chicExportData.cpp
+hicexplorer.chicExportData	def	main(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.chicPlotViewpoint	module		188		cpp/tools/chicPlotViewpoint.cpp
+hicexplorer.chicPlotViewpoint	def	parse_arguments(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.chicPlotViewpoint	def	plot_images(pInteractionFileList, pHighlightDifferentialRegionsFileList, pBackgroundData, pArgs, pViewpointObj, pSignificantRegionsFileList, pResolution, pQueue=None)	140	pure Python	
+hicexplorer.chicPlotViewpoint	def	main(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.chicQualityControl	module		64		cpp/tools/chicQualityControl.cpp
+hicexplorer.chicQualityControl	def	parse_arguments(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.chicQualityControl	def	compute_sparsity(pReferencePoints, pViewpointObj, pArgs, pQueue)	27	pure Python	
+hicexplorer.chicQualityControl	def	main(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.chicSignificantInteractions	module		498		cpp/tools/chicSignificantInteractions.cpp
+hicexplorer.chicSignificantInteractions	def	parse_arguments(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.chicSignificantInteractions	def	compute_interaction_file(pInteractionFilesList, pArgs, pViewpointObj, pBackground, pFilePath, pResolution, pQueue=None)	65	pure Python	cpp/tools/chicSignificantInteractions.cpp
+hicexplorer.chicSignificantInteractions	def	filter_by_pvalue(pData, pPValue, pMergedLinesDict, pPeakInteractionsThreshold)	20	pure Python	cpp/tools/chicSignificantInteractions.cpp
+hicexplorer.chicSignificantInteractions	def	compute_new_p_values(pData, pBackgroundModel, pPValue, pMergedLinesDict, pPeakInteractionsThreshold)	31	pure Python	cpp/tools/chicSignificantInteractions.cpp
+hicexplorer.chicSignificantInteractions	def	merge_neighbors_x_fold(pXfold, pData, pViewpointObj, pResolution)	19	pure Python	
+hicexplorer.chicSignificantInteractions	def	merge_neighbors_loose_p_value(pLoosePValue, pData, pViewpointObj, pResolution, pTruncateZeroPvalues)	26	pure Python	
+hicexplorer.chicSignificantInteractions	def	call_multi_core(pInteractionFilesList, pArgs, pViewpointObj, pBackground, pFilePath, pResolution)	78	pure Python	cpp/tools/chicAggregateStatistic.cpp
+hicexplorer.chicSignificantInteractions	def	read_threshold_file(pFile)	13	pure Python	cpp/tools/chicSignificantInteractions.cpp;cpp/tools/hicDetectLoops.cpp
+hicexplorer.chicSignificantInteractions	def	writeSignificantHDF(pOutFileName, pSignificantDataList, pSignificantKeyList, pViewpointObj, pReferencePointsList, pArgs)	97	pure Python	cpp/tools/chicSignificantInteractions.cpp
+hicexplorer.chicSignificantInteractions	def	writeTargetHDF(pOutFileName, pTargetDataList, pTargetKeyList, pViewpointObj, pResolution, pReferencePointsList, pArgs)	93	pure Python	cpp/tools/chicSignificantInteractions.cpp
+hicexplorer.chicSignificantInteractions	def	main(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.chicViewpoint	module		146		cpp/tools/chicViewpoint.cpp
+hicexplorer.chicViewpoint	def	parse_arguments(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.chicViewpoint	def	adjustViewpointData(pViewpointObj, pData, pBackground, pReferencePoint, pRegionStart, pRegionEnd)	26	pure Python	cpp/core/include/hicx/chic_viewpoint.hpp;cpp/tools/chicViewpoint.cpp
+hicexplorer.chicViewpoint	def	compute_x_fold(pDataList, pBackgroundList)	2	pure Python	
+hicexplorer.chicViewpoint	def	compute_viewpoint(pViewpointObj, pArgs, pQueue, pReferencePoints, pGeneList, pMatrix, pBackgroundModel, pBackgroundModelRelativeInteractions)	77	pure Python	cpp/core/include/hicx/chic_viewpoint.hpp;cpp/core/src/chic_viewpoint.cpp;cpp/tests/test_chic.cpp;cpp/tools/chicQualityControl.cpp;cpp/tools/chicViewpoint.cpp;cpp/tools/chicViewpointBackgroundModel.cpp
+hicexplorer.chicViewpoint	def	main(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.chicViewpointBackgroundModel	module		72		cpp/tools/chicViewpointBackgroundModel.cpp
+hicexplorer.chicViewpointBackgroundModel	def	parse_arguments(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.chicViewpointBackgroundModel	def	compute_background(pReferencePoints, pViewpointObj, pArgs, pQueue)	39	pure Python	cpp/tools/chicViewpointBackgroundModel.cpp
+hicexplorer.chicViewpointBackgroundModel	def	main(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.hicAdjustMatrix	module		157		cpp/tools/hicAdjustMatrix.cpp
+hicexplorer.hicAdjustMatrix	def	parse_arguments(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.hicAdjustMatrix	def	adjustMatrix(pArgs)	126	pure Python	
+hicexplorer.hicAdjustMatrix	def	main(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.hicAggregateContacts	module		621		cpp/tools/hicAggregateContacts.cpp
+hicexplorer.hicAggregateContacts	def	parse_arguments(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.hicAggregateContacts	def	read_bed_per_chrom(fh, chrom_list, pConsiderStrandDirection=None)	28	pure Python	cpp/tools/hicAggregateContacts.cpp
+hicexplorer.hicAggregateContacts	def	aggregate_contacts(bed1, bed2, agg_info, ma, M_half, largeRegionsOperation, range=None, transform=None, mode='', pConsiderStrandDirection=None)	37	pure Python	
+hicexplorer.hicAggregateContacts	def	aggregate_contacts_per_row(bed1, bed2, agg_info, ma, chrom_list, M_half, largeRegionsOperation, range=None, transform=None, mode='', perChr=False, pConsiderStrandDirection=None)	38	pure Python	cpp/tools/hicAggregateContacts.cpp
+hicexplorer.hicAggregateContacts	def	count_contacts(interval, ma, M_half, mode, agg_info, largeRegionsOperation, seen_chrs, range=None, transform=None)	115	pure Python	cpp/tools/hicAggregateContacts.cpp
+hicexplorer.hicAggregateContacts	def	get_outlier_indices(data, max_deviation=200)	33	pure Python	cpp/tools/hicAggregateContacts.cpp
+hicexplorer.hicAggregateContacts	def	compute_clusters(updated_info, k, method='kmeans', how='full', max_deviation=2, keep_outlier=False)	73	pure Python	cpp/tools/hicAggregateContacts.cpp
+hicexplorer.hicAggregateContacts	def	cluster_matrices(agg_info, k, method='kmeans', how='full', perChr=False, max_deviation=2, keep_outlier=False)	51	pure Python	cpp/tools/hicAggregateContacts.cpp
+hicexplorer.hicAggregateContacts	def	compute_avg(submatrices, operationType)	17	pure Python	cpp/tools/hicAggregateContacts.cpp
+hicexplorer.hicAggregateContacts	def	plot_aggregated_contacts(clustered_info, num_clusters, M_half, args)	93	pure Python	cpp/tools/hicAggregateContacts.cpp
+hicexplorer.hicAggregateContacts	def	plot_diagnostic_heatmaps(clustered_info, M_half, args)	73	pure Python	cpp/tools/hicAggregateContacts.cpp
+hicexplorer.hicAggregateContacts	def	main(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.hicAverageRegions	module		96		cpp/tools/hicAverageRegions.cpp
+hicexplorer.hicAverageRegions	def	parse_arguments(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.hicAverageRegions	def	calculateViewpointRange(pHiCMatrix, pViewpoint, pRange, pCoordinatesToBinMapping)	30	pure Python	cpp/core/include/hicx/chic_viewpoint.hpp;cpp/tools/hicAverageRegions.cpp
+hicexplorer.hicAverageRegions	def	getBinIndices(pHiCMatrix, pViewpoint)	3	pure Python	
+hicexplorer.hicAverageRegions	def	calculateViewpointRangeBins(pHiCMatrix, pViewpoint, pRange, pCoordinatesToBinMapping)	29	pure Python	cpp/tools/hicAverageRegions.cpp
+hicexplorer.hicAverageRegions	def	main(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.hicBuildMatrix	module		34		cpp/tools/hicBuildMatrix.cpp
+hicexplorer.hicBuildMatrix	def	parse_arguments(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.hicBuildMatrix	def	main(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.hicBuildMatrixMicroC	module		45		cpp/tools/hicBuildMatrixMicroC.cpp
+hicexplorer.hicBuildMatrixMicroC	def	parse_arguments(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.hicBuildMatrixMicroC	class	Tester	9	pure Python	
+hicexplorer.hicBuildMatrixMicroC	method	Tester.__init__(self)	8	pure Python	
+hicexplorer.hicBuildMatrixMicroC	def	main(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.hicCompareMatrices	module		28		cpp/tools/hicCompareMatrices.cpp
+hicexplorer.hicCompareMatrices	def	parse_arguments(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.hicCompareMatrices	def	main(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.hicCompartmentalization	module		117		cpp/tools/hicCompartmentalization.cpp
+hicexplorer.hicCompartmentalization	def	parse_arguments(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.hicCompartmentalization	def	get_indices(obs_exp, row)	4	pure Python	cpp/tools/compartmentalization_impl.hpp;cpp/tools/hicCompartmentalization.cpp
+hicexplorer.hicCompartmentalization	def	count_interactions(obs_exp, pc1, quantiles_number, offset)	37	pure Python	cpp/tests/test_compartmentalization.cpp;cpp/tools/compartmentalization_impl.hpp
+hicexplorer.hicCompartmentalization	def	within_vs_between_compartments(normalised_sum_per_quantile, quantiles_number)	22	pure Python	cpp/tests/test_compartmentalization.cpp;cpp/tools/compartmentalization_impl.hpp
+hicexplorer.hicCompartmentalization	def	plot_polarization_ratio(polarization_ratio, plotName, labels, number_of_quantiles)	16	pure Python	cpp/tools/hicCompartmentalization.cpp
+hicexplorer.hicCompartmentalization	def	main(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.hicConvertFormat	module		37		cpp/tools/hicConvertFormat.cpp
+hicexplorer.hicConvertFormat	def	parse_arguments(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.hicConvertFormat	def	main(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.hicCorrectMatrix	module		495		cpp/tools/hicCorrectMatrix.cpp
+hicexplorer.hicCorrectMatrix	def	parse_arguments(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.hicCorrectMatrix	def	correct_subparser()	100	pure Python	cpp/tools/hicCorrectMatrix.cpp
+hicexplorer.hicCorrectMatrix	def	iterative_correction(matrix, args)	6	pure Python	
+hicexplorer.hicCorrectMatrix	def	fill_gaps(hic_ma, failed_bins, fill_contiguous=False)	90	pure Python	
+hicexplorer.hicCorrectMatrix	class	MAD	74	pure Python	cpp/core/include/hicx/correct_ops.hpp;cpp/tests/test_correct_math.cpp;cpp/tools/diff_contacts_impl.hpp;cpp/tools/hicCorrectMatrix.cpp;cpp/tools/hicDifferentialAnalysis.cpp
+hicexplorer.hicCorrectMatrix	method	MAD.__init__(self, points)	24	pure Python	cpp/core/include/hicx/matrix_data.hpp;cpp/tools/hicSumMatrices.cpp
+hicexplorer.hicCorrectMatrix	method	MAD.get_motified_zscores(self)	3	pure Python	
+hicexplorer.hicCorrectMatrix	method	MAD.is_outlier(self, lower_threshold, upper_threshold)	12	pure Python	
+hicexplorer.hicCorrectMatrix	method	MAD.value_to_mad(self, value)	18	pure Python	
+hicexplorer.hicCorrectMatrix	method	MAD.mad_to_value(self, mad)	11	pure Python	
+hicexplorer.hicCorrectMatrix	def	plot_total_contact_dist(hic_ma, args)	121	pure Python	cpp/tools/hicCorrectMatrix.cpp
+hicexplorer.hicCorrectMatrix	def	filter_by_zscore(hic_ma, lower_threshold, upper_threshold, perchr=False)	45	pure Python	cpp/core/include/hicx/correct_ops.hpp;cpp/core/src/correct_ops.cpp;cpp/tools/hicCorrectMatrix.cpp
+hicexplorer.hicCorrectMatrix	def	main(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.hicCorrelate	module		145		cpp/tools/hicCorrelate.cpp
+hicexplorer.hicCorrelate	def	parse_arguments(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.hicCorrelate	def	plot_correlation(corr_matrix, labels, plot_filename, vmax=None, vmin=None, colormap='Reds', pPlotNumbers=None)	64	pure Python	
+hicexplorer.hicCorrelate	def	get_vectors(mat1, mat2)	31	pure Python	
+hicexplorer.hicCorrelate	def	main(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.hicCreateThresholdFile	module		20		cpp/tools/hicCreateThresholdFile.cpp
+hicexplorer.hicCreateThresholdFile	def	parse_arguments(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.hicCreateThresholdFile	def	main(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.hicDetectLoops	module		876		cpp/tools/hicDetectLoops.cpp
+hicexplorer.hicDetectLoops	def	get_linenumber()	3	pure Python	
+hicexplorer.hicDetectLoops	def	parse_arguments(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.hicDetectLoops	def	create_distance_distribution(pDataObsExp, pDistances, pWindowSize, pMinDistance, pMaxDistance, pQueue)	14	pure Python	
+hicexplorer.hicDetectLoops	def	compute_p_values_mask(pGenomicDistanceDistributionsObsExp, pGenomicDistanceDistributionsKeyList, pPValuePreselection, pGenomicDistanceDistributionPosition, pResolution, pMinimumInteractionsThreshold, pObsExpThreshold, pQueue)	36	pure Python	cpp/tools/detect_loops_impl.hpp
+hicexplorer.hicDetectLoops	def	compute_long_range_contacts(pHiCMatrix, pObsExpMatrix, pWindowSize, pPValue, pPeakWindowSize, pPValuePreselection, pMinimumInteractionsThreshold, pObsExpThreshold, pThreads)	197	pure Python	
+hicexplorer.hicDetectLoops	def	neighborhood_merge_thread(pCandidateList, pWindowSize, pInteractionCountMatrix, pQueue)	42	pure Python	
+hicexplorer.hicDetectLoops	def	neighborhood_merge(pCandidates, pWindowSize, pInteractionCountMatrix, pThreads)	71	pure Python	cpp/tests/test_detect_loops.cpp;cpp/tools/detect_loops_impl.cpp;cpp/tools/detect_loops_impl.hpp;cpp/tools/hicDetectLoops.cpp
+hicexplorer.hicDetectLoops	def	candidate_region_test_thread(pHiCMatrix, pCandidates, pWindowSize, pPValue, pPeakWindowSize, pQueue)	142	pure Python	cpp/tools/detect_loops_impl.hpp
+hicexplorer.hicDetectLoops	def	candidate_region_test(pHiCMatrix, pCandidates, pWindowSize, pPValue, pPeakWindowSize, pThreads)	110	pure Python	cpp/tests/test_detect_loops.cpp;cpp/tools/detect_loops_impl.cpp;cpp/tools/detect_loops_impl.hpp;cpp/tools/hicDetectLoops.cpp
+hicexplorer.hicDetectLoops	def	cluster_to_genome_position_mapping(pHicMatrix, pCandidates, pPValueList, pMaxLoopDistance)	23	pure Python	
+hicexplorer.hicDetectLoops	def	write_bedgraph(pLoops, pOutFileName, pStartRegion=None, pEndRegion=None)	13	pure Python	
+hicexplorer.hicDetectLoops	def	compute_loops(pHiCMatrix, pRegion, pArgs, pIsCooler, pQueue=None)	143	pure Python	
+hicexplorer.hicDetectLoops	def	read_threshold_file(pFile)	13	pure Python	cpp/tools/chicSignificantInteractions.cpp;cpp/tools/hicDetectLoops.cpp
+hicexplorer.hicDetectLoops	def	main(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.hicDetectStripes	module		13		cpp/tools/hicDetectStripes.cpp
+hicexplorer.hicDetectStripes	def	parse_arguments(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.hicDetectStripes	def	main(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.hicDifferentialAnalysis	module		13		cpp/tools/hicDifferentialAnalysis.cpp
+hicexplorer.hicDifferentialAnalysis	def	parse_arguments(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.hicDifferentialAnalysis	def	main(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.hicDifferentialTAD	module		242		cpp/tools/hicDifferentialTAD.cpp
+hicexplorer.hicDifferentialTAD	def	parse_arguments(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.hicDifferentialTAD	def	readDomainBoundaries(pFile)	4	pure Python	
+hicexplorer.hicDifferentialTAD	def	computeDifferentialTADs(pMatrixTarget, pMatrixControl, pDomainList, pCoolOrH5, pPValue, pThreadId, pQueue)	202	pure Python	
+hicexplorer.hicDifferentialTAD	def	main(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.hicFindRestSite	module		118		cpp/tools/hicFindRestSite.cpp
+hicexplorer.hicFindRestSite	def	parse_arguments(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.hicFindRestSite	def	find_pattern(pPattern, fasta_file, out_file)	81	pure Python	
+hicexplorer.hicFindRestSite	def	main(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.hicFindTADs	module		1179		cpp/tools/hicFindTADs.cpp
+hicexplorer.hicFindTADs	def	parse_arguments(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.hicFindTADs	def	compute_matrix_wrapper(args)	2	pure Python	
+hicexplorer.hicFindTADs	def	get_cut_weight_by_bin_id(matrix, cut, depth, return_mean=False)	21	pure Python	
+hicexplorer.hicFindTADs	def	get_idx_of_bins_at_given_distance(hic_matrix, idx, window_len)	34	pure Python	cpp/tools/hicFindTADs.cpp
+hicexplorer.hicFindTADs	def	get_cut_weight(hic_matrix, cut, window_len, return_mean=False)	23	pure Python	cpp/tools/hicFindTADs.cpp
+hicexplorer.hicFindTADs	def	get_triangle(hic_matrix, cut, window_len, return_mean=False)	21	pure Python	
+hicexplorer.hicFindTADs	def	get_incremental_step_size(min_win_size, max_win_size, start_step_len)	19	pure Python	cpp/tools/hicFindTADs.cpp
+hicexplorer.hicFindTADs	def	compute_matrix(bins_list, min_win_size=8, max_win_size=50, step_len=2)	45	pure Python	
+hicexplorer.hicFindTADs	class	HicFindTads	944	pure Python	
+hicexplorer.hicFindTADs	method	HicFindTads.__init__(self, matrix, num_processors=1, max_depth=None, min_depth=None, step=None, delta=0.01, min_boundary_distance=None, use_zscore=True, p_correct_for_multiple_testing='fdr', p_threshold_comparisons=0.01, pChromosomes=None)	40	pure Python	
+hicexplorer.hicFindTADs	method	HicFindTads.set_matrix(self, pMatrix, pChromosomes)	24	pure Python	cpp/tools/hicFindTADs.cpp
+hicexplorer.hicFindTADs	method	HicFindTads.set_variables(self)	46	pure Python	cpp/tools/hicFindTADs.cpp
+hicexplorer.hicFindTADs	method	HicFindTads.peakdetect(y_axis, x_axis=None, lookahead=3, delta=0, chrom=None)	106	pure Python	cpp/tools/hicFindTADs.cpp
+hicexplorer.hicFindTADs	method	HicFindTads.delta_wrt_window(min_idx_list, matrix_avg, chrom, window_len=10)	42	pure Python	cpp/tools/hicFindTADs.cpp
+hicexplorer.hicFindTADs	method	HicFindTads.find_consensus_minima(tad_score_matrix, lookahead=3, chrom=None)	20	pure Python	
+hicexplorer.hicFindTADs	method	HicFindTads.hierarchical_clustering(self, boundary_list, clusters_cutoff=[])	156	pure Python	
+hicexplorer.hicFindTADs	method	HicFindTads.save_linkage(Z, file_name)	26	pure Python	
+hicexplorer.hicFindTADs	method	HicFindTads.get_domains(boundary_list)	24	pure Python	
+hicexplorer.hicFindTADs	method	HicFindTads.save_bedgraph_matrix(self, outfile)	25	pure Python	cpp/tools/hicFindTADs.cpp
+hicexplorer.hicFindTADs	method	HicFindTads.save_clusters(clusters, file_prefix)	12	pure Python	
+hicexplorer.hicFindTADs	method	HicFindTads.save_domains_and_boundaries(self, prefix)	128	pure Python	cpp/tools/hicFindTADs.cpp
+hicexplorer.hicFindTADs	method	HicFindTads.compute_spectra_matrix(self, perchr=True)	113	pure Python	cpp/tools/hicFindTADs.cpp
+hicexplorer.hicFindTADs	method	HicFindTads.load_bedgraph_matrix(self, filename, pChromosomes=None)	36	pure Python	cpp/tools/hicFindTADs.cpp
+hicexplorer.hicFindTADs	method	HicFindTads.min_pvalue(self, min_idx)	82	pure Python	cpp/core/include/hicx/stats_ops.hpp;cpp/tools/hicFindTADs.cpp
+hicexplorer.hicFindTADs	method	HicFindTads.find_boundaries(self)	44	pure Python	cpp/tools/hicFindTADs.cpp
+hicexplorer.hicFindTADs	def	print_args(args)	11	pure Python	
+hicexplorer.hicFindTADs	def	main(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.hicHyperoptDetectLoops	module		152		
+hicexplorer.hicHyperoptDetectLoops	def	parse_arguments(args=None)	56	Python driver (hyperopt) around C++ tools	cpp/tools/hicAdjustMatrix.cpp;cpp/tools/hicAggregateContacts.cpp;cpp/tools/hicAverageRegions.cpp;cpp/tools/hicBuildMatrix.cpp;cpp/tools/hicBuildMatrixMicroC.cpp;cpp/tools/hicCompareMatrices.cpp;cpp/tools/hicCompartmentalization.cpp;cpp/tools/hicConvertFormat.cpp;cpp/tools/hicCorrectMatrix.cpp;cpp/tools/hicCreateThresholdFile.cpp;cpp/tools/hicDetectLoops.cpp;cpp/tools/hicDetectStripes.cpp;cpp/tools/hicDifferentialAnalysis.cpp;cpp/tools/hicDifferentialTAD.cpp;cpp/tools/hicFindRestSite.cpp;cpp/tools/hicFindTADs.cpp;cpp/tools/hicInfo.cpp;cpp/tools/hicInterIntraTAD.cpp;cpp/tools/hicMergeDomains.cpp;cpp/tools/hicMergeLoops.cpp;cpp/tools/hicMergeMatrixBins.cpp;cpp/tools/hicMergeTADbins.cpp;cpp/tools/hicNormalize.cpp;cpp/tools/hicPCA.cpp;cpp/tools/hicPlotDistVsCounts.cpp;cpp/tools/hicPlotSVL.cpp;cpp/tools/hicPlotViewpoint.cpp;cpp/tools/hicQuickQC.cpp;cpp/tools/hicSumMatrices.cpp;cpp/tools/hicTransform.cpp;cpp/tools/hicValidateLocations.cpp
+hicexplorer.hicHyperoptDetectLoops	def	compute_score(pLoopFile, pProteinFile, pMaximumNumberOfLoops, pResolution, pChrPrefixLoops)	27	Python driver (hyperopt) around C++ tools	
+hicexplorer.hicHyperoptDetectLoops	def	objective(pArgs)	15	Python driver (hyperopt) around C++ tools	
+hicexplorer.hicHyperoptDetectLoops	def	main(args=None)	29	Python driver (hyperopt) around C++ tools	
+hicexplorer.hicHyperoptDetectLoopsHiCCUPS	module		158		
+hicexplorer.hicHyperoptDetectLoopsHiCCUPS	def	parse_arguments(args=None)	69	Python driver (hyperopt) around C++ tools	cpp/tools/hicAdjustMatrix.cpp;cpp/tools/hicAggregateContacts.cpp;cpp/tools/hicAverageRegions.cpp;cpp/tools/hicBuildMatrix.cpp;cpp/tools/hicBuildMatrixMicroC.cpp;cpp/tools/hicCompareMatrices.cpp;cpp/tools/hicCompartmentalization.cpp;cpp/tools/hicConvertFormat.cpp;cpp/tools/hicCorrectMatrix.cpp;cpp/tools/hicCreateThresholdFile.cpp;cpp/tools/hicDetectLoops.cpp;cpp/tools/hicDetectStripes.cpp;cpp/tools/hicDifferentialAnalysis.cpp;cpp/tools/hicDifferentialTAD.cpp;cpp/tools/hicFindRestSite.cpp;cpp/tools/hicFindTADs.cpp;cpp/tools/hicInfo.cpp;cpp/tools/hicInterIntraTAD.cpp;cpp/tools/hicMergeDomains.cpp;cpp/tools/hicMergeLoops.cpp;cpp/tools/hicMergeMatrixBins.cpp;cpp/tools/hicMergeTADbins.cpp;cpp/tools/hicNormalize.cpp;cpp/tools/hicPCA.cpp;cpp/tools/hicPlotDistVsCounts.cpp;cpp/tools/hicPlotSVL.cpp;cpp/tools/hicPlotViewpoint.cpp;cpp/tools/hicQuickQC.cpp;cpp/tools/hicSumMatrices.cpp;cpp/tools/hicTransform.cpp;cpp/tools/hicValidateLocations.cpp
+hicexplorer.hicHyperoptDetectLoopsHiCCUPS	def	compute_score(pLoopFile, pProteinFile, pMaximumNumberOfLoops, pResolution, pChrPrefixLoops)	26	Python driver (hyperopt) around C++ tools	
+hicexplorer.hicHyperoptDetectLoopsHiCCUPS	def	objective(pArgs)	15	Python driver (hyperopt) around C++ tools	
+hicexplorer.hicHyperoptDetectLoopsHiCCUPS	def	main(args=None)	26	Python driver (hyperopt) around C++ tools	
+hicexplorer.hicInfo	module		32		cpp/tools/hicInfo.cpp
+hicexplorer.hicInfo	def	parse_arguments(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.hicInfo	def	main(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.hicInterIntraTAD	module		236		cpp/tools/hicInterIntraTAD.cpp
+hicexplorer.hicInterIntraTAD	def	parse_arguments(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.hicInterIntraTAD	def	readDomainBoundaries(pFile)	4	pure Python	
+hicexplorer.hicInterIntraTAD	def	computeInterIntraTADs(pMatrix, pDomainList, pCoolOrH5, pThreadId, pQueue)	196	pure Python	
+hicexplorer.hicInterIntraTAD	def	main(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.hicMergeDomains	module		340		cpp/tools/hicMergeDomains.cpp
+hicexplorer.hicMergeDomains	def	parse_arguments(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.hicMergeDomains	def	create_list_of_file(file, binSizeList)	26	pure Python	cpp/tests/test_merge_domains.cpp;cpp/tools/merge_domains_impl.cpp;cpp/tools/merge_domains_impl.hpp
+hicexplorer.hicMergeDomains	def	merge_list(d1, d2, pValue=5000)	65	pure Python	cpp/tests/test_merge_domains.cpp;cpp/tools/merge_domains_impl.cpp;cpp/tools/merge_domains_impl.hpp
+hicexplorer.hicMergeDomains	def	add_id(domainList)	7	pure Python	cpp/tests/test_merge_domains.cpp;cpp/tools/merge_domains_impl.cpp;cpp/tools/merge_domains_impl.hpp
+hicexplorer.hicMergeDomains	def	create_relationsship_list(domainList, pPercent=0.5)	29	pure Python	cpp/tools/merge_domains_impl.hpp
+hicexplorer.hicMergeDomains	def	add_relation_to_list(rList, chromosom, parent, child)	15	pure Python	cpp/tools/merge_domains_impl.cpp;cpp/tools/merge_domains_impl.hpp
+hicexplorer.hicMergeDomains	def	write_in_file(pList, name, relation=False)	23	pure Python	cpp/tools/merge_domains_impl.hpp
+hicexplorer.hicMergeDomains	def	create_tree(rList, dList, pFileNameSuffix, pFormat)	37	pure Python	cpp/tests/test_merge_domains.cpp;cpp/tools/hicMergeDomains.cpp;cpp/tools/merge_domains_impl.cpp;cpp/tools/merge_domains_impl.hpp
+hicexplorer.hicMergeDomains	def	create_small_list(dList)	14	pure Python	cpp/tools/merge_domains_impl.cpp;cpp/tools/merge_domains_impl.hpp
+hicexplorer.hicMergeDomains	def	read_protein(file)	14	pure Python	cpp/tests/test_merge_domains.cpp;cpp/tools/hicMergeDomains.cpp;cpp/tools/merge_domains_impl.cpp;cpp/tools/merge_domains_impl.hpp
+hicexplorer.hicMergeDomains	def	merge_protein(pProteinList, binSize, minPeak)	26	pure Python	cpp/tests/test_merge_domains.cpp;cpp/tools/hicMergeDomains.cpp;cpp/tools/merge_domains_impl.cpp;cpp/tools/merge_domains_impl.hpp
+hicexplorer.hicMergeDomains	def	compare_boundaries_protein(bList, cList, paraScore=0.2)	26	pure Python	cpp/tests/test_merge_domains.cpp;cpp/tools/merge_domains_impl.cpp;cpp/tools/merge_domains_impl.hpp
+hicexplorer.hicMergeDomains	def	create_list_with_protein(bList, minPeak, cList=None)	7	pure Python	cpp/tools/merge_domains_impl.cpp
+hicexplorer.hicMergeDomains	def	main(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.hicMergeLoops	module		112		cpp/tools/hicMergeLoops.cpp
+hicexplorer.hicMergeLoops	def	parse_arguments(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.hicMergeLoops	def	mergeLoops(pDataFrame, pLowestResolution, pTupleX, pTupleY)	75	pure Python	
+hicexplorer.hicMergeLoops	def	readFile(pFile)	2	pure Python	
+hicexplorer.hicMergeLoops	def	main(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.hicMergeMatrixBins	module		237		cpp/tools/hicMergeMatrixBins.cpp
+hicexplorer.hicMergeMatrixBins	def	parse_arguments(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.hicMergeMatrixBins	def	remove_nans_if_needed(hic)	20	pure Python	cpp/core/include/hicx/adjust_ops.hpp;cpp/core/include/hicx/reduce_matrix.hpp;cpp/tools/hicMergeMatrixBins.cpp
+hicexplorer.hicMergeMatrixBins	def	running_window_merge(hic_matrix, num_bins)	97	pure Python	cpp/core/include/hicx/reduce_matrix.hpp
+hicexplorer.hicMergeMatrixBins	def	merge_bins(hic, num_bins)	83	pure Python	cpp/core/include/hicx/reduce_matrix.hpp;cpp/tests/test_reduce_matrix.cpp;cpp/tools/hicMergeMatrixBins.cpp
+hicexplorer.hicMergeMatrixBins	def	main(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.hicMergeTADbins	module		122		cpp/tools/hicMergeTADbins.cpp
+hicexplorer.hicMergeTADbins	def	parse_arguments(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.hicMergeTADbins	def	merge_tad_bins(hic, boundary_id_list, filename)	49	pure Python	cpp/core/include/hicx/reduce_matrix.hpp
+hicexplorer.hicMergeTADbins	def	get_boundary_bin_id(hic, bed_fh)	37	pure Python	cpp/core/include/hicx/reduce_matrix.hpp;cpp/tools/hicMergeTADbins.cpp
+hicexplorer.hicMergeTADbins	def	main(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.hicNormalize	module		28		cpp/tools/hicNormalize.cpp
+hicexplorer.hicNormalize	def	parse_arguments(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.hicNormalize	def	main(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.hicPCA	module		144		cpp/tools/hicPCA.cpp
+hicexplorer.hicPCA	def	parse_arguments(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.hicPCA	def	correlateEigenvectorWithGeneTrack(pMatrix, pEigenvector, pGeneTrack)	58	pure Python	cpp/tools/hicPCA.cpp
+hicexplorer.hicPCA	def	correlateEigenvectorWithHistonMarkTrack(pEigenvector, bwTrack, chromosome, start, end, pHistonMarkTrack, pHistonMarkType)	40	pure Python	cpp/tools/hicPCA.cpp
+hicexplorer.hicPCA	def	main(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.hicPlotAverageRegions	module		34		cpp/tools/hicPlotAverageRegions.cpp
+hicexplorer.hicPlotAverageRegions	def	parse_arguments(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.hicPlotAverageRegions	def	main(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.hicPlotDistVsCounts	module		371		cpp/tools/hicPlotDistVsCounts.cpp
+hicexplorer.hicPlotDistVsCounts	def	parse_arguments(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.hicPlotDistVsCounts	def	compute_distance_mean(hicmat, maxdepth=None, perchr=False, custom_cut_intervals=None)	181	pure Python	cpp/tools/hicPlotDistVsCounts.cpp
+hicexplorer.hicPlotDistVsCounts	def	from_bed_to_cut_interval(hicmat, fh)	71	pure Python	cpp/tools/hicPlotDistVsCounts.cpp
+hicexplorer.hicPlotDistVsCounts	def	main(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.hicPlotMatrix	module		761		cpp/tools/hicPlotMatrix.cpp
+hicexplorer.hicPlotMatrix	def	parse_arguments(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.hicPlotMatrix	def	relabel_ticks(pXTicks)	14	pure Python	
+hicexplorer.hicPlotMatrix	def	plotHeatmap(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=None, ylabel=None, start_pos=None, start_pos2=None, pNorm=None, pAxis=None, pBigwig=None, pLoops=None, pLoopLargeRegionsOperation=None, pHiCMatrix=None, pChromsomeStartEndDict=None, pResolution=None, pTads=None)	143	pure Python	cpp/tools/hicPlotMatrix.cpp
+hicexplorer.hicPlotMatrix	def	translate_region(region_string, ma)	36	pure Python	cpp/tools/hicPlotMatrix.cpp
+hicexplorer.hicPlotMatrix	def	plotPerChr(hic_matrix, cmap, args, pBigwig, pResolution)	143	pure Python	cpp/tools/hicPlotMatrix.cpp
+hicexplorer.hicPlotMatrix	def	getRegion(args, ma)	43	pure Python	cpp/tools/hicPlotMatrix.cpp
+hicexplorer.hicPlotMatrix	def	bigwig_axes_config(pArgs, pBigWigInfo)	50	pure Python	
+hicexplorer.hicPlotMatrix	def	chromosome_start_end(pHiCMatrix)	7	pure Python	cpp/tools/hicPlotMatrix.cpp
+hicexplorer.hicPlotMatrix	def	make_start_pos_array(ma)	30	pure Python	cpp/tools/hicPlotMatrix.cpp
+hicexplorer.hicPlotMatrix	def	plotBigwig(pAxis, pNameOfBigwigList, pChromosomeSizes=None, pRegion=None, pXticks=None, pFlipBigwigSign=None, pScaleFactorBigwig=None, pVertical=False, pValueMin=None, pValueMax=None, pResolution=None)	151	pure Python	
+hicexplorer.hicPlotMatrix	def	plotLongRangeContacts(pAxis, pNameOfLongRangeContactsFile, pLoopLargeRegionsOperation, pRegion, pChromosomeOrder)	42	pure Python	
+hicexplorer.hicPlotMatrix	def	plotTADs(pAxis, pNameOfLongRangeContactsFile, pHiCMatrix, pRegion, pChromosomeOrder)	31	pure Python	
+hicexplorer.hicPlotMatrix	def	main(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.hicPlotSVL	module		76		cpp/tools/hicPlotSVL.cpp
+hicexplorer.hicPlotSVL	def	parse_arguments(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.hicPlotSVL	def	compute_relation_short_long_range(pHiCMatrix, pChromosomes, pDistance, pIsCooler, pQueue)	34	pure Python	cpp/tools/hicPlotSVL.cpp
+hicexplorer.hicPlotSVL	def	main(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.hicPlotViewpoint	module		76		cpp/tools/hicPlotViewpoint.cpp
+hicexplorer.hicPlotViewpoint	def	parse_arguments(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.hicPlotViewpoint	def	relabelTicks(pTick)	6	pure Python	
+hicexplorer.hicPlotViewpoint	def	getViewpointValues(pMatrix, pReferencePoint, pChromViewpoint, pRegion_start, pRegion_end, pInteractionList=None, pChromosome=None)	31	pure Python	
+hicexplorer.hicPlotViewpoint	def	main(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.hicPrepareQCreport	module		204		cpp/tools/hicPrepareQCreport.cpp
+hicexplorer.hicPrepareQCreport	def	parse_arguments(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.hicPrepareQCreport	def	save_html(filename, unmap_table, discard_table, distance_table, orientation_table, all_table)	26	pure Python	
+hicexplorer.hicPrepareQCreport	def	make_sure_path_exists(path)	6	pure Python	
+hicexplorer.hicPrepareQCreport	def	make_figure_pairs_used(table, filename, dpi)	15	pure Python	
+hicexplorer.hicPrepareQCreport	def	make_figure_umappable_non_unique_reads(table, filename, dpi)	25	pure Python	cpp/core/src/build_matrix.cpp
+hicexplorer.hicPrepareQCreport	def	make_figure_pairs_discarded(table, filename, dpi)	41	pure Python	cpp/core/src/build_matrix.cpp
+hicexplorer.hicPrepareQCreport	def	make_figure_distance(table, filename)	23	pure Python	cpp/core/src/build_matrix.cpp
+hicexplorer.hicPrepareQCreport	def	make_figure_read_orientation(table, filename, dpi)	21	pure Python	cpp/core/src/build_matrix.cpp
+hicexplorer.hicPrepareQCreport	def	main(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.hicQuickQC	module		33		cpp/tools/hicQuickQC.cpp
+hicexplorer.hicQuickQC	def	parse_arguments(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.hicQuickQC	def	main(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.hicSumMatrices	module		27		cpp/tools/hicSumMatrices.cpp
+hicexplorer.hicSumMatrices	def	parse_arguments(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.hicSumMatrices	def	main(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.hicTransform	module		82		cpp/tools/hicTransform.cpp
+hicexplorer.hicTransform	def	parse_arguments(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.hicTransform	def	main(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.hicValidateLocations	module		142		cpp/tools/hicValidateLocations.cpp
+hicexplorer.hicValidateLocations	def	parse_arguments(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.hicValidateLocations	def	readThreeColumn(pFile, pChrPrefixProtein)	8	pure Python	
+hicexplorer.hicValidateLocations	def	readLoopFile(pInputFile, pChrPrefixLoops)	10	pure Python	
+hicexplorer.hicValidateLocations	def	overlapLoop(pDataFrameLoop, pDataFrameProtein)	14	pure Python	
+hicexplorer.hicValidateLocations	def	overlapTAD(pDataFrameTAD, pDataFrameProtein)	10	pure Python	
+hicexplorer.hicValidateLocations	def	correlateCool(pCoolFile, pDataFrameLoop)	19	pure Python	cpp/tools/hicValidateLocations.cpp
+hicexplorer.hicValidateLocations	def	applyBinning(pDataFrame, pBinSize, pMerge=True)	20	pure Python	cpp/tools/hicValidateLocations.cpp
+hicexplorer.hicValidateLocations	def	writeLoopFile(pOutFileName, pLoopDataFrame)	2	pure Python	
+hicexplorer.hicValidateLocations	def	main(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.iterativeCorrection	module		86		
+hicexplorer.iterativeCorrection	def	iterativeCorrection(matrix, v=None, M=50, tolerance=1e-05, verbose=False)	77	pure Python	cpp/core/include/hicx/math/ice.hpp;cpp/core/src/math/sparse_kernels.cpp;cpp/tools/hicCorrectMatrix.cpp
+hicexplorer.lib	module		1		
+hicexplorer.lib.buildMatrixMethods	module		1419		
+hicexplorer.lib.buildMatrixMethods	class	C_Interval	5	pure Python	cpp/core/include/hicx/build_matrix.hpp
+hicexplorer.lib.buildMatrixMethods	class	C_Coverage	5	pure Python	
+hicexplorer.lib.buildMatrixMethods	class	ReadPositionMatrix	33	pure Python	cpp/tools/build_matrix_impl.hpp
+hicexplorer.lib.buildMatrixMethods	method	ReadPositionMatrix.__init__(self)	10	pure Python	
+hicexplorer.lib.buildMatrixMethods	method	ReadPositionMatrix.is_duplicated(self, chrom1, start1, chrom2, start2)	16	pure Python	
+hicexplorer.lib.buildMatrixMethods	def	intervalListToIntervalTree(interval_list)	23	pure Python	cpp/core/include/hicx/bins.hpp;cpp/core/include/hicx/matrix_ops.hpp;cpp/core/src/bins.cpp;cpp/core/src/build_matrix.cpp;cpp/tests/test_bins.cpp;cpp/tools/chicAggregateStatistic.cpp;cpp/tools/hicMergeLoops.cpp;cpp/tools/hicPlotDistVsCounts.cpp
+hicexplorer.lib.buildMatrixMethods	def	get_bins(bin_size, chrom_size, region=None)	26	pure Python	cpp/core/include/hicx/build_matrix.hpp;cpp/core/src/build_matrix.cpp;cpp/tests/test_build_matrix.cpp;cpp/tools/build_matrix_impl.hpp;cpp/tools/build_matrix_pairs_impl.hpp
+hicexplorer.lib.buildMatrixMethods	def	bed2interval_list(bed_file_handler, pChromosomeSize, pRegion)	42	pure Python	cpp/core/include/hicx/build_matrix.hpp;cpp/core/src/build_matrix.cpp;cpp/tools/build_matrix_impl.hpp;cpp/tools/build_matrix_pairs_impl.hpp
+hicexplorer.lib.buildMatrixMethods	def	get_rf_bins(rf_cut_intervals, min_distance=200, max_distance=800)	77	pure Python	cpp/core/include/hicx/build_matrix.hpp;cpp/core/src/build_matrix.cpp;cpp/tests/test_build_matrix.cpp;cpp/tools/build_matrix_impl.hpp;cpp/tools/build_matrix_pairs_impl.hpp;cpp/tools/hicBuildMatrixMicroC.cpp
+hicexplorer.lib.buildMatrixMethods	def	get_chrom_sizes(bam_handle)	18	pure Python	cpp/core/include/hicx/bam_file.hpp
+hicexplorer.lib.buildMatrixMethods	def	check_dangling_end(read, dangling_sequences)	22	pure Python	cpp/core/include/hicx/bam_file.hpp;cpp/tools/build_matrix_impl.hpp
+hicexplorer.lib.buildMatrixMethods	def	get_supplementary_alignment(read, pysam_obj)	24	pure Python	cpp/tools/build_matrix_impl.hpp
+hicexplorer.lib.buildMatrixMethods	def	get_correct_map(primary, supplement_list)	81	pure Python	cpp/core/include/hicx/bam_file.hpp;cpp/tools/build_matrix_impl.hpp
+hicexplorer.lib.buildMatrixMethods	def	enlarge_bins(bin_intervals, chrom_sizes)	36	pure Python	cpp/core/include/hicx/build_matrix.hpp;cpp/core/src/build_matrix.cpp;cpp/tests/test_build_matrix.cpp;cpp/tools/build_matrix_impl.hpp;cpp/tools/build_matrix_pairs_impl.hpp
+hicexplorer.lib.buildMatrixMethods	def	readBamFiles(pFileOneIterator, pFileTwoIterator, pNumberOfItemsPerBuffer, pSkipDuplicationCheck, pReadPosMatrix, pRefId2name, pMinMappingQuality)	100	pure Python	cpp/tools/build_matrix_impl.hpp;cpp/tools/hicBuildMatrix.cpp
+hicexplorer.lib.buildMatrixMethods	def	process_data(pMateBuffer1, pMateBuffer2, pMinMappingQuality, pKeepSelfCircles, pRestrictionSequence, pKeepSelfLigation, pMatrixSize, pRfPositions, pRefId2name, pDanglingSequences, pBinsize, pResultIndex, pQueueOut, pTemplate, pOutputBamSet, pCounter, pSharedBinIntvalTree, pDictBinIntervalTreeIndex, pCoverage, pCoverageIndex, pOutputFileBufferDir, pRow, pCol, pData, pMaxInsertSize, pQuickQCMode)	310	pure Python	cpp/core/include/hicx/bam_file.hpp
+hicexplorer.lib.buildMatrixMethods	def	createMatrix(pOutFileName, pMaxDistance, pMaxLibraryInsertSize, pQCfolder, pThreads, pDanglingSequence, pRestrictionSequence, pSamFiles, pDoTestRun, pOutBam, pChromosomeSizes, pRestrictionCutFile, pRegion, pBinSize, pInputBufferSize, pDoTestRunLines, pSkipDuplicationCheck, pMinMappingQuality, pKeepSelfCircles, pKeepSelfLigation, pMinDistance, pGenomeAssembly)	537	pure Python	cpp/core/include/hicx/bam_file.hpp;cpp/core/include/hicx/build_matrix.hpp;cpp/tools/build_matrix_impl.hpp;cpp/tools/hicBuildMatrix.cpp;cpp/tools/hicBuildMatrixMicroC.cpp
+hicexplorer.lib.buildMatrixMethods	class	Tester	9	pure Python	
+hicexplorer.lib.buildMatrixMethods	method	Tester.__init__(self)	8	pure Python	
+hicexplorer.lib.cnb	module		29		
+hicexplorer.lib.cnb	def	pdf(pX, pR, pP)	7	pure Python	
+hicexplorer.lib.cnb	def	cdf(pX, pR, pP)	7	pure Python	cpp/core/include/hicx/chic_viewpoint.hpp;cpp/core/include/hicx/stats_ops.hpp;cpp/tests/test_detect_loops.cpp;cpp/tools/detect_loops_impl.cpp;cpp/tools/detect_loops_impl.hpp
+hicexplorer.lib.viewpoint	module		1084		
+hicexplorer.lib.viewpoint	class	Viewpoint	1068	pure Python	cpp/core/include/hicx/chic_hdf5.hpp;cpp/core/include/hicx/chic_viewpoint.hpp;cpp/tools/chicAggregateStatistic.cpp;cpp/tools/chicPlotViewpoint.cpp;cpp/tools/chicSignificantInteractions.cpp;cpp/tools/chicViewpoint.cpp;cpp/tools/hicPlotViewpoint.cpp
+hicexplorer.lib.viewpoint	method	Viewpoint.__init__(self, pHiCMatrix=None)	2	pure Python	
+hicexplorer.lib.viewpoint	method	Viewpoint.readReferencePointFile(self, pBedFile, pGene=True)	41	pure Python	cpp/core/include/hicx/chic_viewpoint.hpp
+hicexplorer.lib.viewpoint	method	Viewpoint.readInteractionFile(self, pFilePath, pInternalIdentifierTriplet)	88	pure Python	cpp/core/include/hicx/chic_hdf5.hpp;cpp/tools/chicPlotViewpoint.cpp
+hicexplorer.lib.viewpoint	method	Viewpoint.interactionDataForPlot(self, pFilePath, pInternalIdentifierTriplet)	25	pure Python	
+hicexplorer.lib.viewpoint	method	Viewpoint.readBackgroundDataFile(self, pBedFile, pRange, pFixateRange, pMean=False)	41	pure Python	cpp/core/include/hicx/chic_viewpoint.hpp;cpp/tools/chicPlotViewpoint.cpp
+hicexplorer.lib.viewpoint	method	Viewpoint.writeInteractionFile(self, pBedFile, pData, pHeader, pPValueData, pXfold, pDecimalPlaces=12)	15	pure Python	
+hicexplorer.lib.viewpoint	method	Viewpoint.writeInteractionFileHDF5(self, pInteractionFileGroupH5Object, pFileName, pData, pReferencePoint)	49	pure Python	cpp/core/include/hicx/chic_hdf5.hpp
+hicexplorer.lib.viewpoint	method	Viewpoint.createUniqueHDFGroup(self, pGroupObject, pAdditionalGroupName)	16	pure Python	cpp/tools/chicSignificantInteractions.cpp;cpp/tools/chicViewpoint.cpp
+hicexplorer.lib.viewpoint	method	Viewpoint.computeViewpoint(self, pReferencePoint, pChromViewpoint, pRegion_start, pRegion_end)	44	pure Python	cpp/core/include/hicx/chic_viewpoint.hpp;cpp/tools/chicQualityControl.cpp;cpp/tools/chicViewpointBackgroundModel.cpp
+hicexplorer.lib.viewpoint	method	Viewpoint.createInteractionFileData(self, pReferencePoint, pChromViewpoint, pRegion_start, pRegion_end, pInteractionData, pInteractionDataRaw, pGene, pSumOfInteractions)	40	pure Python	
+hicexplorer.lib.viewpoint	method	Viewpoint.createInteractionFileDataHDF5(self, pReferencePoint, pChromViewpoint, pRegion_start, pRegion_end, pInteractionData, pInteractionDataRaw, pGene, pSumOfInteractions, pPValueList, xFoldList)	51	pure Python	cpp/core/include/hicx/chic_viewpoint.hpp
+hicexplorer.lib.viewpoint	method	Viewpoint.getViewpointRangeAsMatrixIndices(self, pChromViewpoint, pRegion_start, pRegion_end)	9	pure Python	
+hicexplorer.lib.viewpoint	method	Viewpoint.getReferencePointAsMatrixIndices(self, pReferencePoint)	18	pure Python	cpp/core/include/hicx/chic_viewpoint.hpp
+hicexplorer.lib.viewpoint	method	Viewpoint.smoothInteractionValues(self, pData, pWindowSize)	30	pure Python	cpp/core/include/hicx/chic_viewpoint.hpp
+hicexplorer.lib.viewpoint	method	Viewpoint.computeRelativeValues(self, pData, pDenominator=None)	12	pure Python	cpp/core/include/hicx/chic_viewpoint.hpp;cpp/tools/chicViewpoint.cpp
+hicexplorer.lib.viewpoint	method	Viewpoint.calculateViewpointRange(self, pViewpoint, pRange)	24	pure Python	cpp/core/include/hicx/chic_viewpoint.hpp;cpp/tools/hicAverageRegions.cpp
+hicexplorer.lib.viewpoint	method	Viewpoint.getDataForPlotting(self, pFilePath, pInteractionFile, pRange, pBackgroundModel, pResolution)	125	pure Python	cpp/tools/chicPlotViewpoint.cpp
+hicexplorer.lib.viewpoint	method	Viewpoint.plotViewpoint(self, pAxis, pData, pColor, pLabelName, pHighlightRegion=None, pHighlightSignificantRegion=None)	10	pure Python	
+hicexplorer.lib.viewpoint	method	Viewpoint.plotBackgroundModel(self, pAxis, pBackgroundData, pXFold=None)	8	pure Python	
+hicexplorer.lib.viewpoint	method	Viewpoint.plotPValue(self, pAxis, pAxisLabel, pPValueData, pLabelText, pCmap, pFigure, pValueSignificanceLevels)	29	pure Python	
+hicexplorer.lib.viewpoint	method	Viewpoint.writePlotData(self, pInteractionFileDataRaw, pFileName, pBackgroundModel)	22	pure Python	
+hicexplorer.lib.viewpoint	method	Viewpoint.interactionBackgroundData(self, pBackground, pRange)	8	pure Python	cpp/core/include/hicx/chic_viewpoint.hpp
+hicexplorer.lib.viewpoint	method	Viewpoint.rbz_score(self, pRelativeInteractions, pBackgroundModel, pBackgroundModelSEM)	16	pure Python	
+hicexplorer.lib.viewpoint	method	Viewpoint.readRejectedFile(self, pFilePath, pDifferentialHighlightTriplet, pViewpointIndexStart, pViewpointIndexEnd, pResolution, pRange, pViewpoint)	52	pure Python	cpp/tools/chicPlotViewpoint.cpp
+hicexplorer.lib.viewpoint	method	Viewpoint.pvalues(self, pBackgroundModel, pDataList, pIndexReferencePoint)	30	pure Python	cpp/core/include/hicx/chic_viewpoint.hpp;cpp/core/src/chic_viewpoint.cpp;cpp/tests/test_chic.cpp;cpp/tools/chicExportData.cpp;cpp/tools/chicSignificantInteractions.cpp;cpp/tools/chicViewpoint.cpp
+hicexplorer.lib.viewpoint	method	Viewpoint.merge_neighbors(self, pScoresDictionary, pMergeThreshold=1000)	56	pure Python	cpp/tools/chicSignificantInteractions.cpp
+hicexplorer.lib.viewpoint	method	Viewpoint.readSignificantRegionsFile(self, pFilePath, pInternalIdentifierTriplet, pViewpointIndexStart, pViewpointIndexEnd, pResolution, pRange, pViewpoint)	36	pure Python	cpp/tools/chicPlotViewpoint.cpp
+hicexplorer.lib.viewpoint	method	Viewpoint.readTargetHDFFile(self, pFile)	22	pure Python	cpp/tools/chicAggregateStatistic.cpp
+hicexplorer.lib.viewpoint	method	Viewpoint.readAggregatedFileHDF(self, pAggregatedFileName, pInternalPath)	21	pure Python	cpp/tools/chicDifferentialTest.cpp
+hicexplorer.lib.viewpoint	method	Viewpoint.readDifferentialFile(self, pFilePath, pQuadruple)	33	pure Python	
+hicexplorer.list_tools	module		84		
+hicexplorer.list_tools	def	tool_names()	15	Python (package metadata + --help-json)	
+hicexplorer.list_tools	def	tool_list()	6	Python (package metadata + --help-json)	
+hicexplorer.list_tools	def	parse_arguments()	8	Python (package metadata + --help-json)	cpp/tools/hicAdjustMatrix.cpp;cpp/tools/hicAggregateContacts.cpp;cpp/tools/hicAverageRegions.cpp;cpp/tools/hicBuildMatrix.cpp;cpp/tools/hicBuildMatrixMicroC.cpp;cpp/tools/hicCompareMatrices.cpp;cpp/tools/hicCompartmentalization.cpp;cpp/tools/hicConvertFormat.cpp;cpp/tools/hicCorrectMatrix.cpp;cpp/tools/hicCreateThresholdFile.cpp;cpp/tools/hicDetectLoops.cpp;cpp/tools/hicDetectStripes.cpp;cpp/tools/hicDifferentialAnalysis.cpp;cpp/tools/hicDifferentialTAD.cpp;cpp/tools/hicFindRestSite.cpp;cpp/tools/hicFindTADs.cpp;cpp/tools/hicInfo.cpp;cpp/tools/hicInterIntraTAD.cpp;cpp/tools/hicMergeDomains.cpp;cpp/tools/hicMergeLoops.cpp;cpp/tools/hicMergeMatrixBins.cpp;cpp/tools/hicMergeTADbins.cpp;cpp/tools/hicNormalize.cpp;cpp/tools/hicPCA.cpp;cpp/tools/hicPlotDistVsCounts.cpp;cpp/tools/hicPlotSVL.cpp;cpp/tools/hicPlotViewpoint.cpp;cpp/tools/hicQuickQC.cpp;cpp/tools/hicSumMatrices.cpp;cpp/tools/hicTransform.cpp;cpp/tools/hicValidateLocations.cpp
+hicexplorer.list_tools	def	process_args(args=None)	2	Python (package metadata + --help-json)	
+hicexplorer.list_tools	def	main(args=None)	4	Python (package metadata + --help-json)	
+hicexplorer.parserCommon	module		43		
+hicexplorer.parserCommon	def	getParentArgParse(args=None)	8	pure Python	
+hicexplorer.parserCommon	def	writableFile(string)	8	pure Python	
+hicexplorer.parserCommon	class	CustomFormatter	14	pure Python	
+hicexplorer.readBed	module		252		
+hicexplorer.readBed	class	ReadBed	241	pure Python	
+hicexplorer.readBed	method	ReadBed.__init__(self, file_handle)	33	pure Python	
+hicexplorer.readBed	method	ReadBed.get_no_comment_line(self)	14	pure Python	
+hicexplorer.readBed	method	ReadBed.guess_file_type(self, line_values)	23	pure Python	
+hicexplorer.readBed	method	ReadBed.next(self)	18	pure Python	
+hicexplorer.readBed	method	ReadBed.get_bed_interval(self, bed_line)	114	pure Python	
+hicexplorer.reduceMatrix	module		232		
+hicexplorer.reduceMatrix	def	reduce_matrix(matrix, bins_to_merge, use_triu=True, diagonal=False)	221	pure Python	cpp/core/include/hicx/reduce_matrix.hpp;cpp/core/src/reduce_matrix.cpp;cpp/tests/test_adjust_ops.cpp;cpp/tests/test_reduce_matrix.cpp;cpp/tools/build_matrix_impl.hpp;cpp/tools/hicConvertFormat.cpp;cpp/tools/hicMergeMatrixBins.cpp;cpp/tools/hicMergeTADbins.cpp
+hicexplorer.utilities	module		729		
+hicexplorer.utilities	def	readBed(pBedFile)	17	pure Python	cpp/tools/chicAggregateStatistic.cpp;cpp/tools/hicPCA.cpp
+hicexplorer.utilities	def	readTargetBed(pBedFile)	37	pure Python	cpp/tools/chicAggregateStatistic.cpp
+hicexplorer.utilities	def	writableFile(string)	8	pure Python	cpp/tools/hicPlotMatrix.cpp
+hicexplorer.utilities	def	remove_outliers(data, max_deviation=3.5)	22	pure Python	
+hicexplorer.utilities	def	convertNansToZeros(ma)	9	pure Python	cpp/core/include/hicx/transform_ops.hpp;cpp/core/src/transform_ops.cpp;cpp/tests/test_transform_ops.cpp;cpp/tools/hicCorrectMatrix.cpp;cpp/tools/hicPCA.cpp;cpp/tools/hicTransform.cpp
+hicexplorer.utilities	def	convertInfsToZeros(ma)	7	pure Python	cpp/core/include/hicx/transform_ops.hpp;cpp/tools/hicCorrectMatrix.cpp;cpp/tools/hicTransform.cpp
+hicexplorer.utilities	def	convertInfsToZeros_ArrayFloat(pArray, pToEpsilon=False)	17	pure Python	cpp/core/src/transform_ops.cpp
+hicexplorer.utilities	def	convertNansToOnes(pArray)	7	pure Python	cpp/core/src/cool_adapter.cpp
+hicexplorer.utilities	def	myAverage(valuesArray, avgType='mean')	9	pure Python	
+hicexplorer.utilities	def	enlarge_bins(bin_intervals)	33	pure Python	cpp/core/include/hicx/build_matrix.hpp;cpp/core/include/hicx/obsexp_ops.hpp;cpp/core/include/hicx/transform_ops.hpp;cpp/tests/test_stats_ops.cpp;cpp/tools/build_matrix_impl.hpp;cpp/tools/hicAggregateContacts.cpp;cpp/tools/hicPCA.cpp;cpp/tools/hicPlotMatrix.cpp
+hicexplorer.utilities	def	genomicRegion(string)	24	pure Python	cpp/core/include/hicx/argparse.hpp;cpp/core/include/hicx/build_matrix.hpp;cpp/core/src/build_matrix.cpp;cpp/tests/test_build_matrix.cpp;cpp/tools/build_matrix_impl.hpp;cpp/tools/hicBuildMatrix.cpp;cpp/tools/hicBuildMatrixMicroC.cpp
+hicexplorer.utilities	def	getUserRegion(chromSizes, regionString, max_chunk_size=1000000.0)	60	pure Python	cpp/core/include/hicx/build_matrix.hpp;cpp/core/src/build_matrix.cpp;cpp/tests/test_build_matrix.cpp
+hicexplorer.utilities	def	expected_interactions_in_distance(pLength_chromosome, pChromosome_count, pSubmatrix)	22	pure Python	cpp/core/include/hicx/transform_ops.hpp;cpp/core/src/transform_ops.cpp;cpp/tests/test_transform_ops.cpp
+hicexplorer.utilities	def	expected_interactions_non_zero(pSubmatrix)	22	pure Python	cpp/core/include/hicx/transform_ops.hpp;cpp/core/src/transform_ops.cpp;cpp/tests/test_detect_loops.cpp;cpp/tests/test_transform_ops.cpp;cpp/tools/detect_loops_impl.cpp;cpp/tools/detect_loops_impl.hpp
+hicexplorer.utilities	def	expected_interactions_thread(pData, pDistances, pMinDistance, pMaxDistance, pSize, pQueue)	13	pure Python	
+hicexplorer.utilities	def	expected_interactions(pSubmatrix, pThreads=None)	89	pure Python	cpp/core/include/hicx/transform_ops.hpp;cpp/core/src/transform_ops.cpp;cpp/tests/test_detect_loops.cpp;cpp/tests/test_transform_ops.cpp;cpp/tools/detect_loops_impl.cpp;cpp/tools/detect_loops_impl.hpp
+hicexplorer.utilities	def	compute_zscore(pSubmatrix, pDepth, pThreads)	26	pure Python	
+hicexplorer.utilities	def	obs_exp_matrix_lieberman(pSubmatrix, pLength_chromosome, pChromosome_count)	20	pure Python	cpp/core/include/hicx/transform_ops.hpp;cpp/tests/test_transform_ops.cpp
+hicexplorer.utilities	def	obs_exp_matrix_non_zero(pSubmatrix, ligation_factor=False, pInplace=True, pToEpsilon=False, pThreads=None)	42	pure Python	cpp/core/include/hicx/transform_ops.hpp;cpp/tests/test_detect_loops.cpp;cpp/tests/test_transform_ops.cpp;cpp/tools/detect_loops_impl.cpp;cpp/tools/detect_loops_impl.hpp;cpp/tools/hicDetectLoops.cpp
+hicexplorer.utilities	def	obs_exp_matrix(pSubmatrix, pInplace=True, pToEpsilon=False, pThreads=None, pDistance=None)	51	pure Python	cpp/core/include/hicx/transform_ops.hpp;cpp/tests/test_detect_loops.cpp;cpp/tests/test_transform_ops.cpp;cpp/tools/detect_loops_impl.cpp;cpp/tools/detect_loops_impl.hpp;cpp/tools/hicDetectLoops.cpp
+hicexplorer.utilities	def	toString(s)	15	pure Python	cpp/tools/hicInfo.cpp
+hicexplorer.utilities	def	toBytes(s)	15	pure Python	
+hicexplorer.utilities	def	check_chrom_str_bytes(pIteratableObj, pObj)	12	pure Python	
+hicexplorer.utilities	def	change_chrom_names(chrom)	19	pure Python	cpp/tools/hicAggregateContacts.cpp;cpp/tools/hicPlotDistVsCounts.cpp;cpp/tools/hicPlotMatrix.cpp
+hicexplorer.utilities	def	opener(filename)	14	pure Python	cpp/core/include/hicx/text_formats.hpp;cpp/core/src/text_formats.cpp;cpp/tools/hicPCA.cpp
+hicexplorer.utilities	def	remove_non_ascii(pText)	7	pure Python	
+hicexplorer.utilities	def	check_cooler(pFileName)	4	pure Python	cpp/core/include/hicx/cool_adapter.hpp;cpp/tests/test_readers.cpp;cpp/tools/hicInfo.cpp;cpp/tools/hicPlotMatrix.cpp;cpp/tools/tad_contacts_impl.hpp
+hicexplorer.utilities	def	in_units(pBasePosition)	13	pure Python	
