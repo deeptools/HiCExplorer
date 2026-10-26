@@ -44,12 +44,14 @@ dependencies = [
 Homepage = "http://hicexplorer.readthedocs.io"
 
 [project.scripts]
-# Only the Python drivers are console scripts. The C++ tools are installed as
-# executables into the scripts directory themselves (cpp/cmake/HicxInstall.cmake),
-# so a tool starts with no Python in between.
+# Only the Python drivers are console scripts. The C++ tools, and the
+# `hicexplorer` command that lists them, are installed as executables into the
+# scripts directory themselves (cpp/cmake/HicxInstall.cmake), so a tool starts
+# with no Python in between. A driver added here must also be added to
+# HICX_PYTHON_DRIVERS in cpp/tools/CMakeLists.txt, which lists it in
+# `hicexplorer`.
 hicHyperoptDetectLoops = "hicexplorer.hicHyperoptDetectLoops:main"
 hicHyperoptDetectLoopsHiCCUPS = "hicexplorer.hicHyperoptDetectLoopsHiCCUPS:main"
-hicexplorer = "hicexplorer.list_tools:main"
 
 [tool.scikit-build]
 cmake.source-dir = "cpp"

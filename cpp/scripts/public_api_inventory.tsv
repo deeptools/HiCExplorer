@@ -368,12 +368,12 @@ hicexplorer.lib.viewpoint	method	Viewpoint.readSignificantRegionsFile(self, pFil
 hicexplorer.lib.viewpoint	method	Viewpoint.readTargetHDFFile(self, pFile)	22	pure Python	cpp/tools/chicAggregateStatistic.cpp
 hicexplorer.lib.viewpoint	method	Viewpoint.readAggregatedFileHDF(self, pAggregatedFileName, pInternalPath)	21	pure Python	cpp/tools/chicDifferentialTest.cpp
 hicexplorer.lib.viewpoint	method	Viewpoint.readDifferentialFile(self, pFilePath, pQuadruple)	33	pure Python	
-hicexplorer.list_tools	module		84		
+hicexplorer.list_tools	module		88		
 hicexplorer.list_tools	def	tool_names()	15	Python (package metadata + --help-json)	
 hicexplorer.list_tools	def	tool_list()	6	Python (package metadata + --help-json)	
 hicexplorer.list_tools	def	parse_arguments()	8	Python (package metadata + --help-json)	cpp/tools/hicAdjustMatrix.cpp;cpp/tools/hicAggregateContacts.cpp;cpp/tools/hicAverageRegions.cpp;cpp/tools/hicBuildMatrix.cpp;cpp/tools/hicBuildMatrixMicroC.cpp;cpp/tools/hicCompareMatrices.cpp;cpp/tools/hicCompartmentalization.cpp;cpp/tools/hicConvertFormat.cpp;cpp/tools/hicCorrectMatrix.cpp;cpp/tools/hicCreateThresholdFile.cpp;cpp/tools/hicDetectLoops.cpp;cpp/tools/hicDetectStripes.cpp;cpp/tools/hicDifferentialAnalysis.cpp;cpp/tools/hicDifferentialTAD.cpp;cpp/tools/hicFindRestSite.cpp;cpp/tools/hicFindTADs.cpp;cpp/tools/hicInfo.cpp;cpp/tools/hicInterIntraTAD.cpp;cpp/tools/hicMergeDomains.cpp;cpp/tools/hicMergeLoops.cpp;cpp/tools/hicMergeMatrixBins.cpp;cpp/tools/hicMergeTADbins.cpp;cpp/tools/hicNormalize.cpp;cpp/tools/hicPCA.cpp;cpp/tools/hicPlotDistVsCounts.cpp;cpp/tools/hicPlotSVL.cpp;cpp/tools/hicPlotViewpoint.cpp;cpp/tools/hicQuickQC.cpp;cpp/tools/hicSumMatrices.cpp;cpp/tools/hicTransform.cpp;cpp/tools/hicValidateLocations.cpp
 hicexplorer.list_tools	def	process_args(args=None)	2	Python (package metadata + --help-json)	
-hicexplorer.list_tools	def	main(args=None)	4	Python (package metadata + --help-json)	
+hicexplorer.list_tools	def	main(args=None)	4	C++-backed (runs/reads the executable)	
 hicexplorer.parserCommon	module		43		
 hicexplorer.parserCommon	def	getParentArgParse(args=None)	8	pure Python	
 hicexplorer.parserCommon	def	writableFile(string)	8	pure Python	

@@ -51,7 +51,7 @@ for path in sorted(pkg.rglob("*.py")):
             continue
         thin = mod in ("hicexplorer._cpp",) or (n <= 6 and ("build_parser(" in src or "entry_point(" in src))
         kind = "C++-backed (runs/reads the executable)" if thin else "pure Python"
-        if mod == "hicexplorer.list_tools":
+        if mod == "hicexplorer.list_tools" and not thin:
             kind = "Python (package metadata + --help-json)"
         if mod.startswith(("hicexplorer.hicHyperopt",)):
             kind = "Python driver (hyperopt) around C++ tools"
