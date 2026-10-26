@@ -387,32 +387,32 @@ hicexplorer.readBed	method	ReadBed.next(self)	18	pure Python	cpp/core/include/hi
 hicexplorer.readBed	method	ReadBed.get_bed_interval(self, bed_line)	114	pure Python	cpp/core/include/hicx/read_bed.hpp
 hicexplorer.reduceMatrix	module		232		
 hicexplorer.reduceMatrix	def	reduce_matrix(matrix, bins_to_merge, use_triu=True, diagonal=False)	221	pure Python	cpp/core/include/hicx/reduce_matrix.hpp;cpp/core/src/reduce_matrix.cpp;cpp/tests/test_adjust_ops.cpp;cpp/tests/test_reduce_matrix.cpp;cpp/tools/build_matrix_impl.hpp;cpp/tools/hicConvertFormat.cpp;cpp/tools/hicMergeMatrixBins.cpp;cpp/tools/hicMergeTADbins.cpp
-hicexplorer.utilities	module		729		
-hicexplorer.utilities	def	readBed(pBedFile)	17	pure Python	cpp/core/include/hicx/utilities.hpp;cpp/tests/test_python_api_core.cpp;cpp/tools/chicAggregateStatistic.cpp;cpp/tools/hicPCA.cpp
-hicexplorer.utilities	def	readTargetBed(pBedFile)	37	pure Python	cpp/core/include/hicx/utilities.hpp;cpp/tests/test_python_api_core.cpp;cpp/tools/chicAggregateStatistic.cpp
-hicexplorer.utilities	def	writableFile(string)	8	pure Python	cpp/tools/hicPlotMatrix.cpp
-hicexplorer.utilities	def	remove_outliers(data, max_deviation=3.5)	22	pure Python	cpp/core/include/hicx/utilities.hpp
-hicexplorer.utilities	def	convertNansToZeros(ma)	9	pure Python	cpp/core/include/hicx/transform_ops.hpp;cpp/core/src/transform_ops.cpp;cpp/tests/test_transform_ops.cpp;cpp/tools/hicCorrectMatrix.cpp;cpp/tools/hicPCA.cpp;cpp/tools/hicTransform.cpp
-hicexplorer.utilities	def	convertInfsToZeros(ma)	7	pure Python	cpp/core/include/hicx/transform_ops.hpp;cpp/tools/hicCorrectMatrix.cpp;cpp/tools/hicTransform.cpp
-hicexplorer.utilities	def	convertInfsToZeros_ArrayFloat(pArray, pToEpsilon=False)	17	pure Python	cpp/core/src/transform_ops.cpp
-hicexplorer.utilities	def	convertNansToOnes(pArray)	7	pure Python	cpp/core/src/cool_adapter.cpp
-hicexplorer.utilities	def	myAverage(valuesArray, avgType='mean')	9	pure Python	
-hicexplorer.utilities	def	enlarge_bins(bin_intervals)	33	pure Python	cpp/core/include/hicx/build_matrix.hpp;cpp/core/include/hicx/obsexp_ops.hpp;cpp/core/include/hicx/transform_ops.hpp;cpp/core/include/hicx/utilities.hpp;cpp/core/src/utilities.cpp;cpp/tests/test_python_api_core.cpp;cpp/tests/test_stats_ops.cpp;cpp/tools/build_matrix_impl.hpp;cpp/tools/hicAggregateContacts.cpp;cpp/tools/hicPCA.cpp;cpp/tools/hicPlotMatrix.cpp
-hicexplorer.utilities	def	genomicRegion(string)	24	pure Python	cpp/core/include/hicx/argparse.hpp;cpp/core/include/hicx/build_matrix.hpp;cpp/core/include/hicx/utilities.hpp;cpp/core/src/build_matrix.cpp;cpp/tests/test_build_matrix.cpp;cpp/tests/test_python_api_core.cpp;cpp/tools/build_matrix_impl.hpp;cpp/tools/hicBuildMatrix.cpp;cpp/tools/hicBuildMatrixMicroC.cpp
-hicexplorer.utilities	def	getUserRegion(chromSizes, regionString, max_chunk_size=1000000.0)	60	pure Python	cpp/core/include/hicx/build_matrix.hpp;cpp/core/include/hicx/utilities.hpp;cpp/core/src/build_matrix.cpp;cpp/tests/test_build_matrix.cpp;cpp/tests/test_python_api_core.cpp
-hicexplorer.utilities	def	expected_interactions_in_distance(pLength_chromosome, pChromosome_count, pSubmatrix)	22	pure Python	cpp/core/include/hicx/transform_ops.hpp;cpp/core/include/hicx/utilities.hpp;cpp/core/src/transform_ops.cpp;cpp/core/src/utilities.cpp;cpp/tests/test_python_api_core.cpp;cpp/tests/test_transform_ops.cpp
-hicexplorer.utilities	def	expected_interactions_non_zero(pSubmatrix)	22	pure Python	cpp/core/include/hicx/transform_ops.hpp;cpp/core/include/hicx/utilities.hpp;cpp/core/src/transform_ops.cpp;cpp/core/src/utilities.cpp;cpp/tests/test_detect_loops.cpp;cpp/tests/test_python_api_core.cpp;cpp/tests/test_transform_ops.cpp;cpp/tools/detect_loops_impl.cpp;cpp/tools/detect_loops_impl.hpp
-hicexplorer.utilities	def	expected_interactions_thread(pData, pDistances, pMinDistance, pMaxDistance, pSize, pQueue)	13	pure Python	cpp/core/include/hicx/utilities.hpp
-hicexplorer.utilities	def	expected_interactions(pSubmatrix, pThreads=None)	89	pure Python	cpp/core/include/hicx/transform_ops.hpp;cpp/core/include/hicx/utilities.hpp;cpp/core/src/transform_ops.cpp;cpp/core/src/utilities.cpp;cpp/tests/test_detect_loops.cpp;cpp/tests/test_python_api_core.cpp;cpp/tests/test_transform_ops.cpp;cpp/tools/detect_loops_impl.cpp;cpp/tools/detect_loops_impl.hpp
-hicexplorer.utilities	def	compute_zscore(pSubmatrix, pDepth, pThreads)	26	pure Python	cpp/core/include/hicx/utilities.hpp;cpp/core/src/utilities.cpp
-hicexplorer.utilities	def	obs_exp_matrix_lieberman(pSubmatrix, pLength_chromosome, pChromosome_count)	20	pure Python	cpp/core/include/hicx/transform_ops.hpp;cpp/core/include/hicx/utilities.hpp;cpp/tests/test_transform_ops.cpp
-hicexplorer.utilities	def	obs_exp_matrix_non_zero(pSubmatrix, ligation_factor=False, pInplace=True, pToEpsilon=False, pThreads=None)	42	pure Python	cpp/core/include/hicx/transform_ops.hpp;cpp/core/include/hicx/utilities.hpp;cpp/tests/test_detect_loops.cpp;cpp/tests/test_transform_ops.cpp;cpp/tools/detect_loops_impl.cpp;cpp/tools/detect_loops_impl.hpp;cpp/tools/hicDetectLoops.cpp
-hicexplorer.utilities	def	obs_exp_matrix(pSubmatrix, pInplace=True, pToEpsilon=False, pThreads=None, pDistance=None)	51	pure Python	cpp/core/include/hicx/transform_ops.hpp;cpp/core/include/hicx/utilities.hpp;cpp/tests/test_detect_loops.cpp;cpp/tests/test_transform_ops.cpp;cpp/tools/detect_loops_impl.cpp;cpp/tools/detect_loops_impl.hpp;cpp/tools/hicDetectLoops.cpp
-hicexplorer.utilities	def	toString(s)	15	pure Python	cpp/tools/hicInfo.cpp
-hicexplorer.utilities	def	toBytes(s)	15	pure Python	
-hicexplorer.utilities	def	check_chrom_str_bytes(pIteratableObj, pObj)	12	pure Python	
-hicexplorer.utilities	def	change_chrom_names(chrom)	19	pure Python	cpp/core/include/hicx/utilities.hpp;cpp/tools/hicAggregateContacts.cpp;cpp/tools/hicPlotDistVsCounts.cpp;cpp/tools/hicPlotMatrix.cpp
-hicexplorer.utilities	def	opener(filename)	14	pure Python	cpp/core/include/hicx/text_formats.hpp;cpp/core/src/text_formats.cpp;cpp/tools/hicPCA.cpp
-hicexplorer.utilities	def	remove_non_ascii(pText)	7	pure Python	cpp/core/include/hicx/utilities.hpp
-hicexplorer.utilities	def	check_cooler(pFileName)	4	pure Python	cpp/core/include/hicx/cool_adapter.hpp;cpp/tests/test_readers.cpp;cpp/tools/hicInfo.cpp;cpp/tools/hicPlotMatrix.cpp;cpp/tools/tad_contacts_impl.hpp
-hicexplorer.utilities	def	in_units(pBasePosition)	13	pure Python	cpp/core/include/hicx/utilities.hpp;cpp/core/src/utilities.cpp;cpp/tests/test_python_api_core.cpp
+hicexplorer.utilities	module		226		
+hicexplorer.utilities	def	readBed(pBedFile)	2	C++-backed (hicexplorer._hicx)	
+hicexplorer.utilities	def	readTargetBed(pBedFile)	2	C++-backed (hicexplorer._hicx)	
+hicexplorer.utilities	def	writableFile(string)	2	C++-backed (hicexplorer._hicx)	
+hicexplorer.utilities	def	remove_outliers(data, max_deviation=3.5)	10	C++-backed (hicexplorer._hicx)	
+hicexplorer.utilities	def	convertNansToZeros(ma)	2	C++-backed (hicexplorer._hicx)	
+hicexplorer.utilities	def	convertInfsToZeros(ma)	2	C++-backed (hicexplorer._hicx)	
+hicexplorer.utilities	def	convertInfsToZeros_ArrayFloat(pArray, pToEpsilon=False)	2	C++-backed (hicexplorer._hicx)	
+hicexplorer.utilities	def	convertNansToOnes(pArray)	2	C++-backed (hicexplorer._hicx)	
+hicexplorer.utilities	def	myAverage(valuesArray, avgType='mean')	2	C++-backed (hicexplorer._hicx)	
+hicexplorer.utilities	def	enlarge_bins(bin_intervals)	13	C++-backed (hicexplorer._hicx)	
+hicexplorer.utilities	def	genomicRegion(string)	11	C++-backed (hicexplorer._hicx)	
+hicexplorer.utilities	def	getUserRegion(chromSizes, regionString, max_chunk_size=1000000.0)	20	C++-backed (hicexplorer._hicx)	
+hicexplorer.utilities	def	expected_interactions_in_distance(pLength_chromosome, pChromosome_count, pSubmatrix)	5	C++-backed (hicexplorer._hicx)	
+hicexplorer.utilities	def	expected_interactions_non_zero(pSubmatrix)	5	C++-backed (hicexplorer._hicx)	
+hicexplorer.utilities	def	expected_interactions_thread(pData, pDistances, pMinDistance, pMaxDistance, pSize, pQueue)	2	C++-backed (hicexplorer._hicx)	
+hicexplorer.utilities	def	expected_interactions(pSubmatrix, pThreads=None)	5	C++-backed (hicexplorer._hicx)	
+hicexplorer.utilities	def	compute_zscore(pSubmatrix, pDepth, pThreads)	2	C++-backed (hicexplorer._hicx)	
+hicexplorer.utilities	def	obs_exp_matrix_lieberman(pSubmatrix, pLength_chromosome, pChromosome_count)	8	C++-backed (hicexplorer._hicx)	
+hicexplorer.utilities	def	obs_exp_matrix_non_zero(pSubmatrix, ligation_factor=False, pInplace=True, pToEpsilon=False, pThreads=None)	13	C++-backed (hicexplorer._hicx)	
+hicexplorer.utilities	def	obs_exp_matrix(pSubmatrix, pInplace=True, pToEpsilon=False, pThreads=None, pDistance=None)	10	C++-backed (hicexplorer._hicx)	
+hicexplorer.utilities	def	toString(s)	5	C++-backed (hicexplorer._hicx)	
+hicexplorer.utilities	def	toBytes(s)	5	C++-backed (hicexplorer._hicx)	
+hicexplorer.utilities	def	check_chrom_str_bytes(pIteratableObj, pObj)	2	C++-backed (hicexplorer._hicx)	
+hicexplorer.utilities	def	change_chrom_names(chrom)	6	C++-backed (hicexplorer._hicx)	
+hicexplorer.utilities	def	opener(filename)	5	C++-backed (hicexplorer._hicx)	
+hicexplorer.utilities	def	remove_non_ascii(pText)	7	C++-backed (hicexplorer._hicx)	
+hicexplorer.utilities	def	check_cooler(pFileName)	2	C++-backed (hicexplorer._hicx)	
+hicexplorer.utilities	def	in_units(pBasePosition)	2	C++-backed (hicexplorer._hicx)	
