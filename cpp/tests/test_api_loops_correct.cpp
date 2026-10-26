@@ -21,6 +21,7 @@
 #include "hicx/math/sparse_kernels.hpp"
 #include "hicx/reduce_matrix.hpp"
 #include "hicx/reduce_matrix_entries.hpp"
+#include "hicx/scipy_coo.hpp"
 #include "hicx/sparse_matrix.hpp"
 #include "hicx/stats_ops.hpp"
 
@@ -195,4 +196,47 @@ TEST_CASE("reduce_entries: agrees with the tools' reduce_matrix on a CSR") {
         }
         CHECK(k == api.data.size());
     }
+}
+
+TEST_CASE("scipy_coo: running_window agrees with the tools' running_window on counts") {
+    // integer counts: every order of summation gives the same values
+    SymmetricPair pair = make_pair(60, 0.3, 21);
+    std::vector<std::int32_t> row(pair.full.row.begin(), pair.full.row.end());
+    std::vector<std::int32_t> col(pair.full.col.begin(), pair.full.col.end());
+    std::vector<double> counts;
+    for (const double v : pair.full.data) {
+        counts.push_back(std::floor(v));
+    }
+    const hicx::CsrMatrix full = hicx::CsrMatrix::from_coo(60, 60, row, col, counts, "int64");
+    hicx::scipy_coo::Csr<std::int64_t> csr;
+    csr.rows = csr.cols = 60;
+    csr.indptr = full.indptr();
+    csr.indices.assign(full.indices().begin(), full.indices().end());
+    for (const double v : full.data()) {
+        csr.data.push_back(static_cast<std::int64_t>(v));
+    }
+    for (const std::int64_t bins : {3, 5}) {
+        const hicx::CsrMatrix tool = hicx::running_window(full, bins);
+        const hicx::scipy_coo::Csr<std::int64_t> api = hicx::scipy_coo::running_window(csr, bins);
+        for (std::int64_t r = 0; r < 60; ++r) {
+            for (std::int64_t k = api.indptr[static_cast<std::size_t>(r)];
+                 k < api.indptr[static_cast<std::size_t>(r) + 1]; ++k) {
+                CHECK(static_cast<double>(api.data[static_cast<std::size_t>(k)]) ==
+                      tool.at(r, api.indices[static_cast<std::size_t>(k)]));
+            }
+        }
+        CHECK(static_cast<std::size_t>(api.indptr.back()) == tool.nnz());
+    }
+}
+
+TEST_CASE("scipy_coo: tocsr sums duplicates and keeps zeros") {
+    hicx::scipy_coo::Coo<double> coo;
+    coo.rows = coo.cols = 2;
+    coo.row = {1, 0, 1, 0};
+    coo.col = {0, 1, 0, 0};
+    coo.data = {1.5, 0.0, 2.5, 3.0};
+    const hicx::scipy_coo::Csr<double> csr = hicx::scipy_coo::tocsr(coo);
+    CHECK(csr.indptr == std::vector<std::int64_t>{0, 2, 3});
+    CHECK(csr.indices == std::vector<std::int64_t>{0, 1, 0});
+    CHECK(csr.data == std::vector<double>{3.0, 0.0, 4.0});
 }

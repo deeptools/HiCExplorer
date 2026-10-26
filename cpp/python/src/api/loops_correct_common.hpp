@@ -13,6 +13,8 @@
 #include <vector>
 
 #include "api.hpp"
+#include "hicx/scipy_coo.hpp"
+#include "hicx/utilities.hpp"
 
 namespace hicx::python::lc {
 
@@ -85,6 +87,42 @@ inline std::vector<double> doubles(const py::array& array, std::string_view func
 // A monotonic clock in seconds, for the elapsed times the 3.7.6 code logs.
 inline double now_seconds() {
     return std::chrono::duration<double>(std::chrono::system_clock::now().time_since_epoch()).count();
+}
+
+// matrix.eliminate_zeros() of a csr or csc matrix, in place.
+inline void eliminate_zeros(py::handle matrix_object, std::string_view function) {
+    Sparse matrix = sparse(matrix_object, function, "rc");
+    dispatch_arithmetic(matrix.data, function, [&]<class T>() {
+        const std::vector<T> data = to_vector<T>(matrix.data);
+        std::vector<std::int64_t> indptr = matrix.indptr_vector();
+        const std::vector<std::size_t> keep = hicx::utilities::eliminate_zeros(indptr, data.data());
+        if (keep.size() != data.size()) {
+            apply_eliminate_zeros(matrix, indptr, keep);
+        }
+    });
+}
+
+// A csr matrix in its element type, in storage order.
+template <class T>
+hicx::scipy_coo::Csr<T> csr_of(const Sparse& matrix) {
+    hicx::scipy_coo::Csr<T> out;
+    out.rows = matrix.rows;
+    out.cols = matrix.cols;
+    out.indptr = matrix.indptr_vector();
+    const hicx::utilities::SparseEntries entries = matrix.entries();
+    out.indices = entries.col;
+    out.data = to_vector<T>(matrix.data);
+    return out;
+}
+
+// scipy.sparse.csr_matrix((data, indices, indptr), shape) with int32 indices.
+template <class T>
+py::object csr_object(const hicx::scipy_coo::Csr<T>& matrix) {
+    std::vector<std::int32_t> indices(matrix.indices.begin(), matrix.indices.end());
+    std::vector<std::int32_t> indptr(matrix.indptr.begin(), matrix.indptr.end());
+    return py::module_::import("scipy.sparse").attr("csr_matrix")(
+        py::make_tuple(from_vector(matrix.data), from_vector(indices), from_vector(indptr)),
+        py::arg("shape") = py::make_tuple(matrix.rows, matrix.cols));
 }
 
 }  // namespace hicx::python::lc
