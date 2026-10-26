@@ -11,3 +11,5 @@ hicexplorer.hicPrepareQCreport	make_figure_umappable_non_unique_reads	matplotlib
 hicexplorer.hicPrepareQCreport	make_figure_pairs_discarded	matplotlib bar chart of QC numbers it is given
 hicexplorer.hicPrepareQCreport	make_figure_distance	matplotlib bar chart of QC numbers it is given
 hicexplorer.hicPrepareQCreport	make_figure_read_orientation	matplotlib bar chart of QC numbers it is given
+hicexplorer.parserCommon	getParentArgParse	argparse construction only: returns an ArgumentParser with one --matrix option, no computation to back in C++
+hicexplorer.parserCommon	CustomFormatter	argparse formatter class without a body (two argparse HelpFormatter bases), no computation to back in C++
