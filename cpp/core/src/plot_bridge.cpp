@@ -374,4 +374,70 @@ int draw(const std::string& tool, const std::string& data_json,
     return 1;
 }
 
+int draw_and_wait(const std::string& tool, const std::string& data_json) {
+    if (const char* rss_file = std::getenv("HICX_COMPUTE_RSS_FILE");
+        rss_file != nullptr && *rss_file != '\0') {
+        std::ofstream out(rss_file, std::ios::trunc);
+        out << peak_rss_kb() << "\n";
+    }
+    const char* tmpdir = std::getenv("TMPDIR");
+    std::string pattern = std::string(tmpdir != nullptr && *tmpdir != '\0' ? tmpdir : "/tmp") +
+                          "/hicx-plot-XXXXXX";
+    std::vector<char> name(pattern.begin(), pattern.end());
+    name.push_back('\0');
+    const int fd = ::mkstemp(name.data());
+    if (fd < 0) {
+        std::fprintf(stderr, "%s: cannot create a temporary file for the plot data in %s: %s\n",
+                     tool.c_str(), pattern.c_str(), std::strerror(errno));
+        return 1;
+    }
+    const std::string path(name.data());
+    const bool written = write_all(fd, data_json);
+    ::close(fd);
+    if (!written) {
+        std::fprintf(stderr, "%s: cannot write the plot data to %s\n", tool.c_str(), path.c_str());
+        ::unlink(path.c_str());
+        return 1;
+    }
+    const std::string python = prepare_drawing_environment();
+    std::fflush(nullptr);
+    const pid_t child = ::fork();
+    if (child < 0) {
+        std::fprintf(stderr, "%s: cannot start the drawing process: %s\n", tool.c_str(),
+                     std::strerror(errno));
+        ::unlink(path.c_str());
+        return 1;
+    }
+    if (child == 0) {
+        std::vector<std::string> args = {python, "-m", "hicexplorer_plot", tool, path,
+                                         "--remove-data"};
+        std::vector<char*> argv;
+        for (std::string& arg : args) {
+            argv.push_back(arg.data());
+        }
+        argv.push_back(nullptr);
+        ::execvp(python.c_str(), argv.data());
+        std::fprintf(stderr,
+                     "%s: cannot start the drawing interpreter '%s': %s. Set HICX_PLOT_PYTHON to a "
+                     "Python with matplotlib 3.8 or newer and the hicexplorer_plot package (plot/ "
+                     "in the repository).\n",
+                     tool.c_str(), python.c_str(), std::strerror(errno));
+        ::_exit(127);
+    }
+    int status = 0;
+    while (::waitpid(child, &status, 0) < 0) {
+        if (errno != EINTR) {
+            std::fprintf(stderr, "%s: the drawing process was lost: %s\n", tool.c_str(),
+                         std::strerror(errno));
+            ::unlink(path.c_str());
+            return 1;
+        }
+    }
+    ::unlink(path.c_str());  // removed by the child already when it read it
+    if (WIFEXITED(status)) {
+        return WEXITSTATUS(status) == 127 ? 1 : WEXITSTATUS(status);
+    }
+    return 1;
+}
+
 }  // namespace hicx::plot

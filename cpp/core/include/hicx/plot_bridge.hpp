@@ -75,6 +75,13 @@ void write_npy(const std::string& path, const std::string& dtype,
 [[nodiscard]] int draw(const std::string& tool, const std::string& data_json,
                        const std::optional<std::string>& data_file);
 
+// draw() for a tool that still has work after the figures (an archive of
+// them): the drawing runs in a child process, which this one waits for, so
+// the C++ working set stays while matplotlib runs. Returns the child's exit
+// status (0 when it drew), 1 when it could not be started. No --plotData
+// mode: the caller handles that before.
+[[nodiscard]] int draw_and_wait(const std::string& tool, const std::string& data_json);
+
 // The drawing environment check, `python -m hicexplorer_plot --check TOOL`
 // with the interpreter and environment draw() uses, when `draws` is true (not
 // for --plotData, --noPlot or a run without a figure). The tools call it
