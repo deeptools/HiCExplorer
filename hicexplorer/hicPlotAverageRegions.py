@@ -1,3 +1,9 @@
+"""hicPlotAverageRegions: a thin layer over the C++ executable hicPlotAverageRegions.
+
+main() runs the executable and parse_arguments() is built from its --help-json
+(hicexplorer._cpp). The other names of this module are kept for API
+compatibility and are not used by the tool.
+"""
 import warnings
 warnings.simplefilter(action="ignore", category=RuntimeWarning)
 warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
@@ -17,107 +23,12 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 
 def parse_arguments(args=None):
-
-    parser = argparse.ArgumentParser(
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        add_help=False,
-        description="""
-        hicPlotAverage regions plots the data computed by hicAverageRegions. It shows the summed up and averaged regions around
-        all given reference points. This tool is useful to plot differences at certain reference points as for example TAD boundaries between samples.
-""")
-
-    parserRequired = parser.add_argument_group('Required arguments')
-
-    parserRequired.add_argument('--matrix', '-m',
-                                help='The averaged regions file computed by hicAverageRegions (npz file).',
-                                required=True)
-    parserRequired.add_argument('--outputFile', '-o',
-                                help='The averaged regions plot.',
-                                required=True)
-
-    parserOpt = parser.add_argument_group('Optional arguments')
-    parserOpt.add_argument('--log1p',
-                           help='Plot log1p of the matrix values.',
-                           action='store_true')
-
-    parserOpt.add_argument('--log',
-                           help='Plot log of the matrix values.',
-                           action='store_true')
-    parserOpt.add_argument('--colorMap',
-                           help='Color map to use for the heatmap. Available '
-                           'values can be seen here: '
-                           'http://matplotlib.org/examples/color/colormaps_reference.html'
-                           ' (Default: %(default)s).',
-                           default='hot_r')
-    parserOpt.add_argument('--vMin',
-                           help='Minimum score value.',
-                           type=float,
-                           default=None)
-
-    parserOpt.add_argument('--vMax',
-                           help='Maximum score value.',
-                           type=float,
-                           default=None)
-    parserOpt.add_argument('--dpi',
-                           help='Resolution of image if'
-                           'ouput is a raster graphics image (e.g png, jpg)'
-                           ' (Default: %(default)s).',
-                           type=int,
-                           default=300)
-    parserOpt.add_argument('--help', '-h', action='help', help='show this help message and exit')
-
-    parserOpt.add_argument('--version', action='version',
-                           version='%(prog)s {}'.format(__version__))
-
-    return parser
-
-
-def _main_python(args=None):
-
-    args = parse_arguments().parse_args(args)
-    mpl.rcParams['pdf.fonttype'] = 42
-
-    matrix = load_npz(args.matrix)
-
-    matrix = matrix.toarray()
-    matrix = np.triu(matrix)
-    matrix = rotate(matrix, 45, cval=np.nan)
-    matrix_shapes = matrix.shape
-    matrix = matrix[:matrix_shapes[0] // 2, :]
-    if args.log1p:
-        matrix += 1
-
-    fig = plt.figure()
-    axis = plt.gca()
-    # Force the scale to correspond to vMin vMax even if these values
-    # are not in the range.
-    if args.log:
-        norm = LogNorm(vmin=args.vMin, vmax=args.vMax)
-    elif args.log1p:
-        if args.vMin is not None:
-            vMin = args.vMin + 1
-        else:
-            vMin = None
-        if args.vMax is not None:
-            vMax = args.vMax + 1
-        else:
-            vMax = None
-        norm = LogNorm(vmin=vMin, vmax=vMax)
-    else:
-        norm = matplotlib.colors.Normalize(vmin=args.vMin, vmax=args.vMax)
-
-    matrix_axis = axis.matshow(matrix, cmap=args.colorMap, norm=norm)
-    divider = make_axes_locatable(axis)
-    cax = divider.append_axes("right", size="5%", pad=0.05)
-    axis.xaxis.set_visible(False)
-    axis.yaxis.set_visible(False)
-
-    fig.colorbar(matrix_axis, cax=cax)
-    plt.tight_layout()
-    plt.savefig(args.outputFile, dpi=args.dpi)
+    """The argparse parser of hicPlotAverageRegions, built from the C++ executable's --help-json."""
+    from hicexplorer._cpp import build_parser
+    return build_parser('hicPlotAverageRegions')
 
 
 def main(args=None):
-    """Run the C++ implementation; the Python implementation above is kept as _main_python."""
+    """Run the C++ implementation of hicPlotAverageRegions with `args` (default sys.argv[1:])."""
     from hicexplorer._cpp import entry_point
-    return entry_point('hicPlotAverageRegions', _main_python)(args)
+    return entry_point('hicPlotAverageRegions')(args)

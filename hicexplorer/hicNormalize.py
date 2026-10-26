@@ -1,3 +1,9 @@
+"""hicNormalize: a thin layer over the C++ executable hicNormalize.
+
+main() runs the executable and parse_arguments() is built from its --help-json
+(hicexplorer._cpp). The other names of this module are kept for API
+compatibility and are not used by the tool.
+"""
 import warnings
 warnings.simplefilter(action="ignore", category=RuntimeWarning)
 warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
@@ -11,149 +17,12 @@ import numpy as np
 
 
 def parse_arguments(args=None):
-
-    parser = argparse.ArgumentParser(
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        add_help=False,
-        description="""
-Normalizes given matrices either to the smallest given read number of all matrices or to 0 - 1 range. However, it does NOT compute the contact probability.
-
-We recommend to compute first the normalization (with hicNormalize) and correct the data (with hicCorrectMatrix) in a second step.
-""")
-
-    parserRequired = parser.add_argument_group('Required arguments')
-
-    parserRequired.add_argument('--matrices', '-m',
-                                help='The matrix (or multiple matrices) to get information about. '
-                                'HiCExplorer supports the following file formats: h5 (native HiCExplorer format) '
-                                'and cool.',
-                                nargs='+',
-                                required=True)
-
-    parserRequired.add_argument('--normalize', '-n',
-                                help='Normalize to a) 0 to 1 range, b) all matrices to the lowest read count of the given matrices'
-                                ' (Default: %(default)s).',
-                                choices=['norm_range', 'smallest', 'multiplicative'],
-                                default='smallest',
-                                required=True)
-
-    parserRequired.add_argument('--outFileName', '-o',
-                                help='Output file name for the Hi-C matrix.',
-                                metavar='FILENAME',
-                                nargs='+',
-                                required=True)
-    parserOpt = parser.add_argument_group('Optional arguments')
-    parserOpt.add_argument('--multiplicativeValue', '-mv',
-                           type=float,
-                           help='Value to multiply if --normalize is set to multiplicative.'
-                           ' (Default: %(default)s).',
-                           default=1)
-    parserOpt.add_argument('--setToZeroThreshold', '-sz', default=0.0,
-                           type=float,
-                           help='A threshold to set all values after normalization to 0 if smaller this threshold. Default value is 0 i.e. there is no effect.'
-                                'It is recommended to set it for the normalize mode "smallest" to 1.0. This parameter will influence the sparsity of the matrix by removing many values close to 0 in smallest normalization mode.')
-    parserOpt.add_argument('--help', '-h', action='help', help='show this help message and exit')
-
-    parserOpt.add_argument('--version', action='version',
-                           version='%(prog)s {}'.format(__version__))
-
-    return parser
-
-
-def _main_python(args=None):
-
-    args = parse_arguments().parse_args(args)
-    hic_matrix_list = []
-    sum_list = []
-    for matrix in args.matrices:
-        hic_ma = hm.hiCMatrix(matrix)
-        if args.normalize == 'smallest':
-            sum_list.append(hic_ma.matrix.sum())
-        hic_matrix_list.append(hic_ma)
-
-    if args.normalize == 'norm_range':
-        for i, hic_matrix in enumerate(hic_matrix_list):
-            hic_matrix.matrix.data = hic_matrix.matrix.data.astype(np.float32)
-            mask = np.isnan(hic_matrix.matrix.data)
-            hic_matrix.matrix.data[mask] = 0
-
-            mask = np.isinf(hic_matrix.matrix.data)
-            hic_matrix.matrix.data[mask] = 0
-            min_value = np.min(hic_matrix.matrix.data)
-            max_value = np.max(hic_matrix.matrix.data)
-            min_max_difference = np.float64(max_value - min_value)
-
-            hic_matrix.matrix.data -= min_value
-            hic_matrix.matrix.data = np.divide(hic_matrix.matrix.data, min_max_difference)
-
-            mask = np.isnan(hic_matrix.matrix.data)
-            hic_matrix.matrix.data[mask] = 0
-
-            mask = np.isinf(hic_matrix.matrix.data)
-            hic_matrix.matrix.data[mask] = 0
-            hic_matrix.matrix.eliminate_zeros()
-
-            mask = hic_matrix.matrix.data < args.setToZeroThreshold
-            hic_matrix.matrix.data[mask] = 0
-            hic_matrix.matrix.eliminate_zeros()
-
-            hic_matrix.save(args.outFileName[i], pApplyCorrection=False)
-    elif args.normalize == 'smallest':
-        argmin = np.argmin(sum_list)
-
-        for i, hic_matrix in enumerate(hic_matrix_list):
-            hic_matrix.matrix.data = hic_matrix.matrix.data.astype(np.float32)
-            if i != argmin:
-                mask = np.isnan(hic_matrix.matrix.data)
-                hic_matrix.matrix.data[mask] = 0
-
-                mask = np.isinf(hic_matrix.matrix.data)
-                hic_matrix.matrix.data[mask] = 0
-                adjust_factor = sum_list[i] / sum_list[argmin]
-                hic_matrix.matrix.data = np.divide(hic_matrix.matrix.data, adjust_factor)
-                mask = np.isnan(hic_matrix.matrix.data)
-
-            mask = np.isnan(hic_matrix.matrix.data)
-            hic_matrix.matrix.data[mask] = 0
-
-            mask = np.isinf(hic_matrix.matrix.data)
-            hic_matrix.matrix.data[mask] = 0
-            hic_matrix.matrix.eliminate_zeros()
-
-            mask = hic_matrix.matrix.data < args.setToZeroThreshold
-            hic_matrix.matrix.data[mask] = 0
-            hic_matrix.matrix.eliminate_zeros()
-
-            hic_matrix.save(args.outFileName[i], pApplyCorrection=False)
-    elif args.normalize == 'multiplicative':
-
-        for i, hic_matrix in enumerate(hic_matrix_list):
-            hic_matrix.matrix.data = hic_matrix.matrix.data.astype(np.float32)
-
-            mask = np.isnan(hic_matrix.matrix.data)
-            hic_matrix.matrix.data[mask] = 0
-
-            mask = np.isinf(hic_matrix.matrix.data)
-            hic_matrix.matrix.data[mask] = 0
-            # adjust_factor = sum_list[i] / sum_list[argmin]
-            hic_matrix.matrix.data *= args.multiplicativeValue
-            mask = np.isnan(hic_matrix.matrix.data)
-
-            mask = np.isnan(hic_matrix.matrix.data)
-            hic_matrix.matrix.data[mask] = 0
-
-            mask = np.isinf(hic_matrix.matrix.data)
-            hic_matrix.matrix.data[mask] = 0
-            hic_matrix.matrix.eliminate_zeros()
-
-            mask = hic_matrix.matrix.data < args.setToZeroThreshold
-            hic_matrix.matrix.data[mask] = 0
-            hic_matrix.matrix.eliminate_zeros()
-
-            hic_matrix.save(args.outFileName[i], pApplyCorrection=False)
+    """The argparse parser of hicNormalize, built from the C++ executable's --help-json."""
+    from hicexplorer._cpp import build_parser
+    return build_parser('hicNormalize')
 
 
 def main(args=None):
-    """Run the C++ implementation; the Python implementation above is kept as _main_python."""
+    """Run the C++ implementation of hicNormalize with `args` (default sys.argv[1:])."""
     from hicexplorer._cpp import entry_point
-    return entry_point('hicNormalize', _main_python)(args)
+    return entry_point('hicNormalize')(args)

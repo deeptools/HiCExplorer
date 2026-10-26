@@ -1,3 +1,9 @@
+"""hicAdjustMatrix: a thin layer over the C++ executable hicAdjustMatrix.
+
+main() runs the executable and parse_arguments() is built from its --help-json
+(hicexplorer._cpp). The other names of this module are kept for API
+compatibility and are not used by the tool.
+"""
 import warnings
 warnings.simplefilter(action="ignore", category=RuntimeWarning)
 warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
@@ -12,55 +18,9 @@ log = logging.getLogger(__name__)
 
 
 def parse_arguments(args=None):
-
-    parser = argparse.ArgumentParser(
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        add_help=False,
-        description="""
-                    This tool adjusts hic matrices by keeping, removing or masking a given list of regions or chromosmes.
-                    """)
-
-    parserRequired = parser.add_argument_group('Required arguments')
-
-    parserRequired.add_argument('--matrix', '-m',
-                                help='The Hi-C matrix to adjust. '
-                                'HiCExplorer supports the following file formats: h5 (native HiCExplorer format) '
-                                'and cool.',
-                                required=True)
-    parserRequired.add_argument('--outFileName', '-o',
-                                help='File name to save the adjusted matrix.',
-                                required=True)
-    parserOpt = parser.add_argument_group('Optional arguments')
-    parserMutuallyExclusive = parser.add_mutually_exclusive_group()
-    parserMutuallyExclusive.add_argument('--chromosomes', '-c',
-                                         nargs='+',
-                                         help='List of chromosomes to keep/remove.')
-    parserMutuallyExclusive.add_argument('--regions', '-r',
-                                         help='BED file which stores a list of regions to keep/remove.')
-    parserMutuallyExclusive.add_argument('--maskBadRegions', '-mbr',
-                                         help='Bad regions are identified and masked.')
-    parserOpt.add_argument('--action',
-                           '-a',
-                           help='Keep, remove or mask the list of specified chromosomes/regions. '
-                           'keep/remove: These options keep/remove bins of matrix by deleting them. '
-                           'This may cause issue plotting the matrix if several parts of a single chromosome '
-                           'are going to be deleted. In that case, one may consider using the mask option'
-                           ' (Default: %(default)s).',
-                           default='keep',
-                           choices=['keep', 'remove', 'mask']
-                           )
-    parserOpt.add_argument('--interIntraHandling',
-                           '-iih',
-                           help='Remove the inter- or intra-chromosomal contacts of the given chromosomes.'
-                           ' (Default: %(default)s).',
-                           default=None,
-                           choices=[None, 'inter', 'intra']
-                           )
-    parserOpt.add_argument('--help', '-h', action='help', help='show this help message and exit')
-    parserOpt.add_argument('--version', action='version',
-                           version='%(prog)s {}'.format(__version__))
-
-    return parser
+    """The argparse parser of hicAdjustMatrix, built from the C++ executable's --help-json."""
+    from hicexplorer._cpp import build_parser
+    return build_parser('hicAdjustMatrix')
 
 
 def adjustMatrix(pArgs):
@@ -191,17 +151,7 @@ def adjustMatrix(pArgs):
     return hic_matrix
 
 
-def _main_python(args=None):
-
-    args = parse_arguments().parse_args(args)
-
-    hic_matrix = adjustMatrix(args)
-
-    if hic_matrix is not None:
-        hic_matrix.save(args.outFileName)
-
-
 def main(args=None):
-    """Run the C++ implementation; the Python implementation above is kept as _main_python."""
+    """Run the C++ implementation of hicAdjustMatrix with `args` (default sys.argv[1:])."""
     from hicexplorer._cpp import entry_point
-    return entry_point('hicAdjustMatrix', _main_python)(args)
+    return entry_point('hicAdjustMatrix')(args)

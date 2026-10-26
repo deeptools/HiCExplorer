@@ -1,3 +1,9 @@
+"""hicCompartmentalization: a thin layer over the C++ executable hicCompartmentalization.
+
+main() runs the executable and parse_arguments() is built from its --help-json
+(hicexplorer._cpp). The other names of this module are kept for API
+compatibility and are not used by the tool.
+"""
 import numpy as np
 import argparse
 import pandas as pd
@@ -12,76 +18,10 @@ matplotlib.use('Agg')
 log = logging.getLogger(__name__)
 
 
-def parse_arguments():
-    parser = argparse.ArgumentParser(add_help=False,
-                                     description="""
-        Rearrange the average interaction frequencies using the first PC values
-        to represent the global compartmentalization signal. To our knowledge
-        this has been first introduced and implemented by Wibke Schwarzer et
-        al. 2017 (Nature. 2017 Nov 2; 551(7678): 51–56)
-
-        $ hicCompartmentalization --obsexp_matrices obsExpMatrix.h5 \
-        --pca pc1.bedgraph -o global_signal.png
-        """
-                                     )
-
-    parserRequired = parser.add_argument_group('Required arguments')
-
-    parserRequired.add_argument('--obsexp_matrices', '-m',
-                                help='HiCExplorer matrices in h5/cool format.',
-                                nargs="+",
-                                required=True)
-
-    parserRequired.add_argument('--pca',  # TODO bedgraph or bigwig
-                                help='a PCA vector as a bedgraph file with '
-                                'no header. In case of several matrices with '
-                                ' different conditions, ie. control'
-                                'treatment, the PCA of control can be used. '
-                                'Note that only one PCA can be provided.',
-                                required=True)
-
-    parserRequired.add_argument('--outputFileName', '-o',
-                                help='Plot to represent the polarization of '
-                                'A/B compartments.',
-                                required=True)
-
-    parserOpt = parser.add_argument_group('Optional arguments')
-
-    parserOpt.add_argument('--quantile', '-q',
-                           help='number of quantiles. (Default: %(default)s).',
-                           default=30,
-                           type=int)
-
-    parserOpt.add_argument('--outliers',
-                           help='precentage of outlier to remove. '
-                           '(Default: %(default)s).',
-                           default=0,
-                           type=float)
-
-    parserOpt.add_argument('--outputMatrix',
-                           help='output .npz file includes all the '
-                                'generated matrices',
-                           default=None)
-
-    parserOpt.add_argument('--offset',
-                           help='set nan for the distances mentioned as '
-                                'offset from main diagonal, only positive '
-                                'values are accepted! Example: if '
-                                '--offset 0, then values of main diagonal will'
-                                ' set to nan and if --offset 0 1 then on top '
-                                'of the main diagonal, +1 and -1 diagonal '
-                                'values are also set to nan. ',
-                           nargs='+',
-                           type=int,
-                           default=None)
-
-    parserOpt.add_argument('-h',
-                           action='help',
-                           help='show the help message and exit.')
-
-    parserOpt.add_argument('--version', action='version',
-                           version='%(prog)s {}'.format(__version__))
-    return parser
+def parse_arguments(args=None):
+    """The argparse parser of hicCompartmentalization, built from the C++ executable's --help-json."""
+    from hicexplorer._cpp import build_parser
+    return build_parser('hicCompartmentalization')
 
 
 def get_indices(obs_exp, row):
@@ -171,59 +111,7 @@ def plot_polarization_ratio(polarization_ratio, plotName, labels,
     plt.savefig(plotName)
 
 
-def _main_python(args=None):
-    """
-    Main function to generate the polarization plot.
-    """
-    args = parse_arguments().parse_args(args)
-    matplotlib.rcParams['pdf.fonttype'] = 42
-
-    pc1 = pd.read_table(args.pca, header=None, sep="\t",
-                        dtype={0: "object", 1: "Int64", 2: "Int64", 3: "float32"})
-
-    pc1 = pc1.rename(columns={0: "chr", 1: "start", 2: "end", 3: "pc1"})
-
-    if args.outliers != 0:
-        quantile = [args.outliers / 100, (100 - args.outliers) / 100]
-        boundaries = np.nanquantile(pc1['pc1'].values.astype(float), quantile)
-        quantiled_bins = np.linspace(boundaries[0], boundaries[1],
-                                     args.quantile)
-    else:
-        quantile = [j / (args.quantile - 1) for j in range(0, args.quantile)]
-        quantiled_bins = np.nanquantile(pc1['pc1'].values.astype(float),
-                                        quantile)
-
-    pc1["quantile"] = np.searchsorted(quantiled_bins,
-                                      pc1['pc1'].values.astype(float),
-                                      side="right")
-    pc1.loc[pc1["pc1"] == np.nan]["quantile"] = args.quantile + 1
-
-    polarization_ratio = []
-    output_matrices = []
-    labels = []
-    for matrix in args.obsexp_matrices:
-        obs_exp = hm.hiCMatrix(matrix)
-        pc1["bin_id"] = pc1.apply(lambda row: get_indices(obs_exp, row), axis=1)
-        name = ".".join(matrix.split("/")[-1].split(".")[0:-1])
-        labels.append(name)
-        normalised_sum_per_quantile = count_interactions(obs_exp, pc1,
-                                                         args.quantile,
-                                                         args.offset)
-        normalised_sum_per_quantile = np.nan_to_num(normalised_sum_per_quantile)
-        if args.outputMatrix:
-            output_matrices.append(normalised_sum_per_quantile)
-
-        polarization_ratio.append(within_vs_between_compartments(
-                                  normalised_sum_per_quantile,
-                                  args.quantile))
-    if args.outputMatrix:
-        np.savez(args.outputMatrix, [matrix for matrix in output_matrices])
-    plot_polarization_ratio(
-        polarization_ratio, args.outputFileName, labels, args.quantile)
-    np.savetxt(args.outputFileName + '_' + 'dat', polarization_ratio)
-
-
 def main(args=None):
-    """Run the C++ implementation; the Python implementation above is kept as _main_python."""
+    """Run the C++ implementation of hicCompartmentalization with `args` (default sys.argv[1:])."""
     from hicexplorer._cpp import entry_point
-    return entry_point('hicCompartmentalization', _main_python)(args)
+    return entry_point('hicCompartmentalization')(args)

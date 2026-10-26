@@ -1,3 +1,9 @@
+"""chicDifferentialTest: a thin layer over the C++ executable chicDifferentialTest.
+
+main() runs the executable and parse_arguments() is built from its --help-json
+(hicexplorer._cpp). The other names of this module are kept for API
+compatibility and are not used by the tool.
+"""
 import argparse
 import sys
 import errno
@@ -19,50 +25,9 @@ from .lib import Viewpoint
 
 
 def parse_arguments(args=None):
-    parser = argparse.ArgumentParser(add_help=False,
-                                     formatter_class=argparse.RawDescriptionHelpFormatter,
-                                     description="""
-chicDifferentialTest tests if two locations under consideration of the reference point have a different interaction count. For this either Fisher's test or the chi2 contingency test can be used.
-The file that is accepted for this test can be created with `chicAggregateStatistic`. H0 assumes the interactions are not different. Therefore the differential interaction counts are all where H0 was rejected.
-
-"""
-                                     )
-
-    parserRequired = parser.add_argument_group('Required arguments')
-
-    parserRequired.add_argument('--aggregatedFile', '-af',
-                                help='path to the aggregated files which should be used for the differential test.',
-                                required=True)
-
-    parserRequired.add_argument('--alpha', '-a',
-                                help='define a significance level (alpha) for accepting samples',
-                                type=float,
-                                required=True)
-
-    parserOpt = parser.add_argument_group('Optional arguments')
-
-    parserOpt.add_argument('--outFileName', '-o',
-                           help='Output file for the differential results'
-                           ' (Default: %(default)s).',
-                           required=False,
-                           default='differentialResults.hdf5')
-    parserOpt.add_argument('--statisticTest',
-                           help='Type of test used: fisher\'s exact test or chi2 contingency'
-                           ' (Default: %(default)s).',
-                           choices=['fisher', 'chi2'],
-                           default='fisher')
-    parserOpt.add_argument('--threads', '-t',
-                           help='Number of threads (uses the python multiprocessing module)'
-                           ' (Default: %(default)s).',
-                           required=False,
-                           default=4,
-                           type=int
-                           )
-    parserOpt.add_argument("--help", "-h", action="help",
-                           help="show this help message and exit")
-    parserOpt.add_argument('--version', action='version',
-                           version='%(prog)s {}'.format(__version__))
-    return parser
+    """The argparse parser of chicDifferentialTest, built from the C++ executable's --help-json."""
+    from hicexplorer._cpp import build_parser
+    return build_parser('chicDifferentialTest')
 
 
 def readInteractionFile(pInteractionFile):
@@ -322,104 +287,7 @@ def run_statistical_tests(pInteractionFilesList, pArgs, pViewpointObject, pQueue
     return
 
 
-def _main_python(args=None):
-    args = parse_arguments().parse_args(args)
-
-    viewpointObj = Viewpoint()
-
-    aggregatedList = []
-
-    aggregatedFileHDF5Object = h5py.File(args.aggregatedFile, 'r')
-    if aggregatedFileHDF5Object.attrs['type'] != 'aggregate':
-        log.error('Please provide a file created by chicAggregateStatistic for the parameter --aggregatedFile.')
-        exit(1)
-
-    keys_aggregatedFile = list(aggregatedFileHDF5Object.keys())
-
-    for i, combinationOfMatrix in enumerate(keys_aggregatedFile):
-        keys_matrix_intern = list(aggregatedFileHDF5Object[combinationOfMatrix].keys())
-        if len(keys_matrix_intern) == 0:
-            continue
-
-        matrix1 = keys_matrix_intern[0]
-        matrix2 = keys_matrix_intern[1]
-
-        matrix_obj1 = aggregatedFileHDF5Object[combinationOfMatrix + '/' + matrix1]
-        matrix_obj2 = aggregatedFileHDF5Object[combinationOfMatrix + '/' + matrix2]
-
-        chromosomeList1 = sorted(list(matrix_obj1.keys()))
-        chromosomeList2 = sorted(list(matrix_obj2.keys()))
-        chromosomeList1.remove('genes')
-        chromosomeList2.remove('genes')
-        for chromosome1, chromosome2 in zip(chromosomeList1, chromosomeList2):
-            geneList1 = sorted(list(matrix_obj1[chromosome1].keys()))
-            geneList2 = sorted(list(matrix_obj2[chromosome2].keys()))
-
-            for gene1, gene2 in zip(geneList1, geneList2):
-                aggregatedList.append([[combinationOfMatrix, matrix1, chromosome1, gene1], [combinationOfMatrix, matrix2, chromosome2, gene2]])
-
-    aggregatedFileHDF5Object.close()
-
-    fail_flag = False
-    fail_message = ''
-    all_data = [None] * args.threads
-    accepted_data = [None] * args.threads
-    rejected_data = [None] * args.threads
-
-    aggregatedListPerThread = len(aggregatedList) // args.threads
-    all_data_collected = False
-    queue = [None] * args.threads
-    process = [None] * args.threads
-    thread_done = [False] * args.threads
-    length_of_threads = 0
-    for i in range(args.threads):
-
-        if i < args.threads - 1:
-            aggregatedListThread = aggregatedList[i * aggregatedListPerThread:(i + 1) * aggregatedListPerThread]
-        else:
-            aggregatedListThread = aggregatedList[i * aggregatedListPerThread:]
-        length_of_threads += len(aggregatedListThread)
-        queue[i] = Queue()
-        process[i] = Process(target=run_statistical_tests, kwargs=dict(
-            pInteractionFilesList=aggregatedListThread,
-            pArgs=args,
-            pViewpointObject=viewpointObj,
-            pQueue=queue[i]
-        )
-        )
-
-        process[i].start()
-    while not all_data_collected:
-        for i in range(args.threads):
-            if queue[i] is not None and not queue[i].empty():
-                background_data_thread = queue[i].get()
-                if 'Fail:' in background_data_thread:
-                    fail_flag = True
-                    fail_message = background_data_thread[6:]
-                else:
-                    accepted_data[i], rejected_data[i], all_data[i] = background_data_thread
-                queue[i] = None
-                process[i].join()
-                process[i].terminate()
-                process[i] = None
-                thread_done[i] = True
-        all_data_collected = True
-        for thread in thread_done:
-            if not thread:
-                all_data_collected = False
-        time.sleep(1)
-    if fail_flag:
-        log.error(fail_message)
-        exit(1)
-
-    accepted_data = [item for sublist in accepted_data for item in sublist]
-    rejected_data = [item for sublist in rejected_data for item in sublist]
-    all_data = [item for sublist in all_data for item in sublist]
-
-    writeResultHDF(args.outFileName, accepted_data, rejected_data, all_data, aggregatedList, args.alpha, args.statisticTest)
-
-
 def main(args=None):
-    """Run the C++ implementation; the Python implementation above is kept as _main_python."""
+    """Run the C++ implementation of chicDifferentialTest with `args` (default sys.argv[1:])."""
     from hicexplorer._cpp import entry_point
-    return entry_point('chicDifferentialTest', _main_python)(args)
+    return entry_point('chicDifferentialTest')(args)

@@ -1,3 +1,9 @@
+"""chicSignificantInteractions: a thin layer over the C++ executable chicSignificantInteractions.
+
+main() runs the executable and parse_arguments() is built from its --help-json
+(hicexplorer._cpp). The other names of this module are kept for API
+compatibility and are not used by the tool.
+"""
 import argparse
 import sys
 import os
@@ -21,97 +27,9 @@ import traceback
 
 
 def parse_arguments(args=None):
-    parser = argparse.ArgumentParser(add_help=False,
-                                     formatter_class=argparse.RawDescriptionHelpFormatter,
-                                     description="""
-Per viewpoint the significant interactions are detected based on the background model. For each viewpoint file, an output file is created with all recorded significant interactions and
-a target file. The target file is especially useful in the batch mode context; for two consecutive listed control and treatment viewpoints it merges the significant interactions which can then be used
-to test for a differential interaction scheme.
-
-chicSignificantInteractions supports two modes to detect significant interactions, either by an x-fold over the average background or a loose p-value. In both cases neighboring significant peaks are merged together and an additional
-p-value is computed based on the sum of interactions for this neighborhood. Only interactions with a higher p-value (as specified by the threshold `--pValue`) are accepted as a significant interaction.
-
-""")
-
-    parserRequired = parser.add_argument_group('Required arguments')
-
-    parserRequired.add_argument('--interactionFile', '-if',
-                                help='path to the interaction file (HDF5) which should be used for aggregation of the statistics.',
-                                required=True)
-
-    parserRequired.add_argument('--pValue', '-p',
-                                help='p-value threshold to filter target regions for inclusion in differential analysis.',
-                                required=True)
-    parserMutuallyExclusiveGroupFilter = parser.add_mutually_exclusive_group(
-        required=False)
-    parserMutuallyExclusiveGroupFilter.add_argument('--xFoldBackground', '-xf',
-                                                    help='Filter x-fold over background. Used to merge neighboring bins with a broader peak but '
-                                                    'less significant interactions to a single peak with high significance. Used only for pValue option.'
-                                                    )
-    parserMutuallyExclusiveGroupFilter.add_argument('--loosePValue', '-lp',
-                                                    help='loose p-value threshold to filter target regions in a first round. '
-                                                    'Used to merge neighboring bins with a broader peak but less significant interactions to a single peak with high significance.'
-                                                    ' Used only for pValue option.'
-                                                    )
-    parserRequired.add_argument('--backgroundModelFile', '-bmf',
-                                help='path to the background file.',
-                                required=True)
-    parserRequired.add_argument('--range',
-                                help='Defines the region upstream and downstream of a reference point which should be included. '
-                                'Format is --region upstream downstream, e.g. --region 500000 500000 plots 500kb up- and 500kb downstream. This value should not exceed the range used in the other chic-tools.',
-                                required=True,
-                                type=int,
-                                nargs=2)
-
-    parserOpt = parser.add_argument_group('Optional arguments')
-
-    parserOpt.add_argument('--outFileNameSignificant', '-os',
-                           help='File name suffix to save the results; prefix is the input file name'
-                           ' (Default: %(default)s).',
-                           required=False,
-                           default='significantInteractions.hdf5')
-    parserOpt.add_argument('--outFileNameTarget', '-ot',
-                           help='The file to store the target data'
-                           ' (Default: %(default)s).',
-                           default='targetFile.hdf5')
-    parserOpt.add_argument('--combinationMode',
-                           '-cm',
-                           help='This option defines how the interaction data should be computed and combined: '
-                           'dual: Combines as follows: [[matrix1_gene1, matrix2_gene1], [matrix2_gene1, matrix3_gene1],[matrix1_gene2, matrix2_gene2], ...]'
-                           'single: Combines as follows: [matrix1_gene1, matrix1_gene2, matrix2_gene1, ...], '
-                           ' (Default: %(default)s).',
-                           default='dual',
-                           choices=['dual', 'single']
-                           )
-    parserOpt.add_argument('--threads', '-t',
-                           help='Number of threads (uses the python multiprocessing module)'
-                           ' (Default: %(default)s).',
-                           required=False,
-                           default=4,
-                           type=int
-                           )
-    parserOpt.add_argument('--truncateZeroPvalues', '-tzpv',
-                           help='Sets all p-values which are equal to zero to one. This has the effect that the associated positions are not part of the significance decision.',
-                           required=False,
-                           action='store_true')
-    parserOpt.add_argument('--fixateRange', '-fs',
-                           help='Fixate range of backgroundmodel starting at distance x. E.g. all values greater than 500kb are set to the value of the 500kb bin'
-                           ' (Default: %(default)s).',
-                           required=False,
-                           default=500000,
-                           type=int
-                           )
-    parserOpt.add_argument('--peakInteractionsThreshold', '-pit',
-                           type=int,
-                           default=5,
-                           help='The minimum number of interactions a detected peak needs to have to be considered'
-                           ' (Default: %(default)s).')
-    parserOpt.add_argument("--help", "-h", action="help",
-                           help="show this help message and exit")
-
-    parserOpt.add_argument('--version', action='version',
-                           version='%(prog)s {}'.format(__version__))
-    return parser
+    """The argparse parser of chicSignificantInteractions, built from the C++ executable's --help-json."""
+    from hicexplorer._cpp import build_parser
+    return build_parser('chicSignificantInteractions')
 
 
 def compute_interaction_file(pInteractionFilesList, pArgs, pViewpointObj, pBackground, pFilePath, pResolution, pQueue=None):
@@ -574,83 +492,7 @@ def writeTargetHDF(pOutFileName, pTargetDataList, pTargetKeyList, pViewpointObj,
     targetFileH5Object.close()
 
 
-def _main_python(args=None):
-
-    args = parse_arguments().parse_args(args)
-
-    if args.pValue:
-        try:
-            args.pValue = float(args.pValue)
-        except Exception:
-            args.pValue = read_threshold_file(args.pValue)
-    if args.loosePValue:
-        try:
-            args.loosePValue = float(args.loosePValue)
-        except Exception:
-            args.loosePValue = read_threshold_file(args.loosePValue)
-    if args.xFoldBackground:
-        try:
-            args.xFoldBackground = float(args.xFoldBackground)
-        except Exception:
-            args.xFoldBackground = read_threshold_file(args.xFoldBackground)
-
-    viewpointObj = Viewpoint()
-
-    background_model = viewpointObj.readBackgroundDataFile(
-        args.backgroundModelFile, args.range, args.fixateRange)
-
-    # read hdf file
-    interactionFileHDF5Object = h5py.File(args.interactionFile, 'r')
-    keys_interactionFile = list(interactionFileHDF5Object.keys())
-
-    if interactionFileHDF5Object.attrs['type'] != 'interactions':
-        log.error('Please provide a file created by chicViewpoint for the parameter --interactionFile.')
-        exit(1)
-
-    interactionList = []
-    if args.combinationMode == 'dual':
-        if len(keys_interactionFile) > 1:
-            for i, sample in enumerate(keys_interactionFile):
-                for sample2 in keys_interactionFile[i + 1:]:
-
-                    matrix_obj1 = interactionFileHDF5Object[sample]
-                    matrix_obj2 = interactionFileHDF5Object[sample]
-
-                    chromosomeList1 = sorted(list(matrix_obj1.keys()))
-                    chromosomeList2 = sorted(list(matrix_obj2.keys()))
-                    chromosomeList1.remove('genes')
-                    chromosomeList2.remove('genes')
-                    for chromosome1, chromosome2 in zip(chromosomeList1, chromosomeList2):
-                        geneList1 = sorted(list(matrix_obj1[chromosome1].keys()))
-                        geneList2 = sorted(list(matrix_obj2[chromosome2].keys()))
-
-                        for gene1, gene2 in zip(geneList1, geneList2):
-                            interactionList.append([[sample, chromosome1, gene1], [sample2, chromosome2, gene2]])
-
-        else:
-            log.error('Dual mode selected but only one matrix is stored')
-    elif args.combinationMode == 'single':
-        for i, sample in enumerate(keys_interactionFile):
-
-            matrix_obj1 = interactionFileHDF5Object[sample]
-            chromosomeList1 = sorted(list(matrix_obj1.keys()))
-            chromosomeList1.remove('genes')
-            for chromosome1 in chromosomeList1:
-                geneList1 = sorted(list(matrix_obj1[chromosome1].keys()))
-                for gene1 in geneList1:
-                    interactionList.append([[sample, chromosome1, gene1]])
-
-    resolution = interactionFileHDF5Object.attrs['resolution'][()]
-    interactionFileHDF5Object.close()
-
-    significant_data_list, significant_key_list, target_data_list, target_key_list, reference_points_list_target, reference_points_list_significant = call_multi_core(
-        interactionList, args, viewpointObj, background_model, args.interactionFile, resolution)
-
-    writeSignificantHDF(args.outFileNameSignificant, significant_data_list, significant_key_list, viewpointObj, reference_points_list_significant, args)
-    writeTargetHDF(args.outFileNameTarget, target_data_list, target_key_list, viewpointObj, resolution, reference_points_list_target, args)
-
-
 def main(args=None):
-    """Run the C++ implementation; the Python implementation above is kept as _main_python."""
+    """Run the C++ implementation of chicSignificantInteractions with `args` (default sys.argv[1:])."""
     from hicexplorer._cpp import entry_point
-    return entry_point('chicSignificantInteractions', _main_python)(args)
+    return entry_point('chicSignificantInteractions')(args)

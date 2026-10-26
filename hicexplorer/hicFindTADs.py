@@ -1,4 +1,9 @@
-#!/usr/bin/env python
+"""hicFindTADs: a thin layer over the C++ executable hicFindTADs.
+
+main() runs the executable and parse_arguments() is built from its --help-json
+(hicexplorer._cpp). The other names of this module are kept for API
+compatibility and are not used by the tool.
+"""
 import warnings
 warnings.simplefilter(action="ignore", category=RuntimeWarning)
 warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
@@ -25,148 +30,9 @@ hic_ma = None
 
 
 def parse_arguments(args=None):
-    """
-    get command line arguments
-    """
-    parser = argparse.ArgumentParser(
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        conflict_handler='resolve',
-        description="""
-Uses a measure called TAD-separation score to identify the degree of separation between
-the left and right regions at each Hi-C matrix bin. This is done for a
-running window of different sizes. Then, TADs are called as those
-positions having a local TAD-separation score minimum. The TAD-separation score is
-measured using the z-score of the Hi-C matrix and is defined as the mean zscore of all
-the matrix contacts between the left and right regions (diamond).
-To find the TADs, the program  needs to compute first the
-TAD scores at different window sizes. Then, the results of that computation
-are used to call the TADs. This is convenient to test different filtering criteria quickly
-as the demanding step is the computation of TAD-separation scores.
- A simple example usage is:
-$ hicFindTads -m hic_matrix.h5 --outPrefix TADs --correctForMultipleTesting fdr
-The bedgraph file produced by this tool can be used to plot the so-called insulation score
-along the genome or at specific regions. This score is much more reliable across samples
-than the number of TADs or the TADs width that can vary depending on the sequencing depth because of the lack
-of information at certain bins, and depending on the parameters used with this tool.
-""")
-
-    parserRequired = parser.add_argument_group('Required arguments')
-
-    parserRequired.add_argument('--matrix', '-m',
-                                help='Corrected Hi-C matrix to use for the computations.',
-                                required=True)
-
-    parserRequired.add_argument('--outPrefix',
-                                help='File prefix to save the resulting files: 1. <prefix>_tad_separation.bm '
-                                'The format of the output file is chrom start end TAD-sep1 TAD-sep2 TAD-sep3 .. etc. '
-                                'We call this format a bedgraph matrix and can be plotted using '
-                                '`pyGenomeTracks`. Each of the TAD-separation scores in the file corresponds to '
-                                'a different window length starting from --minDepth to --maxDepth. '
-                                '2. <prefix>_zscore_matrix.h5, the z-score matrix used for the computation of '
-                                'the TAD-separation score.  3. < prefix > _boundaries.bed, which '
-                                'contains the positions of boundaries. The genomic coordinates in this file '
-                                'correspond to the resolution used. Thus, for Hi-C bins of '
-                                '10.000bp the boundary position is 10.000bp long. For restriction fragment '
-                                'matrices the boundary position varies depending on the fragment length '
-                                'at the boundary. 4. <prefix>_domains.bed '
-                                'contains the TADs positions. This is a non-overlapping set of genomic '
-                                'positions. 5. <prefix>_boundaries.gff Similar to the boundaries bed file '
-                                'but with extra information (p-value, delta). 6. <prefix>_score.bedgraph file '
-                                'contains the TAD-separation score '
-                                'measured at each Hi-C bin coordinate. Is useful to visualize in a genome '
-                                'browser. The delta and p-value settings are saved as part of the name.',
-                                required=True)
-
-    parserRequired.add_argument('--correctForMultipleTesting',
-                                help='Select the bonferroni or false discovery rate for a multiple comparison. Bonferroni '
-                                'controls the family-wise error rate (FWER) and needs a p-value. The false discovery rate '
-                                '(FDR) controls the likelyhood of type I errors and needs a q-value. As a third option '
-                                'it is possible to not use a multiple comparison method at all'
-                                ' (Default: %(default)s).',
-                                type=str,
-                                default="fdr",
-                                choices=['fdr', 'bonferroni', 'None'],
-                                required=True)
-
-    parserOpt = parser.add_argument_group('Optional arguments')
-
-    parserOpt.add_argument('--minDepth',
-                           help='Minimum window length (in bp) to be considered to the left and to the right '
-                           'of each Hi-C bin. This number should be at least 3 times '
-                           'as large as the bin size of the Hi-C matrix.',
-                           metavar='INT bp',
-                           type=int)
-
-    parserOpt.add_argument('--maxDepth',
-                           help='Maximum window length to be considered to the left and to the right '
-                           'of the cut point in bp. This number should around 6-10 times '
-                           'as large as the bin size of the Hi-C matrix.',
-                           metavar='INT bp',
-                           type=int)
-
-    parserOpt.add_argument('--step',
-                           help='Step size when moving from --minDepth to --maxDepth. Note, the step size '
-                           'grows exponentially as '
-                           '`minDeph + (step * int(x)**1.5) for x in [0, 1, ...]` until  it '
-                           'reaches `maxDepth`. For example, selecting  step=10,000, minDepth=20,000 '
-                           'and maxDepth=150,000 will compute TAD-scores for window sizes: '
-                           '20,000, 30,000, 40,000, 70,000 and 100,000',
-                           metavar='INT bp',
-                           type=int)
-
-    parserOpt.add_argument('--TAD_sep_score_prefix',
-                           help='Sometimes it is useful to change some of the parameters without recomputing the '
-                           'z-score matrix and the TAD-separation score. For this case, the prefix containing the '
-                           'TAD separation score and the z-score matrix can be given. If this option is given, '
-                           'new boundaries will be computed but the values of --minDepth, --maxDepth and --step will '
-                           'not be used.',
-                           required=False)
-
-    parserOpt.add_argument('--thresholdComparisons',
-                           help='P-value threshold for the Bonferroni correction / q-value for FDR. '
-                           'The probability of a local minima to be a boundary '
-                           'is estimated by comparing the distribution (Wilcoxon ranksum) of '
-                           'the  z-scores between the left and right '
-                           'regions (diamond) at the local minimum with the matrix z-scores for a '
-                           'diamond at --minDepth to the left and a diamond --minDepth to the right. '
-                           'If --correctForMultipleTesting is \'None\' the threshold is applied on the '
-                           'raw p-values without any multiple testing correction. Set it to \'1\' if no threshold should be used'
-                           ' (Default: %(default)s).',
-                           type=float,
-                           default=0.01)
-
-    parserOpt.add_argument('--delta',
-                           help='Minimum threshold of the difference between the TAD-separation score of a '
-                           'putative boundary and the mean of the TAD-sep. score of surrounding bins. '
-                           'The delta value reduces spurious boundaries that are shallow, which usually '
-                           'occur at the center of large TADs when the TAD-sep. score is flat. Higher '
-                           'delta threshold values produce more conservative boundary estimations'
-                           ' (Default: %(default)s).',
-                           type=float,
-                           default=0.01)
-
-    parserOpt.add_argument('--minBoundaryDistance',
-                           help='Minimum distance between boundaries (in bp). This parameter can be '
-                           'used to reduce spurious boundaries caused by noise.',
-                           type=int)
-
-    parserOpt.add_argument('--chromosomes',
-                           help='Chromosomes and order in which the '
-                           'chromosomes should be plotted. This option '
-                           'overrides --region and --region2.',
-                           nargs='+')
-
-    parserOpt.add_argument('--numberOfProcessors', '-p',
-                           help='Number of processors to use '
-                           ' (Default: %(default)s).',
-                           type=int,
-                           default=1)
-
-    parserOpt.add_argument('--help', '-h', action='help', help='show this help message and exit.')
-
-    parserOpt.add_argument('--version', action='version',
-                           version='%(prog)s {}'.format(__version__))
-    return parser
+    """The argparse parser of hicFindTADs, built from the C++ executable's --help-json."""
+    from hicexplorer._cpp import build_parser
+    return build_parser('hicFindTADs')
 
 
 def compute_matrix_wrapper(args):
@@ -1307,68 +1173,7 @@ def print_args(args):
         log.info("{}:\t{}\n".format(key, value))
 
 
-def _main_python(args=None):
-
-    args = parse_arguments().parse_args(args)
-    ft = HicFindTads(args.matrix, num_processors=args.numberOfProcessors, max_depth=args.maxDepth,
-                     min_depth=args.minDepth, step=args.step, delta=args.delta,
-                     min_boundary_distance=args.minBoundaryDistance, use_zscore=True,
-                     p_correct_for_multiple_testing=args.correctForMultipleTesting, p_threshold_comparisons=args.thresholdComparisons,
-                     pChromosomes=args.chromosomes)
-
-    matrix_ending = args.matrix.split('.')[-1]
-    if matrix_ending not in ['cool', 'h5']:
-        if 'mcool::' not in matrix_ending:
-            log.error("Could not determine file ending. Please use either .h5, .cool or .mcool::/path/to/matrix.")
-            log.error("used input: {}, ending {}".format(args.matrix, matrix_ending))
-
-            exit(1)
-    tad_score_file = args.outPrefix + "_tad_score.bm"
-    zscore_matrix_file = args.outPrefix + "_zscore_matrix." + matrix_ending
-
-    if args.TAD_sep_score_prefix is not None:
-        tad_score_file = args.TAD_sep_score_prefix + "_tad_score.bm"
-        zscore_matrix_file = args.TAD_sep_score_prefix + "_zscore_matrix." + matrix_ending
-        # check that the given file exists
-        if not os.path.isfile(tad_score_file):
-            log.error("The given TAD_sep_score_prefix does not contain a valid TAD-separation score. Please check.\n"
-                      "Could not find file {}".format(tad_score_file))
-            exit(1)
-        if not os.path.isfile(zscore_matrix_file):
-            log.error("The given TAD_sep_score_prefix does not contain a valid z-score matrix. Please check.\n"
-                      "Could not find file {}".format(zscore_matrix_file))
-            exit(1)
-        log.info("\nUsing existing TAD-separation score file: {}\n".format(tad_score_file))
-        ft.set_matrix(zscore_matrix_file, args.chromosomes)
-        ft.load_bedgraph_matrix(tad_score_file, args.chromosomes)
-
-    elif not os.path.isfile(tad_score_file):
-        ft.compute_spectra_matrix()
-        # save z-score matrix that is needed for find TADs algorithm
-        ft.hic_ma.save(args.outPrefix + "_zscore_matrix." + matrix_ending)
-        ft.save_bedgraph_matrix(tad_score_file)
-    else:
-        log.info("\nFound existing TAD-separation score file: {}\n".format(tad_score_file))
-        log.info("This file will be used\n")
-        ft.set_matrix(zscore_matrix_file, args.chromosomes)
-        # ft.hic_ma = hm.hiCMatrix(zscore_matrix_file)
-        ft.load_bedgraph_matrix(tad_score_file, args.chromosomes)
-
-    ft.find_boundaries()
-    ft.save_domains_and_boundaries(args.outPrefix)
-
-    # turn of hierarchical clustering which is apparently not working.
-
-    # if 2 == 1:
-    #     boundary_list = [(hic_ma.cut_intervals[min_][0], hic_ma.cut_intervals[min_][2], mean_mat[min_]) for min_ in min_idx]
-
-    #     Z, clusters = hierarchical_clustering(boundary_list, clusters_cutoff=[0.4, 0.3, 0.2])
-
-    #     save_linkage(Z, args.outPrefix + '_linkage.bed')
-    #     save_clusters(clusters, args.outPrefix)
-
-
 def main(args=None):
-    """Run the C++ implementation; the Python implementation above is kept as _main_python."""
+    """Run the C++ implementation of hicFindTADs with `args` (default sys.argv[1:])."""
     from hicexplorer._cpp import entry_point
-    return entry_point('hicFindTADs', _main_python)(args)
+    return entry_point('hicFindTADs')(args)

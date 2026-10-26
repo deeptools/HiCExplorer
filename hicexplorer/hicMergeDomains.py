@@ -1,3 +1,9 @@
+"""hicMergeDomains: a thin layer over the C++ executable hicMergeDomains.
+
+main() runs the executable and parse_arguments() is built from its --help-json
+(hicexplorer._cpp). The other names of this module are kept for API
+compatibility and are not used by the tool.
+"""
 import argparse
 from scipy.cluster.hierarchy import dendrogram, linkage
 import numpy as np
@@ -10,81 +16,9 @@ from hicexplorer._version import __version__
 
 
 def parse_arguments(args=None):
-    """
-    get command line arguments
-    """
-    parser = argparse.ArgumentParser(
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        conflict_handler='resolve',
-        description="""
-hicMergeDomains takes as input multiple TAD domain files from hicFindTads. It merges TADs from different resolutions to one TAD domains file,
-considers protein peaks from known TAD binding sites and computes a dependency graph of the TADs.
-
-Two TADs are considered as one if they don't overlap at x bins given by `--value`; TAD borders need to match the protein peaks given by `--proteinFile`;
-a relation between two TADs is given by their overlap of area in percent, parameter `--percent`. The protein peaks are only considered if in one bin at least `--minPeak`.
-
-An example usage is:
-
-`$ hicMergeDomains --domainFiles 10kbtad_domains.bed 50kbtad_domains.bed --proteinFile ctcf_sorted.bed --outputMergedList two_files_ctcf --outputRelationList two_files_relation_ctcf --outputTreePlotPrefix two_files_plot_ctcf --outputTreePlotFormat pdf`
-
-""")
-
-    parserRequired = parser.add_argument_group('Required arguments')
-
-    parserRequired.add_argument('--domainFiles', '-d',
-                                help='The domain files of the different resolutions is required',
-                                required=True,
-                                nargs='+')
-
-    parserOpt = parser.add_argument_group('Optional arguments')
-
-    parserOpt.add_argument('--proteinFile', '-p',
-                           help='In order to be able to better assess the relationship between TADs, the associated '
-                                'protein file (e.g. CTCF for mammals) can be included. The protein file is required in broadpeak format')
-
-    parserOpt.add_argument('--minimumNumberOfPeaks', '-m',
-                           help='Optional parameter to adjust the number of protein peaks when adapting the resolution to '
-                                'the domain files. At least minimumNumberOfPeaks of unique peaks must be in a bin to considered. Otherwise the bin is treated like it has no peaks'
-                                ' (Default: %(default)s).',
-                           type=int, default=1)
-
-    parserOpt.add_argument('--value', '-v',
-                           help='Determine a value by how much the boundaries of two TADs must at least differ to consider '
-                                'them as two separate TADs'
-                                ' (Default: %(default)s).',
-                           type=int, default=5000)
-
-    parserOpt.add_argument('--percent', '-pe',
-                           help='For the relationship determination, a percentage is required from which area coverage '
-                                'the TADs are related to each other.'
-                           'For example, a relationship should be entered from 5 percent area coverage -p 0.05'
-                           ' (Default: %(default)s).',
-                           type=float, default=0.5)
-    parserOpt.add_argument('--outputMergedList', '-om',
-                           help='File name for the merged domains list'
-                           ' (Default: %(default)s).',
-                           default='mergedDomains.bed',
-                           required=False)
-    parserOpt.add_argument('--outputRelationList', '-or',
-                           help='File name for the relationship list of the TADs'
-                           ' (Default: %(default)s).',
-                           default='relationList.txt',
-                           required=False)
-    parserOpt.add_argument('--outputTreePlotPrefix', '-ot',
-                           help='File name prefix for the relationship tree of the TADs'
-                           ' (Default: %(default)s).',
-                           default='relationship_tree_',
-                           required=False)
-    parserOpt.add_argument('--outputTreePlotFormat', '-of',
-                           help='File format of the relationship tree. Supported formats are listed on: https://www.graphviz.org/doc/info/output.html'
-                           ' (Default: %(default)s).',
-                           default='pdf',
-                           required=False)
-    parserOpt.add_argument("--help", "-h", action="help", help="show this help message and exit")
-
-    parserOpt.add_argument('--version', action='version', version='%(prog)s {}'.format(__version__))
-
-    return parser
+    """The argparse parser of hicMergeDomains, built from the C++ executable's --help-json."""
+    from hicexplorer._cpp import build_parser
+    return build_parser('hicMergeDomains')
 
 
 def create_list_of_file(file, binSizeList):
@@ -400,35 +334,7 @@ def create_list_with_protein(bList, minPeak, cList=None):
     return bList
 
 
-def _main_python(args=None):
-    args = parse_arguments().parse_args(args)
-    pValue = args.value
-    listOfDomains = []
-    proteinList = None
-    if len(args.domainFiles) == 1 and args.proteinFile is None:
-        log.error('Please use multiple or domain files or at least one domain file and one protein file.')
-        # raise Exception(')
-        exit(1)
-    if args.proteinFile is not None:
-        proteinList = read_protein(args.proteinFile)
-
-    mergedList = create_list_with_protein(args.domainFiles[0], args.minimumNumberOfPeaks, proteinList)
-
-    if len(args.domainFiles) > 1:
-        for domain in args.domainFiles[1:]:
-            listOfDomains.append(create_list_with_protein(domain, args.minimumNumberOfPeaks, proteinList))
-        for domain in listOfDomains:
-            mergedList = merge_list(mergedList, domain, pValue)
-
-    mergedListWithId = add_id(mergedList)
-    write_in_file(mergedListWithId, args.outputMergedList)
-    if len(args.domainFiles) > 1:
-        relationList = create_relationsship_list(mergedListWithId, args.percent)
-        write_in_file(relationList, args.outputRelationList, True)
-        create_tree(relationList, mergedListWithId, args.outputTreePlotPrefix, args.outputTreePlotFormat)
-
-
 def main(args=None):
-    """Run the C++ implementation; the Python implementation above is kept as _main_python."""
+    """Run the C++ implementation of hicMergeDomains with `args` (default sys.argv[1:])."""
     from hicexplorer._cpp import entry_point
-    return entry_point('hicMergeDomains', _main_python)(args)
+    return entry_point('hicMergeDomains')(args)
