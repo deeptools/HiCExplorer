@@ -1,0 +1,13 @@
+# Public names that stay pure Python: matplotlib drawing code (owner directive,
+# cpp/python/API_BINDINGS.md). One row per name: module<TAB>name<TAB>reason.
+# A name that computes data besides drawing does not belong here; its
+# computation moves to C++ and the drawing calls stay.
+hicexplorer.hicCompartmentalization	plot_polarization_ratio	draws the polarization ratio curves with matplotlib from values it is given
+hicexplorer.hicPlotMatrix	plotHeatmap	matplotlib pcolormesh and colorbar of a matrix it is given
+hicexplorer.hicPlotMatrix	plotLongRangeContacts	draws arcs with matplotlib from given contacts
+hicexplorer.hicPlotMatrix	plotTADs	draws TAD triangles with matplotlib from given domains
+hicexplorer.hicPrepareQCreport	make_figure_pairs_used	matplotlib bar chart of QC numbers it is given
+hicexplorer.hicPrepareQCreport	make_figure_umappable_non_unique_reads	matplotlib bar chart of QC numbers it is given
+hicexplorer.hicPrepareQCreport	make_figure_pairs_discarded	matplotlib bar chart of QC numbers it is given
+hicexplorer.hicPrepareQCreport	make_figure_distance	matplotlib bar chart of QC numbers it is given
+hicexplorer.hicPrepareQCreport	make_figure_read_orientation	matplotlib bar chart of QC numbers it is given
