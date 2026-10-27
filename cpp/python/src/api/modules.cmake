@@ -9,6 +9,7 @@
 #
 # and the extension offers them as hicexplorer._hicx.<entry>.
 set(HICX_API_MODULES
+    chicAggregateStatistic
     chicDifferentialTest
     chicExportData
     chicQualityControl
