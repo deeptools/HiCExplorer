@@ -297,7 +297,7 @@ hicexplorer.hicQuickQC	def	main(args=None)	4	C++-backed (runs/reads the executab
 hicexplorer.hicSumMatrices	module		27		cpp/tools/hicSumMatrices.cpp
 hicexplorer.hicSumMatrices	def	parse_arguments(args=None)	4	C++-backed (runs/reads the executable)	
 hicexplorer.hicSumMatrices	def	main(args=None)	4	C++-backed (runs/reads the executable)	
-hicexplorer.hicTransform	module		82		cpp/tools/hicTransform.cpp
+hicexplorer.hicTransform	module		26		cpp/tools/hicTransform.cpp
 hicexplorer.hicTransform	def	parse_arguments(args=None)	4	C++-backed (runs/reads the executable)	
 hicexplorer.hicTransform	def	main(args=None)	4	C++-backed (runs/reads the executable)	
 hicexplorer.hicValidateLocations	module		73		cpp/tools/hicValidateLocations.cpp
