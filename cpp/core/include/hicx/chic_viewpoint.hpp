@@ -183,6 +183,16 @@ struct ComputedViewpoint {
                                                   std::int64_t region_start,
                                                   std::int64_t region_end);
 
+// The second half of compute_viewpoint, for a caller that summed the rows
+// itself (the Python API sums the rows of a hiCMatrix object): `data` is the
+// sum of the reference point's rows over the region's columns starting at
+// `range_start`, and the reference point's bins [view_point_start,
+// view_point_end] are collapsed into one element with numpy's slice rules.
+[[nodiscard]] ComputedViewpoint collapse_viewpoint(const std::vector<double>& data,
+                                                   std::int64_t view_point_start,
+                                                   std::int64_t view_point_end,
+                                                   std::int64_t range_start);
+
 // Viewpoint.smoothInteractionValues(pData, pWindowSize).
 //
 // Every element is the mean of a window around it. For an odd window the

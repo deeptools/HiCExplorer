@@ -390,6 +390,13 @@ ComputedViewpoint compute_viewpoint(const ViewpointMatrix& matrix, const Referen
         }
     }
 
+    return collapse_viewpoint(data, view_point_start, view_point_end, range_start);
+}
+
+ComputedViewpoint collapse_viewpoint(const std::vector<double>& data,
+                                     std::int64_t view_point_start,
+                                     std::int64_t view_point_end, std::int64_t range_start) {
+    const std::int64_t elements = static_cast<std::int64_t>(data.size());
     const std::int64_t elements_new = elements - (view_point_end - view_point_start);
     if (elements_new < 0) {
         throw ValueError("negative dimensions are not allowed");
