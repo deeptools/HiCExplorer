@@ -16,6 +16,7 @@
 #include <vector>
 
 #include "hicx/cnb.hpp"
+#include "hicx/detect_loops.hpp"
 #include "hicx/correct_api.hpp"
 #include "hicx/correct_ops.hpp"
 #include "hicx/iterative_correction.hpp"
@@ -346,4 +347,25 @@ TEST_CASE("scipy_coo: assign_zero_block inserts explicit zeros as scipy's _inser
     const auto overwrite = hicx::scipy_coo::assign_zero_block(m, true, 2, 3, 2, 3);
     CHECK_FALSE(overwrite.inserted);
     CHECK(overwrite.matrix.data == std::vector<double>{5.0, 1.0, 2.0, 0.0});
+}
+
+TEST_CASE("detect_loops: test_candidate reports the outcomes the tool never reaches") {
+    // a 12 by 12 upper triangle with one strong pixel
+    std::vector<std::int32_t> row;
+    std::vector<std::int32_t> col;
+    std::vector<double> data;
+    for (std::int32_t i = 0; i < 12; ++i) {
+        for (std::int32_t j = i + 1; j < 12; ++j) {
+            row.push_back(i);
+            col.push_back(j);
+            data.push_back(i == 3 && j == 8 ? 50.0 : 1.0 + (i + j) % 3);
+        }
+    }
+    const hicx::CsrMatrix m = hicx::CsrMatrix::from_coo(12, 12, row, col, data, "float64");
+    using Outcome = hicx::loops::CandidateTest::Outcome;
+    CHECK(hicx::loops::test_candidate(m, {3, 8}, 2, 0.5, 3).outcome == Outcome::PeakWiderThanWindow);
+    CHECK(hicx::loops::is_neighborhood_maximum(m, {3, 8}, 2));
+    CHECK_FALSE(hicx::loops::is_neighborhood_maximum(m, {3, 7}, 2));
+    const auto test = hicx::loops::test_candidate(m, {3, 8}, 3, 1.0, 1);
+    CHECK((test.outcome == Outcome::Accepted || test.outcome == Outcome::Rejected));
 }

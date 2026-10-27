@@ -11,6 +11,7 @@
 set(HICX_API_MODULES
     hicAdjustMatrix
     hicCorrectMatrix
+    hicDetectLoops
     hicMergeLoops
     hicMergeMatrixBins
     iterativeCorrection
