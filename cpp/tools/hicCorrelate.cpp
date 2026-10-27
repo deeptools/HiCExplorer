@@ -5,9 +5,13 @@
 // --range, log1p, the NaN bins of every matrix removed, one vector per matrix
 // over the union of stored positions, the pairwise Pearson or Spearman
 // correlations, and the complete linkage clustering of the correlation
-// matrix. plot/hicexplorer_plot/hicCorrelate.py draws the scatter grid and the
-// heatmap with the reference's calls; the dendrogram is drawn from the linkage
-// computed here.
+// matrix. The figure data is prepared here too: the symmetric correlation
+// matrix (results + np.triu(results, 1).T), the colour range plot_correlation
+// derives from it, the filtered vector pair of every scatter panel and the
+// integer value range the log1p tick locators are built from.
+// plot/hicexplorer_plot/hicCorrelate.py draws the scatter grid and the heatmap
+// with the reference's calls; the dendrogram and its leaf order are drawn by
+// scipy from the linkage computed here (figure layout).
 //
 // What is reproduced, pinned by the harness cases:
 //
@@ -33,8 +37,8 @@
 // values are merged into the union at once: both key lists are walked from
 // the back into the enlarged arrays, so earlier matrices are never copied.
 // The working set is the keys and one float64 per matrix per position, plus
-// the matrix being read. The vectors reach the drawing process as a raw .npy
-// written straight from that array.
+// the matrix being read. The scatter pairs reach the drawing process as one
+// raw .npy written straight from that array.
 //
 // Deliberate deviations:
 //
@@ -321,6 +325,43 @@ hicx::hicspector::ChromosomeEntries extract_chromosome_with_diagonal(const hicx:
     return out;
 }
 
+// The heatmap data of plot_correlation: results + np.triu(results, 1).T (the
+// IEEE sums, so a -0.0 above the diagonal becomes 0.0 as in numpy), as rows,
+// and the colour range: vmax 1 and vmin 0 when every value is >= 0, else -1
+// (a NaN makes min() NaN, hence -1), unless --zMax / --zMin are given.
+struct HeatmapData {
+    std::string rows_json;
+    std::string vmin_json;
+    std::string vmax_json;
+};
+
+HeatmapData heatmap_data(const std::vector<double>& results, std::size_t num_files,
+                         const std::optional<double>& z_min, const std::optional<double>& z_max) {
+    std::vector<double> full(num_files * num_files);
+    bool non_negative = true;
+    for (std::size_t i = 0; i < num_files; ++i) {
+        for (std::size_t j = 0; j < num_files; ++j) {
+            const double upper = j < i ? results[j * num_files + i] : 0.0;
+            const double value = results[i * num_files + j] + upper;
+            full[i * num_files + j] = value;
+            if (!(value >= 0.0)) {
+                non_negative = false;
+            }
+        }
+    }
+    std::vector<std::string> rows;
+    for (std::size_t i = 0; i < num_files; ++i) {
+        rows.push_back(plot::json_numbers(std::vector<double>(
+            full.begin() + static_cast<std::ptrdiff_t>(i * num_files),
+            full.begin() + static_cast<std::ptrdiff_t>((i + 1) * num_files))));
+    }
+    HeatmapData data;
+    data.rows_json = plot::json_list(rows);
+    data.vmax_json = plot::json_number(z_max.value_or(1.0));
+    data.vmin_json = plot::json_number(z_min.has_value() ? *z_min : (non_negative ? 0.0 : -1.0));
+    return data;
+}
+
 // coolerInfo(cool, 'sum'): the total of every stored pixel in the whole
 // file, used by --method scc to normalize each matrix by its own total
 // contacts (hicrep's n1/n2), not by the chromosome's own total.
@@ -435,25 +476,19 @@ int run_scc(const std::vector<std::string>& matrix_paths, const std::vector<std:
     const std::vector<std::int64_t> leaves =
         hicx::cluster::detail::dendrogram_leaves(linkage, static_cast<std::int64_t>(num_files));
 
-    std::vector<std::string> result_rows;
-    for (std::size_t row = 0; row < num_files; ++row) {
-        result_rows.push_back(plot::json_numbers(std::vector<double>(
-            results.begin() + static_cast<std::ptrdiff_t>(row * num_files),
-            results.begin() + static_cast<std::ptrdiff_t>((row + 1) * num_files))));
-    }
     plot::JsonObject data;
     data.add("outFileNameHeatmap", plot::json_string(ns.str("outFileNameHeatmap")));
     data.add("outFileNameScatter", plot::json_string(ns.str("outFileNameScatter")));
     data.add("labels", plot::json_strings(labels));
     data.add("method", plot::json_string("scc"));
     data.add("log1p", plot::json_bool(false));
-    const std::optional<double> z_min = ns.opt_real("zMin");
-    const std::optional<double> z_max = ns.opt_real("zMax");
-    data.add("zMin", z_min.has_value() ? plot::json_number(*z_min) : "null");
-    data.add("zMax", z_max.has_value() ? plot::json_number(*z_max) : "null");
+    const HeatmapData heatmap =
+        heatmap_data(results, num_files, ns.opt_real("zMin"), ns.opt_real("zMax"));
+    data.add("vMin", heatmap.vmin_json);
+    data.add("vMax", heatmap.vmax_json);
     data.add("colorMap", plot::json_string(ns.str("colorMap")));
     data.add("plotNumbers", plot::json_bool(ns.flag("plotNumbers")));
-    data.add("results", plot::json_list(result_rows));
+    data.add("results", heatmap.rows_json);
     data.add("linkage", plot::json_numbers(linkage));
     data.add("leaves", plot::json_ints(leaves));
     data.add("skipScatter", plot::json_bool(true));
@@ -538,25 +573,19 @@ int run_genomedisco(const std::vector<std::string>& matrix_paths, const std::vec
     const std::vector<std::int64_t> leaves =
         hicx::cluster::detail::dendrogram_leaves(linkage, static_cast<std::int64_t>(num_files));
 
-    std::vector<std::string> result_rows;
-    for (std::size_t row = 0; row < num_files; ++row) {
-        result_rows.push_back(plot::json_numbers(std::vector<double>(
-            results.begin() + static_cast<std::ptrdiff_t>(row * num_files),
-            results.begin() + static_cast<std::ptrdiff_t>((row + 1) * num_files))));
-    }
     plot::JsonObject data;
     data.add("outFileNameHeatmap", plot::json_string(ns.str("outFileNameHeatmap")));
     data.add("outFileNameScatter", plot::json_string(ns.str("outFileNameScatter")));
     data.add("labels", plot::json_strings(labels));
     data.add("method", plot::json_string("genomedisco"));
     data.add("log1p", plot::json_bool(false));
-    const std::optional<double> z_min = ns.opt_real("zMin");
-    const std::optional<double> z_max = ns.opt_real("zMax");
-    data.add("zMin", z_min.has_value() ? plot::json_number(*z_min) : "null");
-    data.add("zMax", z_max.has_value() ? plot::json_number(*z_max) : "null");
+    const HeatmapData heatmap =
+        heatmap_data(results, num_files, ns.opt_real("zMin"), ns.opt_real("zMax"));
+    data.add("vMin", heatmap.vmin_json);
+    data.add("vMax", heatmap.vmax_json);
     data.add("colorMap", plot::json_string(ns.str("colorMap")));
     data.add("plotNumbers", plot::json_bool(ns.flag("plotNumbers")));
-    data.add("results", plot::json_list(result_rows));
+    data.add("results", heatmap.rows_json);
     data.add("linkage", plot::json_numbers(linkage));
     data.add("leaves", plot::json_ints(leaves));
     data.add("skipScatter", plot::json_bool(true));
@@ -639,25 +668,19 @@ int run_hicspector(const std::vector<std::string>& matrix_paths, const std::vect
     const std::vector<std::int64_t> leaves =
         hicx::cluster::detail::dendrogram_leaves(linkage, static_cast<std::int64_t>(num_files));
 
-    std::vector<std::string> result_rows;
-    for (std::size_t row = 0; row < num_files; ++row) {
-        result_rows.push_back(plot::json_numbers(std::vector<double>(
-            results.begin() + static_cast<std::ptrdiff_t>(row * num_files),
-            results.begin() + static_cast<std::ptrdiff_t>((row + 1) * num_files))));
-    }
     plot::JsonObject data;
     data.add("outFileNameHeatmap", plot::json_string(ns.str("outFileNameHeatmap")));
     data.add("outFileNameScatter", plot::json_string(ns.str("outFileNameScatter")));
     data.add("labels", plot::json_strings(labels));
     data.add("method", plot::json_string("hicspector"));
     data.add("log1p", plot::json_bool(false));
-    const std::optional<double> z_min = ns.opt_real("zMin");
-    const std::optional<double> z_max = ns.opt_real("zMax");
-    data.add("zMin", z_min.has_value() ? plot::json_number(*z_min) : "null");
-    data.add("zMax", z_max.has_value() ? plot::json_number(*z_max) : "null");
+    const HeatmapData heatmap =
+        heatmap_data(results, num_files, ns.opt_real("zMin"), ns.opt_real("zMax"));
+    data.add("vMin", heatmap.vmin_json);
+    data.add("vMax", heatmap.vmax_json);
     data.add("colorMap", plot::json_string(ns.str("colorMap")));
     data.add("plotNumbers", plot::json_bool(ns.flag("plotNumbers")));
-    data.add("results", plot::json_list(result_rows));
+    data.add("results", heatmap.rows_json);
     data.add("linkage", plot::json_numbers(linkage));
     data.add("leaves", plot::json_ints(leaves));
     data.add("skipScatter", plot::json_bool(true));
@@ -741,25 +764,19 @@ int run_quasar(const std::vector<std::string>& matrix_paths, const std::vector<s
     const std::vector<std::int64_t> leaves =
         hicx::cluster::detail::dendrogram_leaves(linkage, static_cast<std::int64_t>(num_files));
 
-    std::vector<std::string> result_rows;
-    for (std::size_t row = 0; row < num_files; ++row) {
-        result_rows.push_back(plot::json_numbers(std::vector<double>(
-            results.begin() + static_cast<std::ptrdiff_t>(row * num_files),
-            results.begin() + static_cast<std::ptrdiff_t>((row + 1) * num_files))));
-    }
     plot::JsonObject data;
     data.add("outFileNameHeatmap", plot::json_string(ns.str("outFileNameHeatmap")));
     data.add("outFileNameScatter", plot::json_string(ns.str("outFileNameScatter")));
     data.add("labels", plot::json_strings(labels));
     data.add("method", plot::json_string("quasar"));
     data.add("log1p", plot::json_bool(false));
-    const std::optional<double> z_min = ns.opt_real("zMin");
-    const std::optional<double> z_max = ns.opt_real("zMax");
-    data.add("zMin", z_min.has_value() ? plot::json_number(*z_min) : "null");
-    data.add("zMax", z_max.has_value() ? plot::json_number(*z_max) : "null");
+    const HeatmapData heatmap =
+        heatmap_data(results, num_files, ns.opt_real("zMin"), ns.opt_real("zMax"));
+    data.add("vMin", heatmap.vmin_json);
+    data.add("vMax", heatmap.vmax_json);
     data.add("colorMap", plot::json_string(ns.str("colorMap")));
     data.add("plotNumbers", plot::json_bool(ns.flag("plotNumbers")));
-    data.add("results", plot::json_list(result_rows));
+    data.add("results", heatmap.rows_json);
     data.add("linkage", plot::json_numbers(linkage));
     data.add("leaves", plot::json_ints(leaves));
     data.add("skipScatter", plot::json_bool(true));
@@ -1069,43 +1086,105 @@ std::pair<std::vector<T>, std::vector<T>> pair_vectors(const std::vector<double>
     return out;
 }
 
-// big_mat.T as a .npy file in the reference's dtype, written from the array.
-void write_npy(const std::string& path, const std::vector<double>& big, std::size_t entries,
-               std::size_t num_files, Kind kind) {
+// The data of the scatter panels, one .npy in the reference's dtype: for
+// every pair (row, col) of np.triu_indices with row < col, in that order,
+// the rows of big_mat[:, [row, col]] whose two values sum to more than 1 (in
+// the dtype, as _mat[_mat.sum(axis=1) > 1, :] keeps them), as an (n, 2)
+// array. Returns each pair's [start, stop) in it.
+std::vector<std::pair<std::int64_t, std::int64_t>> write_pairs_npy(
+    const std::string& path, const std::vector<double>& big, std::size_t entries,
+    std::size_t num_files, Kind kind) {
+    auto keep = [&](std::size_t u, std::size_t row, std::size_t col) {
+        const double a = big[u * num_files + row];
+        const double b = big[u * num_files + col];
+        if (kind == Kind::Int) {
+            return static_cast<std::int64_t>(a) + static_cast<std::int64_t>(b) > 1;
+        }
+        if (kind == Kind::F32) {
+            return static_cast<float>(a) + static_cast<float>(b) > 1.0f;
+        }
+        return a + b > 1.0;
+    };
+    // The first pass counts, so that the header holds the shape and the
+    // second pass streams the rows to the file without holding them.
+    std::vector<std::pair<std::int64_t, std::int64_t>> spans;
+    std::int64_t kept = 0;
+    for (std::size_t row = 0; row < num_files; ++row) {
+        for (std::size_t col = row + 1; col < num_files; ++col) {
+            const std::int64_t start = kept;
+            for (std::size_t u = 0; u < entries; ++u) {
+                kept += keep(u, row, col) ? 1 : 0;
+            }
+            spans.emplace_back(start, kept);
+        }
+    }
     const char* dtype = kind == Kind::Int ? "<i8" : kind == Kind::F32 ? "<f4" : "<f8";
-    const std::string header = hicx::npz::npy_header(
-        dtype, {static_cast<std::int64_t>(entries), static_cast<std::int64_t>(num_files)});
+    const std::string header = hicx::npz::npy_header(dtype, {kept, 2});
     std::FILE* file = std::fopen(path.c_str(), "wb");
     if (file == nullptr) {
         throw std::runtime_error("cannot write " + path);
     }
     bool ok = std::fwrite(header.data(), 1, header.size(), file) == header.size();
-    if (kind == Kind::F64) {
-        ok = ok && std::fwrite(big.data(), sizeof(double), big.size(), file) == big.size();
-    } else {
-        constexpr std::size_t chunk = 1 << 16;
-        std::vector<char> buffer(chunk * 8);
-        for (std::size_t begin = 0; ok && begin < big.size(); begin += chunk) {
-            const std::size_t count = std::min(chunk, big.size() - begin);
-            std::size_t bytes = 0;
-            for (std::size_t k = 0; k < count; ++k) {
+    std::vector<char> buffer;
+    buffer.reserve(1 << 20);
+    auto append = [&buffer](const auto value) {
+        const char* raw = reinterpret_cast<const char*>(&value);
+        buffer.insert(buffer.end(), raw, raw + sizeof value);
+    };
+    auto flush = [&]() {
+        ok = ok && std::fwrite(buffer.data(), 1, buffer.size(), file) == buffer.size();
+        buffer.clear();
+    };
+    for (std::size_t row = 0; row < num_files; ++row) {
+        for (std::size_t col = row + 1; col < num_files; ++col) {
+            for (std::size_t u = 0; u < entries; ++u) {
+                if (!keep(u, row, col)) {
+                    continue;
+                }
+                const double a = big[u * num_files + row];
+                const double b = big[u * num_files + col];
                 if (kind == Kind::Int) {
-                    const auto value = static_cast<std::int64_t>(big[begin + k]);
-                    std::memcpy(buffer.data() + bytes, &value, sizeof value);
-                    bytes += sizeof value;
+                    append(static_cast<std::int64_t>(a));
+                    append(static_cast<std::int64_t>(b));
+                } else if (kind == Kind::F32) {
+                    append(static_cast<float>(a));
+                    append(static_cast<float>(b));
                 } else {
-                    const auto value = static_cast<float>(big[begin + k]);
-                    std::memcpy(buffer.data() + bytes, &value, sizeof value);
-                    bytes += sizeof value;
+                    append(a);
+                    append(b);
+                }
+                if (buffer.size() >= (1u << 20) - 16) {
+                    flush();
                 }
             }
-            ok = std::fwrite(buffer.data(), 1, bytes, file) == bytes;
         }
     }
+    flush();
     ok = (std::fclose(file) == 0) && ok;
     if (!ok) {
         throw std::runtime_error("cannot write " + path);
     }
+    return spans;
+}
+
+// int(big_mat.min()) and int(big_mat.max()) over every value, in the dtype.
+std::pair<std::int64_t, std::int64_t> value_range(const std::vector<double>& big, Kind kind) {
+    if (big.empty()) {
+        throw PythonError("ValueError: zero-size array to reduction operation minimum which has "
+                          "no identity");
+    }
+    double low = big.front();
+    double high = big.front();
+    for (const double raw : big) {
+        const double value = kind == Kind::F32 ? static_cast<double>(static_cast<float>(raw)) : raw;
+        low = std::min(low, value);
+        high = std::max(high, value);
+    }
+    if (kind == Kind::F32) {
+        low = static_cast<float>(low);
+        high = static_cast<float>(high);
+    }
+    return {static_cast<std::int64_t>(std::trunc(low)), static_cast<std::int64_t>(std::trunc(high))};
 }
 
 std::string basename_of(const std::string& path) {
@@ -1450,7 +1529,7 @@ int main(int argc, char** argv) {
         const std::vector<std::int64_t> leaves = hicx::cluster::detail::dendrogram_leaves(
             linkage, static_cast<std::int64_t>(num_files));
 
-        // The vectors travel in a .npy next to the data.
+        // The scatter pairs travel in a .npy next to the data.
         std::string npy_path;
         if (plot_data.has_value()) {
             npy_path = *plot_data + ".npy";
@@ -1467,31 +1546,34 @@ int main(int argc, char** argv) {
             ::close(fd);
             npy_path = name.data();
         }
-        write_npy(npy_path, big, entries, num_files, kind);
+        const std::pair<std::int64_t, std::int64_t> range = value_range(big, kind);
+        const std::vector<std::pair<std::int64_t, std::int64_t>> spans =
+            write_pairs_npy(npy_path, big, entries, num_files, kind);
         std::vector<double>().swap(big);
-
-        std::vector<std::string> result_rows;
-        for (std::size_t row = 0; row < num_files; ++row) {
-            result_rows.push_back(plot::json_numbers(std::vector<double>(
-                results.begin() + static_cast<std::ptrdiff_t>(row * num_files),
-                results.begin() + static_cast<std::ptrdiff_t>((row + 1) * num_files))));
+        std::vector<std::string> span_items;
+        for (const auto& span : spans) {
+            span_items.push_back(plot::json_ints({span.first, span.second}));
         }
+
         plot::JsonObject data;
         data.add("outFileNameHeatmap", plot::json_string(ns.str("outFileNameHeatmap")));
         data.add("outFileNameScatter", plot::json_string(ns.str("outFileNameScatter")));
         data.add("labels", plot::json_strings(labels));
         data.add("method", plot::json_string(method));
         data.add("log1p", plot::json_bool(log1p));
-        const std::optional<double> z_min = ns.opt_real("zMin");
-        const std::optional<double> z_max = ns.opt_real("zMax");
-        data.add("zMin", z_min.has_value() ? plot::json_number(*z_min) : "null");
-        data.add("zMax", z_max.has_value() ? plot::json_number(*z_max) : "null");
+        const HeatmapData heatmap =
+            heatmap_data(results, num_files, ns.opt_real("zMin"), ns.opt_real("zMax"));
+        data.add("vMin", heatmap.vmin_json);
+        data.add("vMax", heatmap.vmax_json);
         data.add("colorMap", plot::json_string(ns.str("colorMap")));
         data.add("plotNumbers", plot::json_bool(ns.flag("plotNumbers")));
-        data.add("results", plot::json_list(result_rows));
+        data.add("results", heatmap.rows_json);
         data.add("linkage", plot::json_numbers(linkage));
         data.add("leaves", plot::json_ints(leaves));
-        data.add("big_mat", plot::json_string(npy_path));
+        data.add("pairs", plot::json_string(npy_path));
+        data.add("pair_spans", plot::json_list(span_items));
+        data.add("min_value", plot::json_int(range.first));
+        data.add("max_value", plot::json_int(range.second));
         data.add("temporary_files",
                  plot_data.has_value() ? "[]" : plot::json_strings({npy_path}));
 

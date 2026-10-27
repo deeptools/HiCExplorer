@@ -63,12 +63,24 @@ class JsonObject {
 void write_npy_float64(const std::string& path, const std::vector<double>& values,
                        std::int64_t rows, std::int64_t cols);
 
+// A C order .npy file of any dtype numpy writes ("<f8", "<i4", "|b1", ...):
+// `bytes` holds the elements, little endian, in that dtype.
+void write_npy(const std::string& path, const std::string& dtype,
+               const std::vector<std::int64_t>& shape, const std::string& bytes);
+
 // Hands the figure to the drawing layer, see the file comment. Returns the
 // exit status the tool should return: 0 after writing the --plotData file, 1
 // when the data could not be written or the interpreter could not be started.
 // On success without data_file it does not return.
 [[nodiscard]] int draw(const std::string& tool, const std::string& data_json,
                        const std::optional<std::string>& data_file);
+
+// draw() for a tool that still has work after the figures (an archive of
+// them): the drawing runs in a child process, which this one waits for, so
+// the C++ working set stays while matplotlib runs. Returns the child's exit
+// status (0 when it drew), 1 when it could not be started. No --plotData
+// mode: the caller handles that before.
+[[nodiscard]] int draw_and_wait(const std::string& tool, const std::string& data_json);
 
 // The drawing environment check, `python -m hicexplorer_plot --check TOOL`
 // with the interpreter and environment draw() uses, when `draws` is true (not

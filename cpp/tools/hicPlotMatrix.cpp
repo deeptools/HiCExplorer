@@ -8,9 +8,13 @@
 // draws (getMatrix fills the NaN bins with NaN on the whole-matrix path), the
 // replacement of zeros, NaN and infinite values for --log and --log1p, the
 // +1 of --log1p, the bin start positions and the chromosome extents.
-// plot/hicexplorer_plot/hicPlotMatrix.py draws the figure with the
-// reference's plotHeatmap, bigwig, loop and TAD functions; the bigwig tracks,
-// loops and TADs are read there, as the reference reads them while drawing.
+// The tracks are read here too: plotBigwig's scores per bigwig file (through
+// libBigWig's bwStats, which pyBigWig's stats calls; the chromosome name
+// fallbacks, np.linspace positions, the sign flip, scaling, clip and axis
+// limits) for every heatmap, and the positions plotLongRangeContacts and
+// plotTADs read from --loops and --tads. plot/hicexplorer_plot/
+// hicPlotMatrix.py draws the figure with the reference's plotHeatmap and
+// drawing calls from that data.
 //
 // What is reproduced, pinned by the harness cases:
 //
@@ -38,7 +42,6 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#include <cerrno>
 #include <algorithm>
 #include <cerrno>
 #include <cmath>
@@ -46,12 +49,16 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <fstream>
+#include <iterator>
 #include <limits>
 #include <optional>
 #include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
+
+#include "bigWig.h"
 
 #include "hicx/argparse.hpp"
 #include "hicx/bins.hpp"
@@ -553,6 +560,404 @@ std::vector<std::int64_t> make_start_pos_array(const Model& model) {
 std::string region_json(const Region& region) {
     return plot::json_list({plot::json_string(region.chrom), plot::json_int(region.start),
                             plot::json_int(region.end)});
+}
+
+// ---------------------------------------------------------------------------
+// The tracks plotHeatmap draws over the heatmap: plotBigwig's scores and
+// plotLongRangeContacts' and plotTADs' positions, read here.
+
+struct ChromExtent {
+    std::string name;
+    std::int64_t start = 0;
+    std::int64_t end = 0;
+};
+
+// chromosome_start_end(ma), in its order.
+std::vector<ChromExtent> chromosome_extents(const Model& model) {
+    std::vector<ChromExtent> extents;
+    for (const auto& [name, range] : boundaries(model)) {
+        extents.push_back({name, model.intervals[static_cast<std::size_t>(range.first)].start,
+                           model.intervals[static_cast<std::size_t>(range.last - 1)].end});
+    }
+    return extents;
+}
+
+const ChromExtent& extent_of(const std::vector<ChromExtent>& extents, const std::string& name) {
+    for (const ChromExtent& extent : extents) {
+        if (extent.name == name) {
+            return extent;
+        }
+    }
+    throw std::runtime_error("KeyError: '" + name + "'");
+}
+
+// np.linspace(start, stop, num) as numpy 1.26 computes it.
+std::vector<double> linspace(double start, double stop, std::int64_t num) {
+    if (num < 0) {
+        throw std::runtime_error("ValueError: Number of samples, " + std::to_string(num) +
+                                 ", must be non-negative.");
+    }
+    std::vector<double> y(static_cast<std::size_t>(num));
+    const std::int64_t div = num - 1;
+    const double delta = stop - start;
+    for (std::int64_t i = 0; i < num; ++i) {
+        double value = static_cast<double>(i);
+        if (div > 0) {
+            const double step = delta / static_cast<double>(div);
+            if (step == 0.0) {
+                value = value / static_cast<double>(div);
+                value = value * delta;
+            } else {
+                value = value * step;
+            }
+        } else {
+            value = value * delta;
+        }
+        y[static_cast<std::size_t>(i)] = value + start;
+    }
+    if (num > 1) {
+        y.back() = stop;
+    }
+    return y;
+}
+
+std::int64_t floor_div(std::int64_t a, std::int64_t b) {
+    std::int64_t q = a / b;
+    if ((a % b != 0) && ((a < 0) != (b < 0))) {
+        --q;
+    }
+    return q;
+}
+
+struct BigwigFile {
+    bigWigFile_t* handle = nullptr;
+    explicit BigwigFile(const std::string& path) {
+        handle = bwOpen(const_cast<char*>(path.c_str()), nullptr, "r");
+        if (handle == nullptr) {
+            throw std::runtime_error("RuntimeError: Received an error during file opening! (" +
+                                     path + ")");
+        }
+    }
+    ~BigwigFile() {
+        if (handle != nullptr) {
+            bwClose(handle);
+        }
+    }
+    BigwigFile(const BigwigFile&) = delete;
+    BigwigFile& operator=(const BigwigFile&) = delete;
+
+    // The chromosome's length, or -1 when the file has no such chromosome.
+    [[nodiscard]] std::int64_t length(const std::string& chrom) const {
+        for (std::int64_t i = 0; i < handle->cl->nKeys; ++i) {
+            if (chrom == handle->cl->chrom[i]) {
+                return handle->cl->len[i];
+            }
+        }
+        return -1;
+    }
+
+    // bw.stats(chrom, start, end, nBins=bins) of pyBigWig: the mean per bin
+    // (NaN, None there, for a bin without data, which astype(float) makes NaN).
+    [[nodiscard]] std::vector<double> stats(const std::string& chrom, std::int64_t start,
+                                            std::int64_t end, std::int64_t bins) const {
+        const std::int64_t chrom_length = length(chrom);
+        if (chrom_length < 0 || start < 0 || start > chrom_length || end > chrom_length ||
+            end <= start) {
+            throw std::runtime_error("RuntimeError: Invalid interval bounds!");
+        }
+        if (bins == 0) {
+            bins = 1;  // pyBigWig: `if(!nBins) nBins = 1;`
+        }
+        if (bins < 0) {
+            throw std::runtime_error("RuntimeError: An error was encountered while fetching the "
+                                     "statistics.");
+        }
+        double* values = bwStats(handle, const_cast<char*>(chrom.c_str()),
+                                 static_cast<std::uint32_t>(start), static_cast<std::uint32_t>(end),
+                                 static_cast<std::uint32_t>(bins), mean);
+        if (values == nullptr) {
+            throw std::runtime_error("RuntimeError: An error was encountered while fetching the "
+                                     "statistics.");
+        }
+        std::vector<double> out(values, values + bins);
+        std::free(values);
+        return out;
+    }
+};
+
+struct BigwigTrackOptions {
+    bool flip = false;
+    double scale = 1.0;
+    std::optional<double> v_min;
+    std::optional<double> v_max;
+    std::int64_t resolution = 1;
+};
+
+// One plotBigwig call: per file in `files` order, {"missing": false, "x",
+// "y", "lim": [low, high]}, up to and including the first file whose
+// chromosome is missing ({"missing": true}), where the reference returns.
+// The scores are flipped, scaled and clipped as plotBigwig does; the axis
+// limits are those it sets.
+std::string bigwig_tracks_json(const std::vector<std::string>& files,
+                               const std::optional<Region>& region,
+                               const std::vector<ChromExtent>& extents,
+                               const BigwigTrackOptions& options) {
+    std::vector<std::string> tracks;
+    for (const std::string& path : files) {
+        const BigwigFile bw(path);
+        std::vector<double> x_values;
+        std::vector<double> scores;
+        std::string low = "null";
+        std::string high = "null";
+        bool missing = false;
+        if (region.has_value()) {
+            std::string chrom = region->chrom;
+            const std::int64_t region_start = region->start;
+            const std::int64_t region_end = std::min(region->end, extent_of(extents, chrom).end);
+            if (bw.length(chrom) < 0) {
+                chrom = chrom.rfind("chr", 0) == 0 ? chrom.substr(3) : "chr" + chrom;
+                missing = bw.length(chrom) < 0;
+            }
+            if (!missing) {
+                const std::int64_t bigwig_end = std::min(bw.length(chrom), region_end);
+                const std::int64_t num_bins =
+                    floor_div(bigwig_end - region_start, options.resolution);
+                scores = bw.stats(chrom, region_start, bigwig_end, num_bins);
+                x_values = linspace(static_cast<double>(region_start),
+                                    static_cast<double>(region_end), num_bins);
+                if (x_values.size() != scores.size()) {
+                    throw std::runtime_error("AssertionError: the bigwig scores of " + path +
+                                             " do not match the bins of the region");
+                }
+                low = plot::json_int(region_start);
+                high = plot::json_int(region_end);
+            }
+        } else {
+            std::int64_t chrom_length_sum = 0;
+            std::optional<std::int64_t> min_start;
+            for (const ChromExtent& extent : extents) {
+                std::string chrom = extent.name;
+                if (bw.length(chrom) < 0) {
+                    chrom = "chr" + chrom;
+                    if (bw.length(chrom) < 0) {
+                        missing = true;
+                        break;
+                    }
+                }
+                const std::int64_t bigwig_end = std::min(bw.length(chrom), extent.end);
+                const std::int64_t num_bins =
+                    floor_div(bigwig_end - extent.start, options.resolution);
+                const std::vector<double> chrom_scores =
+                    bw.stats(chrom, extent.start, bigwig_end, num_bins);
+                const std::vector<double> chrom_x = linspace(
+                    static_cast<double>(chrom_length_sum + extent.start),
+                    static_cast<double>(chrom_length_sum + extent.end - extent.start), num_bins);
+                if (chrom_x.size() != chrom_scores.size()) {
+                    throw std::runtime_error("AssertionError: the bigwig scores of " + path +
+                                             " do not match the bins of " + extent.name);
+                }
+                x_values.insert(x_values.end(), chrom_x.begin(), chrom_x.end());
+                scores.insert(scores.end(), chrom_scores.begin(), chrom_scores.end());
+                chrom_length_sum += extent.end - extent.start;
+                if (!min_start.has_value() || *min_start > extent.start) {
+                    min_start = extent.start;
+                }
+            }
+            if (min_start.has_value()) {
+                low = plot::json_int(*min_start);
+            }
+            high = plot::json_int(chrom_length_sum);
+        }
+        plot::JsonObject track;
+        if (missing) {
+            track.add("missing", "true");
+            tracks.push_back(track.str());
+            break;
+        }
+        for (double& value : scores) {
+            if (options.flip) {
+                value *= -1;
+            }
+            if (options.scale != 1.0) {
+                value *= options.scale;
+            }
+            if (options.v_min.has_value() || options.v_max.has_value()) {
+                // np.clip: NaN stays NaN, the upper bound applied last.
+                if (!std::isnan(value)) {
+                    if (options.v_min.has_value() && value < *options.v_min) {
+                        value = *options.v_min;
+                    }
+                    if (options.v_max.has_value() && value > *options.v_max) {
+                        value = *options.v_max;
+                    }
+                }
+            }
+        }
+        track.add("missing", "false");
+        track.add("x", plot::json_numbers(x_values));
+        track.add("y", plot::json_numbers(scores));
+        track.add("lim", plot::json_list({low, high}));
+        tracks.push_back(track.str());
+    }
+    return plot::json_list(tracks);
+}
+
+// The lines of a loops or TADs file as plotLongRangeContacts and plotTADs
+// read them: readlines() of the bytes, decoded as ASCII (any other byte
+// raises there), str.strip(), split on tabs.
+std::vector<std::vector<std::string>> track_file_fields(const std::string& path) {
+    std::ifstream in(path, std::ios::binary);
+    if (!in) {
+        throw std::runtime_error("FileNotFoundError: [Errno 2] No such file or directory: '" +
+                                 path + "'");
+    }
+    const std::string text((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    std::vector<std::vector<std::string>> lines;
+    std::size_t begin = 0;
+    while (begin < text.size()) {
+        std::size_t end = text.find('\n', begin);
+        end = end == std::string::npos ? text.size() : end + 1;
+        std::string line = text.substr(begin, end - begin);
+        begin = end;
+        for (const char c : line) {
+            if (static_cast<unsigned char>(c) >= 0x80) {
+                throw std::runtime_error("UnicodeDecodeError: 'ascii' codec can't decode a byte in " +
+                                         path);
+            }
+        }
+        auto space = [](char c) {
+            return c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\x0b' || c == '\x0c' ||
+                   (c >= '\x1c' && c <= '\x1f');
+        };
+        std::size_t first = 0;
+        std::size_t last = line.size();
+        while (first < last && space(line[first])) {
+            ++first;
+        }
+        while (last > first && space(line[last - 1])) {
+            --last;
+        }
+        line = line.substr(first, last - first);
+        std::vector<std::string> fields;
+        std::size_t from = 0;
+        for (std::size_t tab = line.find('\t'); tab != std::string::npos;
+             tab = line.find('\t', from)) {
+            fields.push_back(line.substr(from, tab - from));
+            from = tab + 1;
+        }
+        fields.push_back(line.substr(from));
+        lines.push_back(std::move(fields));
+    }
+    return lines;
+}
+
+// `chrom not in pChromosomeOrder`: always true when the order became bytes.
+bool not_in_order(const std::string& chrom,
+                  const std::optional<std::vector<std::string>>& chromosome_order,
+                  bool order_as_bytes) {
+    if (order_as_bytes) {
+        return true;
+    }
+    return std::find(chromosome_order->begin(), chromosome_order->end(), chrom) ==
+           chromosome_order->end();
+}
+
+// plotLongRangeContacts' x_list and y_list (pRegion None raises inside the
+// try block on every line, so nothing is kept without --region).
+std::string loop_positions_json(const std::string& path, const std::optional<Region>& region,
+                                const std::optional<std::vector<std::string>>& chromosome_order,
+                                bool order_as_bytes, const std::string& operation) {
+    std::vector<std::int64_t> xs;
+    std::vector<std::int64_t> ys;
+    for (const std::vector<std::string>& fields : track_file_fields(path)) {
+        if (fields.size() < 6) {
+            continue;  // the unpacking of fields[0:3] or fields[3:6] raises
+        }
+        const std::string& chrom_x = fields[0];
+        const std::string& chrom_y = fields[3];
+        if (region.has_value() && (chrom_x != region->chrom || chrom_y != region->chrom)) {
+            continue;
+        }
+        if (chromosome_order.has_value() &&
+            (not_in_order(chrom_x, chromosome_order, order_as_bytes) ||
+             not_in_order(chrom_y, chromosome_order, order_as_bytes))) {
+            continue;
+        }
+        std::int64_t start_x = 0, end_x = 0, start_y = 0, end_y = 0, x = 0, y = 0;
+        if (operation == "first") {
+            if (!hicx::cli::python_int(fields[1], &start_x) ||
+                !hicx::cli::python_int(fields[4], &start_y)) {
+                continue;
+            }
+            x = start_x;
+            y = start_y;
+        } else if (operation == "last") {
+            if (!hicx::cli::python_int(fields[2], &end_x) ||
+                !hicx::cli::python_int(fields[5], &end_y)) {
+                continue;
+            }
+            x = end_x;
+            y = end_y;
+        } else {
+            if (!hicx::cli::python_int(fields[1], &start_x) ||
+                !hicx::cli::python_int(fields[2], &end_x) ||
+                !hicx::cli::python_int(fields[4], &start_y) ||
+                !hicx::cli::python_int(fields[5], &end_y)) {
+                continue;
+            }
+            x = floor_div(start_x + end_x, 2);
+            y = floor_div(start_y + end_y, 2);
+        }
+        if (!region.has_value()) {
+            continue;  // int(pRegion[1]) raises TypeError
+        }
+        if (x >= region->start && x <= region->end && y >= region->start && y <= region->end) {
+            xs.push_back(x);
+            ys.push_back(y);
+        }
+    }
+    plot::JsonObject out;
+    out.add("x", plot::json_ints(xs));
+    out.add("y", plot::json_ints(ys));
+    return out.str();
+}
+
+// plotTADs' x_list and y_list: the start and end of every domain inside the
+// region.
+std::string tad_positions_json(const std::string& path, const std::optional<Region>& region,
+                               const std::optional<std::vector<std::string>>& chromosome_order,
+                               bool order_as_bytes) {
+    std::vector<std::int64_t> xs;
+    std::vector<std::int64_t> ys;
+    for (const std::vector<std::string>& fields : track_file_fields(path)) {
+        if (fields.size() < 3) {
+            continue;
+        }
+        const std::string& chrom_x = fields[0];
+        if (region.has_value() && chrom_x != region->chrom) {
+            continue;
+        }
+        if (chromosome_order.has_value() &&
+            not_in_order(chrom_x, chromosome_order, order_as_bytes)) {
+            continue;
+        }
+        std::int64_t x = 0;
+        std::int64_t y = 0;
+        if (!hicx::cli::python_int(fields[1], &x) || !hicx::cli::python_int(fields[2], &y)) {
+            continue;
+        }
+        if (!region.has_value()) {
+            continue;
+        }
+        if (x >= region->start && x <= region->end && y >= region->start && y <= region->end) {
+            xs.push_back(x);
+            ys.push_back(y);
+        }
+    }
+    plot::JsonObject out;
+    out.add("x", plot::json_ints(xs));
+    out.add("y", plot::json_ints(ys));
+    return out.str();
 }
 
 }  // namespace
@@ -1087,6 +1492,50 @@ int main(int argc, char** argv) {
             names.push_back(entry.first);
         }
 
+        // The tracks of every heatmap plotHeatmap draws (a matrix of fewer
+        // than five rows is skipped there, tracks included).
+        const std::vector<ChromExtent> extents = chromosome_extents(model);
+        const bool bigwig = ns.given("bigwig");
+        const std::vector<std::string> bigwig_files =
+            bigwig ? ns.strs("bigwig") : std::vector<std::string>{};
+        const bool vertical = ns.flag("bigwigAdditionalVerticalAxis");
+        BigwigTrackOptions track_options;
+        track_options.flip = ns.flag("flipBigwigSign");
+        track_options.scale = ns.real("scaleFactorBigwig");
+        track_options.v_min = ns.opt_real("vMinBigwig");
+        track_options.v_max = ns.opt_real("vMaxBigwig");
+        track_options.resolution = resolution;
+        bool bigwig_checked = false;
+        // plotBigwig's horizontal and vertical tracks for one heatmap.
+        auto bigwig_json = [&](const std::optional<Region>& track_region) -> std::string {
+            if (!bigwig) {
+                return "null";
+            }
+            if (!bigwig_checked) {
+                for (const std::string& file : bigwig_files) {
+                    const std::string extension = file.substr(file.rfind('.') + 1);
+                    if (extension != "bigwig" && extension != "bw") {
+                        throw ExitError("ERROR:hicexplorer.hicPlotMatrix:Given files are not bigwig");
+                    }
+                }
+                if (bwInit(1 << 17) != 0) {
+                    throw std::runtime_error("libBigWig initialisation failed");
+                }
+                bigwig_checked = true;
+            }
+            plot::JsonObject tracks;
+            tracks.add("horizontal",
+                       bigwig_tracks_json(bigwig_files, track_region, extents, track_options));
+            if (vertical) {
+                const std::vector<std::string> reversed(bigwig_files.rbegin(), bigwig_files.rend());
+                tracks.add("vertical",
+                           bigwig_tracks_json(reversed, track_region, extents, track_options));
+            } else {
+                tracks.add("vertical", "null");
+            }
+            return tracks.str();
+        };
+
         plot::JsonObject data;
         data.add("options", options.str());
         data.add("resolution", plot::json_int(resolution));
@@ -1121,6 +1570,9 @@ int main(int argc, char** argv) {
                 entry.add("start_pos", plot::json_ints(chromosome.start_pos1));
                 entry.add("start_pos2", plot::json_ints(chromosome.start_pos2));
                 entry.add("region", region_json(chromosome.region));
+                entry.add("bigwig_tracks", bins.size() >= 5
+                                               ? bigwig_json(chromosome.region)
+                                               : std::string("null"));
                 entries.push_back(entry.str());
             }
             data.add("chromosomes", plot::json_list(entries));
@@ -1146,6 +1598,25 @@ int main(int argc, char** argv) {
                 data.add("start_pos2", "null");
                 data.add("region", "null");
             }
+            std::optional<Region> whole_region;
+            if (selection.has_value()) {
+                whole_region = selection->region;
+            }
+            const bool heatmap_drawn = matrix_rows >= 5;
+            data.add("bigwig_tracks", heatmap_drawn ? bigwig_json(whole_region) : "null");
+            const std::optional<std::string> loops = ns.opt_str("loops");
+            const std::optional<std::string> tads = ns.opt_str("tads");
+            data.add("loop_positions",
+                     heatmap_drawn && loops.has_value() && !loops->empty()
+                         ? loop_positions_json(*loops, whole_region, chromosome_order,
+                                               chromosome_order_as_bytes,
+                                               ns.str("loopLargeRegionsOperation"))
+                         : "null");
+            data.add("tad_positions",
+                     heatmap_drawn && tads.has_value() && !tads->empty()
+                         ? tad_positions_json(*tads, whole_region, chromosome_order,
+                                              chromosome_order_as_bytes)
+                         : "null");
             data.add("xlabel", xlabel.has_value() ? plot::json_string(*xlabel) : "null");
             data.add("ylabel", ylabel.has_value() ? plot::json_string(*ylabel) : "null");
         }
