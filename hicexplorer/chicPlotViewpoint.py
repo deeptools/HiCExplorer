@@ -1,8 +1,10 @@
 """chicPlotViewpoint: a thin layer over the C++ executable chicPlotViewpoint.
 
 main() runs the executable and parse_arguments() is built from its --help-json
-(hicexplorer._cpp). The other names of this module are kept for API
-compatibility and are not used by the tool.
+(hicexplorer._cpp). plot_images keeps its 3.7.6 signature and behaviour; it
+draws with matplotlib, and the data it draws come from the Viewpoint object's
+C++ methods and hicexplorer._hicx.chicPlotViewpoint
+(cpp/python/src/api/chicPlotViewpoint.cpp). The tool does not use it.
 """
 import argparse
 import sys
@@ -26,6 +28,7 @@ import matplotlib as mpl
 import hicmatrix.HiCMatrix as hm
 from hicexplorer import utilities
 from hicexplorer._version import __version__
+from hicexplorer._hicx import chicPlotViewpoint as _impl
 from .lib import Viewpoint
 
 import h5py
@@ -103,19 +106,8 @@ def plot_images(pInteractionFileList, pHighlightDifferentialRegionsFileList, pBa
                     if background_data_plot is not None:
                         data_plot_label += pViewpointObj.plotBackgroundModel(pAxis=ax1, pBackgroundData=background_data_plot, pXFold=pArgs.xFold)
                     background_plot = False
-                if pArgs.truncateZeroPvalues:
-                    p_values = np.array(p_values, dtype=np.float32)
-                    mask = p_values == 0.0
-                    p_values[mask] = 1.0
-                if pArgs.pValue and (pArgs.minPValue is not None or pArgs.maxPValue is not None):
-
-                    p_values = np.array(p_values, dtype=np.float32)
-                    if significant_p_values:
-                        for location in significant_p_values:
-                            for x in range(location[0], location[1]):
-                                if x < len(p_values):
-                                    p_values[x] = location[2]
-                    p_values.clip(pArgs.minPValue, pArgs.maxPValue, p_values)
+                p_values = _impl.plot_images_p_values(p_values, pArgs.truncateZeroPvalues, pArgs.pValue, pArgs.minPValue,
+                                                      pArgs.maxPValue, significant_p_values)
 
                 if pArgs.pValue:
                     pViewpointObj.plotPValue(pAxis=plt.subplot(gs[1 + i, 0]), pAxisLabel=plt.subplot(gs[1 + i, 1]), pPValueData=p_values,
@@ -124,40 +116,7 @@ def plot_images(pInteractionFileList, pHighlightDifferentialRegionsFileList, pBa
 
             if data_plot_label is not None:
 
-                ticks = []
-                x_labels = []
-
-                if pArgs.range[0] + pArgs.range[1] <= 2e6:
-                    divisor_legend = 1e3
-                    mod_legend = 2e5
-
-                    if pArgs.range[0] + pArgs.range[1] <= 1e4:
-                        mod_legend = 5e3
-                    elif pArgs.range[0] + pArgs.range[1] <= 5e4:
-                        mod_legend = 1e4
-                    elif pArgs.range[0] + pArgs.range[1] <= 1e5:
-                        mod_legend = 5e4
-                    elif pArgs.range[0] + pArgs.range[1] <= 5e5:
-                        mod_legend = 1e5
-
-                    unit = 'kb'
-                elif pArgs.range[0] + pArgs.range[1] > 2e6:
-                    divisor_legend = 1e6
-                    mod_legend = 1e6
-                    unit = 'Mb'
-
-                for k, j in zip(range((pArgs.range[0])), range(pArgs.range[0], 1, -1)):
-                    if j % mod_legend == 0:
-                        x_labels.append(str(-int(j) // int(divisor_legend)) + unit)
-                        ticks.append(k // pResolution)
-                x_labels.append('RP')
-                ticks.append(pArgs.range[0] // pResolution)
-
-                referencepoint_index = ticks[-1]
-                for k, j in zip(range(pArgs.range[1]), range(1, pArgs.range[1] + 1, 1)):
-                    if j % mod_legend == 0:
-                        x_labels.append(str(int(j) // int(divisor_legend)) + unit)
-                        ticks.append(referencepoint_index + (k // pResolution))
+                ticks, x_labels = _impl.plot_images_ticks(pArgs.range, pResolution)
 
                 ax1.set_ylabel('Number of interactions')
                 ax1.set_xticks(ticks)

@@ -12,6 +12,7 @@ set(HICX_API_MODULES
     chicAggregateStatistic
     chicDifferentialTest
     chicExportData
+    chicPlotViewpoint
     chicQualityControl
     chicSignificantInteractions
     chicViewpoint
