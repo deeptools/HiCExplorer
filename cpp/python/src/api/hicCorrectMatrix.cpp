@@ -14,7 +14,7 @@
 // plot_total_contact_dist stays Python because it draws (allowlisted); the
 // data it draws come from prepare_total_contact_dist,
 // chromosome_contact_dist, genome_contact_dist, values_below and
-// first_local_minimum below.
+// histogram_threshold below.
 //
 // Deviations: MAD takes int32, int64, uint32, uint64 and float64 points of one
 // or two dimensions (float32 points, which numpy would keep in single
@@ -494,15 +494,15 @@ py::object values_below(py::handle values_object, py::handle limit) {
     return take_elements(values, keep);
 }
 
-// bin_s[first x with 1 <= x < len(dist) - 1 and dist[x - 1] > dist[x] < dist[x + 1]], or None
-py::object first_local_minimum(py::handle dist_object, py::handle bins_object) {
-    const std::vector<double> dist = lc::doubles(py::array::ensure(dist_object), "plot_total_contact_dist");
-    for (std::size_t x = 1; x + 1 < dist.size(); ++x) {
-        if (dist[x - 1] > dist[x] && dist[x] < dist[x + 1]) {
-            return lc::item(bins_object, static_cast<std::int64_t>(x));
-        }
+// The left edge of the first local minimum of the histogram ax1.hist draws
+// (hicx::correct_api::histogram_threshold), np.float64, or None.
+py::object histogram_threshold(py::handle values_object) {
+    const std::vector<double> values = lc::doubles(py::array::ensure(values_object), "plot_total_contact_dist");
+    const std::optional<double> threshold = ca::histogram_threshold(values);
+    if (!threshold) {
+        return py::none();
     }
-    return py::none();
+    return numpy_scalar<double>(*threshold);
 }
 
 }  // namespace
@@ -532,7 +532,7 @@ void bind_hicCorrectMatrix(py::module_& m) {
     m.def("chromosome_contact_dist", &chromosome_contact_dist, py::arg("hic_ma"), py::arg("chrname"));
     m.def("genome_contact_dist", &genome_contact_dist, py::arg("hic_ma"));
     m.def("values_below", &values_below, py::arg("values"), py::arg("limit"));
-    m.def("first_local_minimum", &first_local_minimum, py::arg("dist"), py::arg("bins"));
+    m.def("histogram_threshold", &histogram_threshold, py::arg("values"));
 }
 
 }  // namespace hicx::python

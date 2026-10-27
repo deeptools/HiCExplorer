@@ -21,7 +21,9 @@
 #include <cmath>
 #include <cstdint>
 #include <limits>
+#include <algorithm>
 #include <map>
+#include <optional>
 #include <string>
 #include <type_traits>
 #include <vector>
@@ -266,6 +268,67 @@ hicx::scipy_coo::Csr<T> fill_gaps(std::int64_t rows, std::int64_t cols, const st
         }
     }
     return fill.csr();
+}
+
+// The left edge of the first local minimum of the 100 bin histogram
+// plot_total_contact_dist draws, ax1.hist(values, 100): x with
+// 1 <= x < 99 and dist[x - 1] > dist[x] < dist[x + 1], or nothing. The
+// histogram is np.histogram(values, 100, range=(min, max)) as matplotlib
+// calls it: np.linspace edges and the uniform-bin index computation with
+// numpy's one-ulp corrections. Shared with the hicCorrectMatrix tool's
+// diagnostic_plot.
+inline std::optional<double> histogram_threshold(const std::vector<double>& values) {
+    constexpr int bins = 100;
+    double first = 0.0;
+    double last = 1.0;
+    if (!values.empty()) {
+        first = *std::min_element(values.begin(), values.end());
+        last = *std::max_element(values.begin(), values.end());
+    }
+    if (first == last) {
+        first = first - 0.5;
+        last = last + 0.5;
+    }
+    // np.linspace(first, last, bins + 1)
+    std::vector<double> edges(bins + 1);
+    const double delta = last - first;
+    const double step = delta / bins;
+    for (int i = 0; i <= bins; ++i) {
+        double y = static_cast<double>(i);
+        if (step == 0.0) {
+            y = y / bins;
+            y = y * delta;
+        } else {
+            y = y * step;
+        }
+        edges[static_cast<std::size_t>(i)] = y + first;
+    }
+    edges[bins] = last;
+    std::vector<std::int64_t> counts(bins, 0);
+    const double norm_denom = last - first;
+    for (const double a : values) {
+        if (!(a >= first && a <= last)) {
+            continue;
+        }
+        auto index = static_cast<std::int64_t>(((a - first) / norm_denom) * bins);
+        if (index == bins) {
+            index -= 1;
+        }
+        if (a < edges[static_cast<std::size_t>(index)]) {
+            index -= 1;
+        }
+        if (a >= edges[static_cast<std::size_t>(index + 1)] && index != bins - 1) {
+            index += 1;
+        }
+        counts[static_cast<std::size_t>(index)] += 1;
+    }
+    for (int x = 1; x < bins - 1; ++x) {
+        const std::size_t i = static_cast<std::size_t>(x);
+        if (counts[i - 1] > counts[i] && counts[i] < counts[i + 1]) {
+            return edges[i];
+        }
+    }
+    return std::nullopt;
 }
 
 }  // namespace hicx::correct_api

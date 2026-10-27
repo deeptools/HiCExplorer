@@ -166,7 +166,7 @@ def plot_total_contact_dist(hic_ma, args):
         ax2.set_xlim(mad_values.value_to_mad(np.array(ax1.get_xlim())))
 
         # get first local mininum value
-        threshold = _impl.first_local_minimum(dist, bin_s)
+        threshold = _impl.histogram_threshold(row_sum_values)
 
         if threshold:
             mad_threshold = mad_values.value_to_mad(threshold)
