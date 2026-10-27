@@ -21,15 +21,5 @@ dependencies = [
     "unidecode",
 ]
 
-[project.scripts]
-hicPlotDistVsCounts = "hicexplorer_plot.tools:hicPlotDistVsCounts"
-hicPlotViewpoint = "hicexplorer_plot.tools:hicPlotViewpoint"
-hicPlotAverageRegions = "hicexplorer_plot.tools:hicPlotAverageRegions"
-chicPlotViewpoint = "hicexplorer_plot.tools:chicPlotViewpoint"
-hicCorrelate = "hicexplorer_plot.tools:hicCorrelate"
-hicPrepareQCreport = "hicexplorer_plot.tools:hicPrepareQCreport"
-hicQC = "hicexplorer_plot.tools:hicQC"
-hicPlotMatrix = "hicexplorer_plot.tools:hicPlotMatrix"
-
 [tool.setuptools]
 packages = ["hicexplorer_plot"]
