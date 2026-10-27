@@ -65,6 +65,8 @@
 #include <vector>
 
 #include "hicx/argparse.hpp"
+#include "hicx/chic_viewpoint.hpp"
+#include "hicx/python_error.hpp"
 #include "hicx/hdf5_util.hpp"
 #include "hicx/plot_bridge.hpp"
 #include "hicx/resource_usage.hpp"
@@ -652,6 +654,7 @@ struct PValueRow {
     double tick_max = 0.0;
 };
 
+// The values are hicx::chic::p_value_row's, shared with the Python API.
 PValueRow p_value_row(const std::vector<double>& raw, bool truncate_zero,
                       const std::vector<std::tuple<std::int64_t, std::int64_t, double>>* significant,
                       double min_p, double max_p) {
@@ -659,37 +662,10 @@ PValueRow p_value_row(const std::vector<double>& raw, bool truncate_zero,
     for (std::size_t i = 0; i < raw.size(); ++i) {
         values[i] = static_cast<float>(raw[i]);
     }
-    if (truncate_zero) {
-        for (float& value : values) {
-            if (value == 0.0f) {
-                value = 1.0f;
-            }
-        }
-    }
-    const auto length = static_cast<std::int64_t>(values.size());
-    if (significant != nullptr) {
-        for (const auto& [first, last, value] : *significant) {
-            for (std::int64_t x = first; x < last; ++x) {
-                if (x < length) {
-                    const std::int64_t index = x < 0 ? length + x : x;
-                    if (index < 0) {
-                        throw PythonError("IndexError: index " + std::to_string(x) +
-                                          " is out of bounds for axis 0 with size " +
-                                          std::to_string(length));
-                    }
-                    values[static_cast<std::size_t>(index)] = static_cast<float>(value);
-                }
-            }
-        }
-    }
-    const auto low = static_cast<float>(min_p);
-    const auto high = static_cast<float>(max_p);
-    for (float& value : values) {
-        if (std::isnan(value)) {
-            continue;
-        }
-        value = value < low ? low : value;
-        value = value > high ? high : value;
+    try {
+        values = hicx::chic::p_value_row(std::move(values), truncate_zero, significant, min_p, max_p);
+    } catch (const hicx::PythonError& error) {
+        throw PythonError(error.type() + ": " + error.what());
     }
     PValueRow row;
     row.values.assign(values.begin(), values.end());

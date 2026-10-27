@@ -31,6 +31,7 @@
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -183,6 +184,16 @@ struct ComputedViewpoint {
                                                   std::int64_t region_start,
                                                   std::int64_t region_end);
 
+// The second half of compute_viewpoint, for a caller that summed the rows
+// itself (the Python API sums the rows of a hiCMatrix object): `data` is the
+// sum of the reference point's rows over the region's columns starting at
+// `range_start`, and the reference point's bins [view_point_start,
+// view_point_end] are collapsed into one element with numpy's slice rules.
+[[nodiscard]] ComputedViewpoint collapse_viewpoint(const std::vector<double>& data,
+                                                   std::int64_t view_point_start,
+                                                   std::int64_t view_point_end,
+                                                   std::int64_t range_start);
+
 // Viewpoint.smoothInteractionValues(pData, pWindowSize).
 //
 // Every element is the mean of a window around it. For an odd window the
@@ -294,6 +305,21 @@ struct InteractionFileData {
     std::span<const double> interaction_data, std::span<const double> raw,
     const std::string& gene, double sum_of_interactions, std::vector<double> pvalues,
     std::vector<double> xfold);
+
+// ---------------------------------------------------------------------------
+// chicPlotViewpoint's plot_images
+
+// The p-value row plot_images draws, in float32 as numpy held it: zeros set
+// to 1.0 with `truncate_zero`, then each significant region's p-value written
+// over positions [first, last) (a negative position counts from the end, as
+// Python indexes; one before the start is numpy's IndexError, a
+// hicx::PythonError), then the in-place clip to [min_p, max_p] (np.clip: NaN
+// stays NaN, the upper bound applied last; an absent bound is not applied).
+using SignificantPValues = std::vector<std::tuple<std::int64_t, std::int64_t, double>>;
+[[nodiscard]] std::vector<float> p_value_row(std::vector<float> values, bool truncate_zero,
+                                             const SignificantPValues* significant,
+                                             std::optional<double> min_p,
+                                             std::optional<double> max_p);
 
 }  // namespace hicx::chic
 

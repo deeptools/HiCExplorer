@@ -1,6 +1,7 @@
 // Port of hicexplorer/lib/viewpoint.py. See hicx/chic_viewpoint.hpp.
 
 #include "hicx/chic_viewpoint.hpp"
+#include "hicx/python_error.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -390,6 +391,13 @@ ComputedViewpoint compute_viewpoint(const ViewpointMatrix& matrix, const Referen
         }
     }
 
+    return collapse_viewpoint(data, view_point_start, view_point_end, range_start);
+}
+
+ComputedViewpoint collapse_viewpoint(const std::vector<double>& data,
+                                     std::int64_t view_point_start,
+                                     std::int64_t view_point_end, std::int64_t range_start) {
+    const std::int64_t elements = static_cast<std::int64_t>(data.size());
     const std::int64_t elements_new = elements - (view_point_end - view_point_start);
     if (elements_new < 0) {
         throw ValueError("negative dimensions are not allowed");
@@ -649,6 +657,53 @@ InteractionFileData create_interaction_file_data(
         result.raw.push_back(raw[j]);
     }
     return result;
+}
+
+// ---------------------------------------------------------------------------
+// plot_images
+
+std::vector<float> p_value_row(std::vector<float> values, bool truncate_zero,
+                               const SignificantPValues* significant, std::optional<double> min_p,
+                               std::optional<double> max_p) {
+    if (truncate_zero) {
+        for (float& value : values) {
+            if (value == 0.0f) {
+                value = 1.0f;
+            }
+        }
+    }
+    const auto length = static_cast<std::int64_t>(values.size());
+    if (significant != nullptr) {
+        for (const auto& [first, last, value] : *significant) {
+            for (std::int64_t x = first; x < last; ++x) {
+                if (x < length) {
+                    const std::int64_t index = x < 0 ? length + x : x;
+                    if (index < 0) {
+                        throw PythonError("IndexError", "index " + std::to_string(x) +
+                                                            " is out of bounds for axis 0 with size " +
+                                                            std::to_string(length));
+                    }
+                    values[static_cast<std::size_t>(index)] = static_cast<float>(value);
+                }
+            }
+        }
+    }
+    if (min_p.has_value() || max_p.has_value()) {
+        const auto low = static_cast<float>(min_p.value_or(0.0));
+        const auto high = static_cast<float>(max_p.value_or(0.0));
+        for (float& value : values) {
+            if (std::isnan(value)) {
+                continue;
+            }
+            if (min_p.has_value()) {
+                value = value < low ? low : value;
+            }
+            if (max_p.has_value()) {
+                value = value > high ? high : value;
+            }
+        }
+    }
+    return values;
 }
 
 }  // namespace hicx::chic

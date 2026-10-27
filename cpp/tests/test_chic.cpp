@@ -326,3 +326,98 @@ TEST_CASE("scipy_stats: fisher_exact, chi2_contingency and chi2.ppf as scipy 1.1
     CHECK(hicx::scipy::chi2_ppf(0.999, 1.0) == 10.827566170662733);
     CHECK(hicx::scipy::chi2_ppf(1.0, 1.0) == std::numeric_limits<double>::infinity());
 }
+
+TEST_CASE("chic: collapse_viewpoint is the second half of compute_viewpoint") {
+    using namespace hicx::chic;
+    // A wide reference point (three bins) on the real matrix: the binding sums
+    // the rows itself and collapses them with collapse_viewpoint.
+    const ViewpointMatrix matrix = ViewpointMatrix::load(kChic + "MB-E10-5_chr1.cool");
+    const ReferencePoint wide{"chr1", "24202042", "24205042"};
+    const ComputedViewpoint expected = compute_viewpoint(matrix, wide, "chr1", 24102042, 24305042);
+    const auto [first, last] = matrix.reference_point_indices(wide);
+    const auto range = matrix.region_bin_range("chr1", 24102042, 24305042);
+    REQUIRE(range.has_value());
+    std::vector<double> rows(static_cast<std::size_t>(range->second + 1 - range->first), 0.0);
+    for (std::int64_t row = first; row <= last; ++row) {
+        for (std::size_t j = 0; j < rows.size(); ++j) {
+            rows[j] += matrix.value(row, range->first + static_cast<std::int64_t>(j));
+        }
+    }
+    const ComputedViewpoint collapsed = collapse_viewpoint(rows, first, last, range->first);
+    CHECK(collapsed.data == expected.data);
+    CHECK(collapsed.index_before_viewpoint == expected.index_before_viewpoint);
+    CHECK(collapsed.data.size() == 201);
+    // A start after the end lengthens the result (numpy's slices), and an
+    // index before the region is numpy's IndexError.
+    CHECK(collapse_viewpoint(std::vector<double>(10, 1.0), 5, 2, 0).data.size() == 13);
+    CHECK_THROWS_AS((void)collapse_viewpoint(std::vector<double>(3, 1.0), 0, 0, 9), IndexError);
+}
+
+TEST_CASE("chic: H5Reader gives h5py's view of a cHi-C file") {
+    using namespace hicx::chic;
+    const H5Reader reader(kChic + "chicViewpoint/two_matrices.hdf5");
+    CHECK(reader.kind("FL-E13-5_chr1/chr1/Eya1") == H5Reader::Kind::Group);
+    CHECK(reader.kind("FL-E13-5_chr1/chr1/Eya1/pvalue") == H5Reader::Kind::Dataset);
+    CHECK(reader.kind("FL-E13-5_chr1/chr1/Eya1/pvalue/x") == H5Reader::Kind::Missing);
+    CHECK(reader.kind("FL-E13-5_chr1/chrX/Eya1") == H5Reader::Kind::Missing);
+    CHECK(reader.keys("FL-E13-5_chr1/chr1") == std::vector<std::string>{"Eya1", "Sox17", "Tfap2d"});
+    const H5Value positions = reader.read("FL-E13-5_chr1/chr1/Eya1/relative_position_list");
+    CHECK(positions.dtype_str() == "<i8");
+    CHECK(positions.length == 401);
+    CHECK(positions.as_int64(0) == -200000);
+    const H5Value chromosome = reader.read("FL-E13-5_chr1/chr1/Eya1/chromosome");
+    CHECK(chromosome.scalar);
+    CHECK(chromosome.variable_length);
+    CHECK(chromosome.strings == std::vector<std::string>{"chr1"});
+    const H5Value start = reader.read("FL-E13-5_chr1/chr1/Eya1/reference_point_start");
+    CHECK(start.scalar);
+    CHECK(start.as_int64(0) == 14300280);
+    // h5py's KeyError messages
+    CHECK(reader.missing_message("FL-E13-5_chr1/x") ==
+          "Unable to synchronously open object (object 'x' doesn't exist)");
+    CHECK(reader.missing_message("FL-E13-5_chr1/x/y") ==
+          "Unable to synchronously open object (component not found)");
+    try {
+        (void)H5Reader(kChic + "no_such_file.hdf5");
+        FAIL("no exception");
+    } catch (const hicx::PythonError& error) {
+        CHECK(error.type() == "FileNotFoundError");
+    }
+    try {
+        (void)H5Reader(kChic + "referencePoints.bed");
+        FAIL("no exception");
+    } catch (const hicx::PythonError& error) {
+        CHECK(error.type() == "OSError");
+        CHECK(std::string(error.what()) == "Unable to synchronously open file (file signature not found)");
+    }
+    // The target file stores its coordinates as strings.
+    const H5Reader target(kChic + "chicSignificantInteractions/targetFile_dual.hdf5");
+    const H5Value starts = target.read("FL-E13-5_chr1/MB-E10-5_chr1/chr1/Eya1/start_list");
+    CHECK(starts.dtype_str() == "|O");
+    CHECK(starts.strings.at(0) == "14274000");
+}
+
+TEST_CASE("chic: target regions are sorted and merged as bedtools merge -d does") {
+    using hicx::chic::TargetRegion;
+    const std::vector<TargetRegion> merged = hicx::chic::sort_merge_regions(
+        {{"chr2", 50, 60}, {"chr1", 30, 40}, {"chr1", 0, 10}, {"chr1", 11, 20}, {"chr1", 41, 45}}, 1);
+    REQUIRE(merged.size() == 3);
+    CHECK(merged[0].start == 0);
+    CHECK(merged[0].end == 20);
+    CHECK(merged[1].start == 30);
+    CHECK(merged[1].end == 45);
+    CHECK(merged[2].chromosome == "chr2");
+}
+
+TEST_CASE("chic: fisher_exact reports the p-values scipy returns as Python floats") {
+    // [[10, 4], [5, 7]]: hypergeometric tails, numpy.float64 0.2328577197469377
+    const auto computed = hicx::scipy::fisher_exact(10, 4, 5, 7);
+    REQUIRE(computed.has_value());
+    CHECK_FALSE(computed->python_float);
+    CHECK(computed->pvalue == hicx::scipy::fisher_exact_pvalue(10, 4, 5, 7).value());
+    // an empty row, and a table at the mode: the constant 1.0
+    CHECK(hicx::scipy::fisher_exact(0, 0, 3, 0)->python_float);
+    CHECK(hicx::scipy::fisher_exact(3, 3, 3, 3)->python_float);
+    CHECK(hicx::scipy::fisher_exact(3, 3, 3, 3)->pvalue == 1.0);
+    CHECK_FALSE(hicx::scipy::fisher_exact(-1, 2, 3, 4).has_value());
+}

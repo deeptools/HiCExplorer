@@ -11,3 +11,8 @@ hicexplorer.hicPrepareQCreport	make_figure_umappable_non_unique_reads	matplotlib
 hicexplorer.hicPrepareQCreport	make_figure_pairs_discarded	matplotlib bar chart of QC numbers it is given
 hicexplorer.hicPrepareQCreport	make_figure_distance	matplotlib bar chart of QC numbers it is given
 hicexplorer.hicPrepareQCreport	make_figure_read_orientation	matplotlib bar chart of QC numbers it is given
+hicexplorer.lib.viewpoint	Viewpoint	the class row: every method body calls hicexplorer._hicx.lib_viewpoint except the three matplotlib drawing methods below
+hicexplorer.lib.viewpoint	Viewpoint.plotViewpoint	draws the viewpoint curve and highlighted regions with matplotlib from data it is given
+hicexplorer.lib.viewpoint	Viewpoint.plotBackgroundModel	draws the background model curve and x-fold band with matplotlib; the band values come from _hicx.lib_viewpoint.Viewpoint_backgroundModelBand
+hicexplorer.lib.viewpoint	Viewpoint.plotPValue	draws the p-value heat strip and colorbar with matplotlib; rows, ticks and levels come from _hicx.lib_viewpoint
+hicexplorer.chicPlotViewpoint	plot_images	lays out and draws the viewpoint figures with matplotlib; the curves, regions and p-values come from the Viewpoint object's C++ methods and the p-value strip and axis ticks from _hicx.chicPlotViewpoint

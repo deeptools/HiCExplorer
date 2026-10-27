@@ -4,8 +4,16 @@
 
 #include <hdf5.h>
 
+#include <algorithm>
+#include <cerrno>
 #include <cmath>
+#include <cstring>
 #include <vector>
+
+#include <fcntl.h>
+#include <unistd.h>
+
+#include "hicx/python_error.hpp"
 
 namespace hicx::chic {
 
@@ -416,6 +424,257 @@ InteractionTable read_interaction_table(const h5::File& file,
     }
     out.reference_point = {reference_start, reference_end};
     return out;
+}
+
+// ---------------------------------------------------------------------------
+// H5Reader
+
+namespace {
+
+// The OSError subclass Python's OSError(errno, ...) constructor picks.
+const char* os_error_type(int error) {
+    switch (error) {
+        case ENOENT: return "FileNotFoundError";
+        case EACCES:
+        case EPERM: return "PermissionError";
+        case EISDIR: return "IsADirectoryError";
+        case ENOTDIR: return "NotADirectoryError";
+        default: return "OSError";
+    }
+}
+
+template <class T>
+T load(const unsigned char* p) {
+    T value;
+    std::memcpy(&value, p, sizeof(T));
+    return value;
+}
+
+}  // namespace
+
+double H5Value::as_double(std::size_t i) const {
+    const unsigned char* p = raw.data() + i * item_size;
+    switch (kind) {
+        case Kind::Float:
+            return item_size == 4 ? static_cast<double>(load<float>(p)) : load<double>(p);
+        case Kind::Integer:
+            switch (item_size) {
+                case 1: return static_cast<double>(load<std::int8_t>(p));
+                case 2: return static_cast<double>(load<std::int16_t>(p));
+                case 4: return static_cast<double>(load<std::int32_t>(p));
+                default: return static_cast<double>(load<std::int64_t>(p));
+            }
+        case Kind::Unsigned:
+            switch (item_size) {
+                case 1: return static_cast<double>(load<std::uint8_t>(p));
+                case 2: return static_cast<double>(load<std::uint16_t>(p));
+                case 4: return static_cast<double>(load<std::uint32_t>(p));
+                default: return static_cast<double>(load<std::uint64_t>(p));
+            }
+        default:
+            throw PythonError("TypeError", "not a numeric dataset");
+    }
+}
+
+std::int64_t H5Value::as_int64(std::size_t i) const {
+    const unsigned char* p = raw.data() + i * item_size;
+    switch (kind) {
+        case Kind::Integer:
+            switch (item_size) {
+                case 1: return load<std::int8_t>(p);
+                case 2: return load<std::int16_t>(p);
+                case 4: return load<std::int32_t>(p);
+                default: return load<std::int64_t>(p);
+            }
+        case Kind::Unsigned:
+            switch (item_size) {
+                case 1: return load<std::uint8_t>(p);
+                case 2: return load<std::uint16_t>(p);
+                case 4: return load<std::uint32_t>(p);
+                default: return static_cast<std::int64_t>(load<std::uint64_t>(p));
+            }
+        default:
+            return static_cast<std::int64_t>(as_double(i));
+    }
+}
+
+std::string H5Value::dtype_str() const {
+    switch (kind) {
+        case Kind::Integer: return "<i" + std::to_string(item_size);
+        case Kind::Unsigned: return item_size == 1 ? "|u1" : "<u" + std::to_string(item_size);
+        case Kind::Float: return "<f" + std::to_string(item_size);
+        case Kind::Bytes: return variable_length ? "|O" : "|S" + std::to_string(item_size);
+        default: return "|V";
+    }
+}
+
+H5Reader::H5Reader(const std::string& path) {
+    const int fd = ::open(path.c_str(), O_RDONLY);
+    if (fd < 0) {
+        const int error = errno;
+        throw PythonError(os_error_type(error),
+                          "[Errno " + std::to_string(error) +
+                              "] Unable to synchronously open file (unable to open file: name = '" +
+                              path + "', errno = " + std::to_string(error) +
+                              ", error message = '" + std::strerror(error) +
+                              "', flags = 0, o_flags = 0)");
+    }
+    ::close(fd);
+    try {
+        file_.emplace(path);
+    } catch (const h5::Error&) {
+        throw PythonError("OSError", "Unable to synchronously open file (file signature not found)");
+    }
+}
+
+H5Reader::Kind H5Reader::kind(const std::string& path) const {
+    std::string prefix;
+    std::size_t begin = 0;
+    bool through_dataset = false;
+    while (begin <= path.size()) {
+        std::size_t end = path.find('/', begin);
+        if (end == std::string::npos) {
+            end = path.size();
+        }
+        const std::string component = path.substr(begin, end - begin);
+        begin = end + 1;
+        if (component.empty()) {
+            continue;
+        }
+        if (through_dataset) {
+            return Kind::Missing;
+        }
+        prefix += "/" + component;
+        if (H5Lexists(file_->id(), prefix.c_str(), H5P_DEFAULT) <= 0) {
+            return Kind::Missing;
+        }
+        H5O_info2_t info;
+        if (H5Oget_info_by_name3(file_->id(), prefix.c_str(), &info, H5O_INFO_BASIC,
+                                 H5P_DEFAULT) < 0) {
+            return Kind::Missing;
+        }
+        through_dataset = info.type == H5O_TYPE_DATASET;
+    }
+    if (prefix.empty()) {
+        return Kind::Group;
+    }
+    return through_dataset ? Kind::Dataset : Kind::Group;
+}
+
+std::string H5Reader::missing_message(const std::string& path) const {
+    std::vector<std::string> components;
+    std::size_t begin = 0;
+    while (begin <= path.size()) {
+        std::size_t end = path.find('/', begin);
+        if (end == std::string::npos) {
+            end = path.size();
+        }
+        if (end > begin) {
+            components.push_back(path.substr(begin, end - begin));
+        }
+        begin = end + 1;
+    }
+    std::string prefix;
+    for (std::size_t i = 0; i + 1 < components.size(); ++i) {
+        prefix += "/" + components[i];
+        if (H5Lexists(file_->id(), prefix.c_str(), H5P_DEFAULT) <= 0) {
+            return "Unable to synchronously open object (component not found)";
+        }
+    }
+    return "Unable to synchronously open object (object '" +
+           (components.empty() ? std::string() : components.back()) + "' doesn't exist)";
+}
+
+std::vector<std::string> H5Reader::keys(const std::string& path) const {
+    const Kind k = kind(path);
+    if (k == Kind::Missing) {
+        throw PythonError("KeyError", missing_message(path));
+    }
+    if (k == Kind::Dataset) {
+        throw PythonError("AttributeError", "'Dataset' object has no attribute 'keys'");
+    }
+    return file_->children(path.empty() ? "/" : (path[0] == '/' ? path : "/" + path));
+}
+
+H5Value H5Reader::read(const std::string& path) const {
+    const Kind k = kind(path);
+    if (k == Kind::Missing) {
+        throw PythonError("KeyError", missing_message(path));
+    }
+    if (k == Kind::Group) {
+        throw PythonError("TypeError", "a group is not a dataset: " + path);
+    }
+    const std::string full = path[0] == '/' ? path : "/" + path;
+    const h5::Handle dataset(H5Dopen2(file_->id(), full.c_str(), H5P_DEFAULT),
+                             h5::Handle::Kind::Dataset);
+    if (!dataset.valid()) {
+        throw PythonError("KeyError", missing_message(path));
+    }
+    const h5::Handle type(H5Dget_type(dataset.get()), h5::Handle::Kind::DataType);
+    const h5::Handle space(H5Dget_space(dataset.get()), h5::Handle::Kind::DataSpace);
+    H5Value value;
+    const int rank = H5Sget_simple_extent_ndims(space.get());
+    value.scalar = rank == 0;
+    const hssize_t points = H5Sget_simple_extent_npoints(space.get());
+    value.length = points < 0 ? 0 : static_cast<std::size_t>(points);
+    const H5T_class_t type_class = H5Tget_class(type.get());
+    if (type_class == H5T_STRING) {
+        value.kind = H5Value::Kind::Bytes;
+        value.variable_length = H5Tis_variable_str(type.get()) > 0;
+        value.item_size = value.variable_length ? 0 : H5Tget_size(type.get());
+        if (value.length > 0) {
+            // a scalar's extent is one element
+            value.strings = file_->read_strings(full);
+        }
+        return value;
+    }
+    hid_t memory_type = -1;
+    if (type_class == H5T_INTEGER) {
+        value.item_size = H5Tget_size(type.get());
+        const bool is_signed = H5Tget_sign(type.get()) == H5T_SGN_2;
+        value.kind = is_signed ? H5Value::Kind::Integer : H5Value::Kind::Unsigned;
+        switch (value.item_size) {
+            case 1: memory_type = is_signed ? H5T_NATIVE_INT8 : H5T_NATIVE_UINT8; break;
+            case 2: memory_type = is_signed ? H5T_NATIVE_INT16 : H5T_NATIVE_UINT16; break;
+            case 4: memory_type = is_signed ? H5T_NATIVE_INT32 : H5T_NATIVE_UINT32; break;
+            default:
+                value.item_size = 8;
+                memory_type = is_signed ? H5T_NATIVE_INT64 : H5T_NATIVE_UINT64;
+        }
+    } else if (type_class == H5T_FLOAT) {
+        value.kind = H5Value::Kind::Float;
+        value.item_size = H5Tget_size(type.get()) <= 4 ? 4 : 8;
+        memory_type = value.item_size == 4 ? H5T_NATIVE_FLOAT : H5T_NATIVE_DOUBLE;
+    } else {
+        throw PythonError("TypeError", "unsupported HDF5 datatype in " + path);
+    }
+    value.raw.assign(value.length * value.item_size, 0);
+    if (value.length > 0 &&
+        H5Dread(dataset.get(), memory_type, H5S_ALL, H5S_ALL, H5P_DEFAULT, value.raw.data()) < 0) {
+        throw PythonError("OSError", "Can't read data (" + path + ")");
+    }
+    return value;
+}
+
+std::vector<TargetRegion> sort_merge_regions(std::vector<TargetRegion> regions,
+                                             std::int64_t distance) {
+    std::stable_sort(regions.begin(), regions.end(),
+                     [](const TargetRegion& a, const TargetRegion& b) {
+                         if (a.chromosome != b.chromosome) {
+                             return a.chromosome < b.chromosome;
+                         }
+                         return a.start < b.start;
+                     });
+    std::vector<TargetRegion> merged;
+    for (const TargetRegion& region : regions) {
+        if (!merged.empty() && merged.back().chromosome == region.chromosome &&
+            region.start - merged.back().end <= distance) {
+            merged.back().end = std::max(merged.back().end, region.end);
+        } else {
+            merged.push_back(region);
+        }
+    }
+    return merged;
 }
 
 }  // namespace hicx::chic

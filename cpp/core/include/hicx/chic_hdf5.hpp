@@ -37,6 +37,7 @@
 
 #include "hicx/chic_viewpoint.hpp"
 #include "hicx/hdf5_util.hpp"
+#include "hicx/python_error.hpp"
 
 namespace hicx::chic {
 
@@ -134,6 +135,76 @@ struct InteractionTable {
 };
 [[nodiscard]] InteractionTable read_interaction_table(const h5::File& file,
                                                       const std::vector<std::string>& triplet);
+
+// ---------------------------------------------------------------------------
+// h5py's reading side, for the public Python API (hicexplorer._hicx)
+//
+// The 3.7.6 functions of lib/viewpoint.py and the cHi-C modules open the files
+// with h5py.File(path, 'r') and read `dataset[()]` or `dataset[:]`. H5Reader
+// gives the same view: the stored dtype, the stored values, and h5py 3.12's
+// exception types and messages (thrown as hicx::PythonError), so the
+// bindings can build the objects h5py would have returned.
+
+// One dataset as h5py reads it: numeric values in the file's type converted to
+// the native one (numpy's dtype of the array), strings as their bytes (h5py
+// returns bytes for variable length and numpy.bytes_ for fixed length ones).
+struct H5Value {
+    enum class Kind { Integer, Unsigned, Float, Bytes, Other };
+    Kind kind = Kind::Other;
+    // bytes of one numeric element
+    std::size_t item_size = 0;
+    bool scalar = false;
+    bool variable_length = false;
+    std::size_t length = 0;
+    std::vector<unsigned char> raw;
+    std::vector<std::string> strings;
+
+    [[nodiscard]] double as_double(std::size_t i) const;
+    [[nodiscard]] std::int64_t as_int64(std::size_t i) const;
+    // numpy's dtype.str of the array, for example "<i8"; "|O" for variable
+    // length strings and "|S<n>" for fixed length ones.
+    [[nodiscard]] std::string dtype_str() const;
+};
+
+class H5Reader {
+  public:
+    // h5py.File(path, 'r'): FileNotFoundError (or the OSError subclass of the
+    // errno) when the file cannot be opened, OSError "file signature not
+    // found" when it is not an HDF5 file.
+    explicit H5Reader(const std::string& path);
+
+    enum class Kind { Missing, Group, Dataset };
+    // `path in file`; a path through a dataset or a missing component is
+    // Missing.
+    [[nodiscard]] Kind kind(const std::string& path) const;
+    [[nodiscard]] bool contains(const std::string& path) const { return kind(path) != Kind::Missing; }
+    // list(file[path].keys()), in name order. KeyError for a missing group.
+    [[nodiscard]] std::vector<std::string> keys(const std::string& path) const;
+    // file[path][()] (or [:]). KeyError for a missing object; the dataset's
+    // h5py message when `path` is a group is not needed by any caller, so a
+    // group raises TypeError.
+    [[nodiscard]] H5Value read(const std::string& path) const;
+    // The KeyError message h5py gives for file[path] when it is missing.
+    [[nodiscard]] std::string missing_message(const std::string& path) const;
+
+    void close() noexcept { file_.reset(); }
+    [[nodiscard]] const h5::File& file() const { return *file_; }
+
+  private:
+    std::optional<h5::File> file_;
+};
+
+// pybedtools.BedTool(lines).sort().merge(d=distance) of bedtools 2.31, the
+// target regions chicSignificantInteractions writes: sorted by chromosome name
+// and start, then every interval that starts at most `distance` after the end
+// of the merged one before it is merged into it.
+struct TargetRegion {
+    std::string chromosome;
+    std::int64_t start = 0;
+    std::int64_t end = 0;
+};
+[[nodiscard]] std::vector<TargetRegion> sort_merge_regions(std::vector<TargetRegion> regions,
+                                                           std::int64_t distance);
 
 }  // namespace hicx::chic
 

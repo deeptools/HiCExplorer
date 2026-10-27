@@ -1,8 +1,9 @@
 """chicQualityControl: a thin layer over the C++ executable chicQualityControl.
 
 main() runs the executable and parse_arguments() is built from its --help-json
-(hicexplorer._cpp). The other names of this module are kept for API
-compatibility and are not used by the tool.
+(hicexplorer._cpp). compute_sparsity keeps its 3.7.6 signature and behaviour and calls
+hicexplorer._hicx.chicQualityControl (cpp/python/src/api/chicQualityControl.cpp);
+the tool does not use it.
 """
 import argparse
 import math
@@ -20,6 +21,7 @@ import matplotlib.pyplot as plt
 
 from hicmatrix import HiCMatrix as hm
 from hicexplorer._version import __version__
+from hicexplorer._hicx import chicQualityControl as _impl
 from .lib import Viewpoint
 
 
@@ -30,32 +32,7 @@ def parse_arguments(args=None):
 
 
 def compute_sparsity(pReferencePoints, pViewpointObj, pArgs, pQueue):
-
-    sparsity_list = []
-    try:
-        chromosome_names = pViewpointObj.hicMatrix.getChrNames()
-
-        for i, referencePoint in enumerate(pReferencePoints):
-
-            if referencePoint is not None and referencePoint[0] in chromosome_names:
-
-                region_start, region_end, _ = pViewpointObj.calculateViewpointRange(
-                    referencePoint, (pArgs.fixateRange, pArgs.fixateRange))
-                try:
-                    data_list, _ = pViewpointObj.computeViewpoint(
-                        referencePoint, referencePoint[0], region_start, region_end)
-                    sparsity = (np.count_nonzero(data_list) / len(data_list))
-                except (TypeError, IndexError):
-                    sparsity = -1.0
-                sparsity_list.append(sparsity)
-            else:
-                sparsity_list.append(-1.0)
-    except Exception as exp:
-        pQueue.put('Fail: ' + str(exp))
-        return
-
-    pQueue.put(sparsity_list)
-    return
+    return _impl.compute_sparsity(pReferencePoints, pViewpointObj, pArgs, pQueue)
 
 
 def main(args=None):

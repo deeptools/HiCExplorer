@@ -1,8 +1,9 @@
 """chicViewpointBackgroundModel: a thin layer over the C++ executable chicViewpointBackgroundModel.
 
 main() runs the executable and parse_arguments() is built from its --help-json
-(hicexplorer._cpp). The other names of this module are kept for API
-compatibility and are not used by the tool.
+(hicexplorer._cpp). compute_background keeps its 3.7.6 signature and behaviour and calls
+hicexplorer._hicx.chicViewpointBackgroundModel (cpp/python/src/api/chicViewpointBackgroundModel.cpp);
+the tool does not use it.
 """
 import argparse
 import math
@@ -16,6 +17,7 @@ import fit_nbinom
 
 from hicmatrix import HiCMatrix as hm
 from hicexplorer._version import __version__
+from hicexplorer._hicx import chicViewpointBackgroundModel as _impl
 from .lib import Viewpoint
 
 
@@ -26,44 +28,7 @@ def parse_arguments(args=None):
 
 
 def compute_background(pReferencePoints, pViewpointObj, pArgs, pQueue):
-
-    background_model_data = {}
-    relative_positions = set()
-    try:
-        for i, referencePoint in enumerate(pReferencePoints):
-
-            region_start, region_end, _ = pViewpointObj.calculateViewpointRange(
-                referencePoint, (pArgs.fixateRange, pArgs.fixateRange))
-
-            data_list, _ = pViewpointObj.computeViewpoint(
-                referencePoint, referencePoint[0], region_start, region_end)
-
-            # set data in relation to viewpoint, upstream are negative values, downstream positive, zero is viewpoint
-            view_point_start, _ = pViewpointObj.getReferencePointAsMatrixIndices(
-                referencePoint)
-            view_point_range_start, view_point_range_end = \
-                pViewpointObj.getViewpointRangeAsMatrixIndices(
-                    referencePoint[0], region_start, region_end)
-
-            for i, data in zip(range(view_point_range_start, view_point_range_end, 1), data_list):
-                relative_position = i - view_point_start
-
-            if pArgs.averageContactBin > 0:
-                data_list = pViewpointObj.smoothInteractionValues(
-                    data_list, pArgs.averageContactBin)
-
-            for i, data in zip(range(view_point_range_start, view_point_range_end, 1), data_list):
-                relative_position = i - view_point_start
-                if relative_position in background_model_data:
-                    background_model_data[relative_position].append(data)
-                else:
-                    background_model_data[relative_position] = [data]
-                    relative_positions.add(relative_position)
-    except Exception as exp:
-        pQueue.put('Fail: ' + str(exp))
-        return
-    pQueue.put([background_model_data, relative_positions])
-    return
+    return _impl.compute_background(pReferencePoints, pViewpointObj, pArgs, pQueue)
 
 
 def main(args=None):

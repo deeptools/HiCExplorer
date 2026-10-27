@@ -159,13 +159,13 @@ double hypergeom_sf(std::int64_t k, std::int64_t M, std::int64_t n, std::int64_t
     return 0.0;
 }
 
-std::optional<double> fisher_exact_pvalue(std::int64_t c00, std::int64_t c01, std::int64_t c10,
-                                          std::int64_t c11) {
+std::optional<FisherExact> fisher_exact(std::int64_t c00, std::int64_t c01, std::int64_t c10,
+                                        std::int64_t c11) {
     if (c00 < 0 || c01 < 0 || c10 < 0 || c11 < 0) {
         return std::nullopt;
     }
     if (c00 + c10 == 0 || c01 + c11 == 0 || c00 + c01 == 0 || c10 + c11 == 0) {
-        return 1.0;
+        return FisherExact{1.0, true};
     }
     const std::int64_t n1 = c00 + c01;
     const std::int64_t n2 = c10 + c11;
@@ -186,13 +186,13 @@ std::optional<double> fisher_exact_pvalue(std::int64_t c00, std::int64_t c01, st
                                ? kNaN
                                : (pexact < pmode ? pmode : pexact);
     if (std::fabs(pexact - pmode) / maximum <= epsilon) {
-        return 1.0;
+        return FisherExact{1.0, true};
     }
     double pvalue = 0.0;
     if (c00 < mode) {
         const double plower = hypergeom_cdf(c00, total, n1, n);
         if (pmf(n) > pexact * gamma) {
-            return plower;
+            return FisherExact{plower, false};
         }
         const std::int64_t guess =
             binary_search([&](std::int64_t x) { return -pmf(x); }, -pexact * gamma, mode, n);
@@ -200,13 +200,25 @@ std::optional<double> fisher_exact_pvalue(std::int64_t c00, std::int64_t c01, st
     } else {
         const double pupper = hypergeom_sf(c00 - 1, total, n1, n);
         if (pmf(0) > pexact * gamma) {
-            return pupper;
+            return FisherExact{pupper, false};
         }
         const std::int64_t guess = binary_search(pmf, pexact * gamma, 0, mode);
         pvalue = pupper + hypergeom_cdf(guess, total, n1, n);
     }
-    // min(pvalue, 1.0)
-    return 1.0 < pvalue ? 1.0 : pvalue;
+    // min(pvalue, 1.0): the 1.0 when it is smaller
+    if (1.0 < pvalue) {
+        return FisherExact{1.0, true};
+    }
+    return FisherExact{pvalue, false};
+}
+
+std::optional<double> fisher_exact_pvalue(std::int64_t c00, std::int64_t c01, std::int64_t c10,
+                                          std::int64_t c11) {
+    const std::optional<FisherExact> result = fisher_exact(c00, c01, c10, c11);
+    if (!result) {
+        return std::nullopt;
+    }
+    return result->pvalue;
 }
 
 std::optional<Chi2Contingency> chi2_contingency_2x2(double a, double b, double c, double d) {
