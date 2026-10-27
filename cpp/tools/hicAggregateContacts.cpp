@@ -7,10 +7,10 @@
 // --outFileContactPairs (the contact positions per cluster) and
 // --outFileObsExp (the obs/exp matrix). The figures follow cpp/PLAN.md tier 7,
 // option (a): after the tables the aggregate of every cluster, the cluster
-// members and, for --diagnosticHeatmapFile, the diagonal of every kept
-// submatrix go to plot/hicexplorer_plot/hicAggregateContacts.py, which draws
-// them with the reference's plot_aggregated_contacts and
-// plot_diagnostic_heatmaps. The C++-only options: --noPlot writes the numeric
+// members and, for --diagnosticHeatmapFile, every cluster's submatrix
+// diagonals sorted by their centre value and their column means go to
+// plot/hicexplorer_plot/hicAggregateContacts.py, which draws them with the
+// reference's plot_aggregated_contacts and plot_diagnostic_heatmaps. The C++-only options: --noPlot writes the numeric
 // outputs without any figure; --plotData writes the figures' data as JSON
 // instead of drawing.
 //
@@ -1302,22 +1302,63 @@ int main(int argc, char** argv) {
                 }
             }
             if (!args.no_plot) {
-                // clustered_info[chrom]['diagonal']: mat_to_append.diagonal() of
-                // every kept submatrix, only read by plot_diagnostic_heatmaps.
-                std::vector<std::string> diagonals;
-                if (args.diagnostic_heatmap_file.has_value()) {
+                // plot_diagnostic_heatmaps' data: the diagonal of every kept
+                // submatrix (clustered_info[chrom]['diagonal']), and per
+                // cluster its rows sorted by the centre value, descending
+                // (np.argsort(heatmap[:, M_half])[::-1], numpy's tie order),
+                // and their column means (heatmap_to_plot.mean(axis=0): the
+                // rows added in order, then divided by their count).
+                std::string diagnostic = "null";
+                if (args.diagnostic_heatmap_file.has_value() && !info.submatrices.empty()) {
+                    std::vector<std::vector<double>> diagonals;
                     for (const std::vector<double>* submatrix : info.submatrices) {
                         std::vector<double> diagonal(w);
                         for (std::size_t i = 0; i < w; ++i) {
                             diagonal[i] = (*submatrix)[i * w + i];
                         }
-                        diagonals.push_back(plot::json_numbers(diagonal));
+                        diagonals.push_back(std::move(diagonal));
                     }
+                    if (m_half < 0 || static_cast<std::size_t>(m_half) >= w) {
+                        throw ToolError("IndexError: index " + std::to_string(m_half) +
+                                        " is out of bounds for axis 1 with size " +
+                                        std::to_string(w));
+                    }
+                    std::vector<std::string> clusters_diagnostic;
+                    for (const std::vector<std::int64_t>& members : info.clusters) {
+                        std::vector<double> keys(members.size());
+                        for (std::size_t m = 0; m < members.size(); ++m) {
+                            keys[m] = diagonals[static_cast<std::size_t>(members[m])]
+                                               [static_cast<std::size_t>(m_half)];
+                        }
+                        const std::vector<std::int64_t> order = hicx::npy::argsort(keys);
+                        std::vector<std::string> rows;
+                        std::vector<double> mean(w, 0.0);
+                        for (auto it = order.rbegin(); it != order.rend(); ++it) {
+                            const std::vector<double>& row = diagonals[static_cast<std::size_t>(
+                                members[static_cast<std::size_t>(*it)])];
+                            rows.push_back(plot::json_numbers(row));
+                            if (it == order.rbegin()) {
+                                mean = row;
+                            } else {
+                                for (std::size_t c = 0; c < w; ++c) {
+                                    mean[c] = mean[c] + row[c];
+                                }
+                            }
+                        }
+                        for (double& value : mean) {
+                            value = value / static_cast<double>(members.size());
+                        }
+                        plot::JsonObject cluster_json;
+                        cluster_json.add("rows", plot::json_list(rows));
+                        cluster_json.add("mean", plot::json_numbers(mean));
+                        clusters_diagnostic.push_back(cluster_json.str());
+                    }
+                    diagnostic = plot::json_list(clusters_diagnostic);
                 }
                 plot::JsonObject chrom_json;
                 chrom_json.add("name", plot::json_string(info.name));
                 chrom_json.add("clusters", plot::json_list(clusters_json));
-                chrom_json.add("diagonal", plot::json_list(diagonals));
+                chrom_json.add("diagnostic", diagnostic);
                 chroms_json.push_back(chrom_json.str());
             }
         }

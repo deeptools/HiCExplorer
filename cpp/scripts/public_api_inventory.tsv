@@ -368,12 +368,12 @@ hicexplorer.lib.viewpoint	method	Viewpoint.readSignificantRegionsFile(self, pFil
 hicexplorer.lib.viewpoint	method	Viewpoint.readTargetHDFFile(self, pFile)	22	pure Python	cpp/tools/chicAggregateStatistic.cpp
 hicexplorer.lib.viewpoint	method	Viewpoint.readAggregatedFileHDF(self, pAggregatedFileName, pInternalPath)	21	pure Python	cpp/tools/chicDifferentialTest.cpp
 hicexplorer.lib.viewpoint	method	Viewpoint.readDifferentialFile(self, pFilePath, pQuadruple)	33	pure Python	
-hicexplorer.list_tools	module		84		
+hicexplorer.list_tools	module		88		
 hicexplorer.list_tools	def	tool_names()	15	Python (package metadata + --help-json)	
 hicexplorer.list_tools	def	tool_list()	6	Python (package metadata + --help-json)	
 hicexplorer.list_tools	def	parse_arguments()	8	Python (package metadata + --help-json)	
 hicexplorer.list_tools	def	process_args(args=None)	2	Python (package metadata + --help-json)	
-hicexplorer.list_tools	def	main(args=None)	4	Python (package metadata + --help-json)	
+hicexplorer.list_tools	def	main(args=None)	4	C++-backed (runs/reads the executable)	
 hicexplorer.parserCommon	module		43		
 hicexplorer.parserCommon	def	getParentArgParse(args=None)	8	pure Python	
 hicexplorer.parserCommon	def	writableFile(string)	8	pure Python	

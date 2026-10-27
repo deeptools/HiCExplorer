@@ -1,29 +1,31 @@
-"""The figures of chicPlotViewpoint and their tar.gz.
+"""The figures of chicPlotViewpoint.
 
 The C++ binary reads the interaction, background, differential and
 significant interaction files and computes, per plot, what
 Viewpoint.getDataForPlotting, readRejectedFile and readSignificantRegionsFile
-return in hicexplorer/chicPlotViewpoint.py plot_images(). This module runs the
-drawing part of plot_images() with the reference's calls (plotViewpoint,
-plotBackgroundModel and plotPValue of hicexplorer/lib/viewpoint.py are
-reproduced below), once per worker chunk in the reference's order, and writes
-the archive as main() does, including its pairing of the i-th image with the
-i-th file name after the chunks are flattened.
+return in hicexplorer/chicPlotViewpoint.py plot_images(), the --xFold band
+of the background model, and the p-value row
+plot_images() draws for --pValue (float32, --truncateZeroPvalues, the
+significant regions' p-values, the clip) with its colorbar ticks. This module
+runs the drawing part of plot_images() with the reference's calls
+(plotViewpoint, plotBackgroundModel and plotPValue of
+hicexplorer/lib/viewpoint.py are reproduced below), once per worker chunk in
+the reference's order, and writes image i of the flattened chunks to
+imageDirectory/<i>.<outputFormat>; the C++ binary writes the archive from
+them as main() does.
 
 Data:
-    outFileName, outputFormat, dpi, range, resolution, colorList, xFold,
-    pValue, truncateZeroPvalues, minPValue, maxPValue, colorMapPvalue,
-    pValueSignificanceLevels
+    outputFormat, dpi, range, resolution, colorList, xFold, pValue,
+    colorMapPvalue, pValueSignificanceLevels, imageDirectory
     chunks: [[group]], one list per worker process
     group: {"file_name", "items": [item]}
-    item: {"label", "skip", "data", "background", "p_values", "highlight",
-           "significant_regions", "significant_p_values"}
+    item: {"label", "skip", "data", "background", "background_upper" (the
+           background times --xFold, null without a non-zero --xFold),
+           "p_values", "p_value_ticks", "highlight", "significant_regions",
+           "significant_p_values"}
 """
 
 import io
-import tarfile
-import time
-from contextlib import closing
 
 import numpy as np
 import matplotlib
@@ -47,17 +49,17 @@ def plotViewpoint(pAxis, pData, pColor, pLabelName, pHighlightRegion=None, pHigh
     return data_plot_label
 
 
-def plotBackgroundModel(pAxis, pBackgroundData, pXFold=None):
+def plotBackgroundModel(pAxis, pBackgroundData, pUpperValues=None):
     pBackgroundData = np.array(pBackgroundData)
     data_plot_label = pAxis.plot(range(len(pBackgroundData)), pBackgroundData, '-r', alpha=0.5, label='background model', linewidth=1)
-    if pXFold:
-        upper_values = pBackgroundData * pXFold
+    if pUpperValues is not None:
+        upper_values = np.array(pUpperValues)
         lower_values = pBackgroundData
         pAxis.fill_between(range(len(pBackgroundData)), upper_values, lower_values, facecolor='r', alpha=0.5)
     return data_plot_label
 
 
-def plotPValue(pAxis, pAxisLabel, pPValueData, pLabelText, pCmap, pFigure, pValueSignificanceLevels):
+def plotPValue(pAxis, pAxisLabel, pPValueData, pTicks, pLabelText, pCmap, pFigure, pValueSignificanceLevels):
 
     _z_score = np.empty([2, len(pPValueData)])
     _z_score[:, :] = pPValueData
@@ -69,7 +71,7 @@ def plotPValue(pAxis, pAxisLabel, pPValueData, pLabelText, pCmap, pFigure, pValu
     if pPValueData is not None:
         img = pAxis.contourf(_z_score, cmap=pCmap)
         colorbar = pFigure.colorbar(
-            img, cax=cax, ticks=[min(pPValueData), max(pPValueData)])
+            img, cax=cax, ticks=pTicks)
         colorbar.ax.set_ylabel('p-value', size=6)
 
     elif pValueSignificanceLevels:
@@ -122,9 +124,9 @@ def plot_images(groups, args):
             data = item["data"]
             background_data_plot = item["background"]
             p_values = item["p_values"]
+            p_value_ticks = item["p_value_ticks"]
             highlight_differential_regions = item["highlight"]
             significant_regions = item["significant_regions"]
-            significant_p_values = item["significant_p_values"]
             if data_plot_label:
                 data_plot_label += plotViewpoint(pAxis=ax1, pData=data, pColor=colors[i % len(colors)], pLabelName=item["label"], pHighlightRegion=highlight_differential_regions, pHighlightSignificantRegion=significant_regions)
             else:
@@ -132,25 +134,12 @@ def plot_images(groups, args):
 
             if background_plot:
                 if background_data_plot is not None:
-                    data_plot_label += plotBackgroundModel(pAxis=ax1, pBackgroundData=background_data_plot, pXFold=args["xFold"])
+                    data_plot_label += plotBackgroundModel(pAxis=ax1, pBackgroundData=background_data_plot,
+                                                           pUpperValues=item["background_upper"])
                 background_plot = False
-            if args["truncateZeroPvalues"]:
-                p_values = np.array(p_values, dtype=np.float32)
-                mask = p_values == 0.0
-                p_values[mask] = 1.0
-            if args["pValue"] and (args["minPValue"] is not None or args["maxPValue"] is not None):
-
-                p_values = np.array(p_values, dtype=np.float32)
-                if significant_p_values:
-                    for location in significant_p_values:
-                        for x in range(location[0], location[1]):
-                            if x < len(p_values):
-                                p_values[x] = location[2]
-                p_values.clip(args["minPValue"], args["maxPValue"], p_values)
-
             if args["pValue"]:
                 plotPValue(pAxis=plt.subplot(gs[1 + i, 0]), pAxisLabel=plt.subplot(gs[1 + i, 1]), pPValueData=p_values,
-                           pLabelText=item["label"], pCmap=args["colorMapPvalue"],
+                           pTicks=p_value_ticks, pLabelText=item["label"], pCmap=args["colorMapPvalue"],
                            pFigure=fig, pValueSignificanceLevels=args["pValueSignificanceLevels"])
 
         if data_plot_label is not None:
@@ -208,20 +197,13 @@ def plot_images(groups, args):
 def draw(data):
     mpl.rcParams['pdf.fonttype'] = 42
     images_array = []
-    file_name_list = []
     for chunk in data["chunks"]:
-        images, names = plot_images(chunk, data)
+        images, _names = plot_images(chunk, data)
         images_array.append(images)
-        file_name_list.append(names)
 
     images_array = [item for sublist in images_array for item in sublist]
-    file_name_list = [item for sublist in file_name_list for item in sublist]
-
-    with tarfile.open(data["outFileName"], "w:gz") as tar:
-        for i, bufferObject in enumerate(images_array):
-            with closing(bufferObject) as fobj:
-                tar_info = tarfile.TarInfo(name=file_name_list[i] + '.' + data["outputFormat"])
-                tar_info.mtime = time.time()
-                tar_info.size = len(fobj.getvalue())
-                fobj.seek(0)
-                tar.addfile(tarinfo=tar_info, fileobj=fobj)
+    for i, bufferObject in enumerate(images_array):
+        path = "{}/{}.{}".format(data["imageDirectory"], i, data["outputFormat"])
+        with open(path, "wb") as handle:
+            handle.write(bufferObject.getvalue())
+        bufferObject.close()

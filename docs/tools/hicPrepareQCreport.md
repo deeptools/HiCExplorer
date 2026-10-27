@@ -33,7 +33,7 @@ Tabulates and plots QC measures from hicBuildMatrix log files within an HTML out
 
 ## Additional notes
 
-C++ port: the tables are computed in C++, and the figures and hicQC.html are drawn by the hicexplorer_plot drawing layer with the calls of the Python tool (HICX_PLOT_PYTHON names the interpreter). The C++-only option --plotData FILE writes the tables and the data of the figures to FILE instead of drawing them.
+C++ port: the tables and hicQC.html are written in C++, and the figures are drawn by the hicexplorer_plot drawing layer with the calls of the Python tool (HICX_PLOT_PYTHON names the interpreter). The C++-only option --plotData FILE writes the tables, hicQC.html and the data of the figures to FILE instead of drawing them.
 
 ## PASS, WARN and FAIL (--prettyReport)
 

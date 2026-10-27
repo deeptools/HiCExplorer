@@ -20,6 +20,7 @@ def parse_arguments(args=None):
         formatter_class=argparse.RawDescriptionHelpFormatter,
         add_help=False,
         description="""
+Searches the Juicer HiCCUPS parameters whose loops agree best with a protein peak file, using hyperopt.
 """)
 
     parserRequired = parser.add_argument_group('Required arguments')

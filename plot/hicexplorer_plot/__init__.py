@@ -13,9 +13,9 @@ hicexplorer/, the oracle, which stays unchanged. The C++ memory is gone by the
 time matplotlib starts. One module per tool, named after it, exposes
 draw(data).
 
-The interpreter the binaries start is HICX_PLOT_PYTHON, else python3. The
-console scripts in hicexplorer_plot.tools run the C++ binary with that
-variable set to the interpreter they run in.
+The interpreter the binaries start is HICX_PLOT_PYTHON, else the python3
+next to the binary, else python3. The package draws only: it has no command
+line entry points of its own, since every tool is its C++ binary.
 """
 
 MATPLOTLIB_VERSION = "3.8.4"
