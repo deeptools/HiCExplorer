@@ -17,6 +17,9 @@
 //     core/include/hicx/bedtools_ops.hpp.
 //   * hicx::bedtools::merge and intersect_count.
 //
+// These live in core/include/hicx/validate_locations.hpp, which the public
+// Python functions of hicexplorer.hicValidateLocations call too.
+//
 // Every BedTool.from_dataframe(...).sort().to_dataframe(...) in the Python
 // writes a temporary file and reads it back, so a column's dtype is re-inferred
 // from the text at each step. `roundtrip` below does the same thing in memory
@@ -56,6 +59,7 @@
 #include "hicx/numpy_compat.hpp"
 #include "hicx/resource_usage.hpp"
 #include "hicx/text_table.hpp"
+#include "hicx/validate_locations.hpp"
 #include "hicx/version.hpp"
 
 namespace {
@@ -193,206 +197,13 @@ Arguments parse_arguments(int argc, char** argv) {
     return args;
 }
 
-// BedTool.from_dataframe(df) writes the frame with na_rep='.' and every later
-// to_dataframe() reads the text back with read_csv, which re-infers the dtype
-// of every column. TextTable::reparse does the same thing in memory rather
-// than assuming the round trip is the identity: it is not, for a float column
-// holding NaN, because from_dataframe writes na_rep='.' and read_csv does not
-// recognise '.' as a missing value, so the column comes back as text.
-
-// BedTool.from_dataframe(df).sort().to_dataframe(...)
-hicx::TextTable sorted_table(const hicx::TextTable& table) {
-    std::vector<std::string> chrom(table.rows());
-    std::vector<std::int64_t> start(table.rows());
-    for (std::size_t r = 0; r < table.rows(); ++r) {
-        chrom[r] = table.column(0).text(r, ".");
-        start[r] = table.column(1).as_int(r);
-    }
-    return table.select_rows(hicx::bedtools::sort_order(chrom, start)).reparse();
-}
-
-hicx::bedtools::Intervals intervals_of(const hicx::TextTable& table, std::size_t chrom_col,
-                                       std::size_t start_col, std::size_t end_col) {
-    hicx::bedtools::Intervals out;
-    out.chrom.reserve(table.rows());
-    out.start.reserve(table.rows());
-    out.end.reserve(table.rows());
-    for (std::size_t r = 0; r < table.rows(); ++r) {
-        out.push_back(table.column(chrom_col).text(r, "."),
-                      table.column(start_col).as_int(r),
-                      table.column(end_col).as_int(r));
-    }
-    return out;
-}
-
-hicx::TextTable table_of(const hicx::bedtools::Intervals& intervals) {
-    hicx::TableColumn chrom;
-    chrom.type = hicx::ColumnType::String;
-    chrom.strings = intervals.chrom;
-    hicx::TableColumn start;
-    start.type = hicx::ColumnType::Int64;
-    start.ints = intervals.start;
-    hicx::TableColumn end;
-    end.type = hicx::ColumnType::Int64;
-    end.ints = intervals.end;
-    return hicx::TextTable::with_columns({chrom, start, end});
-}
-
-// applyBinning: floor the start onto the bin grid, take the bin after the end,
-// drop exact duplicates, and optionally merge.
-hicx::TextTable apply_binning(const hicx::TextTable& table, std::int64_t bin_size,
-                              bool do_merge) {
-    hicx::TextTable binned = table;
-    hicx::TableColumn& start = binned.column(1);
-    hicx::TableColumn& end = binned.column(2);
-    std::vector<std::int64_t> new_start(binned.rows());
-    std::vector<std::int64_t> new_end(binned.rows());
-    const double divisor = static_cast<double>(bin_size);
-    for (std::size_t r = 0; r < binned.rows(); ++r) {
-        // (df[1] / binsize).astype(int) is a float64 division truncated
-        // towards zero, not an integer division.
-        const double scaled_start = static_cast<double>(table.column(1).as_int(r)) / divisor;
-        const double scaled_end = static_cast<double>(table.column(2).as_int(r)) / divisor;
-        new_start[r] = static_cast<std::int64_t>(scaled_start) * bin_size;
-        new_end[r] = (static_cast<std::int64_t>(scaled_end) + 1) * bin_size;
-    }
-    start.type = hicx::ColumnType::Int64;
-    start.ints = std::move(new_start);
-    start.floats.clear();
-    start.strings.clear();
-    end.type = hicx::ColumnType::Int64;
-    end.ints = std::move(new_end);
-    end.floats.clear();
-    end.strings.clear();
-
-    binned.drop_duplicates();
-    if (!do_merge) {
-        return binned;
-    }
-    const hicx::bedtools::Intervals merged =
-        hicx::bedtools::merge(intervals_of(binned, 0, 1, 2));
-    hicx::TextTable merged_table = table_of(merged);
-    return sorted_table(merged_table);
-}
-
-void apply_chr_prefix(hicx::TextTable& table, std::size_t column,
-                      const std::string& mode) {
-    if (mode == "add") {
-        table.add_chr_prefix(column);
-    } else if (mode == "remove") {
-        table.remove_chr_prefix(column);
-    }
-}
-
-// pd.read_csv(file, sep='\t', header=None)[[0, 1, 2]] with the prefix applied.
-hicx::TextTable read_three_column(const std::string& path, const std::string& prefix) {
-    hicx::TextTable table = hicx::TextTable::read_tsv(path).select_columns({0, 1, 2});
-    apply_chr_prefix(table, 0, prefix);
-    return table;
-}
-
-// correlateCool: cooler.Cooler(...).matrix(balance=False, sparse=True).fetch()
-// for every loop, reduced to the only question the caller asks, whether the
-// fetched block holds a stored pixel. Any exception inside the Python loop is
-// swallowed and recorded as no match (hicValidateLocations.py:145-146), which
-// covers a chromosome the cooler does not have and a coordinate past the end
-// of a chromosome; both occur on the designated input.
-struct CoolPeaks {
-    std::int64_t number_of_peaks = 0;
-    std::vector<bool> matched;
-};
-
-CoolPeaks correlate_cool(const std::string& path, const hicx::TextTable& loops) {
-    hicx::CoolFile cool(path);
-    CoolPeaks result;
-    result.number_of_peaks = cool.nnz();
-
-    const hicx::json::Value* bin_size_value = cool.info_value("bin-size");
-    std::int64_t bin_size = 0;
-    if (bin_size_value != nullptr && bin_size_value->is_number()) {
-        bin_size = static_cast<std::int64_t>(bin_size_value->as_double());
-    }
-    if (bin_size <= 0) {
-        throw std::runtime_error(
-            "the validation cooler has no fixed bin size; cooler's variable bin "
-            "path of region_to_extent is not ported");
-    }
-
-    std::map<std::string, std::int64_t> chrom_length;
-    for (std::size_t i = 0; i < cool.chrom_names().size(); ++i) {
-        chrom_length[cool.chrom_names()[i]] = cool.chrom_lengths()[i];
-    }
-    std::map<std::string, std::int64_t> chrom_offset;
-    {
-        const hicx::BinTable bins(cool.read_bins());
-        for (const auto& entry : bins.chrom_bin_boundaries()) {
-            chrom_offset[entry.first] = entry.second.first;
-        }
-    }
-
-    const hicx::CsrMatrix matrix = cool.read_matrix();
-    const std::vector<std::int64_t>& indptr = matrix.indptr();
-    const std::vector<std::int32_t>& indices = matrix.indices();
-
-    // Any stored pixel with row in [r0, r1) and column in [c0, c1)?
-    const auto block_has_pixel = [&](std::int64_t r0, std::int64_t r1, std::int64_t c0,
-                                     std::int64_t c1) {
-        if (r0 >= r1 || c0 >= c1) {
-            return false;
-        }
-        const std::int64_t rows = matrix.rows();
-        r0 = std::max<std::int64_t>(r0, 0);
-        r1 = std::min<std::int64_t>(r1, rows);
-        for (std::int64_t row = r0; row < r1; ++row) {
-            const auto begin = indices.begin() + indptr[static_cast<std::size_t>(row)];
-            const auto end = indices.begin() + indptr[static_cast<std::size_t>(row) + 1];
-            const auto lower =
-                std::lower_bound(begin, end, static_cast<std::int32_t>(c0));
-            if (lower != end && *lower < static_cast<std::int32_t>(c1)) {
-                return true;
-            }
-        }
-        return false;
-    };
-
-    const auto extent = [&](const std::string& chrom, std::int64_t start,
-                            std::int64_t end,
-                            std::pair<std::int64_t, std::int64_t>* out) {
-        const auto length = chrom_length.find(chrom);
-        if (length == chrom_length.end()) {
-            return false;  // KeyError inside cooler.parse_region
-        }
-        if (end < start || end > length->second || start < 0) {
-            return false;  // ValueError inside cooler.parse_region
-        }
-        const std::int64_t offset = chrom_offset.at(chrom);
-        const std::int64_t first = offset + start / bin_size;
-        const std::int64_t last =
-            offset + (end + bin_size - 1) / bin_size;  // ceil
-        *out = {first, last};
-        return true;
-    };
-
-    result.matched.assign(loops.rows(), false);
-    for (std::size_t r = 0; r < loops.rows(); ++r) {
-        std::pair<std::int64_t, std::int64_t> x{};
-        std::pair<std::int64_t, std::int64_t> y{};
-        if (!extent(loops.column(0).text(r, "."), loops.column(1).as_int(r),
-                    loops.column(2).as_int(r), &x)) {
-            continue;
-        }
-        if (!extent(loops.column(3).text(r, "."), loops.column(4).as_int(r),
-                    loops.column(5).as_int(r), &y)) {
-            continue;
-        }
-        // The cooler is stored symmetric-upper, so the block the Python gets
-        // back is the union of the upper-triangle hits in either orientation.
-        result.matched[r] =
-            block_has_pixel(x.first, x.second, y.first, y.second) ||
-            block_has_pixel(y.first, y.second, x.first, x.second);
-    }
-    return result;
-}
+using hicx::validate_locations::apply_binning;
+using hicx::validate_locations::apply_chr_prefix;
+using hicx::validate_locations::correlate_cool;
+using hicx::validate_locations::CoolPeaks;
+using hicx::validate_locations::intervals_of;
+using hicx::validate_locations::read_three_column;
+using hicx::validate_locations::sorted_table;
 
 void write_statistics(const std::string& path, const std::string& kind,
                       const std::string& data, const std::string& validation_data,

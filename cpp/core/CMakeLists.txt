@@ -69,6 +69,7 @@ add_library(hicx4core
     src/text_table.cpp
     src/tool_matrix.cpp
     src/transform_ops.cpp
+    src/validate_locations.cpp
     src/unidecode_table.cpp
     src/utilities.cpp
     src/dgeev_selected.cpp

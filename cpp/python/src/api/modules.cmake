@@ -11,6 +11,7 @@
 set(HICX_API_MODULES
     hicBuildMatrixMicroC
     hicFindRestSite
+    hicValidateLocations
     lib_buildMatrixMethods
     parserCommon
     readBed

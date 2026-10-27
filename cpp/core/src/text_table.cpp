@@ -6,6 +6,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <fstream>
+#include <iterator>
 #include <sstream>
 #include <stdexcept>
 #include <unordered_map>
@@ -338,15 +339,25 @@ std::vector<std::string> split_tabs(const std::string& line) {
 }  // namespace
 
 TextTable TextTable::read_tsv(const std::string& path) {
-    std::ifstream input(path);
+    std::ifstream input(path, std::ios::binary);
     if (!input) {
         throw std::runtime_error("cannot open '" + path + "'");
     }
+    std::string text((std::istreambuf_iterator<char>(input)), std::istreambuf_iterator<char>());
+    return parse_tsv(text);
+}
 
+TextTable TextTable::parse_tsv(const std::string& text) {
     std::vector<std::vector<std::string>> fields;
-    std::string line;
     std::size_t ncols = 0;
-    while (std::getline(input, line)) {
+    std::size_t begin = 0;
+    while (begin < text.size()) {
+        std::size_t end = text.find('\n', begin);
+        if (end == std::string::npos) {
+            end = text.size();
+        }
+        std::string line = text.substr(begin, end - begin);
+        begin = end + 1;
         if (!line.empty() && line.back() == '\r') {
             line.pop_back();
         }
@@ -566,7 +577,7 @@ std::string row_key(const TextTable& table, std::size_t row) {
 
 }  // namespace
 
-void TextTable::drop_duplicates() {
+std::vector<std::size_t> TextTable::first_occurrences() const {
     std::unordered_set<std::string> seen;
     std::vector<std::size_t> keep;
     keep.reserve(rows_);
@@ -575,7 +586,11 @@ void TextTable::drop_duplicates() {
             keep.push_back(r);
         }
     }
-    *this = select_rows(keep);
+    return keep;
+}
+
+void TextTable::drop_duplicates() {
+    *this = select_rows(first_occurrences());
 }
 
 void TextTable::drop_duplicates_drop_all() {
