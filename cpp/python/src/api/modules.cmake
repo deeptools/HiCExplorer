@@ -20,10 +20,12 @@ set(HICX_API_MODULES
     hicAdjustMatrix
     hicAggregateContacts
     hicAverageRegions
+    hicBuildMatrixMicroC
     hicCompartmentalization
     hicCorrectMatrix
     hicDetectLoops
     hicDifferentialTAD
+    hicFindRestSite
     hicFindTADs
     hicInterIntraTAD
     hicMergeDomains
@@ -35,9 +37,12 @@ set(HICX_API_MODULES
     hicPlotMatrix
     hicPlotSVL
     hicPlotViewpoint
+    hicValidateLocations
     iterativeCorrection
+    lib_buildMatrixMethods
     lib_cnb
     lib_viewpoint
+    parserCommon
     readBed
     reduceMatrix
     utilities

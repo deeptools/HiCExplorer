@@ -7,7 +7,10 @@
 #include <cctype>
 #include <cstdio>
 #include <fstream>
+#include <functional>
 #include <memory>
+#include <regex>
+#include <sstream>
 #include <stdexcept>
 #include <vector>
 
@@ -81,6 +84,69 @@ class LineReader {
     gzFile gz_ = nullptr;
 };
 
+bool is_simple_pattern(const std::string& pattern) {
+    for (char c : pattern) {
+        if (std::isalpha(static_cast<unsigned char>(c)) == 0 && c != '.') {
+            return false;
+        }
+    }
+    return !pattern.empty();
+}
+
+// re.finditer(pattern, sequence, re.IGNORECASE) for a pattern of letters and
+// '.': non-overlapping, left to right, resuming at the end of a match.
+void find_simple(const std::string& pattern, const std::string& sequence,
+                 const std::function<void(std::size_t, std::size_t)>& emit) {
+    const std::size_t width = pattern.size();
+    if (sequence.size() < width) {
+        return;
+    }
+    std::string upper = pattern;
+    for (char& c : upper) {
+        c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+    }
+    const std::size_t last = sequence.size() - width;
+    for (std::size_t i = 0; i <= last;) {
+        std::size_t k = 0;
+        for (; k < width; ++k) {
+            if (upper[k] == '.') {
+                continue;
+            }
+            if (static_cast<char>(std::toupper(
+                    static_cast<unsigned char>(sequence[i + k]))) != upper[k]) {
+                break;
+            }
+        }
+        if (k == width) {
+            emit(i, i + width);
+            i += width;
+        } else {
+            ++i;
+        }
+    }
+}
+
+void find_regex(const std::string& pattern, const std::string& sequence,
+                const std::function<void(std::size_t, std::size_t)>& emit) {
+    const std::regex expression(pattern, std::regex::ECMAScript | std::regex::icase);
+    auto it = std::sregex_iterator(sequence.begin(), sequence.end(), expression);
+    const auto end = std::sregex_iterator();
+    for (; it != end; ++it) {
+        const std::smatch& match = *it;
+        emit(static_cast<std::size_t>(match.position(0)),
+             static_cast<std::size_t>(match.position(0) + match.length(0)));
+    }
+}
+
+void find_all(const std::string& pattern, const std::string& sequence,
+              const std::function<void(std::size_t, std::size_t)>& emit) {
+    if (is_simple_pattern(pattern)) {
+        find_simple(pattern, sequence, emit);
+        return;
+    }
+    find_regex(pattern, sequence, emit);
+}
+
 std::string clean_sequence_line(const std::string& line) {
     // SimpleFastaParser rstrips each line and then removes spaces and carriage
     // returns from the joined sequence.
@@ -148,6 +214,52 @@ void read_fasta(const std::string& path, bool gzipped,
     if (in_record) {
         visit(name, sequence);
     }
+}
+
+std::vector<RestrictionSite> find_restriction_sites(const std::vector<std::string>& patterns,
+                                                   const std::string& fasta_path) {
+    std::vector<RestrictionSite> sites;
+    const bool gzipped = looks_gzipped(fasta_path);
+    for (const std::string& pattern : patterns) {
+        const std::string rev_compl = reverse_complement(pattern);
+        read_fasta(fasta_path, gzipped, [&](const std::string& name, const std::string& sequence) {
+            find_all(pattern, sequence, [&](std::size_t begin, std::size_t end) {
+                sites.push_back(RestrictionSite{name, static_cast<std::int64_t>(begin),
+                                                static_cast<std::int64_t>(end), '+'});
+            });
+            if (rev_compl != pattern) {
+                find_all(rev_compl, sequence, [&](std::size_t begin, std::size_t end) {
+                    sites.push_back(RestrictionSite{name, static_cast<std::int64_t>(begin),
+                                                    static_cast<std::int64_t>(end), '-'});
+                });
+            }
+        });
+    }
+    // sort -k1,1 -k2,2n, stable, so that -u keeps the first of an equal run.
+    std::stable_sort(sites.begin(), sites.end(), [](const RestrictionSite& a, const RestrictionSite& b) {
+        if (a.chrom != b.chrom) {
+            return a.chrom < b.chrom;
+        }
+        return a.start < b.start;
+    });
+    std::vector<RestrictionSite> unique;
+    unique.reserve(sites.size());
+    for (RestrictionSite& site : sites) {
+        // -u de-duplicates on the key only; equal keys are adjacent
+        if (!unique.empty() && site.chrom == unique.back().chrom && site.start == unique.back().start) {
+            continue;
+        }
+        unique.push_back(std::move(site));
+    }
+    return unique;
+}
+
+std::string restriction_sites_bed(const std::vector<RestrictionSite>& sites) {
+    std::ostringstream out;
+    for (const RestrictionSite& site : sites) {
+        out << site.chrom << '\t' << site.start << '\t' << site.end << "\t.\t0\t" << site.strand << '\n';
+    }
+    return out.str();
 }
 
 }  // namespace hicx::fasta

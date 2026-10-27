@@ -73,6 +73,8 @@ class TextTable {
     // every line must hold the same number of fields, and there is no comment
     // character, all three as pandas has them with these arguments.
     [[nodiscard]] static TextTable read_tsv(const std::string& path);
+    // The same over text already in memory (the content of a file object).
+    [[nodiscard]] static TextTable parse_tsv(const std::string& text);
 
     [[nodiscard]] std::size_t rows() const noexcept { return rows_; }
     [[nodiscard]] std::size_t cols() const noexcept { return columns_.size(); }
@@ -116,6 +118,8 @@ class TextTable {
 
     // drop_duplicates(): keeps the first row of every group of identical rows.
     void drop_duplicates();
+    // The rows drop_duplicates() keeps, in order.
+    [[nodiscard]] std::vector<std::size_t> first_occurrences() const;
     // drop_duplicates(keep=False): drops every row that occurs more than once.
     void drop_duplicates_drop_all();
 

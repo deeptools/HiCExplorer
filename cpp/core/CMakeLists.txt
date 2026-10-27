@@ -42,6 +42,8 @@ add_library(hicx4core
     src/detect_loops.cpp
     src/dist_vs_counts.cpp
     src/build_matrix.cpp
+    src/build_matrix_api.cpp
+    src/build_matrix_run.cpp
     src/chic_hdf5.cpp
     src/chic_viewpoint.cpp
     src/chicago.cpp
@@ -92,6 +94,7 @@ add_library(hicx4core
     src/text_table.cpp
     src/tool_matrix.cpp
     src/transform_ops.cpp
+    src/validate_locations.cpp
     src/unidecode_table.cpp
     src/utilities.cpp
     src/dgeev_selected.cpp

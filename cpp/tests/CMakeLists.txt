@@ -55,6 +55,7 @@ add_executable(hicx_tests
     test_python_api_core.cpp
     test_api_aggregate.cpp
     test_api_loops_correct.cpp
+    test_build_matrix_api.cpp
     # The computational cores of hicDifferentialAnalysis, of hicDetectStripes
     # and of hicArrowhead, so that the tests link against exactly the
     # translation units the tools run.
