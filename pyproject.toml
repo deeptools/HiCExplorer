@@ -30,7 +30,6 @@ dependencies = [
     "hicmatrix >= 17",
     "hic2cool >= 0.8.3",
     "psutil >= 5.9",
-    "fit_nbinom >= 1.2",
     "cooler >= 0.9.3",
     "krbalancing >= 0.0.5",
     "pybedtools >= 0.9",

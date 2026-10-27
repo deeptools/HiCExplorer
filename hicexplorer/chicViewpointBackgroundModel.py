@@ -13,7 +13,7 @@ import logging
 log = logging.getLogger(__name__)
 
 import numpy as np
-import fit_nbinom
+from hicexplorer.lib import fit_nbinom
 
 from hicmatrix import HiCMatrix as hm
 from hicexplorer._version import __version__

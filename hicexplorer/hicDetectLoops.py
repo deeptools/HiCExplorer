@@ -19,7 +19,7 @@ import numpy as np  # noqa: F401
 from scipy.sparse import csr_matrix, triu  # noqa: F401
 from scipy.stats import anderson_ksamp, ranksums  # noqa: F401
 from scipy.stats import nbinom  # noqa: F401
-import fit_nbinom  # noqa: F401
+from hicexplorer.lib import fit_nbinom  # noqa: F401
 
 from hicmatrix import HiCMatrix as hm  # noqa: F401
 from hicmatrix.lib import MatrixFileHandler  # noqa: F401

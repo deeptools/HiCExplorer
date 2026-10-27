@@ -625,7 +625,8 @@ std::vector<double> bonferroni_adjusted(std::span<const double> pvalues) {
 // lbfgsb.cpp and this one is deliberately a separate function rather than a
 // branch inside it, so that the tools that do not need it are untouched.
 
-NBinomFit fit_nbinom(std::span<const double> data, NBinomPrecision precision) {
+NBinomFit fit_nbinom(std::span<const double> data, NBinomPrecision precision,
+                     std::optional<std::array<double, 2>> initial) {
     if (precision == NBinomPrecision::Float64) {
         return fit_nbinom(data);
     }
@@ -790,6 +791,10 @@ NBinomFit fit_nbinom(std::span<const double> data, NBinomPrecision precision) {
         start_prob = denominator != 0.0 ? 10.0 / denominator : 10.0;
     }
 
+    if (initial) {
+        start_size = (*initial)[0];
+        start_prob = (*initial)[1];
+    }
     const std::vector<double> begin{start_size, start_prob};
     const std::vector<Bound> bounds{
         Bound{kMachineEpsilonStats, std::numeric_limits<double>::infinity()},
