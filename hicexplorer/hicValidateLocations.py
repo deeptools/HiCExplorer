@@ -10,17 +10,13 @@ import warnings
 warnings.simplefilter(action="ignore", category=RuntimeWarning)
 warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 import argparse
-from hicmatrix import HiCMatrix as hm
 from hicexplorer._version import __version__
 from hicexplorer.utilities import toString
-from hicmatrix.HiCMatrix import check_cooler
 import logging
 log = logging.getLogger(__name__)
 
 import pandas as pd
-from pybedtools import BedTool
 import numpy as np
-import cooler
 
 from hicexplorer._hicx import hicValidateLocations as _impl
 

@@ -340,6 +340,29 @@ def process(target, path1, path2, bin_size=5000, rf_paths=(DPNII,), restriction=
 
 # ---------------------------------------------------------------------------
 
+SUFFIX = os.path.join('hicexplorer', 'test', 'test_data') + '/'
+
+
+def tester(Tester, environment=None):
+    """root and bam_file_1, the package location cut off; with
+    HIC_TEST_DATA_DIR set to `environment` when given."""
+    saved = os.environ.get('HIC_TEST_DATA_DIR')
+    if environment is None:
+        os.environ.pop('HIC_TEST_DATA_DIR', None)
+    else:
+        os.environ['HIC_TEST_DATA_DIR'] = environment
+    try:
+        t = Tester()
+    finally:
+        if saved is None:
+            os.environ.pop('HIC_TEST_DATA_DIR', None)
+        else:
+            os.environ['HIC_TEST_DATA_DIR'] = saved
+    if environment:
+        return t.root, t.bam_file_1, sorted(vars(t))
+    return (t.root.endswith(SUFFIX), t.root[-len(SUFFIX):], t.bam_file_1[-len(SUFFIX) - 7:], sorted(vars(t)))
+
+
 CASES = [
     # C_Interval, C_Coverage ----------------------------------------------------
     Case('C_Interval/layout', M + 'C_Interval', driver='struct_layout'),
@@ -543,4 +566,8 @@ CASES = [
     Case('process_data/small_test', M + 'process_data', args=(SMALL_R1, SMALL_R2),
          kwargs={'buffer_size': 20000}, driver='process'),
 
+    Case('Tester/default', M + 'Tester', driver='tester'),
+    Case('Tester/environment', M + 'Tester', args=(File(),), driver='tester'),
+    Case('Tester/environment_trailing_slash', M + 'Tester', args=('/data/hic/',), driver='tester'),
+    Case('Tester/environment_empty', M + 'Tester', args=('',), driver='tester'),
 ]

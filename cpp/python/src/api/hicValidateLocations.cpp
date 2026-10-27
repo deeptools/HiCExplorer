@@ -274,7 +274,8 @@ void bind_hicValidateLocations(py::module_& m) {
         if (equals_text(pChrPrefixLoops, "add") || equals_text(pChrPrefixLoops, "remove")) {
             apply_prefix(table, 0, pChrPrefixLoops);
             if (table.cols() < 4) {
-                raise_error("KeyError", "3");
+                PyErr_SetObject(PyExc_KeyError, py::int_(3).ptr());
+                throw_python_error();
             }
             apply_prefix(table, 3, pChrPrefixLoops);
         }

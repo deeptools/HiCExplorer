@@ -17,7 +17,11 @@ warnings raised. Two kinds of log records are not compared:
     worker processes finished, so there the whole message is masked;
   * the debug records of hicexplorer.hicPrepareQCreport: createMatrix calls
     hicPrepareQCreport.main, which in 3.7.6 ran in-process and in HiCExplorer
-    4 runs the hicPrepareQCreport executable.
+    4 runs the hicPrepareQCreport executable;
+  * the debug records of hicexplorer.reduceMatrix (timings) and
+    hicexplorer.hicMergeMatrixBins ("few bins" notes) that 3.7.6 wrote while
+    reducing the matrix to the further --binSize resolutions of an mcool; the
+    reduction runs in C++ and writes the same matrices.
 The files hicPrepareQCreport draws (PNG, HTML) are compared by name only.
 
 Deviations from 3.7.6 (cpp/python/src/api/lib_buildMatrixMethods_run.hpp):
@@ -144,9 +148,11 @@ def create(target, directory, out_name='matrix.h5', sam_files=(R1, R2), bin_size
     dangling_list = list(dangling) if dangling is not None else None
     timing = _Timing(mask_all)
     own = logging.getLogger('hicexplorer.lib.buildMatrixMethods')
-    qc_logger = logging.getLogger('hicexplorer.hicPrepareQCreport')
+    qc_loggers = [logging.getLogger(n) for n in ('hicexplorer.hicPrepareQCreport', 'hicexplorer.reduceMatrix',
+                                                 'hicexplorer.hicMergeMatrixBins')]
     own.addFilter(timing)
-    qc_logger.addFilter(_drop)
+    for qc_logger in qc_loggers:
+        qc_logger.addFilter(_drop)
     try:
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter('always')
@@ -170,7 +176,8 @@ def create(target, directory, out_name='matrix.h5', sam_files=(R1, R2), bin_size
                         if issubclass(w.category, UserWarning) and 'threads' in str(w.message)]
     finally:
         own.removeFilter(timing)
-        qc_logger.removeFilter(_drop)
+        for qc_logger in qc_loggers:
+            qc_logger.removeFilter(_drop)
     qc_log = None
     if os.path.exists(os.path.join(qc_folder, 'QC.log')):
         with open(os.path.join(qc_folder, 'QC.log')) as f:
