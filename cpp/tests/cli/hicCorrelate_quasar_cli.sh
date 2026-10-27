@@ -54,7 +54,7 @@ python3 - self.json <<'EOF'
 import json, sys
 d = json.load(open(sys.argv[1]))
 results = d["results"]
-assert results == [[1.0, 1.0], [0.0, 1.0]], results
+assert results == [[1.0, 1.0], [1.0, 1.0]], results  # symmetric: the C++ passes the full matrix
 EOF
 expect "self vs self is exactly 1.0 on every entry" test $? -eq 0
 expect "self vs self: no scatter plot is written" test ! -e self_scatter.png

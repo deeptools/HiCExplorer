@@ -16,6 +16,16 @@ message(STATUS "hicexplorer4: reference version ${HICX_PYTHON_VERSION}")
 configure_file(include/hicx/version.hpp.in
                "${CMAKE_CURRENT_BINARY_DIR}/generated/hicx/version.hpp" @ONLY)
 
+# hicQC.html's template, compiled in from the Python package's copy
+# (hicexplorer/qc_template.html) so that the C++ writes the report itself;
+# editing the template reconfigures.
+set(_qc_template "${CMAKE_CURRENT_SOURCE_DIR}/../../hicexplorer/qc_template.html")
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${_qc_template}")
+file(READ "${_qc_template}" _qc_template_hex HEX)
+string(REGEX REPLACE "([0-9a-f][0-9a-f])" "0x\\1," _qc_template_bytes "${_qc_template_hex}")
+file(CONFIGURE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/generated/qc_template_html.inc"
+     CONTENT "// Generated from hicexplorer/qc_template.html by cpp/core/CMakeLists.txt.\nconst unsigned char kQcTemplateHtml[] = {${_qc_template_bytes}};\n")
+
 add_library(hicx4core
     src/adjust_ops.cpp
     src/aggregate_contacts.cpp

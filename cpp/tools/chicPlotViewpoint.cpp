@@ -3,9 +3,14 @@
 // Every plot's data is read and computed here: the plot groups of the
 // combination mode, the interactions, p-values and background model within
 // the range (Viewpoint.getDataForPlotting), the differential regions
-// (readRejectedFile) and the significant regions (readSignificantRegionsFile).
+// (readRejectedFile) and the significant regions (readSignificantRegionsFile),
+// and, for --pValue, the p-value row plot_images draws (float32, zeros set to
+// one by --truncateZeroPvalues, the significant regions' p-values written in,
+// the clip to [--minPValue, --maxPValue]) with its colorbar ticks.
 // plot/hicexplorer_plot/chicPlotViewpoint.py draws the figures with the
-// reference's calls and writes the tar.gz.
+// reference's calls into a temporary directory, in a child process, and this
+// binary writes them into the tar.gz as main() does. The members carry the
+// whole second of the archive's time, where tarfile records the fraction too.
 //
 // What is reproduced, pinned by the harness cases:
 //
@@ -39,16 +44,22 @@
 // archive. The port computes every plot before drawing, and exits 1 in the
 // same situations.
 
+#include <unistd.h>
+
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
+#include <ctime>
+#include <filesystem>
 #include <fstream>
+#include <iterator>
 #include <map>
 #include <optional>
 #include <stdexcept>
 #include <string>
+#include <tuple>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -57,6 +68,7 @@
 #include "hicx/hdf5_util.hpp"
 #include "hicx/plot_bridge.hpp"
 #include "hicx/resource_usage.hpp"
+#include "hicx/tar_gz.hpp"
 #include "hicx/version.hpp"
 
 namespace {
@@ -627,6 +639,83 @@ std::string regions_json(const std::optional<Regions>& regions) {
     return plot::json_list(items);
 }
 
+// plot_images' p-values for --pValue (minPValue and maxPValue always have a
+// value): np.float32 values, zeros set to 1.0 first with
+// --truncateZeroPvalues, then each significant region's p-value written over
+// positions [first, last) (a negative position counts from the end, as Python
+// indexes), then the in-place clip in float32 (NaN stays NaN, the upper bound
+// applied last). Returns the values as float64 and the colorbar ticks
+// [min(values), max(values)] of Python's builtin min and max.
+struct PValueRow {
+    std::vector<double> values;
+    double tick_min = 0.0;
+    double tick_max = 0.0;
+};
+
+PValueRow p_value_row(const std::vector<double>& raw, bool truncate_zero,
+                      const std::vector<std::tuple<std::int64_t, std::int64_t, double>>* significant,
+                      double min_p, double max_p) {
+    std::vector<float> values(raw.size());
+    for (std::size_t i = 0; i < raw.size(); ++i) {
+        values[i] = static_cast<float>(raw[i]);
+    }
+    if (truncate_zero) {
+        for (float& value : values) {
+            if (value == 0.0f) {
+                value = 1.0f;
+            }
+        }
+    }
+    const auto length = static_cast<std::int64_t>(values.size());
+    if (significant != nullptr) {
+        for (const auto& [first, last, value] : *significant) {
+            for (std::int64_t x = first; x < last; ++x) {
+                if (x < length) {
+                    const std::int64_t index = x < 0 ? length + x : x;
+                    if (index < 0) {
+                        throw PythonError("IndexError: index " + std::to_string(x) +
+                                          " is out of bounds for axis 0 with size " +
+                                          std::to_string(length));
+                    }
+                    values[static_cast<std::size_t>(index)] = static_cast<float>(value);
+                }
+            }
+        }
+    }
+    const auto low = static_cast<float>(min_p);
+    const auto high = static_cast<float>(max_p);
+    for (float& value : values) {
+        if (std::isnan(value)) {
+            continue;
+        }
+        value = value < low ? low : value;
+        value = value > high ? high : value;
+    }
+    PValueRow row;
+    row.values.assign(values.begin(), values.end());
+    if (!row.values.empty()) {
+        row.tick_min = row.values.front();
+        row.tick_max = row.values.front();
+        for (std::size_t i = 1; i < row.values.size(); ++i) {
+            if (row.values[i] < row.tick_min) {
+                row.tick_min = row.values[i];
+            }
+            if (row.values[i] > row.tick_max) {
+                row.tick_max = row.values[i];
+            }
+        }
+    }
+    return row;
+}
+
+std::string read_binary(const std::string& path) {
+    std::ifstream in(path, std::ios::binary);
+    if (!in) {
+        throw std::runtime_error("cannot read the drawn image " + path);
+    }
+    return std::string(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -955,6 +1044,16 @@ int main(int argc, char** argv) {
             return std::make_pair(begin, std::max(begin, end));
         };
 
+        const bool p_value = ns.flag("pValue");
+        const std::optional<double> x_fold = ns.opt_real("xFold");
+        const bool truncate_zero = ns.flag("truncateZeroPvalues");
+        const double min_p = ns.real("minPValue");
+        const double max_p = ns.real("maxPValue");
+        // The file name of every group in the flattened chunk order, and the
+        // number of images: a group draws one when any of its items is not
+        // skipped.
+        std::vector<std::string> group_file_names;
+        std::size_t image_count = 0;
         std::vector<std::string> chunk_texts;
         for (std::int64_t t = 0; t < threads; ++t) {
             const auto [begin, end] = t < threads - 1
@@ -965,6 +1064,7 @@ int main(int argc, char** argv) {
                 const auto& group = groups[static_cast<std::size_t>(j)];
                 std::vector<std::string> item_texts;
                 std::vector<std::string> file_name;
+                bool group_draws = false;
                 for (std::size_t i = 0; i < group.size(); ++i) {
                     const Triplet& item = group[i];
                     file_name.push_back(item[0]);
@@ -1016,18 +1116,43 @@ int main(int argc, char** argv) {
                         }
                         p_texts = plot::json_list(items);
                     }
+                    group_draws = true;
                     item_json.add("skip", "false");
                     item_json.add("data", plot::json_numbers(plot_data.data));
                     item_json.add("background", plot_data.background.has_value()
                                                     ? plot::json_numbers(*plot_data.background)
                                                     : "null");
-                    item_json.add("p_values", plot::json_numbers(plot_data.p_values));
+                    // plotBackgroundModel's band: `if pXFold:` then
+                    // pBackgroundData * pXFold.
+                    std::string upper = "null";
+                    if (plot_data.background.has_value() && x_fold.has_value() && *x_fold != 0.0) {
+                        std::vector<double> values = *plot_data.background;
+                        for (double& value : values) {
+                            value = value * *x_fold;
+                        }
+                        upper = plot::json_numbers(values);
+                    }
+                    item_json.add("background_upper", upper);
+                    if (p_value) {
+                        const PValueRow row =
+                            p_value_row(plot_data.p_values, truncate_zero,
+                                        found.has_value() ? &found->p_values : nullptr, min_p,
+                                        max_p);
+                        item_json.add("p_values", plot::json_numbers(row.values));
+                        item_json.add("p_value_ticks",
+                                      plot::json_numbers({row.tick_min, row.tick_max}));
+                    } else {
+                        item_json.add("p_values", "null");
+                        item_json.add("p_value_ticks", "null");
+                    }
                     item_json.add("highlight", regions_json(highlight));
                     item_json.add("significant_regions", regions_json(regions));
                     item_json.add("significant_p_values", p_texts);
                     item_texts.push_back(item_json.str());
                 }
                 file_name.push_back(group[0][2]);
+                group_file_names.push_back(join(file_name, "_"));
+                image_count += group_draws ? 1 : 0;
                 plot::JsonObject group_json;
                 group_json.add("file_name", plot::json_string(join(file_name, "_")));
                 group_json.add("items", plot::json_list(item_texts));
@@ -1044,7 +1169,6 @@ int main(int argc, char** argv) {
         data.add("range", plot::json_ints(range));
         data.add("resolution", plot::json_int(resolution));
         data.add("colorList", plot::json_strings(ns.strs("colorList")));
-        const std::optional<double> x_fold = ns.opt_real("xFold");
         data.add("xFold", x_fold.has_value() ? plot::json_number(*x_fold) : "null");
         data.add("pValue", plot::json_bool(ns.flag("pValue")));
         data.add("truncateZeroPvalues", plot::json_bool(ns.flag("truncateZeroPvalues")));
@@ -1056,7 +1180,46 @@ int main(int argc, char** argv) {
         data.add("chunks", chunks_json);
 
         hicx::report_resource_usage("chicPlotViewpoint");
-        return plot::draw("chicPlotViewpoint", data.str(), ns.opt_str("plotData"));
+        if (ns.given("plotData")) {
+            data.add("imageDirectory", "null");
+            return plot::draw("chicPlotViewpoint", data.str(), ns.opt_str("plotData"));
+        }
+        // The figures go to a temporary directory, image i as <i>.<format>
+        // in drawing order; main()'s archive then pairs the i-th image with
+        // the i-th group's file name.
+        const char* tmpdir = std::getenv("TMPDIR");
+        std::string pattern = std::string(tmpdir != nullptr && *tmpdir != '\0' ? tmpdir : "/tmp") +
+                              "/hicx-chicplot-XXXXXX";
+        std::vector<char> directory_name(pattern.begin(), pattern.end());
+        directory_name.push_back('\0');
+        if (::mkdtemp(directory_name.data()) == nullptr) {
+            throw std::runtime_error("cannot create a temporary directory in " + pattern);
+        }
+        const std::string directory(directory_name.data());
+        struct RemoveDirectory {
+            std::string path;
+            ~RemoveDirectory() {
+                std::error_code ignored;
+                std::filesystem::remove_all(path, ignored);
+            }
+        } remove_directory{directory};
+        data.add("imageDirectory", plot::json_string(directory));
+        const int status = plot::draw_and_wait("chicPlotViewpoint", data.str());
+        if (status != 0) {
+            return status;
+        }
+        const std::string format = ns.str("outputFormat");
+        hicx::TarGzWriter archive(ns.str("outFileName"));
+        const auto mtime = static_cast<std::int64_t>(std::time(nullptr));
+        for (std::size_t i = 0; i < image_count; ++i) {
+            const std::string image = directory + "/" + std::to_string(i) + "." + format;
+            archive.add(group_file_names.at(i) + "." + format, read_binary(image), mtime);
+        }
+        if (std::filesystem::exists(directory + "/" + std::to_string(image_count) + "." + format)) {
+            throw std::runtime_error("the drawing wrote more images than the groups that draw");
+        }
+        archive.close();
+        return 0;
     } catch (const std::exception& error) {
         std::fprintf(stderr, "chicPlotViewpoint: %s\n", error.what());
         return 1;

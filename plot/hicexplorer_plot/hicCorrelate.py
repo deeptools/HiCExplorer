@@ -1,20 +1,26 @@
 """The figures of hicCorrelate: the scatter grid and the clustered heatmap.
 
-The C++ binary computes the per matrix vectors (as big_mat.T in an npz), the
-pairwise correlations and the complete linkage of the correlation matrix.
-The calls are those of hicexplorer/hicCorrelate.py main() from the GridSpec
-to plot_correlation, unchanged, except that the correlation values and the
-linkage come from the data instead of scipy.stats and
-scipy.cluster.hierarchy.linkage; the dendrogram is drawn by scipy from that
-linkage.
+The C++ binary computes the per matrix vectors, the pairwise correlations,
+the complete linkage of the correlation matrix and the data of both figures:
+the symmetric correlation matrix and its colour range, the filtered vector
+pair of every scatter panel (_mat[_mat.sum(axis=1) > 1, :]) and the integer
+value range of all vectors. The calls are those of hicexplorer/hicCorrelate.py
+main() from the GridSpec to plot_correlation, unchanged, except that these
+values come from the data; the dendrogram is drawn by scipy from the linkage,
+and its leaf order arranges the heatmap (figure layout).
 
 Data:
-    outFileNameHeatmap, outFileNameScatter, labels, method, log1p, zMin, zMax,
-    colorMap, plotNumbers
-    results   the correlation matrix, upper triangle and diagonal filled
-    linkage   the (n - 1) by 4 linkage matrix, row major
-    leaves    the dendrogram leaf order (for checks; scipy derives the same)
-    big_mat   path of an npz holding big_mat.T
+    outFileNameHeatmap, outFileNameScatter, labels, method, log1p, colorMap,
+    plotNumbers
+    vMin, vMax  the colour range of the heatmap (--zMin / --zMax, else the
+                reference's defaults)
+    results     the symmetric correlation matrix
+    linkage     the (n - 1) by 4 linkage matrix, row major
+    leaves      the dendrogram leaf order (for checks; scipy derives the same)
+    pairs       path of an .npy holding the scatter pairs, two columns
+    pair_spans  [start, stop) of every pair (row < col, np.triu_indices order)
+    min_value, max_value   int(big_mat.min()), int(big_mat.max())
+    skipScatter only the heatmap (the C++-only methods)
 """
 
 import numpy as np
@@ -28,15 +34,10 @@ from matplotlib.ticker import FixedLocator  # noqa: E402
 import matplotlib.colors as pltcolors  # noqa: E402
 
 
-def plot_correlation(corr_matrix, labels, plot_filename, linkage, vmax=None,
-                     vmin=None, colormap='Reds', pPlotNumbers=None):
+def plot_correlation(corr_matrix, labels, plot_filename, linkage, vmax,
+                     vmin, colormap='Reds', pPlotNumbers=None):
     import scipy.cluster.hierarchy as sch
     num_rows = corr_matrix.shape[0]
-
-    if vmax is None:
-        vmax = 1
-    if vmin is None:
-        vmin = 0 if corr_matrix.min() >= 0 else -1
 
     fig = plt.figure(figsize=(10.5, 9.5))
     axdendro = fig.add_axes([0.02, 0.1, 0.1, 0.7])
@@ -93,18 +94,20 @@ def draw(data):
     # SCC computation. Only the clustered heatmap is drawn; outFileNameScatter
     # is still accepted on the command line but left untouched.
     if data.get("skipScatter"):
-        results = results + np.triu(results, 1).T
         linkage = np.array(data["linkage"], dtype=np.float64).reshape(-1, 4)
         plot_correlation(results, labels,
                          data["outFileNameHeatmap"],
                          linkage,
-                         data["zMax"],
-                         data["zMin"],
+                         data["vMax"],
+                         data["vMin"],
                          data["colorMap"],
                          pPlotNumbers=data["plotNumbers"])
         return
 
-    big_mat = np.ma.masked_invalid(np.load(data["big_mat"]))
+    # The panels receive masked arrays, as in the reference; the vectors hold
+    # no invalid value (the C++ refuses them), so nothing is masked.
+    pairs = np.ma.masked_invalid(np.load(data["pairs"]))
+    spans = iter(data["pair_spans"])
 
     rows, cols = np.triu_indices(num_files)
 
@@ -113,8 +116,8 @@ def draw(data):
     fig = plt.figure(figsize=(2 * num_files, 2 * num_files))
     plt.rcParams['font.size'] = 8.0
 
-    min_value = int(big_mat.min())
-    max_value = int(big_mat.max())
+    min_value = data["min_value"]
+    max_value = data["max_value"]
     if (min_value % 2 == 0 and max_value % 2 == 0) or \
             (min_value % 1 == 0 and max_value % 2 == 1):
         max_value += 1
@@ -136,8 +139,8 @@ def draw(data):
             ax.set_axis_off()
             continue
 
-        _mat = big_mat[:, [row, col]]
-        _mat = _mat[_mat.sum(axis=1) > 1, :]
+        start, stop = next(spans)
+        _mat = pairs[start:stop, :]
         vector1 = _mat[:, 0]
         vector2 = _mat[:, 1]
 
@@ -187,12 +190,11 @@ def draw(data):
     fig.tight_layout()
     fig.savefig(data["outFileNameScatter"], bbox_inches='tight')
 
-    results = results + np.triu(results, 1).T
     linkage = np.array(data["linkage"], dtype=np.float64).reshape(-1, 4)
     plot_correlation(results, labels,
                      data["outFileNameHeatmap"],
                      linkage,
-                     data["zMax"],
-                     data["zMin"],
+                     data["vMax"],
+                     data["vMin"],
                      data["colorMap"],
                      pPlotNumbers=data["plotNumbers"])

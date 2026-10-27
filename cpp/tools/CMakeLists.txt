@@ -55,6 +55,9 @@ foreach(tool IN LISTS HICX_TOOLS)
     target_link_libraries(${tool} PRIVATE hicx::core hicx_compile_options)
 endforeach()
 
+# hicPlotMatrix reads the --bigwig tracks with libBigWig, as pyBigWig does.
+target_link_libraries(hicPlotMatrix PRIVATE hicx::bigwig)
+
 # The drawing layer of the plotting tools (cpp/PLAN.md tier 7, option (a)),
 # copied next to the tools directory, where hicx::plot::draw finds it as
 # <tools>/../plot without an installed package.
@@ -118,3 +121,40 @@ target_link_libraries(chicExportData PRIVATE hicx::core hicx::bigwig hicx_compil
 # (hicx/compartmentalization.hpp), shared with the Python API.
 add_executable(hicCompartmentalization hicCompartmentalization.cpp)
 target_link_libraries(hicCompartmentalization PRIVATE hicx::core hicx_compile_options)
+
+# The `hicexplorer` command (the tool list of list_tools.py). Its table of
+# tools and descriptions is generated at build time by HicxToolList.cmake from
+# every executable above (its own --help-json) and from the Python drivers of
+# pyproject.toml's console scripts (their argparse description), so the list
+# is the installed tool set. This block stays last: it lists the executable
+# targets defined before it.
+set(HICX_PYTHON_DRIVERS hicHyperoptDetectLoops hicHyperoptDetectLoopsHiCCUPS)
+get_directory_property(_hicx_listed_targets BUILDSYSTEM_TARGETS)
+set(_hicx_tool_list_lines "")
+set(_hicx_tool_list_depends "")
+foreach(_target IN LISTS _hicx_listed_targets)
+    get_target_property(_type ${_target} TYPE)
+    if(_type STREQUAL "EXECUTABLE")
+        string(APPEND _hicx_tool_list_lines "${_target}|exe|$<TARGET_FILE:${_target}>\n")
+        list(APPEND _hicx_tool_list_depends ${_target})
+    endif()
+endforeach()
+foreach(_driver IN LISTS HICX_PYTHON_DRIVERS)
+    set(_source "${PROJECT_SOURCE_DIR}/../hicexplorer/${_driver}.py")
+    string(APPEND _hicx_tool_list_lines "${_driver}|python|${_source}\n")
+    list(APPEND _hicx_tool_list_depends "${_source}")
+endforeach()
+file(GENERATE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/hicexplorer_tools.txt"
+     CONTENT "${_hicx_tool_list_lines}")
+add_custom_command(
+    OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/hicexplorer_tool_list.inc"
+    COMMAND "${CMAKE_COMMAND}" "-DLIST=${CMAKE_CURRENT_BINARY_DIR}/hicexplorer_tools.txt"
+            "-DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/hicexplorer_tool_list.inc"
+            -P "${PROJECT_SOURCE_DIR}/cmake/HicxToolList.cmake"
+    DEPENDS ${_hicx_tool_list_depends} "${CMAKE_CURRENT_BINARY_DIR}/hicexplorer_tools.txt"
+            "${PROJECT_SOURCE_DIR}/cmake/HicxToolList.cmake"
+    COMMENT "Collecting the tool descriptions for the hicexplorer command"
+    VERBATIM)
+add_executable(hicexplorer hicexplorer.cpp "${CMAKE_CURRENT_BINARY_DIR}/hicexplorer_tool_list.inc")
+target_include_directories(hicexplorer PRIVATE "${CMAKE_CURRENT_BINARY_DIR}")
+target_link_libraries(hicexplorer PRIVATE hicx::core hicx_compile_options)
