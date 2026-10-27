@@ -517,6 +517,76 @@ void materialise_kr_matrix(hicx::CsrMatrix& matrix, double addend, bool round_fl
     }
 }
 
+// The threshold line of plot_total_contact_dist's plot_histogram: the left
+// edge of the first local minimum of ax1.hist(values, 100), as a modified
+// z-score (MAD.value_to_mad), or nothing when there is no local minimum or
+// the edge is 0 (`if threshold:`). The histogram is np.histogram(values, 100,
+// range=(nanmin, nanmax)) as matplotlib calls it: np.linspace edges and the
+// uniform-bin index computation with numpy's one-ulp corrections.
+std::optional<double> histogram_threshold_z(const std::vector<double>& values, double median,
+                                            double med_abs_deviation) {
+    constexpr int bins = 100;
+    double first = 0.0;
+    double last = 1.0;
+    if (!values.empty()) {
+        first = *std::min_element(values.begin(), values.end());
+        last = *std::max_element(values.begin(), values.end());
+    }
+    if (first == last) {
+        first = first - 0.5;
+        last = last + 0.5;
+    }
+    // np.linspace(first, last, bins + 1)
+    std::vector<double> edges(bins + 1);
+    const double delta = last - first;
+    const double step = delta / bins;
+    for (int i = 0; i <= bins; ++i) {
+        double y = static_cast<double>(i);
+        if (step == 0.0) {
+            y = y / bins;
+            y = y * delta;
+        } else {
+            y = y * step;
+        }
+        edges[static_cast<std::size_t>(i)] = y + first;
+    }
+    edges[bins] = last;
+    std::vector<std::int64_t> counts(bins, 0);
+    const double norm_denom = last - first;
+    for (const double a : values) {
+        if (!(a >= first && a <= last)) {
+            continue;
+        }
+        auto index = static_cast<std::int64_t>(((a - first) / norm_denom) * bins);
+        if (index == bins) {
+            index -= 1;
+        }
+        if (a < edges[static_cast<std::size_t>(index)]) {
+            index -= 1;
+        }
+        if (a >= edges[static_cast<std::size_t>(index + 1)] && index != bins - 1) {
+            index += 1;
+        }
+        counts[static_cast<std::size_t>(index)] += 1;
+    }
+    for (int x = 1; x < bins - 1; ++x) {
+        const std::size_t i = static_cast<std::size_t>(x);
+        if (counts[i - 1] > counts[i] && counts[i] < counts[i + 1]) {
+            const double threshold = edges[i];
+            if (threshold == 0.0) {
+                return std::nullopt;
+            }
+            const double diff = threshold - median;
+            constexpr double mad_b_value = 0.6745;
+            if (med_abs_deviation == 0.0) {
+                return mad_b_value * diff;
+            }
+            return mad_b_value * diff / med_abs_deviation;
+        }
+    }
+    return std::nullopt;
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -619,11 +689,22 @@ int main(int argc, char** argv) {
                         kept.push_back(coverage[i]);
                     }
                 }
+                // plot_histogram: with --xMax only the values below it.
+                std::vector<double> shown;
+                for (const double value : kept) {
+                    if (!args.x_max.has_value() || value < *args.x_max) {
+                        shown.push_back(value);
+                    }
+                }
+                const std::optional<double> threshold = histogram_threshold_z(
+                    shown, mad.median(), mad.median_absolute_deviation());
                 plot::JsonObject panel;
                 panel.add("title", title != nullptr ? plot::json_string(*title) : "null");
-                panel.add("row_sum", plot::json_numbers(kept));
+                panel.add("row_sum", plot::json_numbers(shown));
                 panel.add("median", plot::json_number(mad.median()));
                 panel.add("med_abs_deviation", plot::json_number(mad.median_absolute_deviation()));
+                panel.add("mad_threshold",
+                          threshold.has_value() ? plot::json_number(*threshold) : "null");
                 panels.push_back(panel.str());
                 return kept.size();
             };

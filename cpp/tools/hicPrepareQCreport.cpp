@@ -5,10 +5,11 @@
 // The table aggregation runs here (hicx::write_qc_report_tables, shared with
 // hicBuildMatrix and hicQuickQC): the QC logs become pandas' DataFrame, named
 // by --labels or by each log's File entry, and the five tab separated tables
-// are written as DataFrame.to_csv writes them. The five bar charts and
-// hicQC.html are drawn by plot/hicexplorer_plot/hicPrepareQCreport.py with the
-// reference's pandas plotting calls, Styler.to_html and its template, from the
-// tables written here.
+// are written as DataFrame.to_csv writes them. hicQC.html (Styler.to_html
+// into qc_template.html) and the DataFrames of the five bar charts come from
+// the same logs (hicx::write_qc_report_html); the charts are drawn by
+// plot/hicexplorer_plot/hicPrepareQCreport.py with the reference's pandas
+// plotting calls.
 //
 // Deliberate deviation: when --labels has as many entries as there are logs
 // but the logs yield a different number of rows, the reference logs an error
@@ -66,10 +67,11 @@ const char* const kHelp =
     "  --help, -h            show this help message and exit\n"
     "  --version             show program's version number and exit\n"
     "\n"
-    "C++ port: the tables are computed in C++, and the figures and hicQC.html are\n"
+    "C++ port: the tables and hicQC.html are written in C++, and the figures are\n"
     "drawn by the hicexplorer_plot drawing layer with the calls of the Python tool\n"
     "(HICX_PLOT_PYTHON names the interpreter). The C++-only option --plotData FILE\n"
-    "writes the tables and the data of the figures to FILE instead of drawing them.\n"
+    "writes the tables, hicQC.html and the data of the figures to FILE instead of\n"
+    "drawing them.\n"
     "\n"
     "  --prettyReport        C++-only. Also write OUTPUTFOLDER/hicQC_report.html, a\n"
     "                        self-contained, card-based report, independent of\n"
@@ -158,7 +160,7 @@ int main(int argc, char** argv) {
         .metavar("FILE")
         .output({"json"})
         .cpp_only("The data of the figures as JSON, without drawing them (cpp/PLAN.md tier 7); "
-                  "the tables are written as always.")
+                  "the tables and hicQC.html are written as always.")
         .help("Write the data the figures are drawn from as JSON to this file and do not draw "
               "them.");
     optional.add({"--prettyReport"})
@@ -203,6 +205,7 @@ int main(int argc, char** argv) {
         return refused;
     }
     const std::string folder = ns.str("outputFolder");
+    std::string charts;
     try {
         std::error_code error;
         std::filesystem::create_directories(folder, error);
@@ -218,6 +221,7 @@ int main(int argc, char** argv) {
             labels = ns.strs("labels");
         }
         hicx::write_qc_report_tables(folder, logs, labels);
+        charts = hicx::write_qc_report_html(folder, logs, labels);
         if (ns.flag("prettyReport")) {
             hicx::QcThresholds thresholds;
             thresholds.min_valid_pairs_percent = ns.real("minValidPairsPercent");
@@ -235,6 +239,7 @@ int main(int argc, char** argv) {
     plot::JsonObject data;
     data.add("outputFolder", plot::json_string(folder));
     data.add("dpi", plot::json_int(ns.integer("dpi")));
+    data.add("charts", charts);
     hicx::report_resource_usage(kProg);
     return plot::draw("hicPrepareQCreport", data.str(), ns.opt_str("plotData"));
 }

@@ -84,6 +84,7 @@
 
 #include "hicx/argparse.hpp"
 #include "hicx/chicago.hpp"
+#include "hicx/numpy_sort.hpp"
 #include "hicx/plot_bridge.hpp"
 #include "hicx/version.hpp"
 
@@ -265,6 +266,38 @@ void write_links_file(const std::string& path, const std::vector<LinkRow>& links
     }
 }
 
+// The significance tier of every point: 0 below --plevel2 (background), 1
+// from --plevel2 to below --plevel1, 2 at or above --plevel1, -1 for a NaN
+// score, which no tier holds.
+std::vector<std::int64_t> score_tiers(const std::vector<double>& score, double plevel1,
+                                      double plevel2) {
+    std::vector<std::int64_t> tiers;
+    tiers.reserve(score.size());
+    for (const double value : score) {
+        if (value >= plevel1) {
+            tiers.push_back(2);
+        } else if (value >= plevel2) {
+            tiers.push_back(1);
+        } else if (value < plevel2) {
+            tiers.push_back(0);
+        } else {
+            tiers.push_back(-1);
+        }
+    }
+    return tiers;
+}
+
+// The order the arcs are drawn in: np.argsort of their z-order (3 for tier 2,
+// 2 for tier 1, 1 otherwise), with numpy's tie order.
+std::vector<std::int64_t> arc_draw_order(const std::vector<std::int64_t>& tiers) {
+    std::vector<std::int64_t> zorder;
+    zorder.reserve(tiers.size());
+    for (const std::int64_t tier : tiers) {
+        zorder.push_back(tier == 2 ? 3 : tier == 1 ? 2 : 1);
+    }
+    return hicx::npy::argsort(zorder);
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -441,11 +474,15 @@ int main(int argc, char** argv) {
                 data.add("arcX2", plot::json_numbers(y));
                 data.add("arcHeight", plot::json_numbers(height));
                 data.add("score", plot::json_numbers(score));
+                data.add("tier", plot::json_ints(score_tiers(score, plevel1, plevel2)));
+                data.add("drawOrder",
+                         plot::json_ints(arc_draw_order(score_tiers(score, plevel1, plevel2))));
                 data.add("anchors", plot::json_numbers({0.0}));
             } else {
                 data.add("x", plot::json_numbers(x));
                 data.add("y", plot::json_numbers(y));
                 data.add("score", plot::json_numbers(score));
+                data.add("tier", plot::json_ints(score_tiers(score, plevel1, plevel2)));
             }
             data.add("hasBackground", plot::json_bool(has_background));
             if (has_background) {
@@ -524,6 +561,9 @@ int main(int argc, char** argv) {
             data.add("arcX2", plot::json_numbers(x2));
             data.add("arcHeight", plot::json_numbers(height));
             data.add("score", plot::json_numbers(score));
+            data.add("tier", plot::json_ints(score_tiers(score, plevel1, plevel2)));
+            data.add("drawOrder",
+                     plot::json_ints(arc_draw_order(score_tiers(score, plevel1, plevel2))));
             data.add("anchors", plot::json_numbers(anchors));
             data.add("hasBackground", plot::json_bool(false));
         }

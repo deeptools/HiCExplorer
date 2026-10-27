@@ -49,10 +49,10 @@
 // Not produced
 // ---------------------------------------------------------------------------
 // As for hicBuildMatrix: QC.log and the five tables are written, and after a
-// successful run the five PNG figures and hicQC.html that hicPrepareQCreport
-// renders into the QC folder are drawn by plot/hicexplorer_plot (cpp/PLAN.md
-// tier 7, option (a)), once the temporary matrix is removed, because drawing
-// replaces the process.
+// successful run hicQC.html is written and the five PNG figures that
+// hicPrepareQCreport renders into the QC folder are drawn by
+// plot/hicexplorer_plot (cpp/PLAN.md tier 7, option (a)), once the temporary
+// matrix is removed, because drawing replaces the process.
 
 #include <cstdio>
 

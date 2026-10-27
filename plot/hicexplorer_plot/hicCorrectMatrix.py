@@ -1,17 +1,22 @@
 """The figure of hicCorrectMatrix diagnostic_plot.
 
 The calls are those of hicexplorer/hicCorrectMatrix.py plot_total_contact_dist
-and the rcParams line of main(), unchanged. The C++ binary loads the matrix,
-masks the zero coverage bins, and computes for every panel the coverage per
-bin without the diagonal, its MAD (median of the positive values and median
-absolute deviation) and the modified z-score filter below 5.
+and the rcParams line of main(), unchanged except for the data. The C++
+binary loads the matrix, masks the zero coverage bins, and computes for every
+panel the coverage per bin without the diagonal, its MAD (median of the
+positive values and median absolute deviation), the modified z-score filter
+below 5, the --xMax filter of the histogram values, and the threshold line:
+the left edge of the first local minimum of the 100 bin histogram as a
+modified z-score. The histogram bars themselves are matplotlib's hist, and
+the second axis maps the first axis' limits to z-scores (figure layout).
 
 Data:
     plotName   --plotName
     xMax       --xMax or null
     perchr     --perchr
-    panels     [{"title": chromosome name or null, "row_sum": the kept coverage,
-                 "median", "med_abs_deviation"}]
+    panels     [{"title": chromosome name or null, "row_sum": the histogram
+                 values, "median", "med_abs_deviation", "mad_threshold": the
+                 threshold line's z-score or null}]
 """
 
 import matplotlib
@@ -51,16 +56,15 @@ def plot_total_contact_dist(panels, args):
     majorformatter = FormatStrFormatter('%d')
     minorlocator = MultipleLocator(0.2)
 
-    def plot_histogram(row_sum_values, mad_values, ax1, title=None):
+    def plot_histogram(row_sum_values, mad_values, mad_threshold, ax1, title=None):
 
         if args.xMax:
             ax1.set_xlim(ax1.get_xlim()[0], args.xMax)
-            row_sum_values = row_sum_values[row_sum_values < args.xMax]
 
         ax1.set_xlabel("total counts per bin")
         ax1.set_ylabel("frequency")
         ax1.patch.set_visible(False)
-        dist, bin_s, __ = ax1.hist(row_sum_values, 100, color='green')
+        ax1.hist(row_sum_values, 100, color='green')
 
         # add second axis on top
         ax2 = ax1.twiny()
@@ -73,17 +77,7 @@ def plot_total_contact_dist(panels, args):
 
         ax2.set_xlim(mad_values.value_to_mad(np.array(ax1.get_xlim())))
 
-        # get first local mininum value
-        local_min = [x for x, y in enumerate(dist) if 1 <= x < len(
-            dist) - 1 and dist[x - 1] > y < dist[x + 1]]
-
-        if len(local_min) > 0:
-            threshold = bin_s[local_min[0]]
-        else:
-            threshold = None
-
-        if threshold:
-            mad_threshold = mad_values.value_to_mad(threshold)
+        if mad_threshold is not None:
             ymin, ymax = ax2.get_ylim()
             ax2.vlines(mad_threshold, ymin, ymax)
 
@@ -102,7 +96,7 @@ def plot_total_contact_dist(panels, args):
             row = plot_num // num_cols
             ax[chrname] = fig.add_subplot(grids[row, col])
 
-            plot_histogram(row_sum, mad, ax[chrname], title=chrname)
+            plot_histogram(row_sum, mad, panel["mad_threshold"], ax[chrname], title=chrname)
             ax[chrname].set_title(chrname)
     else:
         fig = plt.figure()
@@ -110,7 +104,7 @@ def plot_total_contact_dist(panels, args):
         row_sum = np.array(panel["row_sum"], dtype=np.float64)
         mad = MAD(panel["median"], panel["med_abs_deviation"])
         ax = fig.add_subplot(111)
-        plot_histogram(row_sum, mad, ax)
+        plot_histogram(row_sum, mad, panel["mad_threshold"], ax)
 
     plt.tight_layout()
     plt.savefig(args.plotName)

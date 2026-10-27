@@ -5,8 +5,9 @@ plot_aggregated_contacts and plot_diagnostic_heatmaps, unchanged, and the
 rcParams line of main(). The C++ binary clusters the submatrices, computes
 the aggregate of every cluster (compute_avg) and writes the tables the
 reference writes from inside plot_aggregated_contacts; this module receives
-the aggregates, the cluster member indices and, for the heatmap, the
-diagonal of every kept submatrix.
+the aggregates, the cluster member indices and, for the heatmap, every
+cluster's submatrix diagonals in the order the reference sorts them (by the
+centre value, descending) with their column means.
 
 Data:
     outFileName          --outFileName
@@ -15,7 +16,8 @@ Data:
     M_half               (numberOfBins - 1) // 2 as the reference computes it
     num_clusters         the requested cluster count (1 without clustering)
     chroms              [{"name", "clusters": [{"average": rows, "indices": ids}],
-                           "diagonal": rows}]
+                          "diagnostic": null or [{"rows": sorted diagonals,
+                                                  "mean": column means}]}]
 """
 
 from collections import OrderedDict
@@ -49,9 +51,13 @@ def _rebuild(data):
     clustered_info = OrderedDict()
     chrom_avg = OrderedDict()
     for chrom in data["chroms"]:
+        diagnostic = chrom["diagnostic"]
+        if diagnostic is not None:
+            diagnostic = [(np.array(c["rows"], dtype=np.float64).reshape(len(c["rows"]), -1),
+                           np.array(c["mean"], dtype=np.float64)) for c in diagnostic]
         clustered_info[chrom["name"]] = {
             "clustered_dict": [np.array(c["indices"], dtype=np.int64) for c in chrom["clusters"]],
-            "diagonal": [np.array(row, dtype=np.float64) for row in chrom["diagonal"]],
+            "diagnostic": diagnostic,
         }
         chrom_avg[chrom["name"]] = [np.array(c["average"], dtype=np.float64)
                                     for c in chrom["clusters"]]
@@ -138,9 +144,9 @@ def plot_diagnostic_heatmaps(clustered_info, M_half, args):
 
     gs_list = []
     for idx, (chrom_name, values) in enumerate(clustered_info.items()):
-        try:
-            heatmap = np.asarray(np.vstack(clustered_info[chrom_name]['diagonal']))
-        except ValueError:
+        # None where the reference's np.vstack of no diagonals raises.
+        diagnostic = clustered_info[chrom_name]['diagnostic']
+        if diagnostic is None:
             continue
 
         # get size of each cluster for the given chrom
@@ -154,15 +160,9 @@ def plot_diagnostic_heatmaps(clustered_info, M_half, args):
         summary_plot_ax = plt.subplot(gs0[0, idx])
         summary_plot_ax.set_title(chrom_name)
 
-        for cluster_number, cluster_indices in enumerate(clustered_info[chrom_name]["clustered_dict"]):
-            # sort by the value at the center of the rows
-            heatmap_to_plot = heatmap[cluster_indices, :]
-
-            order = np.argsort(heatmap_to_plot[:, M_half])[::-1]
-            heatmap_to_plot = heatmap_to_plot[order, :]
-
-            # add line to summary plot ax
-            y_values = heatmap_to_plot.mean(axis=0)
+        for cluster_number, (heatmap_to_plot, y_values) in enumerate(diagnostic):
+            # the rows sorted by the value at the center, and their mean
+            # (computed by the C++ binary)
             x_values = np.arange(len(y_values)) - M_half
             cluster_label = "cluster_{}".format(cluster_number + 1)
             summary_plot_ax.plot(x_values, y_values, label=cluster_label)
@@ -179,7 +179,7 @@ def plot_diagnostic_heatmaps(clustered_info, M_half, args):
                                  cmap=cm.get_cmap(args.colorMap),
                                  origin='upper', vmax=vmax_heat, vmin=vmin_heat,
                                  extent=[-M_half, M_half + 1,
-                                         0, len(order)])
+                                         0, len(heatmap_to_plot)])
 
         summary_plot_ax.legend(ncol=1, frameon=False, markerscale=0.5)
 

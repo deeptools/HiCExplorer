@@ -12,6 +12,7 @@ Data:
     dpi            --dpi
     colorList      --colorList
     matrices       --matrices, as given
+    labels         the legend label of every matrix, its file name
     samples        [{"values": ratios, "float32": bool}] per matrix
 """
 
@@ -30,7 +31,7 @@ def _sample(sample):
 def draw(data):
     short_v_long_range = [_sample(sample) for sample in data["samples"]]
     color_list = data["colorList"]
-    matrices = data["matrices"]
+    labels = data["labels"]
 
     plt.ylabel('Sum short range / long range')
     plt.tick_params(
@@ -44,7 +45,7 @@ def draw(data):
     legend_handels_color = []
     for i, patch in enumerate(box_plot['boxes']):
         patch.set_facecolor(color_list[i % len(color_list)])
-        legend_handels_color.append(mpatches.Patch(color=color_list[i % len(color_list)], label=matrices[i].split('/')[-1]))
+        legend_handels_color.append(mpatches.Patch(color=color_list[i % len(color_list)], label=labels[i]))
     plt.legend(handles=legend_handels_color)
     plt.xlabel('Boxplot shows svl-ratio per chromosome.')
     plt.savefig(data["plotFileName"], dpi=data["dpi"])
