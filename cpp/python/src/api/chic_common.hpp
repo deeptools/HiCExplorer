@@ -216,6 +216,30 @@ inline std::string fail_text(const std::exception& error) {
     return error.what();
 }
 
+// traceback.format_exc() in the `except` block of a worker function. For a
+// Python error it is the traceback of the error as Python formats it (its
+// frames are the Python ones the error passed, not 3.7.6's); for an error
+// raised by the C++ it is the header and the exception line.
+inline std::string traceback_text(const std::exception& error) {
+    if (const auto* set = dynamic_cast<const py::error_already_set*>(&error)) {
+        const py::handle trace = set->trace() ? py::handle(set->trace()) : py::handle(Py_None);
+        const py::object lines = py::module_::import("traceback")
+                                     .attr("format_exception")(set->type(), set->value(), trace);
+        const std::string text = utf8(py::str("").attr("join")(lines));
+        if (text.rfind("Traceback", 0) == 0) {
+            return text;
+        }
+        return "Traceback (most recent call last):\n" + text;
+    }
+    std::string type = "Exception";
+    std::string message = error.what();
+    if (const auto* python = dynamic_cast<const hicx::PythonError*>(&error)) {
+        type = python->type();
+        message = exception_text(*python);
+    }
+    return "Traceback (most recent call last):\n" + type + ": " + message + "\n";
+}
+
 // numpy scalars
 inline py::object np_int64(std::int64_t value) { return numpy_scalar<std::int64_t>(value); }
 inline py::object np_float64(double value) { return numpy_scalar<double>(value); }
