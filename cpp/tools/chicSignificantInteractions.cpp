@@ -382,11 +382,8 @@ Merged merge_neighbors(const std::vector<Entry>& candidates, std::int64_t thresh
     return merged;
 }
 
-struct TargetLine {
-    std::string chromosome;
-    std::int64_t start = 0;
-    std::int64_t end = 0;
-};
+// One line of a target list (pybedtools' sort and merge: hicx::chic::sort_merge_regions).
+using TargetLine = chic::TargetRegion;
 
 // Adjusted p-values of the family, keyed by (sample viewpoint, position).
 using Adjusted = std::map<std::pair<std::size_t, double>, double>;
@@ -647,25 +644,6 @@ void create_unique_group(chic::Hdf5Writer& writer, const std::string& path) {
     writer.create_group(path);
 }
 
-// pybedtools BedTool(lines).sort().merge(d=resolution), bedtools 2.31.
-std::vector<TargetLine> sort_merge(std::vector<TargetLine> lines, std::int64_t distance) {
-    std::stable_sort(lines.begin(), lines.end(), [](const TargetLine& a, const TargetLine& b) {
-        if (a.chromosome != b.chromosome) {
-            return a.chromosome < b.chromosome;
-        }
-        return a.start < b.start;
-    });
-    std::vector<TargetLine> merged;
-    for (const TargetLine& line : lines) {
-        if (!merged.empty() && merged.back().chromosome == line.chromosome &&
-            line.start - merged.back().end <= distance) {
-            merged.back().end = std::max(merged.back().end, line.end);
-        } else {
-            merged.push_back(line);
-        }
-    }
-    return merged;
-}
 
 }  // namespace
 
@@ -1004,7 +982,7 @@ int main(int argc, char** argv) {
                     continue;
                 }
                 const std::vector<TargetLine> merged =
-                    sort_merge(target_data[i], options.resolution);
+                    chic::sort_merge_regions(target_data[i], options.resolution);
                 std::vector<std::string> starts;
                 std::vector<std::string> ends;
                 for (const TargetLine& line : merged) {

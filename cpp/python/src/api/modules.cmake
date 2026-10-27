@@ -13,6 +13,7 @@ set(HICX_API_MODULES
     chicDifferentialTest
     chicExportData
     chicQualityControl
+    chicSignificantInteractions
     chicViewpoint
     chicViewpointBackgroundModel
     lib_viewpoint

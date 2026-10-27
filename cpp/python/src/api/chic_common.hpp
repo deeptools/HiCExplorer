@@ -514,10 +514,46 @@ inline py::array as_array(py::handle values) {
     raise_error("TypeError", "HiCExplorer 4 writes the cHi-C lists as int64 or float64, not " + dtype_name(array));
 }
 
+// h5py's find_item_type: the one exact type of every item of a (nested)
+// list or tuple, or nullptr.
+inline PyTypeObject* item_type(py::handle data) {
+    if (PyList_Check(data.ptr()) || PyTuple_Check(data.ptr())) {
+        PyTypeObject* found = nullptr;
+        bool first = true;
+        for (const py::handle item : data) {
+            PyTypeObject* type = item_type(item);
+            if (first) {
+                found = type;
+                first = false;
+            } else if (type != found) {
+                return nullptr;
+            }
+        }
+        return first ? nullptr : found;
+    }
+    if (is_ndarray(data)) {
+        return nullptr;
+    }
+    return Py_TYPE(data.ptr());
+}
+
 // create_dataset(path, data=values[, compression='gzip', compression_opts=level])
+// for a list: int64 and float64 as numpy infers them, and lists of str as
+// variable length strings (h5py's guess_dtype).
 inline void write_values(hicx::chic::Hdf5Writer& writer, const std::string& path, py::handle values, int level) {
     if (writer.exists(path)) {
         raise_error("ValueError", "Unable to synchronously create dataset (name already exists)");
+    }
+    if (item_type(values) == &PyUnicode_Type) {
+        if (level > 0) {
+            raise_error("TypeError", "HiCExplorer 4 writes string lists without compression");
+        }
+        std::vector<std::string> strings;
+        for (const py::handle item : values) {
+            strings.push_back(utf8(item));
+        }
+        writer.write_strings(path, strings);
+        return;
     }
     const py::array array = as_array(values);
     if (array.ndim() > 1) {
@@ -534,23 +570,6 @@ inline void write_values(hicx::chic::Hdf5Writer& writer, const std::string& path
         writer.write_array(path, std::span<const double>(data), level);
         return;
     }
-    if (kind == 'S' || kind == 'O') {
-        // a list of str becomes '<U', of bytes 'S': only variable length
-        // strings (object arrays of str) are written as h5py would
-        bool all_str = array.size() > 0;
-        std::vector<std::string> strings;
-        for (const py::handle item : values) {
-            if (!is_str(item)) {
-                all_str = false;
-                break;
-            }
-            strings.push_back(utf8(item));
-        }
-        if (all_str && kind == 'O') {
-            writer.write_strings(path, strings);
-            return;
-        }
-    }
     unsupported_dtype(array);
 }
 
@@ -559,7 +578,7 @@ inline void write_scalar(hicx::chic::Hdf5Writer& writer, const std::string& path
     if (writer.exists(path)) {
         raise_error("ValueError", "Unable to synchronously create dataset (name already exists)");
     }
-    if (is_str(value)) {
+    if (PyUnicode_CheckExact(value.ptr())) {
         writer.write_string(path, utf8(value));
         return;
     }
