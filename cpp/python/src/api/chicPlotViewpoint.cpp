@@ -6,7 +6,8 @@
 // values it draws come from the Viewpoint object's C++ methods and from the
 // two functions here: the p-values of the heat strip (zero p-values set to
 // one, the significant regions' p-values, clipped to the colour range, in
-// float32 as numpy held them) and the ticks and labels of the x axis.
+// float32 as numpy held them: hicx::chic::p_value_row, which the tool uses
+// too) and the ticks and labels of the x axis.
 
 #include <cmath>
 #include <cstdint>
@@ -15,10 +16,12 @@
 
 #include "api.hpp"
 #include "chic_common.hpp"
+#include "hicx/chic_viewpoint.hpp"
 
 namespace hicx::python {
 
 using namespace chic_api;
+namespace hc = hicx::chic;
 
 namespace {
 
@@ -28,10 +31,6 @@ std::vector<float> as_float32(py::handle values) {
         numpy().attr("asarray")(values, py::arg("dtype") = numpy().attr("float32")));
     return to_vector<float>(array);
 }
-
-// np.maximum / np.minimum with NaN propagation, in float32
-float maximum(float a, float b) { return (std::isnan(a) || std::isnan(b)) ? std::nanf("") : (a > b ? a : b); }
-float minimum(float a, float b) { return (std::isnan(a) || std::isnan(b)) ? std::nanf("") : (a < b ? a : b); }
 
 void require_index(py::handle value, const char* name) {
     if (!is_integer(value)) {
@@ -53,54 +52,30 @@ void bind_chicPlotViewpoint(py::module_& m) {
         bool converted = false;
         std::vector<float> values;
         if (truthy(truncate_zero)) {
-            values = as_float32(p_values);
-            for (float& value : values) {
-                if (value == 0.0F) {
-                    value = 1.0F;
-                }
-            }
+            values = hc::p_value_row(as_float32(p_values), true, nullptr, std::nullopt, std::nullopt);
             converted = true;
         }
         if (truthy(p_value) && (!min_p_value.is_none() || !max_p_value.is_none())) {
             if (!converted) {
                 values = as_float32(p_values);
-            } else {
-                values = as_float32(from_vector(values));
             }
             converted = true;
-            if (!significant_p_values.is_none() && truthy(significant_p_values)) {
-                const std::int64_t n = static_cast<std::int64_t>(values.size());
+            hc::SignificantPValues significant;
+            const bool with_significant = !significant_p_values.is_none() && truthy(significant_p_values);
+            if (with_significant) {
                 for (const py::handle location : significant_p_values) {
                     const py::object first = getitem(location, 0);
                     const py::object last = getitem(location, 1);
                     require_index(first, "start");
                     require_index(last, "stop");
-                    const float replacement = static_cast<float>(to_double(getitem(location, 2)));
-                    for (std::int64_t x = to_int64(first); x < to_int64(last); ++x) {
-                        if (x < n) {
-                            const std::int64_t position = x < 0 ? x + n : x;
-                            if (position < 0) {
-                                raise_error("IndexError", "index " + std::to_string(x) +
-                                                              " is out of bounds for axis 0 with size " +
-                                                              std::to_string(n));
-                            }
-                            values[static_cast<std::size_t>(position)] = replacement;
-                        }
-                    }
+                    significant.emplace_back(to_int64(first), to_int64(last), to_double(getitem(location, 2)));
                 }
             }
-            const bool low = !min_p_value.is_none();
-            const bool high = !max_p_value.is_none();
-            const float lower = low ? static_cast<float>(to_double(min_p_value)) : 0.0F;
-            const float upper = high ? static_cast<float>(to_double(max_p_value)) : 0.0F;
-            for (float& value : values) {
-                if (low) {
-                    value = maximum(value, lower);
-                }
-                if (high) {
-                    value = minimum(value, upper);
-                }
-            }
+            const std::optional<double> lower =
+                min_p_value.is_none() ? std::nullopt : std::optional<double>(to_double(min_p_value));
+            const std::optional<double> upper =
+                max_p_value.is_none() ? std::nullopt : std::optional<double>(to_double(max_p_value));
+            values = hc::p_value_row(std::move(values), false, with_significant ? &significant : nullptr, lower, upper);
         }
         if (!converted) {
             return p_values;

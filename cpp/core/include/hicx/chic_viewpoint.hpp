@@ -31,6 +31,7 @@
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -304,6 +305,21 @@ struct InteractionFileData {
     std::span<const double> interaction_data, std::span<const double> raw,
     const std::string& gene, double sum_of_interactions, std::vector<double> pvalues,
     std::vector<double> xfold);
+
+// ---------------------------------------------------------------------------
+// chicPlotViewpoint's plot_images
+
+// The p-value row plot_images draws, in float32 as numpy held it: zeros set
+// to 1.0 with `truncate_zero`, then each significant region's p-value written
+// over positions [first, last) (a negative position counts from the end, as
+// Python indexes; one before the start is numpy's IndexError, a
+// hicx::PythonError), then the in-place clip to [min_p, max_p] (np.clip: NaN
+// stays NaN, the upper bound applied last; an absent bound is not applied).
+using SignificantPValues = std::vector<std::tuple<std::int64_t, std::int64_t, double>>;
+[[nodiscard]] std::vector<float> p_value_row(std::vector<float> values, bool truncate_zero,
+                                             const SignificantPValues* significant,
+                                             std::optional<double> min_p,
+                                             std::optional<double> max_p);
 
 }  // namespace hicx::chic
 
