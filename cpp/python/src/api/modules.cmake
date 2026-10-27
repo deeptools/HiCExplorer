@@ -11,6 +11,7 @@
 set(HICX_API_MODULES
     hicDifferentialTAD
     hicFindTADs
+    hicInterIntraTAD
     hicMergeDomains
     readBed
     utilities
