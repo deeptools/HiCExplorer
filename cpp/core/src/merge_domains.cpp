@@ -294,8 +294,11 @@ double py_float(const std::string& text) {
 // ---------------------------------------------------------------------------
 
 DomainList create_list_of_file(RowPool& pool, const std::string& path) {
+    return create_list_of_lines(pool, read_lines(path));
+}
+
+DomainList create_list_of_lines(RowPool& pool, const std::vector<std::string>& lines) {
     DomainList result;
-    const std::vector<std::string> lines = read_lines(path);
     result.rows.reserve(lines.size());
     std::int64_t bin_size = 10000000;
     int position = 0;
@@ -324,7 +327,10 @@ DomainList create_list_of_file(RowPool& pool, const std::string& path) {
 }
 
 ProteinList read_protein(const std::string& path) {
-    const std::vector<std::string> lines = read_lines(path);
+    return read_protein_lines(read_lines(path));
+}
+
+ProteinList read_protein_lines(const std::vector<std::string>& lines) {
     ProteinList grouped(1);
     std::string actual_chr = split_tab(at(lines, 0))[0];
     for (const std::string& line : lines) {
@@ -776,7 +782,9 @@ MergedDomains merge_domain_files(const std::vector<std::string>& domain_files,
     return result;
 }
 
-bool is_graphviz_format(const std::string& format) {
+namespace {
+
+const std::set<std::string>& graphviz_format_set() {
     static const std::set<std::string> formats = {
         "bmp",      "canon",     "dot",      "gv",        "xdot",     "xdot1.2",
         "xdot1.4",  "cgimage",   "cmap",     "eps",       "exr",      "fig",
@@ -788,6 +796,18 @@ bool is_graphviz_format(const std::string& format) {
         "svg",      "svgz",      "tga",      "tif",       "tiff",     "tk",
         "vml",      "vmlz",      "vrml",     "wbmp",      "webp",     "xlib",
         "x11"};
+    return formats;
+}
+
+}  // namespace
+
+std::vector<std::string> graphviz_formats() {
+    const std::set<std::string>& formats = graphviz_format_set();
+    return std::vector<std::string>(formats.begin(), formats.end());
+}
+
+bool is_graphviz_format(const std::string& format) {
+    const std::set<std::string>& formats = graphviz_format_set();
     std::string lowered;
     for (const char c : format) {
         lowered.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(c))));
