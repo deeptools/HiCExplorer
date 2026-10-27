@@ -49,7 +49,9 @@
 #ifndef HICX_LBFGSB_SCIPY_HPP
 #define HICX_LBFGSB_SCIPY_HPP
 
+#include <array>
 #include <functional>
+#include <optional>
 #include <span>
 
 #include "hicx/stats_ops.hpp"
@@ -76,7 +78,11 @@ namespace hicx::stats {
 //     so the start is [10, 10 / (10 + NaN)]), with status 2;
 //   * a value above 170 makes scipy's factorial overflow, the objective is
 //     +inf for every parameter pair, and scipy returns its starting point.
-[[nodiscard]] NBinomFit fit_nbinom_scipy(std::span<const double> data);
+//
+// `initial` is the optional initial_params argument (size, prob); it replaces
+// the moment estimator and is clamped into the bounds like any x0.
+[[nodiscard]] NBinomFit fit_nbinom_scipy(std::span<const double> data,
+                                         std::optional<std::array<double, 2>> initial = std::nullopt);
 
 }  // namespace hicx::stats
 

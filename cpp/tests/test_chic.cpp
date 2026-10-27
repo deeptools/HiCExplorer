@@ -4,6 +4,7 @@
 // Expected values were produced by the reference environment (numpy 1.26.4,
 // scipy 1.14.1, the repository's lib/viewpoint.py) on the cHi-C test data.
 
+#include <array>
 #include <cmath>
 #include <cstdio>
 #include <filesystem>
@@ -249,6 +250,23 @@ TEST_CASE("fit_nbinom_scipy returns the Python's answer where there is nothing t
     const double size = (mean * mean) / (variance - mean);
     CHECK(start.size == doctest::Approx(size).epsilon(1e-15));
     CHECK(start.prob == doctest::Approx(size / (size + mean)).epsilon(1e-15));
+}
+
+TEST_CASE("fit_nbinom_scipy initial_params replace the moment start") {
+    const std::vector<double> data{1.0, 2.0, 3.0, 5.0, 8.0, 2.0, 1.0, 0.0, 4.0};
+    const auto fitted = hicx::stats::fit_nbinom_scipy(data);
+    // starting at the default start (mean 2.888..., variance above the mean)
+    // is the same fit; an out of bounds start is clamped and still converges
+    const auto again = hicx::stats::fit_nbinom_scipy(data, std::array<double, 2>{fitted.size, fitted.prob});
+    CHECK(again.size == doctest::Approx(fitted.size).epsilon(1e-4));
+    CHECK(again.prob == doctest::Approx(fitted.prob).epsilon(1e-4));
+    const auto clamped = hicx::stats::fit_nbinom_scipy(data, std::array<double, 2>{-1.0, 5.0});
+    CHECK(clamped.size == doctest::Approx(fitted.size).epsilon(1e-2));
+    // the single precision flavour takes the same argument
+    const auto single = hicx::stats::fit_nbinom(data, hicx::stats::NBinomPrecision::Float32,
+                                                std::array<double, 2>{2.0, 0.5});
+    CHECK(std::isfinite(single.size));
+    CHECK(single.prob > 0.0);
 }
 
 TEST_CASE("chic_hdf5 writes h5py's layout") {

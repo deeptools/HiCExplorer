@@ -43,6 +43,7 @@ set(HICX_API_MODULES
     iterativeCorrection
     lib_buildMatrixMethods
     lib_cnb
+    lib_fit_nbinom
     lib_viewpoint
     list_tools
     parserCommon

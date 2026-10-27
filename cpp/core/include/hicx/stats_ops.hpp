@@ -33,10 +33,12 @@
 #ifndef HICX_STATS_OPS_HPP
 #define HICX_STATS_OPS_HPP
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <functional>
 #include <limits>
+#include <optional>
 #include <span>
 #include <vector>
 
@@ -215,8 +217,11 @@ enum class NBinomPrecision {
     Float32,
 };
 
+// `initial` replaces the moment estimator start (initial_params of fit); it
+// applies to Float32 only, the Float64 flavour takes fit_nbinom_scipy.
 [[nodiscard]] NBinomFit fit_nbinom(std::span<const double> data,
-                                   NBinomPrecision precision);
+                                   NBinomPrecision precision,
+                                   std::optional<std::array<double, 2>> initial = std::nullopt);
 
 // --------------------------------------------------------------------------
 // The negative binomial tail

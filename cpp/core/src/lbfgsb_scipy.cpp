@@ -1695,7 +1695,8 @@ LbfgsbResult minimise_lbfgsb_scipy(
     return result;
 }
 
-NBinomFit fit_nbinom_scipy(std::span<const double> data) {
+NBinomFit fit_nbinom_scipy(std::span<const double> data,
+                           std::optional<std::array<double, 2>> initial) {
     constexpr double infinitesimal = std::numeric_limits<double>::epsilon();
     NBinomFit fit;
     const std::size_t n = data.size();
@@ -1745,7 +1746,8 @@ NBinomFit fit_nbinom_scipy(std::span<const double> data) {
     const double size = variance > mean ? (mean * mean) / (variance - mean) : 10.0;
     const double prob = size / ((size + mean) != 0.0 ? (size + mean) : 1.0);
 
-    const std::vector<double> start{size, prob};
+    const std::vector<double> start = initial ? std::vector<double>{(*initial)[0], (*initial)[1]}
+                                              : std::vector<double>{size, prob};
     const std::vector<Bound> bounds{
         Bound{infinitesimal, std::numeric_limits<double>::infinity()},
         Bound{infinitesimal, 1.0}};
@@ -1759,8 +1761,8 @@ NBinomFit fit_nbinom_scipy(std::span<const double> data) {
         // NaN path itself depends on how gfortran's MIN and MAX treat a NaN
         // argument, which C++ does not share, so the result is returned
         // directly rather than by walking that path.
-        fit.size = std::min(std::max(size, bounds[0].lower), bounds[0].upper);
-        fit.prob = std::min(std::max(prob, bounds[1].lower), bounds[1].upper);
+        fit.size = std::min(std::max(start[0], bounds[0].lower), bounds[0].upper);
+        fit.prob = std::min(std::max(start[1], bounds[1].lower), bounds[1].upper);
         fit.status = 2;
         return fit;
     }
