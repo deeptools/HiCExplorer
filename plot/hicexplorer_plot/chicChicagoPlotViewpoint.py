@@ -13,12 +13,15 @@ genomic coordinates.
 
 Data (all styles):
     plotFile, style, title, xLabel, plevel1, plevel2, dpi, score
+    tier       per point 0 (score < plevel2), 1 (plevel2 <= score < plevel1),
+               2 (score >= plevel1) or -1 (NaN score), computed by the C++
 Data (style == "scatter"):
     x, y, hasBackground, bmeanX, bmeanY, bmeanUpperY (last three only when
     hasBackground)
 Data (style == "arcs"):
     arcX1, arcX2 (the two ends of each arc), arcHeight (log1p(N)), anchors
-    (bait positions to mark with a small tick)
+    (bait positions to mark with a small tick), drawOrder (np.argsort of the
+    arcs' z-order, computed by the C++)
 """
 
 import matplotlib
@@ -28,18 +31,14 @@ import matplotlib as mpl  # noqa: E402
 import numpy as np  # noqa: E402
 
 
-def _tier_masks(score, plevel1, plevel2):
-    score = np.asarray(score, dtype=np.float64)
-    background = score < plevel2
-    lev2 = (score >= plevel2) & (score < plevel1)
-    lev1 = score >= plevel1
-    return background, lev2, lev1
+def _tier_masks(tier):
+    tier = np.asarray(tier, dtype=np.int64)
+    return tier == 0, tier == 1, tier == 2
 
 
 def _draw_scatter(ax, data):
     x = np.array(data["x"], dtype=np.float64)
     y = np.array(data["y"], dtype=np.float64)
-    score = data["score"]
     plevel1, plevel2 = data["plevel1"], data["plevel2"]
 
     if data.get("hasBackground"):
@@ -50,7 +49,7 @@ def _draw_scatter(ax, data):
         ax.plot(bx, bu, color='darkgrey', linewidth=1, linestyle='--',
                 label='Brownian 95% upper')
 
-    background, lev2, lev1 = _tier_masks(score, plevel1, plevel2)
+    background, lev2, lev1 = _tier_masks(data["tier"])
     if np.any(background):
         ax.scatter(x[background], y[background], s=10, c='black', label='background')
     if np.any(lev2):
@@ -76,14 +75,12 @@ def _draw_arcs(ax, data):
     x1 = np.array(data["arcX1"], dtype=np.float64)
     x2 = np.array(data["arcX2"], dtype=np.float64)
     heights = np.array(data["arcHeight"], dtype=np.float64)
-    score = data["score"]
     plevel1, plevel2 = data["plevel1"], data["plevel2"]
-    background, lev2, lev1 = _tier_masks(score, plevel1, plevel2)
+    background, lev2, lev1 = _tier_masks(data["tier"])
     colour = np.where(lev1, 'red', np.where(lev2, 'blue', 'black'))
     zorder = np.where(lev1, 3, np.where(lev2, 2, 1))
 
-    order = np.argsort(zorder)
-    for i in order:
+    for i in data["drawOrder"]:
         xs, ys = _arc_points(x1[i], x2[i], heights[i])
         ax.plot(xs, ys, color=colour[i], linewidth=1.2, alpha=0.8, zorder=int(zorder[i]))
 
