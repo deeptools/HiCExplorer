@@ -11,6 +11,7 @@
 set(HICX_API_MODULES
     hicCorrelate
     hicPrepareQCreport
+    list_tools
     readBed
     utilities
 )

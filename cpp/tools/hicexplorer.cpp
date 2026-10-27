@@ -19,6 +19,7 @@
 #include <vector>
 
 #include "hicx/argparse.hpp"
+#include "hicx/tool_list.hpp"
 #include "hicx/version.hpp"
 
 namespace {
@@ -53,33 +54,6 @@ const char* const kCitation =
 
 const char* const kUsage = "usage: hicexplorer [-h] [--version]\n";
 
-// Python's str.strip() for the ASCII whitespace characters.
-bool is_space(char c) {
-    return c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\x0b' || c == '\x0c' ||
-           (c >= '\x1c' && c <= '\x1f');
-}
-
-std::string_view strip(std::string_view text) {
-    while (!text.empty() && is_space(text.front())) {
-        text.remove_prefix(1);
-    }
-    while (!text.empty() && is_space(text.back())) {
-        text.remove_suffix(1);
-    }
-    return text;
-}
-
-// description.strip().split('\n')[0].split('. ')[0].rstrip('.')
-std::string summary(std::string_view description) {
-    std::string_view first = strip(description);
-    first = first.substr(0, first.find('\n'));
-    first = first.substr(0, first.find(". "));
-    while (!first.empty() && first.back() == '.') {
-        first.remove_suffix(1);
-    }
-    return std::string(first);
-}
-
 // '{:<{}}{}\n'.format(name, width, summary) per tool, names sorted, width
 // the longest name plus one.
 std::string tool_list() {
@@ -87,17 +61,11 @@ std::string tool_list() {
     std::sort(tools.begin(), tools.end(), [](const ToolEntry& a, const ToolEntry& b) {
         return std::string_view(a.name) < std::string_view(b.name);
     });
-    std::size_t width = 0;
+    std::vector<std::pair<std::string, std::string>> entries;
     for (const ToolEntry& tool : tools) {
-        width = std::max(width, std::string_view(tool.name).size() + 1);
+        entries.emplace_back(tool.name, hicx::toollist::summary(tool.description));
     }
-    std::string out;
-    for (const ToolEntry& tool : tools) {
-        std::string name(tool.name);
-        name.resize(std::max(width, name.size()), ' ');
-        out += name + summary(tool.description) + "\n";
-    }
-    return out;
+    return hicx::toollist::format_tool_list(entries);
 }
 
 // What argparse prints after the usage line: the raw description, the

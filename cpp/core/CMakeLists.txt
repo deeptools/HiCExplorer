@@ -74,6 +74,7 @@ add_library(hicx4core
     src/scipy_special.cpp
     src/scipy_stats.cpp
     src/tar_gz.cpp
+    src/tool_list.cpp
     src/sparse_matrix.cpp
     src/stats_ops.cpp
     src/text_formats.cpp
