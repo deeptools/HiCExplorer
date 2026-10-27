@@ -81,6 +81,8 @@ struct Arguments {
     bool dangling_given = false;
     // pRestrictionCutFile is not None, which decides the QC log rows.
     bool restriction_cut_file_given = false;
+    // pMinDistance is None (min_distance is then 0, which is falsy as None is).
+    bool min_distance_none = false;
 };
 
 // One restriction site of a BED file, as bed2interval_list returns it.
@@ -95,6 +97,12 @@ struct Hooks {
     std::function<void(const char* level, const std::string& message)> log;
     // warnings.warn(message) (the tools print the message to stderr).
     std::function<void(const std::string& message)> warn;
+    // Called once both BAM files are open, where createMatrix closes the file
+    // objects of pSamFiles and pOutBam.
+    std::function<void()> bams_opened;
+    // createMatrix upper-cases pRestrictionSequence[index] and, with
+    // `dangling_too`, pDanglingSequence[index] in place.
+    std::function<void(std::size_t index, bool dangling_too)> uppercase;
     // The chromosome sizes of pChromosomeSizes, read by the caller (the
     // tools read Arguments::chromosome_sizes).
     std::function<ChromSizes()> chromosome_sizes;

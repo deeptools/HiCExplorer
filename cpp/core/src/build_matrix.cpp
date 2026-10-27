@@ -395,27 +395,11 @@ std::optional<std::int64_t> BinSearchIndex::flat_index_at(
     if (found == range_.end()) {
         return std::nullopt;  // the KeyError branch
     }
-    std::int64_t start = found->second.first;
-    std::int64_t end = found->second.second;
     // int((start + end) / 2) truncates toward zero, which differs from a floor
     // division as soon as the sum is negative. It cannot be here, but the
     // truncating form is what the Python has.
-    std::int64_t middle = (start + end) / 2;
-    while (!(start > end)) {
-        const SearchInterval& probe = flat_[static_cast<std::size_t>(middle)];
-        const std::uint64_t value = static_cast<std::uint64_t>(position);
-        if (static_cast<std::uint64_t>(probe.begin) <= value &&
-            value <= static_cast<std::uint64_t>(probe.end)) {
-            return middle;
-        }
-        if (static_cast<std::uint64_t>(probe.begin) > value) {
-            end = middle - 1;
-        } else {
-            start = middle + 1;
-        }
-        middle = (start + end) / 2;
-    }
-    return std::nullopt;
+    return search_bins(found->second.first, found->second.second, static_cast<std::uint64_t>(position),
+                       [this](std::int64_t index) { return flat_[static_cast<std::size_t>(index)]; });
 }
 
 std::optional<std::uint32_t> BinSearchIndex::bin_at(std::uint32_t chrom,

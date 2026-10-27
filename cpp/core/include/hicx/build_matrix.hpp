@@ -125,6 +125,30 @@ struct SearchInterval {
     std::uint32_t data = 0;
 };
 
+// The binary search of buildMatrixMethods.py:658-681 over the flat
+// intervals [start, end] (inclusive indices) of one chromosome: the index of
+// the interval with begin <= position <= end, or nullopt. `probe(index)`
+// returns the interval at an index; the midpoint is int((start + end) / 2).
+template <class Probe>
+[[nodiscard]] std::optional<std::int64_t> search_bins(std::int64_t start, std::int64_t end,
+                                                      std::uint64_t position, Probe&& probe) {
+    std::int64_t middle = (start + end) / 2;
+    while (!(start > end)) {
+        const SearchInterval interval = probe(middle);
+        if (static_cast<std::uint64_t>(interval.begin) <= position &&
+            position <= static_cast<std::uint64_t>(interval.end)) {
+            return middle;
+        }
+        if (static_cast<std::uint64_t>(interval.begin) > position) {
+            end = middle - 1;
+        } else {
+            start = middle + 1;
+        }
+        middle = (start + end) / 2;
+    }
+    return std::nullopt;
+}
+
 class BinSearchIndex {
   public:
     BinSearchIndex() = default;

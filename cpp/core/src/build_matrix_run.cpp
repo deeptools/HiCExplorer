@@ -486,6 +486,9 @@ void run(const Arguments& args, const Hooks& hooks) {
     if (!hooks.log) {
         std::fprintf(stderr, "INFO:hicexplorer.lib.buildMatrixMethods:%s\n", reading.c_str());
     }
+    if (hooks.bams_opened) {
+        hooks.bams_opened();
+    }
 
     std::unique_ptr<BamWriter> out_bam;
     if (!args.do_test_run && !args.out_bam.empty()) {
@@ -541,10 +544,17 @@ void run(const Arguments& args, const Hooks& hooks) {
     } else {
         if (api) {
             log("info", "Minimum distance considered between restriction sites is " +
-                            std::to_string(args.min_distance) + "\nMax distance: " +
-                            std::to_string(max_library_insert_size) + "\n");
+                            (args.min_distance_none ? std::string("None") : std::to_string(args.min_distance)) +
+                            "\nMax distance: " + std::to_string(max_library_insert_size) + "\n");
             if (rf_interval.empty()) {
                 throw PythonError("ValueError", "not enough values to unpack (expected 3, got 0)");
+            }
+            if (args.min_distance_none) {
+                // np.diff(start) - rest_site_len <= None compares element-wise;
+                // with a single site the bin filter fails instead
+                throw PythonError("TypeError", rf_interval.size() > 1
+                                                   ? "'<=' not supported between instances of 'int' and 'NoneType'"
+                                                   : "'>=' not supported between instances of 'int' and 'NoneType'");
             }
         }
         bin_intervals = get_rf_bins(rf_interval, args.min_distance, max_library_insert_size);
@@ -573,6 +583,9 @@ void run(const Arguments& args, const Hooks& hooks) {
     if (api) {
         const bool build = args.dangling_given;
         for (std::size_t i = 0; i < args.restriction_sequences.size(); ++i) {
+            if (build && hooks.uppercase) {
+                hooks.uppercase(i, i < args.dangling_sequences.size());
+            }
             if (build && i >= args.dangling_sequences.size()) {
                 throw PythonError("IndexError", "list index out of range");
             }
