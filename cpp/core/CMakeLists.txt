@@ -59,6 +59,8 @@ add_library(hicx4core
     src/numpy_sort_avx512.cpp
     src/obsexp_ops.cpp
     src/pairs_file.cpp
+    src/qc_html.cpp
+    src/qc_report_api.cpp
     src/plot_bridge.cpp
     src/py_text.cpp
     src/read_bed.cpp

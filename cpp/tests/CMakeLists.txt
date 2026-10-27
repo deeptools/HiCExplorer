@@ -53,6 +53,7 @@ add_executable(hicx_tests
     test_arrowhead.cpp
     test_python_api_core.cpp
     test_correlate_api.cpp
+    test_qc_report_api.cpp
     # The computational cores of hicDetectLoops, of the two TAD statistics tools,
     # of hicCompartmentalization, of hicMergeDomains, of hicDifferentialAnalysis,
     # of hicDetectStripes and of hicArrowhead, so that the tests link against

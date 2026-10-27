@@ -6,9 +6,9 @@ hicexplorer.hicCompartmentalization	plot_polarization_ratio	draws the polarizati
 hicexplorer.hicPlotMatrix	plotHeatmap	matplotlib pcolormesh and colorbar of a matrix it is given
 hicexplorer.hicPlotMatrix	plotLongRangeContacts	draws arcs with matplotlib from given contacts
 hicexplorer.hicPlotMatrix	plotTADs	draws TAD triangles with matplotlib from given domains
-hicexplorer.hicPrepareQCreport	make_figure_pairs_used	matplotlib bar chart of QC numbers it is given
-hicexplorer.hicPrepareQCreport	make_figure_umappable_non_unique_reads	matplotlib bar chart of QC numbers it is given
-hicexplorer.hicPrepareQCreport	make_figure_pairs_discarded	matplotlib bar chart of QC numbers it is given
-hicexplorer.hicPrepareQCreport	make_figure_distance	matplotlib bar chart of QC numbers it is given
-hicexplorer.hicPrepareQCreport	make_figure_read_orientation	matplotlib bar chart of QC numbers it is given
+hicexplorer.hicPrepareQCreport	make_figure_pairs_used	matplotlib/pandas bar chart; the tables it plots and returns come from C++ (hicexplorer._hicx.hicPrepareQCreport)
+hicexplorer.hicPrepareQCreport	make_figure_umappable_non_unique_reads	matplotlib/pandas bar chart; the tables it plots and returns come from C++ (hicexplorer._hicx.hicPrepareQCreport)
+hicexplorer.hicPrepareQCreport	make_figure_pairs_discarded	matplotlib/pandas bar chart; the tables it plots and returns come from C++ (hicexplorer._hicx.hicPrepareQCreport)
+hicexplorer.hicPrepareQCreport	make_figure_distance	matplotlib/pandas bar chart; the tables it plots and returns come from C++ (hicexplorer._hicx.hicPrepareQCreport)
+hicexplorer.hicPrepareQCreport	make_figure_read_orientation	matplotlib/pandas bar chart; the tables it plots and returns come from C++ (hicexplorer._hicx.hicPrepareQCreport)
 hicexplorer.hicCorrelate	plot_correlation	matplotlib heatmap and scipy dendrogram drawing; the linkage and the colour range come from C++ (hicexplorer._hicx.hicCorrelate)

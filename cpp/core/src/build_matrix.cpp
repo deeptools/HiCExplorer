@@ -5,7 +5,8 @@
 #include "hicx/plot_bridge.hpp"
 #include "hicx/version.hpp"
 
-#include "qc_template_html.inc"  // kQcTemplateHtml, generated from hicexplorer/qc_template.html
+#include "hicx/python_error.hpp"
+#include "hicx/qc_html.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -1016,156 +1017,49 @@ QcTables build_qc_tables(const QcFrame& frame) {
 // ---------------------------------------------------------------------------
 // hicQC.html (save_html) and the DataFrames of the five charts (make_figure_*).
 
-// f"{x:.<precision>f}": Python prints nan and the infinities as words.
-std::string qc_fixed(double value, int precision) {
-    if (std::isnan(value)) {
-        return "nan";
-    }
-    if (std::isinf(value)) {
-        return value > 0 ? "inf" : "-inf";
-    }
-    char buffer[400];
-    std::snprintf(buffer, sizeof(buffer), "%.*f", precision, value);
-    return buffer;
-}
-
-// '{:.2%}'.format(x)
-std::string qc_format_percent(double value) {
-    if (std::isnan(value)) {
-        return "nan%";
-    }
-    return qc_fixed(value * 100.0, 2) + "%";
-}
-
-// The thousands separator of '{:,}' on the leading integer digits of `text`.
-std::string qc_group_thousands(const std::string& text) {
-    const std::size_t start = (!text.empty() && text[0] == '-') ? 1 : 0;
-    std::size_t end = start;
-    while (end < text.size() && std::isdigit(static_cast<unsigned char>(text[end]))) {
-        ++end;
-    }
-    const std::string digits = text.substr(start, end - start);
-    std::string grouped;
-    for (std::size_t i = 0; i < digits.size(); ++i) {
-        if (i > 0 && (digits.size() - i) % 3 == 0) {
-            grouped += ',';
-        }
-        grouped += digits[i];
-    }
-    return text.substr(0, start) + grouped + text.substr(end);
-}
-
-// The formatter save_html gives the four derived tables:
-// lambda x: '{:,}'.format(x) if x > 1 else '{:.2%}'.format(x)
-// ('{:,}' of a float is its repr with grouped integer digits, unless the repr
-// is in exponent notation or a word).
-std::string qc_derived_formatter(const QcCell& cell) {
-    if (cell.is_int) {
-        return cell.integer > 1 ? qc_group_thousands(std::to_string(cell.integer))
-                                : qc_format_percent(static_cast<double>(cell.integer));
-    }
-    if (cell.is_float) {
-        if (!(cell.real > 1)) {
-            return qc_format_percent(cell.real);
-        }
-        const std::string repr = npy::float_repr(cell.real);
-        if (repr.find('e') != std::string::npos || repr.find("inf") != std::string::npos) {
-            return repr;
-        }
-        return qc_group_thousands(repr);
-    }
-    throw std::runtime_error("TypeError: '>' not supported between instances of 'str' and 'int' "
-                             "(a QC table column holds text)");
-}
-
-// Styler's default formatter: a column of the QC frame holds Python ints and
-// strings, which it shows as str() does.
-std::string qc_default_formatter(const QcCell& cell) { return cell.str(); }
-
-// Five random hexadecimal characters, as Styler's uuid4().hex[:5].
-std::string qc_styler_uuid() {
-    static std::mt19937_64 engine{std::random_device{}()};
-    static const char* const hex = "0123456789abcdef";
-    std::string id;
-    for (int i = 0; i < 5; ++i) {
-        id += hex[engine() % 16];
-    }
-    return id;
-}
-
-// DataFrame.style.format(formatter).to_html() in pandas 2.2 (html_style.tpl
-// and html_table.tpl) for a table without styles, caption or attributes, a
-// named single level index and unnamed columns. Styler escapes nothing by
-// default.
-std::string qc_styler_to_html(const QcFrame& frame, const QcOutputTable& table,
-                              const std::vector<std::pair<std::size_t, std::size_t>>& rows,
-                              std::string (*format)(const QcCell&)) {
-    const std::string uuid = qc_styler_uuid();
-    std::string out = "<style type=\"text/css\">\n</style>\n<table id=\"T_" + uuid + "\">\n";
-    out += "  <thead>\n    <tr>\n      <th class=\"blank level0\" >&nbsp;</th>\n";
-    for (std::size_t c = 0; c < table.columns.size(); ++c) {
-        const std::string col = std::to_string(c);
-        out += "      <th id=\"T_" + uuid + "_level0_col" + col + "\" class=\"col_heading level0 col" +
-               col + "\" >" + table.columns[c] + "</th>\n";
-    }
-    out += "    </tr>\n";
-    out += "    <tr>\n      <th class=\"index_name level0\" >" + frame.index_name + "</th>\n";
-    for (std::size_t c = 0; c < table.columns.size(); ++c) {
-        out += "      <th class=\"blank col" + std::to_string(c) + "\" >&nbsp;</th>\n";
-    }
-    out += "    </tr>\n  </thead>\n  <tbody>\n";
-    for (std::size_t r = 0; r < rows.size(); ++r) {
-        const std::string row = std::to_string(r);
-        out += "    <tr>\n      <th id=\"T_" + uuid + "_level0_row" + row +
-               "\" class=\"row_heading level0 row" + row + "\" >" + frame.index[rows[r].first] +
-               "</th>\n";
-        for (std::size_t c = 0; c < table.columns.size(); ++c) {
-            const std::string col = std::to_string(c);
-            out += "      <td id=\"T_" + uuid + "_row" + row + "_col" + col + "\" class=\"data row" +
-                   row + " col" + col + "\" >" + format(table.values[c][r]) + "</td>\n";
-        }
-        out += "    </tr>\n";
-    }
-    out += "  </tbody>\n</table>\n";
+// Adapter from the QC frame's cells to the shared Styler renderer
+// (hicx/qc_html.hpp).
+QcStylerCell styler_cell(const QcCell& cell) {
+    QcStylerCell out;
+    out.is_int = cell.is_int;
+    out.is_float = cell.is_float;
+    out.integer = cell.integer;
+    out.real = cell.real;
+    out.text = cell.text;
     return out;
 }
 
-// str.replace: every occurrence, left to right.
-void qc_replace_all(std::string& text, const std::string& pattern, const std::string& replacement) {
-    std::string out;
-    std::size_t from = 0;
-    for (std::size_t at = text.find(pattern); at != std::string::npos;
-         at = text.find(pattern, from)) {
-        out.append(text, from, at - from);
-        out += replacement;
-        from = at + pattern.size();
+QcDisplayTable display_table(const QcFrame& frame, const QcOutputTable& table,
+                             const std::vector<std::pair<std::size_t, std::size_t>>& rows) {
+    QcDisplayTable out;
+    out.index_name = frame.index_name;
+    for (const auto& row : rows) {
+        out.index.push_back(frame.index[row.first]);
     }
-    out.append(text, from, std::string::npos);
-    text = std::move(out);
+    out.columns = table.columns;
+    for (const auto& column : table.values) {
+        std::vector<QcStylerCell> cells;
+        for (std::size_t r = 0; r < rows.size(); ++r) {
+            cells.push_back(styler_cell(column[r]));
+        }
+        out.cells.push_back(std::move(cells));
+    }
+    return out;
 }
 
-// save_html. The template is hicexplorer/qc_template.html, compiled in.
+// save_html: hicQC.html from the shared document renderer.
 void qc_save_html(const std::string& filename, const QcFrame& frame, const QcTables& tables) {
-    std::string html(reinterpret_cast<const char*>(kQcTemplateHtml), sizeof(kQcTemplateHtml));
-    qc_replace_all(html, "%%TABLE_UNMAP%%",
-                   qc_styler_to_html(frame, tables.unmap, tables.joined, &qc_derived_formatter));
-    qc_replace_all(html, "%%TABLE_DISCARDED%%",
-                   qc_styler_to_html(frame, tables.discarded, tables.joined, &qc_derived_formatter));
-    qc_replace_all(html, "%%TABLE_DISTANCE%%",
-                   qc_styler_to_html(frame, tables.distance, tables.joined, &qc_derived_formatter));
-    qc_replace_all(html, "%%TABLE_ORIENTATION%%",
-                   qc_styler_to_html(frame, tables.orientation, tables.joined,
-                                     &qc_derived_formatter));
-    QcOutputTable all = tables.all;
-    for (const char* dropped : {"Min rest. site distance", "Max library insert size"}) {
-        const auto it = std::find(all.columns.begin(), all.columns.end(), dropped);
-        if (it != all.columns.end()) {
-            all.values.erase(all.values.begin() + (it - all.columns.begin()));
-            all.columns.erase(it);
-        }
+    std::string html;
+    try {
+        html = qc_html_document(display_table(frame, tables.unmap, tables.joined),
+                                display_table(frame, tables.discarded, tables.joined),
+                                display_table(frame, tables.distance, tables.joined),
+                                display_table(frame, tables.orientation, tables.joined),
+                                display_table(frame, tables.all, tables.plain));
+    } catch (const PythonError& error) {
+        throw std::runtime_error(error.type() + ": " + error.what() +
+                                 " (a QC table column holds text)");
     }
-    qc_replace_all(html, "%%TABLE%%",
-                   qc_styler_to_html(frame, all, tables.plain, &qc_default_formatter));
     std::ofstream out(filename, std::ios::binary);
     if (!out) {
         throw std::runtime_error("could not write " + filename);
