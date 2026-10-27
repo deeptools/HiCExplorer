@@ -408,3 +408,16 @@ TEST_CASE("chic: target regions are sorted and merged as bedtools merge -d does"
     CHECK(merged[1].end == 45);
     CHECK(merged[2].chromosome == "chr2");
 }
+
+TEST_CASE("chic: fisher_exact reports the p-values scipy returns as Python floats") {
+    // [[10, 4], [5, 7]]: hypergeometric tails, numpy.float64 0.2328577197469377
+    const auto computed = hicx::scipy::fisher_exact(10, 4, 5, 7);
+    REQUIRE(computed.has_value());
+    CHECK_FALSE(computed->python_float);
+    CHECK(computed->pvalue == hicx::scipy::fisher_exact_pvalue(10, 4, 5, 7).value());
+    // an empty row, and a table at the mode: the constant 1.0
+    CHECK(hicx::scipy::fisher_exact(0, 0, 3, 0)->python_float);
+    CHECK(hicx::scipy::fisher_exact(3, 3, 3, 3)->python_float);
+    CHECK(hicx::scipy::fisher_exact(3, 3, 3, 3)->pvalue == 1.0);
+    CHECK_FALSE(hicx::scipy::fisher_exact(-1, 2, 3, 4).has_value());
+}

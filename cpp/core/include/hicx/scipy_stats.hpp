@@ -38,6 +38,16 @@ namespace hicx::scipy {
 [[nodiscard]] std::optional<double> fisher_exact_pvalue(std::int64_t a, std::int64_t b,
                                                         std::int64_t c, std::int64_t d);
 
+// The same with the type scipy returns the p-value in: a Python float for the
+// constant 1.0 of a table with an empty row or column, of a table at the mode
+// and of min(pvalue, 1.0) when 1.0 is the smaller, numpy.float64 otherwise.
+struct FisherExact {
+    double pvalue = 0.0;
+    bool python_float = false;
+};
+[[nodiscard]] std::optional<FisherExact> fisher_exact(std::int64_t a, std::int64_t b, std::int64_t c,
+                                                      std::int64_t d);
+
 struct Chi2Contingency {
     double statistic = 0.0;
     double pvalue = 0.0;
