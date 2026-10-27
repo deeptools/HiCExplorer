@@ -1,18 +1,17 @@
-"""hicMergeDomains: a thin layer over the C++ executable hicMergeDomains.
+"""hicexplorer.hicMergeDomains, implemented in C++.
 
-main() runs the executable and parse_arguments() is built from its --help-json
-(hicexplorer._cpp). The other names of this module are kept for API
-compatibility and are not used by the tool.
+main() runs the C++ executable hicMergeDomains and parse_arguments() is built
+from its --help-json (hicexplorer._cpp). Every other function keeps its 3.7.6
+signature, docstring and behaviour, and its body calls
+hicexplorer._hicx.hicMergeDomains (cpp/python/src/api/hicMergeDomains.cpp,
+cpp/core/include/hicx/merge_domains.hpp). The deviations from 3.7.6 are listed
+in hicexplorer/test/api/cases_hicMergeDomains.py.
 """
-import argparse
-from scipy.cluster.hierarchy import dendrogram, linkage
-import numpy as np
-from matplotlib import pyplot as plt
-from graphviz import Digraph
-import os
 import logging
 log = logging.getLogger(__name__)
 from hicexplorer._version import __version__
+
+from hicexplorer._hicx import hicMergeDomains as _impl
 
 
 def parse_arguments(args=None):
@@ -23,315 +22,66 @@ def parse_arguments(args=None):
 
 def create_list_of_file(file, binSizeList):
     """Creates a list from a file and recognizes its BinSize at the same time"""
-    with open(file) as f:
-        newList = [line.rstrip() for line in f]
-    splittedList = []
-    binSize = 10000000
-    """ It is not necessary to iterate over the entire length of the list
-        The first 20 positions are sufficient to determine the BinSize """
-    pos = 0
-    for line in newList:
-        x = line.split("\t")
-        splittedList.append(x)
-        if pos < 20:
-            pos += 1
-            zeros, num = 0, x[1]
-            while num[len(num) - 1:] == '0':
-                zeros += 1
-                num = num[0:(len(num) - 1)]
-            num = num[len(num) - 1:]
-            while zeros != 0:
-                num += '0'
-                zeros -= 1
-            if int(num) < binSize:
-                binSize = int(num)
-    log.debug('binSize {}'.format(binSize))
-    return splittedList, binSize
+    return _impl.create_list_of_file(file, binSizeList)
 
 
 def merge_list(d1, d2, pValue=5000):
     """Combine two lists into one, taking into account the value,
        with which one can decide whether two very similar TADs should
        be seen as one or as two """
-    pos1, pos2 = 0, 0
-    merged_list = []
-    while True:
-        if pos1 == len(d1):
-            break
-        while d1[pos1][0] == d2[pos2][0]:
-            """Checks whether the left boundary of TAD1 is less than or equal to the left boundary of TAD2"""
-            if int(d1[pos1][1]) <= int(d2[pos2][1]):
-                """ Checks whether either the left or right border of the two TADs exceed the minimum distance value"""
-                if (abs(int(d1[pos1][1]) - int(d2[pos2][1])) > pValue) or (
-                        abs(int(d1[pos1][2]) - int(d2[pos2][2])) > pValue):
-                    merged_list.append(d1[pos1])
-                if pos1 + 1 != len(d1):
-                    pos1 += 1
-                else:
-                    """As long as List2 has not reached its end and still share the same chromosome, the remaining
-                    TADs are added """
-                    while (pos2 < len(d2)) and (d1[pos1][0] == d2[pos2][0]):
-                        merged_list.append(d2[pos2])
-                        pos2 += 1
-                    break
-                """Checks whether the left boundary of TAD2 is less than or equal to the left boundary of TAD1"""
-            elif (int(d1[pos1][1]) > int(d2[pos2][1])):
-                """ Checks whether either the left or right border of the two TADs exceed the minimum distance value"""
-                if (abs(int(d1[pos1][1]) - int(d2[pos2][1])) > pValue) or (
-                        abs(int(d1[pos1][2]) - int(d2[pos2][2])) > pValue):
-                    merged_list.append(d2[pos2])
-                if pos2 + 1 != len(d2):
-                    pos2 += 1
-                else:
-                    """As long as List1 has not reached its end and still share the same chromosome, the remaining
-                    TADs are added"""
-                    while (pos1 < len(d1)) and (d1[pos1][0] == d2[pos2][0]):
-                        merged_list.append(d1[pos1])
-                        pos1 += 1
-                    break
-        if pos1 == len(d1):
-            break
-        old_pos2 = pos2
-        """ check if the current chromosome at pos1 is in d2 """
-        while pos2 < len(d2):
-            if not (d1[pos1][0] == d2[pos2][0]):
-                pos2 += 1
-            else:
-                break
-        """ if the chromosome is not found in d2, add all TADs with the current chromosome from d1 to the list """
-        if pos2 == len(d2):
-            pos2 = old_pos2
-            chrom = d1[pos1][0]
-            while d1[pos1][0] == chrom:
-                merged_list.append(d1[pos1])
-                pos1 += 1
-                if pos1 == len(d1):
-                    break
-    """ add all TADs from d2 to the list that have not yet been added """
-    pos2 = 0
-    while pos2 < len(d2):
-        if d2[pos2] not in merged_list:
-            merged_list.append(d2[pos2])
-        pos2 += 1
-    return merged_list
+    return _impl.merge_list(d1, d2, pValue)
 
 
 def add_id(domainList):
     """Give each element of a list its individual number """
-    id_number = 1
-    for tad in domainList:
-        tad[3] = "ID_" + str(id_number)
-        id_number += 1
-    return domainList
+    return _impl.add_id(domainList)
 
 
 def create_relationsship_list(domainList, pPercent=0.5):
     """Give each element of a list its individual number """
-    relationList = []
-    tad1, tad2 = 0, 1
-    while tad1 < len(domainList):
-        while tad2 < len(domainList):
-            """ Since the list is sorted, the second loop is terminated if either tad1 is to the
-                right of tad2 or if they are no longer on the same chromosome """
-            if (int(domainList[tad1][2]) < int(domainList[tad2][1])) or (domainList[tad1][0] != domainList[tad2][0]):
-                break
-            """ The minimum area of TAD1 is calculated using the "percent" parameter in order
-            to detect overlapping TADs """
-            minArea = (float(domainList[tad1][2]) - float(domainList[tad1][1])) * pPercent
-            """ Checks whether the two TADs are overlapping TADs """
-            if ((float(domainList[tad1][2]) - minArea) > float(domainList[tad2][1])) and \
-                    ((float(domainList[tad1][2]) + minArea) <= float(domainList[tad2][2])):
-                if (float(domainList[tad1][2]) - float(domainList[tad1][1])) > \
-                        (float(domainList[tad2][2]) - int(domainList[tad2][1])):
-                    add_relation_to_list(relationList, domainList[tad1][0], domainList[tad1][3], domainList[tad2][3])
-                else:
-                    add_relation_to_list(relationList, domainList[tad2][0], domainList[tad2][3], domainList[tad1][3])
-                """ Checks whether TAD1 is completely in TAD2 """
-            elif ((not float(domainList[tad2][1]) < (float(domainList[tad1][1]))) and
-                  (not int(domainList[tad2][2]) > float(domainList[tad1][2]))):
-                add_relation_to_list(relationList, domainList[tad1][0], domainList[tad1][3], domainList[tad2][3])
-            tad2 += 1
-        tad2 = tad1 + 2
-        tad1 += 1
-    return relationList
+    return _impl.create_relationsship_list(domainList, pPercent)
 
 
 def add_relation_to_list(rList, chromosom, parent, child):
     """ Add a discovered relationship to a list """
-    if len(rList) == 0:
-        rList.append([chromosom, parent, [child]])
-        return rList
-    pos = len(rList) - 1
-    while True:
-        if rList[pos][1] == parent:
-            rList[pos][2].append(child)
-            return rList
-        elif int(rList[pos][1][3:]) < int(parent[3:]):
-            rList.append([chromosom, parent, [child]])
-            return rList
-        else:
-            pos -= 1
+    return _impl.add_relation_to_list(rList, chromosom, parent, child)
 
 
 def write_in_file(pList, name, relation=False):
     """ Create and save various lists in their individual files """
-    filename = name
-    with open(filename, 'w') as myfile:
-        i = 0
-        if relation:
-            while i < len(pList):
-                element = 0
-                while element < len(pList[i][2]):
-                    string = pList[i][0] + '\t' + pList[i][1] + '\t' + pList[i][2][element] + '\n'
-                    myfile.write(string)
-                    element += 1
-                i += 1
-        else:
-            while i < len(pList):
-                element = 0
-                string = ""
-                while element < len(pList[i]) - 1:
-                    string += pList[i][element] + '\t'
-                    element += 1
-                string += pList[i][element] + '\n'
-                myfile.write(string)
-                i += 1
+    return _impl.write_in_file(pList, name, relation)
 
 
 def create_tree(rList, dList, pFileNameSuffix, pFormat):
     """ Create a tree diagram from a list and
        thus represent the relationships of individual TADs per chromosome """
-    name = pFileNameSuffix + '_' + rList[0][0]
-    g = Digraph(filename=name, strict=True, format=pFormat)
-    sList = create_small_list(dList)
-    chrom = rList[0][0]
-    posRList = 0
-    posSList = 0
-    while sList[posSList][0] != chrom:
-        posSList += 1
-    while posRList < len(rList):
-        if chrom == rList[posRList][0]:
-            while int(sList[posSList][1][0][3:]) < int(rList[posRList][1][3:]):
-                g.node(sList[posSList][1][0])
-                sList[posSList][1].remove(sList[posSList][1][0])
-            if rList[posRList][1] in sList[posSList][1]:
-                sList[posSList][1].remove(rList[posRList][1])
-            for child in rList[posRList][2]:
-                g.edge(rList[posRList][1], child)
-                if child in sList[posSList][1]:
-                    sList[posSList][1].remove(child)
-        else:
-            while len(sList[posSList][1]) != 0:
-                g.node(sList[posSList][1][0])
-                sList[posSList][1].remove(sList[posSList][1][0])
-            print("Saved relation tree of " + chrom)
-            g.render(name, cleanup=True)
-            chrom = rList[posRList][0]
-            name = pFileNameSuffix + '_' + chrom
-            g = Digraph(filename=name, format=pFormat)
-            posSList = 0
-            while sList[posSList][0] != chrom:
-                posSList += 1
-        posRList += 1
-    print("Saved relation tree of " + chrom)
-    g.render(cleanup=True)
+    return _impl.create_tree(rList, dList, pFileNameSuffix, pFormat)
 
 
 def create_small_list(dList):
     """ Creates a nested list from a domain file, in which the TADs
     are sorted according to their chromosomes """
-    sList = [[dList[0][0], []]]
-    chrom = dList[0][0]
-    pos = 0
-    while pos < len(dList):
-        if dList[pos][0] == chrom:
-            sList[len(sList) - 1][1].append(dList[pos][3])
-        else:
-            chrom = dList[pos][0]
-            sList.append([dList[pos][0], [dList[pos][3]]])
-        pos += 1
-    return sList
+    return _impl.create_small_list(dList)
 
 
 def read_protein(file):
     """ Reads a protein file and saves it in a list """
-    with open(file) as f:
-        newList = [line.rstrip() for line in f]
-    splittedList = [[]]
-    actualChr = newList[0].split("\t")[0]
-    for line in newList:
-        x = line.split("\t")
-        if x[0] == actualChr:
-            splittedList[len(splittedList) - 1].append(x[0:3])
-        else:
-            actualChr = x[0]
-            splittedList.append([x[0:3]])
-    return splittedList
+    return _impl.read_protein(file)
 
 
 def merge_protein(pProteinList, binSize, minPeak):
     """ Adapts the protein list to the corresponding BinSize, taking into
        account the minimum number of peaks per section """
-    newProteinList = []
-    for chromosome in pProteinList:
-        newProteinList.append([])
-        currentBoundaryLeft = 0
-        currentBoundaryRight = binSize
-        count = 0
-        for peak in chromosome:
-            if int(peak[1]) <= currentBoundaryRight:
-                count += 1
-            else:
-                if count >= minPeak:
-                    newProteinList[len(newProteinList) - 1].append([peak[0], currentBoundaryLeft, currentBoundaryRight, count])
-                currentBoundaryLeft = currentBoundaryRight
-                currentBoundaryRight = currentBoundaryLeft + binSize
-                count = 0
-                if int(peak[1]) < currentBoundaryRight:
-                    count += 1
-                else:
-                    while int(peak[1]) > currentBoundaryLeft:
-                        currentBoundaryLeft += binSize
-                    currentBoundaryRight = currentBoundaryLeft + binSize
-                    count = 1
-    return newProteinList
+    return _impl.merge_protein(pProteinList, binSize, minPeak)
 
 
 def compare_boundaries_protein(bList, cList, paraScore=0.2):
     """ check the boundaries for a protein-peak """
-    posTad = 0
-    posPeak = 0
-    chromPosition = 0
-    removedTads = []
-
-    while posTad < len(bList):
-        if posTad < len(bList) and chromPosition < len(cList) and bList[posTad][0] != cList[chromPosition][0][0]:
-            chromPosition = 0
-            while posTad < len(bList) and chromPosition < len(cList) and bList[posTad][0] != cList[chromPosition][0][0]:
-                chromPosition += 1
-            posPeak = 0
-        elif posTad < len(bList) and chromPosition < len(cList):
-            while ((posPeak + 1) < len(cList[chromPosition])) and \
-                    (int(bList[posTad][1]) > int(cList[chromPosition][posPeak][2])):
-                posPeak += 1
-            if int(bList[posTad][1]) < int(cList[chromPosition][posPeak][1]):
-                if (posTad != 0) and (abs(float(bList[posTad - 1][4]) - float(bList[posTad][4])) < paraScore):
-                    if (posTad != (len(bList) - 1)) and \
-                            (abs(float(bList[posTad + 1][4]) - float(bList[posTad][4])) < paraScore):
-                        removedTads.append(bList[posTad])
-                        bList.remove(bList[posTad])
-
-        posTad += 1
-    return bList
+    return _impl.compare_boundaries_protein(bList, cList, paraScore)
 
 
 def create_list_with_protein(bList, minPeak, cList=None):
-    binSize = 0
-    bList, binSize = create_list_of_file(bList, binSize)
-    if cList is not None:
-        cList = merge_protein(cList, binSize, minPeak)
-        bList = compare_boundaries_protein(bList, cList)
-    return bList
+    return _impl.create_list_with_protein(bList, minPeak, cList)
 
 
 def main(args=None):

@@ -8,12 +8,12 @@
 //
 // The only scipy.stats function the Python calls is ranksums
 // (hicDifferentialTAD.py:3), reused from hicx::stats, with the NaN propagation
-// of scipy's _axis_nan_policy decorator added in tad_contacts_impl. Each test
+// of scipy's _axis_nan_policy decorator added in hicx/tad_contacts. Each test
 // ranks the *dense* blocks, zeros included, which is what `.toarray().flatten()`
 // hands to ranksums, so most ranks are one large tie group of zeros.
 //
 // Which blocks are tested, and the quirks of how they are cut, is shared with
-// hicInterIntraTAD and documented once in tad_contacts_impl.hpp. The two
+// hicInterIntraTAD and documented once in hicx/tad_contacts.hpp. The two
 // points that are specific to this tool:
 //
 //  * A test that did not run (no neighbour) or whose p-value is NaN prints
@@ -34,7 +34,7 @@
 // are processed by hicx::parallel_for into preallocated result slots and
 // written in file order afterwards, so the output is byte-identical at any
 // --threads. The Python's own output depends on --threads in three degenerate
-// situations; this port always reproduces --threads 1 (tad_contacts_impl.hpp).
+// situations; this port always reproduces --threads 1 (hicx/tad_contacts.hpp).
 
 #include <algorithm>
 #include <array>
@@ -53,7 +53,7 @@
 #include "hicx/resource_usage.hpp"
 #include "hicx/stats_ops.hpp"
 #include "hicx/version.hpp"
-#include "tad_contacts_impl.hpp"
+#include "hicx/tad_contacts.hpp"
 
 namespace {
 

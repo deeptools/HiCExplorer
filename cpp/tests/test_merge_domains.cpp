@@ -1,4 +1,4 @@
-// Unit tests for tools/merge_domains_impl.cpp, the core of hicMergeDomains.
+// Unit tests for core/src/merge_domains.cpp, the core of hicMergeDomains.
 //
 // The central test compares the DOT source of every relation tree against
 // graphviz's own Digraph.source, byte for byte. The reference sources in
@@ -33,7 +33,7 @@
 #include <utility>
 #include <vector>
 
-#include "../tools/merge_domains_impl.hpp"
+#include "hicx/merge_domains.hpp"
 
 namespace md = hicx::merge_domains;
 

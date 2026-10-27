@@ -1,9 +1,9 @@
 // The computational core of hicMergeDomains, a port of
 // hicexplorer/hicMergeDomains.py.
 //
-// It lives in its own translation unit, as detect_loops_impl does, so that
-// cpp/tests/test_merge_domains.cpp links against exactly the code the tool
-// runs. Every function here is a literal port of the Python function of the
+// It is part of libhicx4, so that the tool, the public Python API of
+// hicexplorer.hicMergeDomains (cpp/python/src/api/hicMergeDomains.cpp) and
+// cpp/tests/test_merge_domains.cpp run exactly the same code. Every function here is a literal port of the Python function of the
 // same name. The Python works on lists of lists of strings with index loops,
 // and several of its results depend on details of that representation, so the
 // port keeps the representation instead of reinterpreting the algorithm:
@@ -23,12 +23,13 @@
 // scipy.cluster.hierarchy.linkage and dendrogram at hicMergeDomains.py:2 and
 // never calls either.
 
-#ifndef HICX_TOOLS_MERGE_DOMAINS_IMPL_HPP
-#define HICX_TOOLS_MERGE_DOMAINS_IMPL_HPP
+#ifndef HICX_MERGE_DOMAINS_HPP
+#define HICX_MERGE_DOMAINS_HPP
 
 #include <cstddef>
 #include <cstdint>
 #include <functional>
+#include <optional>
 #include <ostream>
 #include <stdexcept>
 #include <string>
@@ -87,11 +88,15 @@ struct DomainList {
 // digit followed by its trailing zeros (710000 gives 10000, 1250000 gives
 // 50000), and the smallest of those wins.
 [[nodiscard]] DomainList create_list_of_file(RowPool& pool, const std::string& path);
+// The same over the lines of the file, each already rstrip()ped.
+[[nodiscard]] DomainList create_list_of_lines(RowPool& pool, const std::vector<std::string>& lines);
 
 // read_protein (:322-335): the first three fields of every line, grouped into
 // runs of consecutive lines with the same chromosome.
 using ProteinList = std::vector<std::vector<Row>>;
 [[nodiscard]] ProteinList read_protein(const std::string& path);
+// The same over the lines of the file, each already rstrip()ped.
+[[nodiscard]] ProteinList read_protein_lines(const std::vector<std::string>& lines);
 
 struct ProteinBin {
     std::string chrom;
@@ -164,7 +169,20 @@ struct MergedDomains {
 // graphviz.parameters.verify_format: the lower cased format must be one of
 // graphviz.parameters.FORMATS (graphviz 0.20.3).
 [[nodiscard]] bool is_graphviz_format(const std::string& format);
+// graphviz.parameters.FORMATS, sorted.
+[[nodiscard]] std::vector<std::string> graphviz_formats();
+
+// shutil.which(program) as subprocess resolves it: the first executable
+// regular file of that name in a PATH entry.
+[[nodiscard]] std::optional<std::string> find_on_path(const std::string& program);
+
+// graphviz.Digraph.render(filename, cleanup=True), graphviz 0.20.3, without
+// the print of create_tree that precedes it: writes the DOT source to
+// graph.filename (creating missing parent directories), runs
+// `dot -Kdot -T<format> -O <name>` in the file's directory and removes the
+// source again. Throws PythonError when dot fails, leaving the source.
+void render_graph(const TreeGraph& graph, const std::string& format);
 
 }  // namespace hicx::merge_domains
 
-#endif  // HICX_TOOLS_MERGE_DOMAINS_IMPL_HPP
+#endif  // HICX_MERGE_DOMAINS_HPP

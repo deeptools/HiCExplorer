@@ -1,15 +1,23 @@
-// See merge_domains_impl.hpp. Line references are to
+// See hicx/merge_domains.hpp. Line references are to
 // hicexplorer/hicMergeDomains.py.
 
-#include "merge_domains_impl.hpp"
+#include "hicx/merge_domains.hpp"
+
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
 
 #include <algorithm>
 #include <cerrno>
 #include <cmath>
+#include <cstdio>
 #include <cstdlib>
+#include <cstring>
+#include <filesystem>
 #include <fstream>
 #include <iterator>
 #include <limits>
+#include <optional>
 #include <set>
 #include <sstream>
 #include <unordered_set>
@@ -286,8 +294,11 @@ double py_float(const std::string& text) {
 // ---------------------------------------------------------------------------
 
 DomainList create_list_of_file(RowPool& pool, const std::string& path) {
+    return create_list_of_lines(pool, read_lines(path));
+}
+
+DomainList create_list_of_lines(RowPool& pool, const std::vector<std::string>& lines) {
     DomainList result;
-    const std::vector<std::string> lines = read_lines(path);
     result.rows.reserve(lines.size());
     std::int64_t bin_size = 10000000;
     int position = 0;
@@ -316,7 +327,10 @@ DomainList create_list_of_file(RowPool& pool, const std::string& path) {
 }
 
 ProteinList read_protein(const std::string& path) {
-    const std::vector<std::string> lines = read_lines(path);
+    return read_protein_lines(read_lines(path));
+}
+
+ProteinList read_protein_lines(const std::vector<std::string>& lines) {
     ProteinList grouped(1);
     std::string actual_chr = split_tab(at(lines, 0))[0];
     for (const std::string& line : lines) {
@@ -768,7 +782,9 @@ MergedDomains merge_domain_files(const std::vector<std::string>& domain_files,
     return result;
 }
 
-bool is_graphviz_format(const std::string& format) {
+namespace {
+
+const std::set<std::string>& graphviz_format_set() {
     static const std::set<std::string> formats = {
         "bmp",      "canon",     "dot",      "gv",        "xdot",     "xdot1.2",
         "xdot1.4",  "cgimage",   "cmap",     "eps",       "exr",      "fig",
@@ -780,11 +796,130 @@ bool is_graphviz_format(const std::string& format) {
         "svg",      "svgz",      "tga",      "tif",       "tiff",     "tk",
         "vml",      "vmlz",      "vrml",     "wbmp",      "webp",     "xlib",
         "x11"};
+    return formats;
+}
+
+}  // namespace
+
+std::vector<std::string> graphviz_formats() {
+    const std::set<std::string>& formats = graphviz_format_set();
+    return std::vector<std::string>(formats.begin(), formats.end());
+}
+
+bool is_graphviz_format(const std::string& format) {
+    const std::set<std::string>& formats = graphviz_format_set();
     std::string lowered;
     for (const char c : format) {
         lowered.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(c))));
     }
     return formats.count(lowered) != 0;
+}
+
+// shutil.which('dot') as subprocess resolves it: the first executable regular
+// file named dot in a PATH entry.
+std::optional<std::string> find_on_path(const std::string& program) {
+    const char* path = std::getenv("PATH");
+    if (path == nullptr) {
+        return std::nullopt;
+    }
+    std::string entries(path);
+    std::size_t start = 0;
+    while (start <= entries.size()) {
+        std::size_t colon = entries.find(':', start);
+        if (colon == std::string::npos) {
+            colon = entries.size();
+        }
+        std::string directory = entries.substr(start, colon - start);
+        if (directory.empty()) {
+            directory = ".";
+        }
+        const std::string candidate = directory + "/" + program;
+        std::error_code error;
+        if (std::filesystem::is_regular_file(candidate, error) &&
+            ::access(candidate.c_str(), X_OK) == 0) {
+            return candidate;
+        }
+        start = colon + 1;
+    }
+    return std::nullopt;
+}
+
+namespace {
+
+std::string lower(const std::string& text) {
+    std::string out;
+    for (const char c : text) {
+        out.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(c))));
+    }
+    return out;
+}
+
+}  // namespace
+
+// graphviz.Digraph.render(filename, cleanup=True), graphviz 0.20.3:
+// saving.save (creating missing parent directories), backend.rendering.render
+// with outfile=None, which runs [dot, -Kdot, -T<format>, -O, <file name>] with
+// the working directory set to the file's parent when it has one, then
+// os.remove of the source.
+void render_graph(const TreeGraph& graph, const std::string& format) {
+    const std::filesystem::path source(graph.filename);
+    if (source.has_parent_path()) {
+        std::filesystem::create_directories(source.parent_path());
+    }
+    {
+        std::ofstream out(graph.filename, std::ios::binary | std::ios::trunc);
+        if (!out) {
+            throw PythonError("cannot write the DOT source " + graph.filename);
+        }
+        out << graph.source;
+        if (!out.flush()) {
+            throw PythonError("cannot write the DOT source " + graph.filename);
+        }
+    }
+
+    const std::string type_flag = "-T" + lower(format);
+    const std::string file_name = source.filename().string();
+    const std::string directory = source.has_parent_path() ? source.parent_path().string()
+                                                           : std::string();
+    std::fflush(stderr);
+    const pid_t child = ::fork();
+    if (child < 0) {
+        throw PythonError(std::string("fork failed: ") + std::strerror(errno));
+    }
+    if (child == 0) {
+        if (!directory.empty() && ::chdir(directory.c_str()) != 0) {
+            std::fprintf(stderr, "hicx: cannot change into %s: %s\n",
+                         directory.c_str(), std::strerror(errno));
+            ::_exit(127);
+        }
+        const char* const dot_argv[] = {"dot", "-Kdot", type_flag.c_str(), "-O",
+                                        file_name.c_str(), nullptr};
+        ::execvp("dot", const_cast<char* const*>(dot_argv));
+        std::fprintf(stderr, "hicx: cannot execute dot: %s\n",
+                     std::strerror(errno));
+        ::_exit(127);
+    }
+    int status = 0;
+    while (::waitpid(child, &status, 0) < 0) {
+        if (errno != EINTR) {
+            throw PythonError(std::string("waitpid failed: ") + std::strerror(errno));
+        }
+    }
+    if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
+        // graphviz raises CalledProcessError before the cleanup, so the source
+        // stays on disk.
+        throw PythonError(
+            "graphviz.backend.execute.CalledProcessError: dot -Kdot " + type_flag + " -O " +
+            file_name + " returned non-zero exit status " +
+            std::to_string(WIFEXITED(status) ? WEXITSTATUS(status) : -1) + " for " +
+            graph.filename);
+    }
+    std::error_code error;
+    std::filesystem::remove(source, error);
+    if (error) {
+        throw PythonError("cannot remove the DOT source " + graph.filename + ": " +
+                              error.message());
+    }
 }
 
 }  // namespace hicx::merge_domains

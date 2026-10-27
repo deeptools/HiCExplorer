@@ -5,8 +5,8 @@
 // so they share every quirk of how a TAD and its two neighbourhoods are cut
 // out of the matrix. That geometry lives here once, and so do the dense block
 // extraction and the Python number semantics the text output depends on.
-// cpp/tests/test_tad_contacts.cpp links against this translation unit, so the
-// unit tests exercise exactly the code the tools run.
+// It is part of libhicx4 because the public Python API of both modules
+// (hicexplorer._hicx, cpp/python/src/api) runs the same code as the tools.
 //
 // For every TAD i of a chromosome's list L (n entries) the Python builds:
 //
@@ -62,8 +62,8 @@
 // Python produces at --threads 1. On the full corpus TAD files the Python's
 // output is identical at 1, 4, 11 and 16 processes, so the two agree there.
 
-#ifndef HICX_TOOLS_TAD_CONTACTS_IMPL_HPP
-#define HICX_TOOLS_TAD_CONTACTS_IMPL_HPP
+#ifndef HICX_TAD_CONTACTS_HPP
+#define HICX_TAD_CONTACTS_HPP
 
 #include <array>
 #include <cstdint>
@@ -249,4 +249,4 @@ struct RankTest {
 
 }  // namespace hicx::tads
 
-#endif  // HICX_TOOLS_TAD_CONTACTS_IMPL_HPP
+#endif  // HICX_TAD_CONTACTS_HPP

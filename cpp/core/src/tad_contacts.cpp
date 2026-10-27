@@ -1,6 +1,6 @@
-// See tad_contacts_impl.hpp for what is reproduced and why.
+// See hicx/tad_contacts.hpp for what is reproduced and why.
 
-#include "tad_contacts_impl.hpp"
+#include "hicx/tad_contacts.hpp"
 
 #include <algorithm>
 #include <cmath>

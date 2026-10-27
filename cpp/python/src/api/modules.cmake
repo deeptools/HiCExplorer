@@ -20,6 +20,11 @@ set(HICX_API_MODULES
     hicAggregateContacts
     hicAverageRegions
     hicCompartmentalization
+    hicDifferentialTAD
+    hicFindTADs
+    hicInterIntraTAD
+    hicMergeDomains
+    hicMergeTADbins
     hicPCA
     hicPlotDistVsCounts
     hicPlotMatrix

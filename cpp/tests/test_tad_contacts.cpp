@@ -1,5 +1,5 @@
 // Unit tests for the core hicDifferentialTAD and hicInterIntraTAD share,
-// tools/tad_contacts_impl.hpp.
+// core/include/hicx/tad_contacts.hpp.
 //
 // The numeric expectations were produced by scipy 1.14.1 and numpy 1.26.4 in
 // the reference environment on the same fixture: the matrix is built as
@@ -15,7 +15,7 @@
 
 #include <doctest/doctest.h>
 
-#include "../tools/tad_contacts_impl.hpp"
+#include "hicx/tad_contacts.hpp"
 
 namespace {
 
