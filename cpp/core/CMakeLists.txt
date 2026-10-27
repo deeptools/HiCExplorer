@@ -26,6 +26,7 @@ add_library(hicx4core
     src/correct_ops.cpp
     src/build_matrix.cpp
     src/build_matrix_api.cpp
+    src/build_matrix_run.cpp
     src/chic_hdf5.cpp
     src/chic_viewpoint.cpp
     src/chicago.cpp

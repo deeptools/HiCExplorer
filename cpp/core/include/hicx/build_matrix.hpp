@@ -75,6 +75,11 @@ struct UserRegion {
                                                    const ChromSizes& chrom_sizes,
                                                    const std::string& region,
                                                    ChromNames& names);
+// The loop of get_bins after the region is resolved: range(start, size,
+// bin_size) for every chromosome of `chrom_sizes`, with the one start offset.
+[[nodiscard]] std::vector<GenomeInterval> get_bins(std::int64_t bin_size,
+                                                   const ChromSizes& chrom_sizes,
+                                                   std::int64_t start, ChromNames& names);
 
 // bed2interval_list over one BED file, appending to `out`.
 //
@@ -92,9 +97,14 @@ void bed2interval_list(const std::string& path, const ChromSizes& chrom_sizes,
 // get_rf_bins: one bin per restriction site, sites closer than min_distance
 // merged, max_distance added on both sides, bins shorter than min_distance
 // dropped.
+//
+// `start_is_python_zero`, when given, receives for every returned bin whether
+// its start is the Python int 0 of max(0, start - max_distance) rather than a
+// numpy.int64: the Python computes the coordinates on numpy arrays, and the
+// public get_rf_bins returns those types.
 [[nodiscard]] std::vector<GenomeInterval> get_rf_bins(
     const std::vector<GenomeInterval>& cut_sites, std::int64_t min_distance,
-    std::int64_t max_distance);
+    std::int64_t max_distance, std::vector<bool>* start_is_python_zero = nullptr);
 
 // enlarge_bins: closes the gaps so consecutive bins touch. Modifies in place,
 // as the Python does.

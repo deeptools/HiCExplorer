@@ -149,17 +149,17 @@ UserRegion user_region(const ChromSizes& chrom_sizes, const std::string& region)
 std::vector<GenomeInterval> get_bins(std::int64_t bin_size,
                                      const ChromSizes& chrom_sizes,
                                      const std::string& region, ChromNames& names) {
-    std::vector<GenomeInterval> bins;
-    std::int64_t start = 0;
-    const ChromSizes* sizes = &chrom_sizes;
-    ChromSizes region_sizes;
     if (!region.empty()) {
         const UserRegion user = user_region(chrom_sizes, region);
-        region_sizes = user.chrom_sizes;
-        start = user.start;
-        sizes = &region_sizes;
+        return get_bins(bin_size, user.chrom_sizes, user.start, names);
     }
-    for (const auto& [chrom, size] : *sizes) {
+    return get_bins(bin_size, chrom_sizes, 0, names);
+}
+
+std::vector<GenomeInterval> get_bins(std::int64_t bin_size, const ChromSizes& chrom_sizes,
+                                     std::int64_t start, ChromNames& names) {
+    std::vector<GenomeInterval> bins;
+    for (const auto& [chrom, size] : chrom_sizes) {
         const std::uint32_t id = names.intern(chrom);
         for (std::int64_t interval = start; interval < size; interval += bin_size) {
             bins.push_back({id, interval, std::min(size, interval + bin_size)});
@@ -221,7 +221,8 @@ void bed2interval_list(const std::string& path, const ChromSizes& chrom_sizes,
 
 std::vector<GenomeInterval> get_rf_bins(const std::vector<GenomeInterval>& cut_sites,
                                         std::int64_t min_distance,
-                                        std::int64_t max_distance) {
+                                        std::int64_t max_distance,
+                                        std::vector<bool>* start_is_python_zero) {
     if (cut_sites.empty()) {
         // zip(*[]) raises "not enough values to unpack"; the port reports it.
         throw std::runtime_error(
@@ -248,13 +249,16 @@ std::vector<GenomeInterval> get_rf_bins(const std::vector<GenomeInterval>& cut_s
         end[i] = cut_sites[i].end + max_distance;
     }
 
+    // max(0, x) returns its first argument, the int 0, unless x > 0.
     std::vector<std::int64_t> new_start{std::max<std::int64_t>(0, start[0])};
+    std::vector<bool> zero{!(start[0] > 0)};
     std::vector<std::int64_t> new_end;
     std::vector<std::uint32_t> new_chrom{cut_sites[0].chrom};
     std::size_t merge_idx = 0;
     for (std::size_t idx = 1; idx < n; ++idx) {
         if (cut_sites[idx].chrom != cut_sites[idx - 1].chrom) {
             new_start.push_back(std::max<std::int64_t>(0, start[idx]));
+            zero.push_back(!(start[idx] > 0));
             new_end.push_back(end[idx - 1]);
             new_chrom.push_back(cut_sites[idx].chrom);
             ++merge_idx;
@@ -272,6 +276,7 @@ std::vector<GenomeInterval> get_rf_bins(const std::vector<GenomeInterval>& cut_s
             new_start.push_back(start[idx]);
             new_end.push_back(end[idx - 1]);
         }
+        zero.push_back(false);
         new_chrom.push_back(cut_sites[idx].chrom);
     }
     new_end.push_back(end[n - 1]);
@@ -281,9 +286,15 @@ std::vector<GenomeInterval> get_rf_bins(const std::vector<GenomeInterval>& cut_s
 
     std::vector<GenomeInterval> bins;
     bins.reserve(new_start.size());
+    if (start_is_python_zero != nullptr) {
+        start_is_python_zero->clear();
+    }
     for (std::size_t i = 0; i < new_start.size(); ++i) {
         if (new_end[i] - new_start[i] >= min_distance) {
             bins.push_back({new_chrom[i], new_start[i], new_end[i]});
+            if (start_is_python_zero != nullptr) {
+                start_is_python_zero->push_back(zero[i]);
+            }
         }
     }
     return bins;
