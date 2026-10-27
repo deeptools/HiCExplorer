@@ -55,8 +55,6 @@ foreach(tool IN LISTS HICX_TOOLS)
     target_link_libraries(${tool} PRIVATE hicx::core hicx_compile_options)
 endforeach()
 
-# hicPlotMatrix reads the --bigwig tracks with libBigWig, as pyBigWig does.
-target_link_libraries(hicPlotMatrix PRIVATE hicx::bigwig)
 
 # The drawing layer of the plotting tools (cpp/PLAN.md tier 7, option (a)),
 # copied next to the tools directory, where hicx::plot::draw finds it as

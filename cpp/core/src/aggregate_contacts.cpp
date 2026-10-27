@@ -5,6 +5,7 @@
 #include <limits>
 
 #include "hicx/numpy_compat.hpp"
+#include "hicx/numpy_sort.hpp"
 
 namespace hicx::aggregate {
 
@@ -128,6 +129,29 @@ std::optional<std::vector<bool>> outlier_rows(const std::vector<double>& values,
         }
     }
     return outliers;
+}
+
+DiagnosticCluster diagnostic_cluster(const std::vector<double>& heatmap, std::size_t width,
+                                     const std::vector<std::int64_t>& members, std::size_t half) {
+    DiagnosticCluster out;
+    std::vector<double> keys(members.size());
+    for (std::size_t m = 0; m < members.size(); ++m) {
+        keys[m] = heatmap[static_cast<std::size_t>(members[m]) * width + half];
+    }
+    const std::vector<std::int64_t> order = npy::argsort(keys);
+    out.mean.assign(width, 0.0);
+    for (auto it = order.rbegin(); it != order.rend(); ++it) {
+        const auto row = static_cast<std::size_t>(members[static_cast<std::size_t>(*it)]);
+        for (std::size_t c = 0; c < width; ++c) {
+            const double value = heatmap[row * width + c];
+            out.mean[c] = it == order.rbegin() ? value : out.mean[c] + value;
+        }
+        out.rows.push_back(row);
+    }
+    for (double& value : out.mean) {
+        value = value / static_cast<double>(members.size());
+    }
+    return out;
 }
 
 }  // namespace hicx::aggregate

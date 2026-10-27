@@ -52,6 +52,18 @@ enum class Average { Median, Mean, Sum };
 [[nodiscard]] std::optional<std::vector<bool>> outlier_rows(const std::vector<double>& values, std::size_t rows,
                                                             std::size_t cols, double max_deviation);
 
+// plot_diagnostic_heatmaps for one cluster of a rows by width heatmap (row
+// major, one submatrix diagonal per row): the member rows in the order of
+// np.argsort(heatmap[members, half])[::-1] (numpy's tie order), and their
+// column means (the rows added in that order, then divided by their count;
+// NaN for an empty cluster). Shared by the tool and the Python API.
+struct DiagnosticCluster {
+    std::vector<std::size_t> rows;
+    std::vector<double> mean;
+};
+[[nodiscard]] DiagnosticCluster diagnostic_cluster(const std::vector<double>& heatmap, std::size_t width,
+                                                   const std::vector<std::int64_t>& members, std::size_t half);
+
 }  // namespace hicx::aggregate
 
 #endif  // HICX_AGGREGATE_CONTACTS_HPP

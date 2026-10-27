@@ -58,7 +58,7 @@
 #include <utility>
 #include <vector>
 
-#include "bigWig.h"
+#include "hicx/bigwig_track.hpp"
 
 #include "hicx/argparse.hpp"
 #include "hicx/bins.hpp"
@@ -629,59 +629,41 @@ std::int64_t floor_div(std::int64_t a, std::int64_t b) {
     return q;
 }
 
+// A --bigwig track read as pyBigWig reads it (hicx::bigwig::Track in
+// cpp/core, shared with the Python API's plotBigwig), with this tool's
+// messages.
 struct BigwigFile {
-    bigWigFile_t* handle = nullptr;
+    std::optional<hicx::bigwig::Track> track;
     explicit BigwigFile(const std::string& path) {
-        handle = bwOpen(const_cast<char*>(path.c_str()), nullptr, "r");
-        if (handle == nullptr) {
+        try {
+            track.emplace(path);
+        } catch (const std::runtime_error&) {
             throw std::runtime_error("RuntimeError: Received an error during file opening! (" +
                                      path + ")");
         }
     }
-    ~BigwigFile() {
-        if (handle != nullptr) {
-            bwClose(handle);
-        }
-    }
-    BigwigFile(const BigwigFile&) = delete;
-    BigwigFile& operator=(const BigwigFile&) = delete;
 
     // The chromosome's length, or -1 when the file has no such chromosome.
     [[nodiscard]] std::int64_t length(const std::string& chrom) const {
-        for (std::int64_t i = 0; i < handle->cl->nKeys; ++i) {
-            if (chrom == handle->cl->chrom[i]) {
-                return handle->cl->len[i];
-            }
-        }
-        return -1;
+        return track->length(chrom).value_or(-1);
     }
 
     // bw.stats(chrom, start, end, nBins=bins) of pyBigWig: the mean per bin
     // (NaN, None there, for a bin without data, which astype(float) makes NaN).
     [[nodiscard]] std::vector<double> stats(const std::string& chrom, std::int64_t start,
                                             std::int64_t end, std::int64_t bins) const {
-        const std::int64_t chrom_length = length(chrom);
-        if (chrom_length < 0 || start < 0 || start > chrom_length || end > chrom_length ||
-            end <= start) {
-            throw std::runtime_error("RuntimeError: Invalid interval bounds!");
-        }
-        if (bins == 0) {
-            bins = 1;  // pyBigWig: `if(!nBins) nBins = 1;`
-        }
         if (bins < 0) {
             throw std::runtime_error("RuntimeError: An error was encountered while fetching the "
                                      "statistics.");
         }
-        double* values = bwStats(handle, const_cast<char*>(chrom.c_str()),
-                                 static_cast<std::uint32_t>(start), static_cast<std::uint32_t>(end),
-                                 static_cast<std::uint32_t>(bins), mean);
-        if (values == nullptr) {
+        try {
+            return track->mean(chrom, start, end, bins);
+        } catch (const std::invalid_argument&) {
+            throw std::runtime_error("RuntimeError: Invalid interval bounds!");
+        } catch (const std::runtime_error&) {
             throw std::runtime_error("RuntimeError: An error was encountered while fetching the "
                                      "statistics.");
         }
-        std::vector<double> out(values, values + bins);
-        std::free(values);
-        return out;
     }
 };
 
@@ -1518,9 +1500,7 @@ int main(int argc, char** argv) {
                         throw ExitError("ERROR:hicexplorer.hicPlotMatrix:Given files are not bigwig");
                     }
                 }
-                if (bwInit(1 << 17) != 0) {
-                    throw std::runtime_error("libBigWig initialisation failed");
-                }
+                // hicx::bigwig::Track initialises libBigWig on first use
                 bigwig_checked = true;
             }
             plot::JsonObject tracks;

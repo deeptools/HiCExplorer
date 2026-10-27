@@ -1177,30 +1177,21 @@ void bind_hicAggregateContacts(py::module_& m) {
                 raise_error("IndexError", "index " + std::to_string(half) + " is out of bounds for axis 1 with size " +
                                               std::to_string(width));
             }
-            std::vector<double> keys;
             for (const std::int64_t member : members) {
                 if (member < 0 || static_cast<std::size_t>(member) >= rows) {
                     raise_error("IndexError", "index " + std::to_string(member) +
                                                   " is out of bounds for axis 0 with size " + std::to_string(rows));
                 }
-                keys.push_back(heatmap[static_cast<std::size_t>(member) * width + static_cast<std::size_t>(half)]);
             }
-            const std::vector<std::int64_t> order = npy::argsort(keys);
+            const ag::DiagnosticCluster cluster =
+                ag::diagnostic_cluster(heatmap, width, members, static_cast<std::size_t>(half));
             std::vector<double> sorted;
-            std::vector<double> mean(width, 0.0);
-            std::size_t count = 0;
-            for (auto it = order.rbegin(); it != order.rend(); ++it) {
-                const auto row = static_cast<std::size_t>(members[static_cast<std::size_t>(*it)]);
-                for (std::size_t c = 0; c < width; ++c) {
-                    const double value = heatmap[row * width + c];
-                    sorted.push_back(value);
-                    mean[c] = count == 0 ? value : mean[c] + value;
-                }
-                ++count;
+            for (const std::size_t row : cluster.rows) {
+                sorted.insert(sorted.end(), heatmap.begin() + static_cast<std::ptrdiff_t>(row * width),
+                              heatmap.begin() + static_cast<std::ptrdiff_t>((row + 1) * width));
             }
-            for (double& value : mean) {
-                value = count == 0 ? std::nan("") : value / static_cast<double>(count);
-            }
+            const std::size_t count = cluster.rows.size();
+            const std::vector<double>& mean = cluster.mean;
             std::vector<std::int64_t> x(width);
             for (std::size_t c = 0; c < width; ++c) {
                 x[c] = static_cast<std::int64_t>(c) - half;

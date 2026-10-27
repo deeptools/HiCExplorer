@@ -87,6 +87,7 @@
 #include <vector>
 
 #include "hicx/adjust_ops.hpp"
+#include "hicx/aggregate_contacts.hpp"
 #include "hicx/argparse.hpp"
 #include "hicx/bins.hpp"
 #include "hicx/clustering.hpp"
@@ -1310,13 +1311,11 @@ int main(int argc, char** argv) {
                 // rows added in order, then divided by their count).
                 std::string diagnostic = "null";
                 if (args.diagnostic_heatmap_file.has_value() && !info.submatrices.empty()) {
-                    std::vector<std::vector<double>> diagonals;
+                    std::vector<double> heatmap;
                     for (const std::vector<double>* submatrix : info.submatrices) {
-                        std::vector<double> diagonal(w);
                         for (std::size_t i = 0; i < w; ++i) {
-                            diagonal[i] = (*submatrix)[i * w + i];
+                            heatmap.push_back((*submatrix)[i * w + i]);
                         }
-                        diagonals.push_back(std::move(diagonal));
                     }
                     if (m_half < 0 || static_cast<std::size_t>(m_half) >= w) {
                         throw ToolError("IndexError: index " + std::to_string(m_half) +
@@ -1325,32 +1324,19 @@ int main(int argc, char** argv) {
                     }
                     std::vector<std::string> clusters_diagnostic;
                     for (const std::vector<std::int64_t>& members : info.clusters) {
-                        std::vector<double> keys(members.size());
-                        for (std::size_t m = 0; m < members.size(); ++m) {
-                            keys[m] = diagonals[static_cast<std::size_t>(members[m])]
-                                               [static_cast<std::size_t>(m_half)];
-                        }
-                        const std::vector<std::int64_t> order = hicx::npy::argsort(keys);
+                        // hicx::aggregate::diagnostic_cluster, shared with the Python API
+                        const hicx::aggregate::DiagnosticCluster sorted =
+                            hicx::aggregate::diagnostic_cluster(heatmap, w, members,
+                                                                static_cast<std::size_t>(m_half));
                         std::vector<std::string> rows;
-                        std::vector<double> mean(w, 0.0);
-                        for (auto it = order.rbegin(); it != order.rend(); ++it) {
-                            const std::vector<double>& row = diagonals[static_cast<std::size_t>(
-                                members[static_cast<std::size_t>(*it)])];
-                            rows.push_back(plot::json_numbers(row));
-                            if (it == order.rbegin()) {
-                                mean = row;
-                            } else {
-                                for (std::size_t c = 0; c < w; ++c) {
-                                    mean[c] = mean[c] + row[c];
-                                }
-                            }
-                        }
-                        for (double& value : mean) {
-                            value = value / static_cast<double>(members.size());
+                        for (const std::size_t row : sorted.rows) {
+                            rows.push_back(plot::json_numbers(std::vector<double>(
+                                heatmap.begin() + static_cast<std::ptrdiff_t>(row * w),
+                                heatmap.begin() + static_cast<std::ptrdiff_t>((row + 1) * w))));
                         }
                         plot::JsonObject cluster_json;
                         cluster_json.add("rows", plot::json_list(rows));
-                        cluster_json.add("mean", plot::json_numbers(mean));
+                        cluster_json.add("mean", plot::json_numbers(sorted.mean));
                         clusters_diagnostic.push_back(cluster_json.str());
                     }
                     diagnostic = plot::json_list(clusters_diagnostic);
