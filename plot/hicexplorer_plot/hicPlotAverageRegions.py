@@ -1,12 +1,15 @@
 """The figure of hicPlotAverageRegions.
 
-The data is the npz file hicAverageRegions writes; the C++ binary checks it
-and passes its path. The calls are those of
-hicexplorer/hicPlotAverageRegions.py main() from `load_npz` to
-`plt.savefig`, unchanged, including the 45 degree scipy.ndimage.rotate.
+The C++ binary reads the npz file hicAverageRegions writes and computes
+load_npz(...).toarray() and np.triu() of it, passed as an .npy file in the
+stored dtype. The calls are those of hicexplorer/hicPlotAverageRegions.py
+main() from the 45 degree scipy.ndimage.rotate to `plt.savefig`, unchanged:
+the rotation, the upper half of the rotated image and the +1 of --log1p on
+the rotated values are the layout of the image.
 
 Data:
-    matrix, outputFile, log1p, log, colorMap, vMin, vMax, dpi
+    matrix (the .npy path), outputFile, log1p, log, colorMap, vMin, vMax, dpi,
+    temporary_files
 """
 
 import matplotlib
@@ -16,17 +19,13 @@ from matplotlib.colors import LogNorm  # noqa: E402
 import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 from scipy.ndimage import rotate  # noqa: E402
-from scipy.sparse import load_npz  # noqa: E402
 from mpl_toolkits.axes_grid1 import make_axes_locatable  # noqa: E402
 
 
 def draw(data):
     mpl.rcParams['pdf.fonttype'] = 42
 
-    matrix = load_npz(data["matrix"])
-
-    matrix = matrix.toarray()
-    matrix = np.triu(matrix)
+    matrix = np.load(data["matrix"])
     matrix = rotate(matrix, 45, cval=np.nan)
     matrix_shapes = matrix.shape
     matrix = matrix[:matrix_shapes[0] // 2, :]

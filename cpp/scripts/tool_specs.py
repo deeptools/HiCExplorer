@@ -203,7 +203,7 @@ def load_cpp_spec(cpp_bin, tool):
 
 # Tools whose Python module has no parse_arguments of its own. hicQC runs
 # hicPrepareQCreport.main, and there is no hicexplorer.hicQC. The gui tests read the same list.
-PARSER_MODULES = {"hicQC": "hicexplorer.hicPrepareQCreport"}
+PARSER_MODULES = {"hicQC": "hicexplorer.hicPrepareQCreport", "hicexplorer": "hicexplorer.list_tools"}
 
 
 # The child process that reads the reference parsers: it imports every
