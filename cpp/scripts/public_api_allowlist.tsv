@@ -11,3 +11,4 @@ hicexplorer.hicPrepareQCreport	make_figure_umappable_non_unique_reads	matplotlib
 hicexplorer.hicPrepareQCreport	make_figure_pairs_discarded	matplotlib bar chart of QC numbers it is given
 hicexplorer.hicPrepareQCreport	make_figure_distance	matplotlib bar chart of QC numbers it is given
 hicexplorer.hicPrepareQCreport	make_figure_read_orientation	matplotlib bar chart of QC numbers it is given
+hicexplorer.hicCorrelate	plot_correlation	matplotlib heatmap and scipy dendrogram drawing; the linkage and the colour range come from C++ (hicexplorer._hicx.hicCorrelate)

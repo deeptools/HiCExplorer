@@ -39,6 +39,7 @@ add_library(hicx4core
     src/chic_viewpoint.cpp
     src/chicago.cpp
     src/cool_adapter.cpp
+    src/correlate_api.cpp
     src/fasta_reader.cpp
     src/h5_file.cpp
     src/hdf5_util.cpp
