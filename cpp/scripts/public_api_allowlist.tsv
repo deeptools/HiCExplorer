@@ -11,3 +11,4 @@ hicexplorer.hicPrepareQCreport	make_figure_umappable_non_unique_reads	matplotlib
 hicexplorer.hicPrepareQCreport	make_figure_pairs_discarded	matplotlib bar chart of QC numbers it is given
 hicexplorer.hicPrepareQCreport	make_figure_distance	matplotlib bar chart of QC numbers it is given
 hicexplorer.hicPrepareQCreport	make_figure_read_orientation	matplotlib bar chart of QC numbers it is given
+hicexplorer.hicCorrectMatrix	plot_total_contact_dist	draws the coverage histograms with matplotlib; the row sums, MAD z-scores, outlier filter and threshold come from hicexplorer._hicx.hicCorrectMatrix

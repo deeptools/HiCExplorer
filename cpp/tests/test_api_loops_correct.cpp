@@ -16,6 +16,8 @@
 #include <vector>
 
 #include "hicx/cnb.hpp"
+#include "hicx/correct_api.hpp"
+#include "hicx/correct_ops.hpp"
 #include "hicx/iterative_correction.hpp"
 #include "hicx/math/ice.hpp"
 #include "hicx/math/sparse_kernels.hpp"
@@ -277,4 +279,53 @@ TEST_CASE("merge_loops: the constructed frame of cases_hicMergeLoops.py") {
     CHECK(result.ids == std::vector<std::int64_t>{0, 3});
     loops[0].x_tree = -1;
     CHECK(hicx::merge_loops::merge(x, y, loops).error == hicx::merge_loops::Error::UnboundX);
+}
+
+TEST_CASE("correct_api: MAD agrees with the tool's MAD") {
+    std::mt19937 rng(17);
+    std::gamma_distribution<double> gamma(2.0, 30.0);
+    std::vector<double> points;
+    for (int i = 0; i < 501; ++i) {
+        points.push_back(i % 37 == 0 ? 0.0 : std::floor(gamma(rng)));
+    }
+    const hicx::correct_api::MadStats api = hicx::correct_api::mad(points, 501, 1);
+    const hicx::correct::Mad tool(points);
+    CHECK(api.median == tool.median());
+    CHECK(api.med_abs_deviation == tool.median_absolute_deviation());
+    REQUIRE(api.modified_z_score.size() == tool.modified_z_scores().size());
+    for (std::size_t i = 0; i < points.size(); ++i) {
+        CHECK(api.modified_z_score[i] == doctest::Approx(tool.modified_z_scores()[i]).epsilon(1e-15));
+    }
+    CHECK(std::isnan(hicx::correct_api::median({1.0, std::nan(""), 3.0})));
+}
+
+TEST_CASE("correct_api: fill_gaps fills an isolated bin with the mean of its neighbours") {
+    // a 5 by 5 matrix of ones but for an empty bin 2
+    std::vector<std::int64_t> row;
+    std::vector<std::int64_t> col;
+    std::vector<double> data;
+    for (std::int64_t i = 0; i < 5; ++i) {
+        for (std::int64_t j = 0; j < 5; ++j) {
+            if (i != 2 && j != 2) {
+                row.push_back(i);
+                col.push_back(j);
+                data.push_back(1.0);
+            }
+        }
+    }
+    const auto filled = hicx::scipy_coo::Csr<double>(hicx::correct_api::fill_gaps<double>(5, 5, row, col, data, {2}));
+    // row 2, columns 1..3: (M[1, j - 1] + M[3, j + 1]) / 2; the four neighbours of M[2, 2] get the mean of
+    // the diagonal neighbours, 1
+    std::vector<double> dense(25, 0.0);
+    for (std::int64_t i = 0; i < 5; ++i) {
+        for (std::int64_t k = filled.indptr[static_cast<std::size_t>(i)]; k < filled.indptr[static_cast<std::size_t>(i) + 1]; ++k) {
+            dense[static_cast<std::size_t>(i * 5 + filled.indices[static_cast<std::size_t>(k)])] =
+                filled.data[static_cast<std::size_t>(k)];
+        }
+    }
+    CHECK(dense[2 * 5 + 1] == 1.0);
+    CHECK(dense[2 * 5 + 2] == 1.0);
+    CHECK(dense[1 * 5 + 2] == 1.0);
+    CHECK(dense[2 * 5 + 0] == 0.0);
+    CHECK_THROWS_AS(hicx::correct_api::fill_gaps<double>(5, 5, row, col, data, {4}), hicx::PythonError);
 }
