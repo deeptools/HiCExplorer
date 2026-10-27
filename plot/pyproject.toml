@@ -13,28 +13,13 @@ dependencies = [
     # hicPlotAverageRegions rotates its image with scipy.ndimage.rotate, an
     # interpolation that is part of the figure.
     "scipy",
-    # hicQC.html is pandas Styler.to_html through Jinja2, and the QC charts
-    # are pandas plotting calls.
+    # The QC charts are pandas plotting calls (hicQC.html is written by the
+    # C++ binaries).
     "pandas",
-    "jinja2",
-    # hicPlotMatrix reads its bigwig tracks while drawing and transliterates
-    # --title, as the reference does.
-    "pyBigWig",
+    # hicPlotMatrix transliterates --title, as the reference does (its
+    # bigwig tracks are read by the C++ binary).
     "unidecode",
 ]
 
-[project.scripts]
-hicPlotDistVsCounts = "hicexplorer_plot.tools:hicPlotDistVsCounts"
-hicPlotViewpoint = "hicexplorer_plot.tools:hicPlotViewpoint"
-hicPlotAverageRegions = "hicexplorer_plot.tools:hicPlotAverageRegions"
-chicPlotViewpoint = "hicexplorer_plot.tools:chicPlotViewpoint"
-hicCorrelate = "hicexplorer_plot.tools:hicCorrelate"
-hicPrepareQCreport = "hicexplorer_plot.tools:hicPrepareQCreport"
-hicQC = "hicexplorer_plot.tools:hicQC"
-hicPlotMatrix = "hicexplorer_plot.tools:hicPlotMatrix"
-
 [tool.setuptools]
 packages = ["hicexplorer_plot"]
-
-[tool.setuptools.package-data]
-hicexplorer_plot = ["qc_template.html"]

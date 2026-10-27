@@ -1,7 +1,11 @@
 #include "hicx/build_matrix.hpp"
 
 #include "hicx/argparse.hpp"
+#include "hicx/numpy_compat.hpp"
+#include "hicx/plot_bridge.hpp"
 #include "hicx/version.hpp"
+
+#include "qc_template_html.inc"  // kQcTemplateHtml, generated from hicexplorer/qc_template.html
 
 #include <algorithm>
 #include <cctype>
@@ -13,6 +17,7 @@
 #include <cstdio>
 #include <ctime>
 #include <fstream>
+#include <random>
 #include <sstream>
 #include <stdexcept>
 #include <unordered_map>
@@ -631,14 +636,26 @@ std::string format_qc_log(const QcLogInputs& inputs, const QcCounters& counters)
 
 namespace {
 
-// A cell of hicPrepareQCreport's DataFrame: int(fields[1]) where Python's
-// int() accepts the text, the text otherwise.
+// A cell of hicPrepareQCreport's DataFrames: int(fields[1]) where Python's
+// int() accepts the text, the text otherwise; a fraction of the derived
+// tables is a float64.
 struct QcCell {
     bool is_int = false;
+    bool is_float = false;
     std::int64_t integer = 0;
+    double real = 0.0;
     std::string text;
 
-    [[nodiscard]] std::string str() const { return is_int ? std::to_string(integer) : text; }
+    // As DataFrame.to_csv writes it.
+    [[nodiscard]] std::string str() const {
+        if (is_int) {
+            return std::to_string(integer);
+        }
+        if (is_float) {
+            return python_float_repr(real);
+        }
+        return text;
+    }
 };
 
 // The DataFrame of hicPrepareQCreport.main after set_index: named columns of
@@ -803,12 +820,12 @@ QcFrame build_qc_frame(const std::vector<std::string>& log_texts,
     return frame;
 }
 
-// One output table: its columns, each already rendered per output row.
+// One output table: its columns, each a cell per output row.
 struct QcOutputTable {
     std::vector<std::string> columns;
-    std::vector<std::vector<std::string>> values;  // per column, per output row
+    std::vector<std::vector<QcCell>> values;  // per column, per output row
 
-    void add(std::string name, std::vector<std::string> column) {
+    void add(std::string name, std::vector<QcCell> column) {
         columns.push_back(std::move(name));
         values.push_back(std::move(column));
     }
@@ -852,7 +869,7 @@ void write_qc_output(const std::string& path, const QcFrame& frame, const QcOutp
     for (std::size_t row = 0; row < rows.size(); ++row) {
         out << csv_field(frame.index[rows[row].first]);
         for (const auto& column : table.values) {
-            out << '\t' << csv_field(column[row]);
+            out << '\t' << csv_field(column[row].str());
         }
         out << '\n';
     }
@@ -862,23 +879,26 @@ void write_qc_output(const std::string& path, const QcFrame& frame, const QcOutp
 }
 
 // The counts of the left rows.
-std::vector<std::string> count_column(const QcFrame& frame, const std::string& name,
-                                      const std::vector<std::pair<std::size_t, std::size_t>>& rows) {
-    std::vector<std::string> out;
+std::vector<QcCell> count_column(const QcFrame& frame, const std::string& name,
+                                 const std::vector<std::pair<std::size_t, std::size_t>>& rows) {
+    std::vector<QcCell> out;
     const std::vector<QcCell>& cells = frame.column(name);
     for (const auto& row : rows) {
-        out.push_back(cells[row.first].str());
+        out.push_back(cells[row.first]);
     }
     return out;
 }
 
 // The fractions of the right rows, each over its own row's denominator.
-std::vector<std::string> ratio_column(const QcFrame& frame, const std::string& name,
-                                      const std::vector<double>& denominators,
-                                      const std::vector<std::pair<std::size_t, std::size_t>>& rows) {
-    std::vector<std::string> out;
+std::vector<QcCell> ratio_column(const QcFrame& frame, const std::string& name,
+                                 const std::vector<double>& denominators,
+                                 const std::vector<std::pair<std::size_t, std::size_t>>& rows) {
+    std::vector<QcCell> out;
     for (const auto& row : rows) {
-        out.push_back(python_float_repr(frame.number(name, row.second) / denominators[row.second]));
+        QcCell cell;
+        cell.is_float = true;
+        cell.real = frame.number(name, row.second) / denominators[row.second];
+        out.push_back(std::move(cell));
     }
     return out;
 }
@@ -891,13 +911,21 @@ std::vector<double> numbers(const QcFrame& frame, const std::string& name) {
     return out;
 }
 
-}  // namespace
+// The five tables of hicPrepareQCreport.main: QC_table.txt is the frame
+// itself, the four others are what make_figure_* return (the counts joined
+// with the fractions on the index). `rows` holds each table's (left, right)
+// frame rows.
+struct QcTables {
+    QcOutputTable all, unmap, discarded, distance, orientation;
+    std::vector<std::pair<std::size_t, std::size_t>> plain, joined;
+};
 
-void write_qc_report_tables(const std::string& folder, const std::vector<std::string>& log_texts,
-                            const std::optional<std::vector<std::string>>& labels) {
-    const QcFrame frame = build_qc_frame(log_texts, labels);
+QcTables build_qc_tables(const QcFrame& frame) {
+    QcTables tables;
     const auto plain = plain_rows(frame);
     const auto joined = joined_rows(frame);
+    tables.plain = plain;
+    tables.joined = joined;
 
     // QC_table.txt: table.to_csv, every column.
     {
@@ -905,7 +933,7 @@ void write_qc_report_tables(const std::string& folder, const std::vector<std::st
         for (const std::string& column : frame.columns) {
             table.add(column, count_column(frame, column, plain));
         }
-        write_qc_output(folder + "/QC_table.txt", frame, table, plain);
+        tables.all = std::move(table);
     }
 
     // make_figure_umappable_non_unique_reads: counts and '_%' over the
@@ -918,7 +946,7 @@ void write_qc_report_tables(const std::string& folder, const std::vector<std::st
             table.add(name, count_column(frame, name, joined));
             table.add(std::string(name) + "_%", ratio_column(frame, name, sequenced, joined));
         }
-        write_qc_output(folder + "/unmapable_table.txt", frame, table, joined);
+        tables.unmap = std::move(table);
     }
 
     // make_figure_pairs_discarded: an exact column match gives the count and
@@ -942,7 +970,7 @@ void write_qc_report_tables(const std::string& folder, const std::vector<std::st
                 }
             }
         }
-        write_qc_output(folder + "/discarded_table.txt", frame, table, joined);
+        tables.discarded = std::move(table);
     }
 
     // make_figure_distance: over the Hi-C contacts.
@@ -954,7 +982,7 @@ void write_qc_report_tables(const std::string& folder, const std::vector<std::st
             table.add(name, count_column(frame, name, joined));
             table.add(std::string(name) + " %", ratio_column(frame, name, contacts, joined));
         }
-        write_qc_output(folder + "/distance_table.txt", frame, table, joined);
+        tables.distance = std::move(table);
     }
 
     // make_figure_read_orientation: over the sum of the four orientations.
@@ -975,8 +1003,303 @@ void write_qc_report_tables(const std::string& folder, const std::vector<std::st
             table.add(name, count_column(frame, name, joined));
             table.add(std::string(name) + " %", ratio_column(frame, name, totals, joined));
         }
-        write_qc_output(folder + "/read_orientation_table.txt", frame, table, joined);
+        tables.orientation = std::move(table);
     }
+    return tables;
+}
+
+// ---------------------------------------------------------------------------
+// hicQC.html (save_html) and the DataFrames of the five charts (make_figure_*).
+
+// f"{x:.<precision>f}": Python prints nan and the infinities as words.
+std::string qc_fixed(double value, int precision) {
+    if (std::isnan(value)) {
+        return "nan";
+    }
+    if (std::isinf(value)) {
+        return value > 0 ? "inf" : "-inf";
+    }
+    char buffer[400];
+    std::snprintf(buffer, sizeof(buffer), "%.*f", precision, value);
+    return buffer;
+}
+
+// '{:.2%}'.format(x)
+std::string qc_format_percent(double value) {
+    if (std::isnan(value)) {
+        return "nan%";
+    }
+    return qc_fixed(value * 100.0, 2) + "%";
+}
+
+// The thousands separator of '{:,}' on the leading integer digits of `text`.
+std::string qc_group_thousands(const std::string& text) {
+    const std::size_t start = (!text.empty() && text[0] == '-') ? 1 : 0;
+    std::size_t end = start;
+    while (end < text.size() && std::isdigit(static_cast<unsigned char>(text[end]))) {
+        ++end;
+    }
+    const std::string digits = text.substr(start, end - start);
+    std::string grouped;
+    for (std::size_t i = 0; i < digits.size(); ++i) {
+        if (i > 0 && (digits.size() - i) % 3 == 0) {
+            grouped += ',';
+        }
+        grouped += digits[i];
+    }
+    return text.substr(0, start) + grouped + text.substr(end);
+}
+
+// The formatter save_html gives the four derived tables:
+// lambda x: '{:,}'.format(x) if x > 1 else '{:.2%}'.format(x)
+// ('{:,}' of a float is its repr with grouped integer digits, unless the repr
+// is in exponent notation or a word).
+std::string qc_derived_formatter(const QcCell& cell) {
+    if (cell.is_int) {
+        return cell.integer > 1 ? qc_group_thousands(std::to_string(cell.integer))
+                                : qc_format_percent(static_cast<double>(cell.integer));
+    }
+    if (cell.is_float) {
+        if (!(cell.real > 1)) {
+            return qc_format_percent(cell.real);
+        }
+        const std::string repr = npy::float_repr(cell.real);
+        if (repr.find('e') != std::string::npos || repr.find("inf") != std::string::npos) {
+            return repr;
+        }
+        return qc_group_thousands(repr);
+    }
+    throw std::runtime_error("TypeError: '>' not supported between instances of 'str' and 'int' "
+                             "(a QC table column holds text)");
+}
+
+// Styler's default formatter: a column of the QC frame holds Python ints and
+// strings, which it shows as str() does.
+std::string qc_default_formatter(const QcCell& cell) { return cell.str(); }
+
+// Five random hexadecimal characters, as Styler's uuid4().hex[:5].
+std::string qc_styler_uuid() {
+    static std::mt19937_64 engine{std::random_device{}()};
+    static const char* const hex = "0123456789abcdef";
+    std::string id;
+    for (int i = 0; i < 5; ++i) {
+        id += hex[engine() % 16];
+    }
+    return id;
+}
+
+// DataFrame.style.format(formatter).to_html() in pandas 2.2 (html_style.tpl
+// and html_table.tpl) for a table without styles, caption or attributes, a
+// named single level index and unnamed columns. Styler escapes nothing by
+// default.
+std::string qc_styler_to_html(const QcFrame& frame, const QcOutputTable& table,
+                              const std::vector<std::pair<std::size_t, std::size_t>>& rows,
+                              std::string (*format)(const QcCell&)) {
+    const std::string uuid = qc_styler_uuid();
+    std::string out = "<style type=\"text/css\">\n</style>\n<table id=\"T_" + uuid + "\">\n";
+    out += "  <thead>\n    <tr>\n      <th class=\"blank level0\" >&nbsp;</th>\n";
+    for (std::size_t c = 0; c < table.columns.size(); ++c) {
+        const std::string col = std::to_string(c);
+        out += "      <th id=\"T_" + uuid + "_level0_col" + col + "\" class=\"col_heading level0 col" +
+               col + "\" >" + table.columns[c] + "</th>\n";
+    }
+    out += "    </tr>\n";
+    out += "    <tr>\n      <th class=\"index_name level0\" >" + frame.index_name + "</th>\n";
+    for (std::size_t c = 0; c < table.columns.size(); ++c) {
+        out += "      <th class=\"blank col" + std::to_string(c) + "\" >&nbsp;</th>\n";
+    }
+    out += "    </tr>\n  </thead>\n  <tbody>\n";
+    for (std::size_t r = 0; r < rows.size(); ++r) {
+        const std::string row = std::to_string(r);
+        out += "    <tr>\n      <th id=\"T_" + uuid + "_level0_row" + row +
+               "\" class=\"row_heading level0 row" + row + "\" >" + frame.index[rows[r].first] +
+               "</th>\n";
+        for (std::size_t c = 0; c < table.columns.size(); ++c) {
+            const std::string col = std::to_string(c);
+            out += "      <td id=\"T_" + uuid + "_row" + row + "_col" + col + "\" class=\"data row" +
+                   row + " col" + col + "\" >" + format(table.values[c][r]) + "</td>\n";
+        }
+        out += "    </tr>\n";
+    }
+    out += "  </tbody>\n</table>\n";
+    return out;
+}
+
+// str.replace: every occurrence, left to right.
+void qc_replace_all(std::string& text, const std::string& pattern, const std::string& replacement) {
+    std::string out;
+    std::size_t from = 0;
+    for (std::size_t at = text.find(pattern); at != std::string::npos;
+         at = text.find(pattern, from)) {
+        out.append(text, from, at - from);
+        out += replacement;
+        from = at + pattern.size();
+    }
+    out.append(text, from, std::string::npos);
+    text = std::move(out);
+}
+
+// save_html. The template is hicexplorer/qc_template.html, compiled in.
+void qc_save_html(const std::string& filename, const QcFrame& frame, const QcTables& tables) {
+    std::string html(reinterpret_cast<const char*>(kQcTemplateHtml), sizeof(kQcTemplateHtml));
+    qc_replace_all(html, "%%TABLE_UNMAP%%",
+                   qc_styler_to_html(frame, tables.unmap, tables.joined, &qc_derived_formatter));
+    qc_replace_all(html, "%%TABLE_DISCARDED%%",
+                   qc_styler_to_html(frame, tables.discarded, tables.joined, &qc_derived_formatter));
+    qc_replace_all(html, "%%TABLE_DISTANCE%%",
+                   qc_styler_to_html(frame, tables.distance, tables.joined, &qc_derived_formatter));
+    qc_replace_all(html, "%%TABLE_ORIENTATION%%",
+                   qc_styler_to_html(frame, tables.orientation, tables.joined,
+                                     &qc_derived_formatter));
+    QcOutputTable all = tables.all;
+    for (const char* dropped : {"Min rest. site distance", "Max library insert size"}) {
+        const auto it = std::find(all.columns.begin(), all.columns.end(), dropped);
+        if (it != all.columns.end()) {
+            all.values.erase(all.values.begin() + (it - all.columns.begin()));
+            all.columns.erase(it);
+        }
+    }
+    qc_replace_all(html, "%%TABLE%%",
+                   qc_styler_to_html(frame, all, tables.plain, &qc_default_formatter));
+    std::ofstream out(filename, std::ios::binary);
+    if (!out) {
+        throw std::runtime_error("could not write " + filename);
+    }
+    out << html;
+    if (!out) {
+        throw std::runtime_error("could not write " + filename);
+    }
+}
+
+// A chart's DataFrame as JSON: {"index", "index_name", "columns",
+// "columns_name", "values" (row major)}. The labels are str() of the index
+// values, which are the --labels or the File entries.
+std::string qc_chart_frame_json(const std::vector<std::string>& index,
+                                const std::optional<std::string>& index_name,
+                                const std::vector<std::string>& columns,
+                                const std::optional<std::string>& columns_name,
+                                const std::vector<double>& values) {
+    auto optional_string = [](const std::optional<std::string>& value) {
+        return value.has_value() ? plot::json_string(*value) : std::string("null");
+    };
+    plot::JsonObject object;
+    object.add("index", plot::json_strings(index));
+    object.add("index_name", optional_string(index_name));
+    object.add("columns", plot::json_strings(columns));
+    object.add("columns_name", optional_string(columns_name));
+    object.add("values", plot::json_numbers(values));
+    return object.str();
+}
+
+// table[names].T / denominators: a row per name, a column per sample. The
+// columns of the transposed frame are the index of the denominator Series,
+// so pandas divides position by position, also with repeated names.
+std::string qc_transposed_ratio_json(const QcFrame& frame, const std::vector<std::string>& names,
+                                     const std::vector<double>& denominators) {
+    std::vector<double> values;
+    for (const std::string& name : names) {
+        const std::vector<double> column = numbers(frame, name);
+        for (std::size_t s = 0; s < column.size(); ++s) {
+            values.push_back(column[s] / denominators[s]);
+        }
+    }
+    return qc_chart_frame_json(names, std::nullopt, frame.index, frame.index_name, values);
+}
+
+// make_figure_*: the DataFrame each chart plots.
+std::string qc_chart_json(const QcFrame& frame) {
+    const std::size_t samples = frame.index.size();
+    plot::JsonObject charts;
+    {
+        // make_figure_pairs_used: table[[...]] / 1e6.
+        const std::vector<std::string> names = {"Hi-C contacts",
+                                                "Pairs mappable, unique and high quality",
+                                                "Sequenced reads"};
+        std::vector<std::vector<double>> columns;
+        for (const std::string& name : names) {
+            columns.push_back(numbers(frame, name));
+        }
+        std::vector<double> values;
+        for (std::size_t s = 0; s < samples; ++s) {
+            for (const std::vector<double>& column : columns) {
+                values.push_back(column[s] / 1e6);
+            }
+        }
+        charts.add("pairs_sequenced", qc_chart_frame_json(frame.index, frame.index_name, names,
+                                                          std::nullopt, values));
+    }
+    charts.add("unmappable_and_non_unique",
+               qc_transposed_ratio_json(frame,
+                                        {"Hi-C contacts", "Low mapping quality",
+                                         "One mate not unique", "One mate unmapped"},
+                                        numbers(frame, "Sequenced reads")));
+    {
+        // make_figure_pairs_discarded: an exact column, or every column that
+        // contains the prefix.
+        std::vector<std::string> names;
+        for (const char* prefix : {"One mate not close to rest site", "dangling end",
+                                   "duplicated pairs", "same fragment", "self circle",
+                                   "self ligation (removed)"}) {
+            const std::string name(prefix);
+            if (frame.has(name)) {
+                names.push_back(name);
+                continue;
+            }
+            for (const std::string& column : frame.columns) {
+                if (column.find(name) != std::string::npos) {
+                    names.push_back(column);
+                }
+            }
+        }
+        charts.add("pairs_discarded",
+                   qc_transposed_ratio_json(frame, names,
+                                            numbers(frame, "Pairs mappable, unique and high quality")));
+    }
+    charts.add("distance",
+               qc_transposed_ratio_json(frame,
+                                        {"inter chromosomal", "Intra short range (< 20kb)",
+                                         "Intra long range (>= 20kb)"},
+                                        numbers(frame, "Hi-C contacts")));
+    {
+        // make_figure_read_orientation: _t / _t.sum(axis=0), the integer sum
+        // of the four orientations per sample.
+        const std::vector<std::string> names = {
+            "Read pair type: inward pairs", "Read pair type: outward pairs",
+            "Read pair type: left pairs", "Read pair type: right pairs"};
+        std::vector<double> totals(samples, 0.0);
+        for (const std::string& name : names) {
+            const std::vector<double> values = numbers(frame, name);
+            for (std::size_t s = 0; s < samples; ++s) {
+                totals[s] += values[s];
+            }
+        }
+        charts.add("read_orientation", qc_transposed_ratio_json(frame, names, totals));
+    }
+    return charts.str();
+}
+
+}  // namespace
+
+void write_qc_report_tables(const std::string& folder, const std::vector<std::string>& log_texts,
+                            const std::optional<std::vector<std::string>>& labels) {
+    const QcFrame frame = build_qc_frame(log_texts, labels);
+    const QcTables tables = build_qc_tables(frame);
+    write_qc_output(folder + "/QC_table.txt", frame, tables.all, tables.plain);
+    write_qc_output(folder + "/unmapable_table.txt", frame, tables.unmap, tables.joined);
+    write_qc_output(folder + "/discarded_table.txt", frame, tables.discarded, tables.joined);
+    write_qc_output(folder + "/distance_table.txt", frame, tables.distance, tables.joined);
+    write_qc_output(folder + "/read_orientation_table.txt", frame, tables.orientation,
+                    tables.joined);
+}
+
+std::string write_qc_report_html(const std::string& folder,
+                                 const std::vector<std::string>& log_texts,
+                                 const std::optional<std::vector<std::string>>& labels) {
+    const QcFrame frame = build_qc_frame(log_texts, labels);
+    const QcTables tables = build_qc_tables(frame);
+    std::string charts = qc_chart_json(frame);
+    qc_save_html(folder + "/hicQC.html", frame, tables);
+    return charts;
 }
 
 void write_qc_tables(const std::string& folder, const std::string& qc_log_text) {

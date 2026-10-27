@@ -60,6 +60,7 @@ d = json.load(open(sys.argv[1]))
 results = d["results"]
 assert results[0][0] == 1.0 and results[1][1] == 1.0, results
 assert abs(results[0][1] - 0.6979227772668228) < 1e-9, results
+assert results[1][0] == results[0][1], results  # the full symmetric matrix
 EOF
 expect "self vs self matches hicrep's own sccByDiag on this fixture" test $? -eq 0
 expect "self vs self: no scatter plot is written" test ! -e self_scatter.png

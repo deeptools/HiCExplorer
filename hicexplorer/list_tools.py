@@ -1,8 +1,12 @@
 """The `hicexplorer` command: prints the version, the citation and the tools.
 
-The tool list is the commands of the installed HiCExplorer distribution
-(package metadata: the executables and console scripts it installed); each
-description is the first sentence of the tool's own --help-json description."""
+The command is the C++ executable `hicexplorer` (cpp/tools/hicexplorer.cpp),
+whose tool list and descriptions are generated at build time from the tools'
+own specifications; main() runs it. The other names of this module are kept
+for API compatibility: tool_list() reads the installed distribution's
+commands (package metadata: the executables and console scripts it
+installed), each described by the first sentence of the tool's own
+--help-json description."""
 import argparse
 import sys
 from importlib import metadata
@@ -79,6 +83,6 @@ def process_args(args=None):
 
 
 def main(args=None):
-    if args is None and len(sys.argv) == 1:
-        args = ["--help"]
-    process_args(args)
+    """Run the C++ executable `hicexplorer` with `args` (default sys.argv[1:])."""
+    from hicexplorer._cpp import entry_point
+    return entry_point('hicexplorer')(args)

@@ -188,6 +188,12 @@ add_test(NAME chicChicagoPlotViewpoint_cli
                  $<TARGET_FILE:chicChicagoPlotViewpoint> $<TARGET_FILE:chicChicagoBackgroundModel>
                  $<TARGET_FILE:chicChicagoScores> "${HICX_TEST_DATA}")
 
+# The `hicexplorer` command: the help without arguments, --version, and a
+# tool list that names every executable of the tools directory.
+add_test(NAME hicexplorer_cli
+         COMMAND ${HICX_BASH} "${CMAKE_CURRENT_SOURCE_DIR}/cli/hicexplorer_cli.sh"
+                 $<TARGET_FILE:hicexplorer>)
+
 # The drawing environment check of the plotting tools: a wrong or missing
 # matplotlib or pyGenomeTracks is refused before anything is written, and the
 # pinned interpreter draws. HICX_PLOT_TEST_PYTHON names a Python with the

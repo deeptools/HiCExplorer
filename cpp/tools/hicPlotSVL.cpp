@@ -613,6 +613,12 @@ int main(int argc, char** argv) {
     data.add("dpi", hicx::plot::json_int(args.dpi));
     data.add("colorList", hicx::plot::json_strings(args.color_list));
     data.add("matrices", hicx::plot::json_strings(args.matrices));
+    // The legend labels: matrices[i].split('/')[-1].
+    std::vector<std::string> labels;
+    for (const std::string& matrix : args.matrices) {
+        labels.push_back(matrix.substr(matrix.rfind('/') + 1));
+    }
+    data.add("labels", hicx::plot::json_strings(labels));
     data.add("samples", hicx::plot::json_list(samples));
     hicx::report_resource_usage("hicPlotSVL");
     return hicx::plot::draw("hicPlotSVL", data.str(), args.plot_data);

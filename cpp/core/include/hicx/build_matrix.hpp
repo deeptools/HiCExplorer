@@ -247,8 +247,9 @@ struct QcLogInputs {
                                         const QcCounters& counters);
 
 // The five tab separated tables hicPrepareQCreport writes next to it. The PNGs
-// and hicQC.html of that tool are matplotlib and pandas rendering, drawn by
-// the tools through hicx::plot::draw("hicPrepareQCreport") after these tables.
+// of that tool are matplotlib and pandas rendering, drawn by the tools through
+// hicx::plot::draw("hicPrepareQCreport") after these tables and
+// write_qc_report_html.
 void write_qc_tables(const std::string& folder, const std::string& qc_log_text);
 
 // hicPrepareQCreport.main's tables for one or more QC logs: the rows are
@@ -259,6 +260,20 @@ void write_qc_tables(const std::string& folder, const std::string& qc_log_text);
 // labels.
 void write_qc_report_tables(const std::string& folder, const std::vector<std::string>& log_texts,
                             const std::optional<std::vector<std::string>>& labels);
+
+// save_html of hicPrepareQCreport.main for the same logs and labels:
+// folder/hicQC.html, the four derived tables and the QC table rendered by
+// pandas 2.2's Styler.to_html into hicexplorer/qc_template.html (compiled
+// in). Byte identical to the reference except for the five random hexadecimal
+// characters of each table id (uuid4().hex[:5] there, random here too).
+// Returns the DataFrames the five charts plot (make_figure_*) as the JSON
+// object {"pairs_sequenced", "unmappable_and_non_unique", "pairs_discarded",
+// "distance", "read_orientation"}, each {"index", "index_name", "columns",
+// "columns_name", "values" (row major)} with every label as str() prints it,
+// for hicexplorer_plot. Throws as write_qc_report_tables does.
+[[nodiscard]] std::string write_qc_report_html(const std::string& folder,
+                                               const std::vector<std::string>& log_texts,
+                                               const std::optional<std::vector<std::string>>& labels);
 
 // The pass/warn/fail cutoffs hicx::write_qc_pretty_report judges each sample
 // against. Two defaults (min_valid_pairs_percent, max_inter_chromosomal_percent)
