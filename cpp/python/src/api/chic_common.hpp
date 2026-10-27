@@ -204,6 +204,18 @@ inline bool is_exception(py::error_already_set& error) {
     return error.matches(PyExc_Exception);
 }
 
+// 'Fail: ' + str(exp), the message the worker functions put into their queue
+// when `except Exception as exp:` caught something.
+inline std::string fail_text(const std::exception& error) {
+    if (const auto* python = dynamic_cast<const hicx::PythonError*>(&error)) {
+        return exception_text(*python);
+    }
+    if (const auto* set = dynamic_cast<const py::error_already_set*>(&error)) {
+        return str_of(set->value());
+    }
+    return error.what();
+}
+
 // numpy scalars
 inline py::object np_int64(std::int64_t value) { return numpy_scalar<std::int64_t>(value); }
 inline py::object np_float64(double value) { return numpy_scalar<double>(value); }
