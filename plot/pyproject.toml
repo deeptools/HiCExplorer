@@ -16,9 +16,8 @@ dependencies = [
     # The QC charts are pandas plotting calls (hicQC.html is written by the
     # C++ binaries).
     "pandas",
-    # hicPlotMatrix reads its bigwig tracks while drawing and transliterates
-    # --title, as the reference does.
-    "pyBigWig",
+    # hicPlotMatrix transliterates --title, as the reference does (its
+    # bigwig tracks are read by the C++ binary).
     "unidecode",
 ]
 
