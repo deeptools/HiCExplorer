@@ -220,3 +220,38 @@ TEST_CASE("bigwig_track: means of the test track as pyBigWig returns them") {
     CHECK_THROWS_AS((void)track.mean("chr9", 0, 10, 1), std::invalid_argument);
     CHECK_THROWS_AS(hicx::bigwig::Track("/nonexistent.bw"), std::runtime_error);
 }
+
+#include "hicx/aggregate_contacts.hpp"
+
+TEST_CASE("aggregate: bins of large regions, orientation and the window sum") {
+    namespace ag = hicx::aggregate;
+    CHECK(ag::pick_bin(3, 8, ag::LargeRegions::First) == 3);
+    CHECK(ag::pick_bin(3, 8, ag::LargeRegions::Last) == 8);
+    CHECK(ag::pick_bin(3, 8, ag::LargeRegions::Center) == 5);
+    CHECK(ag::orientation_of(std::nullopt, std::nullopt) == ag::Orientation::None);
+    CHECK(ag::orientation_of(std::string("+"), std::string("-")) == ag::Orientation::FlipLR);
+    CHECK(ag::orientation_of(std::string("-"), std::string("+")) == ag::Orientation::FlipUD);
+    CHECK(ag::orientation_of(std::string("-"), std::string("-")) == ag::Orientation::Transpose);
+    CHECK(ag::orientation_of(std::string("."), std::string(".")) == ag::Orientation::Unchanged);
+    const std::vector<double> window{1, 2, 3, 4};
+    CHECK(ag::orient(window, 2, ag::Orientation::FlipLR).values == std::vector<double>{2, 1, 4, 3});
+    CHECK(ag::orient(window, 2, ag::Orientation::FlipUD).values == std::vector<double>{3, 4, 1, 2});
+    CHECK(ag::orient(window, 2, ag::Orientation::Transpose).values == std::vector<double>{1, 3, 2, 4});
+    CHECK(ag::orient(window, 2, ag::Orientation::None).sum == 10.0);
+}
+
+TEST_CASE("aggregate: averages along the first axis and outlier rows") {
+    namespace ag = hicx::aggregate;
+    const std::vector<double> stack{1, 2, 3, 10, 5, 6, 2, std::nan(""), 0};
+    const auto median = ag::axis0(stack, 3, 3, ag::Average::Median);
+    CHECK(median[0] == 2.0);
+    CHECK(std::isnan(median[1]));
+    CHECK(median[2] == 3.0);
+    CHECK(ag::axis0(stack, 3, 3, ag::Average::Sum)[0] == 13.0);
+    CHECK(ag::axis0(stack, 3, 3, ag::Average::Mean)[2] == 3.0);
+    CHECK(ag::median({4.0, 1.0, 3.0, 2.0}) == 2.5);
+    CHECK_FALSE(ag::outlier_rows({0, 0, 0, 1}, 2, 2, 2.0).has_value());
+    const auto rows = ag::outlier_rows({1, 2, 2, 1, 100, 1}, 3, 2, 3.0);
+    REQUIRE(rows.has_value());
+    CHECK(*rows == std::vector<bool>{false, false, true});
+}

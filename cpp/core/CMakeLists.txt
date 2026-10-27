@@ -18,6 +18,7 @@ configure_file(include/hicx/version.hpp.in
 
 add_library(hicx4core
     src/adjust_ops.cpp
+    src/aggregate_contacts.cpp
     src/average_regions.cpp
     src/argparse.cpp
     src/bam_file.cpp
