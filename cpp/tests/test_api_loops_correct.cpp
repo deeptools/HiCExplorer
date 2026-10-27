@@ -329,3 +329,21 @@ TEST_CASE("correct_api: fill_gaps fills an isolated bin with the mean of its nei
     CHECK(dense[2 * 5 + 0] == 0.0);
     CHECK_THROWS_AS(hicx::correct_api::fill_gaps<double>(5, 5, row, col, data, {4}), hicx::PythonError);
 }
+
+TEST_CASE("scipy_coo: assign_zero_block inserts explicit zeros as scipy's _insert_many") {
+    hicx::scipy_coo::Csr<double> m;
+    m.rows = m.cols = 3;
+    m.indptr = {0, 2, 3, 4};
+    m.indices = {2, 0, 1, 2};  // row 0 unsorted
+    m.data = {5.0, 1.0, 2.0, 3.0};
+    const auto unsorted = hicx::scipy_coo::assign_zero_block(m, false, 0, 2, 1, 3);
+    CHECK(unsorted.inserted);
+    // row 0: the inserted column 1 first, then the old entries (2 zeroed, 0 kept)
+    CHECK(unsorted.matrix.indices == std::vector<std::int64_t>{1, 2, 0, 2, 1, 2});
+    CHECK(unsorted.matrix.data == std::vector<double>{0.0, 0.0, 1.0, 0.0, 0.0, 3.0});
+    const auto sorted = hicx::scipy_coo::assign_zero_block(m, true, 0, 2, 1, 3);
+    CHECK(sorted.matrix.indices == std::vector<std::int64_t>{0, 1, 2, 1, 2, 2});
+    const auto overwrite = hicx::scipy_coo::assign_zero_block(m, true, 2, 3, 2, 3);
+    CHECK_FALSE(overwrite.inserted);
+    CHECK(overwrite.matrix.data == std::vector<double>{5.0, 1.0, 2.0, 0.0});
+}

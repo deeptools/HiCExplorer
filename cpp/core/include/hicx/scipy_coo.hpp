@@ -317,6 +317,74 @@ Csr<T> running_window(const Csr<T>& matrix, std::int64_t num_bins) {
     return binop(sum, diagonal_matrix(diag, M), [](T a, T b) { return subtract(a, b); });
 }
 
+// The result of assign_zero_block: `inserted` false when every cell of the
+// block was stored, so that scipy only overwrote values.
+template <class T>
+struct BlockAssignment {
+    Csr<T> matrix;
+    bool inserted = false;
+};
+
+template <class T>
+BlockAssignment<T> assign_zero_block(const Csr<T>& matrix, bool sorted, std::int64_t row_first,
+                                     std::int64_t row_last, std::int64_t col_first, std::int64_t col_last) {
+    BlockAssignment<T> out;
+    out.matrix.rows = matrix.rows;
+    out.matrix.cols = matrix.cols;
+    out.matrix.indptr.push_back(0);
+    std::vector<char> present;
+    std::vector<std::pair<std::int64_t, T>> row;
+    for (std::int64_t r = 0; r < matrix.rows; ++r) {
+        const std::size_t begin = static_cast<std::size_t>(matrix.indptr[static_cast<std::size_t>(r)]);
+        const std::size_t end = static_cast<std::size_t>(matrix.indptr[static_cast<std::size_t>(r) + 1]);
+        const bool in_rows = r >= row_first && r < row_last;
+        if (in_rows) {
+            present.assign(static_cast<std::size_t>(col_last - col_first), 0);
+        }
+        row.clear();
+        for (std::size_t k = begin; k < end; ++k) {
+            T value = matrix.data[k];
+            const std::int64_t c = matrix.indices[k];
+            if (in_rows && c >= col_first && c < col_last) {
+                value = T(0);
+                present[static_cast<std::size_t>(c - col_first)] = 1;
+            }
+            row.emplace_back(c, value);
+        }
+        if (in_rows) {
+            std::vector<std::pair<std::int64_t, T>> inserted;
+            for (std::int64_t c = col_first; c < col_last; ++c) {
+                if (!present[static_cast<std::size_t>(c - col_first)]) {
+                    inserted.emplace_back(c, T(0));
+                }
+            }
+            out.inserted = out.inserted || !inserted.empty();
+            row.insert(row.begin(), inserted.begin(), inserted.end());
+        }
+        for (const auto& [c, v] : row) {
+            out.matrix.indices.push_back(c);
+            out.matrix.data.push_back(v);
+        }
+        out.matrix.indptr.push_back(static_cast<std::int64_t>(out.matrix.data.size()));
+    }
+    if (out.inserted && sorted) {
+        for (std::int64_t r = 0; r < matrix.rows; ++r) {
+            const std::size_t begin = static_cast<std::size_t>(out.matrix.indptr[static_cast<std::size_t>(r)]);
+            const std::size_t end = static_cast<std::size_t>(out.matrix.indptr[static_cast<std::size_t>(r) + 1]);
+            row.clear();
+            for (std::size_t k = begin; k < end; ++k) {
+                row.emplace_back(out.matrix.indices[k], out.matrix.data[k]);
+            }
+            std::stable_sort(row.begin(), row.end(), [](const auto& a, const auto& b) { return a.first < b.first; });
+            for (std::size_t k = begin; k < end; ++k) {
+                out.matrix.indices[k] = row[k - begin].first;
+                out.matrix.data[k] = row[k - begin].second;
+            }
+        }
+    }
+    return out;
+}
+
 }  // namespace hicx::scipy_coo
 
 #endif  // HICX_SCIPY_COO_HPP
