@@ -145,3 +145,37 @@ TEST_CASE("pca_tracks: histone_flip") {
     CHECK_FALSE(hicx::pca::histone_flip(0.0, 1.0, true));
     CHECK_FALSE(hicx::pca::histone_flip(1.0, 0.0, false));
 }
+
+#include "hicx/dist_vs_counts.hpp"
+
+TEST_CASE("dist_counts: means per distance with the diagonal lengths of the units") {
+    // two chromosomes of three 10 bp bins, upper triangle entries
+    const std::vector<hicx::CutInterval> bins{{"a", 0, 10}, {"a", 10, 20}, {"a", 20, 30},
+                                              {"b", 0, 10}, {"b", 10, 20}, {"b", 20, 30}};
+    const std::vector<hicx::dist_counts::Entry> entries{{0, 0, 2.0}, {0, 1, 1.0}, {0, 3, 5.0}, {1, 1, 4.0},
+                                                        {3, 3, 6.0}, {3, 5, 3.0}};
+    const auto d = hicx::dist_counts::scan(entries, 0, entries.size(), 0, 6, bins, 10, false);
+    REQUIRE(d.size() == 4);
+    // k = 0: the inter chromosome entry over (36 - 9 - 9) / 2 cells
+    CHECK(d[0].diagonal_is_float);
+    CHECK(d[0].diagonal_length == 9.0);
+    CHECK(d[0].mean == 5.0 / 9.0);
+    // the main diagonal: 6 cells
+    CHECK(d[1].mean == 12.0 / 6.0);
+    CHECK(d[2].mean == 1.0 / 4.0);
+    CHECK(d[3].mean == 3.0 / 2.0);
+    CHECK_FALSE(d[3].diagonal_is_float);
+    // with maxdepth the inter chromosome distance is skipped
+    const auto cut = hicx::dist_counts::scan(entries, 0, entries.size(), 0, 6, bins, 10, true);
+    CHECK(cut[0].skipped);
+}
+
+TEST_CASE("dist_counts: fit_cut_intervals snaps uneven bins to the median") {
+    bool snapped = false;
+    std::int64_t median = 0;
+    const std::vector<hicx::CutInterval> bins{{"a", 0, 10}, {"a", 11, 19}, {"a", 19, 31}, {"a", 31, 40}};
+    const auto starts = hicx::dist_counts::fitted_starts(bins, &snapped, &median);
+    CHECK(snapped);
+    CHECK(median == 11);
+    CHECK(starts == std::vector<std::int64_t>{0, 11, 22, 33});
+}

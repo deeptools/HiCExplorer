@@ -26,6 +26,7 @@ add_library(hicx4core
     src/clustering.cpp
     src/compartmentalization.cpp
     src/correct_ops.cpp
+    src/dist_vs_counts.cpp
     src/build_matrix.cpp
     src/chic_hdf5.cpp
     src/chic_viewpoint.cpp
