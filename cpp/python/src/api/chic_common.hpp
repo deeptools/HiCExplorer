@@ -14,6 +14,10 @@
 #define HICX_PYTHON_API_CHIC_COMMON_HPP
 
 #include <algorithm>
+#include <cerrno>
+#include <cstring>
+#include <initializer_list>
+#include <span>
 #include <cstdint>
 #include <cstring>
 #include <numeric>
@@ -22,6 +26,9 @@
 #include <string_view>
 #include <utility>
 #include <vector>
+
+#include <fcntl.h>
+#include <unistd.h>
 
 #include "api.hpp"
 #include "hicx/chic_hdf5.hpp"
@@ -437,6 +444,170 @@ inline py::object decode_utf8(const py::object& value) {
         raise_error("AttributeError", "'" + type_name(value) + "' object has no attribute 'decode'");
     }
     return value.attr("decode")("utf-8");
+}
+
+// ---------------------------------------------------------------------------
+// writing HDF5 files as the cHi-C functions wrote them with h5py
+
+// h5py.File(path, 'w'), with h5py's error when the file cannot be created.
+inline hicx::chic::Hdf5Writer create_h5(py::handle path_object) {
+    const std::string path = fs_path(path_object);
+    const int fd = ::open(path.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0666);
+    if (fd < 0) {
+        const int error = errno;
+        const char* type = error == ENOENT ? "FileNotFoundError"
+                           : (error == EACCES || error == EPERM) ? "PermissionError"
+                           : error == EISDIR ? "IsADirectoryError" : "OSError";
+        raise_error(type, "[Errno " + std::to_string(error) +
+                              "] Unable to synchronously create file (unable to open file: name = '" + path +
+                              "', errno = " + std::to_string(error) + ", error message = '" + std::strerror(error) +
+                              "', flags = 13, o_flags = 242)");
+    }
+    ::close(fd);
+    return hicx::chic::Hdf5Writer(path);
+}
+
+// "/" + '/'.join(parts)
+inline std::string h5_path(std::initializer_list<std::string> parts) {
+    std::string out;
+    for (const std::string& part : parts) {
+        out += "/" + part;
+    }
+    return out;
+}
+
+// group.create_group(name) of h5py: ValueError when it exists.
+inline void create_group(hicx::chic::Hdf5Writer& writer, const std::string& path) {
+    if (writer.exists(path)) {
+        raise_error("ValueError", "Unable to synchronously create group (name already exists)");
+    }
+    writer.create_group(path);
+}
+
+// `if name not in group: group.create_group(name)`
+inline void ensure_group(hicx::chic::Hdf5Writer& writer, const std::string& path) {
+    if (!writer.exists(path)) {
+        writer.create_group(path);
+    }
+}
+
+// group[link] = file[target]: OSError when the name exists.
+inline void hard_link(hicx::chic::Hdf5Writer& writer, const std::string& target, const std::string& link) {
+    if (!writer.hard_link(target, link)) {
+        raise_error("OSError", "Unable to create link (name already exists)");
+    }
+}
+
+// The numpy dtype h5py would store `values` with (np.asarray(values)).
+inline py::array as_array(py::handle values) {
+    return py::reinterpret_borrow<py::array>(numpy().attr("asarray")(values));
+}
+
+[[noreturn]] inline void unsupported_dtype(const py::array& array) {
+    const char kind = array.dtype().kind();
+    if (kind == 'O') {
+        raise_error("TypeError", "Object dtype dtype('O') has no native HDF5 equivalent");
+    }
+    if (kind == 'U') {
+        raise_error("TypeError", "No conversion path for dtype: dtype('" + dtype_name(array) + "')");
+    }
+    raise_error("TypeError", "HiCExplorer 4 writes the cHi-C lists as int64 or float64, not " + dtype_name(array));
+}
+
+// create_dataset(path, data=values[, compression='gzip', compression_opts=level])
+inline void write_values(hicx::chic::Hdf5Writer& writer, const std::string& path, py::handle values, int level) {
+    if (writer.exists(path)) {
+        raise_error("ValueError", "Unable to synchronously create dataset (name already exists)");
+    }
+    const py::array array = as_array(values);
+    if (array.ndim() > 1) {
+        raise_error("TypeError", "HiCExplorer 4 writes the cHi-C lists as one dimensional datasets");
+    }
+    const char kind = array.dtype().kind();
+    if (kind == 'i' && array.dtype().itemsize() == 8) {
+        const std::vector<std::int64_t> data = to_vector<std::int64_t>(array);
+        writer.write_array(path, std::span<const std::int64_t>(data), level);
+        return;
+    }
+    if (kind == 'f' && array.dtype().itemsize() == 8) {
+        const std::vector<double> data = to_vector<double>(array);
+        writer.write_array(path, std::span<const double>(data), level);
+        return;
+    }
+    if (kind == 'S' || kind == 'O') {
+        // a list of str becomes '<U', of bytes 'S': only variable length
+        // strings (object arrays of str) are written as h5py would
+        bool all_str = array.size() > 0;
+        std::vector<std::string> strings;
+        for (const py::handle item : values) {
+            if (!is_str(item)) {
+                all_str = false;
+                break;
+            }
+            strings.push_back(utf8(item));
+        }
+        if (all_str && kind == 'O') {
+            writer.write_strings(path, strings);
+            return;
+        }
+    }
+    unsupported_dtype(array);
+}
+
+// group[name] = value for a scalar
+inline void write_scalar(hicx::chic::Hdf5Writer& writer, const std::string& path, py::handle value) {
+    if (writer.exists(path)) {
+        raise_error("ValueError", "Unable to synchronously create dataset (name already exists)");
+    }
+    if (is_str(value)) {
+        writer.write_string(path, utf8(value));
+        return;
+    }
+    if (PyFloat_Check(value.ptr()) ||
+        PyObject_IsInstance(value.ptr(), numpy().attr("float64").ptr()) == 1) {
+        writer.write_scalar(path, to_double(value));
+        return;
+    }
+    if (!PyBool_Check(value.ptr()) && (PyLong_Check(value.ptr()) ||
+                                       PyObject_IsInstance(value.ptr(), numpy().attr("int64").ptr()) == 1)) {
+        writer.write_scalar(path, to_int64(value));
+        return;
+    }
+    if (value.is_none()) {
+        raise_error("TypeError", "Object dtype dtype('O') has no native HDF5 equivalent");
+    }
+    unsupported_dtype(as_array(value));
+}
+
+// attrs[name] = value
+inline void write_attribute(hicx::chic::Hdf5Writer& writer, const std::string& object, const std::string& name,
+                            py::handle value) {
+    if (is_str(value)) {
+        writer.set_attribute(object, name, utf8(value));
+        return;
+    }
+    if (PyBool_Check(value.ptr()) || PyObject_IsInstance(value.ptr(), numpy().attr("bool_").ptr()) == 1) {
+        writer.set_bool_attribute(object, name, truthy(value));
+        return;
+    }
+    if (PyFloat_Check(value.ptr()) || PyObject_IsInstance(value.ptr(), numpy().attr("float64").ptr()) == 1) {
+        writer.set_attribute(object, name, to_double(value));
+        return;
+    }
+    if (PyLong_Check(value.ptr()) || PyObject_IsInstance(value.ptr(), numpy().attr("int64").ptr()) == 1) {
+        writer.set_attribute(object, name, to_int64(value));
+        return;
+    }
+    if (PyList_Check(value.ptr()) || PyTuple_Check(value.ptr()) || is_ndarray(value)) {
+        const py::array array = as_array(value);
+        if (array.dtype().kind() == 'i' && array.dtype().itemsize() == 8 && array.ndim() == 1) {
+            const std::vector<std::int64_t> data = to_vector<std::int64_t>(array);
+            writer.set_attribute(object, name, std::span<const std::int64_t>(data));
+            return;
+        }
+        unsupported_dtype(array);
+    }
+    raise_error("TypeError", "Object dtype dtype('O') has no native HDF5 equivalent");
 }
 
 }  // namespace hicx::python::chic_api
