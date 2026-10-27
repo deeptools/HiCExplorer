@@ -16,6 +16,7 @@ set(HICX_API_MODULES
     chicSignificantInteractions
     chicViewpoint
     chicViewpointBackgroundModel
+    hicPlotViewpoint
     lib_viewpoint
     readBed
     utilities
