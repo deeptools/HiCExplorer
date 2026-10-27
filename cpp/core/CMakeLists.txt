@@ -25,6 +25,7 @@ add_library(hicx4core
     src/clustering.cpp
     src/cnb.cpp
     src/correct_ops.cpp
+    src/detect_loops.cpp
     src/build_matrix.cpp
     src/chic_hdf5.cpp
     src/chic_viewpoint.cpp

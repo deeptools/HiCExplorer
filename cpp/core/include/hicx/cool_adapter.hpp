@@ -59,7 +59,7 @@ namespace hicx {
 // CsrMatrix::Arrays from pixel rows read directly off disk, rather than
 // through CsrMatrix::from_coo (which always sorts), must call this before
 // CsrMatrix::adopt, because CsrMatrix code downstream (dense_block's
-// lower_bound window search in detect_loops_impl.cpp, for one) assumes the
+// lower_bound window search in detect_loops.cpp, for one) assumes the
 // per-row order the format promises.
 void sort_row_columns(CsrMatrix::Arrays& arrays);
 

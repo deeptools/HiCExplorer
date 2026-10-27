@@ -1,5 +1,6 @@
-// The computational core of hicDetectLoops, separated from the tool so that
-// the unit tests can reach it (cpp/tests/test_detect_loops.cpp).
+// The computational core of hicDetectLoops, shared by the tool, the unit
+// tests (cpp/tests/test_detect_loops.cpp) and the public Python API's
+// hicexplorer.hicDetectLoops (cpp/python/src/api/hicDetectLoops.cpp).
 //
 // Everything here is a transcription of hicexplorer/hicDetectLoops.py and of
 // the two hicexplorer/utilities.py helpers it calls. The Python is followed
@@ -25,8 +26,8 @@
 // produce the same answer because its items are independent too, which is the
 // property this file relies on and the unit tests pin.
 
-#ifndef HICX_TOOLS_DETECT_LOOPS_IMPL_HPP
-#define HICX_TOOLS_DETECT_LOOPS_IMPL_HPP
+#ifndef HICX_DETECT_LOOPS_HPP
+#define HICX_DETECT_LOOPS_HPP
 
 #include <algorithm>
 #include <cmath>
@@ -289,11 +290,34 @@ struct Candidate {
     std::int64_t col = 0;
 };
 
+// hicDetectLoops.neighborhood_merge_thread for one candidate: whether it is
+// the maximum (np.max, NaN propagating) of its own (2 * window + 1)^2
+// neighbourhood, which must not be empty.
+[[nodiscard]] bool is_neighborhood_maximum(const CsrMatrix& obs_exp, const Candidate& candidate,
+                                           std::int64_t window_size);
+
 // hicDetectLoops.neighborhood_merge (:382-496): keep a candidate only when it
 // is the maximum of its own (2 * window + 1)^2 neighbourhood.
 [[nodiscard]] std::vector<Candidate> neighborhood_merge(
     const std::vector<Candidate>& candidates, std::int64_t window_size,
     const CsrMatrix& obs_exp, unsigned int threads);
+
+// hicDetectLoops.candidate_region_test_thread for one candidate. Besides
+// the accepted and rejected candidates of the tool, the outcomes the Python
+// reaches only with arguments the tool refuses: a candidate value np.where
+// does not find (NaN), which raises IndexError, a peak wider than the
+// window, where the worker logs a warning and returns without a result, and
+// an empty peak or background passing the size checks (window_size 0),
+// where np.max raises ValueError.
+struct CandidateTest {
+    enum class Outcome { Rejected, Accepted, NoPeak, PeakWiderThanWindow, EmptyMaximum };
+    Outcome outcome = Outcome::Rejected;
+    double pvalue = 0.0;
+};
+
+[[nodiscard]] CandidateTest test_candidate(const CsrMatrix& obs_exp, const Candidate& candidate,
+                                           std::int64_t window_size, double p_value,
+                                           std::int64_t peak_window_size);
 
 struct RegionTestResult {
     std::vector<Candidate> candidates;
@@ -315,4 +339,4 @@ struct RegionTestResult {
 
 }  // namespace hicx::loops
 
-#endif  // HICX_TOOLS_DETECT_LOOPS_IMPL_HPP
+#endif  // HICX_DETECT_LOOPS_HPP
