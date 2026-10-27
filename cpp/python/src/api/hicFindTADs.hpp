@@ -24,6 +24,7 @@
 
 #include "hicx/bins.hpp"
 #include "hicx/sparse_matrix.hpp"
+#include "hicx/tad_contacts.hpp"
 
 namespace hicx::python::hic {
 
@@ -69,6 +70,34 @@ void write_text_file(py::handle path, const std::string& text);
 
 // The `exit(code)` of the 3.7.6 code (site's exit, None for no argument).
 [[noreturn]] void python_exit(py::object code);
+
+// --------------------------------------------------------------------------
+// The per-TAD workers of hicDifferentialTAD and hicInterIntraTAD
+
+// The matrix a worker reads: with pCoolOrH5 the cool file of that path (the
+// worker loads one region per TAD), otherwise the hiCMatrix object itself.
+[[nodiscard]] hicx::tads::ContactMatrix contact_matrix(py::handle matrix, bool cool_or_h5);
+
+// readDomainBoundaries(pFile): pd.read_csv(pFile, sep='\t',
+// header=None)[[0, 1, 2, 3, 4, 5]], read by hicx::TextTable (pandas' dtype
+// inference and float parser) and built as that DataFrame.
+[[nodiscard]] py::object read_domain_boundaries(py::handle file);
+
+// The TAD rows (chrom, start, end, ...) of a worker's pDomainList.
+[[nodiscard]] std::vector<hicx::tads::Domain> domains(py::handle rows);
+
+// Whether the worker skips TAD `index` of `count` for its pThreadId: None
+// skips the last, True the first and the last, False the first.
+[[nodiscard]] bool skips(py::handle thread_id, std::size_t index, std::size_t count);
+
+// The str() of the Python exception behind a std::exception of the TAD
+// geometry, for the worker's 'Fail: ' message.
+[[nodiscard]] std::string worker_message(const std::exception& error);
+
+// 'Fail: ' + str(exp) + traceback.format_exc() of a failed worker; the
+// traceback names the C++ worker instead of Python frames.
+[[nodiscard]] std::string worker_failure(const std::string& worker, const std::string& type,
+                                         const std::string& message);
 
 }  // namespace hicx::python::hic
 

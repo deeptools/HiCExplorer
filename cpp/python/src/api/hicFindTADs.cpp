@@ -58,6 +58,7 @@
 #include "hicx/obsexp_ops.hpp"
 #include "hicx/parallel.hpp"
 #include "hicx/tad_contacts.hpp"
+#include "hicx/text_table.hpp"
 #include "hicx/tool_matrix.hpp"
 #include "utilities.hpp"
 
@@ -562,6 +563,119 @@ void write_text_file(py::handle path, const std::string& text) {
 void python_exit(py::object code) {
     py::module_::import("builtins").attr("exit")(code);
     raise_error("SystemExit", fmt(code));
+}
+
+hicx::tads::ContactMatrix contact_matrix(py::handle matrix_object, bool cool_or_h5) {
+    if (cool_or_h5) {
+        return hicx::tads::load_contact_matrix(fs_path(matrix_object), true);
+    }
+    hicx::tads::ContactMatrix out;
+    out.format = hicx::tads::Format::H5;
+    out.matrix = matrix(matrix_object);
+    out.bins = bins(matrix_object);
+    return out;
+}
+
+py::object read_domain_boundaries(py::handle file) {
+    // open()'s errors first, which are pandas' for a path
+    const std::string content = read_file(file);
+    bool any_line = false;
+    for (const char c : content) {
+        if (c != '\n' && c != '\r') {
+            any_line = true;
+            break;
+        }
+    }
+    if (!any_line) {
+        raise_error("pandas.errors.EmptyDataError", "No columns to parse from file");
+    }
+    hicx::TextTable table;
+    try {
+        table = hicx::TextTable::read_tsv(fs_path(file));
+    } catch (const std::runtime_error& error) {
+        const std::string what = error.what();
+        if (what.rfind("Error tokenizing data", 0) == 0) {
+            raise_error("pandas.errors.ParserError", what + "\n");
+        }
+        throw;
+    }
+    std::vector<std::size_t> missing;
+    for (std::size_t c = table.cols(); c < 6; ++c) {
+        missing.push_back(c);
+    }
+    if (!missing.empty()) {
+        std::string labels;
+        for (const std::size_t c : missing) {
+            labels += (labels.empty() ? "" : ", ") + std::to_string(c);
+        }
+        if (missing.size() == 6) {
+            raise_error("KeyError", "None of [Index([0, 1, 2, 3, 4, 5], dtype='int64')] are in the [columns]");
+        }
+        raise_error("KeyError", "[" + labels + "] not in index");
+    }
+    py::dict columns;
+    const py::module_ np = numpy();
+    for (std::size_t c = 0; c < 6; ++c) {
+        const hicx::TableColumn& column = table.column(c);
+        py::object values;
+        switch (column.type) {
+            case hicx::ColumnType::Int64: values = int64_array(column.ints); break;
+            case hicx::ColumnType::Float64: values = float64_array(column.floats); break;
+            case hicx::ColumnType::String: {
+                py::list items;
+                for (const std::string& text : column.strings) {
+                    items.append(to_str(text));
+                }
+                values = np.attr("array")(items, py::arg("dtype") = "object");
+                break;
+            }
+        }
+        columns[py::int_(c)] = values;
+    }
+    return py::module_::import("pandas").attr("DataFrame")(columns);
+}
+
+std::vector<hicx::tads::Domain> domains(py::handle rows) {
+    std::vector<hicx::tads::Domain> out;
+    for (const py::handle row : py::reinterpret_borrow<py::iterable>(rows)) {
+        hicx::tads::Domain domain;
+        domain.chrom = str_of(item(row, 0));
+        domain.start = to_int64(python_int(item(row, 1)));
+        domain.end = to_int64(python_int(item(row, 2)));
+        out.push_back(std::move(domain));
+    }
+    return out;
+}
+
+bool skips(py::handle thread_id, std::size_t index, std::size_t count) {
+    if (thread_id.is_none()) {
+        return index + 1 == count;
+    }
+    if (compare(thread_id, py::bool_(true), Py_EQ)) {
+        return index == 0 || index + 1 == count;
+    }
+    if (compare(thread_id, py::bool_(false), Py_EQ)) {
+        return index == 0;
+    }
+    return false;
+}
+
+std::string worker_message(const std::exception& error) {
+    const std::string what = error.what();
+    // getRegionBinRange returned None and the Python indexed it
+    if (what.rfind("no bin of ", 0) == 0 || what.rfind("getRegionBinRange found no bins", 0) == 0) {
+        return "'NoneType' object is not subscriptable";
+    }
+    // a region of no bins has no interval tree: next(iter({})) in getRegionBinRange
+    if (what.rfind("the region holds no bins", 0) == 0) {
+        return "";
+    }
+    return what;
+}
+
+std::string worker_failure(const std::string& worker, const std::string& type, const std::string& message) {
+    return "Fail: " + message + "Traceback (most recent call last):\n  File \"hicexplorer._hicx." + worker +
+           "\", in " + worker + "\n" + type + ": " + message + "\n";
 }
 
 }  // namespace hic
