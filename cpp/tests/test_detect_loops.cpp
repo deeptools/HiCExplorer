@@ -1,5 +1,5 @@
 // Unit tests for hicDetectLoops: the statistics added to hicx::stats and the
-// computational core in tools/detect_loops_impl.hpp.
+// computational core in hicx/detect_loops.hpp.
 //
 // Every expected value here was produced by the reference environment, either
 // by scipy directly or by running the hicexplorer helper the code replaces on
@@ -14,7 +14,7 @@
 
 #include <doctest/doctest.h>
 
-#include "../tools/detect_loops_impl.hpp"
+#include "hicx/detect_loops.hpp"
 #include "hicx/adjust_ops.hpp"
 #include "hicx/cool_adapter.hpp"
 #include "hicx/h5_file.hpp"

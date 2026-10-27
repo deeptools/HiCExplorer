@@ -68,7 +68,7 @@ add_custom_target(hicx_plot_package ALL
 # hicDetectLoops keeps its computational core in a second translation unit so
 # that cpp/tests/test_detect_loops.cpp can link against exactly the code the
 # tool runs.
-add_executable(hicDetectLoops hicDetectLoops.cpp detect_loops_impl.cpp)
+add_executable(hicDetectLoops hicDetectLoops.cpp)
 target_link_libraries(hicDetectLoops PRIVATE hicx::core hicx_compile_options)
 
 # hicDetectStripes has no Python counterpart (cpp/PLAN.md tier 9 section 9.3).

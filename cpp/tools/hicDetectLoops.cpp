@@ -16,7 +16,7 @@
 //      background                        (hicx::loops::candidate_region_test)
 //   8. map to genomic coordinates, drop pairs beyond --maxLoopDistance, write
 //
-// Everything numeric lives in detect_loops_impl.hpp so that the unit tests can
+// Everything numeric lives in hicx/detect_loops.hpp so that the unit tests can
 // reach it. This file is the argument parser, the loader and the writer.
 //
 // Two deliberate differences from the Python, both forced by
@@ -62,7 +62,7 @@
 #include <string>
 #include <vector>
 
-#include "detect_loops_impl.hpp"
+#include "hicx/detect_loops.hpp"
 #include "hicx/adjust_ops.hpp"
 #include "hicx/argparse.hpp"
 #include "hicx/bins.hpp"

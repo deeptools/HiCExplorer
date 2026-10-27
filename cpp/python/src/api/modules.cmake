@@ -17,20 +17,28 @@ set(HICX_API_MODULES
     chicSignificantInteractions
     chicViewpoint
     chicViewpointBackgroundModel
+    hicAdjustMatrix
     hicAggregateContacts
     hicAverageRegions
     hicCompartmentalization
+    hicCorrectMatrix
+    hicDetectLoops
     hicDifferentialTAD
     hicFindTADs
     hicInterIntraTAD
     hicMergeDomains
+    hicMergeLoops
+    hicMergeMatrixBins
     hicMergeTADbins
     hicPCA
     hicPlotDistVsCounts
     hicPlotMatrix
     hicPlotSVL
     hicPlotViewpoint
+    iterativeCorrection
+    lib_cnb
     lib_viewpoint
     readBed
+    reduceMatrix
     utilities
 )

@@ -36,8 +36,10 @@ add_library(hicx4core
     src/bedtools_ops.cpp
     src/bins.cpp
     src/clustering.cpp
+    src/cnb.cpp
     src/compartmentalization.cpp
     src/correct_ops.cpp
+    src/detect_loops.cpp
     src/dist_vs_counts.cpp
     src/build_matrix.cpp
     src/chic_hdf5.cpp
@@ -50,6 +52,7 @@ add_library(hicx4core
     src/hdf5_util.cpp
     src/hic_adapter.cpp
     src/hic_matrix.cpp
+    src/iterative_correction.cpp
     src/json_lite.cpp
     src/lbfgsb.cpp
     src/lbfgsb_scipy.cpp
@@ -58,6 +61,7 @@ add_library(hicx4core
     src/math/sparse_kernels.cpp
     src/matrix_ops.cpp
     src/merge_domains.cpp
+    src/merge_loops.cpp
     src/npz_file.cpp
     src/numpy_compat.cpp
     src/numpy_random.cpp
@@ -74,6 +78,7 @@ add_library(hicx4core
     src/hicspector.cpp
     src/quasar.cpp
     src/reduce_matrix.cpp
+    src/reduce_matrix_entries.cpp
     src/resource_usage.cpp
     src/scc.cpp
     src/simd_reduce.cpp

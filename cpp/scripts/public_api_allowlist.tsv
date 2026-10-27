@@ -21,3 +21,4 @@ hicexplorer.lib.viewpoint	Viewpoint.plotViewpoint	draws the viewpoint curve and 
 hicexplorer.lib.viewpoint	Viewpoint.plotBackgroundModel	draws the background model curve and x-fold band with matplotlib; the band values come from _hicx.lib_viewpoint.Viewpoint_backgroundModelBand
 hicexplorer.lib.viewpoint	Viewpoint.plotPValue	draws the p-value heat strip and colorbar with matplotlib; rows, ticks and levels come from _hicx.lib_viewpoint
 hicexplorer.chicPlotViewpoint	plot_images	lays out and draws the viewpoint figures with matplotlib; the curves, regions and p-values come from the Viewpoint object's C++ methods and the p-value strip and axis ticks from _hicx.chicPlotViewpoint
+hicexplorer.hicCorrectMatrix	plot_total_contact_dist	draws the coverage histograms with matplotlib; the row sums, MAD z-scores, outlier filter and threshold come from hicexplorer._hicx.hicCorrectMatrix

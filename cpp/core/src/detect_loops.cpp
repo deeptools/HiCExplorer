@@ -1,4 +1,4 @@
-#include "detect_loops_impl.hpp"
+#include "hicx/detect_loops.hpp"
 
 #include <stdexcept>
 
@@ -467,34 +467,45 @@ PreselectionResult preselect_candidates(
     return result;
 }
 
+namespace {
+
+// np.max: NaN as soon as one value is NaN.
+double numpy_max(const std::vector<double>& values) {
+    double best = -std::numeric_limits<double>::infinity();
+    for (const double v : values) {
+        if (std::isnan(v)) {
+            return v;
+        }
+        best = std::max(best, v);
+    }
+    return best;
+}
+
+}  // namespace
+
+bool is_neighborhood_maximum(const CsrMatrix& obs_exp, const Candidate& candidate, std::int64_t window_size) {
+    const std::int64_t x_max = obs_exp.rows();
+    const std::int64_t y_max = obs_exp.cols();
+    const std::int64_t start_x = (candidate.row - window_size) > 0 ? candidate.row - window_size : 0;
+    const std::int64_t start_y = (candidate.col - window_size) > 0 ? candidate.col - window_size : 0;
+    const std::int64_t end_x =
+        candidate.row + window_size + 1 < x_max ? candidate.row + window_size + 1 : x_max;
+    const std::int64_t end_y =
+        candidate.col + window_size + 1 < y_max ? candidate.col + window_size + 1 : y_max;
+    const DenseBlock block = dense_block(obs_exp, start_x, end_x, start_y, end_y);
+    if (block.size() == 0) {
+        return false;
+    }
+    return numpy_max(block.values) == element(obs_exp, candidate.row, candidate.col);
+}
+
 std::vector<Candidate> neighborhood_merge(const std::vector<Candidate>& candidates,
                                           std::int64_t window_size,
                                           const CsrMatrix& obs_exp,
                                           unsigned int threads) {
     std::vector<char> keep(candidates.size(), 0);
-    const std::int64_t x_max = obs_exp.rows();
-    const std::int64_t y_max = obs_exp.cols();
-
     parallel_for(candidates.size(), threads, [&](std::size_t index) {
-        const Candidate& candidate = candidates[index];
-        const std::int64_t start_x =
-            (candidate.row - window_size) > 0 ? candidate.row - window_size : 0;
-        const std::int64_t start_y =
-            (candidate.col - window_size) > 0 ? candidate.col - window_size : 0;
-        const std::int64_t end_x = candidate.row + window_size + 1 < x_max
-                                       ? candidate.row + window_size + 1
-                                       : x_max;
-        const std::int64_t end_y = candidate.col + window_size + 1 < y_max
-                                       ? candidate.col + window_size + 1
-                                       : y_max;
-        const DenseBlock block = dense_block(obs_exp, start_x, end_x, start_y, end_y);
-        if (block.size() == 0) {
-            return;
-        }
-        const double maximum = *std::max_element(block.values.begin(), block.values.end());
-        if (maximum == element(obs_exp, candidate.row, candidate.col)) {
-            keep[index] = 1;
-        }
+        keep[index] = is_neighborhood_maximum(obs_exp, candidates[index], window_size) ? 1 : 0;
     });
 
     std::vector<Candidate> selected;
@@ -507,155 +518,171 @@ std::vector<Candidate> neighborhood_merge(const std::vector<Candidate>& candidat
     return selected;
 }
 
+CandidateTest test_candidate(const CsrMatrix& obs_exp, const Candidate& candidate, std::int64_t window_size,
+                             double p_value, std::int64_t peak_window_size) {
+    CandidateTest result;
+    const std::int64_t x_max = obs_exp.rows();
+    const std::int64_t y_max = obs_exp.cols();
+    const std::int64_t pw = peak_window_size;
+    const std::int64_t start_x =
+        (candidate.row - window_size) > 0 ? candidate.row - window_size : 0;
+    const std::int64_t start_y =
+        (candidate.col - window_size) > 0 ? candidate.col - window_size : 0;
+    const std::int64_t end_x = candidate.row + window_size + 1 < x_max
+                                   ? candidate.row + window_size + 1
+                                   : x_max;
+    const std::int64_t end_y = candidate.col + window_size + 1 < y_max
+                                   ? candidate.col + window_size + 1
+                                   : y_max;
+    const DenseBlock block = dense_block(obs_exp, start_x, end_x, start_y, end_y);
+    // `if len(neighborhood) == 0` tests the number of rows, not the number
+    // of elements, because len() of a 2D array is its first dimension.
+    if (block.rows == 0) {
+        return result;
+    }
+    const double value = element(obs_exp, candidate.row, candidate.col);
+
+    // np.array(np.where(block == value)).flatten() is
+    // [rows..., columns...]; the code then reads element 0 and element 1.
+    std::int64_t first_row = -1;
+    std::int64_t second_entry = -1;
+    std::int64_t first_column = -1;
+    std::int64_t matches = 0;
+    for (std::int64_t r = 0; r < block.rows && matches < 2; ++r) {
+        for (std::int64_t c = 0; c < block.cols; ++c) {
+            if (block.at(r, c) != value) {
+                continue;
+            }
+            if (matches == 0) {
+                first_row = r;
+                first_column = c;
+            } else {
+                second_entry = r;
+            }
+            ++matches;
+            if (matches >= 2) {
+                break;
+            }
+        }
+    }
+    if (matches == 0) {
+        // np.where found no match (a NaN candidate value): peak_region[0]
+        // raises IndexError
+        result.outcome = CandidateTest::Outcome::NoPeak;
+        return result;
+    }
+    const std::int64_t peak_row = first_row;
+    const std::int64_t peak_col = matches > 1 ? second_entry : first_column;
+    if (peak_window_size > window_size) {
+        // :537-540 logs a warning and returns (None, None) from the worker
+        result.outcome = CandidateTest::Outcome::PeakWiderThanWindow;
+        return result;
+    }
+
+    const std::vector<double> peak = flatten_slice(
+        block, peak_row - pw, peak_row + pw + 1, peak_col - pw, peak_col + pw + 1);
+
+    std::vector<double> background;
+    const auto extend = [&background](const std::vector<double>& part) {
+        background.insert(background.end(), part.begin(), part.end());
+    };
+    // top to peak, then peak to bottom, then right middle, then left
+    // middle, in exactly that order (:546-557).
+    extend(flatten_slice(block, 0, peak_row - pw, 0, block.cols));
+    extend(flatten_slice(block, peak_row + pw + 1, block.rows, 0, block.cols));
+    extend(flatten_slice(block, peak_row - pw, peak_row + pw + 1, peak_col + pw + 1,
+                         block.cols));
+    extend(flatten_slice(block, peak_row - pw, peak_row + pw + 1, 0, peak_col - pw));
+
+    if (static_cast<std::int64_t>(background.size()) < window_size) {
+        return result;
+    }
+    if (static_cast<std::int64_t>(peak.size()) < window_size) {
+        return result;
+    }
+    if (numpy_mean(peak) < numpy_mean(background)) {
+        return result;
+    }
+    if (peak.empty() || background.empty()) {
+        // np.max of an empty array raises ValueError
+        result.outcome = CandidateTest::Outcome::EmptyMaximum;
+        return result;
+    }
+    const double peak_max = numpy_max(peak);
+    const double background_max = numpy_max(background);
+    if (peak_max < background_max) {
+        return result;
+    }
+
+    std::vector<double> horizontal;
+    {
+        const std::vector<double> top =
+            flatten_slice(block, 0, peak_row - pw, peak_col - pw, peak_col + pw + 1);
+        const std::vector<double> bottom = flatten_slice(
+            block, peak_row + pw + 1, block.rows, peak_col - pw, peak_col + pw + 1);
+        horizontal.insert(horizontal.end(), top.begin(), top.end());
+        horizontal.insert(horizontal.end(), bottom.begin(), bottom.end());
+    }
+    std::vector<double> vertical;
+    {
+        const std::vector<double> left =
+            flatten_slice(block, peak_row - pw, peak_row + pw + 1, 0, peak_col - pw);
+        const std::vector<double> right = flatten_slice(
+            block, peak_row - pw, peak_row + pw + 1, peak_col + pw + 1, block.cols);
+        vertical.insert(vertical.end(), left.begin(), left.end());
+        vertical.insert(vertical.end(), right.begin(), right.end());
+    }
+    std::vector<double> bottom_left;
+    {
+        const std::vector<double> a =
+            flatten_slice(block, peak_row, block.rows, 0, peak_col - pw);
+        const std::vector<double> b = flatten_slice(block, peak_row + pw + 1,
+                                                    block.rows, peak_col - pw,
+                                                    peak_col + 1);
+        bottom_left.insert(bottom_left.end(), a.begin(), a.end());
+        bottom_left.insert(bottom_left.end(), b.begin(), b.end());
+    }
+
+    std::vector<double> sorted_peak = peak;
+    std::sort(sorted_peak.begin(), sorted_peak.end());
+
+    int accept_count = 0;
+    for (std::vector<double>* data : {&bottom_left, &horizontal, &vertical}) {
+        std::vector<double> sorted_data = *data;
+        std::sort(sorted_data.begin(), sorted_data.end());
+        const stats::RanksumsResult test = stats::ranksums(sorted_peak, sorted_data);
+        if (test.pvalue <= p_value) {
+            ++accept_count;
+        }
+    }
+    if (accept_count < 3) {
+        return result;
+    }
+    std::vector<double> sorted_background = background;
+    std::sort(sorted_background.begin(), sorted_background.end());
+    const stats::RanksumsResult test =
+        stats::ranksums(sorted_peak, sorted_background);
+    if (test.pvalue <= p_value) {
+        result.outcome = CandidateTest::Outcome::Accepted;
+        result.pvalue = test.pvalue;
+    }
+    return result;
+}
+
 RegionTestResult candidate_region_test(const CsrMatrix& obs_exp,
                                        const std::vector<Candidate>& candidates,
                                        std::int64_t window_size, double p_value,
                                        std::int64_t peak_window_size,
                                        unsigned int threads) {
     RegionTestResult result;
-    std::vector<char> accepted(candidates.size(), 0);
-    std::vector<double> pvalues(candidates.size(), 0.0);
-    const std::int64_t x_max = obs_exp.rows();
-    const std::int64_t y_max = obs_exp.cols();
-    const std::int64_t pw = peak_window_size;
-
+    std::vector<CandidateTest> tests(candidates.size());
     parallel_for(candidates.size(), threads, [&](std::size_t index) {
-        const Candidate& candidate = candidates[index];
-        const std::int64_t start_x =
-            (candidate.row - window_size) > 0 ? candidate.row - window_size : 0;
-        const std::int64_t start_y =
-            (candidate.col - window_size) > 0 ? candidate.col - window_size : 0;
-        const std::int64_t end_x = candidate.row + window_size + 1 < x_max
-                                       ? candidate.row + window_size + 1
-                                       : x_max;
-        const std::int64_t end_y = candidate.col + window_size + 1 < y_max
-                                       ? candidate.col + window_size + 1
-                                       : y_max;
-        const DenseBlock block = dense_block(obs_exp, start_x, end_x, start_y, end_y);
-        // `if len(neighborhood) == 0` tests the number of rows, not the number
-        // of elements, because len() of a 2D array is its first dimension.
-        if (block.rows == 0) {
-            return;
-        }
-        const double value = element(obs_exp, candidate.row, candidate.col);
-
-        // np.array(np.where(block == value)).flatten() is
-        // [rows..., columns...]; the code then reads element 0 and element 1.
-        std::int64_t first_row = -1;
-        std::int64_t second_entry = -1;
-        std::int64_t first_column = -1;
-        std::int64_t matches = 0;
-        for (std::int64_t r = 0; r < block.rows && matches < 2; ++r) {
-            for (std::int64_t c = 0; c < block.cols; ++c) {
-                if (block.at(r, c) != value) {
-                    continue;
-                }
-                if (matches == 0) {
-                    first_row = r;
-                    first_column = c;
-                } else {
-                    second_entry = r;
-                }
-                ++matches;
-                if (matches >= 2) {
-                    break;
-                }
-            }
-        }
-        if (matches == 0) {
-            return;  // the Python raises IndexError here; it cannot happen
-        }
-        const std::int64_t peak_row = first_row;
-        const std::int64_t peak_col = matches > 1 ? second_entry : first_column;
-
-        const std::vector<double> peak = flatten_slice(
-            block, peak_row - pw, peak_row + pw + 1, peak_col - pw, peak_col + pw + 1);
-
-        std::vector<double> background;
-        const auto extend = [&background](const std::vector<double>& part) {
-            background.insert(background.end(), part.begin(), part.end());
-        };
-        // top to peak, then peak to bottom, then right middle, then left
-        // middle, in exactly that order (:546-557).
-        extend(flatten_slice(block, 0, peak_row - pw, 0, block.cols));
-        extend(flatten_slice(block, peak_row + pw + 1, block.rows, 0, block.cols));
-        extend(flatten_slice(block, peak_row - pw, peak_row + pw + 1, peak_col + pw + 1,
-                             block.cols));
-        extend(flatten_slice(block, peak_row - pw, peak_row + pw + 1, 0, peak_col - pw));
-
-        if (static_cast<std::int64_t>(background.size()) < window_size) {
-            return;
-        }
-        if (static_cast<std::int64_t>(peak.size()) < window_size) {
-            return;
-        }
-        if (numpy_mean(peak) < numpy_mean(background)) {
-            return;
-        }
-        const double peak_max = *std::max_element(peak.begin(), peak.end());
-        const double background_max = *std::max_element(background.begin(), background.end());
-        if (peak_max < background_max) {
-            return;
-        }
-
-        std::vector<double> horizontal;
-        {
-            const std::vector<double> top =
-                flatten_slice(block, 0, peak_row - pw, peak_col - pw, peak_col + pw + 1);
-            const std::vector<double> bottom = flatten_slice(
-                block, peak_row + pw + 1, block.rows, peak_col - pw, peak_col + pw + 1);
-            horizontal.insert(horizontal.end(), top.begin(), top.end());
-            horizontal.insert(horizontal.end(), bottom.begin(), bottom.end());
-        }
-        std::vector<double> vertical;
-        {
-            const std::vector<double> left =
-                flatten_slice(block, peak_row - pw, peak_row + pw + 1, 0, peak_col - pw);
-            const std::vector<double> right = flatten_slice(
-                block, peak_row - pw, peak_row + pw + 1, peak_col + pw + 1, block.cols);
-            vertical.insert(vertical.end(), left.begin(), left.end());
-            vertical.insert(vertical.end(), right.begin(), right.end());
-        }
-        std::vector<double> bottom_left;
-        {
-            const std::vector<double> a =
-                flatten_slice(block, peak_row, block.rows, 0, peak_col - pw);
-            const std::vector<double> b = flatten_slice(block, peak_row + pw + 1,
-                                                        block.rows, peak_col - pw,
-                                                        peak_col + 1);
-            bottom_left.insert(bottom_left.end(), a.begin(), a.end());
-            bottom_left.insert(bottom_left.end(), b.begin(), b.end());
-        }
-
-        std::vector<double> sorted_peak = peak;
-        std::sort(sorted_peak.begin(), sorted_peak.end());
-
-        int accept_count = 0;
-        for (std::vector<double>* data : {&bottom_left, &horizontal, &vertical}) {
-            std::vector<double> sorted_data = *data;
-            std::sort(sorted_data.begin(), sorted_data.end());
-            const stats::RanksumsResult test = stats::ranksums(sorted_peak, sorted_data);
-            if (test.pvalue <= p_value) {
-                ++accept_count;
-            }
-        }
-        if (accept_count < 3) {
-            return;
-        }
-        std::vector<double> sorted_background = background;
-        std::sort(sorted_background.begin(), sorted_background.end());
-        const stats::RanksumsResult test =
-            stats::ranksums(sorted_peak, sorted_background);
-        if (test.pvalue <= p_value) {
-            accepted[index] = 1;
-            pvalues[index] = test.pvalue;
-        }
+        tests[index] = test_candidate(obs_exp, candidates[index], window_size, p_value, peak_window_size);
     });
-
     for (std::size_t index = 0; index < candidates.size(); ++index) {
-        if (accepted[index] != 0) {
+        if (tests[index].outcome == CandidateTest::Outcome::Accepted) {
             result.candidates.push_back(candidates[index]);
-            result.pvalues.push_back(pvalues[index]);
+            result.pvalues.push_back(tests[index].pvalue);
         }
     }
     return result;
