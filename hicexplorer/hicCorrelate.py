@@ -1,8 +1,9 @@
 """hicCorrelate: a thin layer over the C++ executable hicCorrelate.
 
 main() runs the executable and parse_arguments() is built from its --help-json
-(hicexplorer._cpp). The other names of this module are kept for API
-compatibility and are not used by the tool.
+(hicexplorer._cpp). get_vectors runs in C++ (hicexplorer._hicx.hicCorrelate);
+plot_correlation draws with matplotlib and scipy's dendrogram from the
+linkage and the colour range C++ computes.
 """
 import warnings
 warnings.simplefilter(action="ignore", category=UserWarning)
@@ -10,15 +11,9 @@ warnings.simplefilter(action="ignore", category=RuntimeWarning)
 warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 
 import argparse
-import os
 import numpy as np
-from past.builtins import map
-from scipy.sparse import triu
-from scipy.stats import pearsonr, spearmanr
 
-from hicmatrix import HiCMatrix as hm
 from hicexplorer._version import __version__
-from hicexplorer.utilities import check_cooler
 # for plotting
 from matplotlib import use as mplt_use
 import matplotlib as mpl
@@ -33,6 +28,8 @@ import matplotlib.colors as pltcolors
 import logging
 log = logging.getLogger(__name__)
 
+from hicexplorer._hicx import hicCorrelate as _impl
+
 
 def parse_arguments(args=None):
     """The argparse parser of hicCorrelate, built from the C++ executable's --help-json."""
@@ -45,17 +42,13 @@ def plot_correlation(corr_matrix, labels, plot_filename, vmax=None,
     import scipy.cluster.hierarchy as sch
     num_rows = corr_matrix.shape[0]
 
-    # set the minimum and maximum values
-    if vmax is None:
-        vmax = 1
-    if vmin is None:
-        vmin = 0 if corr_matrix.min() >= 0 else -1
+    # the complete linkage and the minimum and maximum values (C++)
+    y_var, vmax, vmin = _impl.plot_correlation_data(corr_matrix, vmax, vmin)
 
     # Compute and plot dendrogram.
     fig = plt.figure(figsize=(10.5, 9.5))
     axdendro = fig.add_axes([0.02, 0.1, 0.1, 0.7])
     axdendro.set_axis_off()
-    y_var = sch.linkage(corr_matrix, method='complete')
     z_var = sch.dendrogram(y_var, orientation='left',
                            link_color_func=lambda k: 'black')
     axdendro.set_xticks([])
@@ -116,27 +109,7 @@ def get_vectors(mat1, mat2):
 
     Requires two sparse matrices as input
     """
-    assert mat1.shape == mat2.shape, "Matrices have different shapes. "\
-        "Computation of correlation is not possible."
-
-    # create a new matrix that is the sum of the two
-    # matrices to compare. The goal is to have
-    # a matrix that contains all the positions
-    # that are non-zero in both matrices
-    _mat = mat1 + mat2
-
-    # add one to each element in the new matrix
-    _mat.data += 1
-
-    # get a vector of the values in mat1 from
-    # _mat
-    values1 = (_mat - mat1).data - 1
-
-    # get a vector of the values in mat2 from
-    # _mat
-    values2 = (_mat - mat2).data - 1
-
-    return values1, values2
+    return _impl.get_vectors(mat1, mat2)
 
 
 def main(args=None):

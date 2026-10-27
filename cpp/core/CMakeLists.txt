@@ -48,6 +48,7 @@ add_library(hicx4core
     src/chic_viewpoint.cpp
     src/chicago.cpp
     src/cool_adapter.cpp
+    src/correlate_api.cpp
     src/fasta_reader.cpp
     src/find_tads.cpp
     src/h5_file.cpp
@@ -72,6 +73,8 @@ add_library(hicx4core
     src/obsexp_ops.cpp
     src/pca_tracks.cpp
     src/pairs_file.cpp
+    src/qc_html.cpp
+    src/qc_report_api.cpp
     src/plot_bridge.cpp
     src/plot_matrix_data.cpp
     src/py_text.cpp
@@ -88,6 +91,7 @@ add_library(hicx4core
     src/scipy_stats.cpp
     src/tad_contacts.cpp
     src/tar_gz.cpp
+    src/tool_list.cpp
     src/sparse_matrix.cpp
     src/stats_ops.cpp
     src/text_formats.cpp

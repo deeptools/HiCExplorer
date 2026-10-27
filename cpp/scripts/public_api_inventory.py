@@ -14,7 +14,6 @@ implementation column says how it is implemented:
                                    names and constants as arguments; a class
                                    is C++-backed when all its methods are
   C++-backed (runs/reads the executable)  a tool's main()/parse_arguments()
-  Python (package metadata + --help-json) hicexplorer.list_tools
   Python driver (hyperopt) around C++ tools
   pure Python                      everything else: the work list
 
@@ -181,8 +180,6 @@ def inventory(repo):
                 kind = C_EXTENSION
             else:
                 kind = PURE
-            if mod == "hicexplorer.list_tools":
-                kind = "Python (package metadata + --help-json)"
             if mod.startswith(("hicexplorer.hicHyperopt",)):
                 kind = "Python driver (hyperopt) around C++ tools"
             refs = "" if kind != PURE else ";".join(cpp_refs(path, node.name))

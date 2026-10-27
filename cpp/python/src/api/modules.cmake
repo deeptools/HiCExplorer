@@ -23,6 +23,7 @@ set(HICX_API_MODULES
     hicBuildMatrixMicroC
     hicCompartmentalization
     hicCorrectMatrix
+    hicCorrelate
     hicDetectLoops
     hicDifferentialTAD
     hicFindRestSite
@@ -37,11 +38,13 @@ set(HICX_API_MODULES
     hicPlotMatrix
     hicPlotSVL
     hicPlotViewpoint
+    hicPrepareQCreport
     hicValidateLocations
     iterativeCorrection
     lib_buildMatrixMethods
     lib_cnb
     lib_viewpoint
+    list_tools
     parserCommon
     readBed
     reduceMatrix

@@ -3,15 +3,12 @@
 The command is the C++ executable `hicexplorer` (cpp/tools/hicexplorer.cpp),
 whose tool list and descriptions are generated at build time from the tools'
 own specifications; main() runs it. The other names of this module are kept
-for API compatibility: tool_list() reads the installed distribution's
-commands (package metadata: the executables and console scripts it
-installed), each described by the first sentence of the tool's own
---help-json description."""
-import argparse
-import sys
-from importlib import metadata
-
+for API compatibility and run in C++ (hicexplorer._hicx.list_tools):
+tool_list() reads the installed distribution's commands (package metadata:
+the executables and console scripts it installed), each described by the first
+sentence of the tool's own --help-json description."""
 from hicexplorer._version import __version__
+from hicexplorer._hicx import list_tools as _impl
 
 CITATION = """
 HiCExplorer addresses the common tasks of Hi-C analysis from processing to visualization.
@@ -37,49 +34,19 @@ def tool_names():
     """The commands of the installed HiCExplorer distribution, sorted: the C++
     executables its RECORD lists in the scripts directory and its console
     scripts."""
-    try:
-        distribution = metadata.distribution('HiCExplorer')
-    except metadata.PackageNotFoundError:
-        return []
-    names = {entry.name for entry in distribution.entry_points
-             if entry.group == 'console_scripts'}
-    for path in distribution.files or []:
-        if len(path.parts) > 1 and path.parts[-2] in ('bin', 'Scripts'):
-            names.add(path.stem if path.suffix == '.exe' else path.name)
-    names.discard('hicexplorer')
-    return sorted(name for name in names if name.startswith(('hic', 'chic')))
-
-
-def _summary(tool):
-    from hicexplorer._cpp import tool_spec
-    try:
-        description = tool_spec(tool).get('description') or ''
-    except (OSError, RuntimeError, ValueError):
-        return ''
-    first = description.strip().split('\n')[0]
-    return first.split('. ')[0].rstrip('.')
+    return _impl.tool_names()
 
 
 def tool_list():
-    names = tool_names()
-    if not names:
-        return 'The tool list is read from the package metadata; HiCExplorer is not installed.\n'
-    width = max(len(name) for name in names) + 1
-    return ''.join('{:<{}}{}\n'.format(name, width, _summary(name)) for name in names)
+    return _impl.tool_list()
 
 
 def parse_arguments():
-    parser = argparse.ArgumentParser(
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        description=(CITATION + '\nThe following is the list of tools:\n\n' + tool_list() +
-                     '\nFor more information visit: http://hicexplorer.readthedocs.org\n'))
-    parser.add_argument('--version', action='version',
-                        version='%(prog)s {}'.format(__version__))
-    return parser
+    return _impl.parse_arguments(CITATION, __version__)
 
 
 def process_args(args=None):
-    return parse_arguments().parse_args(args)
+    return _impl.process_args(args)
 
 
 def main(args=None):
