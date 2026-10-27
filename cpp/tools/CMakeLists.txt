@@ -55,8 +55,6 @@ foreach(tool IN LISTS HICX_TOOLS)
     target_link_libraries(${tool} PRIVATE hicx::core hicx_compile_options)
 endforeach()
 
-# hicPlotMatrix reads the --bigwig tracks with libBigWig, as pyBigWig does.
-target_link_libraries(hicPlotMatrix PRIVATE hicx::bigwig)
 
 # The drawing layer of the plotting tools (cpp/PLAN.md tier 7, option (a)),
 # copied next to the tools directory, where hicx::plot::draw finds it as
@@ -117,11 +115,9 @@ target_link_libraries(hicPCA PRIVATE hicx::core hicx::bigwig hicx::zlib
 add_executable(chicExportData chicExportData.cpp)
 target_link_libraries(chicExportData PRIVATE hicx::core hicx::bigwig hicx_compile_options)
 
-# hicCompartmentalization keeps its computational core in a second translation
-# unit, like hicDetectLoops, so that cpp/tests/test_compartmentalization.cpp
-# links against exactly the code the tool runs.
-add_executable(hicCompartmentalization hicCompartmentalization.cpp
-                                       compartmentalization_impl.cpp)
+# hicCompartmentalization's computational core is in cpp/core
+# (hicx/compartmentalization.hpp), shared with the Python API.
+add_executable(hicCompartmentalization hicCompartmentalization.cpp)
 target_link_libraries(hicCompartmentalization PRIVATE hicx::core hicx_compile_options)
 
 # The `hicexplorer` command (the tool list of list_tools.py). Its table of

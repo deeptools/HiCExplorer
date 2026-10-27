@@ -2,8 +2,13 @@
 # cpp/python/API_BINDINGS.md). One row per name: module<TAB>name<TAB>reason.
 # A name that computes data besides drawing does not belong here; its
 # computation moves to C++ and the drawing calls stay.
+hicexplorer.hicAggregateContacts	plot_aggregated_contacts	matplotlib imshow or plot_surface of the cluster averages; the averages, their log records and the --outFilePrefixMatrix and --outFileContactPairs files come from hicexplorer._hicx.hicAggregateContacts
+hicexplorer.hicAggregateContacts	plot_diagnostic_heatmaps	matplotlib imshow and line plots of the diagonal rows; the rows sorted by their centre value and their means come from hicexplorer._hicx.hicAggregateContacts
 hicexplorer.hicCompartmentalization	plot_polarization_ratio	draws the polarization ratio curves with matplotlib from values it is given
 hicexplorer.hicPlotMatrix	plotHeatmap	matplotlib pcolormesh and colorbar of a matrix it is given
+hicexplorer.hicPlotMatrix	plotPerChr	matplotlib grid of per chromosome heatmaps; the chromosome blocks, the --log/--log1p clearing and the regions come from hicexplorer._hicx.hicPlotMatrix
+hicexplorer.hicPlotMatrix	bigwig_axes_config	matplotlib subplot2grid layout of the heatmap and bigwig axes, no data
+hicexplorer.hicPlotMatrix	plotBigwig	matplotlib fill_between of bigwig tracks; the scores, positions, limits and their flipping, scaling and clipping come from hicexplorer._hicx.hicPlotMatrix
 hicexplorer.hicPlotMatrix	plotLongRangeContacts	draws arcs with matplotlib from given contacts
 hicexplorer.hicPlotMatrix	plotTADs	draws TAD triangles with matplotlib from given domains
 hicexplorer.hicPrepareQCreport	make_figure_pairs_used	matplotlib bar chart of QC numbers it is given

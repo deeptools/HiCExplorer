@@ -17,6 +17,13 @@ set(HICX_API_MODULES
     chicSignificantInteractions
     chicViewpoint
     chicViewpointBackgroundModel
+    hicAggregateContacts
+    hicAverageRegions
+    hicCompartmentalization
+    hicPCA
+    hicPlotDistVsCounts
+    hicPlotMatrix
+    hicPlotSVL
     hicPlotViewpoint
     lib_viewpoint
     readBed
