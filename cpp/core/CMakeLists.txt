@@ -21,6 +21,7 @@ add_library(hicx4core
     src/average_regions.cpp
     src/argparse.cpp
     src/bam_file.cpp
+    src/bigwig_track.cpp
     src/bedtools_ops.cpp
     src/bins.cpp
     src/clustering.cpp
@@ -53,6 +54,7 @@ add_library(hicx4core
     src/pca_tracks.cpp
     src/pairs_file.cpp
     src/plot_bridge.cpp
+    src/plot_matrix_data.cpp
     src/py_text.cpp
     src/read_bed.cpp
     src/genomedisco.cpp
@@ -106,6 +108,10 @@ get_filename_component(_hicx_openblas_real "${HICX_LAPACK_LIBRARY}" REALPATH)
 set_source_files_properties(src/clustering.cpp PROPERTIES
     COMPILE_DEFINITIONS "HICX_OPENBLAS_LIBRARY=\"${_hicx_openblas_real}\"")
 target_link_libraries(hicx4core PRIVATE ${CMAKE_DL_LIBS})
+
+# libBigWig for the bigwig tracks of the Python API's hicPlotMatrix.plotBigwig
+# (bigwig_track.cpp), the library pyBigWig wraps.
+target_link_libraries(hicx4core PRIVATE hicx::bigwig)
 
 # transform_ops runs the covariance rows on std::thread workers.
 find_package(Threads REQUIRED)

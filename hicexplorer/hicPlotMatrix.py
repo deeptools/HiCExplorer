@@ -1,8 +1,14 @@
-"""hicPlotMatrix: a thin layer over the C++ executable hicPlotMatrix.
+"""hicPlotMatrix, implemented in C++.
 
-main() runs the executable and parse_arguments() is built from its --help-json
-(hicexplorer._cpp). The other names of this module are kept for API
-compatibility and are not used by the tool.
+main() runs the C++ executable hicPlotMatrix and parse_arguments() is built
+from its --help-json (hicexplorer._cpp). The public functions keep the name,
+the signature and the behaviour they had in HiCExplorer 3.7.6. relabel_ticks,
+translate_region, getRegion, chromosome_start_end and make_start_pos_array call
+hicexplorer._hicx.hicPlotMatrix (cpp/python/src/api/hicPlotMatrix.cpp).
+plotHeatmap, plotPerChr, bigwig_axes_config, plotBigwig, plotLongRangeContacts
+and plotTADs are matplotlib drawing code and stay Python
+(cpp/scripts/public_api_allowlist.tsv); plotPerChr and plotBigwig take the data
+they draw from hicexplorer._hicx.hicPlotMatrix.
 """
 import logging
 from collections import OrderedDict
@@ -13,19 +19,9 @@ import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
 import matplotlib
 import matplotlib as mpl
-import argparse
 from past.builtins import zip
-import pyBigWig
 import numpy as np
-from hicexplorer._version import __version__
-from hicexplorer.utilities import check_cooler
-from hicexplorer.utilities import check_chrom_str_bytes
-from hicexplorer.utilities import remove_non_ascii
-from hicexplorer.utilities import change_chrom_names
-from hicexplorer.utilities import enlarge_bins
-from hicexplorer.utilities import toString, toBytes
-from hicexplorer.utilities import writableFile
-from hicmatrix import HiCMatrix
+from hicexplorer.utilities import toString
 import warnings
 warnings.simplefilter(action="ignore", category=RuntimeWarning)
 warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
@@ -36,6 +32,8 @@ matplotlib.use('Agg')
 
 log = logging.getLogger(__name__)
 
+from hicexplorer._hicx import hicPlotMatrix as _impl
+
 
 def parse_arguments(args=None):
     """The argparse parser of hicPlotMatrix, built from the C++ executable's --help-json."""
@@ -44,19 +42,7 @@ def parse_arguments(args=None):
 
 
 def relabel_ticks(pXTicks):
-    if pXTicks[-1] > 1.5e6:
-        labels = ["{:.2f} ".format(x / 1e6)
-                  for x in pXTicks]
-        labels[-2] += " Mbp"
-    elif pXTicks[-1] > 1500:
-        labels = ["{:.0f}".format(x / 1e3)
-                  for x in pXTicks]
-        labels[-2] += " Kbp"
-    else:
-        labels = ["{:.2f} ".format((x))
-                  for x in pXTicks]
-        labels[-2] += " bp"
-    return labels
+    return _impl.relabel_ticks(pXTicks)
 
 
 def plotHeatmap(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=None,
@@ -212,34 +198,7 @@ def translate_region(region_string, ma):
     the chrom, then start and end
     are set to matrix start and end on this chromosome
     """
-    # region_string = toBytes(region_string)
-    region_string = region_string.replace(",", "")
-    region_string = region_string.replace(";", "")
-    region_string = region_string.replace("!", "")
-    region_string = region_string.replace("-", ":")
-
-    fields = region_string.split(":")
-    chrom = fields[0]
-
-    chrom = check_chrom_str_bytes(ma.interval_trees, chrom)
-    if chrom not in list(ma.interval_trees):
-        chrom = change_chrom_names(chrom)
-        chrom = check_chrom_str_bytes(ma.interval_trees, chrom)
-        if chrom not in list(ma.interval_trees):
-            exit(
-                "Chromosome name {} in --region not in matrix".format(change_chrom_names(chrom)))
-
-    first_bin, last_bin = ma.getChrBinRange(chrom)
-    try:
-        region_start = int(fields[1])
-    except IndexError:
-        region_start = ma.getBinPos(first_bin)[1]
-    try:
-        region_end = int(fields[2])
-    except IndexError:
-        region_end = ma.getBinPos(last_bin - 1)[2]
-
-    return chrom, region_start, region_end
+    return _impl.translate_region(region_string, ma)
 
 
 def plotPerChr(hic_matrix, cmap, args, pBigwig, pResolution):
@@ -248,7 +207,7 @@ def plotPerChr(hic_matrix, cmap, args, pBigwig, pResolution):
     in one row. scale bar is added at the end
     """
     from math import ceil
-    chromosomes = hic_matrix.getChrNames()
+    chromosomes = _impl._plotPerChr_chromosomes(hic_matrix)
     chrom_per_row = 5
     num_rows = int(ceil(float(len(chromosomes)) / chrom_per_row))
     num_cols = min(chrom_per_row, len(chromosomes))
@@ -258,7 +217,7 @@ def plotPerChr(hic_matrix, cmap, args, pBigwig, pResolution):
                               height_ratios=[1] * num_rows)
 
     fig_height = 6 * num_rows
-    fig_width = sum((np.array(width_ratios) + 0.05) * 6)
+    fig_width = sum((ratio + 0.05) * 6 for ratio in width_ratios)
     if pBigwig:
         for i in range(len(args.bigwig)):
             fig_height += args.increaseFigureHeight
@@ -267,7 +226,7 @@ def plotPerChr(hic_matrix, cmap, args, pBigwig, pResolution):
 
     fig = plt.figure(figsize=(fig_width, fig_height), dpi=args.dpi)
 
-    chrom, start, end, _ = zip(*hic_matrix.cut_intervals)
+    _impl._plotPerChr_unpack(hic_matrix)
     for idx, chrname in enumerate(chromosomes):
         log.debug('chrom: {}'.format(chrname))
         bigwig_info = None
@@ -344,38 +303,14 @@ def plotPerChr(hic_matrix, cmap, args, pBigwig, pResolution):
         else:
             axis = plt.subplot(grids[row, col])
             axis.set_title(toString(chrname))
-        chrom_range = hic_matrix.getChrBinRange(chrname)
-        matrix = np.asarray(hic_matrix.matrix[chrom_range[0]:chrom_range[1],
-                                              chrom_range[0]:chrom_range[1]].todense().astype(float))
+        matrix, chr_bin_boundary = _impl._plotPerChr_matrix(hic_matrix, chrname, args)
 
         norm = None
-        if args.log or args.log1p:
-            mask = matrix == 0
-            mask_nan = np.isnan(matrix)
-            mask_inf = np.isinf(matrix)
-            log.debug("any nan {}".format(np.isnan(matrix).any()))
-            log.debug("any inf {}".format(np.isinf(matrix).any()))
-
-            try:
-                matrix[mask] = np.nanmin(matrix[mask == False])
-                matrix[mask_nan] = np.nanmin(matrix[mask_nan == False])
-                matrix[mask_inf] = np.nanmin(matrix[mask_inf == False])
-
-            except Exception:
-                log.debug("Clearing of matrix failed.")
-            log.debug("any nanafter remove of nan: {}".format(
-                np.isnan(matrix).any()))
-            log.debug("any inf after remove of inf: {}".format(
-                np.isinf(matrix).any()))
         if args.log1p:
-            matrix += 1
             norm = LogNorm(vmin=args.vMin, vmax=args.vMax)
 
         elif args.log:
             norm = LogNorm(vmin=args.vMin, vmax=args.vMax)
-
-        chr_bin_boundary = OrderedDict()
-        chr_bin_boundary[chrname] = hic_matrix.get_chromosome_sizes()[chrname]
 
         args.region = toString(chrname)
         chrom, region_start, region_end, idx1, start_pos1, chrom2, region_start2, region_end2, idx2, start_pos2 = getRegion(
@@ -388,48 +323,7 @@ def plotPerChr(hic_matrix, cmap, args, pBigwig, pResolution):
 
 
 def getRegion(args, ma):
-    chrom = region_start = region_end = idx1 = start_pos1 = chrom2 = region_start2 = region_end2 = idx2 = start_pos2 = None
-    chrom, region_start, region_end = translate_region(args.region, ma)
-
-    args.region = [chrom, region_start, region_end]
-    is_cooler = check_cooler(args.matrix)
-    if is_cooler:
-        idx1, start_pos1 = zip(*[(idx, x[1]) for idx, x in enumerate(ma.cut_intervals) if x[0] == chrom and  # noqa: W504
-                                 ((x[1] >= region_start and x[2] <= region_end) or                            # noqa: W504
-                                  (x[1] < region_end and x[2] < region_end and x[2] > region_start) or       # noqa: W504
-                                  (x[1] > region_start and x[1] < region_end))])
-    else:
-        idx1, start_pos1 = zip(*[(idx, x[1]) for idx, x in enumerate(ma.cut_intervals) if x[0] == chrom and  # noqa: W504
-                                 x[1] >= region_start and x[2] <= region_end])
-    if hasattr(args, 'region2') and args.region2:
-        chrom2, region_start2, region_end2 = translate_region(args.region2, ma)
-        chrom2 = check_chrom_str_bytes(ma.interval_trees, chrom2)
-
-        # if type(next(iter(ma.interval_trees))) in [np.bytes_, bytes]:
-        #     chrom2 = toBytes(chrom)
-        if chrom2 not in list(ma.interval_trees):
-            chrom2 = change_chrom_names(chrom2)
-            chrom2 = check_chrom_str_bytes(ma.interval_trees, chrom2)
-
-            # if type(next(iter(ma.interval_trees))) in [np.bytes_, bytes]:
-            #     chrom2 = toBytes(chrom)
-            if chrom2 not in list(ma.interval_trees):
-                exit(
-                    "Chromosome name {} in --region2 not in matrix".format(change_chrom_names(chrom2)))
-        if is_cooler:
-            idx2, start_pos2 = zip(*[(idx, x[1]) for idx, x in enumerate(ma.cut_intervals) if x[0] == chrom2 and  # noqa: W504
-                                     ((x[1] >= region_start2 and x[2] < region_end2) or                           # noqa: W504
-                                      (x[1] < region_end2 and x[2] < region_end2 and x[2] > region_start2) or     # noqa: W504
-                                      (x[1] > region_start2 and x[1] < region_end2))])
-        else:
-            idx2, start_pos2 = zip(*[(idx, x[1]) for idx, x in enumerate(ma.cut_intervals) if x[0] == chrom2 and  # noqa: W504
-                                     x[1] >= region_start2 and x[2] < region_end2])
-    else:
-        idx2 = idx1
-        chrom2 = chrom
-        start_pos2 = start_pos1
-
-    return chrom, region_start, region_end, idx1, start_pos1, chrom2, region_start2, region_end2, idx2, start_pos2
+    return _impl.getRegion(args, ma)
 
 
 def bigwig_axes_config(pArgs, pBigWigInfo):
@@ -485,44 +379,11 @@ def bigwig_axes_config(pArgs, pBigWigInfo):
 
 
 def chromosome_start_end(pHiCMatrix):
-    chromosome_start_end_dict = {}
-
-    for chromosome, (start_bin, end_bin) in pHiCMatrix.chrBinBoundaries.items():
-        chromosome_start_end_dict[chromosome] = (pHiCMatrix.cut_intervals[start_bin][1], pHiCMatrix.cut_intervals[end_bin - 1][2])
-
-    return chromosome_start_end_dict
+    return _impl.chromosome_start_end(pHiCMatrix)
 
 
 def make_start_pos_array(ma):
-    # makes an start_pos array that can be used
-    # to plot the bins of the matrix using their real length
-    # When the whole matrix wants to be plotted, the start_pos needs to be modified
-    # such that at each chromosome start, the start_pos does not go back to zero and instead
-    # is added
-    chrom_sizes = dict()
-    for chr, v in chromosome_start_end(ma).items():
-        start, end = v
-        chrom_sizes[chr] = end - start
-    # chrom_sizes = ma.get_chromosome_sizes() ## TODO this is incorrect!!
-    prev_chrom = ma.cut_intervals[0][0]
-    prev_chroms_sum = 0
-    start_pos = []
-    shift = 0
-    for index, (chrom, start, end, _) in enumerate(ma.cut_intervals):  # Shifts all the coords to start from 0
-        if index == 0:
-            if start != 0:
-                shift = start
-
-        if chrom != prev_chrom:
-            prev_chroms_sum += chrom_sizes[prev_chrom]
-            prev_chrom = chrom
-            if start != 0:  # shift all the other chrosmomes also back to be started just after the previous chromosome
-                shift = start
-            else:
-                shift = 0
-
-        start_pos.append(start - shift + prev_chroms_sum)
-    return start_pos
+    return _impl.make_start_pos_array(ma)
 
 
 def plotBigwig(pAxis, pNameOfBigwigList, pChromosomeSizes=None, pRegion=None, pXticks=None,
@@ -530,152 +391,33 @@ def plotBigwig(pAxis, pNameOfBigwigList, pChromosomeSizes=None, pRegion=None, pX
                pValueMin=None, pValueMax=None, pResolution=None):
     log.debug('plotting bigwig file')
 
-    # pNameOfBigwigList is not a list, but to make room for future options
-    # requiring more than one bigwig file I set this to a list intentionally.
-    # pNameOfBigwigList = [pNameOfBigwigList]
-    for file in pNameOfBigwigList:
-        file_format = file.split(".")[-1]
-        if file_format != 'bigwig' and file_format != 'bw':
-            log.error("Given files are not bigwig")
-            exit(1)
+    # the file names, the scores read from the bigwig files, their positions,
+    # the axis limits and the flipped, scaled and clipped values are computed
+    # in C++ (hicexplorer._hicx.hicPlotMatrix); this function draws them.
+    _impl._bigwig_check(pNameOfBigwigList)
+    for i, bigwigFile in enumerate(pNameOfBigwigList):
+        pAxis[i].set_frame_on(False)
 
-    # for bigwig_file in pNameOfBigwigList:
-    #     if bigwig_file.split('.')[-1] != file_format:
-    #         log.error("Eigenvector input files have different formats.")
-    #         exit()
+        if pVertical:
 
-    if file_format == "bigwig" or file_format == 'bw':
-        for i, bigwigFile in enumerate(pNameOfBigwigList):
-            x_values = []
-            bigwig_scores = []
-            pAxis[i].set_frame_on(False)
+            pAxis[i].yaxis.set_visible(False)
 
+        else:
+            pAxis[i].xaxis.set_visible(False)
+        track = _impl._bigwig_track(bigwigFile, pChromosomeSizes, pRegion, pVertical, pFlipBigwigSign,
+                                    pScaleFactorBigwig, pValueMin, pValueMax, pResolution)
+        if track is None:
+            return
+        x_values, bigwig_scores, limits = track
+        if limits is not None:
             if pVertical:
-
-                pAxis[i].yaxis.set_visible(False)
-
+                pAxis[i].set_ylim(limits[0], limits[1])
             else:
-                # pAxis[i].set_frame_on(False)
-
-                pAxis[i].xaxis.set_visible(False)
-            bw = pyBigWig.open(bigwigFile)
-            bigwig_scores = []
-            if pRegion:
-                chrom, region_start, region_end = pRegion
-                # region_end could be a very large number returned by translate_region
-                region_end = min(region_end, pChromosomeSizes[chrom][1])
-                # log.info("chromosomes bigwig: {}".format(bw.chroms()))
-                chrom = check_chrom_str_bytes(bw.chroms(), chrom)
-                if chrom not in list(bw.chroms().keys()):
-                    chrom = change_chrom_names(chrom)
-                    if chrom not in list(bw.chroms().keys()):
-                        log.info(
-                            "bigwig file has no chromosome named: {}.".format(chrom))
-                        return
-
-                # the bigwig file may end before the region end, to avoid and error
-                # the bigwig_end is set for the pyBigwig query
-                bigwig_end = min(bw.chroms()[chrom], region_end)
-
-                # TODO, this could be a parameter
-                num_bins = int(bigwig_end - region_start) // pResolution
-                log.debug('chrom {}, region_start {}, bigwig_end {}, num_bins {}'.format(chrom, region_start, bigwig_end, num_bins))
-                scores_per_bin = np.array(
-                    bw.stats(chrom, region_start, bigwig_end, nBins=num_bins)).astype(float)
-                if scores_per_bin is None:
-                    log.info(
-                        "Chromosome {} has no entries in bigwig file.".format(chrom))
-                    return
-
-                _x_vals = np.linspace(region_start, region_end, num_bins)
-                log.debug('_x_vals[:10] {}'.format(_x_vals[:10]))
-                assert len(_x_vals) == len(scores_per_bin)
-                x_values.extend(_x_vals)
-                bigwig_scores.extend(scores_per_bin)
-                if pVertical:
-                    pAxis[i].set_ylim(region_start, region_end)
-                else:
-                    log.debug('limits region: {}, {}'.format(region_start, region_end))
-
-                    pAxis[i].set_xlim(region_start, region_end)
-
-            elif pChromosomeSizes:
-                log.debug('pChromosomeSizes: {}'.format(pChromosomeSizes))
-                chrom_length_sum = 0
-                min_start = None
-                for chrom in pChromosomeSizes:
-                    chrom_ = check_chrom_str_bytes(bw.chroms(), chrom)
-
-                    if chrom_ not in list(bw.chroms().keys()):
-                        chrom_ = 'chr' + chrom_
-                        if chrom_ not in list(bw.chroms().keys()):
-                            log.info(
-                                "bigwig file as no chromosome named: {}.".format(chrom))
-                            return
-                    # chrom = check_chrom_str_bytes(pChromosomeSizes, chrom)
-                    # set the bin size to approximately 100kb
-                    # or to the chromosome size if this happens to be less than 100kb
-                    # chunk_size = min(1e6, pChromosomeSizes[chrom][1] - pChromosomeSizes[chrom][0])
-                    # num_bins = int(pChromosomeSizes[chrom][1] - pChromosomeSizes[chrom][0] / chunk_size)
-                    bigwig_end = min(bw.chroms()[chrom_], pChromosomeSizes[chrom][1])
-                    num_bins = int(bigwig_end - pChromosomeSizes[chrom][0]) // pResolution
-                    log.debug('chrom {}, region_start {}, bigwig_end {}, num_bins {}'.format(chrom_, pChromosomeSizes[chrom][0], pChromosomeSizes[chrom][1], num_bins))
-
-                    scores_per_bin = np.array(
-                        bw.stats(chrom_, pChromosomeSizes[chrom][0], bigwig_end, nBins=num_bins)).astype(float)
-
-                    if scores_per_bin is None:
-                        log.info(
-                            "Chromosome {} has no entries in bigwig file.".format(chrom))
-                        return
-
-                    _x_vals = np.linspace(
-                        chrom_length_sum + pChromosomeSizes[chrom][0], chrom_length_sum + pChromosomeSizes[chrom][1] - pChromosomeSizes[chrom][0], num_bins)
-                    log.debug('_x_vals[:10] {}'.format(_x_vals[:10]))
-
-                    assert len(_x_vals) == len(scores_per_bin)
-                    x_values.extend(_x_vals)
-
-                    # log.debug('x_values {}'.format(x_values))
-                    bigwig_scores.extend(scores_per_bin)
-
-                    log.debug('len bigwig score {}, x_values {}'.format(len(bigwig_scores), len(x_values)))
-
-                    chrom_length_sum += pChromosomeSizes[chrom][1] - pChromosomeSizes[chrom][0]
-                    if min_start is None:
-                        min_start = pChromosomeSizes[chrom][0]
-                    elif min_start > pChromosomeSizes[chrom][0]:
-                        min_start = pChromosomeSizes[chrom][0]
-                # min_start = 0
-                if pVertical:
-                    pAxis[i].set_ylim(min_start, chrom_length_sum)
-                else:
-                    log.debug('limits: {}, {}'.format(min_start, chrom_length_sum))
-                    pAxis[i].set_xlim(min_start, chrom_length_sum)
-
-            log.debug("Number of data points: {}".format(len(bigwig_scores)))
-            bigwig_scores = np.array(bigwig_scores)
-            if pFlipBigwigSign:
-                log.info("Flipping sign of bigwig values.")
-                bigwig_scores *= -1
-            if pScaleFactorBigwig is not None and pScaleFactorBigwig != 1.0:
-                log.info("Scaling bigwig values.")
-                bigwig_scores *= pScaleFactorBigwig
-            if pValueMin is not None or pValueMax is not None:
-                bigwig_scores = bigwig_scores.clip(pValueMin, pValueMax)
-
-            if x_values is not None and bigwig_scores is not None:
-                log.debug('Set values')
-                if pVertical:
-                    log.debug('Set values vertical')
-
-                    pAxis[i].fill_between(
-                        np.flip(bigwig_scores, 0), x_values, edgecolor='none')
-                else:
-                    log.debug('Set values horizontal')
-
-                    pAxis[i].fill_between(
-                        x_values, 0, bigwig_scores, edgecolor='none')
+                pAxis[i].set_xlim(limits[0], limits[1])
+        if pVertical:
+            pAxis[i].fill_between(bigwig_scores, x_values, edgecolor='none')
+        else:
+            pAxis[i].fill_between(x_values, 0, bigwig_scores, edgecolor='none')
 
 
 def plotLongRangeContacts(pAxis, pNameOfLongRangeContactsFile, pLoopLargeRegionsOperation, pRegion, pChromosomeOrder):

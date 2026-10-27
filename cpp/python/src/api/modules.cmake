@@ -13,6 +13,7 @@ set(HICX_API_MODULES
     hicCompartmentalization
     hicPCA
     hicPlotDistVsCounts
+    hicPlotMatrix
     hicPlotSVL
     readBed
     utilities

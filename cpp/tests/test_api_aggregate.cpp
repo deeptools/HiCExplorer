@@ -179,3 +179,44 @@ TEST_CASE("dist_counts: fit_cut_intervals snaps uneven bins to the median") {
     CHECK(median == 11);
     CHECK(starts == std::vector<std::int64_t>{0, 11, 22, 33});
 }
+
+#include <string>
+
+#include "hicx/bigwig_track.hpp"
+#include "hicx/plot_matrix_data.hpp"
+
+TEST_CASE("plot_matrix: relabel_ticks formats as Python") {
+    CHECK(hicx::plot_matrix::relabel_ticks({0.0, 1e6, 2e6}) ==
+          std::vector<std::string>{"0.00 ", "1.00  Mbp", "2.00 "});
+    CHECK(hicx::plot_matrix::relabel_ticks({0.0, 1500.5, 2500.5}) ==
+          std::vector<std::string>{"0", "2 Kbp", "3"});
+    CHECK(hicx::plot_matrix::relabel_ticks({std::nan(""), 10.0}) == std::vector<std::string>{"nan  bp", "10.00 "});
+    CHECK_THROWS_AS((void)hicx::plot_matrix::relabel_ticks({2e6}), std::out_of_range);
+}
+
+TEST_CASE("plot_matrix: region strings and the log clearing") {
+    CHECK(hicx::plot_matrix::region_fields("chr1:1,000-2,000") == std::vector<std::string>{"chr1", "1000", "2000"});
+    CHECK(hicx::plot_matrix::region_fields("chr2!;") == std::vector<std::string>{"chr2"});
+    std::vector<double> m{0.0, 2.0, std::nan(""), 3.0, INFINITY, 0.0};
+    const auto c = hicx::plot_matrix::clear_for_log(m);
+    CHECK(c.any_nan_before);
+    CHECK(c.any_inf_before);
+    CHECK_FALSE(c.failed);
+    CHECK(m == std::vector<double>{2.0, 2.0, 2.0, 3.0, 2.0, 2.0});
+    std::vector<double> zeros{0.0, 0.0};
+    CHECK(hicx::plot_matrix::clear_for_log(zeros).failed);
+}
+
+TEST_CASE("bigwig_track: means of the test track as pyBigWig returns them") {
+    const hicx::bigwig::Track track(std::string(HICX_TEST_DATA_DIR) + "/bigwig_chrx_2e6_5e6.bw");
+    REQUIRE(track.chroms().size() == 1);
+    CHECK(*track.length("chrX") == 22422827);
+    // pyBigWig.open(...).stats('chrX', 1990000, 2100000, nBins=3)
+    const std::vector<double> means = track.mean("chrX", 1990000, 2100000, 3);
+    CHECK(means == std::vector<double>{1.9745314018346454, 4.263896550876853, 1.5842665533708096});
+    CHECK(track.mean("chrX", 2000000, 2100000, 0) == std::vector<double>{2.6640559382166744});
+    CHECK(std::isnan(track.mean("chrX", 100, 200, 1)[0]));
+    CHECK_THROWS_AS((void)track.mean("chrX", 0, 30000000, 2), std::invalid_argument);
+    CHECK_THROWS_AS((void)track.mean("chr9", 0, 10, 1), std::invalid_argument);
+    CHECK_THROWS_AS(hicx::bigwig::Track("/nonexistent.bw"), std::runtime_error);
+}
