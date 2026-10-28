@@ -74,7 +74,7 @@ jobs:
         run: |
           mamba install --yes python=${{ matrix.python }} --file requirements.txt
           mamba install --yes cmake ninja compilers hdf5 blosc zlib htslib libopenblas liblapack graphviz
-          mamba install --yes pytest flake8 pytest-xdist pytest-forked configparser scikit-build-core pathspec
+          mamba install --yes pytest flake8 pytest-xdist pytest-forked configparser psutil pysam pybedtools pybigwig pytables cooler scikit-build-core pathspec
 
       - name: Build the C++ tools
         run: |

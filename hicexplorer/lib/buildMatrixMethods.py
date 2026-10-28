@@ -24,7 +24,6 @@ import warnings
 warnings.simplefilter(action="ignore", category=RuntimeWarning)
 warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 
-import pysam
 from collections import OrderedDict
 
 from copy import deepcopy
@@ -34,7 +33,6 @@ from multiprocessing.sharedctypes import Array, RawArray
 
 from intervaltree import IntervalTree, Interval
 
-from Bio.Seq import Seq
 
 # own tools
 from hicmatrix import HiCMatrix as hm
@@ -104,8 +102,9 @@ def get_bins(bin_size, chrom_size, region=None):
     Returns a list of tuples containing
     ('chrom', start, end)
 
-    >>> test = Tester()
-    >>> chrom_size = get_chrom_sizes(pysam.Samfile(test.bam_file_1))
+    >>> from collections import namedtuple
+    >>> Handle = namedtuple('Handle', 'references lengths')
+    >>> chrom_size = get_chrom_sizes(Handle(('contig-1', 'contig-2'), (7125, 3345)))
     >>> sorted(get_bins(50000, chrom_size))
     [('contig-1', 0, 7125), ('contig-2', 0, 3345)]
     >>> get_bins(50000, chrom_size, region='contig-1')
@@ -174,8 +173,12 @@ def get_chrom_sizes(bam_handle):
     The return value is a list of the form
     [('chr1', 2343434), ('chr2', 43432432)]
 
-    >>> test = Tester()
-    >>> get_chrom_sizes(pysam.Samfile(test.bam_file_1, 'rb'))
+    The handle needs the attributes `references` and `lengths`, as a
+    pysam.AlignmentFile has them.
+
+    >>> from collections import namedtuple
+    >>> Handle = namedtuple('Handle', 'references lengths')
+    >>> get_chrom_sizes(Handle(('contig-1', 'contig-2'), (7125, 3345)))
     [('contig-1', 7125), ('contig-2', 3345)]
     """
     return _impl.get_chrom_sizes(bam_handle)
@@ -235,18 +238,11 @@ def get_correct_map(primary, supplement_list):
 
     Examples
     --------
-    >>> sam_file_name = "/tmp/test.sam"
-    >>> sam_file = open(sam_file_name, 'w')
-    >>> _ = sam_file.write('''@HD\tVN:1.0
-    ... @SQ\tSN:chr1\tLN:1575\tAH:chr1:5000000-5010000
-    ... read\t65\tchr1\t33\t20\t10S1D25M\t=\t200\t167\tAGCTTAGCTAGCTACCTATATCTTGGTCTTGGCCG\t<<<<<<<<<<<<<<<<<<<<<:<9/,&,22;;<<<\t
-    ... read\t2113\tchr1\t88\t30\t1S34M\t=\t500\t412\tACCTATATCTTGGCCTTGGCCGATGCGGCCTTGCA\t<<<<<;<<<<7;:<<<6;<<<<<<<<<<<<7<<<<\t
-    ... read\t2113\tchr1\t120\t30\t5S30M\t=\t500\t412\tACCTATATCTTGGCCTTGGCCGATGCGGCCTTGCA\t<<<<<;<<<<7;:<<<6;<<<<<<<<<<<<7<<<<''')
-    >>> sam_file.close()
-    >>> sam = pysam.Samfile(sam_file_name, "r")
-    >>> read_list = [read for read in sam]
-    >>> primary = read_list[0]
-    >>> secondary_list = read_list[1:]
+    >>> from collections import namedtuple
+    >>> Read = namedtuple('Read', 'qname is_reverse cigartuples pos')
+    >>> primary = Read('read', False, [(4, 10), (2, 1), (0, 25)], 32)
+    >>> secondary_list = [Read('read', False, [(4, 1), (0, 34)], 87),
+    ...                   Read('read', False, [(4, 5), (0, 30)], 119)]
     >>> first_mapped = get_correct_map(primary, secondary_list)
 
     The first mapped read is the first secondary at position 88 (sam 1-based) = 87 (0-based)

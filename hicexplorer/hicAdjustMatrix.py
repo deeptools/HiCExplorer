@@ -13,7 +13,6 @@ from hicmatrix import HiCMatrix as hm  # noqa: F401
 from hicexplorer._version import __version__  # noqa: F401
 from hicexplorer.utilities import check_cooler  # noqa: F401 (adjustMatrix calls it)
 import numpy as np  # noqa: F401
-import cooler  # noqa: F401
 import logging
 log = logging.getLogger(__name__)
 

@@ -20,8 +20,6 @@ from hicexplorer.utilities import toString  # noqa: F401
 from hicexplorer.utilities import convertNansToZeros, convertInfsToZeros  # noqa: F401 (the plot data use them)
 from hicexplorer.utilities import check_cooler  # noqa: F401
 
-# Knight-Ruiz algorithm:
-from krbalancing import *  # noqa: F401,F403
 
 # packages needed for plotting:
 from matplotlib import use

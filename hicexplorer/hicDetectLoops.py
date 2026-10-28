@@ -14,7 +14,6 @@ import logging
 log = logging.getLogger(__name__)
 import time  # noqa: F401
 import gc  # noqa: F401
-import cooler  # noqa: F401
 import numpy as np  # noqa: F401
 from scipy.sparse import csr_matrix, triu  # noqa: F401
 from scipy.stats import anderson_ksamp, ranksums  # noqa: F401

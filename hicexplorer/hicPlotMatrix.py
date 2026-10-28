@@ -19,7 +19,6 @@ import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
 import matplotlib
 import matplotlib as mpl
-from past.builtins import zip
 import numpy as np
 from hicexplorer.utilities import toString
 import warnings
