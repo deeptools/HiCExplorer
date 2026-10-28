@@ -8,7 +8,9 @@
 # section (overview with five metrics per sample judged PASS/WARN/FAIL against
 # --min*/--max*Percent cutoffs; pairs sequenced; unmappable/non-unique; pairs
 # discarded with its definitions list; contact distance; read orientation;
-# the full QC_table.txt). Each section draws grouped Plotly bars and keeps its
+# the full QC_table.txt). Each section draws grouped bars as plain HTML tables
+# (no JavaScript, no SVG, no external file, so Galaxy's HTML sanitizer leaves
+# them intact) and keeps its
 # numbers in plain HTML tables, which link to the same underlying .txt tables
 # write_qc_report_tables writes. Checked here rather than through
 # cpp/scripts/equiv.py since it has no reference to match.
@@ -53,12 +55,12 @@ expect "hicQC.html is the same with and without --prettyReport, up to the table 
 "$tool" --logfiles "$log" --outputFolder strict --prettyReport \
     --maxInterChromosomalPercent 0.0001 --plotData strict/plotdata.json >/dev/null 2>&1
 expect "an unreachable --maxInterChromosomalPercent cutoff FAILs that metric" \
-    grep -q 'Inter-chromosomal contacts</span><span class="qc-badge qc-fail">FAIL' strict/hicQC_report.html
+    grep -q 'Inter-chromosomal contacts</span> <span class="qc-badge qc-fail">FAIL' strict/hicQC_report.html
 
 "$tool" --logfiles "$log" --outputFolder lenient --prettyReport \
     --maxInterChromosomalPercent 100 --plotData lenient/plotdata.json >/dev/null 2>&1
 expect "a 100% --maxInterChromosomalPercent cutoff PASSes that metric" \
-    grep -q 'Inter-chromosomal contacts</span><span class="qc-badge qc-pass">PASS' lenient/hicQC_report.html
+    grep -q 'Inter-chromosomal contacts</span> <span class="qc-badge qc-pass">PASS' lenient/hicQC_report.html
 
 report=pretty/hicQC_report.html
 for entry in "overview:Overview" "sequenced:Pairs sequenced" \
@@ -90,11 +92,15 @@ for table in sequenced-table unmappable-table discarded-table distance-table ori
     expect "the $table data table is plain HTML" grep -q "<table class=\"qc-table\" id=\"$table\">" $report
 done
 for plot in sequenced unmappable discarded distance orientation; do
-    expect "the plot-$plot Plotly div and its chart data are present" bash -c \
-        "grep -q '<div class=\"qc-plot\" id=\"plot-$plot\"></div>' $report && grep -q '{\"id\":\"plot-$plot\"' $report"
+    expect "the plot-$plot bar chart is plain HTML with width-scaled bgcolor cells" bash -c \
+        "grep -q '<div class=\"qc-plot\" id=\"plot-$plot\">' $report && grep -q 'class=\"qc-bar [^\"]*\" bgcolor=\"#[0-9a-f]*\" width=\"[0-9.]*%\"' $report"
 done
-expect "Plotly is loaded from a pinned version" \
-    grep -q 'src="https://cdn.plot.ly/plotly-2.35.2.min.js"' $report
+expect "no Plotly, no external script or stylesheet, no CDN request" bash -c \
+    "! grep -Eqi 'plotly|cdn\\.|<script[^>]*src=|<link |@import|https?://[^\"]*\\.(js|css)' $report"
+expect "no javascript: URL and no inline on* event attribute" bash -c \
+    "! grep -Eqi 'javascript:|<[a-z][^>]* on[a-z]+=' $report"
+expect "the inline script and style are wrapped in HTML comments (a sanitizer drops them whole)" bash -c \
+    "grep -q '^<script><!--' $report && grep -q '^<style><!--' $report"
 expect "the theme toggle, its stored key and the ?theme= override are present" bash -c \
     "grep -q 'id=\"theme-toggle\"' $report && grep -q \"'hicx-theme'\" $report && grep -q 'theme=(light|dark)' $report"
 expect "the palette picker offers Ocean, Sunset and Ink" bash -c \

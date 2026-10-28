@@ -1346,59 +1346,6 @@ const char* qc_status_word(QcStatus status) {
     }
 }
 
-// A JSON string literal that is also safe inside an inline <script>: '<' is
-// escaped so a sample label can never close the script element.
-std::string qc_json_string(const std::string& text) {
-    std::string out = "\"";
-    for (const char c : text) {
-        switch (c) {
-            case '"':
-                out += "\\\"";
-                break;
-            case '\\':
-                out += "\\\\";
-                break;
-            case '\n':
-                out += "\\n";
-                break;
-            case '\r':
-                out += "\\r";
-                break;
-            case '\t':
-                out += "\\t";
-                break;
-            case '<':
-                out += "\\u003c";
-                break;
-            case '>':
-                out += "\\u003e";
-                break;
-            case '&':
-                out += "\\u0026";
-                break;
-            default:
-                if (static_cast<unsigned char>(c) < 0x20) {
-                    char buffer[8];
-                    std::snprintf(buffer, sizeof(buffer), "\\u%04x", static_cast<unsigned char>(c));
-                    out += buffer;
-                } else {
-                    out += c;
-                }
-        }
-    }
-    out += "\"";
-    return out;
-}
-
-std::string qc_json_number(std::optional<double> value) {
-    if (!value.has_value() || !std::isfinite(*value)) {
-        return "null";
-    }
-    char buffer[40];
-    std::snprintf(buffer, sizeof(buffer), "%.10g", *value);
-    return buffer;
-}
-
 struct QcMetricRow {
     std::string label;
     std::optional<double> value_percent;
@@ -1408,7 +1355,7 @@ struct QcMetricRow {
 
 void qc_write_metric_row(std::ostream& out, const QcMetricRow& row) {
     out << "<div class=\"qc-metric\"><div class=\"qc-metric-top\">"
-        << "<span class=\"qc-metric-label\">" << qc_html_escape(row.label) << "</span>"
+        << "<span class=\"qc-metric-label\">" << qc_html_escape(row.label) << "</span> "
         << "<span class=\"qc-badge " << qc_status_class(row.status) << "\">"
         << qc_status_label(row.status) << "</span></div>"
         << "<div class=\"qc-metric-value\">" << qc_percent(row.value_percent) << "</div>"
@@ -1491,35 +1438,179 @@ std::optional<double> qc_share(double count, std::optional<double> denominator) 
     return std::nullopt;
 }
 
-std::string qc_chart_json(const QcChart& chart, const std::vector<std::string>& samples) {
-    std::ostringstream out;
-    out << "{\"id\":" << qc_json_string(chart.id) << ",\"ytitle\":" << qc_json_string(chart.y_title)
-        << ",\"percent\":" << (chart.percent ? "true" : "false") << ",\"samples\":[";
-    for (std::size_t i = 0; i < samples.size(); ++i) {
-        out << (i ? "," : "") << qc_json_string(samples[i]);
+// The bar charts are plain HTML tables, so they survive Galaxy's HTML
+// sanitizer (which removes <script>, <style>, <svg> and inline styles) and
+// render with JavaScript off. A bar is a table cell whose width is its share
+// of the axis range (width="NN%") and whose colour is a bgcolor attribute;
+// the stylesheet only restyles it (palette, theme, hatching of judged bars).
+
+// Round the largest value up to four equal axis steps of 1, 2, 2.5, 5 or 10
+// times a power of ten. Returns the step, so the axis runs from 0 to 4 * step.
+double qc_axis_step(double maximum) {
+    if (!(maximum > 0) || !std::isfinite(maximum)) {
+        return 25.0;
     }
-    out << "],\"series\":[";
+    const double raw = maximum / 4.0;
+    const double magnitude = std::pow(10.0, std::floor(std::log10(raw)));
+    for (const double factor : {1.0, 2.0, 2.5, 5.0, 10.0}) {
+        if (factor * magnitude * 4.0 >= maximum * (1.0 - 1e-12)) {
+            return factor * magnitude;
+        }
+    }
+    return 10.0 * magnitude;
+}
+
+// "0", "25%", "1.5M", "250k": short enough for four ticks on a narrow screen.
+std::string qc_axis_label(double value, bool percent) {
+    char buffer[40];
+    if (percent) {
+        std::snprintf(buffer, sizeof(buffer), "%g%%", value);
+    } else if (value >= 1e9) {
+        std::snprintf(buffer, sizeof(buffer), "%gG", value / 1e9);
+    } else if (value >= 1e6) {
+        std::snprintf(buffer, sizeof(buffer), "%gM", value / 1e6);
+    } else if (value >= 1e3) {
+        std::snprintf(buffer, sizeof(buffer), "%gk", value / 1e3);
+    } else {
+        std::snprintf(buffer, sizeof(buffer), "%g", value);
+    }
+    return buffer;
+}
+
+// The tick row: the 0 at the left edge and each step label ending at its tick.
+void qc_write_chart_axis(std::ostream& out, const QcChart& chart, double step) {
+    out << "<tr class=\"qc-axis\"><td class=\"qc-axis-title\">" << qc_html_escape(chart.y_title)
+        << "</td><td><table class=\"qc-ticks\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" border=\"0\"><tr>";
+    for (int tick = 1; tick <= 4; ++tick) {
+        out << "<td width=\"25%\" align=\"right\">";
+        if (tick == 1) {
+            out << "<table width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" border=\"0\"><tr><td align=\"left\">"
+                << qc_axis_label(0, chart.percent) << "</td><td align=\"right\">";
+        }
+        out << qc_axis_label(step * tick, chart.percent);
+        if (tick == 1) {
+            out << "</td></tr></table>";
+        }
+        out << "</td>";
+    }
+    out << "</tr></table></td><td></td></tr>\n";
+}
+
+// The bar colours of series without a verdict, in the order of the "ocean"
+// palette (light variant); the stylesheet recolours them for the chosen
+// palette and theme through the c0..c5 classes. A series with a verdict is
+// coloured per bar by that verdict and hatched.
+const char* const kQcSeriesColours[] = {"#0071e3", "#00c7be", "#5856d6", "#ff9500", "#1d1d1f", "#8e8e93"};
+
+const char* qc_status_colour(QcStatus status) {
+    switch (status) {
+        case QcStatus::Pass:
+            return "#34c759";
+        case QcStatus::Warn:
+            return "#ff9f0a";
+        case QcStatus::Fail:
+            return "#ff3b30";
+        default:
+            return "#8e8e93";
+    }
+}
+
+void qc_write_swatch(std::ostream& out, const std::string& classes, const char* colour,
+                     const std::string& label) {
+    out << "<tr><td class=\"qc-swatch " << classes << "\" bgcolor=\"" << colour
+        << "\" width=\"18\" height=\"14\">&nbsp;</td><td>" << qc_html_escape(label) << "</td></tr>\n";
+}
+
+void qc_write_chart(std::ostream& out, const QcChart& chart, const std::vector<std::string>& samples) {
+    // The axis range covers the largest bar (a percent chart at least up to
+    // its largest value, never beyond 100 % when every value fits).
+    double maximum = 0;
+    for (const QcChartSeries& series : chart.series) {
+        for (const std::optional<double>& value : series.y) {
+            if (value.has_value() && std::isfinite(*value)) {
+                maximum = std::max(maximum, *value);
+            }
+        }
+    }
+    const double step = qc_axis_step(maximum);
+    const double top = 4.0 * step;
+
+    // Colour per series: unjudged series take the palette in order.
+    std::vector<int> colour_index(chart.series.size(), -1);
+    int next_colour = 0;
+    bool any_judged = false;
     for (std::size_t s = 0; s < chart.series.size(); ++s) {
-        const QcChartSeries& series = chart.series[s];
-        out << (s ? "," : "") << "{\"name\":" << qc_json_string(series.name) << ",\"y\":[";
-        for (std::size_t i = 0; i < series.y.size(); ++i) {
-            out << (i ? "," : "") << qc_json_number(series.y[i]);
+        bool judged = false;
+        for (const QcStatus status : chart.series[s].status) {
+            judged = judged || status != QcStatus::Unknown;
         }
-        out << "],\"text\":[";
-        for (std::size_t i = 0; i < series.text.size(); ++i) {
-            out << (i ? "," : "") << qc_json_string(series.text[i]);
+        any_judged = any_judged || judged;
+        if (!judged) {
+            colour_index[s] = next_colour++ % 6;
         }
-        out << "],\"status\":[";
-        for (std::size_t i = 0; i < series.status.size(); ++i) {
-            out << (i ? "," : "")
-                << (series.status[i] == QcStatus::Unknown
-                        ? std::string("null")
-                        : qc_json_string(qc_status_word(series.status[i])));
-        }
-        out << "]}";
     }
-    out << "]}";
-    return out.str();
+
+    out << "<div class=\"qc-plot\" id=\"" << chart.id << "\">\n<table class=\"qc-legend\" cellspacing=\"0\" "
+        << "cellpadding=\"2\" border=\"0\" summary=\"Legend of the chart\">\n";
+    for (std::size_t s = 0; s < chart.series.size(); ++s) {
+        if (colour_index[s] >= 0) {
+            qc_write_swatch(out, "c" + std::to_string(colour_index[s]), kQcSeriesColours[colour_index[s]],
+                            chart.series[s].name);
+        } else {
+            qc_write_swatch(out, "hatch st-none", "#d1d1d6", chart.series[s].name + " (bar colour = verdict)");
+        }
+    }
+    if (any_judged) {
+        qc_write_swatch(out, "hatch st-pass", qc_status_colour(QcStatus::Pass), "PASS");
+        qc_write_swatch(out, "hatch st-warn", qc_status_colour(QcStatus::Warn), "WARN");
+        qc_write_swatch(out, "hatch st-fail", qc_status_colour(QcStatus::Fail), "FAIL");
+    }
+    out << "</table>\n<table class=\"qc-chart\" width=\"100%\" cellspacing=\"0\" cellpadding=\"3\" border=\"0\" "
+        << "summary=\"" << qc_html_escape(chart.y_title) << " per sample\">\n"
+        << "<colgroup><col width=\"28%\"><col width=\"42%\"><col width=\"30%\"></colgroup>\n";
+    qc_write_chart_axis(out, chart, step);
+    for (std::size_t i = 0; i < samples.size(); ++i) {
+        out << "<tr class=\"qc-group\"><td colspan=\"3\"><b>" << qc_html_escape(samples[i]) << "</b></td></tr>\n";
+        for (std::size_t s = 0; s < chart.series.size(); ++s) {
+            const QcChartSeries& series = chart.series[s];
+            const std::optional<double> value = i < series.y.size() ? series.y[i] : std::nullopt;
+            const QcStatus status = i < series.status.size() ? series.status[i] : QcStatus::Unknown;
+            out << "<tr class=\"qc-bar-row\"><td class=\"qc-bar-label\">" << qc_html_escape(series.name)
+                << "</td><td class=\"qc-track\"><table width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" "
+                << "border=\"0\"><tr>";
+            if (value.has_value() && std::isfinite(*value) && *value > 0) {
+                const double share = std::min(100.0, std::max(0.5, 100.0 * *value / top));
+                char width[16];
+                std::snprintf(width, sizeof(width), "%.2f%%", share);
+                std::string classes = "qc-bar";
+                const char* colour;
+                if (colour_index[s] >= 0) {
+                    classes += " c" + std::to_string(colour_index[s]);
+                    colour = kQcSeriesColours[colour_index[s]];
+                } else {
+                    classes += std::string(" hatch st-") + qc_status_word(status);
+                    colour = qc_status_colour(status);
+                }
+                out << "<td class=\"" << classes << "\" bgcolor=\"" << colour << "\" width=\"" << width
+                    << "\" height=\"16\">&nbsp;</td>";
+                if (share < 100.0) {
+                    out << "<td></td>";
+                }
+            } else {
+                out << "<td height=\"16\">&nbsp;</td>";
+            }
+            out << "</tr></table></td><td class=\"qc-value\">";
+            if (i < series.text.size() && value.has_value()) {
+                // The text ends in the verdict word for a judged bar.
+                out << qc_html_escape(series.text[i]);
+            } else {
+                out << "n/a";
+            }
+            out << "</td></tr>\n";
+        }
+    }
+    qc_write_chart_axis(out, chart, step);
+    out << "</table>\n</div>\n";
 }
 
 // A table column: one formatted value per row and, for a judged metric, the
@@ -1650,7 +1741,6 @@ void write_qc_pretty_report(const std::string& folder, const std::vector<std::st
     };
     const int margin_percent = static_cast<int>(margin * 100 + 0.5);
 
-    std::vector<QcChart> charts;
     QcSection overview, sequenced_section, unmappable, discarded, distance, orientation, full;
 
     // --- Overview --------------------------------------------------------
@@ -1758,8 +1848,7 @@ void write_qc_pretty_report(const std::string& folder, const std::vector<std::st
             columns[4].judged_metric = "Valid pairs";
         }
         chart.series = {s_seq, s_map, s_valid};
-        sequenced_section.body << "<div class=\"qc-plot\" id=\"" << chart.id << "\"></div>\n";
-        charts.push_back(std::move(chart));
+        qc_write_chart(sequenced_section.body, chart, frame.index);
         qc_write_table(sequenced_section.body, "sequenced-table", frame.index, columns);
         qc_write_download(sequenced_section.body, "QC_table.txt");
     }
@@ -1793,8 +1882,7 @@ void write_qc_pretty_report(const std::string& folder, const std::vector<std::st
                                                                   : "n/a");
             }
         }
-        unmappable.body << "<div class=\"qc-plot\" id=\"" << chart.id << "\"></div>\n";
-        charts.push_back(std::move(chart));
+        qc_write_chart(unmappable.body, chart, frame.index);
         qc_write_table(unmappable.body, "unmappable-table", frame.index, columns);
         qc_write_download(unmappable.body, "unmapable_table.txt");
     }
@@ -1863,8 +1951,7 @@ void write_qc_pretty_report(const std::string& folder, const std::vector<std::st
                 columns[2 * c + 1].judged_metric = discovered_columns[c];
             }
         }
-        discarded.body << "<div class=\"qc-plot\" id=\"" << chart.id << "\"></div>\n";
-        charts.push_back(std::move(chart));
+        qc_write_chart(discarded.body, chart, frame.index);
         discarded.body << "<dl class=\"qc-defs\">"
                           "<dt>Dangling ends</dt><dd>Reads that start with the restriction site: digested "
                           "but not ligated.</dd>"
@@ -1910,8 +1997,7 @@ void write_qc_pretty_report(const std::string& folder, const std::vector<std::st
                 columns[2 * k + 1].judged_metric = names[k];
             }
         }
-        distance.body << "<div class=\"qc-plot\" id=\"" << chart.id << "\"></div>\n";
-        charts.push_back(std::move(chart));
+        qc_write_chart(distance.body, chart, frame.index);
         qc_write_table(distance.body, "distance-table", frame.index, columns);
         qc_write_download(distance.body, "distance_table.txt");
     }
@@ -1946,8 +2032,7 @@ void write_qc_pretty_report(const std::string& folder, const std::vector<std::st
                 columns[2 * k + 1].values.push_back(total > 0 ? qc_percent(100.0 * value / total) : "n/a");
             }
         }
-        orientation.body << "<div class=\"qc-plot\" id=\"" << chart.id << "\"></div>\n";
-        charts.push_back(std::move(chart));
+        qc_write_chart(orientation.body, chart, frame.index);
         qc_write_table(orientation.body, "orientation-table", frame.index, columns);
         qc_write_download(orientation.body, "read_orientation_table.txt");
     }
@@ -1983,9 +2068,11 @@ void write_qc_pretty_report(const std::string& folder, const std::vector<std::st
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<script>(function(){var d=document.documentElement,t=null,m=/[?&]theme=(light|dark)/.exec(location.search);if(m){t=m[1];}else{try{t=localStorage.getItem('hicx-theme');}catch(e){}}if(t!=='light'&&t!=='dark')t='dark';d.setAttribute('data-theme',t);})();</script>
+<script><!--
+(function(){var d=document.documentElement,t=null,m=/[?&]theme=(light|dark)/.exec(location.search);if(m){t=m[1];}else{try{t=localStorage.getItem('hicx-theme');}catch(e){}}if(t!=='light'&&t!=='dark')t='dark';d.setAttribute('data-theme',t);})();
+//--></script>
 <title>HiCExplorer QC report</title>
-<style>
+<style><!--
 :root {
   --bg:#f5f5f7; --surface:#ffffff; --surface-2:#f5f5f7; --border:#e3e3e8;
   --text:#1d1d1f; --muted:#6e6e73; --brand:#0071e3; --brand-2:#42a5ff;
@@ -2007,6 +2094,15 @@ void write_qc_pretty_report(const std::string& folder, const std::vector<std::st
   --shadow:0 8px 30px rgba(0,0,0,.5),0 1px 2px rgba(0,0,0,.6);
   --shadow-lg:0 18px 50px rgba(0,0,0,.6);
 }
+/* Plot colour schemes (colourblind-safe, none mixes red with green); the
+   colours are also written as bgcolor attributes, so the charts keep them
+   where this stylesheet is removed. */
+:root { --c0:#0071e3; --c1:#00c7be; --c2:#5856d6; --c3:#ff9500; --c4:#1d1d1f; --c5:#8e8e93; }
+:root[data-theme="dark"] { --c0:#4aa3ff; --c1:#40e0d6; --c2:#a29bff; --c3:#ffb340; --c4:#f2f2f7; --c5:#c7c7cc; }
+:root[data-palette="sunset"] { --c0:#ff9500; --c1:#ff2d55; --c2:#af52de; --c3:#a2845e; --c4:#1d1d1f; --c5:#0071e3; }
+:root[data-palette="sunset"][data-theme="dark"] { --c0:#ffb340; --c1:#ff6482; --c2:#d68bff; --c3:#d6b48c; --c4:#f2f2f7; --c5:#64d2ff; }
+:root[data-palette="ink"] { --c0:#1d1d1f; --c1:#0071e3; --c2:#ff9500; --c3:#af52de; --c4:#8a6d1f; --c5:#6e6e73; }
+:root[data-palette="ink"][data-theme="dark"] { --c0:#f2f2f7; --c1:#4aa3ff; --c2:#ffb340; --c3:#d68bff; --c4:#d4b06a; --c5:#aeaeb2; }
 * { box-sizing:border-box; }
 html { scroll-behavior:smooth; }
 body {
@@ -2085,6 +2181,30 @@ div.module.collapsed > :not(h2) { display:none; }
 p.module-desc { margin:-.3em 0 1.15em; color:var(--muted); font-size:.86rem; line-height:1.5; max-width:78ch; }
 p.module-desc a { font-weight:600; white-space:nowrap; }
 div.qc-plot { width:100%; min-width:0; margin:0 0 1em; }
+table.qc-legend { margin:0 0 .8em; font-size:.8rem; color:var(--text); }
+table.qc-legend td { padding:2px 6px 2px 0; vertical-align:middle; }
+td.qc-swatch { width:18px; height:14px; border-radius:3px; padding:0; border-right:6px solid transparent; background-clip:padding-box; }
+table.qc-chart { border-collapse:collapse; table-layout:fixed; width:100%; font-size:.82rem; }
+table.qc-chart td { vertical-align:middle; padding:3px 6px; min-width:0; overflow-wrap:anywhere; }
+table.qc-chart tr.qc-group td { padding-top:12px; font-size:.86rem; border-bottom:1px solid var(--border); }
+table.qc-chart tr.qc-axis td { color:var(--muted); font-size:.72rem; padding-top:0; padding-bottom:0; }
+table.qc-chart td.qc-axis-title { white-space:normal; }
+table.qc-ticks { table-layout:fixed; width:100%; border-collapse:collapse; }
+table.qc-ticks td { padding:0; border-left:1px solid var(--border); }
+table.qc-ticks table { border-collapse:collapse; width:100%; }
+table.qc-ticks table td { border-left:0; }
+td.qc-track { padding-top:2px; padding-bottom:2px; border-left:1px solid var(--border); }
+td.qc-track table { width:100%; border-collapse:collapse; }
+td.qc-track td { padding:0; height:16px; }
+td.qc-bar { border-radius:0 4px 4px 0; line-height:1; font-size:1px; }
+td.qc-value { font-variant-numeric:tabular-nums; font-size:.78rem; }
+td.c0 { background:var(--c0); } td.c1 { background:var(--c1); } td.c2 { background:var(--c2); }
+td.c3 { background:var(--c3); } td.c4 { background:var(--c4); } td.c5 { background:var(--c5); }
+td.st-pass { background-color:var(--pass); } td.st-warn { background-color:var(--warn); }
+td.st-fail { background-color:var(--fail); } td.st-info { background-color:var(--muted); }
+td.st-none { background-color:var(--border); }
+td.hatch { background-image:repeating-linear-gradient(45deg, rgba(255,255,255,.7) 0 2px, transparent 2px 6px); }
+:root[data-theme="dark"] td.hatch { background-image:repeating-linear-gradient(45deg, rgba(0,0,0,.55) 0 2px, transparent 2px 6px); }
 .qc-samples { display:grid; grid-template-columns:repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap:14px; }
 .qc-card { background:var(--surface-2); border:1px solid var(--border); border-radius:12px; padding:14px 16px; min-width:0; }
 .qc-card h3 { display:flex; align-items:center; gap:.5em; font-size:.98rem; margin:0 0 2px; overflow-wrap:anywhere; }
@@ -2150,8 +2270,6 @@ select.palette-select:hover { border-color:var(--brand); }
 [hidden] { display:none !important; }
 body.nav-collapsed div.summary { display:none; }
 body.nav-collapsed div.main { margin-left:max(0px, calc((100% - 1180px) / 2)); }
-.js-plotly-plot .modebar-btn { display:inline-flex !important; align-items:center; justify-content:center; }
-.js-plotly-plot .modebar-btn svg { vertical-align:middle; display:block; }
 @media (max-width:820px) {
   div.header { padding:.7em 1em; }
   #header_title { font-size:1.3rem; }
@@ -2166,9 +2284,9 @@ body.nav-collapsed div.main { margin-left:max(0px, calc((100% - 1180px) / 2)); }
 @media print {
   div.summary, div.footer, div.header { position:static; width:auto; height:auto; }
   div.main { margin-left:0; } div.module { break-inside:avoid; box-shadow:none; }
-  .modebar, button.hx-btn, select.palette-select { display:none !important; }
+  button.hx-btn, select.palette-select { display:none !important; }
 }
-</style>
+--></style>
 </head>
 <body>
 <div class="header">
@@ -2204,101 +2322,19 @@ body.nav-collapsed div.main { margin-left:max(0px, calc((100% - 1180px) / 2)); }
     }
     out << "</div>\n<div class=\"footer\">HiCExplorer " << kVersion << "</div>\n";
 
-    out << "<script src=\"https://cdn.plot.ly/plotly-2.35.2.min.js\" charset=\"utf-8\"></script>\n"
-        << "<script>\nvar HICX_CHARTS = [\n";
-    for (std::size_t c = 0; c < charts.size(); ++c) {
-        out << (c ? ",\n" : "") << qc_chart_json(charts[c], frame.index);
-    }
-    out << "\n];\n";
-    out << R"HTML((function () {
+    out << R"HTML(<script><!--
+(function () {
   var root = document.documentElement, body = document.body;
   function store(key, value) { try { localStorage.setItem(key, value); } catch (e) {} }
   function load(key) { try { return localStorage.getItem(key); } catch (e) { return null; } }
-
-  // Colourblind-safe categorical palettes (as in falcoAmadeus), each with a
-  // variant per background; none mixes red with green.
-  var PALETTES = {
-    ocean:  {light: ['#0071e3', '#00c7be', '#5856d6', '#ff9500', '#1d1d1f', '#8e8e93'],
-             dark:  ['#4aa3ff', '#40e0d6', '#a29bff', '#ffb340', '#f2f2f7', '#c7c7cc']},
-    sunset: {light: ['#ff9500', '#ff2d55', '#af52de', '#a2845e', '#1d1d1f', '#0071e3'],
-             dark:  ['#ffb340', '#ff6482', '#d68bff', '#d6b48c', '#f2f2f7', '#64d2ff']},
-    ink:    {light: ['#1d1d1f', '#0071e3', '#ff9500', '#af52de', '#8a6d1f', '#6e6e73'],
-             dark:  ['#f2f2f7', '#4aa3ff', '#ffb340', '#d68bff', '#d4b06a', '#aeaeb2']}
-  };
-  var STATUS = {light: {pass: '#34c759', warn: '#ff9f0a', fail: '#ff3b30'},
-                dark:  {pass: '#30d158', warn: '#ff9f0a', fail: '#ff453a'}};
-  var PATTERNS = ['/', '\\', 'x', '.', '+', '-'];
   var SUN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>';
   var MOON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>';
-
+  var PALETTES = {ocean: 1, sunset: 1, ink: 1};
   var palette = 'ocean';
   var qp = /[?&]palette=(ocean|sunset|ink)/.exec(location.search);
   if (qp) { palette = qp[1]; } else { var sp = load('hicx-palette'); if (sp && PALETTES[sp]) palette = sp; }
-
-  function legendRows(c, perRow) { return Math.ceil(c.series.length / perRow); }
+  root.setAttribute('data-palette', palette);
   function dark() { return root.getAttribute('data-theme') === 'dark'; }
-
-  function drawCharts() {
-    if (!window.Plotly) return;
-    var d = dark(), mode = d ? 'dark' : 'light';
-    var colours = PALETTES[palette][mode], st = STATUS[mode];
-    var fg = d ? '#e6ebf2' : '#2a3441', grid = d ? '#3a4451' : '#d6dbe3',
-        line = d ? '#4a5462' : '#b7bec9', tick = d ? '#9aa6b2' : '#697586';
-    HICX_CHARTS.forEach(function (c) {
-      var el = document.getElementById(c.id);
-      if (!el) return;
-      var k = 0, j = 0, traces = [];
-      c.series.forEach(function (s) {
-        var judged = s.status.some(function (x) { return x; });
-        var base = colours[k % colours.length];
-        if (!judged) k++;
-        var marker = {color: judged ? s.status.map(function (x) { return x ? st[x] : base; }) : base};
-        var group = 'g' + traces.length;
-        if (judged) {
-          var pattern = {shape: PATTERNS[j++ % PATTERNS.length], size: 7, solidity: 0.3,
-                         fgcolor: d ? 'rgba(0,0,0,0.55)' : 'rgba(255,255,255,0.75)'};
-          marker.pattern = pattern;
-          // The bars carry one verdict colour each, so the legend gets a
-          // neutral hatched swatch of its own.
-          traces.push({type: 'bar', name: s.name, x: [c.samples[0]], y: [null], legendgroup: group, xaxis: 'x2',
-                       hoverinfo: 'skip',
-                       marker: {color: d ? '#636366' : '#d1d1d6',
-                                pattern: {shape: pattern.shape, size: 5, solidity: 0.45, fgcolor: fg}}});
-        }
-        traces.push({type: 'bar', name: s.name, x: c.samples, y: s.y, text: s.text, textposition: 'none',
-                     legendgroup: group, showlegend: !judged,
-                     hovertemplate: '%{fullData.name}: %{text}<extra></extra>', marker: marker});
-      });
-      var axis = {gridcolor: grid, zerolinecolor: grid, linecolor: line, tickcolor: line, ticks: 'outside',
-                  tickfont: {size: 11, color: tick}, automargin: true, showline: true};
-      var layout = {
-        barmode: 'group', bargap: 0.25, bargroupgap: 0.06,
-        // Room for the legend rows below the axis: one entry per row on a narrow screen.
-        height: el.clientWidth < 600 ? 340 + 24 * legendRows(c, 1) : 340 + 22 * legendRows(c, 4),
-        paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
-        font: {family: '-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif', size: 12, color: fg},
-        margin: {t: 34, r: 16, b: 16, l: 60},
-        xaxis: Object.assign({}, axis, {type: 'category', showgrid: false}),
-        xaxis2: {type: 'category', overlaying: 'x', visible: false},
-        yaxis: Object.assign({}, axis, {title: {text: c.ytitle, font: {color: fg}}, rangemode: 'tozero',
-                                        ticksuffix: c.percent ? '%' : '', separatethousands: true}),
-        legend: {orientation: 'h', x: 0, xanchor: 'left', yref: 'container', y: 0, yanchor: 'bottom',
-                 font: {size: 11, color: fg}},
-        hovermode: 'x unified',
-        hoverlabel: {bgcolor: d ? '#2c2c2e' : '#ffffff', bordercolor: d ? '#48484a' : '#d6dbe3',
-                     font: {color: d ? '#f5f5f7' : '#1d1d1f', size: 12}}
-      };
-      Plotly.react(el, traces, layout, {displaylogo: false, responsive: true, displayModeBar: 'hover',
-        modeBarButtonsToRemove: ['select2d', 'lasso2d', 'autoScale2d', 'toggleSpikelines',
-                                 'hoverClosestCartesian', 'hoverCompareCartesian']});
-    });
-  }
-  function resizeCharts() {
-    if (!window.Plotly) return;
-    document.querySelectorAll('.js-plotly-plot').forEach(function (el) {
-      if (el.offsetParent) Plotly.Plots.resize(el);
-    });
-  }
 
   // Theme toggle (default dark) and palette picker.
   var themeBtn = document.getElementById('theme-toggle');
@@ -2306,14 +2342,13 @@ body.nav-collapsed div.main { margin-left:max(0px, calc((100% - 1180px) / 2)); }
     root.setAttribute('data-theme', t);
     store('hicx-theme', t);
     themeBtn.innerHTML = t === 'dark' ? SUN : MOON;
-    drawCharts();
   }
   themeBtn.onclick = function () { setTheme(dark() ? 'light' : 'dark'); };
   themeBtn.innerHTML = dark() ? SUN : MOON;
   themeBtn.hidden = false;
   var sel = document.getElementById('palette-select');
   sel.value = palette;
-  sel.onchange = function () { palette = sel.value; store('hicx-palette', palette); drawCharts(); };
+  sel.onchange = function () { palette = sel.value; store('hicx-palette', palette); root.setAttribute('data-palette', palette); };
   sel.hidden = false;
 
   // Collapsible summary sidebar; the state is kept in localStorage.
@@ -2321,7 +2356,6 @@ body.nav-collapsed div.main { margin-left:max(0px, calc((100% - 1180px) / 2)); }
   function setNav(collapsed) {
     body.classList.toggle('nav-collapsed', collapsed);
     store('hicx-nav', collapsed ? '1' : '0');
-    resizeCharts();
   }
   navBtn.onclick = function () { setNav(!body.classList.contains('nav-collapsed')); };
   navBtn.hidden = false;
@@ -2334,7 +2368,6 @@ body.nav-collapsed div.main { margin-left:max(0px, calc((100% - 1180px) / 2)); }
     h.classList.add('collapsible');
     h.addEventListener('click', function () {
       m.classList.toggle('collapsed');
-      if (!m.classList.contains('collapsed')) resizeCharts();
     });
   });
   var sumTitle = document.querySelector('div.summary h2');
@@ -2345,7 +2378,6 @@ body.nav-collapsed div.main { margin-left:max(0px, calc((100% - 1180px) / 2)); }
     var collapse = all.textContent === 'collapse all';
     modules.forEach(function (m) { m.classList.toggle('collapsed', collapse); });
     all.textContent = collapse ? 'expand all' : 'collapse all';
-    if (!collapse) resizeCharts();
   });
   sumTitle.parentNode.insertBefore(all, sumTitle.nextSibling);
   // A sidebar link opens its card when it is collapsed.
@@ -2354,7 +2386,6 @@ body.nav-collapsed div.main { margin-left:max(0px, calc((100% - 1180px) / 2)); }
       var t = document.getElementById(a.getAttribute('href').slice(1));
       if (t && t.parentNode.classList.contains('collapsed')) {
         t.parentNode.classList.remove('collapsed');
-        resizeCharts();
       }
     });
   });
@@ -2380,9 +2411,8 @@ body.nav-collapsed div.main { margin-left:max(0px, calc((100% - 1180px) / 2)); }
     });
   });
 
-  drawCharts();
 })();
-</script>
+//--></script>
 </body>
 </html>
 )HTML";
