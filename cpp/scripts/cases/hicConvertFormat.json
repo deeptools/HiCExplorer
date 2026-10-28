@@ -252,7 +252,10 @@
         "class": "E1"
       }
     ],
-    "notes": "One cool file per resolution. At 5 kb: 2,421,438 pixels in 2,418 bins over 16 chromosomes and 136 chromosome pairs, several pixel chunks of 1024 and the chromosome-grouped pixel order of hic2cool's loop."
+    "memory": {
+      "budget_mb": 115
+    },
+    "notes": "One cool file per resolution. At 5 kb: 2,421,438 pixels in 2,418 bins over 16 chromosomes and 136 chromosome pairs, several pixel chunks of 1024 and the chromosome-grouped pixel order of hic2cool's loop. Memory: reviewed budget of 115 MB instead of the 101.8 MB formula of PLAN.md 4.5. Measured peak RSS (/usr/bin/time, three runs each, 2026-10-28): 100.9 to 105.0 MB in v4 against 156.3 to 163.2 MB in the 3.7.6 reference hicConvertFormat on the same input; the owner rule is that using less memory than 3.7.6 is fine, and the formula counts only the input's pixel arrays, not the sorted pixel chunks the conversion holds."
   },
   {
     "id": "hicConvertFormat.hic_to_cool.SRR1791297_30.every_resolution",
@@ -274,7 +277,10 @@
         "class": "E1"
       }
     ],
-    "notes": "Without --resolutions hic2cool converts every resolution and renames matrix.cool to matrix.mcool, whose root carries format HDF5::MCOOL and format-version 2."
+    "memory": {
+      "budget_mb": 140
+    },
+    "notes": "Without --resolutions hic2cool converts every resolution and renames matrix.cool to matrix.mcool, whose root carries format HDF5::MCOOL and format-version 2. Memory: reviewed budget of 140 MB instead of the 101.8 MB formula of PLAN.md 4.5. Measured peak RSS (/usr/bin/time, three runs each, 2026-10-28): 124.2 to 125.6 MB in v4 against 158.0 to 158.6 MB in the 3.7.6 reference hicConvertFormat on the same input; the owner rule is that using less memory than 3.7.6 is fine, and the formula counts only the input's pixel arrays, not the sorted pixel chunks the conversion holds."
   },
   {
     "id": "hicConvertFormat.hic_to_cool.SRR1791297_30.unsupported_resolution",
@@ -319,7 +325,10 @@
         "class": "E1"
       }
     ],
-    "notes": "Class EX (cpp/PLAN.md tier 9, 9.1): the Python refuses --outputFormat mcool for hic input. The reference is hicConvertFormat --outputFormat cool with the .mcool name, whose hic2cool call writes every resolution into it."
+    "memory": {
+      "budget_mb": 140
+    },
+    "notes": "Class EX (cpp/PLAN.md tier 9, 9.1): the Python refuses --outputFormat mcool for hic input. The reference is hicConvertFormat --outputFormat cool with the .mcool name, whose hic2cool call writes every resolution into it. Memory: reviewed budget of 140 MB instead of the 101.8 MB formula of PLAN.md 4.5. Measured peak RSS (/usr/bin/time, three runs each, 2026-10-28): 124.2 to 125.6 MB (same call as every_resolution) in v4 against 158.0 to 158.6 MB (the reference writes the .mcool name through the same hic2cool call) in the 3.7.6 reference hicConvertFormat on the same input; the owner rule is that using less memory than 3.7.6 is fine, and the formula counts only the input's pixel arrays, not the sorted pixel chunks the conversion holds."
   },
   {
     "id": "hicConvertFormat.hic_to_h5.SRR1791297_30.50000",
