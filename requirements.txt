@@ -7,3 +7,5 @@ pandas >= 2.0
 unidecode >= 1.3
 hicmatrix >= 17
 hyperopt >= 0.2.7
+python-graphviz >= 0.20
+h5py >= 3.8
