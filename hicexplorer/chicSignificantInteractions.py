@@ -17,7 +17,6 @@ import time
 import logging
 log = logging.getLogger(__name__)
 
-import pybedtools
 import numpy as np
 
 import hicmatrix.HiCMatrix as hm

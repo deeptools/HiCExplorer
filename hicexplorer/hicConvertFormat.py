@@ -11,7 +11,6 @@ import argparse
 from hicexplorer._version import __version__
 from scipy.sparse import triu
 import sys
-from hic2cool import hic2cool_convert
 import logging
 log = logging.getLogger(__name__)
 

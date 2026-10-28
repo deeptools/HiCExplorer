@@ -33,7 +33,6 @@ import h5py
 import io
 import tarfile
 from contextlib import closing
-import pyBigWig
 from collections import OrderedDict
 
 from tempfile import mkdtemp

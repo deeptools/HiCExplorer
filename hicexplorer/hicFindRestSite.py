@@ -16,8 +16,6 @@ import subprocess
 import gzip
 from mimetypes import guess_type
 from functools import partial
-from Bio import SeqIO
-from Bio.Seq import Seq
 from hicexplorer._version import __version__
 
 import logging
