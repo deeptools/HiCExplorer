@@ -213,8 +213,57 @@ def figure_content(fig):
     return out
 
 
+def tie_canonical_lines(text):
+    """The lines of a contact pairs file with the order of tied lines removed.
+
+    The lines are written in np.argsort order of their last column, the value
+    at the centre of the submatrix. np.argsort is not stable, and numpy 1.26
+    orders equal keys differently with and without its AVX-512 argsort, so the
+    order of lines with an equal last column depends on the CPU numpy runs on.
+    Each run of consecutive lines with the same last column is sorted; the
+    order of the runs, the number of lines and the content of every line are
+    kept.
+    """
+    lines = text.split('\n')
+    trailing = lines and lines[-1] == ''
+    if trailing:
+        lines = lines[:-1]
+    out = []
+    run = []
+    for line in lines:
+        if run and line.split('\t')[-1] != run[0].split('\t')[-1]:
+            out.extend(sorted(run))
+            run = []
+        run.append(line)
+    out.extend(sorted(run))
+    return '\n'.join(out) + ('\n' if trailing else '')
+
+
+def tie_canonical_rows(image, center):
+    """The rows of a heatmap with the order of rows tied in `center` removed.
+
+    The rows of the diagnostic heatmap are sorted by their value at the centre
+    column (np.argsort, see tie_canonical_lines). Each run of consecutive rows
+    with the same centre value is sorted lexicographically.
+    """
+    image = np.asarray(image)
+    if image.ndim != 2 or image.shape[0] == 0:
+        return image
+    rows = image.tolist()
+    out = []
+    run = []
+    for row in rows:
+        if run and row[center] != run[0][center]:
+            out.extend(sorted(run))
+            run = []
+        run.append(row)
+    out.extend(sorted(run))
+    return np.asarray(out, dtype=image.dtype)
+
+
 def plotting(target, directory, k=1, method='no_clust', perChr=False, prefix=True, pairs=True, plot_type='2d',
-             operation='mean', diagnostic=False, matrix=LI_H5, mode='intra-chr', how='full', transform='none'):
+             operation='mean', diagnostic=False, matrix=LI_H5, mode='intra-chr', how='full', transform='none',
+             ties=False):
     import matplotlib.pyplot as plt
     agg_info = aggregated(matrix=matrix, mode=mode, transform=transform)
     clustered = module().cluster_matrices(agg_info, k=k, method=method, how=how, perChr=perChr)
@@ -238,11 +287,30 @@ def plotting(target, directory, k=1, method='no_clust', perChr=False, prefix=Tru
     for name in sorted(os.listdir(directory)):
         with open(os.path.join(directory, name)) as handle:
             files[name] = handle.read()
+    if ties:
+        # ties=True: the order of tied lines and rows is not compared, see
+        # tie_canonical_lines. Only the contact pairs files and the diagnostic
+        # heatmap images (centre column 5, the M_half the driver passes) change.
+        for name in files:
+            if name.startswith('pairs'):
+                files[name] = tie_canonical_lines(files[name])
+        if diagnostic:
+            captured = [[(title, xlabel, ylabel, [tie_canonical_rows(image, 5) if np.ndim(image) == 2 and np.shape(image)[1] == 11 else image
+                                                  for image in images], lines)
+                         for (title, xlabel, ylabel, images, lines) in figure] for figure in captured]
     return result, captured, files
 
 
 BED_SMALL = b"# header\nX\t100000\t100001\tp1\t1\t+\nchrZ\t1\t2\tp2\t1\t-\nX\t500000\t500001\tp3\t1\t-\n" \
             b"2L\t1000\t2000\tp4\t1\t+\n"
+
+
+TIES_NOTE = ('the lines of the contact pairs files and the rows of the diagnostic heatmaps are in np.argsort order of the '
+             'centre value, and numpy 1.26 orders tied keys differently with and without its AVX-512 argsort; the order of '
+             'tied lines and rows is not compared (tie_canonical_lines), every other order and every value is')
+
+
+HEAT_NOTE = TIES_NOTE + '; the summary lines hold column means summed over the rows in that order, so they agree to a relative 1e-12'
 
 
 CASES = [
@@ -385,18 +453,21 @@ CASES = [
     Case('avg/two_dimensional', M + 'compute_avg', args=lambda: (random_stack((5, 4), 13), 'median')),
 
     # plot_aggregated_contacts and plot_diagnostic_heatmaps (drawing on C++ data)
-    Case('plot/one_cluster', M + 'plot_aggregated_contacts', driver='plotting', args=(File(),)),
-    Case('plot/kmeans', M + 'plot_aggregated_contacts', driver='plotting', args=(File(), 2, 'kmeans')),
+    Case('plot/one_cluster', M + 'plot_aggregated_contacts', driver='plotting', args=(File(),),
+         kwargs={'ties': True}, note=TIES_NOTE),
+    Case('plot/kmeans', M + 'plot_aggregated_contacts', driver='plotting', args=(File(), 2, 'kmeans'),
+         kwargs={'ties': True}, note=TIES_NOTE),
     Case('plot/median_per_chr', M + 'plot_aggregated_contacts', driver='plotting',
-         args=(File(), 1, 'no_clust', True), kwargs={'operation': 'median'}),
+         args=(File(), 1, 'no_clust', True), kwargs={'operation': 'median', 'ties': True}, note=TIES_NOTE),
     Case('plot/sum_3d', M + 'plot_aggregated_contacts', driver='plotting', args=(File(), 2, 'hierarchical'),
          kwargs={'operation': 'sum', 'plot_type': '3d', 'pairs': False}),
     Case('plot/small_all', M + 'plot_aggregated_contacts', driver='plotting', args=(File(), 2, 'kmeans'),
-         kwargs={'matrix': SMALL, 'mode': 'all', 'transform': 'total-counts'}),
+         kwargs={'matrix': SMALL, 'mode': 'all', 'transform': 'total-counts', 'ties': True}, note=TIES_NOTE),
     Case('heatmap/one_cluster', M + 'plot_diagnostic_heatmaps', driver='plotting', args=(File(),),
-         kwargs={'diagnostic': True, 'prefix': False, 'pairs': False}),
+         kwargs={'diagnostic': True, 'prefix': False, 'pairs': False, 'ties': True}, rtol=1e-12, note=HEAT_NOTE),
     Case('heatmap/kmeans', M + 'plot_diagnostic_heatmaps', driver='plotting', args=(File(), 3, 'kmeans'),
-         kwargs={'diagnostic': True, 'prefix': False, 'pairs': False}),
+         kwargs={'diagnostic': True, 'prefix': False, 'pairs': False, 'ties': True}, rtol=1e-12, note=HEAT_NOTE),
     Case('heatmap/per_chr', M + 'plot_diagnostic_heatmaps', driver='plotting', args=(File(), 2, 'kmeans', True),
-         kwargs={'diagnostic': True, 'prefix': False, 'pairs': False, 'matrix': SMALL}),
+         kwargs={'diagnostic': True, 'prefix': False, 'pairs': False, 'matrix': SMALL, 'ties': True},
+         rtol=1e-12, note=HEAT_NOTE),
 ]

@@ -28,18 +28,14 @@
         "format": "plain",
         "class": "E0"
       },
-      {
-        "path": "{out}/p_X.tab",
-        "format": "plain",
-        "class": "E0"
-      },
+      {"path": "{out}/p_X.tab", "format": "plain", "class": "E0", "options": {"tie_column": -1}},
       {
         "path": "{out}/aggregate.png",
         "format": "png",
         "class": "E6"
       }
     ],
-    "notes": "The configuration of test_hicAggregateContacts_intra_perChr, with both tables compared: 279 submatrices of Li_et_al_2015 chrX, median, and the contact pairs in np.argsort order, where a third of the centre values tie. Every successful case compares aggregate.png as well, drawn by plot/hicexplorer_plot/hicAggregateContacts.py from the aggregates the C++ computes; only hicAggregateContacts.spectral.ignored keeps --noPlot."
+    "notes": "The configuration of test_hicAggregateContacts_intra_perChr, with both tables compared: 279 submatrices of Li_et_al_2015 chrX, median, and the contact pairs in np.argsort order, where a third of the centre values tie. Every successful case compares aggregate.png as well, drawn by plot/hicexplorer_plot/hicAggregateContacts.py from the aggregates the C++ computes; only hicAggregateContacts.spectral.ignored keeps --noPlot. The p_*.tab contact pairs are written in np.argsort order of the centre value. numpy 1.26 orders equal keys differently with and without its AVX-512 argsort, and the port uses the order without it on every CPU, so the order of lines with an equal centre value is not compared (option tie_column -1 of the text comparator: each run of consecutive lines with the same last column is sorted before the byte comparison; the lines, their runs and the order of the runs must be identical)."
   },
   {
     "id": "hicAggregateContacts.intra.sum",
@@ -71,18 +67,14 @@
         "format": "plain",
         "class": "E0"
       },
-      {
-        "path": "{out}/p_genome.tab",
-        "format": "plain",
-        "class": "E0"
-      },
+      {"path": "{out}/p_genome.tab", "format": "plain", "class": "E0", "options": {"tie_column": -1}},
       {
         "path": "{out}/aggregate.png",
         "format": "png",
         "class": "E6"
       }
     ],
-    "notes": "np.sum along axis 0, sequential over the 279 submatrices."
+    "notes": "np.sum along axis 0, sequential over the 279 submatrices. The p_*.tab contact pairs are written in np.argsort order of the centre value. numpy 1.26 orders equal keys differently with and without its AVX-512 argsort, and the port uses the order without it on every CPU, so the order of lines with an equal centre value is not compared (option tie_column -1 of the text comparator: each run of consecutive lines with the same last column is sorted before the byte comparison; the lines, their runs and the order of the runs must be identical)."
   },
   {
     "id": "hicAggregateContacts.intra.mean",
@@ -114,18 +106,14 @@
         "format": "plain",
         "class": "E0"
       },
-      {
-        "path": "{out}/p_genome.tab",
-        "format": "plain",
-        "class": "E0"
-      },
+      {"path": "{out}/p_genome.tab", "format": "plain", "class": "E0", "options": {"tie_column": -1}},
       {
         "path": "{out}/aggregate.png",
         "format": "png",
         "class": "E6"
       }
     ],
-    "notes": "np.mean along axis 0: the sequential sum divided by the count."
+    "notes": "np.mean along axis 0: the sequential sum divided by the count. The p_*.tab contact pairs are written in np.argsort order of the centre value. numpy 1.26 orders equal keys differently with and without its AVX-512 argsort, and the port uses the order without it on every CPU, so the order of lines with an equal centre value is not compared (option tie_column -1 of the text comparator: each run of consecutive lines with the same last column is sorted before the byte comparison; the lines, their runs and the order of the runs must be identical)."
   },
   {
     "id": "hicAggregateContacts.cool.perChr",
@@ -156,18 +144,14 @@
         "format": "plain",
         "class": "E0"
       },
-      {
-        "path": "{out}/p_X.tab",
-        "format": "plain",
-        "class": "E0"
-      },
+      {"path": "{out}/p_X.tab", "format": "plain", "class": "E0", "options": {"tie_column": -1}},
       {
         "path": "{out}/aggregate.png",
         "format": "png",
         "class": "E6"
       }
     ],
-    "notes": "The same matrix through the cool loader (test_hicAggregateContacts_cooler)."
+    "notes": "The same matrix through the cool loader (test_hicAggregateContacts_cooler). The p_*.tab contact pairs are written in np.argsort order of the centre value. numpy 1.26 orders equal keys differently with and without its AVX-512 argsort, and the port uses the order without it on every CPU, so the order of lines with an equal centre value is not compared (option tie_column -1 of the text comparator: each run of consecutive lines with the same last column is sorted before the byte comparison; the lines, their runs and the order of the runs must be identical)."
   },
   {
     "id": "hicAggregateContacts.kmeans4",
@@ -214,33 +198,17 @@
         "format": "plain",
         "class": "E0"
       },
-      {
-        "path": "{out}/p_genome_cluster_1.tab",
-        "format": "plain",
-        "class": "E0"
-      },
-      {
-        "path": "{out}/p_genome_cluster_2.tab",
-        "format": "plain",
-        "class": "E0"
-      },
-      {
-        "path": "{out}/p_genome_cluster_3.tab",
-        "format": "plain",
-        "class": "E0"
-      },
-      {
-        "path": "{out}/p_genome_cluster_4.tab",
-        "format": "plain",
-        "class": "E0"
-      },
+      {"path": "{out}/p_genome_cluster_1.tab", "format": "plain", "class": "E0", "options": {"tie_column": -1}},
+      {"path": "{out}/p_genome_cluster_2.tab", "format": "plain", "class": "E0", "options": {"tie_column": -1}},
+      {"path": "{out}/p_genome_cluster_3.tab", "format": "plain", "class": "E0", "options": {"tie_column": -1}},
+      {"path": "{out}/p_genome_cluster_4.tab", "format": "plain", "class": "E0", "options": {"tie_column": -1}},
       {
         "path": "{out}/aggregate.png",
         "format": "png",
         "class": "E6"
       }
     ],
-    "notes": "KMeans(n_clusters=4, random_state=0) on the 961-value vectors; the labels decide which file a submatrix lands in, so this is a partition check with labels, not only up to relabelling. Also carries defect 2, the contact pair coordinates taken by position."
+    "notes": "KMeans(n_clusters=4, random_state=0) on the 961-value vectors; the labels decide which file a submatrix lands in, so this is a partition check with labels, not only up to relabelling. Also carries defect 2, the contact pair coordinates taken by position. The p_*.tab contact pairs are written in np.argsort order of the centre value. numpy 1.26 orders equal keys differently with and without its AVX-512 argsort, and the port uses the order without it on every CPU, so the order of lines with an equal centre value is not compared (option tie_column -1 of the text comparator: each run of consecutive lines with the same last column is sorted before the byte comparison; the lines, their runs and the order of the runs must be identical)."
   },
   {
     "id": "hicAggregateContacts.hclust4.perChr.diagonal",
@@ -290,33 +258,17 @@
         "format": "plain",
         "class": "E0"
       },
-      {
-        "path": "{out}/p_X_cluster_1.tab",
-        "format": "plain",
-        "class": "E0"
-      },
-      {
-        "path": "{out}/p_X_cluster_2.tab",
-        "format": "plain",
-        "class": "E0"
-      },
-      {
-        "path": "{out}/p_X_cluster_3.tab",
-        "format": "plain",
-        "class": "E0"
-      },
-      {
-        "path": "{out}/p_X_cluster_4.tab",
-        "format": "plain",
-        "class": "E0"
-      },
+      {"path": "{out}/p_X_cluster_1.tab", "format": "plain", "class": "E0", "options": {"tie_column": -1}},
+      {"path": "{out}/p_X_cluster_2.tab", "format": "plain", "class": "E0", "options": {"tie_column": -1}},
+      {"path": "{out}/p_X_cluster_3.tab", "format": "plain", "class": "E0", "options": {"tie_column": -1}},
+      {"path": "{out}/p_X_cluster_4.tab", "format": "plain", "class": "E0", "options": {"tie_column": -1}},
       {
         "path": "{out}/aggregate.png",
         "format": "png",
         "class": "E6"
       }
     ],
-    "notes": "Ward linkage on the diagonals (test_hicAggregateContacts_clustering); scipy's nearest-neighbour chain and sklearn's _hc_cut."
+    "notes": "Ward linkage on the diagonals (test_hicAggregateContacts_clustering); scipy's nearest-neighbour chain and sklearn's _hc_cut. The p_*.tab contact pairs are written in np.argsort order of the centre value. numpy 1.26 orders equal keys differently with and without its AVX-512 argsort, and the port uses the order without it on every CPU, so the order of lines with an equal centre value is not compared (option tie_column -1 of the text comparator: each run of consecutive lines with the same last column is sorted before the byte comparison; the lines, their runs and the order of the runs must be identical)."
   },
   {
     "id": "hicAggregateContacts.spectral.ignored",
@@ -351,13 +303,9 @@
         "format": "plain",
         "class": "E0"
       },
-      {
-        "path": "{out}/p_genome.tab",
-        "format": "plain",
-        "class": "E0"
-      }
+      {"path": "{out}/p_genome.tab", "format": "plain", "class": "E0", "options": {"tie_column": -1}}
     ],
-    "notes": "Defect 1: --spectral is parsed and never used. cpp_args: --noPlot, the C++-only option that writes the tables without the figure, so this case compares no figure."
+    "notes": "Defect 1: --spectral is parsed and never used. cpp_args: --noPlot, the C++-only option that writes the tables without the figure, so this case compares no figure. The p_*.tab contact pairs are written in np.argsort order of the centre value. numpy 1.26 orders equal keys differently with and without its AVX-512 argsort, and the port uses the order without it on every CPU, so the order of lines with an equal centre value is not compared (option tie_column -1 of the text comparator: each run of consecutive lines with the same last column is sorted before the byte comparison; the lines, their runs and the order of the runs must be identical)."
   },
   {
     "id": "hicAggregateContacts.kmeans2.center.max_deviation1",
@@ -398,23 +346,15 @@
         "format": "plain",
         "class": "E0"
       },
-      {
-        "path": "{out}/p_genome_cluster_1.tab",
-        "format": "plain",
-        "class": "E0"
-      },
-      {
-        "path": "{out}/p_genome_cluster_2.tab",
-        "format": "plain",
-        "class": "E0"
-      },
+      {"path": "{out}/p_genome_cluster_1.tab", "format": "plain", "class": "E0", "options": {"tie_column": -1}},
+      {"path": "{out}/p_genome_cluster_2.tab", "format": "plain", "class": "E0", "options": {"tie_column": -1}},
       {
         "path": "{out}/aggregate.png",
         "format": "png",
         "class": "E6"
       }
     ],
-    "notes": "The only layout where the outlier filter fires on this input (defect 4): 50 of 279 submatrices removed at max_deviation 1."
+    "notes": "The only layout where the outlier filter fires on this input (defect 4): 50 of 279 submatrices removed at max_deviation 1. The p_*.tab contact pairs are written in np.argsort order of the centre value. numpy 1.26 orders equal keys differently with and without its AVX-512 argsort, and the port uses the order without it on every CPU, so the order of lines with an equal centre value is not compared (option tie_column -1 of the text comparator: each run of consecutive lines with the same last column is sorted before the byte comparison; the lines, their runs and the order of the runs must be identical)."
   },
   {
     "id": "hicAggregateContacts.kmeans2.center.keep_outlier",
@@ -454,23 +394,15 @@
         "format": "plain",
         "class": "E0"
       },
-      {
-        "path": "{out}/p_genome_cluster_1.tab",
-        "format": "plain",
-        "class": "E0"
-      },
-      {
-        "path": "{out}/p_genome_cluster_2.tab",
-        "format": "plain",
-        "class": "E0"
-      },
+      {"path": "{out}/p_genome_cluster_1.tab", "format": "plain", "class": "E0", "options": {"tie_column": -1}},
+      {"path": "{out}/p_genome_cluster_2.tab", "format": "plain", "class": "E0", "options": {"tie_column": -1}},
       {
         "path": "{out}/aggregate.png",
         "format": "png",
         "class": "E6"
       }
     ],
-    "notes": "The same clustering with the outliers kept."
+    "notes": "The same clustering with the outliers kept. The p_*.tab contact pairs are written in np.argsort order of the centre value. numpy 1.26 orders equal keys differently with and without its AVX-512 argsort, and the port uses the order without it on every CPU, so the order of lines with an equal centre value is not compared (option tie_column -1 of the text comparator: each run of consecutive lines with the same last column is sorted before the byte comparison; the lines, their runs and the order of the runs must be identical)."
   },
   {
     "id": "hicAggregateContacts.strand",
@@ -501,18 +433,14 @@
         "format": "plain",
         "class": "E0"
       },
-      {
-        "path": "{out}/p_genome.tab",
-        "format": "plain",
-        "class": "E0"
-      },
+      {"path": "{out}/p_genome.tab", "format": "plain", "class": "E0", "options": {"tie_column": -1}},
       {
         "path": "{out}/aggregate.png",
         "format": "png",
         "class": "E6"
       }
     ],
-    "notes": "Mixed strands: fliplr, flipud and the transpose of defect 3; the zero test sums flipped views in logical order."
+    "notes": "Mixed strands: fliplr, flipud and the transpose of defect 3; the zero test sums flipped views in logical order. The p_*.tab contact pairs are written in np.argsort order of the centre value. numpy 1.26 orders equal keys differently with and without its AVX-512 argsort, and the port uses the order without it on every CPU, so the order of lines with an equal centre value is not compared (option tie_column -1 of the text comparator: each run of consecutive lines with the same last column is sorted before the byte comparison; the lines, their runs and the order of the runs must be identical)."
   },
   {
     "id": "hicAggregateContacts.largeRegions.first",
@@ -544,18 +472,14 @@
         "format": "plain",
         "class": "E0"
       },
-      {
-        "path": "{out}/p_genome.tab",
-        "format": "plain",
-        "class": "E0"
-      },
+      {"path": "{out}/p_genome.tab", "format": "plain", "class": "E0", "options": {"tie_column": -1}},
       {
         "path": "{out}/aggregate.png",
         "format": "png",
         "class": "E6"
       }
     ],
-    "notes": "12 kb regions over bins of about 1.8 kb, resolved to the first bin."
+    "notes": "12 kb regions over bins of about 1.8 kb, resolved to the first bin. The p_*.tab contact pairs are written in np.argsort order of the centre value. numpy 1.26 orders equal keys differently with and without its AVX-512 argsort, and the port uses the order without it on every CPU, so the order of lines with an equal centre value is not compared (option tie_column -1 of the text comparator: each run of consecutive lines with the same last column is sorted before the byte comparison; the lines, their runs and the order of the runs must be identical)."
   },
   {
     "id": "hicAggregateContacts.largeRegions.last",
@@ -587,18 +511,14 @@
         "format": "plain",
         "class": "E0"
       },
-      {
-        "path": "{out}/p_genome.tab",
-        "format": "plain",
-        "class": "E0"
-      },
+      {"path": "{out}/p_genome.tab", "format": "plain", "class": "E0", "options": {"tie_column": -1}},
       {
         "path": "{out}/aggregate.png",
         "format": "png",
         "class": "E6"
       }
     ],
-    "notes": "12 kb regions over bins of about 1.8 kb, resolved to the last bin."
+    "notes": "12 kb regions over bins of about 1.8 kb, resolved to the last bin. The p_*.tab contact pairs are written in np.argsort order of the centre value. numpy 1.26 orders equal keys differently with and without its AVX-512 argsort, and the port uses the order without it on every CPU, so the order of lines with an equal centre value is not compared (option tie_column -1 of the text comparator: each run of consecutive lines with the same last column is sorted before the byte comparison; the lines, their runs and the order of the runs must be identical)."
   },
   {
     "id": "hicAggregateContacts.largeRegions.center",
@@ -630,18 +550,14 @@
         "format": "plain",
         "class": "E0"
       },
-      {
-        "path": "{out}/p_genome.tab",
-        "format": "plain",
-        "class": "E0"
-      },
+      {"path": "{out}/p_genome.tab", "format": "plain", "class": "E0", "options": {"tie_column": -1}},
       {
         "path": "{out}/aggregate.png",
         "format": "png",
         "class": "E6"
       }
     ],
-    "notes": "12 kb regions over bins of about 1.8 kb, resolved to the center bin."
+    "notes": "12 kb regions over bins of about 1.8 kb, resolved to the center bin. The p_*.tab contact pairs are written in np.argsort order of the centre value. numpy 1.26 orders equal keys differently with and without its AVX-512 argsort, and the port uses the order without it on every CPU, so the order of lines with an equal centre value is not compared (option tie_column -1 of the text comparator: each run of consecutive lines with the same last column is sorted before the byte comparison; the lines, their runs and the order of the runs must be identical)."
   },
   {
     "id": "hicAggregateContacts.rowwise.strand.perChr",
@@ -677,18 +593,14 @@
         "format": "plain",
         "class": "E0"
       },
-      {
-        "path": "{out}/p_X.tab",
-        "format": "plain",
-        "class": "E0"
-      },
+      {"path": "{out}/p_X.tab", "format": "plain", "class": "E0", "options": {"tie_column": -1}},
       {
         "path": "{out}/aggregate.png",
         "format": "png",
         "class": "E6"
       }
     ],
-    "notes": "Row-wise pairs with strands; coordinates written as given (defect 5)."
+    "notes": "Row-wise pairs with strands; coordinates written as given (defect 5). The p_*.tab contact pairs are written in np.argsort order of the centre value. numpy 1.26 orders equal keys differently with and without its AVX-512 argsort, and the port uses the order without it on every CPU, so the order of lines with an equal centre value is not compared (option tie_column -1 of the text comparator: each run of consecutive lines with the same last column is sorted before the byte comparison; the lines, their runs and the order of the runs must be identical)."
   },
   {
     "id": "hicAggregateContacts.rowwise.inter.int",
@@ -719,18 +631,14 @@
         "format": "plain",
         "class": "E0"
       },
-      {
-        "path": "{out}/p_genome.tab",
-        "format": "plain",
-        "class": "E0"
-      },
+      {"path": "{out}/p_genome.tab", "format": "plain", "class": "E0", "options": {"tie_column": -1}},
       {
         "path": "{out}/aggregate.png",
         "format": "png",
         "class": "E6"
       }
     ],
-    "notes": "test_hicAggregateContacts_row_wise_inter: an int64 matrix, whose centre values print as integers."
+    "notes": "test_hicAggregateContacts_row_wise_inter: an int64 matrix, whose centre values print as integers. The p_*.tab contact pairs are written in np.argsort order of the centre value. numpy 1.26 orders equal keys differently with and without its AVX-512 argsort, and the port uses the order without it on every CPU, so the order of lines with an equal centre value is not compared (option tie_column -1 of the text comparator: each run of consecutive lines with the same last column is sorted before the byte comparison; the lines, their runs and the order of the runs must be identical)."
   },
   {
     "id": "hicAggregateContacts.zscore",
@@ -762,18 +670,14 @@
         "format": "plain",
         "class": "E0"
       },
-      {
-        "path": "{out}/p_genome.tab",
-        "format": "plain",
-        "class": "E0"
-      },
+      {"path": "{out}/p_genome.tab", "format": "plain", "class": "E0", "options": {"tie_column": -1}},
       {
         "path": "{out}/aggregate.png",
         "format": "png",
         "class": "E6"
       }
     ],
-    "notes": "z-score with maxdepth 2,250,000: NaN on diagonals without spread, so the median table is all nan. The budget is that of hicFindTADs: the z-score band, 10,249 bins * int(900,000 * 3.75 / 1,843) = 1,831 diagonals at 12 bytes, is 225 MB; 2.2 * that + 64 MB.",
+    "notes": "z-score with maxdepth 2,250,000: NaN on diagonals without spread, so the median table is all nan. The budget is that of hicFindTADs: the z-score band, 10,249 bins * int(900,000 * 3.75 / 1,843) = 1,831 diagonals at 12 bytes, is 225 MB; 2.2 * that + 64 MB. The p_*.tab contact pairs are written in np.argsort order of the centre value. numpy 1.26 orders equal keys differently with and without its AVX-512 argsort, and the port uses the order without it on every CPU, so the order of lines with an equal centre value is not compared (option tie_column -1 of the text comparator: each run of consecutive lines with the same last column is sorted before the byte comparison; the lines, their runs and the order of the runs must be identical).",
     "memory": {
       "budget_mb": 559
     }
@@ -817,23 +721,15 @@
         "format": "plain",
         "class": "E0"
       },
-      {
-        "path": "{out}/p_genome_cluster_1.tab",
-        "format": "plain",
-        "class": "E0"
-      },
-      {
-        "path": "{out}/p_genome_cluster_2.tab",
-        "format": "plain",
-        "class": "E0"
-      },
+      {"path": "{out}/p_genome_cluster_1.tab", "format": "plain", "class": "E0", "options": {"tie_column": -1}},
+      {"path": "{out}/p_genome_cluster_2.tab", "format": "plain", "class": "E0", "options": {"tie_column": -1}},
       {
         "path": "{out}/aggregate.png",
         "format": "png",
         "class": "E6"
       }
     ],
-    "notes": "Clustering vectors with NaN replaced by zero after the outlier filter, which the NaN median disables. Budget as for the z-score case.",
+    "notes": "Clustering vectors with NaN replaced by zero after the outlier filter, which the NaN median disables. Budget as for the z-score case. The p_*.tab contact pairs are written in np.argsort order of the centre value. numpy 1.26 orders equal keys differently with and without its AVX-512 argsort, and the port uses the order without it on every CPU, so the order of lines with an equal centre value is not compared (option tie_column -1 of the text comparator: each run of consecutive lines with the same last column is sorted before the byte comparison; the lines, their runs and the order of the runs must be identical).",
     "memory": {
       "budget_mb": 559
     }
@@ -870,11 +766,7 @@
         "format": "plain",
         "class": "E0"
       },
-      {
-        "path": "{out}/p_genome.tab",
-        "format": "plain",
-        "class": "E0"
-      },
+      {"path": "{out}/p_genome.tab", "format": "plain", "class": "E0", "options": {"tie_column": -1}},
       {
         "path": "{out}/obs_exp.h5",
         "format": "h5",
@@ -886,7 +778,7 @@
         "class": "E6"
       }
     ],
-    "notes": "obs/exp without the z-score band: only the stored entries are counted. The matrix is written as h5 with the NaN bins masked out, 10,249 bins."
+    "notes": "obs/exp without the z-score band: only the stored entries are counted. The matrix is written as h5 with the NaN bins masked out, 10,249 bins. The p_*.tab contact pairs are written in np.argsort order of the centre value. numpy 1.26 orders equal keys differently with and without its AVX-512 argsort, and the port uses the order without it on every CPU, so the order of lines with an equal centre value is not compared (option tie_column -1 of the text comparator: each run of consecutive lines with the same last column is sorted before the byte comparison; the lines, their runs and the order of the runs must be identical)."
   },
   {
     "id": "hicAggregateContacts.obsexp.cool.hclust3.center",
@@ -934,21 +826,9 @@
         "format": "plain",
         "class": "E0"
       },
-      {
-        "path": "{out}/p_genome_cluster_1.tab",
-        "format": "plain",
-        "class": "E0"
-      },
-      {
-        "path": "{out}/p_genome_cluster_2.tab",
-        "format": "plain",
-        "class": "E0"
-      },
-      {
-        "path": "{out}/p_genome_cluster_3.tab",
-        "format": "plain",
-        "class": "E0"
-      },
+      {"path": "{out}/p_genome_cluster_1.tab", "format": "plain", "class": "E0", "options": {"tie_column": -1}},
+      {"path": "{out}/p_genome_cluster_2.tab", "format": "plain", "class": "E0", "options": {"tie_column": -1}},
+      {"path": "{out}/p_genome_cluster_3.tab", "format": "plain", "class": "E0", "options": {"tie_column": -1}},
       {
         "path": "{out}/obs_exp.cool",
         "format": "cool",
@@ -960,7 +840,7 @@
         "class": "E6"
       }
     ],
-    "notes": "The obs/exp matrix written as cool because of its name, and a ward clustering on the centre means after 21 outliers are removed."
+    "notes": "The obs/exp matrix written as cool because of its name, and a ward clustering on the centre means after 21 outliers are removed. The p_*.tab contact pairs are written in np.argsort order of the centre value. numpy 1.26 orders equal keys differently with and without its AVX-512 argsort, and the port uses the order without it on every CPU, so the order of lines with an equal centre value is not compared (option tie_column -1 of the text comparator: each run of consecutive lines with the same last column is sorted before the byte comparison; the lines, their runs and the order of the runs must be identical)."
   },
   {
     "id": "hicAggregateContacts.obsexp.narrow.range",
@@ -994,11 +874,7 @@
         "format": "plain",
         "class": "E0"
       },
-      {
-        "path": "{out}/p_genome.tab",
-        "format": "plain",
-        "class": "E0"
-      },
+      {"path": "{out}/p_genome.tab", "format": "plain", "class": "E0", "options": {"tie_column": -1}},
       {
         "path": "{out}/obs_exp.h5",
         "format": "h5",
@@ -1010,7 +886,7 @@
         "class": "E6"
       }
     ],
-    "notes": "A range narrow enough that maxdepth truncates the band: 122 diagonals."
+    "notes": "A range narrow enough that maxdepth truncates the band: 122 diagonals. The p_*.tab contact pairs are written in np.argsort order of the centre value. numpy 1.26 orders equal keys differently with and without its AVX-512 argsort, and the port uses the order without it on every CPU, so the order of lines with an equal centre value is not compared (option tie_column -1 of the text comparator: each run of consecutive lines with the same last column is sorted before the byte comparison; the lines, their runs and the order of the runs must be identical)."
   },
   {
     "id": "hicAggregateContacts.total_counts",
@@ -1042,18 +918,14 @@
         "format": "plain",
         "class": "E0"
       },
-      {
-        "path": "{out}/p_genome.tab",
-        "format": "plain",
-        "class": "E0"
-      },
+      {"path": "{out}/p_genome.tab", "format": "plain", "class": "E0", "options": {"tie_column": -1}},
       {
         "path": "{out}/aggregate.png",
         "format": "png",
         "class": "E6"
       }
     ],
-    "notes": "Each submatrix divided by its pairwise sum."
+    "notes": "Each submatrix divided by its pairwise sum. The p_*.tab contact pairs are written in np.argsort order of the centre value. numpy 1.26 orders equal keys differently with and without its AVX-512 argsort, and the port uses the order without it on every CPU, so the order of lines with an equal centre value is not compared (option tie_column -1 of the text comparator: each run of consecutive lines with the same last column is sorted before the byte comparison; the lines, their runs and the order of the runs must be identical)."
   },
   {
     "id": "hicAggregateContacts.inter.mean",
@@ -1083,18 +955,14 @@
         "format": "plain",
         "class": "E0"
       },
-      {
-        "path": "{out}/p_genome.tab",
-        "format": "plain",
-        "class": "E0"
-      },
+      {"path": "{out}/p_genome.tab", "format": "plain", "class": "E0", "options": {"tie_column": -1}},
       {
         "path": "{out}/aggregate.png",
         "format": "png",
         "class": "E6"
       }
     ],
-    "notes": "test_hicAggregateContacts_inter: 33,754 bins, 15 chromosomes, BED names without the chr prefix."
+    "notes": "test_hicAggregateContacts_inter: 33,754 bins, 15 chromosomes, BED names without the chr prefix. The p_*.tab contact pairs are written in np.argsort order of the centre value. numpy 1.26 orders equal keys differently with and without its AVX-512 argsort, and the port uses the order without it on every CPU, so the order of lines with an equal centre value is not compared (option tie_column -1 of the text comparator: each run of consecutive lines with the same last column is sorted before the byte comparison; the lines, their runs and the order of the runs must be identical)."
   },
   {
     "id": "hicAggregateContacts.all.keep_outlier",
@@ -1123,18 +991,14 @@
         "format": "plain",
         "class": "E0"
       },
-      {
-        "path": "{out}/p_genome.tab",
-        "format": "plain",
-        "class": "E0"
-      },
+      {"path": "{out}/p_genome.tab", "format": "plain", "class": "E0", "options": {"tie_column": -1}},
       {
         "path": "{out}/aggregate.png",
         "format": "png",
         "class": "E6"
       }
     ],
-    "notes": "test_hicAggregateContacts_all; --range is ignored in mode all."
+    "notes": "test_hicAggregateContacts_all; --range is ignored in mode all. The p_*.tab contact pairs are written in np.argsort order of the centre value. numpy 1.26 orders equal keys differently with and without its AVX-512 argsort, and the port uses the order without it on every CPU, so the order of lines with an equal centre value is not compared (option tie_column -1 of the text comparator: each run of consecutive lines with the same last column is sorted before the byte comparison; the lines, their runs and the order of the runs must be identical)."
   },
   {
     "id": "hicAggregateContacts.all.obsexp.unbounded",
@@ -1167,11 +1031,7 @@
         "format": "plain",
         "class": "E0"
       },
-      {
-        "path": "{out}/p_genome.tab",
-        "format": "plain",
-        "class": "E0"
-      },
+      {"path": "{out}/p_genome.tab", "format": "plain", "class": "E0", "options": {"tie_column": -1}},
       {
         "path": "{out}/obs_exp.h5",
         "format": "h5",
@@ -1183,7 +1043,7 @@
         "class": "E6"
       }
     ],
-    "notes": "maxdepth=None, the unbounded branch of convert_to_obs_exp_matrix."
+    "notes": "maxdepth=None, the unbounded branch of convert_to_obs_exp_matrix. The p_*.tab contact pairs are written in np.argsort order of the centre value. numpy 1.26 orders equal keys differently with and without its AVX-512 argsort, and the port uses the order without it on every CPU, so the order of lines with an equal centre value is not compared (option tie_column -1 of the text comparator: each run of consecutive lines with the same last column is sorted before the byte comparison; the lines, their runs and the order of the runs must be identical)."
   },
   {
     "id": "hicAggregateContacts.all.obsexp.all_outliers",
@@ -1263,33 +1123,17 @@
         "format": "plain",
         "class": "E0"
       },
-      {
-        "path": "{out}/p_chr2L_cluster_1.tab",
-        "format": "plain",
-        "class": "E0"
-      },
-      {
-        "path": "{out}/p_chr2R_cluster_1.tab",
-        "format": "plain",
-        "class": "E0"
-      },
-      {
-        "path": "{out}/p_chr3L_cluster_1.tab",
-        "format": "plain",
-        "class": "E0"
-      },
-      {
-        "path": "{out}/p_chrX_cluster_1.tab",
-        "format": "plain",
-        "class": "E0"
-      },
+      {"path": "{out}/p_chr2L_cluster_1.tab", "format": "plain", "class": "E0", "options": {"tie_column": -1}},
+      {"path": "{out}/p_chr2R_cluster_1.tab", "format": "plain", "class": "E0", "options": {"tie_column": -1}},
+      {"path": "{out}/p_chr3L_cluster_1.tab", "format": "plain", "class": "E0", "options": {"tie_column": -1}},
+      {"path": "{out}/p_chrX_cluster_1.tab", "format": "plain", "class": "E0", "options": {"tie_column": -1}},
       {
         "path": "{out}/aggregate.png",
         "format": "png",
         "class": "E6"
       }
     ],
-    "notes": "Defect 6: chr3L has fewer submatrices than clusters, k becomes 1 for it and every chromosome after it, and the names keep _cluster_1."
+    "notes": "Defect 6: chr3L has fewer submatrices than clusters, k becomes 1 for it and every chromosome after it, and the names keep _cluster_1. The p_*.tab contact pairs are written in np.argsort order of the centre value. numpy 1.26 orders equal keys differently with and without its AVX-512 argsort, and the port uses the order without it on every CPU, so the order of lines with an equal centre value is not compared (option tie_column -1 of the text comparator: each run of consecutive lines with the same last column is sorted before the byte comparison; the lines, their runs and the order of the runs must be identical)."
   },
   {
     "id": "hicAggregateContacts.chromosomes.restores_mask",
@@ -1335,28 +1179,16 @@
         "format": "plain",
         "class": "E0"
       },
-      {
-        "path": "{out}/p_genome_cluster_1.tab",
-        "format": "plain",
-        "class": "E0"
-      },
-      {
-        "path": "{out}/p_genome_cluster_2.tab",
-        "format": "plain",
-        "class": "E0"
-      },
-      {
-        "path": "{out}/p_genome_cluster_3.tab",
-        "format": "plain",
-        "class": "E0"
-      },
+      {"path": "{out}/p_genome_cluster_1.tab", "format": "plain", "class": "E0", "options": {"tie_column": -1}},
+      {"path": "{out}/p_genome_cluster_2.tab", "format": "plain", "class": "E0", "options": {"tie_column": -1}},
+      {"path": "{out}/p_genome_cluster_3.tab", "format": "plain", "class": "E0", "options": {"tie_column": -1}},
       {
         "path": "{out}/aggregate.png",
         "format": "png",
         "class": "E6"
       }
     ],
-    "notes": "Defect 7: keepOnlyTheseChr restores the masked bins and the bin table from before enlarge_bins, so 277 submatrices instead of 279."
+    "notes": "Defect 7: keepOnlyTheseChr restores the masked bins and the bin table from before enlarge_bins, so 277 submatrices instead of 279. The p_*.tab contact pairs are written in np.argsort order of the centre value. numpy 1.26 orders equal keys differently with and without its AVX-512 argsort, and the port uses the order without it on every CPU, so the order of lines with an equal centre value is not compared (option tie_column -1 of the text comparator: each run of consecutive lines with the same last column is sorted before the byte comparison; the lines, their runs and the order of the runs must be identical)."
   },
   {
     "id": "hicAggregateContacts.int.all.total_counts",
@@ -1386,18 +1218,14 @@
         "format": "plain",
         "class": "E0"
       },
-      {
-        "path": "{out}/p_genome.tab",
-        "format": "plain",
-        "class": "E0"
-      },
+      {"path": "{out}/p_genome.tab", "format": "plain", "class": "E0", "options": {"tie_column": -1}},
       {
         "path": "{out}/aggregate.png",
         "format": "png",
         "class": "E6"
       }
     ],
-    "notes": "An int64 matrix with 139 NaN bins in mode all; integer centre values."
+    "notes": "An int64 matrix with 139 NaN bins in mode all; integer centre values. The p_*.tab contact pairs are written in np.argsort order of the centre value. numpy 1.26 orders equal keys differently with and without its AVX-512 argsort, and the port uses the order without it on every CPU, so the order of lines with an equal centre value is not compared (option tie_column -1 of the text comparator: each run of consecutive lines with the same last column is sorted before the byte comparison; the lines, their runs and the order of the runs must be identical)."
   },
   {
     "id": "hicAggregateContacts.int.chromosomes.mean",
@@ -1432,18 +1260,14 @@
         "format": "plain",
         "class": "E0"
       },
-      {
-        "path": "{out}/p_genome.tab",
-        "format": "plain",
-        "class": "E0"
-      },
+      {"path": "{out}/p_genome.tab", "format": "plain", "class": "E0", "options": {"tie_column": -1}},
       {
         "path": "{out}/aggregate.png",
         "format": "png",
         "class": "E6"
       }
     ],
-    "notes": "The same matrix with --chromosomes: the restore of defect 7 turns it float64, so the centre values print as floats."
+    "notes": "The same matrix with --chromosomes: the restore of defect 7 turns it float64, so the centre values print as floats. The p_*.tab contact pairs are written in np.argsort order of the centre value. numpy 1.26 orders equal keys differently with and without its AVX-512 argsort, and the port uses the order without it on every CPU, so the order of lines with an equal centre value is not compared (option tie_column -1 of the text comparator: each run of consecutive lines with the same last column is sorted before the byte comparison; the lines, their runs and the order of the runs must be identical)."
   },
   {
     "id": "hicAggregateContacts.diagnosticHeatmap.hclust4.perChr.diagonal",
@@ -1498,38 +1322,18 @@
         "format": "plain",
         "class": "E0"
       },
-      {
-        "path": "{out}/p_X_cluster_1.tab",
-        "format": "plain",
-        "class": "E0"
-      },
-      {
-        "path": "{out}/p_X_cluster_2.tab",
-        "format": "plain",
-        "class": "E0"
-      },
-      {
-        "path": "{out}/p_X_cluster_3.tab",
-        "format": "plain",
-        "class": "E0"
-      },
-      {
-        "path": "{out}/p_X_cluster_4.tab",
-        "format": "plain",
-        "class": "E0"
-      },
+      {"path": "{out}/p_X_cluster_1.tab", "format": "plain", "class": "E0", "options": {"tie_column": -1}},
+      {"path": "{out}/p_X_cluster_2.tab", "format": "plain", "class": "E0", "options": {"tie_column": -1}},
+      {"path": "{out}/p_X_cluster_3.tab", "format": "plain", "class": "E0", "options": {"tie_column": -1}},
+      {"path": "{out}/p_X_cluster_4.tab", "format": "plain", "class": "E0", "options": {"tie_column": -1}},
       {
         "path": "{out}/aggregate.png",
         "format": "png",
         "class": "E6"
       },
-      {
-        "path": "{out}/heatmap.png",
-        "format": "png",
-        "class": "E6"
-      }
+      {"path": "{out}/heatmap.png", "format": "png", "class": "E7"}
     ],
-    "notes": "The invocation of test_hicAggregateContacts.py's diagnostic heatmap tests: --hclust 4 on the diagonals per chromosome, --diagnosticHeatmapFile, --disable_bbox_tight and --dpi 100. Both figures are compared; the heatmap rows are the diagonals of the submatrices kept after the outlier removal, which the C++ takes from its oriented submatrices."
+    "notes": "The invocation of test_hicAggregateContacts.py's diagnostic heatmap tests: --hclust 4 on the diagonals per chromosome, --diagnosticHeatmapFile, --disable_bbox_tight and --dpi 100. Both figures are compared; the heatmap rows are the diagonals of the submatrices kept after the outlier removal, which the C++ takes from its oriented submatrices. The p_*.tab contact pairs are written in np.argsort order of the centre value. numpy 1.26 orders equal keys differently with and without its AVX-512 argsort, and the port uses the order without it on every CPU, so the order of lines with an equal centre value is not compared (option tie_column -1 of the text comparator: each run of consecutive lines with the same last column is sorted before the byte comparison; the lines, their runs and the order of the runs must be identical). heatmap.png is E7: the diagnostic heatmap draws the rows of a cluster in np.argsort order of the centre value, the order of tied rows differs from the reference's AVX-512 argsort, and a permutation of rows moves pixels (RMS 15 to 22 against the threshold 5). The same rows are compared with the order of tied rows removed by the heatmap cases of hicexplorer/test/api/cases_hicAggregateContacts.py."
   },
   {
     "id": "hicAggregateContacts.diagnosticHeatmap.kmeans4.genome",
@@ -1578,38 +1382,18 @@
         "format": "plain",
         "class": "E0"
       },
-      {
-        "path": "{out}/p_genome_cluster_1.tab",
-        "format": "plain",
-        "class": "E0"
-      },
-      {
-        "path": "{out}/p_genome_cluster_2.tab",
-        "format": "plain",
-        "class": "E0"
-      },
-      {
-        "path": "{out}/p_genome_cluster_3.tab",
-        "format": "plain",
-        "class": "E0"
-      },
-      {
-        "path": "{out}/p_genome_cluster_4.tab",
-        "format": "plain",
-        "class": "E0"
-      },
+      {"path": "{out}/p_genome_cluster_1.tab", "format": "plain", "class": "E0", "options": {"tie_column": -1}},
+      {"path": "{out}/p_genome_cluster_2.tab", "format": "plain", "class": "E0", "options": {"tie_column": -1}},
+      {"path": "{out}/p_genome_cluster_3.tab", "format": "plain", "class": "E0", "options": {"tie_column": -1}},
+      {"path": "{out}/p_genome_cluster_4.tab", "format": "plain", "class": "E0", "options": {"tie_column": -1}},
       {
         "path": "{out}/aggregate.png",
         "format": "png",
         "class": "E6"
       },
-      {
-        "path": "{out}/heatmap.png",
-        "format": "png",
-        "class": "E6"
-      }
+      {"path": "{out}/heatmap.png", "format": "png", "class": "E7"}
     ],
-    "notes": "The diagnostic heatmap genome wide, four k-means clusters, with the default bbox_inches='tight' of both savefig calls."
+    "notes": "The diagnostic heatmap genome wide, four k-means clusters, with the default bbox_inches='tight' of both savefig calls. The p_*.tab contact pairs are written in np.argsort order of the centre value. numpy 1.26 orders equal keys differently with and without its AVX-512 argsort, and the port uses the order without it on every CPU, so the order of lines with an equal centre value is not compared (option tie_column -1 of the text comparator: each run of consecutive lines with the same last column is sorted before the byte comparison; the lines, their runs and the order of the runs must be identical). heatmap.png is E7: the diagnostic heatmap draws the rows of a cluster in np.argsort order of the centre value, the order of tied rows differs from the reference's AVX-512 argsort, and a permutation of rows moves pixels (RMS 15 to 22 against the threshold 5). The same rows are compared with the order of tied rows removed by the heatmap cases of hicexplorer/test/api/cases_hicAggregateContacts.py."
   },
   {
     "id": "hicAggregateContacts.plotType3d.hclust2",
@@ -1653,23 +1437,15 @@
         "format": "plain",
         "class": "E0"
       },
-      {
-        "path": "{out}/p_genome_cluster_1.tab",
-        "format": "plain",
-        "class": "E0"
-      },
-      {
-        "path": "{out}/p_genome_cluster_2.tab",
-        "format": "plain",
-        "class": "E0"
-      },
+      {"path": "{out}/p_genome_cluster_1.tab", "format": "plain", "class": "E0", "options": {"tie_column": -1}},
+      {"path": "{out}/p_genome_cluster_2.tab", "format": "plain", "class": "E0", "options": {"tie_column": -1}},
       {
         "path": "{out}/aggregate.png",
         "format": "png",
         "class": "E6"
       }
     ],
-    "notes": "The 3d surface plot of test_hicAggregateContacts.py (plot_surface per cluster), genome wide with two ward clusters."
+    "notes": "The 3d surface plot of test_hicAggregateContacts.py (plot_surface per cluster), genome wide with two ward clusters. The p_*.tab contact pairs are written in np.argsort order of the centre value. numpy 1.26 orders equal keys differently with and without its AVX-512 argsort, and the port uses the order without it on every CPU, so the order of lines with an equal centre value is not compared (option tie_column -1 of the text comparator: each run of consecutive lines with the same last column is sorted before the byte comparison; the lines, their runs and the order of the runs must be identical)."
   },
   {
     "id": "hicAggregateContacts.plotType3d.hclust2.perChr.vRange",
@@ -1715,22 +1491,14 @@
         "format": "plain",
         "class": "E0"
       },
-      {
-        "path": "{out}/p_X_cluster_1.tab",
-        "format": "plain",
-        "class": "E0"
-      },
-      {
-        "path": "{out}/p_X_cluster_2.tab",
-        "format": "plain",
-        "class": "E0"
-      },
+      {"path": "{out}/p_X_cluster_1.tab", "format": "plain", "class": "E0", "options": {"tie_column": -1}},
+      {"path": "{out}/p_X_cluster_2.tab", "format": "plain", "class": "E0", "options": {"tie_column": -1}},
       {
         "path": "{out}/aggregate.png",
         "format": "png",
         "class": "E6"
       }
     ],
-    "notes": "The 3d surface plot per chromosome with --vMin, --vMax (which also set the z limits) and another --colorMap."
+    "notes": "The 3d surface plot per chromosome with --vMin, --vMax (which also set the z limits) and another --colorMap. The p_*.tab contact pairs are written in np.argsort order of the centre value. numpy 1.26 orders equal keys differently with and without its AVX-512 argsort, and the port uses the order without it on every CPU, so the order of lines with an equal centre value is not compared (option tie_column -1 of the text comparator: each run of consecutive lines with the same last column is sorted before the byte comparison; the lines, their runs and the order of the runs must be identical)."
   }
 ]
