@@ -499,7 +499,9 @@ test 15 of 15 in five consecutive runs. No C++ changed.
 - **Session memory:** a session opening every view peaks at 216 MB for the GUI
   process.
 
-**Libraries,** each in its own repository with no remote and no licence yet:
+**Libraries,** developed in their own repositories and, since the vendoring
+commits of branch `vendor-io`, compiled from `cpp/core/io` (origin commits and
+licences in `THIRD_PARTY_NOTICES.md`; the pins below are historical):
 - **coolercpp** (`~/src/coolercpp`): cooler's API in C++. All cool and mcool I/O
   goes through it since `5da5e074`; `core/src/cool_adapter.cpp` keeps what
   hicmatrix adds.
@@ -671,7 +673,7 @@ not find graphviz `dot` on the venv's `PATH`; one hicBuildMatrix trivial run pas
 | hicAggregateContacts | z-score in modes `all` and `inter-chr` has no harness case | the Python needs a dense matrix of several GB |
 | hicBuildMatrixMicroC | no characterization test | rule 1 not met |
 | h5 writer | fixed at the source: attributes on datasets were opened with `H5Oopen` and closed as groups, leaving 27 identifiers open on a small matrix. `H5close()` before the drawing exec remains only as a safety net | a unit test counts open identifiers after a write |
-| packaging | Fetched at configure time: Boost.Math, x86-simd-sort, libBigWig, pybind11, and scipy 1.14.1's Cephes headers (per-file SHA256). hicMergeDomains needs graphviz `dot` at run time, and the plotting tools need a Python with matplotlib 3.8.4 | an offline package build needs vendored tarballs, and the package needs graphviz and the drawing environment as dependencies |
+| packaging | Nothing is fetched at configure time except scipy 1.14.1's Cephes headers (per-file SHA256, `cpp/BUILDING.md`). coolercpp, hicfilecpp, hic2cool and x86-simd-sort are in the tree; Boost.Math, Spectra, libBigWig, pybind11 and doctest come from conda packages. hicMergeDomains needs graphviz `dot` at run time, and the plotting tools need a Python with matplotlib 3.8.4 | the package needs the build requirements of `cpp/BUILDING.md`, graphviz and the drawing environment as dependencies |
 | harness | `cpp_args` passes options to the C++ side only; `path_prepend` changes one case's `PATH` | both allowed only where they do not change compared outputs |
 | hicPCA | dense per-chromosome matrices, needed for the bit-exact eigenvector choice (PLAN 5.4) | memory grows with the square of the largest chromosome's bin count: 269 MB of the 344 MB peak on `small_test_matrix` (5,801 bins), about 5 GB per matrix for human chr1 at 10 kb. A sparse Lanczos option with implicit centering is proposed, pending the project owner |
 | hicDifferentialTAD, chic tools, hicDetectLoops | false positives: per-sample bin filtering and no multiple-testing correction (PLAN 9.7) | 20.5 % of TADs called between replicates. Step 1 is merged in `bfcf75fa` as hicDifferentialTAD options, not defaults; the chic tools and hicDetectLoops still lack a correction |

@@ -101,3 +101,9 @@ a channel later removes one of these builds, the lock file fails at that URL;
 keep a copy of the downloaded packages (`$CONDA_PKGS_DIRS`) to rebuild
 offline. Some packages (libarrow and pyarrow) are CUDA variants because that
 is what the original environment held.
+
+## Build environment of the C++ tree
+
+The C++ tree is built against a separate environment, `hicx-build`, not against
+this reference environment. Its package list (the host and run requirements for
+a bioconda recipe) is in `cpp/BUILDING.md`.

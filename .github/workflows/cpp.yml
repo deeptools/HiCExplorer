@@ -12,11 +12,6 @@ concurrency:
   group: cpp-${{ github.ref }}
   cancel-in-progress: true
 
-# coolercpp and hicfilecpp are separate repositories. Set the repository
-# variables COOLERCPP_REPOSITORY, HICFILECPP_REPOSITORY and HIC2COOL_REPOSITORY
-# (owner/name) under
-# Settings > Secrets and variables > Actions > Variables. For private
-# repositories add a secret DEPS_TOKEN with read access to both.
 jobs:
   conda:
     name: ${{ matrix.name }}
@@ -34,49 +29,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Check the dependency repositories are configured
-        run: |
-          test -n "${{ vars.COOLERCPP_REPOSITORY }}" && test -n "${{ vars.HICFILECPP_REPOSITORY }}" && test -n "${{ vars.HIC2COOL_REPOSITORY }}" || {
-            echo "Set the repository variables COOLERCPP_REPOSITORY, HICFILECPP_REPOSITORY and HIC2COOL_REPOSITORY."; exit 1; }
-
-      - uses: actions/checkout@v4
-        with:
-          repository: ${{ vars.COOLERCPP_REPOSITORY }}
-          token: ${{ secrets.DEPS_TOKEN || github.token }}
-          path: deps/coolercpp
-          fetch-depth: 0
-
-      - uses: actions/checkout@v4
-        with:
-          repository: ${{ vars.HICFILECPP_REPOSITORY }}
-          token: ${{ secrets.DEPS_TOKEN || github.token }}
-          path: deps/hicfilecpp
-          fetch-depth: 0
-
-      - uses: actions/checkout@v4
-        with:
-          repository: ${{ vars.HIC2COOL_REPOSITORY }}
-          token: ${{ secrets.DEPS_TOKEN || github.token }}
-          path: deps/hic2cool
-          fetch-depth: 0
-
       - uses: conda-incubator/setup-miniconda@v3
         with:
           miniforge-version: latest
           auto-activate-base: false
           activate-environment: hicx
-          channels: conda-forge
+          channels: conda-forge,bioconda
 
       - name: Install native dependencies
-        run: mamba install --yes -n hicx cmake ninja compilers hdf5 blosc zlib htslib libopenblas liblapack graphviz python=3.12
+        run: mamba install --yes -n hicx cmake ninja compilers hdf5 blosc zlib htslib libopenblas liblapack graphviz python=3.12 pybind11=2.13.6 libboost-headers=1.85 libbigwig=0.4.8 spectra-cpp=1.2.0 eigen=3.4 doctest=2.4.11
 
       - name: Configure
         run: |
           cmake -S cpp -B cpp/build -G Ninja -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_PREFIX_PATH="$CONDA_PREFIX" \
-            -DHICX_COOLERCPP_GIT_REPOSITORY="$GITHUB_WORKSPACE/deps/coolercpp" \
-            -DHICX_HICFILECPP_GIT_REPOSITORY="$GITHUB_WORKSPACE/deps/hicfilecpp" \
-            -DHICX_HIC2COOL_GIT_REPOSITORY="$GITHUB_WORKSPACE/deps/hic2cool"
+            -DCMAKE_PREFIX_PATH="$CONDA_PREFIX"
 
       - name: Build
         run: cmake --build cpp/build --parallel
@@ -87,7 +53,7 @@ jobs:
       - name: Build and smoke-test the Python package
         run: |
           pip install scikit-build-core pathspec
-          CMAKE_ARGS="-DCMAKE_PREFIX_PATH=$CONDA_PREFIX -DHICX_COOLERCPP_GIT_REPOSITORY=$GITHUB_WORKSPACE/deps/coolercpp -DHICX_HICFILECPP_GIT_REPOSITORY=$GITHUB_WORKSPACE/deps/hicfilecpp -DHICX_HIC2COOL_GIT_REPOSITORY=$GITHUB_WORKSPACE/deps/hic2cool" \
+          CMAKE_ARGS="-DCMAKE_PREFIX_PATH=$CONDA_PREFIX" \
             pip wheel . --no-deps --no-build-isolation -w wheelhouse
           pip install --no-deps wheelhouse/*.whl
           cd "$RUNNER_TEMP"
@@ -117,27 +83,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/checkout@v4
-        with:
-          repository: ${{ vars.COOLERCPP_REPOSITORY }}
-          token: ${{ secrets.DEPS_TOKEN || github.token }}
-          path: deps/coolercpp
-          fetch-depth: 0
-
-      - uses: actions/checkout@v4
-        with:
-          repository: ${{ vars.HICFILECPP_REPOSITORY }}
-          token: ${{ secrets.DEPS_TOKEN || github.token }}
-          path: deps/hicfilecpp
-          fetch-depth: 0
-
-      - uses: actions/checkout@v4
-        with:
-          repository: ${{ vars.HIC2COOL_REPOSITORY }}
-          token: ${{ secrets.DEPS_TOKEN || github.token }}
-          path: deps/hic2cool
-          fetch-depth: 0
-
       - uses: msys2/setup-msys2@v2
         with:
           msystem: ${{ matrix.msystem }}
@@ -156,10 +101,7 @@ jobs:
       - name: Configure
         run: |
           cmake -S cpp -B cpp/build -G Ninja -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_PREFIX_PATH="$MINGW_PREFIX" \
-            -DHICX_COOLERCPP_GIT_REPOSITORY="$GITHUB_WORKSPACE/deps/coolercpp" \
-            -DHICX_HICFILECPP_GIT_REPOSITORY="$GITHUB_WORKSPACE/deps/hicfilecpp" \
-            -DHICX_HIC2COOL_GIT_REPOSITORY="$GITHUB_WORKSPACE/deps/hic2cool"
+            -DCMAKE_PREFIX_PATH="$MINGW_PREFIX"
 
       - name: Build
         run: cmake --build cpp/build --parallel

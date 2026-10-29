@@ -21,10 +21,11 @@ The wheels contain the tools and the libraries they need for Linux (x86_64 and a
 
 - A C++20 compiler and [CMake](https://cmake.org/) 3.24 or newer, and Ninja or Make.
 - Native dependencies, most easily obtained as a conda environment used as a plain prefix (not
-  activated, just pointed at with `-DCMAKE_PREFIX_PATH`): HDF5, blosc, zlib, htslib and BLAS/LAPACK.
-- The libraries [coolercpp](https://github.com/) (cool/mcool file I/O), [hicfilecpp](https://github.com/)
-  (`.hic` file I/O) and [hic2cool](https://github.com/) (`.hic` to cool conversion), fetched by CMake
-  from the git repositories given at configure time.
+  activated, just pointed at with `-DCMAKE_PREFIX_PATH`): HDF5, blosc, zlib, htslib, BLAS/LAPACK,
+  Eigen, Spectra, Boost.Math headers, libBigWig, pybind11 and doctest. The packages and versions are
+  listed in `cpp/BUILDING.md`.
+- The cool/mcool and `.hic` file libraries and the `.hic` conversion of `hicConvertFormat` are part of
+  the source tree (`cpp/core/io`); nothing else is fetched when CMake configures the build.
 - The plotting tools draw figures with Python. The Python environment needs matplotlib. The environment is selected with the `HICX_PLOT_PYTHON` environment
   variable and defaults to the Python that runs the tool.
 - `hicMergeDomains` additionally needs the Graphviz `dot` binary on `PATH` at run time, to render the
@@ -38,21 +39,13 @@ cd HiCExplorer-v4
 
 cmake -B cpp/build -S cpp \
   -DCMAKE_BUILD_TYPE=Release \
-  -DCMAKE_PREFIX_PATH=/path/to/conda/env/used/as/prefix \
-  -DHICX_COOLERCPP_GIT_REPOSITORY=/path/to/coolercpp \
-  -DHICX_HICFILECPP_GIT_REPOSITORY=/path/to/hicfilecpp \
-  -DHICX_HIC2COOL_GIT_REPOSITORY=/path/to/hic2cool
+  -DCMAKE_PREFIX_PATH=/path/to/conda/env/used/as/prefix
 
 cmake --build cpp/build -j
 ```
 
-- `-DCMAKE_PREFIX_PATH` should point at a conda environment (or any prefix) providing HDF5, blosc, zlib,
-  htslib and BLAS/LAPACK; it is used as a plain library search path, not activated.
-- `-DHICX_COOLERCPP_GIT_REPOSITORY` / `-DHICX_HICFILECPP_GIT_REPOSITORY` point CMake at local checkouts
-  of the two sibling libraries so they do not need to be fetched over the network; each is otherwise
-  resolved through `find_package` if already installed, or fetched and built from a pinned commit.
-  `-DHICX_COOLERCPP_FORCE_FETCH=ON` / `-DHICX_HICFILECPP_FORCE_FETCH=ON` skip an already-installed copy
-  and force the fetch instead.
+- `-DCMAKE_PREFIX_PATH` should point at a conda environment (or any prefix) providing the packages
+  of `cpp/BUILDING.md`; it is used as a plain library search path, not activated.
 
 Each tool builds as its own executable under `cpp/build/tools/`, for example `cpp/build/tools/hicBuildMatrix`,
 `cpp/build/tools/hicFindTADs`, and so on. Add `cpp/build/tools` to `PATH`, or invoke the binaries by their

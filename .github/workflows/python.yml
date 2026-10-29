@@ -2,8 +2,7 @@ name: Python (HiCExplorer)
 
 # The Python package is a thin layer over the C++ executables: its tests run
 # the C++ tools through hicexplorer.<tool>.main(). So this workflow builds the
-# C++ tools first, with the dependency repositories checked out exactly as in
-# cpp.yml, installs the package built from the same sources, and runs the
+# C++ tools first, installs the package built from the same sources, and runs the
 # Python test suite against the executables in cpp/build/tools and the
 # extension hicexplorer._hicx in cpp/build/python/hicexplorer, which the
 # source tree's package finds through HICX_BIN_DIR.
@@ -19,9 +18,6 @@ concurrency:
   group: python-${{ github.ref }}
   cancel-in-progress: true
 
-# The repository variables COOLERCPP_REPOSITORY, HICFILECPP_REPOSITORY and
-# HIC2COOL_REPOSITORY (owner/name) and the optional secret DEPS_TOKEN are the
-# ones cpp.yml uses.
 jobs:
   test:
     name: ${{ matrix.os }} py${{ matrix.python }}
@@ -37,32 +33,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Check the dependency repositories are configured
-        run: |
-          test -n "${{ vars.COOLERCPP_REPOSITORY }}" && test -n "${{ vars.HICFILECPP_REPOSITORY }}" && test -n "${{ vars.HIC2COOL_REPOSITORY }}" || {
-            echo "Set the repository variables COOLERCPP_REPOSITORY, HICFILECPP_REPOSITORY and HIC2COOL_REPOSITORY."; exit 1; }
-
-      - uses: actions/checkout@v4
-        with:
-          repository: ${{ vars.COOLERCPP_REPOSITORY }}
-          token: ${{ secrets.DEPS_TOKEN || github.token }}
-          path: deps/coolercpp
-          fetch-depth: 0
-
-      - uses: actions/checkout@v4
-        with:
-          repository: ${{ vars.HICFILECPP_REPOSITORY }}
-          token: ${{ secrets.DEPS_TOKEN || github.token }}
-          path: deps/hicfilecpp
-          fetch-depth: 0
-
-      - uses: actions/checkout@v4
-        with:
-          repository: ${{ vars.HIC2COOL_REPOSITORY }}
-          token: ${{ secrets.DEPS_TOKEN || github.token }}
-          path: deps/hic2cool
-          fetch-depth: 0
-
       - uses: conda-incubator/setup-miniconda@v3
         with:
           miniforge-version: latest
@@ -73,22 +43,19 @@ jobs:
       - name: Install dependencies
         run: |
           mamba install --yes python=${{ matrix.python }} --file requirements.txt
-          mamba install --yes cmake ninja compilers hdf5 blosc zlib htslib libopenblas liblapack graphviz
+          mamba install --yes cmake ninja compilers hdf5 blosc zlib htslib libopenblas liblapack graphviz pybind11=2.13.6 libboost-headers=1.85 libbigwig=0.4.8 spectra-cpp=1.2.0 eigen=3.4 doctest=2.4.11
           mamba install --yes pytest flake8 pytest-xdist pytest-forked configparser psutil pysam pybedtools pybigwig pytables cooler scikit-build-core pathspec
 
       - name: Build the C++ tools
         run: |
           cmake -S cpp -B cpp/build -G Ninja -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_PREFIX_PATH="$CONDA_PREFIX" \
-            -DHICX_COOLERCPP_GIT_REPOSITORY="$GITHUB_WORKSPACE/deps/coolercpp" \
-            -DHICX_HICFILECPP_GIT_REPOSITORY="$GITHUB_WORKSPACE/deps/hicfilecpp" \
-            -DHICX_HIC2COOL_GIT_REPOSITORY="$GITHUB_WORKSPACE/deps/hic2cool" \
             -DHICX_BUILD_PYTHON=ON -DPython_EXECUTABLE="$(command -v python)"
           cmake --build cpp/build --parallel
 
       - name: Install the package
         run: |
-          CMAKE_ARGS="-DCMAKE_PREFIX_PATH=$CONDA_PREFIX -DHICX_COOLERCPP_GIT_REPOSITORY=$GITHUB_WORKSPACE/deps/coolercpp -DHICX_HICFILECPP_GIT_REPOSITORY=$GITHUB_WORKSPACE/deps/hicfilecpp -DHICX_HIC2COOL_GIT_REPOSITORY=$GITHUB_WORKSPACE/deps/hic2cool" \
+          CMAKE_ARGS="-DCMAKE_PREFIX_PATH=$CONDA_PREFIX" \
             pip install . --no-deps --no-build-isolation
           cd "$RUNNER_TEMP" && hicInfo --version
 
