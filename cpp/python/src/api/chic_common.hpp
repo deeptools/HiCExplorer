@@ -8,7 +8,7 @@
 // it (unpacking, `in`, comparisons, scalar arithmetic that decides the type of
 // a result, '{}'.format, exit(), Queue.put) and the h5py view of the files
 // (hicx::chic::H5Reader turned into the objects h5py returns). Nothing here
-// computes: the computations are hicx::chic and hicx::scipy in cpp/core.
+// computes: the computations are hicx::chic and hicx::contingency in cpp/core.
 
 #ifndef HICX_PYTHON_API_CHIC_COMMON_HPP
 #define HICX_PYTHON_API_CHIC_COMMON_HPP

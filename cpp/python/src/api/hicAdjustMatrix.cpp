@@ -49,7 +49,7 @@ bool contains(py::handle sequence, py::handle value) {
 }
 
 // matrix[row_first:row_last, col_first:col_last] = 0 on a csr matrix, in
-// place (hicx::scipy_coo::assign_zero_block).
+// place (hicx::coo_ops::assign_zero_block).
 void zero_block(py::handle matrix_object, std::int64_t row_first, std::int64_t row_last, std::int64_t col_first,
                 std::int64_t col_last) {
     Sparse matrix = sparse(matrix_object, "adjustMatrix", "r");
@@ -63,7 +63,7 @@ void zero_block(py::handle matrix_object, std::int64_t row_first, std::int64_t r
     }
     const bool sorted = lc::truthy(matrix_object.attr("has_sorted_indices"));
     dispatch_arithmetic(matrix.data, "adjustMatrix", [&]<class T>() {
-        const hicx::scipy_coo::BlockAssignment<T> result = hicx::scipy_coo::assign_zero_block(
+        const hicx::coo_ops::BlockAssignment<T> result = hicx::coo_ops::assign_zero_block(
             lc::csr_of<T>(matrix), sorted, row_first, row_last, col_first, col_last);
         if (!result.inserted) {
             // only existing cells are affected

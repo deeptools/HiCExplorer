@@ -3,7 +3,7 @@
 //
 // The functions take a hiCMatrix and change it in place, as in 3.7.6. What
 // the Python computes is computed here: the running window
-// (hicx::scipy_coo::running_window, with scipy's summation order), the bin
+// (hicx::coo_ops::running_window, with scipy's summation order), the bin
 // groups and coverages of merge_bins, the nan_bins recomputed from the
 // column sums, eliminate_zeros. What the Python asks the hiCMatrix to do is
 // asked of it through its own methods, so a subclass keeps working:
@@ -22,7 +22,7 @@
 
 #include "api.hpp"
 #include "hicx/numpy_compat.hpp"
-#include "hicx/scipy_coo.hpp"
+#include "hicx/coo_ops.hpp"
 #include "loops_correct_common.hpp"
 
 namespace hicx::python {
@@ -55,7 +55,7 @@ void recompute_nan_bins(py::handle hic) {
     const Sparse matrix = sparse(hic.attr("matrix"), "merge_bins", "r");
     py::object nan_bins;
     dispatch_arithmetic(matrix.data, "merge_bins", [&]<class T>() {
-        nan_bins = from_vector(hicx::scipy_coo::zero_columns(lc::csr_of<T>(matrix)));
+        nan_bins = from_vector(hicx::coo_ops::zero_columns(lc::csr_of<T>(matrix)));
     });
     hic.attr("nan_bins") = nan_bins;
 }
@@ -79,7 +79,7 @@ py::object running_window_merge(py::object hic_matrix, py::handle num_bins) {
     const std::int64_t bins = to_int64(num_bins);
     py::object merged;
     dispatch_arithmetic(matrix.data, "running_window_merge", [&]<class T>() {
-        merged = lc::csr_object(hicx::scipy_coo::running_window(lc::csr_of<T>(matrix), bins));
+        merged = lc::csr_object(hicx::coo_ops::running_window(lc::csr_of<T>(matrix), bins));
     });
     hic_matrix.attr("matrix") = merged;
     recompute_nan_bins(hic_matrix);

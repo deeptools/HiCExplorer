@@ -2,10 +2,11 @@
 // hicexplorer.chicDifferentialTest besides main() and parse_arguments()
 // (which run the executable cpp/tools/chicDifferentialTest.cpp).
 //
-// The tests are scipy 1.14's as hicx::scipy computes them (stats.chi2.ppf,
-// stats.chi2_contingency without correction and stats.fisher_exact on 2x2
-// tables, cpp/core/include/hicx/scipy_stats.hpp), with the types scipy
-// returns the p-values in. The result file is written with
+// The tests are Fisher's exact test and the chi-squared test of independence
+// without correction on 2x2 tables, and the chi-squared quantile, as
+// hicx::contingency computes them (cpp/core/include/hicx/contingency_tests.hpp),
+// with the types the Python (scipy) returns the p-values in: a Python float for
+// a constant 1.0, numpy.float64 for a computed value. The result file is written with
 // hicx::chic::Hdf5Writer in the layout h5py gave it.
 //
 // Not reproduced: chi2_contingency on a table of other than two columns
@@ -20,7 +21,7 @@
 
 #include "api.hpp"
 #include "chic_common.hpp"
-#include "hicx/scipy_stats.hpp"
+#include "hicx/contingency_tests.hpp"
 
 namespace hicx::python {
 
@@ -65,7 +66,7 @@ py::list pair(py::ssize_t i, py::handle value) {
 TestResult chisquare(py::handle pDataFile1, py::handle pDataFile2, py::handle pAlpha) {
     TestResult out;
     const double critical_value =
-        hicx::scipy::chi2_ppf(to_double(sub(py::int_(1), pAlpha)), 1.0);
+        hicx::contingency::chi2_quantile(to_double(sub(py::int_(1), pAlpha)), 1.0);
     std::int64_t zero_values_counter = 0;
     py::ssize_t i = 0;
     const py::object pairs = builtin("zip")(pDataFile1, pDataFile2);
@@ -73,14 +74,14 @@ TestResult chisquare(py::handle pDataFile1, py::handle pDataFile2, py::handle pA
         const std::vector<py::object> groups = unpack(item, 2);
         const std::vector<double> a = group_values(groups[0]);
         const std::vector<double> b = group_values(groups[1]);
-        std::optional<hicx::scipy::Chi2Contingency> result;
+        std::optional<hicx::contingency::Chi2Result> result;
         bool value_error = a.size() != b.size() || a.empty();
         if (!value_error) {
             if (a.size() != 2) {
                 raise_error("TypeError",
                             "chisquare_test: HiCExplorer 4 tests tables of two columns, not " + std::to_string(a.size()));
             }
-            result = hicx::scipy::chi2_contingency_2x2(a[0], a[1], b[0], b[1]);
+            result = hicx::contingency::chi2_2x2(a[0], a[1], b[0], b[1]);
             value_error = !result.has_value();
         }
         if (value_error) {
@@ -114,16 +115,16 @@ TestResult fisher(py::handle pDataFile1, py::handle pDataFile2, py::handle pAlph
         const std::vector<py::object> groups = unpack(item, 2);
         const std::vector<double> a = group_values(groups[0]);
         const std::vector<double> b = group_values(groups[1]);
-        std::optional<hicx::scipy::FisherExact> result;
+        std::optional<hicx::contingency::FisherExact> result;
         if (a.size() == 2 && b.size() == 2) {
-            result = hicx::scipy::fisher_exact(ceil_int64(a[0]), ceil_int64(a[1]), ceil_int64(b[0]), ceil_int64(b[1]));
+            result = hicx::contingency::fisher_exact_2x2(ceil_int64(a[0]), ceil_int64(a[1]), ceil_int64(b[0]), ceil_int64(b[1]));
         }
         if (!result) {
             out.test_result.append(py::float_(std::numeric_limits<double>::quiet_NaN()));
             out.accepted.append(pair(i, py::float_(1.0)));
         } else {
             const py::object p_value =
-                result->python_float ? py::object(py::float_(result->pvalue)) : np_float64(result->pvalue);
+                result->constant_one ? py::object(py::float_(result->pvalue)) : np_float64(result->pvalue);
             if (le(p_value, pAlpha)) {
                 out.test_result.append(p_value);
                 out.rejected.append(pair(i, p_value));

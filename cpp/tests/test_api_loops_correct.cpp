@@ -25,7 +25,7 @@
 #include "hicx/merge_loops.hpp"
 #include "hicx/reduce_matrix.hpp"
 #include "hicx/reduce_matrix_entries.hpp"
-#include "hicx/scipy_coo.hpp"
+#include "hicx/coo_ops.hpp"
 #include "hicx/sparse_matrix.hpp"
 #include "hicx/stats_ops.hpp"
 
@@ -202,7 +202,7 @@ TEST_CASE("reduce_entries: agrees with the tools' reduce_matrix on a CSR") {
     }
 }
 
-TEST_CASE("scipy_coo: running_window agrees with the tools' running_window on counts") {
+TEST_CASE("coo_ops: running_window agrees with the tools' running_window on counts") {
     // integer counts: every order of summation gives the same values
     SymmetricPair pair = make_pair(60, 0.3, 21);
     std::vector<std::int32_t> row(pair.full.row.begin(), pair.full.row.end());
@@ -212,7 +212,7 @@ TEST_CASE("scipy_coo: running_window agrees with the tools' running_window on co
         counts.push_back(std::floor(v));
     }
     const hicx::CsrMatrix full = hicx::CsrMatrix::from_coo(60, 60, row, col, counts, "int64");
-    hicx::scipy_coo::Csr<std::int64_t> csr;
+    hicx::coo_ops::Csr<std::int64_t> csr;
     csr.rows = csr.cols = 60;
     csr.indptr = full.indptr();
     csr.indices.assign(full.indices().begin(), full.indices().end());
@@ -221,7 +221,7 @@ TEST_CASE("scipy_coo: running_window agrees with the tools' running_window on co
     }
     for (const std::int64_t bins : {3, 5}) {
         const hicx::CsrMatrix tool = hicx::running_window(full, bins);
-        const hicx::scipy_coo::Csr<std::int64_t> api = hicx::scipy_coo::running_window(csr, bins);
+        const hicx::coo_ops::Csr<std::int64_t> api = hicx::coo_ops::running_window(csr, bins);
         for (std::int64_t r = 0; r < 60; ++r) {
             for (std::int64_t k = api.indptr[static_cast<std::size_t>(r)];
                  k < api.indptr[static_cast<std::size_t>(r) + 1]; ++k) {
@@ -233,13 +233,13 @@ TEST_CASE("scipy_coo: running_window agrees with the tools' running_window on co
     }
 }
 
-TEST_CASE("scipy_coo: tocsr sums duplicates and keeps zeros") {
-    hicx::scipy_coo::Coo<double> coo;
+TEST_CASE("coo_ops: tocsr sums duplicates and keeps zeros") {
+    hicx::coo_ops::Coo<double> coo;
     coo.rows = coo.cols = 2;
     coo.row = {1, 0, 1, 0};
     coo.col = {0, 1, 0, 0};
     coo.data = {1.5, 0.0, 2.5, 3.0};
-    const hicx::scipy_coo::Csr<double> csr = hicx::scipy_coo::tocsr(coo);
+    const hicx::coo_ops::Csr<double> csr = hicx::coo_ops::tocsr(coo);
     CHECK(csr.indptr == std::vector<std::int64_t>{0, 2, 3});
     CHECK(csr.indices == std::vector<std::int64_t>{0, 1, 0});
     CHECK(csr.data == std::vector<double>{3.0, 0.0, 4.0});
@@ -314,7 +314,7 @@ TEST_CASE("correct_api: fill_gaps fills an isolated bin with the mean of its nei
             }
         }
     }
-    const auto filled = hicx::scipy_coo::Csr<double>(hicx::correct_api::fill_gaps<double>(5, 5, row, col, data, {2}));
+    const auto filled = hicx::coo_ops::Csr<double>(hicx::correct_api::fill_gaps<double>(5, 5, row, col, data, {2}));
     // row 2, columns 1..3: (M[1, j - 1] + M[3, j + 1]) / 2; the four neighbours of M[2, 2] get the mean of
     // the diagonal neighbours, 1
     std::vector<double> dense(25, 0.0);
@@ -331,20 +331,20 @@ TEST_CASE("correct_api: fill_gaps fills an isolated bin with the mean of its nei
     CHECK_THROWS_AS(hicx::correct_api::fill_gaps<double>(5, 5, row, col, data, {4}), hicx::PythonError);
 }
 
-TEST_CASE("scipy_coo: assign_zero_block inserts explicit zeros as scipy's _insert_many") {
-    hicx::scipy_coo::Csr<double> m;
+TEST_CASE("coo_ops: assign_zero_block inserts explicit zeros as scipy's _insert_many") {
+    hicx::coo_ops::Csr<double> m;
     m.rows = m.cols = 3;
     m.indptr = {0, 2, 3, 4};
     m.indices = {2, 0, 1, 2};  // row 0 unsorted
     m.data = {5.0, 1.0, 2.0, 3.0};
-    const auto unsorted = hicx::scipy_coo::assign_zero_block(m, false, 0, 2, 1, 3);
+    const auto unsorted = hicx::coo_ops::assign_zero_block(m, false, 0, 2, 1, 3);
     CHECK(unsorted.inserted);
     // row 0: the inserted column 1 first, then the old entries (2 zeroed, 0 kept)
     CHECK(unsorted.matrix.indices == std::vector<std::int64_t>{1, 2, 0, 2, 1, 2});
     CHECK(unsorted.matrix.data == std::vector<double>{0.0, 0.0, 1.0, 0.0, 0.0, 3.0});
-    const auto sorted = hicx::scipy_coo::assign_zero_block(m, true, 0, 2, 1, 3);
+    const auto sorted = hicx::coo_ops::assign_zero_block(m, true, 0, 2, 1, 3);
     CHECK(sorted.matrix.indices == std::vector<std::int64_t>{0, 1, 2, 1, 2, 2});
-    const auto overwrite = hicx::scipy_coo::assign_zero_block(m, true, 2, 3, 2, 3);
+    const auto overwrite = hicx::coo_ops::assign_zero_block(m, true, 2, 3, 2, 3);
     CHECK_FALSE(overwrite.inserted);
     CHECK(overwrite.matrix.data == std::vector<double>{5.0, 1.0, 2.0, 0.0});
 }

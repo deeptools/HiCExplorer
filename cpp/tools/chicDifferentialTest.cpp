@@ -7,16 +7,17 @@
 // on the same table unrounded. The results go to one HDF5 file with the
 // accepted, rejected and all locations per reference point.
 //
-// The statistics are those of scipy 1.14 (hicx/scipy_stats.hpp): the Fisher
-// exact test on Boost's hypergeometric distribution, the chi-squared test with
-// the p-value from the regularised incomplete gamma function, and the
-// chi-squared test's critical value chi2.ppf(1 - alpha, 1) from its inverse.
+// The statistics are evaluated from their definitions with Boost.Math
+// (hicx/contingency_tests.hpp): Fisher's exact test on the hypergeometric
+// distribution, the chi-squared test with the p-value from the chi-squared
+// survival function, and the chi-squared test's critical value, the quantile
+// at 1 - alpha of the chi-squared distribution with one degree of freedom.
 //
 // Behaviour reproduced as the Python has it:
 //
 //   * The chi-squared test rejects on the statistic against the critical
 //     value, Fisher's test on the p-value against --alpha.
-//   * A table scipy refuses (a negative value, or an expected frequency of 0
+//   * A table the tests refuse (a negative value, or an expected frequency of 0
 //     in the chi-squared test) is accepted with p-value 1.0 and listed with
 //     NaN among all results.
 //   * A reference point whose aggregated data is empty in either sample is
@@ -58,7 +59,7 @@
 #include "hicx/argparse.hpp"
 #include "hicx/chic_hdf5.hpp"
 #include "hicx/hdf5_util.hpp"
-#include "hicx/scipy_stats.hpp"
+#include "hicx/contingency_tests.hpp"
 #include "hicx/stats_ops.hpp"
 #include "hicx/version.hpp"
 
@@ -201,12 +202,12 @@ PairResult run_tests(const Aggregated& first, const Aggregated& second, const st
                      double alpha) {
     PairResult result;
     result.length = std::min(first.size(), second.size());
-    const double critical = hicx::scipy::chi2_ppf(1.0 - alpha, 1.0);
+    const double critical = hicx::contingency::chi2_quantile(1.0 - alpha, 1.0);
     for (std::size_t i = 0; i < result.length; ++i) {
         TestResult entry;
         if (test == "chi2") {
-            const auto chi2 = hicx::scipy::chi2_contingency_2x2(first.sum, first.raw[i],
-                                                                second.sum, second.raw[i]);
+            const auto chi2 = hicx::contingency::chi2_2x2(first.sum, first.raw[i], second.sum,
+                                                          second.raw[i]);
             if (!chi2.has_value()) {
                 entry.pvalue = std::numeric_limits<double>::quiet_NaN();
                 entry.refused = true;
@@ -215,15 +216,15 @@ PairResult run_tests(const Aggregated& first, const Aggregated& second, const st
                 entry.rejected = chi2->statistic >= critical;
             }
         } else {
-            const auto pvalue = hicx::scipy::fisher_exact_pvalue(
+            const auto pvalue = hicx::contingency::fisher_exact_2x2(
                 numpy_int64(first.sum), numpy_int64(first.raw[i]), numpy_int64(second.sum),
                 numpy_int64(second.raw[i]));
             if (!pvalue.has_value()) {
                 entry.pvalue = std::numeric_limits<double>::quiet_NaN();
                 entry.refused = true;
             } else {
-                entry.pvalue = *pvalue;
-                entry.rejected = *pvalue <= alpha;
+                entry.pvalue = pvalue->pvalue;
+                entry.rejected = pvalue->pvalue <= alpha;
             }
         }
         result.tests.push_back(entry);

@@ -7,14 +7,15 @@
 // next to the fitted size and prob.
 //
 // The fit is the one decision that needs explaining. fit_nbinom.fit runs
-// scipy's L-BFGS-B on a likelihood that is nearly flat along `size` for these
-// distributions, and the size it returns is sensitive to the last bits of its
-// sums: refitting the same values in another order moves it by a median of 55
-// percent. The port therefore runs a statement by statement translation of the
-// same L-BFGS-B (hicx/lbfgsb_scipy.hpp) rather than the projected BFGS the
-// other tools use, and the fitted size and prob are compared at class EN, the
-// envelope of the reference against itself (cpp/PLAN.md 5.7). The position,
-// maximum and mean columns are exact.
+// an L-BFGS-B optimiser on a likelihood that is nearly flat along `size` for
+// these distributions, and the size it returns is sensitive to the last bits of
+// its sums: refitting the same values in another order moves it by a median of
+// 55 percent. The port therefore does not optimise: it solves the maximum
+// likelihood problem directly (hicx/nbinom_mle.hpp), prob in closed form and
+// size as the root of the one dimensional profile score, which is the value the
+// optimiser approaches and does not always reach. The fitted size and prob are
+// compared at class EN, the envelope of the reference against itself
+// (cpp/PLAN.md 5.7). The position, maximum and mean columns are exact.
 //
 // Behaviour reproduced as the Python has it:
 //
@@ -59,7 +60,7 @@
 
 #include "hicx/argparse.hpp"
 #include "hicx/chic_viewpoint.hpp"
-#include "hicx/lbfgsb_scipy.hpp"
+#include "hicx/nbinom_mle.hpp"
 #include "hicx/numpy_compat.hpp"
 #include "hicx/parallel.hpp"
 #include "hicx/version.hpp"
@@ -284,7 +285,7 @@ int main(int argc, char** argv) {
                 values = all;
             }
             PositionResult& result = results[index];
-            result.fit = hicx::stats::fit_nbinom_scipy(values);
+            result.fit = hicx::stats::fit_nbinom_mle(values);
             if (values.empty()) {
                 result.empty = true;
                 return;

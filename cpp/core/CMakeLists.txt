@@ -101,8 +101,9 @@ add_library(hicx4core
     src/hic_matrix.cpp
     src/iterative_correction.cpp
     src/json_lite.cpp
+    src/contingency_tests.cpp
     src/lbfgsb.cpp
-    src/lbfgsb_scipy.cpp
+    src/nbinom_mle.cpp
     src/math/ice.cpp
     src/math/kr_balancing.cpp
     src/math/sparse_kernels.cpp
@@ -133,7 +134,6 @@ add_library(hicx4core
     src/resource_usage.cpp
     src/scc.cpp
     src/simd_reduce.cpp
-    src/scipy_stats.cpp
     src/tad_contacts.cpp
     src/tar_gz.cpp
     src/tool_list.cpp
