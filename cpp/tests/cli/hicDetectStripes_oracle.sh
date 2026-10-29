@@ -42,12 +42,10 @@ expect "the unfiltered table is byte identical to Stripenn's result_unfiltered.t
     cmp -s unfiltered_t1.tsv "$fixtures/tiny_unfiltered.tsv"
 
 # called stripes: chrom, anchor_start + 1 = pos1, anchor_end = pos2, in Stripenn's order
-awk -F'\t' 'NR > 1 {print $1 "\t" $2 + 1 "\t" $3 "\t" $10}' called_t1.tsv > called_keys.txt
+awk -F'\t' 'NR > 1 {print $1 "\t" $2 + 1 "\t" $3}' called_t1.tsv > called_keys.txt
 awk -F'\t' 'NR > 1 {print $1 "\t" $2 "\t" $3}' "$fixtures/tiny_filtered.tsv" > expected_keys.txt
-awk -F'\t' 'NR > 1 {print $1 "\t" $2 + 1 "\t" $3}' called_t1.tsv > called_keys3.txt
-expect "the called stripes are Stripenn's result_filtered rows in its order" cmp -s called_keys3.txt expected_keys.txt
-expect "stripiness is the last column of Stripenn's filtered table" \
-    [ "$(awk -F'\t' 'NR > 1 {print $12}' "$fixtures/tiny_filtered.tsv" | head -1)" = "$(awk -F'\t' 'NR > 1 {print $10}' called_t1.tsv | head -1)" ]
+expect "the called stripes are Stripenn's result_filtered rows in its order" cmp -s called_keys.txt expected_keys.txt
+expect "the output has the nine documented columns" [ "$(head -1 called_t1.tsv | awk -F'\t' '{print NF}')" = "9" ]
 
 "$tool" -m "$fixtures/tiny_stripes.cool" -o called_t4.tsv --unfilteredFileName unfiltered_t4.tsv -t 4 \
     > out4.txt 2> err4.txt

@@ -19,16 +19,16 @@
 // result_filtered order: descending stripiness):
 //
 //   chrom  anchor_start  anchor_end  orientation  extent_start  extent_end
-//   enrichment  pvalue  qvalue  stripiness  mean  maxpixel
+//   enrichment  pvalue  qvalue
 //
 // anchor_* is the stripe's narrow axis (Stripenn pos1 - 1, pos2), extent_*
 // the span of its box along the diagonal axis, `orientation` is "horizontal"
 // when the box starts on the diagonal (Stripenn's downward stripe, pos1 ==
 // pos3) and "vertical" otherwise (the upward stripe). `enrichment` is the
-// mean observed over expected value of the box, `pvalue` and `stripiness`
-// are Stripenn's, `mean` and `maxpixel` its Mean and maxpixel columns.
+// mean observed over expected value of the box and `pvalue` is Stripenn's;
+// `qvalue` is its Benjamini-Hochberg adjustment over all candidates.
 // --unfilteredFileName writes Stripenn's result_unfiltered.tsv (all
-// candidates, its columns). False-positive control follows Stripenn: a raw
+// candidates, its columns, including Stripiness). False-positive control follows Stripenn: a raw
 // p-value cutoff (--pValue, default 0.1) and no multiple-testing correction;
 // --fdr is an option, off by default.
 
@@ -711,16 +711,14 @@ int main(int argc, char** argv) {
             std::fprintf(stderr, "hicDetectStripes: error: cannot write %s\n", args.out_file_name.c_str());
             return 1;
         }
-        output << "chrom\tanchor_start\tanchor_end\torientation\textent_start\textent_end\tenrichment\tpvalue\tqvalue\t"
-                  "stripiness\tmean\tmaxpixel\n";
+        output << "chrom\tanchor_start\tanchor_end\torientation\textent_start\textent_end\tenrichment\tpvalue\tqvalue\n";
         for (const std::size_t i : called) {
             const st::Stripe& s = final_rows[i];
             const bool horizontal = s.pos1 == s.pos3;
             output << requested[static_cast<std::size_t>(s.chrom)].name << '\t' << s.pos1 - 1 << '\t' << s.pos2 << '\t'
                    << (horizontal ? "horizontal" : "vertical") << '\t' << std::min(s.pos1, s.pos3) - 1 << '\t'
                    << std::max(s.pos2, s.pos4) << '\t' << st::py_repr(s.oe_mean) << '\t' << st::py_repr(s.pvalue)
-                   << '\t' << st::py_repr(qvalues[i]) << '\t' << st::py_repr(s.stripiness) << '\t'
-                   << st::py_repr(s.mean) << '\t' << st::py_repr(s.maxpixel * 100.0) << "%\n";
+                   << '\t' << st::py_repr(qvalues[i]) << '\n';
         }
         std::fprintf(stderr, "INFO:hicexplorer.hicDetectStripes:Number of detected stripes: %zu\n", called.size());
     } catch (const std::exception& error) {
