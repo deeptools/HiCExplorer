@@ -99,6 +99,9 @@ for name, g, sigma in grays:
     save("canny_%s_suppressed.npy" % name, low)
     save("canny_%s_edges.npy" % name, feat.canny(g, sigma=sigma).astype(np.uint8))
 
+from scipy.ndimage._filters import _gaussian_kernel1d
+save("gauss_kernel_sigma2.npy", _gaussian_kernel1d(2.0, 0, 8))
+
 # --- OpenCV box filter and RGB2GRAY
 plane = rng.random((23, 31))
 save("box_plane.npy", plane)

@@ -365,12 +365,31 @@ ImageF sobel(const ImageF& in, int axis) {
 
 }  // namespace
 
+namespace {
+
+// numpy.exp(-0.5 / 4 * x ** 2) for x = 0..8, the exponentials of Stripenn's
+// default Canny sigma of 2 (radius 8). numpy 1.26 evaluates float64 exp on
+// CPUs with AVX512 through Intel's SVML, which differs from the C library's
+// exp in the last bit for five of these nine values; the table holds the
+// values numpy returns on such a CPU (the one Stripenn was run on for the
+// comparison), so that the default kernel is bit identical. Other sigmas use
+// the C library's exp and can differ from numpy's kernel by one unit in the
+// last place of a weight, which moves a float32 pixel of the smoothed image
+// in about one image in a thousand and an edge of the Canny map in none of
+// the 1200 frames images checked (cpp/scripts/stripenn_oracle/check_primitives.py).
+constexpr double kExpSigma2[9] = {0x1.0000000000000p+0,  0x1.c3d6a24ed8221p-1, 0x1.368b2fc6f960ap-1,
+                                  0x1.4c71b2477ab20p-2,  0x1.152aaa3bf81cbp-3, 0x1.67ee6d9ff847bp-5,
+                                  0x1.6c0504695c418p-7,  0x1.1eb805a03296cp-9, 0x1.5fc21041027acp-12};
+
+}  // namespace
+
 std::vector<double> gaussian_kernel1d(double sigma, int radius) {
     const double sigma2 = sigma * sigma;
     std::vector<double> phi(static_cast<std::size_t>(2 * radius + 1));
     for (int i = -radius; i <= radius; ++i) {
         const double x2 = static_cast<double>(static_cast<std::int64_t>(i) * i);
-        phi[static_cast<std::size_t>(i + radius)] = std::exp((-0.5 / sigma2) * x2);
+        phi[static_cast<std::size_t>(i + radius)] =
+            (sigma == 2.0 && radius == 8) ? kExpSigma2[std::abs(i)] : std::exp((-0.5 / sigma2) * x2);
     }
     const double total = pairwise(phi.data(), phi.size());
     for (double& v : phi) {

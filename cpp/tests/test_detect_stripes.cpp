@@ -166,6 +166,10 @@ TEST_CASE("scipy's Gaussian filter, Sobel and skimage's Canny reproduce each sta
     }
 }
 
+TEST_CASE("the Gaussian kernel of Stripenn's default sigma is numpy's") {
+    CHECK(np::gaussian_kernel1d(2.0, 8) == load_as<double>("gauss_kernel_sigma2.npy"));
+}
+
 TEST_CASE("OpenCV's box filter and RGB to gray reproduce its rounding") {
     const npy::Array plane_array = load("box_plane.npy");
     const std::vector<double> plane = npy::as<double>(plane_array);
