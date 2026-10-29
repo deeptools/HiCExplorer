@@ -192,7 +192,7 @@ REPO_ROOT = SCRIPT_DIR.parent.parent
 CASES_DIR = SCRIPT_DIR / "cases"
 # The external-data cases (real public datasets outside the repository) live in
 # cases_external and are selected with --cases-dir, together with --data.
-EXTERNAL_CASES_DIR = SCRIPT_DIR / "cases_external"
+EXTERNAL_CASES_DIR = SCRIPT_DIR.parent / "local" / "cases_external"
 DEFAULT_DATA = REPO_ROOT / "hicexplorer" / "test" / "test_data"
 DEFAULT_CPP_BIN = REPO_ROOT / "cpp" / "build" / "tools"
 DEFAULT_OUT = REPO_ROOT / "cpp" / "build" / "equivalence"
