@@ -10,22 +10,15 @@
 #
 # hicx_matrix lands in <build>/python, _hicx in <build>/python/hicexplorer,
 # which a source checkout's hicexplorer package finds on its own
-# (hicexplorer/__init__.py). pybind11 is fetched at a pinned release tag and
-# never taken from the environment, so every build of this revision compiles
-# the same bindings.
+# (hicexplorer/__init__.py). pybind11 comes from the dependency prefix.
 
 find_package(Python 3.10 COMPONENTS Interpreter Development.Module REQUIRED)
 
-include(FetchContent)
-set(HICX_PYBIND11_TAG v2.13.6)
-# pybind11 then uses the Python found above instead of its own search.
+# pybind11 2.13.6 from the dependency prefix (conda package pybind11), the
+# release the bindings were verified with.
 set(PYBIND11_FINDPYTHON ON)
-FetchContent_Declare(pybind11
-    GIT_REPOSITORY https://github.com/pybind/pybind11.git
-    GIT_TAG ${HICX_PYBIND11_TAG}
-    GIT_SHALLOW TRUE)
-FetchContent_MakeAvailable(pybind11)
-message(STATUS "hicexplorer4: pybind11 ${HICX_PYBIND11_TAG} for Python ${Python_VERSION}")
+find_package(pybind11 2.13.6 EXACT CONFIG REQUIRED)
+message(STATUS "hicexplorer4: pybind11 ${pybind11_VERSION} for Python ${Python_VERSION}")
 
 # A shared module can only take position independent objects, and libhicx4 is
 # a static library.
