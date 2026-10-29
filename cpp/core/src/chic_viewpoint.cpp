@@ -1,5 +1,6 @@
 // Port of hicexplorer/lib/viewpoint.py. See hicx/chic_viewpoint.hpp.
 
+#include "hicx/from_chars_double.hpp"
 #include "hicx/chic_viewpoint.hpp"
 #include "hicx/python_error.hpp"
 
@@ -236,10 +237,10 @@ double python_float(std::string_view text) {
         return sign * std::numeric_limits<double>::infinity();
     }
     double value = 0.0;
-    const auto result = std::from_chars(body.data(), body.data() + body.size(), value);
+    const auto result = hicx::from_chars_double(body.data(), body.data() + body.size(), value);
     bool ok = result.ec == std::errc() && result.ptr == body.data() + body.size() && !body.empty();
     if (!ok && !body.empty() && body[0] == '+') {
-        const auto retry = std::from_chars(body.data() + 1, body.data() + body.size(), value);
+        const auto retry = hicx::from_chars_double(body.data() + 1, body.data() + body.size(), value);
         ok = retry.ec == std::errc() && retry.ptr == body.data() + body.size() && body.size() > 1;
     }
     if (!ok) {

@@ -19,6 +19,7 @@
 #include <thread>
 #include <unordered_map>
 
+#include "hicx/from_chars_double.hpp"
 #include "hicx/argparse.hpp"
 #include "hicx/chicago.hpp"
 #include "hicx/version.hpp"
@@ -90,7 +91,7 @@ bool parse_score_line(std::string_view line, ScoreRow& r) {
     };
     auto parse_double = [](std::string_view s) {
         double v = 0.0;
-        std::from_chars(s.data(), s.data() + s.size(), v);
+        hicx::from_chars_double(s.data(), s.data() + s.size(), v);
         return v;
     };
     r.bait_id = parse_long(fields[0]);
