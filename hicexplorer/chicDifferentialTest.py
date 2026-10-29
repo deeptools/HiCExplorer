@@ -17,7 +17,6 @@ log = logging.getLogger(__name__)
 
 import numpy as np
 from scipy import stats
-import h5py
 
 import hicmatrix.HiCMatrix as hm
 from hicexplorer import utilities

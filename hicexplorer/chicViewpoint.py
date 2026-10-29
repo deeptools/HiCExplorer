@@ -15,7 +15,6 @@ import math
 import logging
 log = logging.getLogger(__name__)
 
-import h5py
 import numpy as np
 
 import hicmatrix.HiCMatrix as hm

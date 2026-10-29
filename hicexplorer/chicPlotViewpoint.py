@@ -31,7 +31,6 @@ from hicexplorer._version import __version__
 from hicexplorer._hicx import chicPlotViewpoint as _impl
 from .lib import Viewpoint
 
-import h5py
 import io
 import tarfile
 from contextlib import closing

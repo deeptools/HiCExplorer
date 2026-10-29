@@ -25,7 +25,6 @@ from hicexplorer._version import __version__
 from hicexplorer._hicx import chicSignificantInteractions as _impl
 from .lib import Viewpoint
 from hicexplorer.lib import cnb
-import h5py
 import traceback
 
 
