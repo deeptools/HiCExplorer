@@ -18,6 +18,7 @@ add_executable(hicx_tests
     test_main.cpp
     test_numpy_compat.cpp
     test_bins.cpp
+    test_plot_tiles.cpp
     test_sparse_matrix.cpp
     test_matrix_ops.cpp
     test_json_lite.cpp
