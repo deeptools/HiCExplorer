@@ -261,8 +261,6 @@ std::size_t PyRandom::choice_index(std::size_t size) {
 
 namespace {
 
-enum class Boundary { Constant, Reflect };
-
 // Position in a line of `length` samples that stands for position k outside it
 // under the 'reflect' boundary (d c b a | a b c d | d c b a): the line is
 // mirrored about its ends with the end sample repeated, with period 2 * length.
@@ -292,6 +290,8 @@ KernelSymmetry kernel_symmetry(const std::vector<double>& w) {
     }
     return even ? KernelSymmetry::Even : (odd ? KernelSymmetry::Odd : KernelSymmetry::None);
 }
+
+}  // namespace
 
 // 1-D correlation of a float32 image with `weights` along `axis`. By definition
 //   out[i] = sum_{t = 0}^{n-1} weights[t] * in[i + t - n / 2]
@@ -356,6 +356,8 @@ ImageF correlate1d(const ImageF& in, const std::vector<double>& weights, int axi
     }
     return out;
 }
+
+namespace {
 
 // Sobel derivative along `axis`: correlation with [-1, 0, 1] along `axis`, then
 // with the smoothing kernel [1, 2, 1] along the other axis, boundary 'reflect'.

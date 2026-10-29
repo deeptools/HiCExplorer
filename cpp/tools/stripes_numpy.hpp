@@ -108,6 +108,17 @@ struct ImageF {
     [[nodiscard]] float at(int r, int c) const { return v[static_cast<std::size_t>(r) * cols + c]; }
 };
 
+// Samples beyond the ends of a line: a constant value, or the line mirrored
+// about its ends with the end sample repeated (d c b a | a b c d | d c b a).
+enum class Boundary { Constant, Reflect };
+
+// 1-D correlation of a float32 image with `weights` along `axis` (0: down the
+// columns, 1: along the rows), out[i] = sum_t weights[t] * in[i + t - n / 2],
+// computed in double and stored as float32; the order of the additions is
+// fixed and documented at the definition.
+[[nodiscard]] ImageF correlate1d(const ImageF& in, const std::vector<double>& weights, int axis,
+                                 Boundary mode, double cval);
+
 // Gaussian smoothing of a float32 image with zero fill outside the image and the
 // kernel truncated at 4 sigma (the result of scipy.ndimage.gaussian_filter with
 // mode='constant', cval=0.0, truncate=4.0, the external oracle): one 1-D

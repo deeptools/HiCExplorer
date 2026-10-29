@@ -49,6 +49,7 @@ add_executable(hicx_tests
     test_linkage_ties.cpp
     test_diff_engine.cpp
     test_detect_stripes.cpp
+    test_correlate1d.cpp
     test_scc.cpp
     test_genomedisco.cpp
     test_hicspector.cpp
