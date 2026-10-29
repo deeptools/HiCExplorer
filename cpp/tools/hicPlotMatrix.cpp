@@ -35,6 +35,16 @@
 //     TADs are filtered against bytes names (the drawing module reproduces
 //     that from a flag).
 //
+// Input: a cooler read whole (no --region, --region2, --chromosomeOrder or
+// --matrix2) is not loaded. Its corrected pixels are streamed in chunks
+// through the matrix layer (for_each_corrected_pixel_chunk: weights applied,
+// NaN and zero pixels dropped): one pass for the bins without pixels, the
+// integer test and the layout, then one pass per tile (a second one for the
+// statistics when there are several tiles), so the memory is the chunk, the
+// tile and the figure. h5 input (hicexplorer's h5 holds the matrix as one set of
+// arrays that cannot be read in parts), .hic, regions, --chromosomeOrder and
+// --matrix2 keep the load of the matrix.
+//
 // Memory: pcolormesh needs a value per cell, which for a whole genome is far
 // more than the figure has pixels. The matrices are therefore never built
 // whole: they are streamed from the sparse matrix as tiles (see "The dense
@@ -136,9 +146,18 @@ class ExitError : public std::runtime_error {
 
 // The hiCMatrix state hicPlotMatrix works on: the bins and a symmetric sparse
 // matrix, as a list of full-matrix entries after any selection.
+// A cooler whose pixels are read in chunks, instead of a matrix held in
+// memory (see "Streaming a cooler" below).
+struct PixelStream {
+    std::unique_ptr<hicx::CoolFile> cool;
+    hicx::CoolLoadOptions options;
+};
+
 struct Model {
     std::vector<hicx::CutInterval> intervals;
-    hicx::CsrMatrix matrix;  // Full or UpperTriangle, never copied
+    hicx::CsrMatrix matrix;  // Full or UpperTriangle, never copied; empty when `stream` is set
+    std::shared_ptr<PixelStream> stream;
+    bool stream_integral = true;  // every corrected pixel of the stream is an integer
     // The bins after maskBins and reorderChromosomes, as positions in the
     // loaded matrix: the selections are kept as this view instead of a copy
     // of the matrix, and only the dense extraction reads through it.
@@ -921,7 +940,7 @@ struct AxisMap {
 AxisMap make_axis(const Model& model, const std::vector<std::int64_t>& bins, bool mark_nan) {
     AxisMap axis;
     const std::size_t n = bins.size();
-    const auto loaded_size = static_cast<std::size_t>(model.matrix.rows());
+    const auto loaded_size = model.stream ? model.intervals.size() : static_cast<std::size_t>(model.matrix.rows());
     axis.loaded.resize(n);
     axis.nan.assign(n, 0);
     axis.chromosome.resize(n);
@@ -1003,7 +1022,11 @@ Prepared prepare(const Source& source) {
     p.model = source.model;
     p.row = make_axis(*source.model, source.rows, source.mark_nan);
     p.col = make_axis(*source.model, source.cols, source.mark_nan);
-    p.traits = scan_traits(source.model->matrix);
+    if (source.model->stream) {
+        p.traits.integral = source.model->stream_integral;
+    } else {
+        p.traits = scan_traits(source.model->matrix);
+    }
     return p;
 }
 
@@ -1024,11 +1047,65 @@ struct Geometry {
     bool transposed = false;  // tile[cols][rows], pcolormesh's orientation
 };
 
+// "Streaming a cooler": the pixels of the file in chunks, corrected by the
+// matrix layer (hicx::for_each_corrected_pixel_chunk: weights, NaN and zero
+// pixels dropped), one read of the square of bins that the tile needs. A
+// pixel (r, c) with r <= c is the cell of every position pair (i, j) with
+// loaded row r at i and column c at j, and, off the diagonal, the mirrored one.
+template <typename Emit>
+void scan_tile_stream(const Prepared& p, std::int64_t i0, std::int64_t i1, std::int64_t j0,
+                      std::int64_t j1, Emit&& emit) {
+    std::int64_t low = std::numeric_limits<std::int64_t>::max();
+    std::int64_t high = -1;
+    for (std::int64_t q = i0; q < i1; ++q) {
+        low = std::min(low, p.row.loaded[static_cast<std::size_t>(q)]);
+        high = std::max(high, p.row.loaded[static_cast<std::size_t>(q)]);
+    }
+    for (std::int64_t q = j0; q < j1; ++q) {
+        low = std::min(low, p.col.loaded[static_cast<std::size_t>(q)]);
+        high = std::max(high, p.col.loaded[static_cast<std::size_t>(q)]);
+    }
+    if (high < low) {
+        return;
+    }
+    auto positions = [](const AxisMap& axis, std::int64_t bin, std::int64_t from, std::int64_t to,
+                        auto&& visit) {
+        for (auto q = axis.inv_off[static_cast<std::size_t>(bin)];
+             q < axis.inv_off[static_cast<std::size_t>(bin) + 1]; ++q) {
+            const std::int64_t position = axis.inv_pos[static_cast<std::size_t>(q)];
+            if (position >= from && position < to) {
+                visit(position);
+            }
+        }
+    };
+    hicx::for_each_corrected_pixel_chunk(
+        *p.model->stream->cool, low, high + 1, low, high + 1, p.model->stream->options,
+        [&](const hicx::PixelChunk& chunk) {
+            for (std::size_t k = 0; k < chunk.bin1.size(); ++k) {
+                const std::int64_t r = chunk.bin1[k];
+                const std::int64_t c = chunk.bin2[k];
+                const double value = chunk.count[k];
+                positions(p.row, r, i0, i1, [&](std::int64_t i) {
+                    positions(p.col, c, j0, j1, [&](std::int64_t j) { emit(i, j, value); });
+                });
+                if (r != c) {
+                    positions(p.row, c, i0, i1, [&](std::int64_t i) {
+                        positions(p.col, r, j0, j1, [&](std::int64_t j) { emit(i, j, value); });
+                    });
+                }
+            }
+        });
+}
+
 // Calls emit(i, j, value) for every stored value of the (symmetric) matrix at
 // a pair of positions i in [i0, i1) and j in [j0, j1).
 template <typename Emit>
 void scan_tile(const Prepared& p, std::int64_t i0, std::int64_t i1, std::int64_t j0,
                std::int64_t j1, Emit&& emit) {
+    if (p.model->stream) {
+        scan_tile_stream(p, i0, i1, j0, j1, emit);
+        return;
+    }
     const hicx::CsrMatrix& matrix = p.model->matrix;
     const bool upper = matrix.symmetry() == hicx::Symmetry::UpperTriangle;
     const auto& indptr = matrix.indptr();
@@ -1370,6 +1447,52 @@ bool write_heatmap(const Heatmap& heat, const TileSettings& settings,
     return false;
 }
 
+// Opens a cooler for streaming instead of loading it: one pass over its
+// corrected pixels finds the bins without any pixel (hiCMatrix's NaN bins, the
+// bins the loader derives from empty rows and columns), whether every value is
+// an integer, and whether every pixel lies in the upper triangle (the layout
+// the streaming scan assumes; otherwise the matrix is loaded as before and
+// false is returned).
+bool open_stream(Model& model, const std::string& path) {
+    auto stream = std::make_shared<PixelStream>();
+    stream->cool = std::make_unique<hicx::CoolFile>(path);
+    const std::int64_t bins = stream->cool->nbins();
+    std::vector<char> seen(static_cast<std::size_t>(bins), 0);
+    bool upper = true;
+    bool integral = true;
+    hicx::for_each_corrected_pixel_chunk(
+        *stream->cool, 0, bins, 0, bins, stream->options, [&](const hicx::PixelChunk& chunk) {
+            for (std::size_t k = 0; k < chunk.bin1.size(); ++k) {
+                if (chunk.bin1[k] > chunk.bin2[k]) {
+                    upper = false;
+                }
+                seen[static_cast<std::size_t>(chunk.bin1[k])] = 1;
+                seen[static_cast<std::size_t>(chunk.bin2[k])] = 1;
+                if (chunk.count[k] != std::floor(chunk.count[k])) {
+                    integral = false;
+                }
+            }
+        });
+    if (!upper) {
+        return false;
+    }
+    model.intervals = stream->cool->read_bins();
+    model.nan_bins.clear();
+    for (std::int64_t bin = 0; bin < bins; ++bin) {
+        if (seen[static_cast<std::size_t>(bin)] == 0) {
+            model.nan_bins.push_back(bin);
+        }
+    }
+    model.matrix = hicx::CsrMatrix();
+    model.view.resize(model.intervals.size());
+    for (std::size_t i = 0; i < model.view.size(); ++i) {
+        model.view[i] = static_cast<std::int64_t>(i);
+    }
+    model.stream_integral = integral;
+    model.stream = std::move(stream);
+    return true;
+}
+
 // A second matrix (--matrix2) read for the same request as the first.
 struct SecondMatrix {
     Model model;
@@ -1707,7 +1830,13 @@ int main(int argc, char** argv) {
                 region2.reset();
                 retrieve = chromosome_order->front();
             }
-            load(retrieve);
+            // A cooler read whole is streamed, not loaded (open_stream); a
+            // region, a --chromosomeOrder, --matrix2, .hic and h5 input are loaded.
+            const bool streamable = is_cooler && !retrieve.has_value() && !matrix2_path.has_value() &&
+                                    !chromosome_order.has_value();
+            if (!(streamable && open_stream(model, matrix_path))) {
+                load(retrieve);
+            }
             clear_masked();
             if (region.has_value() && !region->empty()) {
                 selection = get_region(*region, region2, model, is_partial_source);
