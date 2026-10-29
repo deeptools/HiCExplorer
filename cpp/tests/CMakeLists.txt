@@ -155,6 +155,12 @@ add_test(NAME hicPlotMatrix_triangle_cli
          COMMAND ${HICX_BASH} "${CMAKE_CURRENT_SOURCE_DIR}/cli/hicPlotMatrix_triangle_cli.sh"
                  $<TARGET_FILE:hicPlotMatrix> $<TARGET_FILE:hicSumMatrices> "${HICX_TEST_DATA}")
 
+# hicPlotMatrix's tiled, reduced handoff to the drawing layer: tiles put
+# together, element types, block sums, edges and colour limits.
+add_test(NAME hicPlotMatrix_tiles_cli
+         COMMAND ${HICX_BASH} "${CMAKE_CURRENT_SOURCE_DIR}/cli/hicPlotMatrix_tiles_cli.sh"
+                 $<TARGET_FILE:hicPlotMatrix> "${HICX_TEST_DATA}")
+
 # hicCorrelate --method scc (cpp/PLAN.md tier 7 extension): HiCRep's
 # stratum-adjusted correlation coefficient, C++-only, no Python counterpart;
 # checked here rather than through cpp/scripts/equiv.py. The algorithm's own
