@@ -80,7 +80,6 @@
 #include "hicx/chic_hdf5.hpp"
 #include "hicx/chic_viewpoint.hpp"
 #include "hicx/hdf5_util.hpp"
-#include "hicx/scipy_special.hpp"
 #include "hicx/stats_ops.hpp"
 #include "hicx/version.hpp"
 
@@ -465,7 +464,7 @@ SampleResult process_sample(const InteractionTable& table, const Options& option
             }
             const std::vector<double>& model = background.at(*key);
             InteractionRecord& record = entry.second;
-            record.pvalue = 1.0 - hicx::scipy::betainc(model.at(0), record.raw + 1.0, model.at(1));
+            record.pvalue = 1.0 - hicx::stats::betainc(model.at(0), record.raw + 1.0, model.at(1));
             if (tested != nullptr) {
                 tested->emplace_back(entry.first, record.pvalue);
                 continue;

@@ -86,7 +86,7 @@ TEST_CASE("cnb: scipy 1.14 values") {
     CHECK(hicx::cnb::xlog1py(3.0, -0.3) == -1.070024831816197);
     CHECK(hicx::cnb::xlog1py(0.0, -1.0) == 0.0);
     CHECK(std::isnan(hicx::cnb::xlog1py(0.0, std::numeric_limits<double>::quiet_NaN())));
-    // the value where cephes and Boost differ (hicx/scipy_special.hpp)
+    // the upper tail, where the result is exactly 1.0
     CHECK(hicx::cnb::cdf(9.8, 58.254577634279, 0.998604709282) == 1.0);
 }
 

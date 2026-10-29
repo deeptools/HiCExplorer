@@ -418,8 +418,9 @@ PreselectionResult preselect_candidates(
         // so is the comparison against the threshold, which rounds the
         // threshold to float32 as well.
         //
-        // The one thing not reproduced exactly is scipy's single precision
-        // cephes incbet: this evaluates the double precision one and rounds.
+        // The one thing not reproduced exactly is the single precision
+        // evaluation of the incomplete beta function: this evaluates the
+        // double precision one and rounds.
         // Measured against scipy over the corpus the two agree to within one
         // float32 ulp of the cdf, which the cancellation in `1 - cdf`
         // amplifies to about 5e-07 of a tail probability near 0.1. A pixel

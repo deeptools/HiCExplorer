@@ -102,10 +102,10 @@ std::vector<T> threaded_map(std::size_t n, int threads, ChunkFn&& chunk_fn) {
 constexpr double kDblEps = std::numeric_limits<double>::epsilon();
 
 // log P(X > N-1) for NB(size = r, mu) via the incomplete beta identity used
-// throughout this codebase (hicx::scipy::betainc mirrors it for scipy; this
-// is the same identity applied directly through Boost, since R's pbeta and
-// scipy's betainc both reduce to the same regularized incomplete beta and
-// agree far inside the ED tolerance).
+// throughout this codebase (hicx::stats::betainc is the same function with
+// argument checks; here it is applied directly through Boost, since R's pbeta
+// reduces to the same regularized incomplete beta and agrees far inside the
+// ED tolerance).
 double log_nbinom_sf(double n_minus_1, double size, double mu) {
     if (size <= 0.0 || mu < 0.0) {
         return std::numeric_limits<double>::quiet_NaN();

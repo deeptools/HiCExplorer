@@ -1,24 +1,16 @@
-// Statistical tests as scipy 1.14.1 computes them, for chicDifferentialTest.
+// Statistical tests for chicDifferentialTest: a two-sided Fisher exact test on
+// a 2x2 table, the chi-squared test of a 2x2 table without continuity
+// correction, and the chi-squared quantile, with the results of the Python
+// functions scipy.stats.fisher_exact, scipy.stats.chi2_contingency and
+// scipy.stats.chi2.ppf. The special functions underneath are Boost.Math's:
 //
-// scipy.stats.fisher_exact on a 2x2 table (two-sided), scipy.stats.
-// chi2_contingency on a 2x2 table without Yates' correction, and
-// scipy.stats.chi2.ppf. Each is written against the Python it replaces,
-// operation by operation, over the routines scipy/special/functions.json maps
-// the special functions to at v1.14.1:
+//   hypergeometric pmf, cdf, sf   boost::math::hypergeometric_distribution,
+//                                 inside the support checks of a discrete
+//                                 distribution and clipped to [0, 1];
+//   chi-squared sf and quantile   hicx::stats::gamma_q and gamma_p_inverse.
 //
-//   hypergeom.pmf, cdf, sf   Boost.Math hypergeometric_distribution under
-//                            scipy's StatsPolicy (boost_special_functions.h,
-//                            hypergeom_*_wrap), inside rv_discrete's support
-//                            checks and np.clip(., 0, 1);
-//   special.chdtrc           cephes_chdtrc, the Cephes igamc of scipy's C++
-//                            translation (scipy/special/special/cephes);
-//   special.gammaincinv      cephes_igami, the same translation.
-//
-// The Cephes headers are scipy's own, downloaded at the v1.14.1 commit
-// (cpp/core/CMakeLists.txt), and Boost.Math is the commit scipy vendors, so
-// the arithmetic is the same code; the sums follow numpy's order for a 2x2
-// float64 array (((a + b) + c) + d over the whole array, a + b and a + c along
-// an axis), measured.
+// The sums follow numpy's order for a 2x2 float64 array (((a + b) + c) + d over
+// the whole array, a + b and a + c along an axis).
 
 #ifndef HICX_SCIPY_STATS_HPP
 #define HICX_SCIPY_STATS_HPP
@@ -62,9 +54,9 @@ struct Chi2Contingency {
 // scipy.stats.chi2.ppf(q, df).
 [[nodiscard]] double chi2_ppf(double q, double df);
 
-// scipy.special.chdtrc(df, x) and scipy.special.gammaincinv(a, p).
-[[nodiscard]] double chdtrc(double df, double x);
-[[nodiscard]] double gammaincinv(double a, double p);
+// The chi-squared survival function of x with df degrees of freedom,
+// Q(df / 2, x / 2) (hicx::stats::gamma_q): 1 for x < 0, NaN for df < 1.
+[[nodiscard]] double chi2_sf(double x, double df);
 
 }  // namespace hicx::scipy
 

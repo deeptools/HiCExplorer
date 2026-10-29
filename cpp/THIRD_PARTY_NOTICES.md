@@ -190,7 +190,3 @@ CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
-
-## Downloaded at configure time
-
-scipy's Cephes headers (scipy v1.14.1, commit `92d2a8592782ee19a1161d0bf3fc2241ba78bb63`, `scipy/special/special/cephes`, BSD 3-Clause) for `core/src/scipy_stats.cpp` are still downloaded one by one with a SHA256 check by `core/CMakeLists.txt` (`file(DOWNLOAD)`) into `<build>/_deps/scipy_special`. They are the only download left; they are to be removed together with the other scipy code.

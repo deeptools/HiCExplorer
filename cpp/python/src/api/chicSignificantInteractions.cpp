@@ -4,7 +4,7 @@
 // cpp/tools/chicSignificantInteractions.cpp).
 //
 // The p-value of a merged candidate is 1 - betainc(size, raw + 1, prob)
-// (hicx::scipy::betainc, what hicexplorer.lib.cnb.cdf evaluates), the target
+// (hicx::stats::betainc, what hicexplorer.lib.cnb.cdf evaluates), the target
 // regions are sorted and merged as pybedtools' sort().merge(d=resolution)
 // does (hicx::chic::sort_merge_regions), the unique sample keys are
 // np.unique(axis=0, return_index=True) with its stable lexicographic order,
@@ -38,7 +38,7 @@
 #include "api.hpp"
 #include "chic_common.hpp"
 #include "hicx/chic_hdf5.hpp"
-#include "hicx/scipy_special.hpp"
+#include "hicx/stats_ops.hpp"
 
 namespace hicx::python {
 
@@ -91,7 +91,7 @@ py::tuple compute_new_p_values(py::handle pData, py::handle pBackgroundModel, py
             const py::object model = getitem(pBackgroundModel, key);
             const double size = to_double(float_of(getitem(model, 0)));
             const double probability = to_double(float_of(getitem(model, 1)));
-            setitem(line, -3, np_float64(1.0 - hicx::scipy::betainc(size, raw + 1.0, probability)));
+            setitem(line, -3, np_float64(1.0 - hicx::stats::betainc(size, raw + 1.0, probability)));
             const py::object limit = single ? py::reinterpret_borrow<py::object>(pPValue) : getitem(pPValue, key);
             if (le(getitem(line, -3), limit)) {
                 if (ge(float_of(getitem(line, -1)), pPeakInteractionsThreshold)) {

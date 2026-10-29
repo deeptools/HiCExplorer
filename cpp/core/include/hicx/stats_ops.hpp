@@ -1,11 +1,10 @@
 // Statistics shared by the TAD, loop and cHi-C tools.
 //
 // This is a general core component, not a part of any one tool. Everything in
-// it is reusable and is written against the Python function it replaces:
+// it is reusable and does what the Python function it replaces does:
 //
-//   scipy.special.erf / erfc / ndtr        the cephes routines, vendored so
-//                                          that a p-value printed with twelve
-//                                          decimals matches the reference
+//   erf, erfc, ndtr, gammaln, digamma,     Boost.Math in double precision, with
+//   betainc, gamma_q, gamma_p_inverse      the argument edges handled explicitly
 //   scipy.stats.rankdata(method='average') tie corrected ranks
 //   scipy.stats.ranksums                   Wilcoxon rank sum, two sided
 //   the Benjamini-Hochberg cutoff and the Bonferroni scaling as
@@ -45,22 +44,36 @@
 namespace hicx::stats {
 
 // --------------------------------------------------------------------------
-// Cephes special functions, translated from
-// scipy/special/special/cephes/ndtr.h (Cephes Math Library, Moshier;
-// redistributed by SciPy under the BSD licence).
+// Special functions, evaluated with Boost.Math in double precision. A NaN
+// argument gives NaN. Arguments outside the domain give NaN, a pole gives the
+// infinity of the limit the function has there, and no function throws.
 
 [[nodiscard]] double erf(double x);
 [[nodiscard]] double erfc(double x);
-// The normal cumulative distribution function, scipy.special.ndtr.
+// The normal cumulative distribution function, erfc(-x / sqrt(2)) / 2.
 [[nodiscard]] double ndtr(double x);
-// scipy.stats.norm.sf, which is ndtr(-x). This is the exact route scipy takes:
-// _SimpleNormal.sf calls special.ndtr(-x).
+// The normal survival function, ndtr(-x) = erfc(x / sqrt(2)) / 2, the upper
+// tail of the standard normal distribution.
 [[nodiscard]] double normal_sf(double x);
 
-// log(Gamma(x)) for x > 0, scipy.special.gammaln.
+// log|Gamma(x)|. +inf at zero and at the negative integers, and an infinite
+// argument is returned unchanged.
 [[nodiscard]] double gammaln(double x);
-// The digamma function, scipy.special.psi.
+// The digamma function. +-inf at +-0 (the sign of the limit from the side of
+// the zero), NaN at the negative integers and at -inf.
 [[nodiscard]] double digamma(double x);
+
+// The regularised upper incomplete gamma function Q(a, x) = Gamma(a, x) /
+// Gamma(a). NaN for a < 0 or x < 0; Q(0, x) = 0 for x > 0; Q(a, 0) = 1.
+// The chi-squared survival function of x with df degrees of freedom is
+// gamma_q(df / 2, x / 2).
+[[nodiscard]] double gamma_q(double a, double x);
+// The inverse of the regularised lower incomplete gamma function P(a, x) in
+// x: the x with P(a, x) = p. 0 for p = 0, +inf for p = 1, NaN for p outside
+// [0, 1], for a < 0 and for a = 0 or a = inf with 0 < p < 1. The chi-squared
+// quantile of probability p with df degrees of freedom is
+// 2 * gamma_p_inverse(df / 2, p).
+[[nodiscard]] double gamma_p_inverse(double a, double p);
 
 // --------------------------------------------------------------------------
 // Ranks and the rank sum test
@@ -226,18 +239,12 @@ enum class NBinomPrecision {
 // --------------------------------------------------------------------------
 // The negative binomial tail
 //
-// Added for hicDetectLoops; chicViewpointBackgroundModel and the rest of the
-// cHi-C suite need the same two functions.
+// Used by hicDetectLoops and the cHi-C suite.
 
-// The regularised incomplete beta function I_x(a, b), scipy.special.betainc.
-// Translated from scipy/special/special/cephes/incbet.h: the same two
-// continued fractions, the same power series for the small-b corner, the same
-// switch between them and the same symmetry reflection. Only the gamma
-// functions differ, being libm's rather than a second vendored table, which
-// costs at most an ulp; the measured agreement against scipy over the corpus
-// is recorded in tests/test_stats_ops.cpp.
-//
-// Returns NaN for a <= 0, b <= 0 or x outside [0, 1], as cephes does.
+// The regularised incomplete beta function I_x(a, b), Boost.Math's ibeta in
+// double precision with at most 400 root-finder iterations. NaN for a NaN
+// argument, for a <= 0, b <= 0 and for x outside [0, 1]; a Boost domain error
+// maps to NaN, an overflow to +inf and an underflow to 0.
 [[nodiscard]] double betainc(double a, double b, double x);
 
 // The survival function of the *continuous* generalisation of the negative

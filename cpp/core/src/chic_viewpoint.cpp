@@ -13,7 +13,7 @@
 #include <sstream>
 
 #include "hicx/numpy_compat.hpp"
-#include "hicx/scipy_special.hpp"
+#include "hicx/stats_ops.hpp"
 
 namespace hicx::chic {
 
@@ -594,7 +594,7 @@ std::vector<double> p_values(const BackgroundModel& model, std::span<const doubl
             const double shifted = data_is_float32
                                        ? static_cast<double>(static_cast<float>(element) + 1.0F)
                                        : element + 1.0;
-            cdf = scipy::betainc(parameters[0], shifted, parameters[1]);
+            cdf = stats::betainc(parameters[0], shifted, parameters[1]);
         }
         double p = 1.0 - cdf;
         if (std::isnan(p) || std::isinf(p)) {

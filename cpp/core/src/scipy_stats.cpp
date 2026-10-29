@@ -29,8 +29,7 @@ RealType user_overflow_error(const char*, const char*, const RealType&) {
 }
 }  // namespace boost::math::policies
 
-#include "special/cephes/chdtr.h"
-#include "special/cephes/igami.h"
+#include "hicx/stats_ops.hpp"
 
 namespace hicx::scipy {
 
@@ -258,7 +257,7 @@ std::optional<Chi2Contingency> chi2_contingency_2x2(double a, double b, double c
     }
     const double statistic = ((terms[0] + terms[1]) + terms[2]) + terms[3];
     // _SimpleChi2(df = 4 - 1 - 2).sf(statistic)
-    return Chi2Contingency{statistic, chdtrc(1.0, statistic)};
+    return Chi2Contingency{statistic, chi2_sf(statistic, 1.0)};
 }
 
 double chi2_ppf(double q, double df) {
@@ -273,17 +272,19 @@ double chi2_ppf(double q, double df) {
         return std::numeric_limits<double>::infinity() * 1.0 + 0.0;
     }
     if (0 < q && q < 1) {
-        return (2 * gammaincinv(df / 2, q)) * 1.0 + 0.0;
+        return (2 * stats::gamma_p_inverse(df / 2, q)) * 1.0 + 0.0;
     }
     return kNaN;
 }
 
-double chdtrc(double df, double x) {
-    return special::cephes::chdtrc(df, x);
-}
-
-double gammaincinv(double a, double p) {
-    return special::cephes::igami(a, p);
+double chi2_sf(double x, double df) {
+    if (df < 1.0) {
+        return kNaN;
+    }
+    if (x < 0.0) {
+        return 1.0;
+    }
+    return stats::gamma_q(df / 2.0, x / 2.0);
 }
 
 }  // namespace hicx::scipy

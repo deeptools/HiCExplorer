@@ -7,10 +7,10 @@
 // on the same table unrounded. The results go to one HDF5 file with the
 // accepted, rejected and all locations per reference point.
 //
-// The statistics are scipy 1.14's, routine for routine (hicx/scipy_stats.hpp):
-// fisher_exact on Boost's hypergeometric distribution under scipy's policy,
-// chi2_contingency with the Cephes chdtrc, and the chi-squared test's
-// critical value chi2.ppf(1 - alpha, 1) with the Cephes igami.
+// The statistics are those of scipy 1.14 (hicx/scipy_stats.hpp): the Fisher
+// exact test on Boost's hypergeometric distribution, the chi-squared test with
+// the p-value from the regularised incomplete gamma function, and the
+// chi-squared test's critical value chi2.ppf(1 - alpha, 1) from its inverse.
 //
 // Behaviour reproduced as the Python has it:
 //
