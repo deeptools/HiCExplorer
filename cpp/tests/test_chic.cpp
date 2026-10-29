@@ -250,6 +250,9 @@ TEST_CASE("fit_nbinom_mle returns the Python's answer where there is nothing to 
     CHECK(none.size == 10.0);
     CHECK(std::isnan(none.prob));
     CHECK(none.status == 2);
+    const auto given_empty = hicx::stats::fit_nbinom_mle(empty, std::array<double, 2>{2.0, 0.5});
+    CHECK(given_empty.size == 2.0);
+    CHECK(given_empty.prob == 0.5);
     // factorial overflows above 170: the objective is infinite everywhere and
     // the starting point, the moment estimator, is returned.
     const std::vector<double> overflow{177.0, 0.0, 2.0, 5.0};

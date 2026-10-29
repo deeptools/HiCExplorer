@@ -72,8 +72,13 @@ NBinomFit fit_nbinom_mle(std::span<const double> data,
     NBinomFit fit;
     const std::size_t n = data.size();
     if (n == 0) {
-        fit.size = 10.0;
-        fit.prob = kNaN;
+        // The moment start of an empty array is (10, NaN); a start given by the
+        // caller is returned as it is, clamped into the bounds.
+        fit = initial ? clamped_start((*initial)[0], (*initial)[1]) : NBinomFit{};
+        if (!initial) {
+            fit.size = 10.0;
+            fit.prob = kNaN;
+        }
         fit.status = 2;
         return fit;
     }

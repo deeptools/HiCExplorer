@@ -42,8 +42,9 @@ inline constexpr double kPoissonLimitSize = 1.0e6;
 
 // fit_nbinom.fit(X) for a float64 (or integer) X.
 //
-//   * empty X: size 10 and prob NaN, status 2 (the moment start of an empty
-//     array, as the Python package yields).
+//   * empty X: size 10 and prob NaN (the moment start of an empty array), or
+//     `initial` clamped into the bounds where given; status 2. This is what the
+//     Python package yields.
 //   * a value that is negative, not finite, or whose factorial overflows a
 //     double (above 170): the objective of the Python package is not finite
 //     anywhere, and its optimiser returns the starting point. The same starting
