@@ -58,11 +58,11 @@ REPLICATES = 5
 # recorded here once so that every run (unplanted, planted, GSE234292,
 # Stripenn timing) uses the same settings.
 TOOL_ARGS = [
-    "--minStripeLength", "100000",
+    "--norm", "weight",
+    "--minL", "10",
     "--maxWidth", "8",
     "--canny", "2.0",
     "--blurFilter", "3",
-    "--backgroundSamples", "200000",
     "--pValue", "0.1",
     # No --fdr: the tool's own default is a raw p-value cutoff with no
     # multiple-testing correction, matching Stripenn's own practice

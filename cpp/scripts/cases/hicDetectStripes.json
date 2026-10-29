@@ -9,14 +9,14 @@
       "{data}/hicNormalize/small_test_matrix.cool",
       "--chromosomes",
       "chr2L",
-      "--minStripeLength",
-      "25000",
+      "--norm",
+      "None",
+      "--minL",
+      "5",
       "--maxWidth",
       "6",
       "--canny",
       "1.5",
-      "--backgroundSamples",
-      "2000",
       "--pValue",
       "1.0",
       "--fdr",
@@ -32,7 +32,10 @@
     ],
     "outputs": [],
     "validators": [],
-    "notes": "PLAN.md tier 9 section 9.3, class EX: no Python counterpart, and a faithful C++ reimplementation of Stripenn 1.1.65.22's own detection method (project owner directive, see cpp/tools/stripes_impl.hpp). This tiny committed fixture is a mechanics sanity check (argument parsing, cool loading, exit status, no crash), not a statistical validation; the recall and precision gate of PLAN.md 9.3 is measured on real GM12878 data by cpp/scripts/stripe_calibration.py, which is far too large to commit (cpp/AGENTS_CONTRACT.md rule 10). --pValue 1.0 --fdr 1.0 keeps every geometric candidate here since this fixture's chromosomes are too short and sparse to build a meaningful background sample."
+    "notes": "PLAN.md tier 9 section 9.3, class EX: no Python counterpart, and a faithful C++ reimplementation of Stripenn 1.1.65.22's own detection method (project owner directive, see cpp/tools/stripes_impl.hpp). This tiny committed fixture is a mechanics sanity check (argument parsing, cool loading, exit status, no crash), not a statistical validation; the recall and precision gate of PLAN.md 9.3 is measured on real GM12878 data by cpp/scripts/stripe_calibration.py, which is far too large to commit (cpp/AGENTS_CONTRACT.md rule 10). --pValue 1.0 --fdr 1.0 keeps every candidate here since this fixture's chromosomes are too sparse to give a meaningful background sample. memory.budget_mb 192: the null distribution is estimated from all chromosomes of the matrix as Stripenn does, so every chromosome is loaded as a band of 2*400 + 2*background + 24 bins around the diagonal (844 bins at 5 kb, 38 MB for the largest chromosome here); the default alpha/beta budget of 64.9 MB for this 0.17 MB input does not cover that fixed per-chromosome cost.",
+    "memory": {
+      "budget_mb": 192
+    }
   },
   {
     "id": "hicDetectStripes.h5.small_test_matrix.chr2L",
@@ -44,14 +47,14 @@
       "{data}/small_test_matrix.h5",
       "--chromosomes",
       "chr2L",
-      "--minStripeLength",
-      "25000",
+      "--norm",
+      "None",
+      "--minL",
+      "5",
       "--maxWidth",
       "6",
       "--canny",
       "1.5",
-      "--backgroundSamples",
-      "2000",
       "--pValue",
       "1.0",
       "--fdr",
@@ -67,7 +70,10 @@
     ],
     "outputs": [],
     "validators": [],
-    "notes": "As the cool case above, but through the h5 whole-matrix loader (no per-chromosome band reader for h5, cpp/tools/hicDetectStripes.cpp mirrors hicDetectLoops' approach: hicx::read_hicexplorer_h5 then hicx::select_bins)."
+    "notes": "As the cool case above, but through the h5 whole-matrix loader (no per-chromosome band reader for h5, cpp/tools/hicDetectStripes.cpp mirrors hicDetectLoops' approach: hicx::read_hicexplorer_h5 then hicx::select_bins).",
+    "memory": {
+      "budget_mb": 192
+    }
   },
   {
     "id": "hicDetectStripes.error.unknown_chromosome",
@@ -78,6 +84,8 @@
     "args": [
       "-m",
       "{data}/hicNormalize/small_test_matrix.cool",
+      "--norm",
+      "None",
       "--chromosomes",
       "chrDoesNotExist",
       "-o",

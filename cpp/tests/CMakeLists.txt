@@ -65,9 +65,16 @@ add_executable(hicx_tests
     ../tools/diff_engine_impl.cpp
     ../tools/diff_contacts_impl.cpp
     ../tools/stripes_impl.cpp
+    ../tools/stripes_numpy.cpp
     ../tools/arrowhead_impl.cpp)
 
 target_link_libraries(hicx_tests PRIVATE hicx::core doctest_header hicx_compile_options)
+# hicDetectStripes' floating point order is part of its specification (see
+# tools/CMakeLists.txt); the fixtures are what Stripenn and its libraries wrote.
+set_source_files_properties(../tools/stripes_impl.cpp ../tools/stripes_numpy.cpp
+                            PROPERTIES COMPILE_OPTIONS "-ffp-contract=off")
+target_compile_definitions(hicx_tests PRIVATE
+    HICX_STRIPES_FIXTURE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/fixtures/stripenn")
 
 # Real matrices from the Python test suite, used by the reader tests.
 target_compile_definitions(hicx_tests PRIVATE
@@ -106,6 +113,11 @@ add_test(NAME hicMergeDomains_cli
 add_test(NAME hicDetectStripes_cli
          COMMAND ${HICX_BASH} "${CMAKE_CURRENT_SOURCE_DIR}/cli/hicDetectStripes_cli.sh"
                  $<TARGET_FILE:hicDetectStripes> "${HICX_TEST_DATA}")
+
+# hicDetectStripes against Stripenn's own output on a small synthetic cooler.
+add_test(NAME hicDetectStripes_oracle
+         COMMAND ${HICX_BASH} "${CMAKE_CURRENT_SOURCE_DIR}/cli/hicDetectStripes_oracle.sh"
+                 $<TARGET_FILE:hicDetectStripes> "${CMAKE_CURRENT_SOURCE_DIR}/fixtures/stripenn")
 
 # hicFindTADs --ctcfFile / --ctcfWindow (C++-only, cpp/PLAN.md tier 9): no
 # Python counterpart, checked here rather than through cpp/scripts/equiv.py.
