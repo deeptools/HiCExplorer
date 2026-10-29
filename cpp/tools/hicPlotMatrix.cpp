@@ -50,8 +50,10 @@
 #include <cstdlib>
 #include <cstring>
 #include <fstream>
+#include <functional>
 #include <iterator>
 #include <limits>
+#include <memory>
 #include <optional>
 #include <stdexcept>
 #include <string>
@@ -65,6 +67,7 @@
 #include "hicx/cool_adapter.hpp"
 #include "hicx/hic_adapter.hpp"
 #include "hicx/plot_bridge.hpp"
+#include "hicx/plot_tiles.hpp"
 #include "hicx/resource_usage.hpp"
 #include "hicx/sparse_matrix.hpp"
 #include "hicx/tool_matrix.hpp"
@@ -390,122 +393,12 @@ Selection get_region(const std::string& region_text, const std::optional<std::st
     return out;
 }
 
-// matrix[rows, :][:, cols].todense().astype(float).
-std::vector<double> dense(const Model& model, const std::vector<std::int64_t>& rows,
-                          const std::vector<std::int64_t>& cols) {
-    const auto n = static_cast<std::size_t>(model.matrix.rows());
-    std::vector<std::vector<std::int64_t>> row_positions(n);
-    std::vector<std::vector<std::int64_t>> col_positions(n);
-    for (std::size_t i = 0; i < rows.size(); ++i) {
-        row_positions[static_cast<std::size_t>(model.view[static_cast<std::size_t>(rows[i])])]
-            .push_back(static_cast<std::int64_t>(i));
-    }
-    for (std::size_t j = 0; j < cols.size(); ++j) {
-        col_positions[static_cast<std::size_t>(model.view[static_cast<std::size_t>(cols[j])])]
-            .push_back(static_cast<std::int64_t>(j));
-    }
-    std::vector<double> out(rows.size() * cols.size(), 0.0);
-    for_each_full_entry(model.matrix, [&](std::int64_t r, std::int64_t c, double v) {
-        for (const std::int64_t i : row_positions[static_cast<std::size_t>(r)]) {
-            for (const std::int64_t j : col_positions[static_cast<std::size_t>(c)]) {
-                out[static_cast<std::size_t>(i) * cols.size() + static_cast<std::size_t>(j)] += v;
-            }
-        }
-    });
-    return out;
-}
-
 std::vector<std::int64_t> all_bins(const Model& model) {
     std::vector<std::int64_t> bins(model.intervals.size());
     for (std::size_t i = 0; i < bins.size(); ++i) {
         bins[i] = static_cast<std::int64_t>(i);
     }
     return bins;
-}
-
-// np.nanmin over the selected values; nullopt for an empty selection, which
-// raises ValueError, and NaN when every value is NaN.
-std::optional<double> nanmin(const std::vector<double>& values, const std::vector<char>& excluded) {
-    bool any = false;
-    double smallest = std::numeric_limits<double>::quiet_NaN();
-    for (std::size_t i = 0; i < values.size(); ++i) {
-        if (excluded[i]) {
-            continue;
-        }
-        any = true;
-        if (!std::isnan(values[i]) && (std::isnan(smallest) || values[i] < smallest)) {
-            smallest = values[i];
-        }
-    }
-    if (!any) {
-        return std::nullopt;
-    }
-    return smallest;
-}
-
-void replace_masked(std::vector<double>& values, const std::vector<char>& mask, double value) {
-    for (std::size_t i = 0; i < values.size(); ++i) {
-        if (mask[i]) {
-            values[i] = value;
-        }
-    }
-}
-
-// main() for --log and --log1p on the whole-matrix path.
-void mask_whole(std::vector<double>& values) {
-    std::vector<char> zero(values.size());
-    for (std::size_t i = 0; i < values.size(); ++i) {
-        zero[i] = values[i] == 0.0 ? 1 : 0;
-    }
-    const std::optional<double> smallest = nanmin(values, zero);
-    replace_masked(values, zero, smallest.has_value() ? *smallest
-                                                      : std::numeric_limits<double>::min());
-    bool any_nan = false;
-    bool any_inf = false;
-    for (const double v : values) {
-        any_nan = any_nan || std::isnan(v);
-        any_inf = any_inf || std::isinf(v);
-    }
-    if (any_nan || any_inf) {
-        std::vector<char> nan_mask(values.size());
-        std::vector<char> inf_mask(values.size());
-        for (std::size_t i = 0; i < values.size(); ++i) {
-            nan_mask[i] = std::isnan(values[i]) ? 1 : 0;
-            inf_mask[i] = std::isinf(values[i]) ? 1 : 0;
-        }
-        const std::optional<double> without_nan = nanmin(values, nan_mask);
-        if (!without_nan.has_value()) {
-            throw ExitError("ValueError: zero-size array to reduction operation fmin which has no "
-                            "identity");
-        }
-        replace_masked(values, nan_mask, *without_nan);
-        const std::optional<double> without_inf = nanmin(values, inf_mask);
-        if (!without_inf.has_value()) {
-            throw ExitError("ValueError: zero-size array to reduction operation fmin which has no "
-                            "identity");
-        }
-        replace_masked(values, inf_mask, *without_inf);
-    }
-}
-
-// plotPerChr() for --log and --log1p: the three masks first, then the
-// replacements, the first failure ending them.
-void mask_per_chromosome(std::vector<double>& values) {
-    std::vector<char> zero(values.size());
-    std::vector<char> nan_mask(values.size());
-    std::vector<char> inf_mask(values.size());
-    for (std::size_t i = 0; i < values.size(); ++i) {
-        zero[i] = values[i] == 0.0 ? 1 : 0;
-        nan_mask[i] = std::isnan(values[i]) ? 1 : 0;
-        inf_mask[i] = std::isinf(values[i]) ? 1 : 0;
-    }
-    for (const std::vector<char>* mask : {&zero, &nan_mask, &inf_mask}) {
-        const std::optional<double> smallest = nanmin(values, *mask);
-        if (!smallest.has_value()) {
-            return;
-        }
-        replace_masked(values, *mask, *smallest);
-    }
 }
 
 // chromosome_start_end(ma).
@@ -966,32 +859,531 @@ bool writable_without_creating(const std::string& path) {
     return ::access(directory.c_str(), W_OK | X_OK) == 0;
 }
 
-// The result of loading one matrix into a dense, non-per-chromosome block:
-// exactly what --matrix's own load produces in main() below, factored out so
-// --matrix2 can be read through the identical region-scoped or whole-matrix
-// path (never a separate, naive whole load).
-struct DenseLoad {
-    std::vector<double> values;
-    std::int64_t rows = 0;
-    std::int64_t cols = 0;
+// ---------------------------------------------------------------------------
+// The dense matrices of the figure, as tiles.
+//
+// pcolormesh needs the values of every cell, so the figure's matrix has one
+// value per bin pair; for a whole genome that is far more than the figure has
+// pixels, and a dense array of it does not fit in memory. The matrix is
+// therefore never built whole. It is streamed from the sparse matrix tile by
+// tile (a rectangle of at most kDefaultTileBins x kDefaultTileBins cells), the
+// statistics of all tiles are gathered in a first pass, and the tiles are
+// written as .npy files in a second one; the drawing layer draws one tile at a
+// time on the same axes with a shared colour scale.
+//
+// When an axis has more bins than the figure has pixels along it, blocks of
+// k bins are aggregated before the handoff instead of single bins
+// (k = ceil(bins / pixels)): the sum of the block for count matrices, the mean
+// of its valid cells otherwise. The blocks never cross a chromosome boundary
+// (the last block of a chromosome is shorter) unless that would give more than
+// twice as many blocks as pixels. --log and --log1p are applied to the
+// aggregated values, which is the plot of the coarser matrix: the visual
+// equivalent of the full resolution plot, whose bins are smaller than a pixel.
+// --noDownsample keeps single bins (the tiles then cover the full resolution).
+//
+// A block is NaN when it holds no valid cell: a cell is invalid when its row or
+// column is a NaN bin (the whole-matrix path of getMatrix) or when its stored
+// value is NaN. The valid cells of a block that is not empty are the bin pairs
+// of non-NaN bins, with the zero of every unstored pair; the mean divides by
+// their number.
+//
+// All sums are in double (exact for integers below 2^53) and become int32,
+// float32 or, where those do not hold the values, int64 or float64 at the
+// handoff (hicx/plot_tiles.hpp).
+
+constexpr std::int64_t kDefaultTileBins = 4096;
+
+// One matrix and the bins of its rows and columns; rows and columns of the
+// figure are positions in `rows` and `cols`.
+struct Source {
+    const Model* model = nullptr;
+    std::vector<std::int64_t> rows;
+    std::vector<std::int64_t> cols;
+    bool mark_nan = false;  // getMatrix(): the NaN bins are NaN rows and columns
+};
+
+struct AxisMap {
+    std::vector<std::int64_t> loaded;      // row (column) of the loaded matrix per position
+    std::vector<std::int64_t> inv_off;     // positions of each loaded row, CSR style
+    std::vector<std::int64_t> inv_pos;
+    std::vector<char> nan;                 // the position is a NaN bin
+    std::vector<std::int32_t> chromosome;  // run number of the chromosome
+};
+
+AxisMap make_axis(const Model& model, const std::vector<std::int64_t>& bins, bool mark_nan) {
+    AxisMap axis;
+    const std::size_t n = bins.size();
+    const auto loaded_size = static_cast<std::size_t>(model.matrix.rows());
+    axis.loaded.resize(n);
+    axis.nan.assign(n, 0);
+    axis.chromosome.resize(n);
+    std::vector<char> flagged;
+    if (mark_nan) {
+        flagged.assign(model.intervals.size(), 0);
+        for (const std::int64_t bin : model.nan_bins) {
+            flagged[static_cast<std::size_t>(bin)] = 1;
+        }
+    }
+    std::int32_t run = 0;
+    for (std::size_t p = 0; p < n; ++p) {
+        const auto bin = static_cast<std::size_t>(bins[p]);
+        axis.loaded[p] = model.view[bin];
+        if (mark_nan) {
+            axis.nan[p] = flagged[bin];
+        }
+        if (p > 0 && model.intervals[bin].chrom !=
+                         model.intervals[static_cast<std::size_t>(bins[p - 1])].chrom) {
+            ++run;
+        }
+        axis.chromosome[p] = run;
+    }
+    axis.inv_off.assign(loaded_size + 1, 0);
+    for (const std::int64_t row : axis.loaded) {
+        ++axis.inv_off[static_cast<std::size_t>(row) + 1];
+    }
+    for (std::size_t i = 0; i < loaded_size; ++i) {
+        axis.inv_off[i + 1] += axis.inv_off[i];
+    }
+    axis.inv_pos.resize(n);
+    std::vector<std::int64_t> fill(axis.inv_off.begin(), axis.inv_off.end() - 1);
+    for (std::size_t p = 0; p < n; ++p) {
+        axis.inv_pos[static_cast<std::size_t>(fill[static_cast<std::size_t>(axis.loaded[p])]++)] =
+            static_cast<std::int64_t>(p);
+    }
+    return axis;
+}
+
+// Whether the stored column indices of every row are sorted, and whether the
+// stored values are all integers (a count matrix).
+struct MatrixTraits {
+    bool sorted = true;
+    bool integral = true;
+};
+
+MatrixTraits scan_traits(const hicx::CsrMatrix& matrix) {
+    MatrixTraits traits;
+    const auto& indptr = matrix.indptr();
+    const auto& indices = matrix.indices();
+    const auto& data = matrix.data();
+    for (std::int64_t row = 0; row < matrix.rows(); ++row) {
+        const auto begin = static_cast<std::size_t>(indptr[static_cast<std::size_t>(row)]);
+        const auto end = static_cast<std::size_t>(indptr[static_cast<std::size_t>(row) + 1]);
+        for (std::size_t k = begin; k < end; ++k) {
+            if (k > begin && indices[k] < indices[k - 1]) {
+                traits.sorted = false;
+            }
+            const double v = data[k];
+            if (std::isfinite(v) && v != std::floor(v)) {
+                traits.integral = false;
+            }
+        }
+    }
+    return traits;
+}
+
+struct Prepared {
+    const Model* model = nullptr;
+    AxisMap row;
+    AxisMap col;
+    MatrixTraits traits;
+    std::vector<std::int64_t> valid_row;  // valid (non NaN bin) positions per block
+    std::vector<std::int64_t> valid_col;
+};
+
+Prepared prepare(const Source& source) {
+    Prepared p;
+    p.model = source.model;
+    p.row = make_axis(*source.model, source.rows, source.mark_nan);
+    p.col = make_axis(*source.model, source.cols, source.mark_nan);
+    p.traits = scan_traits(source.model->matrix);
+    return p;
+}
+
+std::vector<std::int64_t> valid_per_block(const AxisMap& axis, const hicx::plot::AxisBlocks& blocks) {
+    std::vector<std::int64_t> valid(static_cast<std::size_t>(blocks.count()), 0);
+    for (std::size_t p = 0; p < axis.nan.size(); ++p) {
+        if (!axis.nan[p]) {
+            ++valid[static_cast<std::size_t>(blocks.block_of[p])];
+        }
+    }
+    return valid;
+}
+
+struct Geometry {
+    hicx::plot::AxisBlocks rows;
+    hicx::plot::AxisBlocks cols;
+    bool mean = false;        // average the valid cells of a block instead of summing them
+    bool transposed = false;  // tile[cols][rows], pcolormesh's orientation
+};
+
+// Calls emit(i, j, value) for every stored value of the (symmetric) matrix at
+// a pair of positions i in [i0, i1) and j in [j0, j1).
+template <typename Emit>
+void scan_tile(const Prepared& p, std::int64_t i0, std::int64_t i1, std::int64_t j0,
+               std::int64_t j1, Emit&& emit) {
+    const hicx::CsrMatrix& matrix = p.model->matrix;
+    const bool upper = matrix.symmetry() == hicx::Symmetry::UpperTriangle;
+    const auto& indptr = matrix.indptr();
+    const auto& indices = matrix.indices();
+    const auto& data = matrix.data();
+    auto span = [](const AxisMap& axis, std::int64_t from, std::int64_t to) {
+        std::int64_t low = std::numeric_limits<std::int64_t>::max();
+        std::int64_t high = -1;
+        for (std::int64_t q = from; q < to; ++q) {
+            low = std::min(low, axis.loaded[static_cast<std::size_t>(q)]);
+            high = std::max(high, axis.loaded[static_cast<std::size_t>(q)]);
+        }
+        return std::pair<std::int64_t, std::int64_t>(low, high);
+    };
+    // Entries of one stored row with a column in [low, high].
+    auto each_in_row = [&](std::int64_t row, std::int64_t low, std::int64_t high, auto&& visit) {
+        auto begin = static_cast<std::size_t>(indptr[static_cast<std::size_t>(row)]);
+        auto end = static_cast<std::size_t>(indptr[static_cast<std::size_t>(row) + 1]);
+        if (p.traits.sorted) {
+            const auto* base = indices.data();
+            end = static_cast<std::size_t>(std::upper_bound(base + begin, base + end,
+                                                            static_cast<std::int32_t>(high)) -
+                                           base);
+            begin = static_cast<std::size_t>(std::lower_bound(base + begin, base + end,
+                                                              static_cast<std::int32_t>(low)) -
+                                             base);
+        }
+        for (std::size_t k = begin; k < end; ++k) {
+            const std::int64_t column = indices[k];
+            if (column >= low && column <= high) {
+                visit(column, data[k]);
+            }
+        }
+    };
+    const auto [col_low, col_high] = span(p.col, j0, j1);
+    for (std::int64_t i = i0; i < i1; ++i) {
+        each_in_row(p.row.loaded[static_cast<std::size_t>(i)], col_low, col_high,
+                    [&](std::int64_t column, double value) {
+                        for (auto q = p.col.inv_off[static_cast<std::size_t>(column)];
+                             q < p.col.inv_off[static_cast<std::size_t>(column) + 1]; ++q) {
+                            const std::int64_t j = p.col.inv_pos[static_cast<std::size_t>(q)];
+                            if (j >= j0 && j < j1) {
+                                emit(i, j, value);
+                            }
+                        }
+                    });
+    }
+    if (upper) {
+        // The mirrored entries: stored (c, r) with r > c is the cell (r, c).
+        const auto [row_low, row_high] = span(p.row, i0, i1);
+        for (std::int64_t j = j0; j < j1; ++j) {
+            const std::int64_t stored_row = p.col.loaded[static_cast<std::size_t>(j)];
+            each_in_row(stored_row, row_low, row_high, [&](std::int64_t column, double value) {
+                if (column == stored_row) {
+                    return;
+                }
+                for (auto q = p.row.inv_off[static_cast<std::size_t>(column)];
+                     q < p.row.inv_off[static_cast<std::size_t>(column) + 1]; ++q) {
+                    const std::int64_t i = p.row.inv_pos[static_cast<std::size_t>(q)];
+                    if (i >= i0 && i < i1) {
+                        emit(i, j, value);
+                    }
+                }
+            });
+        }
+    }
+}
+
+// The cells of the blocks [bi0, bi1) x [bj0, bj1) of one source.
+std::vector<double> compute_tile(const Prepared& p, const Geometry& g, std::int64_t bi0,
+                                 std::int64_t bi1, std::int64_t bj0, std::int64_t bj1) {
+    const std::int64_t nbi = bi1 - bi0;
+    const std::int64_t nbj = bj1 - bj0;
+    std::vector<double> sums(static_cast<std::size_t>(nbi * nbj), 0.0);
+    std::vector<std::uint32_t> nan_count;  // allocated on the first stored NaN
+    auto index = [&](std::int64_t bi, std::int64_t bj) {
+        return static_cast<std::size_t>(g.transposed ? (bj - bj0) * nbi + (bi - bi0)
+                                                     : (bi - bi0) * nbj + (bj - bj0));
+    };
+    scan_tile(p, g.rows.first[static_cast<std::size_t>(bi0)],
+              g.rows.first[static_cast<std::size_t>(bi1)],
+              g.cols.first[static_cast<std::size_t>(bj0)],
+              g.cols.first[static_cast<std::size_t>(bj1)],
+              [&](std::int64_t i, std::int64_t j, double value) {
+                  if (p.row.nan[static_cast<std::size_t>(i)] || p.col.nan[static_cast<std::size_t>(j)]) {
+                      return;
+                  }
+                  const std::size_t at = index(g.rows.block_of[static_cast<std::size_t>(i)],
+                                               g.cols.block_of[static_cast<std::size_t>(j)]);
+                  if (std::isnan(value)) {
+                      if (nan_count.empty()) {
+                          nan_count.assign(sums.size(), 0);
+                      }
+                      ++nan_count[at];
+                  } else {
+                      sums[at] += value;
+                  }
+              });
+    for (std::int64_t bi = bi0; bi < bi1; ++bi) {
+        for (std::int64_t bj = bj0; bj < bj1; ++bj) {
+            const std::size_t at = index(bi, bj);
+            const std::int64_t valid = p.valid_row[static_cast<std::size_t>(bi)] *
+                                           p.valid_col[static_cast<std::size_t>(bj)] -
+                                       (nan_count.empty() ? 0 : static_cast<std::int64_t>(nan_count[at]));
+            if (valid <= 0) {
+                sums[at] = std::numeric_limits<double>::quiet_NaN();
+            } else if (g.mean) {
+                sums[at] /= static_cast<double>(valid);
+            }
+        }
+    }
+    return sums;
+}
+
+struct TileRange {
+    std::int64_t r0, r1, c0, c1;
+};
+
+// Everything a heatmap of the figure is drawn from.
+struct Heatmap {
+    Source first;
+    const Source* second = nullptr;  // --matrix2: the lower triangle
+    std::vector<std::int64_t> start_pos_rows;
+    std::vector<std::int64_t> start_pos_cols;
+    bool per_chromosome = false;     // the masking of plotPerChr
+    double pixels_x = 0.0;           // upper bounds of the axes in pixels
+    double pixels_y = 0.0;
+};
+
+struct TileSettings {
+    bool log = false;
+    bool log1p = false;
+    bool downsample = true;
+    std::int64_t tile_bins = kDefaultTileBins;
+    std::function<std::string()> new_file;  // the path of the next .npy file
+};
+
+template <typename T>
+void put_values(std::vector<char>& buffer, const std::vector<double>& values, double add,
+                const hicx::plot::MaskParams& mask) {
+    buffer.resize(values.size() * sizeof(T));
+    auto* out = reinterpret_cast<T*>(buffer.data());
+    for (std::size_t i = 0; i < values.size(); ++i) {
+        out[i] = static_cast<T>(mask.apply(values[i]) + add);
+    }
+}
+
+// Writes the tiles of `heat` and describes them in `target`: "matrix" is the
+// path of the one file when the whole matrix is a single tile at full
+// resolution (the figure then takes the path of a single pcolormesh call and
+// the function returns true), else null and "tile_spec" lists the tiles.
+bool write_heatmap(const Heatmap& heat, const TileSettings& settings,
+                   hicx::plot::JsonObject& target) {
+    namespace hp = hicx::plot;
+    const Source& a = heat.first;
+    Prepared prepared = prepare(a);
+    std::optional<Prepared> prepared2;
+    bool integral = prepared.traits.integral;
+    if (heat.second != nullptr) {
+        prepared2 = prepare(*heat.second);
+        integral = integral && prepared2->traits.integral;
+    }
+
+    const auto n_rows = static_cast<std::int64_t>(a.rows.size());
+    const auto n_cols = static_cast<std::int64_t>(a.cols.size());
+    const auto px = static_cast<std::int64_t>(std::ceil(heat.pixels_x));
+    const auto py = static_cast<std::int64_t>(std::ceil(heat.pixels_y));
+    Geometry g;
+    std::int64_t k_rows = hp::positions_per_block(n_rows, px, settings.downsample);
+    std::int64_t k_cols = hp::positions_per_block(n_cols, py, settings.downsample);
+    if (n_rows == n_cols || prepared2) {
+        // A square matrix keeps square blocks, so its diagonal is the diagonal of
+        // the blocks (and the triangles of --matrix2 are triangles of blocks).
+        k_rows = k_cols = std::max(k_rows, k_cols);
+    }
+    g.rows = hp::make_blocks(n_rows, k_rows, prepared.row.chromosome, 2 * px);
+    g.cols = hp::make_blocks(n_cols, k_cols, prepared.col.chromosome, 2 * py);
+    const bool reduced = g.rows.k > 1 || g.cols.k > 1;
+    g.mean = reduced && !integral;
+    const std::int64_t nbr = g.rows.count();
+    const std::int64_t nbc = g.cols.count();
+    const std::int64_t tile = std::max<std::int64_t>(settings.tile_bins, 1);
+    const bool single_matrix = !reduced && nbr <= tile && nbc <= tile;
+    g.transposed = !single_matrix;
+    prepared.valid_row = valid_per_block(prepared.row, g.rows);
+    prepared.valid_col = valid_per_block(prepared.col, g.cols);
+    if (prepared2) {
+        prepared2->valid_row = valid_per_block(prepared2->row, g.rows);
+        prepared2->valid_col = valid_per_block(prepared2->col, g.cols);
+    }
+
+    std::vector<TileRange> tiles;
+    for (std::int64_t r = 0; r < nbr; r += tile) {
+        for (std::int64_t c = 0; c < nbc; c += tile) {
+            tiles.push_back({r, std::min(r + tile, nbr), c, std::min(c + tile, nbc)});
+        }
+    }
+    auto make_tile = [&](const TileRange& t) {
+        std::vector<double> values = compute_tile(prepared, g, t.r0, t.r1, t.c0, t.c1);
+        if (prepared2) {
+            const std::vector<double> lower = compute_tile(*prepared2, g, t.r0, t.r1, t.c0, t.c1);
+            const std::int64_t nbi = t.r1 - t.r0;
+            const std::int64_t nbj = t.c1 - t.c0;
+            for (std::int64_t bi = t.r0; bi < t.r1; ++bi) {
+                for (std::int64_t bj = t.c0; bj < t.c1; ++bj) {
+                    // the block of column index below the row index: the lower triangle
+                    if (bj < bi) {
+                        const auto at = static_cast<std::size_t>(
+                            g.transposed ? (bj - t.c0) * nbi + (bi - t.r0)
+                                         : (bi - t.r0) * nbj + (bj - t.c0));
+                        values[at] = lower[at];
+                    }
+                }
+            }
+        }
+        return values;
+    };
+
+    // First pass: the statistics of all cells. One tile is kept for the second.
+    hp::MaskStats stats;
+    std::vector<double> held;
+    for (const TileRange& t : tiles) {
+        std::vector<double> values = make_tile(t);
+        for (const double v : values) {
+            stats.add(v);
+        }
+        if (tiles.size() == 1) {
+            held = std::move(values);
+        }
+    }
+    const bool masked = settings.log || settings.log1p;
+    hp::MaskParams mask;
+    if (masked) {
+        try {
+            mask = heat.per_chromosome ? hp::mask_params_per_chromosome(stats)
+                                       : hp::mask_params_whole(stats);
+        } catch (const std::runtime_error& error) {
+            throw ExitError(error.what());
+        }
+    }
+    const double add = settings.log1p ? 1.0 : 0.0;
+    hp::MaskParams::Summary summary;
+    if (masked) {
+        summary = mask.summarize(stats);
+    } else {
+        summary.nonfinite = stats.nans > 0 || stats.infs > 0;
+        summary.integral = stats.all_integral;
+        summary.max_abs = stats.max_abs_finite;
+    }
+    const hp::HandoffChoice choice =
+        hp::choose_handoff(summary.integral, summary.nonfinite, summary.max_abs + add);
+    if (choice.widened) {
+        std::fprintf(stderr,
+                     "hicPlotMatrix: warning: the largest value of this matrix (%.17g) does not "
+                     "fit %s; it is handed to the drawing layer as %s.\n",
+                     summary.max_abs + add,
+                     choice.type == hp::Handoff::Int64 ? "int32" : "a float32 next to NaN",
+                     choice.type == hp::Handoff::Int64 ? "int64" : "float64");
+    }
+
+    // Second pass: the tiles.
+    double value_min = std::numeric_limits<double>::infinity();
+    double value_max = -std::numeric_limits<double>::infinity();
+    std::vector<std::string> tile_items;
+    std::vector<char> buffer;
+    std::string single_path;
+    for (const TileRange& t : tiles) {
+        std::vector<double> values = tiles.size() == 1 ? std::move(held) : make_tile(t);
+        for (const double v : values) {
+            const double x = mask.apply(v) + add;
+            if (std::isfinite(x) && (!masked || x > 0.0)) {
+                value_min = std::min(value_min, x);
+                value_max = std::max(value_max, x);
+            }
+        }
+        switch (choice.type) {
+            case hp::Handoff::Int32:
+                put_values<std::int32_t>(buffer, values, add, mask);
+                break;
+            case hp::Handoff::Int64:
+                put_values<std::int64_t>(buffer, values, add, mask);
+                break;
+            case hp::Handoff::Float32:
+                put_values<float>(buffer, values, add, mask);
+                break;
+            case hp::Handoff::Float64:
+                put_values<double>(buffer, values, add, mask);
+                break;
+        }
+        const std::string path = settings.new_file();
+        const std::int64_t nbi = t.r1 - t.r0;
+        const std::int64_t nbj = t.c1 - t.c0;
+        plot::write_npy_raw(path, hp::npy_dtype(choice.type),
+                            g.transposed ? std::vector<std::int64_t>{nbj, nbi}
+                                         : std::vector<std::int64_t>{nbi, nbj},
+                            buffer.data(), buffer.size());
+        if (single_matrix) {
+            single_path = path;
+        }
+        plot::JsonObject item;
+        item.add("file", plot::json_string(path));
+        item.add("r0", plot::json_int(t.r0));
+        item.add("r1", plot::json_int(t.r1));
+        item.add("c0", plot::json_int(t.c0));
+        item.add("c1", plot::json_int(t.c1));
+        tile_items.push_back(item.str());
+    }
+
+    if (single_matrix) {
+        target.add("matrix", plot::json_string(single_path));
+        return true;
+    }
+    target.add("matrix", "null");
+    plot::JsonObject spec;
+    spec.add("x_edges", plot::json_numbers(hp::block_edges(hp::nearest_edges(heat.start_pos_rows), g.rows)));
+    spec.add("y_edges", plot::json_numbers(hp::block_edges(hp::nearest_edges(heat.start_pos_cols), g.cols)));
+    spec.add("bins", plot::json_ints({n_rows, n_cols}));
+    spec.add("blocks", plot::json_ints({nbr, nbc}));
+    spec.add("bins_per_block", plot::json_ints({g.rows.k, g.cols.k}));
+    spec.add("blocks_by_chromosome", plot::json_bool(g.rows.by_chromosome || g.cols.by_chromosome));
+    spec.add("aggregate", plot::json_string(reduced ? (g.mean ? "mean" : "sum") : "none"));
+    spec.add("dtype", plot::json_string(hp::npy_dtype(choice.type)));
+    const bool bounded = tiles.size() > 1 && value_min <= value_max;
+    spec.add("vmin", bounded ? plot::json_number(value_min) : std::string("null"));
+    spec.add("vmax", bounded ? plot::json_number(value_max) : std::string("null"));
+    spec.add("tiles", plot::json_list(tile_items));
+    target.add("tile_spec", spec.str());
+    if (reduced) {
+        std::fprintf(stderr,
+                     "hicPlotMatrix: %lld x %lld bins are drawn as %lld x %lld blocks of %lld x "
+                     "%lld bins (%s of the cells of a block%s); --noDownsample draws single bins.\n",
+                     static_cast<long long>(n_rows), static_cast<long long>(n_cols),
+                     static_cast<long long>(nbr), static_cast<long long>(nbc),
+                     static_cast<long long>(g.rows.k), static_cast<long long>(g.cols.k),
+                     g.mean ? "mean" : "sum",
+                     (g.rows.by_chromosome || g.cols.by_chromosome) ? ", cut at chromosome ends"
+                                                                    : "");
+    }
+    return false;
+}
+
+// A second matrix (--matrix2) read for the same request as the first.
+struct SecondMatrix {
+    Model model;
+    Source source;
 };
 
 // Loads path for the given request the same way --matrix's own load does
 // (is_partial_source fast path first, whole-matrix path otherwise; see the
-// top-of-file comment), producing the dense matrix pcolormesh would draw for
-// that request. region/region2 are taken by value: the fast path may consume
-// them (as main()'s --matrix load does), and each caller needs its own
-// request untouched by the other's.
-DenseLoad load_dense_matrix(const std::string& path, std::optional<std::string> region,
-                            std::optional<std::string> region2,
-                            const std::optional<std::vector<std::string>>& chromosome_order,
-                            bool clear_masked_bins) {
+// top-of-file comment), and says which bins the heatmap rows and columns are.
+// region/region2 are taken by value: the fast path may consume them (as
+// main()'s --matrix load does), and each caller needs its own request untouched
+// by the other's.
+void load_second(SecondMatrix& out, const std::string& path, std::optional<std::string> region,
+                 std::optional<std::string> region2,
+                 const std::optional<std::vector<std::string>>& chromosome_order,
+                 bool clear_masked_bins) {
     const bool is_cooler = hicx::check_cooler(path);
     const bool is_partial_source = is_cooler || hicx::is_hic_path(path);
     const bool open_cooler_chromosome_order =
         !(chromosome_order.has_value() && chromosome_order->size() > 1);
 
-    Model model;
+    Model& model = out.model;
     auto load = [&](const std::optional<std::string>& chrname) {
         hicx::ToolMatrix loaded = hicx::ToolMatrix::load(path, chrname);
         model.intervals = loaded.cut_intervals();
@@ -1009,7 +1401,7 @@ DenseLoad load_dense_matrix(const std::string& path, std::optional<std::string> 
         }
     };
 
-    DenseLoad out;
+    out.source.model = &model;
     if (is_partial_source && !(region2.has_value() && !region2->empty()) && open_cooler_chromosome_order) {
         std::optional<std::string> retrieve;
         if (region.has_value() && !region->empty()) {
@@ -1022,9 +1414,8 @@ DenseLoad load_dense_matrix(const std::string& path, std::optional<std::string> 
         }
         load(retrieve);
         clear_masked();
-        const std::vector<std::int64_t> bins = all_bins(model);
-        out.values = dense(model, bins, bins);
-        out.rows = out.cols = static_cast<std::int64_t>(bins.size());
+        out.source.rows = all_bins(model);
+        out.source.cols = out.source.rows;
     } else {
         load(std::nullopt);
         clear_masked();
@@ -1053,43 +1444,12 @@ DenseLoad load_dense_matrix(const std::string& path, std::optional<std::string> 
         }
         if (region.has_value() && !region->empty()) {
             const Selection selection = get_region(*region, region2, model, is_partial_source);
-            out.values = dense(model, selection.idx1, selection.idx2);
-            out.rows = static_cast<std::int64_t>(selection.idx1.size());
-            out.cols = static_cast<std::int64_t>(selection.idx2.size());
+            out.source.rows = selection.idx1;
+            out.source.cols = selection.idx2;
         } else {
-            const std::vector<std::int64_t> bins = all_bins(model);
-            out.values = dense(model, bins, bins);
-            out.rows = out.cols = static_cast<std::int64_t>(bins.size());
-            for (const std::int64_t bin : model.nan_bins) {
-                for (std::int64_t k = 0; k < out.rows; ++k) {
-                    out.values[static_cast<std::size_t>(bin * out.cols + k)] =
-                        std::numeric_limits<double>::quiet_NaN();
-                    out.values[static_cast<std::size_t>(k * out.cols + bin)] =
-                        std::numeric_limits<double>::quiet_NaN();
-                }
-            }
-        }
-    }
-    return out;
-}
-
-// Combines two same-shaped dense matrices into one for the --matrix2 upper
-// or lower triangle heatmap: column index greater than row index (the upper
-// triangle) takes upper's value, column index less than row index (the lower
-// triangle) takes lower's value. The diagonal (row == column) is always
-// taken from upper (--matrix): it is a single bin's self contact, not a
-// choice between two off-diagonal directions, so there is no upper/lower
-// distinction to make there, and keeping it filled (rather than NaN) avoids
-// a blank diagonal line under --log/--log1p, where the diagonal is usually
-// the strongest signal in the plot.
-void combine_triangles(std::vector<double>& upper, const std::vector<double>& lower,
-                       std::int64_t rows, std::int64_t cols) {
-    for (std::int64_t row = 0; row < rows; ++row) {
-        for (std::int64_t col = 0; col < cols; ++col) {
-            if (col < row) {
-                const auto index = static_cast<std::size_t>(row * cols + col);
-                upper[index] = lower[index];
-            }
+            out.source.rows = all_bins(model);
+            out.source.cols = out.source.rows;
+            out.source.mark_nan = true;
         }
     }
 }
@@ -1213,6 +1573,24 @@ int main(int argc, char** argv) {
     optional.add({"--disable_tight_layout"})
         .action(cli::Action::StoreTrue)
         .help(cli::kSuppress);
+    optional.add({"--noDownsample"})
+        .action(cli::Action::StoreTrue)
+        .cpp_only("Draw single bins even where the matrix has more bins along an axis than the "
+                  "figure has pixels. By default the bins are aggregated in blocks of "
+                  "ceil(bins / pixels) bins (sum of the counts, mean of the other values, blocks "
+                  "cut at chromosome ends), --log and --log1p are applied to the blocks, and the "
+                  "axes are unchanged. The matrix is handed to the drawing layer in tiles either "
+                  "way; the drawing process keeps every tile it has drawn until the figure is "
+                  "saved (about 55 bytes per cell).")
+        .help("Do not aggregate bins into blocks when the matrix has more bins than the figure "
+              "has pixels.");
+    optional.add({"--tileBins"})
+        .type("int")
+        .default_value(kDefaultTileBins)
+        .cpp_only("Largest edge of a tile of the matrix handed to the drawing layer, in bins or "
+                  "blocks (Default: %(default)s). A matrix that fits one tile is drawn with one "
+                  "pcolormesh call.")
+        .help(cli::kSuppress);
     optional.add({"--plotData"})
         .metavar("FILE")
         .output({"json"})
@@ -1291,9 +1669,8 @@ int main(int argc, char** argv) {
         std::optional<std::string> xlabel;
         std::optional<std::string> ylabel;
         std::optional<Selection> selection;
-        std::vector<double> matrix_values;
-        std::int64_t matrix_rows = 0;
-        std::int64_t matrix_cols = 0;
+        Source primary;
+        primary.model = &model;
 
         auto load = [&](const std::optional<std::string>& chrname) {
             hicx::ToolMatrix loaded = hicx::ToolMatrix::load(matrix_path, chrname);
@@ -1331,9 +1708,8 @@ int main(int argc, char** argv) {
                                                         : selection->region.chrom;
             }
             if (!per_chromosome) {
-                const std::vector<std::int64_t> bins = all_bins(model);
-                matrix_values = dense(model, bins, bins);
-                matrix_rows = matrix_cols = static_cast<std::int64_t>(bins.size());
+                primary.rows = all_bins(model);
+                primary.cols = primary.rows;
             }
         } else {
             load(std::nullopt);
@@ -1368,52 +1744,44 @@ int main(int argc, char** argv) {
                 ylabel = selection->region2.has_value() ? selection->region2->chrom
                                                         : selection->region.chrom;
                 if (!per_chromosome) {
-                    matrix_values = dense(model, selection->idx1, selection->idx2);
-                    matrix_rows = static_cast<std::int64_t>(selection->idx1.size());
-                    matrix_cols = static_cast<std::int64_t>(selection->idx2.size());
-                }
+                    primary.rows = selection->idx1;
+                    primary.cols = selection->idx2;
+                    }
             } else if (!per_chromosome) {
                 // getMatrix(): the NaN bins as NaN rows and columns.
-                const std::vector<std::int64_t> bins = all_bins(model);
-                matrix_values = dense(model, bins, bins);
-                matrix_rows = matrix_cols = static_cast<std::int64_t>(bins.size());
-                for (const std::int64_t bin : model.nan_bins) {
-                    for (std::int64_t k = 0; k < matrix_rows; ++k) {
-                        matrix_values[static_cast<std::size_t>(bin * matrix_cols + k)] =
-                            std::numeric_limits<double>::quiet_NaN();
-                        matrix_values[static_cast<std::size_t>(k * matrix_cols + bin)] =
-                            std::numeric_limits<double>::quiet_NaN();
-                    }
-                }
+                primary.rows = all_bins(model);
+                primary.cols = primary.rows;
+                primary.mark_nan = true;
             }
         }
 
+        SecondMatrix second;
         if (matrix2_path.has_value()) {
             // --perChromosome was already refused together with --matrix2 above,
-            // so matrix_values/matrix_rows/matrix_cols were filled by exactly one
-            // of the two dense branches above. --matrix2 is read for the same
-            // originally requested region/region2/chromosomeOrder, through the
-            // identical region-scoped or whole-matrix path load_dense_matrix
-            // factors out of the block above, never a separate whole load.
-            DenseLoad second;
+            // so `primary` was filled by exactly one of the two branches above.
+            // --matrix2 is read for the same originally requested
+            // region/region2/chromosomeOrder, through the identical
+            // region-scoped or whole-matrix path load_second factors out of the
+            // block above, never a separate whole load.
             try {
-                second = load_dense_matrix(*matrix2_path, requested_region, requested_region2,
-                                           chromosome_order, ns.flag("clearMaskedBins"));
+                load_second(second, *matrix2_path, requested_region, requested_region2,
+                            chromosome_order, ns.flag("clearMaskedBins"));
             } catch (const ExitError& error) {
                 throw ExitError(std::string("--matrix2: ") + error.what(), error.code());
             } catch (const std::exception& error) {
                 throw ExitError(std::string("--matrix2: ") + error.what());
             }
-            if (second.rows != matrix_rows || second.cols != matrix_cols) {
+            if (second.source.rows.size() != primary.rows.size() ||
+                second.source.cols.size() != primary.cols.size()) {
                 throw ExitError(
                     "ERROR: --matrix2 does not have the same shape as --matrix for the "
                     "requested region (--matrix: " +
-                    std::to_string(matrix_rows) + "x" + std::to_string(matrix_cols) +
-                    ", --matrix2: " + std::to_string(second.rows) + "x" +
-                    std::to_string(second.cols) + ").");
+                    std::to_string(primary.rows.size()) + "x" + std::to_string(primary.cols.size()) +
+                    ", --matrix2: " + std::to_string(second.source.rows.size()) + "x" +
+                    std::to_string(second.source.cols.size()) + ").");
             }
-            combine_triangles(matrix_values, second.values, matrix_rows, matrix_cols);
         }
+        const auto matrix_rows = static_cast<std::int64_t>(primary.rows.size());
 
         const std::int64_t resolution = hicx::BinTable(model.intervals).bin_size();
 
@@ -1460,7 +1828,9 @@ int main(int argc, char** argv) {
         options.add("region", "null");
         options.add("region2", region2.has_value() ? plot::json_string(*region2) : "null");
 
-        auto matrix_file = [&](std::size_t number) {
+        std::size_t file_number = 0;
+        auto matrix_file = [&]() {
+            const std::size_t number = file_number++;
             if (plot_data.has_value()) {
                 return *plot_data + "." + std::to_string(number) + ".npy";
             }
@@ -1468,6 +1838,26 @@ int main(int argc, char** argv) {
             temporary_files.push_back(path);
             return path;
         };
+        TileSettings tile_settings;
+        tile_settings.log = log;
+        tile_settings.log1p = log1p;
+        tile_settings.downsample = !ns.flag("noDownsample");
+        tile_settings.tile_bins = ns.integer("tileBins");
+        tile_settings.new_file = matrix_file;
+        if (tile_settings.tile_bins < 1) {
+            throw ExitError("ERROR: --tileBins must be at least 1.");
+        }
+        // The axes of the figure in pixels, at most: the heatmap axes without
+        // bigwig tracks are 5.0 x 4.8 inches, the figure is 8 x 7 inches plus
+        // the increase per track, and per chromosome the cell of the grid
+        // (plotPerChr) bounds each axes.
+        const double dpi = static_cast<double>(ns.integer("dpi"));
+        const std::size_t bigwig_count = ns.given("bigwig") ? ns.strs("bigwig").size() : 0;
+        const double figure_width = 8.0 + static_cast<double>(bigwig_count) * ns.real("increaseFigureWidth");
+        const double figure_height = 7.0 + static_cast<double>(bigwig_count) * ns.real("increaseFigureHeight");
+        const std::size_t chromosome_count = boundaries(model).size();
+        const auto grid_rows = static_cast<double>((chromosome_count + 4) / 5);
+        const auto grid_cols = static_cast<double>(std::min<std::size_t>(chromosome_count, 5));
 
         std::vector<std::string> names;
         for (const auto& entry : boundaries(model)) {
@@ -1525,30 +1915,35 @@ int main(int argc, char** argv) {
 
         if (per_chromosome) {
             std::vector<std::string> entries;
-            std::size_t number = 0;
             for (const auto& [name, range] : boundaries(model)) {
                 std::vector<std::int64_t> bins;
                 for (std::int64_t bin = range.first; bin < range.last; ++bin) {
                     bins.push_back(bin);
                 }
-                std::vector<double> values = dense(model, bins, bins);
-                if (log || log1p) {
-                    mask_per_chromosome(values);
-                }
-                if (log1p) {
-                    for (double& value : values) {
-                        value += 1.0;
-                    }
-                }
                 const Selection chromosome = get_region(name, region2, model, is_partial_source);
-                const std::string path = matrix_file(number++);
-                plot::write_npy_float64(path, values, static_cast<std::int64_t>(bins.size()),
-                                        static_cast<std::int64_t>(bins.size()));
+                Heatmap heat;
+                heat.first.model = &model;
+                heat.first.rows = bins;
+                heat.first.cols = bins;
+                heat.start_pos_rows = chromosome.start_pos1;
+                heat.start_pos_cols = chromosome.start_pos2;
+                heat.per_chromosome = true;
+                heat.pixels_x = (6.0 * (grid_cols * 1.05 + 0.10) +
+                                 static_cast<double>(bigwig_count) * ns.real("increaseFigureWidth")) /
+                                grid_cols * dpi;
+                heat.pixels_y = (6.0 * grid_rows +
+                                 static_cast<double>(bigwig_count) * ns.real("increaseFigureHeight")) /
+                                grid_rows * dpi;
                 plot::JsonObject entry;
                 entry.add("name", plot::json_string(name));
-                entry.add("matrix", plot::json_string(path));
-                entry.add("start_pos", plot::json_ints(chromosome.start_pos1));
-                entry.add("start_pos2", plot::json_ints(chromosome.start_pos2));
+                const bool single = write_heatmap(heat, tile_settings, entry);
+                if (single) {
+                    entry.add("start_pos", plot::json_ints(chromosome.start_pos1));
+                    entry.add("start_pos2", plot::json_ints(chromosome.start_pos2));
+                } else {
+                    entry.add("start_pos", "null");
+                    entry.add("start_pos2", "null");
+                }
                 entry.add("region", region_json(chromosome.region));
                 entry.add("bigwig_tracks", bins.size() >= 5
                                                ? bigwig_json(chromosome.region)
@@ -1557,25 +1952,30 @@ int main(int argc, char** argv) {
             }
             data.add("chromosomes", plot::json_list(entries));
         } else {
-            if (log || log1p) {
-                mask_whole(matrix_values);
-            }
-            if (log1p) {
-                for (double& value : matrix_values) {
-                    value += 1.0;
-                }
-            }
-            const std::string path = matrix_file(0);
-            plot::write_npy_float64(path, matrix_values, matrix_rows, matrix_cols);
-            std::vector<double>().swap(matrix_values);
-            data.add("matrix", plot::json_string(path));
+            Heatmap heat;
+            heat.first = primary;
+            heat.second = matrix2_path.has_value() ? &second.source : nullptr;
             if (selection.has_value()) {
-                data.add("start_pos", plot::json_ints(selection->start_pos1));
-                data.add("start_pos2", plot::json_ints(selection->start_pos2));
+                heat.start_pos_rows = selection->start_pos1;
+                heat.start_pos_cols = selection->start_pos2;
+            } else {
+                heat.start_pos_rows = make_start_pos_array(model);
+                heat.start_pos_cols = heat.start_pos_rows;
+            }
+            heat.pixels_x = bigwig_count == 0 ? 5.0 * dpi : figure_width * dpi;
+            heat.pixels_y = bigwig_count == 0 ? 4.8 * dpi : figure_height * dpi;
+            const bool single = write_heatmap(heat, tile_settings, data);
+            if (single) {
+                data.add("start_pos", plot::json_ints(heat.start_pos_rows));
+                data.add("start_pos2", selection.has_value() ? plot::json_ints(selection->start_pos2)
+                                                             : std::string("null"));
+            } else {
+                data.add("start_pos", "null");
+                data.add("start_pos2", "null");
+            }
+            if (selection.has_value()) {
                 data.add("region", region_json(selection->region));
             } else {
-                data.add("start_pos", plot::json_ints(make_start_pos_array(model)));
-                data.add("start_pos2", "null");
                 data.add("region", "null");
             }
             std::optional<Region> whole_region;
@@ -1602,6 +2002,7 @@ int main(int argc, char** argv) {
         }
         data.add("temporary_files", plot::json_strings(temporary_files));
         model = Model();
+        second = SecondMatrix();
 
         hicx::report_resource_usage("hicPlotMatrix");
         const int status = plot::draw("hicPlotMatrix", data.str(), plot_data);
