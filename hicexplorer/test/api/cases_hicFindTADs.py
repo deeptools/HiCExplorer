@@ -461,7 +461,7 @@ CASES = [
 
 # Cases whose floats differ from 3.7.6 in the last bits since the special
 # functions (normal tail, incomplete beta and gamma functions, log-gamma) are
-# Boost.Math's and no longer the Cephes routines scipy uses: the p-values agree
+# Boost.Math's and no longer the routines scipy uses: the p-values agree
 # to a relative 2e-14 or better. The cases compare every float at rtol 1e-12;
 # integers, strings, coordinates and the structure of the result are still
 # compared exactly, so a changed call, a moved TAD or a different row count
@@ -482,4 +482,4 @@ for _case in CASES:
     if _case.id in _BOOST_LAST_BITS:
         _case.rtol = 1e-12
         _case.note = (_case.note + '; ' if _case.note else '') + (
-            'Boost.Math special functions round the last bits of the p-values differently from scipy 1.14 (Cephes)')
+            'Boost.Math special functions round the last bits of the p-values differently from scipy 1.14')

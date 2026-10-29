@@ -21,7 +21,7 @@
       {"path": "{out}/differential.hdf5", "format": "chic_hdf5", "class": "E3"}
     ],
     "threads_arg": "--threads",
-    "notes": "test_chicDifferentialTest.py::test_regular_mode_chi2. chi2_contingency without Yates' correction: the p-value is the Cephes chdtrc and the rejection compares the statistic with chi2.ppf(1 - alpha, 1), the Cephes igami, both from scipy's C++ headers at v1.14.1."
+    "notes": "test_chicDifferentialTest.py::test_regular_mode_chi2. chi2_contingency without Yates' correction: the p-value is the chi-squared survival function (Boost.Math gamma_q) and the rejection compares the statistic with chi2.ppf(1 - alpha, 1) (Boost.Math gamma_p_inverse); both agree with scipy 1.14.1 to 3.1e-14 relative, which E3 (relative 1e-12) covers."
   },
   {
     "id": "chicDifferentialTest.fisher.aggregate_target.t4",
