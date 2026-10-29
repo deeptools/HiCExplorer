@@ -45,6 +45,18 @@ set(HICX_COOLERCPP_SOURCES
     io/coolercpp/src/table.cpp
     io/coolercpp/src/util.cpp)
 
+# hicfilecpp (MIT, see cpp/THIRD_PARTY_NOTICES.md): the Juicer .hic reader and
+# writer, vendored from the commit named there. Public headers keep the
+# include path hicfilecpp/<header>.
+set(HICX_HICFILECPP_DIR "${CMAKE_CURRENT_SOURCE_DIR}/io/hicfilecpp")
+set(HICX_HICFILECPP_SOURCES
+    io/hicfilecpp/src/codec.cpp
+    io/hicfilecpp/src/io.cpp
+    io/hicfilecpp/src/norms.cpp
+    io/hicfilecpp/src/output.cpp
+    io/hicfilecpp/src/reader.cpp
+    io/hicfilecpp/src/writer.cpp)
+
 add_library(hicx4core
     src/adjust_ops.cpp
     src/aggregate_contacts.cpp
@@ -125,20 +137,23 @@ add_library(hicx4core
     src/dgeev_selected.cpp
     src/sparse_pca.cpp
     src/svl.cpp
-    ${HICX_COOLERCPP_SOURCES})
+    ${HICX_COOLERCPP_SOURCES}
+    ${HICX_HICFILECPP_SOURCES})
 
 target_include_directories(hicx4core PUBLIC
     "${CMAKE_CURRENT_SOURCE_DIR}/include"
     "${HICX_COOLERCPP_DIR}/include"
+    "${HICX_HICFILECPP_DIR}/include"
     "${CMAKE_CURRENT_BINARY_DIR}/generated")
 
 target_link_libraries(hicx4core
     PUBLIC hicx::hdf5
-    PRIVATE hicx::blosc hicx::zlib hicx::hts hicx::lapack hicfilecpp::hicfilecpp hic2cool::core
+    PRIVATE hicx::blosc hicx::zlib hicx::hts hicx::lapack hic2cool::core
             hicx_compile_options)
 
-# Cyclic on purpose: the fetched hic2cool library still links coolercpp::coolercpp.
+# Cyclic on purpose: the fetched hic2cool library still links these.
 target_link_libraries(hicx_coolercpp_compat INTERFACE hicx4core)
+target_link_libraries(hicx_hicfilecpp_compat INTERFACE hicx4core)
 
 # np.argsort's tie order on a CPU with AVX512_SKX comes from x86-simd-sort, at
 # the commit numpy 1.26.4 vendors as a submodule (numpy_sort.hpp). The header is

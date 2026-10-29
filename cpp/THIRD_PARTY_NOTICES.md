@@ -77,3 +77,35 @@ CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
+
+## hicfilecpp (repository hiccpp)
+
+- Location: `core/io/hicfilecpp/` (headers in `include/hicfilecpp/`, sources in `src/`), compiled into libhicx4core.
+- Origin: hiccpp, git@github.com:MHH-Bioinformatics-Hematology/hiccpp.git (local clone `~/src/hiccpp`), commit `15a2aedfb24e51d6c2d44b1833ed7cb78115215a` ("Write caller-supplied normalization vectors, report a missing normalized section, 0.4.0"), library version 0.4.0. This is the commit HiCExplorer pinned (`HICX_HICFILECPP_COMMIT`); the repository HEAD at the time of vendoring (`9af9af6`) is 9 commits newer, renames the library to `hiccpp` and was not used.
+- Changes: `include/hicfilecpp/version.hpp.in` became `version.hpp` with the project version written out. Tests, documentation, examples, the equivalence harness and the CMake packaging were not copied.
+- Licence: MIT, Copyright (c) 2026 Joachim Wolff. The licence text was added to hiccpp after the pinned commit and is taken from its HEAD.
+- hiccpp re-implements behaviour of straw/hicstraw 1.3.1 (https://github.com/aidenlab/straw, MIT, Aiden Lab; `src/reader.cpp`), of Juicer tools and Juicebox 1.22.01 and 2.20.00 (https://github.com/aidenlab/Juicebox, MIT, Aiden Lab; `src/writer.cpp`, `src/norms.cpp`) and used hic2cool (https://github.com/4dn-dcic/hic2cool, MIT, Harvard Medical School) as a second reading of the version 8 layout. All are MIT licensed like hiccpp; no code is copied from them.
+
+```
+MIT License
+
+Copyright (c) 2026 Joachim Wolff
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+```
