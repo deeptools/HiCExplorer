@@ -1,8 +1,7 @@
 # Spectra, the header-only Krylov eigensolver behind hicPCA --eigenSolver
-# lanczos (cpp/PLAN.md tier 11). MPL-2.0. The conda package spectra-cpp 1.2.0
-# ships the headers of the release v1.2.0 (commit 6841bcb), byte for byte the
-# ones HiCExplorer was verified with. Its own CMake package is not used: only
-# the headers are.
+# lanczos. MPL-2.0. The headers of release v1.2.0 (commit 6841bcb) are shipped
+# unchanged in third_party/spectra, because conda-forge has no spectra-cpp
+# package for linux-aarch64.
 #
 # Spectra is written on Eigen. The dependency prefix ships Eigen 3.4.0 under
 # include/eigen3, which is what this module points at.
@@ -14,10 +13,10 @@ include_guard(GLOBAL)
 
 find_path(HICX_SPECTRA_INCLUDE_DIR
     NAMES Spectra/Util/Version.h
-    HINTS "${HICX_DEPS_ROOT}/include"
+    HINTS "${CMAKE_CURRENT_LIST_DIR}/../third_party/spectra/include"
     NO_DEFAULT_PATH)
 if(NOT HICX_SPECTRA_INCLUDE_DIR)
-    message(FATAL_ERROR "Spectra not found under ${HICX_DEPS_ROOT}/include (conda package spectra-cpp 1.2.0)")
+    message(FATAL_ERROR "Spectra headers missing from cpp/third_party/spectra/include")
 endif()
 file(STRINGS "${HICX_SPECTRA_INCLUDE_DIR}/Spectra/Util/Version.h" _hicx_spectra_version
      REGEX "^#define SPECTRA_(MAJOR|MINOR|PATCH)_VERSION [0-9]+$")

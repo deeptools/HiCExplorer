@@ -37,7 +37,7 @@ jobs:
           channels: conda-forge,bioconda
 
       - name: Install native dependencies
-        run: mamba install --yes -n hicx cmake ninja compilers hdf5 blosc zlib htslib libopenblas liblapack graphviz python=3.12 pybind11=2.13.6 libboost-headers=1.85 libbigwig=0.4.8 spectra-cpp=1.2.0 eigen=3.4 doctest=2.4.11
+        run: mamba install --yes -n hicx cmake ninja compilers hdf5 blosc zlib htslib libopenblas liblapack graphviz python=3.12 pybind11=2.13.6 libboost-headers=1.85 libbigwig=0.4.8 eigen=3.4 doctest=2.4.11
 
       - name: Configure
         run: |
