@@ -1,18 +1,18 @@
-# Unit tests. doctest is header only; its own CMake project still declares a
-# pre 3.5 minimum, which CMake 4 rejects, so only the sources are fetched and
-# the header is exposed through an interface target.
+# Unit tests. doctest is header only; the conda package doctest 2.4.11 (the
+# release the tests were written against) provides doctest/doctest.h, and only
+# the header is used through an interface target.
 
-include(FetchContent)
-
-FetchContent_Declare(doctest
-    GIT_REPOSITORY https://github.com/doctest/doctest.git
-    GIT_TAG v2.4.11
-    GIT_SHALLOW TRUE
-    SOURCE_SUBDIR does-not-exist)
-FetchContent_MakeAvailable(doctest)
+find_path(HICX_DOCTEST_INCLUDE_DIR
+    NAMES doctest/doctest.h
+    HINTS "${HICX_DEPS_ROOT}/include"
+    NO_DEFAULT_PATH)
+if(NOT HICX_DOCTEST_INCLUDE_DIR)
+    message(FATAL_ERROR "doctest not found under ${HICX_DEPS_ROOT}/include (conda package doctest 2.4.11); "
+                        "configure with -DHICX_BUILD_TESTS=OFF to build without the tests")
+endif()
 
 add_library(doctest_header INTERFACE)
-target_include_directories(doctest_header SYSTEM INTERFACE "${doctest_SOURCE_DIR}")
+target_include_directories(doctest_header SYSTEM INTERFACE "${HICX_DOCTEST_INCLUDE_DIR}")
 
 add_executable(hicx_tests
     test_main.cpp

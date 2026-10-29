@@ -126,33 +126,25 @@ target_link_libraries(hicx_hts INTERFACE "${HICX_HTS_LIBRARY}")
 add_library(hicx::hts ALIAS hicx_hts)
 
 # libBigWig, the C library pyBigWig wraps. hicPCA reads a histone mark track
-# and writes its eigenvectors in bigWig, and cpp/PLAN.md 3.5 decides to vendor
-# the library rather than reimplement the zoom levels and the R-tree index.
-#
-# Its own CMakeLists declares cmake_minimum_required(VERSION 3.8), which CMake 4
-# rejects, so only the sources are fetched (SOURCE_SUBDIR does-not-exist, the
-# same trick tests/CMakeLists.txt uses for doctest) and the five translation
-# units are compiled here. NOCURL removes the libcurl dependency; the tools
-# only ever open local files.
-include(FetchContent)
-FetchContent_Declare(libbigwig
-    GIT_REPOSITORY https://github.com/dpryan79/libBigWig.git
-    GIT_TAG 43c294ef1721a73b760803ca5e9410d581b98f17
-    GIT_SHALLOW FALSE
-    SOURCE_SUBDIR does-not-exist)
-FetchContent_MakeAvailable(libbigwig)
-
-add_library(hicx_bigwig STATIC
-    "${libbigwig_SOURCE_DIR}/bwRead.c"
-    "${libbigwig_SOURCE_DIR}/bwStats.c"
-    "${libbigwig_SOURCE_DIR}/bwValues.c"
-    "${libbigwig_SOURCE_DIR}/bwWrite.c"
-    "${libbigwig_SOURCE_DIR}/io.c")
-target_include_directories(hicx_bigwig SYSTEM PUBLIC "${libbigwig_SOURCE_DIR}"
-                                                     "${HICX_ZLIB_INCLUDE_DIR}")
-target_compile_definitions(hicx_bigwig PUBLIC NOCURL)
-target_link_libraries(hicx_bigwig PUBLIC "${HICX_ZLIB_LIBRARY}" m)
-set_target_properties(hicx_bigwig PROPERTIES POSITION_INDEPENDENT_CODE ON C_STANDARD 11)
+# and writes its eigenvectors in bigWig, and the Python API's plotBigwig reads
+# one. The conda (bioconda) package libbigwig 0.4.8 is used: it is the release
+# whose tag is the commit (43c294e) HiCExplorer was verified with, and its
+# headers are identical. It is linked as a shared library; the libcurl it
+# depends on is only used for remote files, which the tools never open.
+find_path(HICX_BIGWIG_INCLUDE_DIR
+    NAMES bigWig.h
+    HINTS "${HICX_DEPS_ROOT}/include"
+    NO_DEFAULT_PATH)
+find_library(HICX_BIGWIG_LIBRARY
+    NAMES BigWig
+    HINTS "${HICX_DEPS_ROOT}/lib"
+    NO_DEFAULT_PATH)
+if(NOT HICX_BIGWIG_INCLUDE_DIR OR NOT HICX_BIGWIG_LIBRARY)
+    message(FATAL_ERROR "libBigWig not found under ${HICX_DEPS_ROOT} (bioconda package libbigwig 0.4.8)")
+endif()
+add_library(hicx_bigwig INTERFACE)
+target_include_directories(hicx_bigwig SYSTEM INTERFACE "${HICX_BIGWIG_INCLUDE_DIR}")
+target_link_libraries(hicx_bigwig INTERFACE "${HICX_BIGWIG_LIBRARY}")
 add_library(hicx::bigwig ALIAS hicx_bigwig)
 
 # The conda prefix is not on the loader path, so bake it into the binaries.

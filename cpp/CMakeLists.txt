@@ -3,8 +3,7 @@ cmake_minimum_required(VERSION 3.24)
 project(hicexplorer4
         VERSION 4.0.0
         DESCRIPTION "HiCExplorer version 4, C++ implementation"
-        # C is needed for the vendored libBigWig sources (cmake/HicxDependencies.cmake).
-        LANGUAGES CXX C)
+        LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -36,9 +35,9 @@ endif()
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 include(HicxDependencies)
-include(HicxCoolercpp)
-include(HicxHicfilecpp)
-include(HicxHic2cool)
+# coolercpp, hicfilecpp and hic2cool (the cool to .hic and .hic to cool
+# conversion behind hicConvertFormat) are part of libhicx4core, see core/io and
+# THIRD_PARTY_NOTICES.md. Nothing is fetched at configure time.
 
 add_library(hicx_compile_options INTERFACE)
 target_compile_options(hicx_compile_options INTERFACE

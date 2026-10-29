@@ -69,23 +69,17 @@ It provides: HDF5 (C and C++ API), zlib, bzip2, htslib, Eigen 3, BLAS/LAPACK.
 Configure with `-DCMAKE_PREFIX_PATH=$HICX_DEPS` and make sure the produced
 binaries find the runtime libs (RPATH to `$HICX_DEPS/lib`).
 
-Two own libraries are C++ dependencies, each pinned to a commit in
-`cpp/cmake/HicxCoolercpp.cmake` and `cpp/cmake/HicxHicfilecpp.cmake`:
-- coolercpp, found through `find_package`, or fetched with
-  `-DHICX_COOLERCPP_GIT_REPOSITORY=$HOME/src/coolercpp`;
-- hicfilecpp, found the same way, or fetched with
-  `-DHICX_HICFILECPP_GIT_REPOSITORY=$HOME/src/hicfilecpp`.
-
-`-DHICX_COOLERCPP_FORCE_FETCH=ON` and `-DHICX_HICFILECPP_FORCE_FETCH=ON` skip an
-installed package. Moving a pin is a reviewed commit.
+coolercpp, hicfilecpp and hic2cool are part of the tree (`cpp/core/io`, origin
+and licences in `cpp/THIRD_PARTY_NOTICES.md`); there is nothing to fetch for
+them. The other native dependencies and their versions are listed in
+`cpp/BUILDING.md`; the conda prefix used for building is `hicx-build`.
 
 The `.hic` oracles are kept out of the reference venv:
 - hicstraw 1.3.1 and hictkpy live in `$SP/hicfile-oracle-venv`;
 - Juicer tools 1.22.01 and 2.20.00 jars live in `$SP/juicer/` and run on
   `~/miniconda3/bin/java` (OpenJDK 11).
 
-Toolchain: g++ 13.3 (C++20 available), cmake 4.4, 32 cores. Network reaches
-GitHub and PyPI through the corporate proxy, so CMake `FetchContent` works.
+Toolchain: g++ 13.3 (C++20 available), cmake 4.4, 32 cores. Configure and build need no network access (`cpp/BUILDING.md`).
 
 ## 3. Directory layout (fixed - do not invent alternatives)
 
