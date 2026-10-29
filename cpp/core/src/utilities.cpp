@@ -157,11 +157,35 @@ double python_float_mod(double a, double b) noexcept {
     return mod;
 }
 
+// Python compares int and float exactly. The integer is not converted to
+// long double (that type is a plain double on arm64 and on MSVC); the float is
+// rounded to an integer on the side that keeps the comparison exact instead.
 bool python_greater(std::int64_t a, double b) noexcept {
     if (std::isnan(b)) {
         return false;
     }
-    return static_cast<long double>(a) > static_cast<long double>(b);
+    if (b >= 9223372036854775808.0) {
+        return false;
+    }
+    if (b < -9223372036854775808.0) {
+        return true;
+    }
+    // a > b  <=>  a > floor(b) for an integer a
+    return a > static_cast<std::int64_t>(std::floor(b));
+}
+
+// a < b  <=>  a < ceil(b) for an integer a
+bool python_less(std::int64_t a, double b) noexcept {
+    if (std::isnan(b)) {
+        return false;
+    }
+    if (b >= 9223372036854775808.0) {
+        return true;
+    }
+    if (b < -9223372036854775808.0) {
+        return false;
+    }
+    return a < static_cast<std::int64_t>(std::ceil(b));
 }
 
 std::string index_out_of_bounds_message(std::int64_t index, std::int64_t size) {
@@ -382,7 +406,7 @@ void user_region_finish(UserRegion& region, std::optional<std::int64_t> tile_siz
     if (limit.is_float) {
         if (python_greater(chunk, limit.floating)) {
             double chunk_float = limit.floating;
-            if (tile != 0 && static_cast<long double>(tile) < static_cast<long double>(chunk_float)) {
+            if (tile != 0 && python_less(tile, chunk_float)) {
                 chunk_float -= python_float_mod(chunk_float, static_cast<double>(tile));
             }
             if (std::isnan(chunk_float)) {
