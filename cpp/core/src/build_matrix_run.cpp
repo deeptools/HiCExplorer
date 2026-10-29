@@ -368,7 +368,8 @@ void PixelAccumulator::merge(const std::vector<std::uint64_t>& keys, const std::
     counts_.swap(out_counts);
 }
 
-std::map<std::string, std::string> matrix_metadata(const std::string& qc_log, const std::string& genome_assembly) {
+std::map<std::string, std::string> matrix_metadata(const std::string& qc_log, const std::string& genome_assembly,
+                                                   const std::string& qc_json) {
     // Q9 buildMatrixMethods.py:1371-1376. The three provenance strings are
     // wrapped in np.string_, that is numpy bytes, and hicmatrix's cool
     // writer stores str(value) of them (hicmatrix/lib/cool.py:394, 398,
@@ -383,8 +384,27 @@ std::map<std::string, std::string> matrix_metadata(const std::string& qc_log, co
     if (!genome_assembly.empty()) {
         metadata["genome-assembly"] = as_python_bytes_repr(genome_assembly);
     }
+    if (!qc_json.empty()) {
+        // Raw JSON, stored as a nested object under "hicexplorer_qc" in the
+        // cool metadata (save_matrix hands it to CoolSaveOptions::metadata_json).
+        metadata["hicexplorer_qc"] = qc_json;
+    }
     return metadata;
 }
+
+namespace {
+// The QC statistics travel in the metadata map under "hicexplorer_qc"; the
+// cool writer takes them as a nested JSON object of its own field, so that
+// they are written for every resolution of an mcool (the provenance keys are
+// erased from the shared map after the first resolution, this one is not).
+void take_qc_json(CoolSaveOptions& options) {
+    const auto found = options.hic_metadata.find("hicexplorer_qc");
+    if (found != options.hic_metadata.end()) {
+        options.metadata_json.emplace_back("hicexplorer_qc", found->second);
+        options.hic_metadata.erase(found);
+    }
+}
+}  // namespace
 
 void save_matrix(const std::string& out_file_name, const std::vector<std::int64_t>& bin_size,
                  MatrixData& data, const std::map<std::string, std::string>& metadata) {
@@ -398,6 +418,7 @@ void save_matrix(const std::string& out_file_name, const std::vector<std::int64_
         options.apply_correction = false;
         options.hic_metadata = metadata;
         options.has_hic_metadata = true;
+        take_qc_json(options);
         write_cool(out_file_name + "::/resolutions/" + std::to_string(bin_size[0]), data, options);
         // Q10 hicmatrix/lib/cool.py:394-402. create_cooler_input deletes
         // 'matrix-generated-by', 'matrix-generated-by-url' and
@@ -423,6 +444,7 @@ void save_matrix(const std::string& out_file_name, const std::vector<std::int64_
         options.apply_correction = false;
         options.hic_metadata = metadata;
         options.has_hic_metadata = true;
+        take_qc_json(options);
         write_cool(out_file_name, data, options);
     }
     // A name ending in neither is written nowhere at all, silently, which
@@ -903,6 +925,11 @@ void run(const Arguments& args, const Hooks& hooks) {
     qc_inputs.max_library_insert_size = max_library_insert_size;
     qc_inputs.keep_self_ligation = args.keep_self_ligation;
     std::string qc_log;
+    std::string qc_json;
+    for (const auto& entry : chrom_sizes) {
+        qc_inputs.max_chromosome_length =
+            std::max<std::int64_t>(qc_inputs.max_chromosome_length, static_cast<std::int64_t>(entry.second));
+    }
     if (api) {
         qc_inputs.has_restriction_cut_file = args.restriction_cut_file_given;
         QcCounters merged = total;
@@ -925,6 +952,7 @@ void run(const Arguments& args, const Hooks& hooks) {
             }
         }
         qc_log = format_qc_log(qc_inputs, merged);
+        qc_json = format_qc_metadata_json(qc_inputs, merged, "hicBuildMatrix");
     } else {
         qc_inputs.has_restriction_cut_file = !args.restriction_cut_files.empty();
         for (std::size_t i = 0; i < context.options.restriction_sequences.size(); ++i) {
@@ -932,6 +960,7 @@ void run(const Arguments& args, const Hooks& hooks) {
                                                       context.pat_forw[i]);
         }
         qc_log = format_qc_log(qc_inputs, total);
+        qc_json = format_qc_metadata_json(qc_inputs, total, args.tool_name.empty() ? "hicBuildMatrix" : args.tool_name);
     }
     const std::string qc_log_file =
         api ? build_matrix_api::join(args.qc_folder, "QC.log") : args.qc_folder + "/QC.log";
@@ -992,7 +1021,7 @@ void run(const Arguments& args, const Hooks& hooks) {
                 sink(keys[k], static_cast<std::uint64_t>(counts[k]));
             }
         },
-        qc_log, args.genome_assembly);
+        qc_log, args.genome_assembly, qc_json);
 }
 
 }  // namespace hicx::build_matrix

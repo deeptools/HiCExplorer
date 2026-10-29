@@ -518,17 +518,23 @@ void bin_pairs(const PairsBinIndex& index, const std::vector<ParsedPair>& parsed
             const bool one_first = pair.pos1 < pair.pos2;
             const std::int8_t first_strand = one_first ? pair.strand1 : pair.strand2;
             const std::int8_t second_strand = one_first ? pair.strand2 : pair.strand1;
+            int orientation = -1;
             if (first_strand != 0 && second_strand != 0) {
                 if (first_strand > 0 && second_strand < 0) {
                     ++out.counters.count_inward;
+                    orientation = 0;
                 } else if (first_strand < 0 && second_strand > 0) {
                     ++out.counters.count_outward;
+                    orientation = 1;
                 } else if (first_strand < 0) {
                     ++out.counters.count_left;
+                    orientation = 2;
                 } else {
                     ++out.counters.count_right;
+                    orientation = 3;
                 }
             }
+            out.counters.record_intra(pair.pos2 - pair.pos1, orientation);
         }
         if (!quick_qc) {
             const std::uint32_t low = std::min(*bin1, *bin2);
@@ -756,7 +762,12 @@ int run_build_matrix_pairs(const Arguments& args) {
         qc_inputs.max_library_insert_size = max_library_insert_size;
         qc_inputs.keep_self_ligation = false;
         qc_inputs.has_restriction_cut_file = false;
+        for (const auto& entry : chrom_sizes) {
+            qc_inputs.max_chromosome_length = std::max<std::int64_t>(
+                qc_inputs.max_chromosome_length, static_cast<std::int64_t>(entry.second));
+        }
         const std::string qc_log = hicx::format_qc_log(qc_inputs, total);
+        const std::string qc_json = hicx::format_qc_metadata_json(qc_inputs, total, g_tool);
         {
             std::ofstream log_file(args.qc_folder + "/QC.log", std::ios::binary);
             if (!log_file) {
@@ -780,7 +791,7 @@ int run_build_matrix_pairs(const Arguments& args) {
             args.genome_assembly.empty() ? header.genome_assembly : args.genome_assembly;
         write_matrix_outputs(
             args, bin_intervals, bin_max, names, pixel_count,
-            [&pixel_runs](auto&& sink) { pixel_runs.drain(sink); }, qc_log, genome_assembly);
+            [&pixel_runs](auto&& sink) { pixel_runs.drain(sink); }, qc_log, genome_assembly, qc_json);
     } catch (const std::exception& error) {
         std::fprintf(stderr, "%s: %s\n", g_tool, error.what());
         return 1;

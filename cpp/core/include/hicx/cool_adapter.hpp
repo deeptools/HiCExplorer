@@ -233,6 +233,11 @@ struct CoolSaveOptions {
     // are read out of it.
     std::map<std::string, std::string> hic_metadata;
     bool has_hic_metadata = false;
+    // Further keys of the cool `metadata` JSON object, after the ones above:
+    // (key, JSON text), the text stored as a nested value (the QC statistics
+    // of hicBuildMatrix under "hicexplorer_qc"). A text that is not valid
+    // JSON is stored as a string.
+    std::vector<std::pair<std::string, std::string>> metadata_json;
     // The provenance strings, passed to coolercpp and written onto the root.
     // cpp/PLAN.md 5.0.1 decides when they change; until then the port emits
     // the hicmatrix identity verbatim.

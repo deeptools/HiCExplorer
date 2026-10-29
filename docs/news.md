@@ -18,6 +18,9 @@ New tools:
 - `hicDifferentialAnalysis` tests TADs, loops and A/B compartments for differences between conditions with
   replicates, using a negative binomial model.
 - `hicDetectStripes` detects stripes in a Hi-C matrix.
+- `hicMatrixQC` writes a quality-control report for finished cool and mcool matrices. `hicBuildMatrix` and
+  `hicBuildMatrixMicroC` now store their QC statistics in the cool metadata (key `hicexplorer_qc`), which the
+  report reads back.
 
 Removed:
 

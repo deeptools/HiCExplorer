@@ -75,6 +75,12 @@ def compare(path_a, path_b, cls, opts=None):
     # metadata attributes differ by design; the pixels, bins and chromosomes
     # are still compared.
     ignored = frozenset(opts.get("ignore_attributes", []))
+    # "ignore_metadata_keys": keys of the JSON object in the `metadata`
+    # attribute that are dropped from both sides before the comparison. Used
+    # for "hicexplorer_qc", the QC statistics hicBuildMatrix and
+    # hicBuildMatrixMicroC write into the metadata of their cool files in v4
+    # (3.7.6 writes none); every other key of the object still has to agree.
+    ignored_metadata = frozenset(opts.get("ignore_metadata_keys", []))
     with h5py.File(path_a, "r") as file_a, h5py.File(path_b, "r") as file_b:
         groups_a = _coolers(file_a)
         groups_b = _coolers(file_b)
@@ -86,7 +92,7 @@ def compare(path_a, path_b, cls, opts=None):
             # An mcool: the coolers live in groups and the file root carries
             # the provenance hicmatrix writes there for the first resolution
             # only (hicmatrix/lib/cool.py:422-426). Nothing else compares it.
-            diffs += _compare_attrs(file_a, file_b, "/", ignored, cls)
+            diffs += _compare_attrs(file_a, file_b, "/", ignored, cls, ignored_metadata)
             if sorted(file_a.keys()) != sorted(file_b.keys()):
                 diffs.append(f"root children {sorted(file_a.keys())} vs "
                              f"{sorted(file_b.keys())}")
@@ -95,7 +101,7 @@ def compare(path_a, path_b, cls, opts=None):
             group_b = file_b[group_path]
             if cls == "E1":
                 diffs += _compare_structure(group_a, group_b, group_path)
-            diffs += _compare_attrs(group_a, group_b, group_path, ignored, cls)
+            diffs += _compare_attrs(group_a, group_b, group_path, ignored, cls, ignored_metadata)
             pixel_diffs, pixel_metrics = _compare_pixels(group_a, group_b, cls,
                                                          group_path)
             diffs += pixel_diffs
@@ -186,7 +192,22 @@ def _attrs_agree(left, right, cls):
     return left == right
 
 
-def _compare_attrs(group_a, group_b, prefix, ignored=frozenset(), cls="E0"):
+def _without_metadata_keys(value, keys):
+    """The `metadata` attribute with `keys` removed from its JSON object."""
+    import json
+
+    text = value.decode() if isinstance(value, bytes) else value
+    try:
+        parsed = json.loads(text)
+    except (TypeError, ValueError):
+        return value
+    if not isinstance(parsed, dict):
+        return value
+    return {key: item for key, item in parsed.items() if key not in keys}
+
+
+def _compare_attrs(group_a, group_b, prefix, ignored=frozenset(), cls="E0",
+                   ignored_metadata=frozenset()):
     diffs = []
     keys_a = set(group_a.attrs) - NORMALISED_ATTRS - set(ignored)
     keys_b = set(group_b.attrs) - NORMALISED_ATTRS - set(ignored)
@@ -197,6 +218,9 @@ def _compare_attrs(group_a, group_b, prefix, ignored=frozenset(), cls="E0"):
     for key in sorted(keys_a & keys_b):
         left = group_a.attrs[key]
         right = group_b.attrs[key]
+        if key == "metadata" and ignored_metadata:
+            left = _without_metadata_keys(left, ignored_metadata)
+            right = _without_metadata_keys(right, ignored_metadata)
         if not _attrs_agree(left, right, cls):
             diffs.append(f"{prefix}: attribute {key}: {left!r} vs {right!r}")
     return diffs

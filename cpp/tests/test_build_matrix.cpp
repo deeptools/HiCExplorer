@@ -7,6 +7,7 @@
 #include <doctest/doctest.h>
 
 #include <cmath>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -282,4 +283,95 @@ TEST_CASE("the BAM reader reports pysam's fields on a real file") {
     // Fixed by the file, so a change in the reader shows up immediately.
     CHECK(records == 983);
     CHECK(mapped == 542);
+}
+
+// --- the QC statistics stored in the cool metadata ("hicexplorer_qc") --------
+
+#include "hicx/json_lite.hpp"
+
+TEST_CASE("the QC distance bins are log spaced, ten per decade") {
+    CHECK(hicx::qc_distance_edge(0) == 1);
+    CHECK(hicx::qc_distance_edge(10) == 10);
+    CHECK(hicx::qc_distance_edge(20) == 100);
+    CHECK(hicx::qc_distance_edge(30) == 1000);
+    CHECK(hicx::qc_distance_edge(100) == 10000000000LL);
+    // 10^(1/10) = 1.2589..., 10^(15/10) = 31.62...
+    CHECK(hicx::qc_distance_edge(11) == 13);
+    CHECK(hicx::qc_distance_edge(15) == 32);
+    CHECK(hicx::qc_distance_bin(0) == 0);
+    CHECK(hicx::qc_distance_bin(1) == 0);
+    CHECK(hicx::qc_distance_bin(9) == hicx::qc_distance_bin(8));
+    CHECK(hicx::qc_distance_bin(10) == 10);
+    CHECK(hicx::qc_distance_bin(12) == 10);
+    CHECK(hicx::qc_distance_bin(13) == 11);
+    CHECK(hicx::qc_distance_bin(999) == 29);
+    CHECK(hicx::qc_distance_bin(1000) == 30);
+    CHECK(hicx::qc_distance_bin(20000) == 43);  // 19953 <= 20000 < 25119
+    // every distance falls into the bin whose edges enclose it
+    for (std::int64_t d : {1LL, 2LL, 7LL, 100LL, 4999LL, 123456LL, 99999999LL}) {
+        const int bin = hicx::qc_distance_bin(d);
+        CHECK(hicx::qc_distance_edge(bin) <= d);
+        CHECK(d < hicx::qc_distance_edge(bin + 1));
+    }
+}
+
+TEST_CASE("recording intra-chromosomal contacts fills both distance tables") {
+    hicx::QcCounters a;
+    a.record_intra(1000, 0);
+    a.record_intra(-1000, 1);   // the sign of the distance does not matter
+    a.record_intra(5, -1);      // a pair of unknown type enters the first table only
+    hicx::QcCounters b;
+    b.record_intra(1000, 0);
+    a.add(b);
+    const auto bin = static_cast<std::size_t>(hicx::qc_distance_bin(1000));
+    CHECK(a.distance_contacts[bin] == 3);
+    CHECK(a.distance_contacts[static_cast<std::size_t>(hicx::qc_distance_bin(5))] == 1);
+    CHECK(a.orientation_distance[0][bin] == 2);
+    CHECK(a.orientation_distance[1][bin] == 1);
+    CHECK(a.orientation_distance[2].empty());
+}
+
+TEST_CASE("the QC metadata JSON carries the log counts and the distance tables") {
+    hicx::QcLogInputs inputs;
+    inputs.min_distance = 300;
+    inputs.max_library_insert_size = 1000;
+    inputs.dangling_sequences = {{"GATC", "GATC"}};
+    inputs.max_chromosome_length = 1000000;
+    hicx::QcCounters counters;
+    counters.iter_num = 100;
+    counters.one_mate_unmapped = 10;
+    counters.one_mate_not_unique = 5;
+    counters.one_mate_low_quality = 15;
+    counters.dangling_end = {4};
+    counters.pair_added = 3;
+    counters.inter_chromosomal = 1;
+    counters.short_range = 1;
+    counters.long_range = 1;
+    counters.count_inward = 1;
+    counters.count_outward = 1;
+    counters.record_intra(500, 0);
+    counters.record_intra(300000, 1);
+
+    const std::string text = hicx::format_qc_metadata_json(inputs, counters, "hicBuildMatrix");
+    const std::optional<hicx::json::Value> parsed = hicx::json::parse(text);
+    REQUIRE(parsed.has_value());
+    CHECK(parsed->find("schema_version")->as_int() == 1);
+    CHECK(parsed->find("tool")->as_string() == "hicBuildMatrix");
+    const hicx::json::Value& counts = *parsed->find("counts");
+    CHECK(counts.find("sequenced_reads")->as_int() == 100);
+    CHECK(counts.find("pairs_mappable_unique_high_quality")->as_int() == 70);
+    CHECK(counts.find("dangling_end")->as_array()[0].find("count")->as_int() == 4);
+    const hicx::json::Value& parameters = *parsed->find("parameters");
+    CHECK(parameters.find("min_rest_site_distance")->as_int() == 300);
+    CHECK(parameters.find("short_range_cutoff")->as_int() == 20000);
+    const hicx::json::Value& distance = *parsed->find("distance");
+    const auto bins = static_cast<std::size_t>(hicx::qc_distance_bin(1000000)) + 1;
+    CHECK(distance.find("lower_edges_bp")->as_array().size() == bins);
+    CHECK(distance.find("contacts")->as_array().size() == bins);
+    std::int64_t total = 0;
+    for (const auto& value : distance.find("contacts")->as_array()) {
+        total += value.as_int();
+    }
+    CHECK(total == 2);
+    CHECK(distance.find("orientation")->find("outward")->as_array().size() == bins);
 }

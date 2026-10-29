@@ -46,6 +46,9 @@ struct Arguments {
     std::vector<std::string> sam_files;
     std::string out_file_name;
     std::string qc_folder;
+    // The tool named in the QC metadata of the matrix file ("hicexplorer_qc");
+    // empty means hicBuildMatrix.
+    std::string tool_name;
     std::vector<std::string> restriction_cut_files;
     std::vector<std::string> restriction_sequences;
     std::vector<std::string> dangling_sequences;
@@ -329,6 +332,10 @@ void classify_pairs(const ClassifyOptions& options, std::size_t first, std::size
             } else {
                 ++counters.long_range;
             }
+            counters.record_intra(d, orientation == Orientation::Inward    ? 0
+                                     : orientation == Orientation::Outward ? 1
+                                     : orientation == Orientation::Left    ? 2
+                                                                           : 3);
         }
         switch (orientation) {
             case Orientation::Inward: ++counters.count_inward; break;
@@ -396,7 +403,8 @@ class PixelAccumulator {
 // The provenance metadata of the matrix file (Q9 and Q10 of
 // tools/hicBuildMatrix.cpp).
 [[nodiscard]] std::map<std::string, std::string> matrix_metadata(const std::string& qc_log,
-                                                                 const std::string& genome_assembly);
+                                                                 const std::string& genome_assembly,
+                                                                 const std::string& qc_json = {});
 
 // Writes `data` the way createMatrix saves it: an mcool with one group per
 // resolution for three or more bin sizes (Q7, Q10), else h5 or cool by the
@@ -416,7 +424,8 @@ template <class ForEachPixel>
 void write_matrix_outputs(const Arguments& args, const std::vector<GenomeInterval>& bin_intervals,
                           const std::vector<double>& bin_max, const ChromNames& names,
                           std::size_t pixel_count, ForEachPixel&& for_each_pixel,
-                          const std::string& qc_log, const std::string& genome_assembly) {
+                          const std::string& qc_log, const std::string& genome_assembly,
+                          const std::string& qc_json = {}) {
     const std::int64_t matrix_size = static_cast<std::int64_t>(bin_intervals.size());
     MatrixData data;
     data.cut_intervals.reserve(bin_intervals.size());
@@ -454,7 +463,7 @@ void write_matrix_outputs(const Arguments& args, const std::vector<GenomeInterva
         data.matrix.set_symmetry(Symmetry::UpperTriangle);
     }
 
-    save_matrix(args.out_file_name, args.bin_size, data, matrix_metadata(qc_log, genome_assembly));
+    save_matrix(args.out_file_name, args.bin_size, data, matrix_metadata(qc_log, genome_assembly, qc_json));
 }
 
 }  // namespace hicx::build_matrix

@@ -9,6 +9,7 @@
 #include "hicx/qc_html.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cctype>
 #include <charconv>
 #include <cstdlib>
@@ -493,7 +494,71 @@ std::string reverse_complement(const std::string& sequence) {
     return out;
 }
 
+std::int64_t qc_distance_edge(int i) {
+    static const std::array<std::int64_t, kQcDistanceBins + 1> edges = [] {
+        std::array<std::int64_t, kQcDistanceBins + 1> table{};
+        std::int64_t decade = 1;
+        for (int k = 0; k <= kQcDistanceBins; ++k) {
+            if (k % kQcDistanceBinsPerDecade == 0) {
+                table[static_cast<std::size_t>(k)] = decade;
+                if (k < kQcDistanceBins) {
+                    decade *= 10;
+                }
+            } else {
+                table[static_cast<std::size_t>(k)] = static_cast<std::int64_t>(
+                    std::ceil(std::pow(10.0, static_cast<double>(k) / kQcDistanceBinsPerDecade)));
+            }
+        }
+        return table;
+    }();
+    return edges[static_cast<std::size_t>(std::clamp(i, 0, kQcDistanceBins))];
+}
+
+int qc_distance_bin(std::int64_t distance) {
+    int low = 0;
+    int high = kQcDistanceBins - 1;
+    while (low < high) {
+        const int middle = (low + high + 1) / 2;
+        if (qc_distance_edge(middle) <= distance) {
+            low = middle;
+        } else {
+            high = middle - 1;
+        }
+    }
+    return low;
+}
+
+void QcCounters::record_intra(std::int64_t distance, int orientation) {
+    if (distance_contacts.empty()) {
+        distance_contacts.assign(kQcDistanceBins, 0);
+    }
+    const auto bin = static_cast<std::size_t>(qc_distance_bin(distance < 0 ? -distance : distance));
+    ++distance_contacts[bin];
+    if (orientation >= 0 && orientation < 4) {
+        auto& histogram = orientation_distance[static_cast<std::size_t>(orientation)];
+        if (histogram.empty()) {
+            histogram.assign(kQcDistanceBins, 0);
+        }
+        ++histogram[bin];
+    }
+}
+
 void QcCounters::add(const QcCounters& other) {
+    const auto merge = [](std::vector<std::int64_t>& into, const std::vector<std::int64_t>& from) {
+        if (from.empty()) {
+            return;
+        }
+        if (into.empty()) {
+            into.assign(from.size(), 0);
+        }
+        for (std::size_t i = 0; i < from.size(); ++i) {
+            into[i] += from[i];
+        }
+    };
+    merge(distance_contacts, other.distance_contacts);
+    for (std::size_t o = 0; o < 4; ++o) {
+        merge(orientation_distance[o], other.orientation_distance[o]);
+    }
     one_mate_unmapped += other.one_mate_unmapped;
     one_mate_low_quality += other.one_mate_low_quality;
     one_mate_not_unique += other.one_mate_not_unique;
@@ -632,6 +697,121 @@ std::string format_qc_log(const QcLogInputs& inputs, const QcCounters& counters)
              format_two_decimals(100 * static_cast<double>(counters.count_right) / added) +
              ")\n");
     }
+    return out;
+}
+
+namespace {
+
+std::string json_quote(const std::string& text) {
+    std::string out = "\"";
+    for (const char c : text) {
+        switch (c) {
+            case '"': out += "\\\""; break;
+            case '\\': out += "\\\\"; break;
+            case '\n': out += "\\n"; break;
+            case '\t': out += "\\t"; break;
+            default:
+                if (static_cast<unsigned char>(c) < 0x20) {
+                    char buffer[8];
+                    std::snprintf(buffer, sizeof(buffer), "\\u%04x", static_cast<unsigned>(c));
+                    out += buffer;
+                } else {
+                    out += c;
+                }
+        }
+    }
+    return out + "\"";
+}
+
+std::string json_int_array(const std::vector<std::int64_t>& values, std::size_t count) {
+    std::string out = "[";
+    for (std::size_t i = 0; i < count; ++i) {
+        if (i != 0) {
+            out += ", ";
+        }
+        out += std::to_string(i < values.size() ? values[i] : 0);
+    }
+    return out + "]";
+}
+
+}  // namespace
+
+std::string format_qc_metadata_json(const QcLogInputs& inputs, const QcCounters& counters,
+                                    const std::string& tool) {
+    const std::int64_t mappable =
+        counters.iter_num - (counters.one_mate_unmapped + counters.one_mate_low_quality +
+                             counters.one_mate_not_unique);
+    std::size_t bins = 1;
+    if (inputs.max_chromosome_length > 0) {
+        bins = static_cast<std::size_t>(qc_distance_bin(inputs.max_chromosome_length)) + 1;
+    } else {
+        const auto last_used = [](const std::vector<std::int64_t>& values) {
+            for (std::size_t i = values.size(); i > 0; --i) {
+                if (values[i - 1] != 0) {
+                    return i;
+                }
+            }
+            return std::size_t{0};
+        };
+        bins = std::max<std::size_t>(1, last_used(counters.distance_contacts));
+    }
+    bins = std::min<std::size_t>(bins, kQcDistanceBins);
+
+    std::string out = "{\"schema_version\": 1, \"tool\": " + json_quote(tool) +
+                      ", \"tool_version\": " + json_quote(kVersion) + ", \"parameters\": {";
+    out += "\"min_rest_site_distance\": " +
+           (inputs.min_distance != 0 ? std::to_string(inputs.min_distance) : std::string("null"));
+    out += ", \"max_library_insert_size\": " + std::to_string(inputs.max_library_insert_size);
+    out += ", \"restriction_sequences\": [";
+    for (std::size_t i = 0; i < inputs.dangling_sequences.size(); ++i) {
+        out += (i == 0 ? "" : ", ") + json_quote(inputs.dangling_sequences[i].first);
+    }
+    out += "], \"dangling_sequences\": [";
+    for (std::size_t i = 0; i < inputs.dangling_sequences.size(); ++i) {
+        out += (i == 0 ? "" : ", ") + json_quote(inputs.dangling_sequences[i].second);
+    }
+    out += "], \"short_range_cutoff\": 20000";
+    out += std::string(", \"keep_self_ligation\": ") + (inputs.keep_self_ligation ? "true" : "false");
+    out += std::string(", \"restriction_cut_file\": ") +
+           (inputs.has_restriction_cut_file ? "true" : "false");
+    out += "}, \"counts\": {";
+    out += "\"sequenced_reads\": " + std::to_string(counters.iter_num);
+    out += ", \"pairs_mappable_unique_high_quality\": " + std::to_string(mappable);
+    out += ", \"hic_contacts\": " + std::to_string(counters.pair_added);
+    out += ", \"one_mate_unmapped\": " + std::to_string(counters.one_mate_unmapped);
+    out += ", \"one_mate_not_unique\": " + std::to_string(counters.one_mate_not_unique);
+    out += ", \"low_mapping_quality\": " + std::to_string(counters.one_mate_low_quality);
+    out += ", \"dangling_end\": [";
+    for (std::size_t i = 0; i < inputs.dangling_sequences.size(); ++i) {
+        const std::int64_t value = i < counters.dangling_end.size() ? counters.dangling_end[i] : 0;
+        out += std::string(i == 0 ? "" : ", ") + "{\"restriction_sequence\": " +
+               json_quote(inputs.dangling_sequences[i].first) + ", \"dangling_sequence\": " +
+               json_quote(inputs.dangling_sequences[i].second) + ", \"count\": " +
+               std::to_string(value) + "}";
+    }
+    out += "], \"self_ligation\": " + std::to_string(counters.self_ligation);
+    out += ", \"one_mate_not_close_to_rest_site\": " + std::to_string(counters.mate_not_close_to_rf);
+    out += ", \"same_fragment\": " + std::to_string(counters.same_fragment);
+    out += ", \"self_circle\": " + std::to_string(counters.self_circle);
+    out += ", \"duplicated_pairs\": " + std::to_string(counters.duplicated_pairs);
+    out += ", \"inter_chromosomal\": " + std::to_string(counters.inter_chromosomal);
+    out += ", \"intra_short_range\": " + std::to_string(counters.short_range);
+    out += ", \"intra_long_range\": " + std::to_string(counters.long_range);
+    out += ", \"inward_pairs\": " + std::to_string(counters.count_inward);
+    out += ", \"outward_pairs\": " + std::to_string(counters.count_outward);
+    out += ", \"left_pairs\": " + std::to_string(counters.count_left);
+    out += ", \"right_pairs\": " + std::to_string(counters.count_right);
+    out += "}, \"distance\": {\"bins_per_decade\": " + std::to_string(kQcDistanceBinsPerDecade);
+    out += ", \"lower_edges_bp\": [";
+    for (std::size_t i = 0; i < bins; ++i) {
+        out += (i == 0 ? "" : ", ") + std::to_string(qc_distance_edge(static_cast<int>(i)));
+    }
+    out += "], \"contacts\": " + json_int_array(counters.distance_contacts, bins);
+    out += ", \"orientation\": {\"inward\": " + json_int_array(counters.orientation_distance[0], bins);
+    out += ", \"outward\": " + json_int_array(counters.orientation_distance[1], bins);
+    out += ", \"left\": " + json_int_array(counters.orientation_distance[2], bins);
+    out += ", \"right\": " + json_int_array(counters.orientation_distance[3], bins);
+    out += "}}}";
     return out;
 }
 

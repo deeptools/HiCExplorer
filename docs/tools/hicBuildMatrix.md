@@ -93,3 +93,12 @@ single-cell Hi-C data, where it is not guaranteed that reads from all areas of t
 
 Restriction enzymes cut the DNA at their specific restriction cut site sequences. It can occur for scaffolds or contigs (less likely it happens for chromosomes) that it does not contain any of these cut sites.
 In this case, the reads from this scaffold or contig are considered as invalid and are part of the 'same restriction fragment'-statistics in the QC report.
+
+### QC statistics in the cool metadata
+
+In version 4, `hicBuildMatrix` and `hicBuildMatrixMicroC` also write the statistics of `QC.log` into the
+`metadata` attribute of the cool file (for an mcool, into every resolution), under the key `hicexplorer_qc`.
+The key holds the counts of `QC.log`, the parameters of the run, the tool version, and two tables computed
+from the read pairs before binning: the intra-chromosomal contacts per distance on log-spaced bins (ten per
+decade), and the same table split by the four read pair types. Other metadata keys are unchanged, and h5
+files carry no metadata. [hicMatrixQC](hicMatrixQC.md) reads the key back.

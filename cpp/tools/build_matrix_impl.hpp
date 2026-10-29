@@ -79,7 +79,9 @@ using hicx::build_matrix::write_matrix_outputs;
 
 // createMatrix with the tools' error reporting: exit status 1 and the
 // message on stderr.
-int run_build_matrix(const Arguments& args) {
+int run_build_matrix(const Arguments& given) {
+    Arguments args = given;
+    args.tool_name = g_tool;
     try {
         hicx::build_matrix::run(args);
     } catch (const hicx::build_matrix::Exit& exit) {

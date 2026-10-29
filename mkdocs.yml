@@ -60,6 +60,7 @@ nav:
           - hicQuickQC: tools/hicQuickQC.md
           - hicQC: tools/hicQC.md
           - hicPrepareQCreport: tools/hicPrepareQCreport.md
+          - hicMatrixQC: tools/hicMatrixQC.md
           - hicCorrelate: tools/hicCorrelate.md
           - hicPlotDistVsCounts: tools/hicPlotDistVsCounts.md
           - hicInfo: tools/hicInfo.md

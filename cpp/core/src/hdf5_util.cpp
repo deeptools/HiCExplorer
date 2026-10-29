@@ -261,7 +261,9 @@ std::map<std::string, AttributeValue> File::attributes(const std::string& object
                     result.emplace(name, buffer);
                 }
             }
-        } else if (cls == H5T_INTEGER) {
+        } else if (cls == H5T_INTEGER || cls == H5T_ENUM) {
+            // An enumeration is how h5py stores a numpy bool (the cooler
+            // attributes `converged`, `divisive_weights`, ...): 0 or 1.
             std::int64_t value = 0;
             if (H5Aread(attr, H5T_NATIVE_INT64, &value) >= 0) {
                 result.emplace(name, value);

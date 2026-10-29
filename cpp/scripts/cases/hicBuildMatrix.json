@@ -79,11 +79,12 @@
              "--QCfolder", "{out}/qc", "--threads", "4", "--genomeAssembly", "dm3",
              "--restrictionSequence", "GATC", "--danglingSequence", "GATC",
              "-rs", "{data}/DpnII.bed"],
-    "outputs": [{"path": "{out}/matrix.cool", "format": "cool", "class": "E1"}],
+    "outputs": [{"path": "{out}/matrix.cool", "format": "cool", "class": "E1",
+                 "options": {"ignore_metadata_keys": ["hicexplorer_qc"]}}],
     "threads_arg": "--threads",
     "memory": {"budget_mb": 321},
     "large": true,
-    "notes": "The cool writer with metadata. The three provenance strings are built with np.string_ and stored by hicmatrix as str(bytes), so the attribute really reads b'HiCExplorer-3.7.6' and the port writes that literally; see Q9 in hicBuildMatrix.cpp. 'statistics', the whole QC log, is put into the metadata dictionary and then dropped by hicmatrix, which never copies it into the info dictionary it writes."
+    "notes": "The cool writer with metadata. The three provenance strings are built with np.string_ and stored by hicmatrix as str(bytes), so the attribute really reads b'HiCExplorer-3.7.6' and the port writes that literally; see Q9 in hicBuildMatrix.cpp. 'statistics', the whole QC log, is put into the metadata dictionary and then dropped by hicmatrix, which never copies it into the info dictionary it writes. The v4 tools also write the QC statistics into the cool metadata under \"hicexplorer_qc\" (the metadata read by hicMatrixQC); 3.7.6 writes none, so this case drops exactly that one key of the metadata JSON (ignore_metadata_keys) and still compares every other key and attribute."
   },
   {
     "id": "hicBuildMatrix.mcool.threeResolutions",
@@ -94,11 +95,12 @@
              "--QCfolder", "{out}/qc", "--threads", "4",
              "--restrictionSequence", "GATC", "--danglingSequence", "GATC",
              "-rs", "{data}/DpnII.bed"],
-    "outputs": [{"path": "{out}/matrix.mcool", "format": "mcool", "class": "E1"}],
+    "outputs": [{"path": "{out}/matrix.mcool", "format": "mcool", "class": "E1",
+                 "options": {"ignore_metadata_keys": ["hicexplorer_qc"]}}],
     "threads_arg": "--threads",
     "memory": {"budget_mb": 321},
     "large": true,
-    "notes": "Three resolutions, so the mcool branch is taken and the two coarser ones come from hicMergeMatrixBins.merge_bins on the 5 kb matrix: 35,857, 34,331 and 31,230 pixels. Only /resolutions/5000 carries the provenance attributes, because hicmatrix's cool writer deletes them out of the metadata dictionary it is handed and the tool reuses the same dictionary for every resolution (Q10)."
+    "notes": "Three resolutions, so the mcool branch is taken and the two coarser ones come from hicMergeMatrixBins.merge_bins on the 5 kb matrix: 35,857, 34,331 and 31,230 pixels. Only /resolutions/5000 carries the provenance attributes, because hicmatrix's cool writer deletes them out of the metadata dictionary it is handed and the tool reuses the same dictionary for every resolution (Q10). The v4 tools also write the QC statistics into the cool metadata under \"hicexplorer_qc\" (the metadata read by hicMatrixQC); 3.7.6 writes none, so this case drops exactly that one key of the metadata JSON (ignore_metadata_keys) and still compares every other key and attribute."
   },
   {
     "id": "hicBuildMatrix.h5.chromosomeSizes",
@@ -312,10 +314,11 @@
     "args": ["--pairsFile", "{data}/hicBuildMatrix/pairs/small_test_valid_5kb.pairs.gz",
              "--outFileName", "{out}/matrix.cool", "-bs", "5000",
              "--QCfolder", "{out}/qc", "--threads", "4", "--skipDuplicationCheck"],
-    "outputs": [{"path": "{out}/matrix.cool", "format": "cool", "class": "E2"}],
+    "outputs": [{"path": "{out}/matrix.cool", "format": "cool", "class": "E2",
+                 "options": {"ignore_metadata_keys": ["hicexplorer_qc"]}}],
     "threads_arg": "--threads",
     "memory": {"budget_mb": 321},
-    "notes": "PLAN 9.2, class EX: E2 against the BAM route. The .pairs file holds exactly the 37,321 read pairs the Python hicBuildMatrix keeps from small_test_R1/R2_unsorted.bam at 5 kb with DpnII, written by cpp/scripts/make_bam_route_pairs.py --mode valid (sorted, upper triangle, bgzip, pair_type and mapq columns) at each read's middle plus one; 9 read ends sit one base to the left, because the Python's closed interval search put a middle that equals a shared bin end into the left bin. The reference, py_pairs_bam_route_reference.py, runs that BAM route from the arguments recorded in the file's header. --skipDuplicationCheck because the BAM route already removed duplicates by read start: two of the kept pairs share both read middles, and the pairs route's own check would remove them (pixels (2725, 2728) and (4347, 4379), measured); the reference does not pass the flag on. Pixels, bins, chromosomes and attributes are compared."
+    "notes": "PLAN 9.2, class EX: E2 against the BAM route. The .pairs file holds exactly the 37,321 read pairs the Python hicBuildMatrix keeps from small_test_R1/R2_unsorted.bam at 5 kb with DpnII, written by cpp/scripts/make_bam_route_pairs.py --mode valid (sorted, upper triangle, bgzip, pair_type and mapq columns) at each read's middle plus one; 9 read ends sit one base to the left, because the Python's closed interval search put a middle that equals a shared bin end into the left bin. The reference, py_pairs_bam_route_reference.py, runs that BAM route from the arguments recorded in the file's header. --skipDuplicationCheck because the BAM route already removed duplicates by read start: two of the kept pairs share both read middles, and the pairs route's own check would remove them (pixels (2725, 2728) and (4347, 4379), measured); the reference does not pass the flag on. Pixels, bins, chromosomes and attributes are compared. The v4 tools also write the QC statistics into the cool metadata under \"hicexplorer_qc\" (the metadata read by hicMatrixQC); 3.7.6 writes none, so this case drops exactly that one key of the metadata JSON (ignore_metadata_keys) and still compares every other key and attribute."
   },
   {
     "id": "hicBuildMatrix.pairs.h5.binSize5000.vs_bam_route",
@@ -339,10 +342,11 @@
     "args": ["--pairsFile", "{data}/hicBuildMatrix/pairs/small_test_valid_5kb.pairs.gz",
              "--outFileName", "{out}/matrix.mcool", "-bs", "5000", "10000", "20000",
              "--QCfolder", "{out}/qc", "--threads", "4", "--skipDuplicationCheck"],
-    "outputs": [{"path": "{out}/matrix.mcool", "format": "mcool", "class": "E2"}],
+    "outputs": [{"path": "{out}/matrix.mcool", "format": "mcool", "class": "E2",
+                 "options": {"ignore_metadata_keys": ["hicexplorer_qc"]}}],
     "threads_arg": "--threads",
     "memory": {"budget_mb": 321},
-    "notes": "The mcool branch of the .pairs route against the BAM route: three resolutions, the coarser two merged from 5 kb, with the provenance only on the first (Q7, Q10), on the file and with the reasoning of the cool case above."
+    "notes": "The mcool branch of the .pairs route against the BAM route: three resolutions, the coarser two merged from 5 kb, with the provenance only on the first (Q7, Q10), on the file and with the reasoning of the cool case above. The v4 tools also write the QC statistics into the cool metadata under \"hicexplorer_qc\" (the metadata read by hicMatrixQC); 3.7.6 writes none, so this case drops exactly that one key of the metadata JSON (ignore_metadata_keys) and still compares every other key and attribute."
   },
   {
     "id": "hicBuildMatrix.pairs.cool.restrictionFragments.vs_bam_route",
@@ -353,10 +357,11 @@
              "--outFileName", "{out}/matrix.cool", "-rs", "{data}/DpnII.bed",
              "--minDistance", "150", "--maxLibraryInsertSize", "1500",
              "--QCfolder", "{out}/qc", "--threads", "4", "--skipDuplicationCheck"],
-    "outputs": [{"path": "{out}/matrix.cool", "format": "cool", "class": "E2"}],
+    "outputs": [{"path": "{out}/matrix.cool", "format": "cool", "class": "E2",
+                 "options": {"ignore_metadata_keys": ["hicexplorer_qc"]}}],
     "threads_arg": "--threads",
     "memory": {"budget_mb": 321},
-    "notes": "Restriction fragment bins from a .pairs file against the BAM route: 266,464 bins from DpnII.bed with --minDistance 150 and --maxLibraryInsertSize 1500. The file holds the 36,627 pairs the BAM route keeps with those bins, in BAM order (#sorted: none), with only the seven reserved columns and no #columns line, so no mapping quality filter applies. 80 read ends sit one base to the left of their middle, where the closed search put a middle on the shared end of two touching fragment bins into the left one. --skipDuplicationCheck for the reason given in the fixed bin case."
+    "notes": "Restriction fragment bins from a .pairs file against the BAM route: 266,464 bins from DpnII.bed with --minDistance 150 and --maxLibraryInsertSize 1500. The file holds the 36,627 pairs the BAM route keeps with those bins, in BAM order (#sorted: none), with only the seven reserved columns and no #columns line, so no mapping quality filter applies. 80 read ends sit one base to the left of their middle, where the closed search put a middle on the shared end of two touching fragment bins into the left one. --skipDuplicationCheck for the reason given in the fixed bin case. The v4 tools also write the QC statistics into the cool metadata under \"hicexplorer_qc\" (the metadata read by hicMatrixQC); 3.7.6 writes none, so this case drops exactly that one key of the metadata JSON (ignore_metadata_keys) and still compares every other key and attribute."
   },
   {
     "id": "hicBuildMatrix.pairs.cool.binSize5000.vs_cooler",
