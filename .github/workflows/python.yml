@@ -43,7 +43,7 @@ jobs:
       - name: Install dependencies
         run: |
           mamba install --yes python=${{ matrix.python }} --file requirements.txt
-          mamba install --yes cmake ninja compilers hdf5 blosc zlib htslib libopenblas liblapack graphviz pybind11=2.13.6 libboost-headers=1.85 libbigwig=0.4.8 eigen=3.4 doctest=2.4.11
+          mamba install --yes cmake ninja compilers 'hdf5>=1.14.3,<1.15' 'blosc>=1.21.6,<1.22' zlib 'htslib>=1.21,<1.22' libopenblas liblapack graphviz pybind11=2.13.6 libboost-headers=1.85 libbigwig=0.4.8 eigen=3.4 doctest=2.4.11
           mamba install --yes pytest flake8 pytest-xdist pytest-forked configparser psutil pysam pybedtools pybigwig pytables cooler scikit-build-core pathspec
 
       - name: Build the C++ tools
