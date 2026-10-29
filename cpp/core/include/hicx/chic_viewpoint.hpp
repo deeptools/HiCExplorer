@@ -256,9 +256,9 @@ class BackgroundModel {
 // Viewpoint.pvalues(pBackgroundModel, pDataList, pIndexReferencePoint):
 // 1 - cnb.cdf(x, size, prob) = 1 - betainc(size, x + 1, prob) per element, 1.0
 // for a zero, and NaN or infinity replaced by 1.0. betainc is
-// hicx::scipy::betainc, Boost's ibeta as scipy 1.14 evaluates it, not the
-// cephes translation in stats_ops: in the upper tail the two differ by the one
-// ulp that decides whether a stored p-value is 0.0.
+// hicx::stats::betainc, Boost's ibeta. In the upper tail it returns exactly
+// 1.0 where a result one ulp below 1 would turn into a stored p-value of
+// 1.1e-16 instead of 0.0.
 //
 // The distribution is looked up by `i - pIndexReferencePoint`, a distance in
 // bins, in a model keyed by genomic distance (chicViewpointBackgroundModel.py

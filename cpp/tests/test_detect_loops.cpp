@@ -64,46 +64,6 @@ const char* const kDataDir = HICX_TEST_DATA_DIR;
 
 }  // namespace
 
-TEST_CASE("betainc reproduces scipy.special.betainc") {
-    // scipy 1.x in the reference environment, twelve to seventeen digits.
-    CHECK(hicx::stats::betainc(0.5, 0.5, 0.29999999999999999) ==
-          doctest::Approx(0.36901011956554536).epsilon(1e-13));
-    CHECK(hicx::stats::betainc(1, 2, 0.25) ==
-          doctest::Approx(0.4375).epsilon(1e-13));
-    CHECK(hicx::stats::betainc(2.5, 3.5, 0.5) ==
-          doctest::Approx(0.66976527263135488).epsilon(1e-13));
-    CHECK(hicx::stats::betainc(10, 1, 0.90000000000000002) ==
-          doctest::Approx(0.34867844010000004).epsilon(1e-13));
-    CHECK(hicx::stats::betainc(0.10000000000000001, 0.20000000000000001,
-                               0.050000000000000003) ==
-          doctest::Approx(0.50953912153463998).epsilon(1e-13));
-    CHECK(hicx::stats::betainc(200, 3, 0.995) ==
-          doctest::Approx(0.91831194886973366).epsilon(1e-13));
-    CHECK(hicx::stats::betainc(0.001, 0.001, 0.5) ==
-          doctest::Approx(0.49999999999999994).epsilon(1e-13));
-    CHECK(hicx::stats::betainc(5, 5, 0.999) ==
-          doctest::Approx(0.99999999999987443).epsilon(1e-13));
-    // The parameters of a real degenerate fit from small_test_matrix.h5.
-    CHECK(hicx::stats::betainc(0.15883824665748106, 1, 0.00033612374545108738) ==
-          doctest::Approx(0.2807212068279708).epsilon(1e-13));
-    // The logarithmic branch, where the gamma functions would overflow.
-    CHECK(hicx::stats::betainc(100, 0.5, 0.20000000000000001) ==
-          doctest::Approx(7.9762895539848858e-72).epsilon(1e-12));
-    CHECK(hicx::stats::betainc(3, 700, 0.01) ==
-          doctest::Approx(0.97135907570396118).epsilon(1e-13));
-    CHECK(hicx::stats::betainc(700, 3, 0.98999999999999999) ==
-          doctest::Approx(0.028640924296038869).epsilon(1e-13));
-}
-
-TEST_CASE("betainc edge cases follow cephes") {
-    CHECK(hicx::stats::betainc(2.0, 3.0, 0.0) == 0.0);
-    CHECK(hicx::stats::betainc(2.0, 3.0, 1.0) == 1.0);
-    CHECK(std::isnan(hicx::stats::betainc(0.0, 3.0, 0.5)));
-    CHECK(std::isnan(hicx::stats::betainc(2.0, -1.0, 0.5)));
-    CHECK(std::isnan(hicx::stats::betainc(2.0, 3.0, 1.5)));
-    CHECK(std::isnan(hicx::stats::betainc(2.0, 3.0, -0.5)));
-}
-
 TEST_CASE("nbinom_sf reproduces 1 - hicexplorer.lib.cnb.cdf") {
     CHECK(hicx::stats::nbinom_sf(2, 10, 0.90000000000000002) ==
           doctest::Approx(0.11086997774499996).epsilon(1e-12));

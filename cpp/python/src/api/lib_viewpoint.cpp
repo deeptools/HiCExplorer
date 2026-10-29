@@ -9,7 +9,7 @@
 // What is C++ and what is the object protocol. The computations are C++: the
 // row sums and the collapsing of the reference point's bins
 // (hicx::chic::collapse_viewpoint), the smoothing, the relative values, the
-// negative binomial p-values (hicx::scipy::betainc, which is what
+// negative binomial p-values (hicx::stats::betainc, which is what
 // hicexplorer.lib.cnb.cdf evaluates), the merging of neighbours, the rbz-score
 // and the parsing and formatting of the text files; the HDF5 files the
 // methods open by path are read with hicx::chic::H5Reader. The arguments are
@@ -49,7 +49,7 @@
 #include "hicx/chic_viewpoint.hpp"
 #include "hicx/numpy_compat.hpp"
 #include "hicx/py_text.hpp"
-#include "hicx/scipy_special.hpp"
+#include "hicx/stats_ops.hpp"
 
 namespace hicx::python {
 
@@ -1174,7 +1174,7 @@ void bind_lib_viewpoint(py::module_& m) {
                 const double probability = to_double(getitem(model, 1));
                 const double x = to_double(data_element);
                 const double shifted = single ? static_cast<double>(static_cast<float>(x) + 1.0F) : x + 1.0;
-                p_value_list.push_back(hicx::scipy::betainc(size, shifted, probability));
+                p_value_list.push_back(hicx::stats::betainc(size, shifted, probability));
             }
             ++i;
         }

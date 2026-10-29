@@ -5,7 +5,7 @@
 // detect_loops.hpp, shared with the tool): is_neighborhood_maximum and
 // test_candidate per candidate, the negative binomial fit of
 // hicx::stats::fit_nbinom and the tail 1 - betainc of scipy 1.14
-// (hicx::scipy::betainc). What 3.7.6 did with processes and queues is done
+// (hicx::stats::betainc). What 3.7.6 did with processes and queues is done
 // here in this process: the functions that put their result into a queue
 // still put it there, with the 'Fail: <message><traceback>' strings the
 // workers sent on an error, and the functions that started workers compute
@@ -46,7 +46,6 @@
 #include "hic_object.hpp"
 #include "hicx/detect_loops.hpp"
 #include "hicx/py_text.hpp"
-#include "hicx/scipy_special.hpp"
 #include "hicx/stats_ops.hpp"
 #include "loops_correct_common.hpp"
 
@@ -401,7 +400,7 @@ py::list p_values_mask(py::handle obs_exp, py::handle keys, py::handle pPValuePr
                 if (!(value >= static_cast<float>(obs_exp_threshold))) {
                     continue;
                 }
-                const float cdf = static_cast<float>(hicx::scipy::betainc(
+                const float cdf = static_cast<float>(hicx::stats::betainc(
                     static_cast<double>(static_cast<float>(fit.size)), static_cast<double>(value + 1.0F),
                     static_cast<double>(static_cast<float>(fit.prob))));
                 selected = 1.0F - cdf <= static_cast<float>(limit);
@@ -409,7 +408,7 @@ py::list p_values_mask(py::handle obs_exp, py::handle keys, py::handle pPValuePr
                 if (!(data[k] >= obs_exp_threshold)) {
                     continue;
                 }
-                const double p = 1.0 - hicx::scipy::betainc(fit.size, data[k] + 1.0, fit.prob);
+                const double p = 1.0 - hicx::stats::betainc(fit.size, data[k] + 1.0, fit.prob);
                 selected = p <= limit;
             }
             if (selected) {

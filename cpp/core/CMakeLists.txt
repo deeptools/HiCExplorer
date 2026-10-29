@@ -133,7 +133,6 @@ add_library(hicx4core
     src/resource_usage.cpp
     src/scc.cpp
     src/simd_reduce.cpp
-    src/scipy_special.cpp
     src/scipy_stats.cpp
     src/tad_contacts.cpp
     src/tar_gz.cpp
@@ -199,13 +198,11 @@ foreach(_dir IN LISTS _hicx_spectra_includes)
 endforeach()
 set_source_files_properties(src/sparse_pca.cpp PROPERTIES COMPILE_OPTIONS "${_hicx_spectra_options}")
 
-# Boost.Math, header only, for hicx::scipy::betainc (hicx/scipy_special.hpp).
-# scipy.special.betainc is Boost's ibeta since scipy 1.12. The Boost.Math that
-# scipy v1.14.1 vendors (boostorg/math a53b013c735caa98179532a32ad24d34569b9710)
-# is, for every header betainc includes, the one of Boost 1.85.0 (one noexcept
-# specification of an unrelated long double specialisation differs), so the
-# headers are taken from the conda package libboost-headers 1.85. Other Boost
-# versions change betainc's last digits and are refused. Standalone mode keeps
+# Boost.Math, header only, for the special functions of hicx/stats_ops.hpp
+# (erfc, lgamma, digamma, ibeta, gamma_q, gamma_p_inv). The last digits of
+# these functions differ between Boost versions, so the version the outputs
+# were verified with is required: the headers come from the conda package
+# libboost-headers 1.85 and other versions are refused. Standalone mode keeps
 # the rest of Boost out of the include path.
 find_path(HICX_BOOST_INCLUDE_DIR
     NAMES boost/math/special_functions/beta.hpp
@@ -218,7 +215,7 @@ endif()
 file(STRINGS "${HICX_BOOST_INCLUDE_DIR}/boost/version.hpp" _hicx_boost_version
      REGEX "^#define BOOST_VERSION [0-9]+$")
 if(NOT _hicx_boost_version MATCHES "BOOST_VERSION 1085[0-9][0-9]$")
-    message(FATAL_ERROR "Boost 1.85 is required for hicx::scipy::betainc, found: ${_hicx_boost_version}")
+    message(FATAL_ERROR "Boost 1.85 is required for hicx/stats_ops.hpp, found: ${_hicx_boost_version}")
 endif()
 add_library(hicx_boost_math INTERFACE)
 target_include_directories(hicx_boost_math SYSTEM INTERFACE "${HICX_BOOST_INCLUDE_DIR}")

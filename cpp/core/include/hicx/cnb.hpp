@@ -5,11 +5,9 @@
 //                        + r * log(p) + xlog1py(x, -p))
 //     cdf(x, r, p) = betainc(r, x + 1, p)
 //
-// The special functions are the ones scipy 1.14 evaluates: gammaln is cephes
-// lgam (from scipy's own headers), betainc
-// is Boost's ibeta (hicx::scipy::betainc). xlog1py is libm's log1p, as
-// scipy's own xlog1py is. The sums are formed in the order of
-// the Python expression. np.exp and np.log are libm's here; numpy 1.26 has
+// The special functions are Boost.Math's: gammaln is lgamma and betainc is
+// ibeta (hicx::stats::gammaln, hicx::stats::betainc). xlog1py is libm's log1p.
+// The sums are formed in the order of the Python expression. np.exp and np.log are libm's here; numpy 1.26 has
 // its own AVX512F float64 exp and log, which differ from libm by one ulp on
 // about a quarter of their arguments, so pdf can differ from 3.7.6 in the
 // last bits. cdf has no such step and is exact.
@@ -19,7 +17,7 @@
 
 namespace hicx::cnb {
 
-// scipy.special.gammaln(x) for a float64 argument (cephes lgam).
+// scipy.special.gammaln(x) for a float64 argument (Boost's lgamma).
 [[nodiscard]] double gammaln(double x);
 // scipy.special.xlog1py(x, y) for float64 arguments: 0 for x == 0 unless y
 // is NaN, x * log1p(y) otherwise.

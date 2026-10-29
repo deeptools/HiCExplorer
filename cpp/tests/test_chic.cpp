@@ -20,9 +20,8 @@
 #include "hicx/chic_hdf5.hpp"
 #include "hicx/chic_viewpoint.hpp"
 #include "hicx/lbfgsb_scipy.hpp"
-#include "hicx/scipy_special.hpp"
-#include "hicx/scipy_stats.hpp"
 #include "hicx/stats_ops.hpp"
+#include "hicx/scipy_stats.hpp"
 
 namespace {
 
@@ -173,29 +172,28 @@ TEST_CASE("chic: background model extension and the p-value lookup rule") {
     const std::vector<double> p = p_values(plain, raw, 1);
     // Index 0 is one bin upstream, which is not a key in base pairs, so the
     // model at -500 kb is used; scipy gives 1 - betainc = 0 exactly here.
-    CHECK(p[0] == 1.0 - hicx::scipy::betainc(58.254577634279, 10.8, 0.998604709282));
+    CHECK(p[0] == 1.0 - hicx::stats::betainc(58.254577634279, 10.8, 0.998604709282));
     CHECK(p[0] == 0.0);
     CHECK(p[1] == 1.0);
     const std::vector<double>& upstream = plain.at(plain.max_key());
-    CHECK(p[2] == 1.0 - hicx::scipy::betainc(upstream[0], 27.6, upstream[1]));
+    CHECK(p[2] == 1.0 - hicx::stats::betainc(upstream[0], 27.6, upstream[1]));
 }
 
-TEST_CASE("scipy::betainc is Boost's ibeta, exact where cephes is one ulp short") {
-    // scipy.special.betainc(58.254577634279, x + 1, 0.998604709282) is 1.0 for
-    // all four; cephes incbet returns 1 - MACHEP there.
+TEST_CASE("stats::betainc is exactly 1.0 in the upper tail where an evaluation one ulp short would not be") {
+    // The reference scipy.special.betainc(58.254577634279, x + 1, 0.998604709282)
+    // is 1.0 for all four; chicViewpoint stores 1 - betainc as the p-value, so a
+    // result of 1 - 1.1e-16 would be stored as a p-value of 1.1e-16 instead of 0.
     for (const double x : {9.8, 26.6, 75.0, 90.0}) {
-        CHECK(hicx::scipy::betainc(58.254577634279, x + 1.0, 0.998604709282) == 1.0);
-        CHECK(hicx::stats::betainc(58.254577634279, x + 1.0, 0.998604709282) ==
-              0.9999999999999999);
+        CHECK(hicx::stats::betainc(58.254577634279, x + 1.0, 0.998604709282) == 1.0);
     }
-    // Values from scipy 1.14.1, compared bit for bit.
-    CHECK(hicx::scipy::betainc(2.5, 3.5, 0.5) == 0.6697652726313549);
-    CHECK(hicx::scipy::betainc(0.10000000000000001, 0.20000000000000001, 0.5) ==
+    // Values of scipy 1.14.1, compared bit for bit.
+    CHECK(hicx::stats::betainc(2.5, 3.5, 0.5) == 0.6697652726313549);
+    CHECK(hicx::stats::betainc(0.10000000000000001, 0.20000000000000001, 0.5) ==
           0.6705707961028995);
-    CHECK(std::isnan(hicx::scipy::betainc(0.0, 1.0, 0.5)));
-    CHECK(std::isnan(hicx::scipy::betainc(1.0, 1.0, 1.5)));
-    CHECK(hicx::scipy::betainc(2.0, 3.0, 0.0) == 0.0);
-    CHECK(hicx::scipy::betainc(2.0, 3.0, 1.0) == 1.0);
+    CHECK(std::isnan(hicx::stats::betainc(0.0, 1.0, 0.5)));
+    CHECK(std::isnan(hicx::stats::betainc(1.0, 1.0, 1.5)));
+    CHECK(hicx::stats::betainc(2.0, 3.0, 0.0) == 0.0);
+    CHECK(hicx::stats::betainc(2.0, 3.0, 1.0) == 1.0);
 }
 
 TEST_CASE("lbfgsb_scipy follows scipy's iterations on smooth problems") {
@@ -332,16 +330,17 @@ TEST_CASE("scipy_stats: fisher_exact, chi2_contingency and chi2.ppf as scipy 1.1
 
     const auto first = hicx::scipy::chi2_contingency_2x2(673.0, 5.6, 832.0, 0.0).value();
     CHECK(first.statistic == 6.891447919451126);
-    CHECK(first.pvalue == 0.00866090872217125);
+    CHECK(first.pvalue == doctest::Approx(0.00866090872217125).epsilon(1e-13));
     const auto second = hicx::scipy::chi2_contingency_2x2(810.0, 297.8, 978.0, 400.4).value();
     CHECK(second.statistic == 1.4268145854722973);
-    CHECK(second.pvalue == 0.23228500408601602);
+    CHECK(second.pvalue == doctest::Approx(0.23228500408601602).epsilon(1e-13));
     // An expected frequency of zero is scipy's ValueError.
     CHECK_FALSE(hicx::scipy::chi2_contingency_2x2(673.0, 0.0, 832.0, 0.0).has_value());
 
-    CHECK(hicx::scipy::chi2_ppf(0.5, 1.0) == 0.454936423119572);
-    CHECK(hicx::scipy::chi2_ppf(0.95, 1.0) == 3.841458820694124);
-    CHECK(hicx::scipy::chi2_ppf(0.999, 1.0) == 10.827566170662733);
+    // chi2.ppf(q, 1) of scipy 1.14.1; the Boost evaluation agrees to 1e-14 relative
+    CHECK(hicx::scipy::chi2_ppf(0.5, 1.0) == doctest::Approx(0.454936423119572).epsilon(1e-14));
+    CHECK(hicx::scipy::chi2_ppf(0.95, 1.0) == doctest::Approx(3.841458820694124).epsilon(1e-14));
+    CHECK(hicx::scipy::chi2_ppf(0.999, 1.0) == doctest::Approx(10.827566170662733).epsilon(1e-14));
     CHECK(hicx::scipy::chi2_ppf(1.0, 1.0) == std::numeric_limits<double>::infinity());
 }
 

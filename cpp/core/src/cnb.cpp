@@ -4,13 +4,12 @@
 
 #include <cmath>
 
-#include "hicx/scipy_special.hpp"
-#include "special/cephes/gamma.h"
+#include "hicx/stats_ops.hpp"
 
 namespace hicx::cnb {
 
 double gammaln(double x) {
-    return special::cephes::lgam(x);
+    return hicx::stats::gammaln(x);
 }
 
 double xlog1py(double x, double y) {
@@ -26,7 +25,7 @@ double pdf(double x, double r, double p) {
 }
 
 double cdf(double x, double r, double p) {
-    return hicx::scipy::betainc(r, x + 1.0, p);
+    return hicx::stats::betainc(r, x + 1.0, p);
 }
 
 }  // namespace hicx::cnb

@@ -1,9 +1,13 @@
 // Unit tests for hicx::stats and hicx::simd.
 //
-// Every expected value in this file was produced by the reference oracle,
-// scipy 1.14.1 and numpy in ~/miniconda3/envs/__hicexplorer@3.7.6, on the
-// inputs written here. The inputs are integer recurrences divided by a power
-// of two, so both sides see exactly the same bits with no parsing question.
+// The expected values of the special functions were evaluated by mpmath at 50
+// digits (cpp/scripts/special_function_reference.py), independently of
+// Boost.Math, and rounded to float64; the tests bound the error in units of
+// the last place. The remaining expected values were produced by the reference
+// oracle, scipy 1.14.1 and numpy in ~/miniconda3/envs/__hicexplorer@3.7.6, on
+// the inputs written here. The inputs are integer recurrences divided by a
+// power of two, so both sides see exactly the same bits with no parsing
+// question.
 
 #include <doctest/doctest.h>
 
@@ -34,48 +38,212 @@ std::vector<double> ramp(std::size_t n, std::int64_t multiplier, std::int64_t mo
 
 }  // namespace
 
-TEST_CASE("cephes ndtr matches scipy.special.ndtr") {
-    // scipy.special.ndtr, full float64 repr.
-    CHECK(hicx::stats::ndtr(-6.0) == 9.865876450376946e-10);
-    CHECK(hicx::stats::ndtr(-2.5) == 0.006209665325776132);
-    CHECK(hicx::stats::ndtr(-1.0) == 0.15865525393145707);
-    CHECK(hicx::stats::ndtr(-0.5) == 0.3085375387259869);
-    CHECK(hicx::stats::ndtr(0.0) == 0.5);
-    CHECK(hicx::stats::ndtr(0.3) == 0.6179114221889526);
-    CHECK(hicx::stats::ndtr(0.7071) == 0.7602478320101365);
-    CHECK(hicx::stats::ndtr(1.0) == 0.8413447460685429);
-    CHECK(hicx::stats::ndtr(2.5) == 0.9937903346742238);
-    CHECK(hicx::stats::ndtr(6.0) == 0.9999999990134123);
-    CHECK(hicx::stats::ndtr(9.0) == 1.0);
-    // norm.sf is ndtr(-x), which is the route scipy's rank sum test takes.
+namespace {
+
+constexpr double kEps = std::numeric_limits<double>::epsilon();
+constexpr double kNaN = std::numeric_limits<double>::quiet_NaN();
+constexpr double kInf = std::numeric_limits<double>::infinity();
+
+// |actual - expected| <= ulps * eps * |expected|
+bool within(double actual, double expected, double ulps) {
+    if (expected == 0.0) {
+        return actual == 0.0;
+    }
+    return std::fabs(actual - expected) <= ulps * kEps * std::fabs(expected);
+}
+
+struct Point1 {
+    double x;
+    double expected;
+};
+struct Point2 {
+    double a;
+    double b;
+    double expected;
+};
+struct Point3 {
+    double a;
+    double b;
+    double x;
+    double expected;
+};
+
+}  // namespace
+
+TEST_CASE("ndtr, erf and erfc match 50 digit references") {
+    const Point1 ndtr[] = {
+        {-37.0, 5.725571222524577e-300}, {-20.0, 2.7536241186062337e-89},
+        {-6.0, 9.86587645037698e-10},    {-2.5, 0.006209665325776135},
+        {-1.0, 0.15865525393145705},     {-0.5, 0.3085375387259869},
+        {0.0, 0.5},                      {0.3, 0.6179114221889527},
+        {0.7071, 0.7602478320101363},    {1.0, 0.8413447460685429},
+        {2.5, 0.9937903346742238},       {6.0, 0.9999999990134123},
+        {9.0, 1.0}};
+    for (const Point1& p : ndtr) {
+        // The argument x / sqrt(2) is rounded, which moves a tail value by about
+        // x * x units in the last place.
+        CHECK_MESSAGE(within(hicx::stats::ndtr(p.x), p.expected, 4.0 + p.x * p.x),
+                      "ndtr(" << p.x << ")");
+    }
+    // norm.sf is ndtr(-x), the route the rank sum test takes.
     CHECK(hicx::stats::normal_sf(2.5) == hicx::stats::ndtr(-2.5));
+    CHECK(within(hicx::stats::normal_sf(37.0), 5.725571222524577e-300, 4.0 + 37.0 * 37.0));
+
+    const Point1 erf[] = {{0.1, 0.1124629160182849},  {0.5, 0.5204998778130465},
+                          {1.0, 0.8427007929497149},  {2.0, 0.9953222650189527},
+                          {5.0, 0.9999999999984626},  {-1.5, -0.9661051464753108}};
+    for (const Point1& p : erf) {
+        CHECK_MESSAGE(within(hicx::stats::erf(p.x), p.expected, 4.0), "erf(" << p.x << ")");
+    }
+    const Point1 erfc[] = {{0.1, 0.887537083981715},      {1.0, 0.15729920705028513},
+                           {2.0, 0.004677734981047266},   {5.0, 1.537459794428035e-12},
+                           {10.0, 2.088487583762545e-45}, {-1.5, 1.9661051464753108}};
+    for (const Point1& p : erfc) {
+        CHECK_MESSAGE(within(hicx::stats::erfc(p.x), p.expected, 4.0), "erfc(" << p.x << ")");
+    }
 }
 
-TEST_CASE("cephes erf and erfc match scipy") {
-    CHECK(hicx::stats::erf(0.1) == 0.1124629160182849);
-    CHECK(hicx::stats::erf(0.5) == 0.5204998778130465);
-    CHECK(hicx::stats::erf(1.0) == 0.8427007929497148);
-    CHECK(hicx::stats::erf(2.0) == 0.9953222650189527);
-    CHECK(hicx::stats::erf(5.0) == 0.9999999999984626);
-    CHECK(hicx::stats::erf(-1.5) == -0.9661051464753108);
-    CHECK(hicx::stats::erfc(0.1) == 0.8875370839817152);
-    CHECK(hicx::stats::erfc(1.0) == 0.15729920705028516);
-    CHECK(hicx::stats::erfc(2.0) == 0.004677734981047266);
-    CHECK(hicx::stats::erfc(5.0) == 1.5374597944280347e-12);
-    CHECK(hicx::stats::erfc(-1.5) == 1.9661051464753108);
+TEST_CASE("ndtr, erf and erfc edges") {
+    CHECK(std::isnan(hicx::stats::ndtr(kNaN)));
+    CHECK(std::isnan(hicx::stats::erf(kNaN)));
+    CHECK(std::isnan(hicx::stats::erfc(kNaN)));
+    CHECK(hicx::stats::ndtr(kInf) == 1.0);
+    CHECK(hicx::stats::ndtr(-kInf) == 0.0);
+    CHECK(hicx::stats::ndtr(0.0) == 0.5);
+    CHECK(hicx::stats::ndtr(-38.0) > 0.0);
+    CHECK(hicx::stats::ndtr(-40.0) == 0.0);
+    CHECK(hicx::stats::ndtr(-1000.0) == 0.0);
+    CHECK(hicx::stats::erf(kInf) == 1.0);
+    CHECK(hicx::stats::erf(-kInf) == -1.0);
+    CHECK(hicx::stats::erfc(kInf) == 0.0);
+    CHECK(hicx::stats::erfc(-kInf) == 2.0);
 }
 
-TEST_CASE("digamma matches scipy.special.psi at the branch boundaries") {
-    // The four branches: a small positive integer, the [1, 2] rational
-    // approximation, the downward recurrence and the asymptotic series.
-    CHECK(hicx::stats::digamma(1.0) == -0.5772156649015329);
-    CHECK(hicx::stats::digamma(1.5) == 0.03648997397857652);
-    CHECK(hicx::stats::digamma(2.0) == 0.42278433509846713);
-    CHECK(hicx::stats::digamma(0.25) == -4.2274535333762655);
-    CHECK(hicx::stats::digamma(7.5) == 1.9467574842460866);
-    CHECK(hicx::stats::digamma(100.0) == 4.600161852738088);
-    // The reflection branch for a negative argument.
-    CHECK(hicx::stats::digamma(-0.5) == doctest::Approx(0.03648997397857651).epsilon(1e-15));
+TEST_CASE("digamma matches 50 digit references and has the edges of psi") {
+    const Point1 points[] = {{1.0, -0.5772156649015329},   {1.5, 0.03648997397857652},
+                             {2.0, 0.42278433509846713},   {0.25, -4.2274535333762655},
+                             {7.5, 1.9467574842460869},    {100.0, 4.600161852738087},
+                             {-0.5, 0.03648997397857652},  {-2.5, 1.103156640645243},
+                             {1e-05, -100000.57719921567}, {1000000.0, 13.815510057964191}};
+    for (const Point1& p : points) {
+        CHECK_MESSAGE(within(hicx::stats::digamma(p.x), p.expected, 4.0), "digamma(" << p.x << ")");
+    }
+    CHECK(std::isnan(hicx::stats::digamma(kNaN)));
+    CHECK(hicx::stats::digamma(kInf) == kInf);
+    CHECK(std::isnan(hicx::stats::digamma(-kInf)));
+    CHECK(hicx::stats::digamma(0.0) == -kInf);
+    CHECK(hicx::stats::digamma(-0.0) == kInf);
+    CHECK(std::isnan(hicx::stats::digamma(-1.0)));
+    CHECK(std::isnan(hicx::stats::digamma(-2.0)));
+}
+
+TEST_CASE("gammaln matches 50 digit references and has the edges of lgamma") {
+    const Point1 points[] = {{0.5, 0.5723649429247001},   {7.25, 7.0521854507385395},
+                             {100.5, 361.4355404677776},  {100000.0, 1051287.7089736569},
+                             {-1.5, 0.860047015376481},   {1e-10, 23.025850929882736}};
+    for (const Point1& p : points) {
+        CHECK_MESSAGE(within(hicx::stats::gammaln(p.x), p.expected, 4.0), "gammaln(" << p.x << ")");
+    }
+    CHECK(hicx::stats::gammaln(1.0) == 0.0);
+    CHECK(hicx::stats::gammaln(2.0) == 0.0);
+    CHECK(std::isnan(hicx::stats::gammaln(kNaN)));
+    CHECK(hicx::stats::gammaln(0.0) == kInf);
+    CHECK(hicx::stats::gammaln(-0.0) == kInf);
+    CHECK(hicx::stats::gammaln(-1.0) == kInf);
+    CHECK(hicx::stats::gammaln(-7.0) == kInf);
+    CHECK(hicx::stats::gammaln(kInf) == kInf);
+    CHECK(hicx::stats::gammaln(-kInf) == -kInf);
+    CHECK(hicx::stats::gammaln(1e308) == kInf);
+}
+
+TEST_CASE("gamma_q and gamma_p_inverse match 50 digit references") {
+    const Point2 q[] = {{0.5, 0.5, 0.3173105078629141},
+                        {0.5, 1.920729410347062, 0.05000000000000006},
+                        {1.0, 3.0, 0.049787068367863944},
+                        {2.5, 0.1, 0.9991138612111875},
+                        {10.0, 5.0, 0.9681719426937951},
+                        {10.0, 50.0, 1.2596084591660908e-12},
+                        {0.5, 200.0, 5.5072482372124675e-89},
+                        {100.0, 100.0, 0.48670120172085135}};
+    for (const Point2& p : q) {
+        // 1500 units of the last place: the upper tail at (0.5, 200) is 5.5e-89
+        // and the evaluation is accurate to 1.5e-13 relative there.
+        CHECK_MESSAGE(within(hicx::stats::gamma_q(p.a, p.b), p.expected, 1500.0),
+                      "gamma_q(" << p.a << ", " << p.b << ")");
+    }
+    const Point2 inverse[] = {{0.5, 0.5, 0.2274682115597864},
+                              {0.5, 0.95, 1.9207294103470622},
+                              {0.5, 0.999, 5.4137830853313655},
+                              {2.5, 1e-10, 0.00016167785731248467},
+                              {10.0, 0.5, 9.668714614714132},
+                              {100.0, 0.01, 78.21598305379582},
+                              {1.0, 1e-20, 1e-20},
+                              {0.5, 0.9999999999999999, 34.38162610583421}};
+    for (const Point2& p : inverse) {
+        CHECK_MESSAGE(within(hicx::stats::gamma_p_inverse(p.a, p.b), p.expected, 16.0),
+                      "gamma_p_inverse(" << p.a << ", " << p.b << ")");
+    }
+    // The chi-squared quantile and survival function the differential test uses:
+    // chi2.ppf(0.95, 1) = 3.841458820694124 and its survival function is 0.05.
+    CHECK(within(2.0 * hicx::stats::gamma_p_inverse(0.5, 0.95), 3.841458820694124, 16.0));
+    CHECK(within(hicx::stats::gamma_q(0.5, 3.841458820694124 / 2.0), 0.05, 1e3));
+}
+
+TEST_CASE("gamma_q and gamma_p_inverse edges") {
+    CHECK(std::isnan(hicx::stats::gamma_q(kNaN, 1.0)));
+    CHECK(std::isnan(hicx::stats::gamma_q(1.0, kNaN)));
+    CHECK(std::isnan(hicx::stats::gamma_q(-1.0, 1.0)));
+    CHECK(std::isnan(hicx::stats::gamma_q(1.0, -1.0)));
+    CHECK(hicx::stats::gamma_q(0.0, 1.0) == 0.0);
+    CHECK(std::isnan(hicx::stats::gamma_q(0.0, 0.0)));
+    CHECK(hicx::stats::gamma_q(2.0, 0.0) == 1.0);
+    CHECK(hicx::stats::gamma_q(2.0, kInf) == 0.0);
+    CHECK(hicx::stats::gamma_q(kInf, 2.0) == 1.0);
+    CHECK(std::isnan(hicx::stats::gamma_q(kInf, kInf)));
+    CHECK(hicx::stats::gamma_q(0.5, 1e5) == 0.0);
+
+    CHECK(std::isnan(hicx::stats::gamma_p_inverse(kNaN, 0.5)));
+    CHECK(std::isnan(hicx::stats::gamma_p_inverse(0.5, kNaN)));
+    CHECK(std::isnan(hicx::stats::gamma_p_inverse(0.5, -0.1)));
+    CHECK(std::isnan(hicx::stats::gamma_p_inverse(0.5, 1.1)));
+    CHECK(std::isnan(hicx::stats::gamma_p_inverse(-1.0, 0.5)));
+    CHECK(std::isnan(hicx::stats::gamma_p_inverse(0.0, 0.5)));
+    CHECK(std::isnan(hicx::stats::gamma_p_inverse(kInf, 0.5)));
+    CHECK(hicx::stats::gamma_p_inverse(0.5, 0.0) == 0.0);
+    CHECK(hicx::stats::gamma_p_inverse(0.5, 1.0) == kInf);
+    CHECK(hicx::stats::gamma_p_inverse(0.0, 0.0) == 0.0);
+    CHECK(hicx::stats::gamma_p_inverse(0.0, 1.0) == kInf);
+}
+
+TEST_CASE("betainc matches 50 digit references and has the edges of the incomplete beta function") {
+    const Point3 points[] = {{0.5, 0.5, 0.3, 0.36901011956554536},
+                             {1.0, 2.0, 0.25, 0.4375},
+                             {2.5, 3.5, 0.5, 0.669765272631355},
+                             {10.0, 1.0, 0.9, 0.3486784401000001},
+                             {0.1, 0.2, 0.05, 0.5095391215346399},
+                             {200.0, 3.0, 0.995, 0.9183119488697338},
+                             {0.001, 0.001, 0.5, 0.5},
+                             {5.0, 5.0, 0.999, 0.9999999999998744},
+                             {0.15883824665748106, 1.0, 0.0003361237454510874, 0.2807212068279708},
+                             {100.0, 0.5, 0.2, 7.976289553984952e-72},
+                             {3.0, 700.0, 0.01, 0.971359075703961},
+                             {700.0, 3.0, 0.99, 0.02864092429603887},
+                             {2.5, 4.0, 0.3, 0.3521975859067672}};
+    for (const Point3& p : points) {
+        // 64 units of the last place: the deep tail (100, 0.5, 0.2) = 8e-72 is
+        // accurate to 1e-14 relative.
+        CHECK_MESSAGE(within(hicx::stats::betainc(p.a, p.b, p.x), p.expected, 64.0),
+                      "betainc(" << p.a << ", " << p.b << ", " << p.x << ")");
+    }
+    CHECK(std::isnan(hicx::stats::betainc(kNaN, 1.0, 0.5)));
+    CHECK(std::isnan(hicx::stats::betainc(1.0, kNaN, 0.5)));
+    CHECK(std::isnan(hicx::stats::betainc(1.0, 1.0, kNaN)));
+    CHECK(hicx::stats::betainc(2.0, 3.0, 0.0) == 0.0);
+    CHECK(hicx::stats::betainc(2.0, 3.0, 1.0) == 1.0);
+    CHECK(std::isnan(hicx::stats::betainc(0.0, 3.0, 0.5)));
+    CHECK(std::isnan(hicx::stats::betainc(2.0, -1.0, 0.5)));
+    CHECK(std::isnan(hicx::stats::betainc(2.0, 3.0, 1.5)));
+    CHECK(std::isnan(hicx::stats::betainc(2.0, 3.0, -0.5)));
 }
 
 TEST_CASE("rankdata averages ties, as scipy does") {

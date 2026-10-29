@@ -3,6 +3,12 @@
 #include <algorithm>
 #include <cmath>
 #include <numeric>
+#include <stdexcept>
+
+#include <boost/math/special_functions/beta.hpp>
+#include <boost/math/special_functions/digamma.hpp>
+#include <boost/math/special_functions/erf.hpp>
+#include <boost/math/special_functions/gamma.hpp>
 
 #include "hicx/numpy_compat.hpp"
 
@@ -10,495 +16,150 @@ namespace hicx::stats {
 
 namespace {
 
-// --------------------------------------------------------------------------
-// Cephes, translated from scipy/special/special/cephes/{ndtr,psi}.h. The
-// coefficient tables and the branch structure are copied so that a value
-// printed with twelve decimals matches scipy's. Cephes Math Library Release
-// 2.9, Copyright 1984 to 2000 Stephen L. Moshier; redistributed by SciPy under
-// the BSD licence.
-
-constexpr double kMaxLog = 7.09782712893383996732E2;
-constexpr double kEuler = 0.577215664901532860606512090082402431;
 // np.finfo(np.float64).eps, the bound and the guard fit_nbinom uses.
 constexpr double kMachineEpsilonStats = 2.220446049250313e-16;
 
-double polevl(double x, const double* coefficients, int degree) {
-    double answer = coefficients[0];
-    for (int i = 1; i <= degree; ++i) {
-        answer = answer * x + coefficients[i];
-    }
-    return answer;
-}
+constexpr double kNaN = std::numeric_limits<double>::quiet_NaN();
+constexpr double kInf = std::numeric_limits<double>::infinity();
 
-// polevl for a polynomial whose leading coefficient is 1 and therefore absent
-// from the table.
-double p1evl(double x, const double* coefficients, int degree) {
-    double answer = x + coefficients[0];
-    for (int i = 1; i < degree; ++i) {
-        answer = answer * x + coefficients[i];
-    }
-    return answer;
-}
+// The Boost.Math policy of the special functions below. Every function is
+// evaluated in double precision, never promoted to long double, so that the
+// result does not depend on the width of the platform's long double. Domain,
+// pole, overflow and evaluation errors return a value (NaN or infinity)
+// instead of throwing; the argument ranges in which a function has a value
+// are tested explicitly before the call.
+using ValuePolicy = boost::math::policies::policy<
+    boost::math::policies::domain_error<boost::math::policies::ignore_error>,
+    boost::math::policies::pole_error<boost::math::policies::ignore_error>,
+    boost::math::policies::overflow_error<boost::math::policies::ignore_error>,
+    boost::math::policies::evaluation_error<boost::math::policies::ignore_error>,
+    boost::math::policies::promote_float<false>, boost::math::policies::promote_double<false>>;
 
-constexpr double kNdtrP[] = {
-    2.46196981473530512524E-10, 5.64189564831068821977E-1, 7.46321056442269912687E0,
-    4.86371970985681366614E1,   1.96520832956077098242E2,  5.26445194995477358631E2,
-    9.34528527171957607540E2,   1.02755188689515710272E3,  5.57535335369399327526E2};
-
-constexpr double kNdtrQ[] = {
-    1.32281951154744992508E1, 8.67072140885989742329E1, 3.54937778887819891062E2,
-    9.75708501743205489753E2, 1.82390916687909736289E3, 2.24633760818710981792E3,
-    1.65666309194161350182E3, 5.57535340817727675546E2};
-
-constexpr double kNdtrR[] = {5.64189583547755073984E-1, 1.27536670759978104416E0,
-                             5.01905042251180477414E0,  6.16021097993053585195E0,
-                             7.40974269950448939160E0,  2.97886665372100240670E0};
-
-constexpr double kNdtrS[] = {2.26052863220117276590E0, 9.39603524938001434673E0,
-                             1.20489539808096656605E1, 1.70814450747565897222E1,
-                             9.60896809063285878198E0, 3.36907645100081516050E0};
-
-constexpr double kNdtrT[] = {9.60497373987051638749E0, 9.00260197203842689217E1,
-                             2.23200534594684319226E3, 7.00332514112805075473E3,
-                             5.55923013010394962768E4};
-
-constexpr double kNdtrU[] = {3.35617141647503099647E1, 5.21357949780152679795E2,
-                             4.59432382970980127987E3, 2.26290000613890934246E4,
-                             4.92673942608635921086E4};
-
-constexpr double kPsiA[] = {
-    8.33333333333333333333E-2,  -2.10927960927960927961E-2, 7.57575757575757575758E-3,
-    -4.16666666666666666667E-3, 3.96825396825396825397E-3,  -8.33333333333333333333E-3,
-    8.33333333333333333333E-2};
-
-constexpr float kPsiY = 0.99558162689208984f;
-constexpr double kPsiRoot1 = 1569415565.0 / 1073741824.0;
-constexpr double kPsiRoot2 = (381566830.0 / 1073741824.0) / 1073741824.0;
-constexpr double kPsiRoot3 = 0.9016312093258695918615325266959189453125e-19;
-
-constexpr double kPsiP[] = {-0.0020713321167745952, -0.045251321448739056,
-                            -0.28919126444774784,   -0.65031853770896507,
-                            -0.32555031186804491,   0.25479851061131551};
-constexpr double kPsiQ[] = {-0.55789841321675513e-6, 0.0021284987017821144,
-                            0.054151797245674225,   0.43593529692665969,
-                            1.4606242909763515,     2.0767117023730469,
-                            1.0};
-
-double digamma_imp_1_2(double x) {
-    double g = x - kPsiRoot1;
-    g -= kPsiRoot2;
-    g -= kPsiRoot3;
-    const double r = polevl(x - 1.0, kPsiP, 5) / polevl(x - 1.0, kPsiQ, 6);
-    return g * static_cast<double>(kPsiY) + g * r;
-}
-
-double psi_asy(double x) {
-    double y = 0.0;
-    if (x < 1.0e17) {
-        const double z = 1.0 / (x * x);
-        y = z * polevl(z, kPsiA, 6);
-    }
-    return std::log(x) - (0.5 / x) - y;
-}
-
-// --------------------------------------------------------------------------
-// incbet, translated from scipy/special/special/cephes/incbet.h. The two
-// continued fractions, the power series and the thresholds that pick between
-// them are the cephes ones unchanged; `Gamma` and `lgam` are libm's tgamma and
-// lgamma_r rather than a second vendored table, which is where the two
-// implementations may differ, by at most an ulp.
-
-constexpr double kMachEp = 1.11022302462515654042E-16;
-constexpr double kMaxGam = 171.624376956302725;
-constexpr double kMinLog = -7.08396418532264106224E2;
-constexpr double kIncbetBig = 4.503599627370496e15;
-constexpr double kIncbetBigInv = 2.22044604925031308085e-16;
-
-// Power series for the incomplete beta integral, cephes pseries. Used when
-// b * x is small, where the continued fractions converge slowly.
-double incbet_pseries(double a, double b, double x) {
-    const double ai = 1.0 / a;
-    double u = (1.0 - b) * x;
-    double v = u / (a + 1.0);
-    const double t1 = v;
-    double t = u;
-    double n = 2.0;
-    double s = 0.0;
-    const double z = kMachEp * ai;
-
-    while (std::abs(v) > z) {
-        u = (n - b) * x / n;
-        t *= u;
-        v = t / (a + n);
-        s += v;
-        n += 1.0;
-    }
-    s += t1;
-    s += ai;
-
-    u = a * std::log(x);
-    if ((a + b) < kMaxGam && std::abs(u) < kMaxLog) {
-        t = std::tgamma(a + b) / (std::tgamma(a) * std::tgamma(b));
-        s = s * t * std::pow(x, a);
-    } else {
-        t = gammaln(a + b) - gammaln(a) - gammaln(b) + u + std::log(s);
-        s = t < kMinLog ? 0.0 : std::exp(t);
-    }
-    return s;
-}
-
-// Continued fraction expansion #1 for the incomplete beta integral.
-double incbet_cf1(double a, double b, double x) {
-    double k1 = a;
-    double k2 = a + b;
-    double k3 = a;
-    double k4 = a + 1.0;
-    double k5 = 1.0;
-    double k6 = b - 1.0;
-    double k7 = k4;
-    double k8 = a + 2.0;
-
-    double pkm2 = 0.0;
-    double qkm2 = 1.0;
-    double pkm1 = 1.0;
-    double qkm1 = 1.0;
-    double ans = 1.0;
-    double r = 1.0;
-    const double thresh = 3.0 * kMachEp;
-
-    for (int n = 0; n < 300; ++n) {
-        double xk = -(x * k1 * k2) / (k3 * k4);
-        double pk = pkm1 + pkm2 * xk;
-        double qk = qkm1 + qkm2 * xk;
-        pkm2 = pkm1;
-        pkm1 = pk;
-        qkm2 = qkm1;
-        qkm1 = qk;
-
-        xk = (x * k5 * k6) / (k7 * k8);
-        pk = pkm1 + pkm2 * xk;
-        qk = qkm1 + qkm2 * xk;
-        pkm2 = pkm1;
-        pkm1 = pk;
-        qkm2 = qkm1;
-        qkm1 = qk;
-
-        if (qk != 0.0) {
-            r = pk / qk;
-        }
-        double t = 1.0;
-        if (r != 0.0) {
-            t = std::abs((ans - r) / r);
-            ans = r;
-        }
-        if (t < thresh) {
-            return ans;
-        }
-
-        k1 += 1.0;
-        k2 += 1.0;
-        k3 += 2.0;
-        k4 += 2.0;
-        k5 += 1.0;
-        k6 -= 1.0;
-        k7 += 2.0;
-        k8 += 2.0;
-
-        if ((std::abs(qk) + std::abs(pk)) > kIncbetBig) {
-            pkm2 *= kIncbetBigInv;
-            pkm1 *= kIncbetBigInv;
-            qkm2 *= kIncbetBigInv;
-            qkm1 *= kIncbetBigInv;
-        }
-        if ((std::abs(qk) < kIncbetBigInv) || (std::abs(pk) < kIncbetBigInv)) {
-            pkm2 *= kIncbetBig;
-            pkm1 *= kIncbetBig;
-            qkm2 *= kIncbetBig;
-            qkm1 *= kIncbetBig;
-        }
-    }
-    return ans;
-}
-
-// Continued fraction expansion #2 for the incomplete beta integral.
-double incbet_cf2(double a, double b, double x) {
-    double k1 = a;
-    double k2 = b - 1.0;
-    double k3 = a;
-    double k4 = a + 1.0;
-    double k5 = 1.0;
-    double k6 = a + b;
-    double k7 = a + 1.0;
-    double k8 = a + 2.0;
-
-    double pkm2 = 0.0;
-    double qkm2 = 1.0;
-    double pkm1 = 1.0;
-    double qkm1 = 1.0;
-    const double z = x / (1.0 - x);
-    double ans = 1.0;
-    double r = 1.0;
-    const double thresh = 3.0 * kMachEp;
-
-    for (int n = 0; n < 300; ++n) {
-        double xk = -(z * k1 * k2) / (k3 * k4);
-        double pk = pkm1 + pkm2 * xk;
-        double qk = qkm1 + qkm2 * xk;
-        pkm2 = pkm1;
-        pkm1 = pk;
-        qkm2 = qkm1;
-        qkm1 = qk;
-
-        xk = (z * k5 * k6) / (k7 * k8);
-        pk = pkm1 + pkm2 * xk;
-        qk = qkm1 + qkm2 * xk;
-        pkm2 = pkm1;
-        pkm1 = pk;
-        qkm2 = qkm1;
-        qkm1 = qk;
-
-        if (qk != 0.0) {
-            r = pk / qk;
-        }
-        double t = 1.0;
-        if (r != 0.0) {
-            t = std::abs((ans - r) / r);
-            ans = r;
-        }
-        if (t < thresh) {
-            return ans;
-        }
-
-        k1 += 1.0;
-        k2 -= 1.0;
-        k3 += 2.0;
-        k4 += 2.0;
-        k5 += 1.0;
-        k6 += 1.0;
-        k7 += 2.0;
-        k8 += 2.0;
-
-        if ((std::abs(qk) + std::abs(pk)) > kIncbetBig) {
-            pkm2 *= kIncbetBigInv;
-            pkm1 *= kIncbetBigInv;
-            qkm2 *= kIncbetBigInv;
-            qkm1 *= kIncbetBigInv;
-        }
-        if ((std::abs(qk) < kIncbetBigInv) || (std::abs(pk) < kIncbetBigInv)) {
-            pkm2 *= kIncbetBig;
-            pkm1 *= kIncbetBig;
-            qkm2 *= kIncbetBig;
-            qkm1 *= kIncbetBig;
-        }
-    }
-    return ans;
-}
+// The policy of the incomplete beta function: double precision, and at most
+// 400 iterations of the root finders. Errors are exceptions that betainc maps
+// to values.
+using BetaPolicy = boost::math::policies::policy<boost::math::policies::promote_float<false>,
+                                                 boost::math::policies::promote_double<false>,
+                                                 boost::math::policies::max_root_iterations<400>>;
 
 }  // namespace
 
-double betainc(double a, double b, double x) {
-    const double nan = std::numeric_limits<double>::quiet_NaN();
-    if (std::isnan(a) || std::isnan(b) || std::isnan(x)) {
-        return nan;
-    }
-    if (a <= 0.0 || b <= 0.0) {
-        return nan;
-    }
-    if (x <= 0.0 || x >= 1.0) {
-        if (x == 0.0) {
-            return 0.0;
-        }
-        if (x == 1.0) {
-            return 1.0;
-        }
-        return nan;
-    }
-
-    double t = 0.0;
-    bool reflected = false;
-
-    if (b * x <= 1.0 && x <= 0.95) {
-        t = incbet_pseries(a, b, x);
-    } else {
-        double w = 1.0 - x;
-        double aa = a;
-        double bb = b;
-        double xx = x;
-        double xc = w;
-        // Reverse a and b when x is greater than the mean, so that the
-        // expansion is always evaluated on the convergent side.
-        if (x > (a / (a + b))) {
-            reflected = true;
-            aa = b;
-            bb = a;
-            xc = x;
-            xx = w;
-        }
-
-        if (reflected && (bb * xx) <= 1.0 && xx <= 0.95) {
-            t = incbet_pseries(aa, bb, xx);
-        } else {
-            const double y0 = xx * (aa + bb - 2.0) - (aa - 1.0);
-            w = y0 < 0.0 ? incbet_cf1(aa, bb, xx) : incbet_cf2(aa, bb, xx) / xc;
-
-            // Multiply w by x^a (1-x)^b Gamma(a+b) / (a Gamma(a) Gamma(b)).
-            double y = aa * std::log(xx);
-            double s = bb * std::log(xc);
-            if ((aa + bb) < kMaxGam && std::abs(y) < kMaxLog &&
-                std::abs(s) < kMaxLog) {
-                t = std::pow(xc, bb);
-                t *= std::pow(xx, aa);
-                t /= aa;
-                t *= w;
-                t *= std::tgamma(aa + bb) / (std::tgamma(aa) * std::tgamma(bb));
-            } else {
-                y += s + gammaln(aa + bb) - gammaln(aa) - gammaln(bb);
-                y += std::log(w / aa);
-                t = y < kMinLog ? 0.0 : std::exp(y);
-            }
-        }
-    }
-
-    if (reflected) {
-        t = t <= kMachEp ? 1.0 - kMachEp : 1.0 - t;
-    }
-    return t;
-}
-
-double nbinom_sf(double x, double r, double p) {
-    // hicexplorer/lib/cnb.py:29 plus hicDetectLoops.py:163, literally.
-    return 1.0 - betainc(r, x + 1.0, p);
-}
-
-double erfc(double a) {
-    if (std::isnan(a)) {
-        return std::numeric_limits<double>::quiet_NaN();
-    }
-    const double x = a < 0.0 ? -a : a;
-    if (x < 1.0) {
-        return 1.0 - erf(a);
-    }
-    double z = -a * a;
-    if (z < -kMaxLog) {
-        return a < 0 ? 2.0 : 0.0;
-    }
-    z = std::exp(z);
-    double p = 0.0;
-    double q = 0.0;
-    if (x < 8.0) {
-        p = polevl(x, kNdtrP, 8);
-        q = p1evl(x, kNdtrQ, 8);
-    } else {
-        p = polevl(x, kNdtrR, 5);
-        q = p1evl(x, kNdtrS, 6);
-    }
-    double y = (z * p) / q;
-    if (a < 0) {
-        y = 2.0 - y;
-    }
-    if (y != 0.0) {
-        return y;
-    }
-    return a < 0 ? 2.0 : 0.0;
-}
-
 double erf(double x) {
     if (std::isnan(x)) {
-        return std::numeric_limits<double>::quiet_NaN();
+        return kNaN;
     }
-    if (x < 0.0) {
-        return -erf(-x);
-    }
-    if (std::abs(x) > 1.0) {
-        return 1.0 - erfc(x);
-    }
-    const double z = x * x;
-    return x * polevl(z, kNdtrT, 4) / p1evl(z, kNdtrU, 5);
+    return boost::math::erf(x, ValuePolicy());
 }
 
-double ndtr(double a) {
-    if (std::isnan(a)) {
-        return std::numeric_limits<double>::quiet_NaN();
+double erfc(double x) {
+    if (std::isnan(x)) {
+        return kNaN;
     }
-    const double x = a * M_SQRT1_2;
-    const double z = std::abs(x);
-    double y = 0.0;
-    if (z < M_SQRT1_2) {
-        y = 0.5 + 0.5 * erf(x);
-    } else {
-        y = 0.5 * erfc(z);
-        if (x > 0) {
-            y = 1.0 - y;
-        }
+    return boost::math::erfc(x, ValuePolicy());
+}
+
+// Phi(x) = erfc(-x / sqrt(2)) / 2. The complementary error function keeps the
+// relative precision in the lower tail, where Phi is tiny.
+double ndtr(double x) {
+    if (std::isnan(x)) {
+        return kNaN;
     }
-    return y;
+    return 0.5 * erfc(-x * M_SQRT1_2);
 }
 
 double normal_sf(double x) { return ndtr(-x); }
 
 double gammaln(double x) {
-    // scipy.special.gammaln for a positive real argument is cephes lgam, which
-    // agrees with glibc's lgamma to within one unit in the last place. The
-    // difference is 1e-16 relative, twelve orders of magnitude below the
-    // optimiser difference measured in fit_nbinom, so the libm routine is used
-    // rather than a second vendored table.
-    //
-    // lgamma_r rather than lgamma: glibc's lgamma writes the sign of the
-    // gamma function into the global `signgam`, which is a data race as soon
-    // as two threads fit two distributions at once. hicDetectLoops will do
-    // exactly that.
-#if defined(__GLIBC__) || defined(_POSIX_VERSION)
-    int sign = 0;
-    return ::lgamma_r(x, &sign);
-#else
-    return std::lgamma(x);
-#endif
+    // log|Gamma(x)|. The poles at zero and the negative integers give +inf, a
+    // NaN stays NaN and an infinite argument is returned unchanged.
+    if (!std::isfinite(x)) {
+        return x;
+    }
+    if (x <= 0.0 && x == std::floor(x)) {
+        return kInf;
+    }
+    return boost::math::lgamma(x, ValuePolicy());
 }
 
 double digamma(double x) {
-    double y = 0.0;
-    if (std::isnan(x)) {
+    if (std::isnan(x) || x == kInf) {
         return x;
     }
-    if (x == std::numeric_limits<double>::infinity()) {
-        return x;
-    }
-    if (x == -std::numeric_limits<double>::infinity()) {
-        return std::numeric_limits<double>::quiet_NaN();
+    if (x == -kInf) {
+        return kNaN;
     }
     if (x == 0.0) {
-        return std::copysign(std::numeric_limits<double>::infinity(), -x);
+        // The pole at zero is approached from above for +0 and from below for -0.
+        return std::copysign(kInf, -x);
     }
-    if (x < 0.0) {
-        double q = 0.0;
-        const double r = std::modf(x, &q);
-        if (r == 0.0) {
-            return std::numeric_limits<double>::quiet_NaN();
-        }
-        y = -M_PI / std::tan(M_PI * r);
-        x = 1.0 - x;
+    if (x < 0.0 && x == std::floor(x)) {
+        return kNaN;
     }
-    if (x <= 10.0 && x == std::floor(x)) {
-        const int n = static_cast<int>(x);
-        for (int i = 1; i < n; ++i) {
-            y += 1.0 / i;
-        }
-        y -= kEuler;
-        return y;
+    return boost::math::digamma(x, ValuePolicy());
+}
+
+double gamma_q(double a, double x) {
+    if (std::isnan(a) || std::isnan(x) || a < 0.0 || x < 0.0) {
+        return kNaN;
     }
-    if (x < 1.0) {
-        y -= 1.0 / x;
-        x += 1.0;
-    } else if (x < 10.0) {
-        while (x > 2.0) {
-            x -= 1.0;
-            y += 1.0 / x;
-        }
+    if (a == 0.0) {
+        return x > 0.0 ? 0.0 : kNaN;
     }
-    if (x >= 1.0 && x <= 2.0) {
-        return y + digamma_imp_1_2(x);
+    if (x == 0.0) {
+        return 1.0;
     }
-    return y + psi_asy(x);
+    if (std::isinf(a)) {
+        return std::isinf(x) ? kNaN : 1.0;
+    }
+    if (std::isinf(x)) {
+        return 0.0;
+    }
+    return boost::math::gamma_q(a, x, ValuePolicy());
+}
+
+double gamma_p_inverse(double a, double p) {
+    if (std::isnan(a) || std::isnan(p) || a < 0.0 || p < 0.0 || p > 1.0) {
+        return kNaN;
+    }
+    if (p == 0.0) {
+        return 0.0;
+    }
+    if (p == 1.0) {
+        return kInf;
+    }
+    if (a == 0.0 || std::isinf(a)) {
+        return kNaN;
+    }
+    const double x = boost::math::gamma_p_inv(a, p, ValuePolicy());
+    // A root below the smallest normal number is returned as that number; as
+    // a double it is 0 (for a = 1e-5 and p = 0.5 the root is 0.5 ** 1e5).
+    return x <= std::numeric_limits<double>::min() ? 0.0 : x;
+}
+
+double betainc(double a, double b, double x) {
+    if (std::isnan(a) || std::isnan(b) || std::isnan(x)) {
+        return kNaN;
+    }
+    if (a <= 0.0 || b <= 0.0 || x < 0.0 || x > 1.0) {
+        return kNaN;
+    }
+    try {
+        return boost::math::ibeta(a, b, x, BetaPolicy());
+    } catch (const std::domain_error&) {
+        return kNaN;
+    } catch (const std::overflow_error&) {
+        return kInf;
+    } catch (const std::underflow_error&) {
+        return 0.0;
+    } catch (...) {
+        return kNaN;
+    }
+}
+
+double nbinom_sf(double x, double r, double p) {
+    // 1 - cnb.cdf(x, r, p), the subtraction in float64 after the incomplete
+    // beta function, as hicDetectLoops.py writes it.
+    return 1.0 - betainc(r, x + 1.0, p);
 }
 
 // --------------------------------------------------------------------------
