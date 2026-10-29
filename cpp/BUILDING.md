@@ -25,7 +25,6 @@ host (build time):
 | `libopenblas` | >=0.3.28,<0.4 | LAPACK (the library numpy and scipy use) |
 | `libblas`, `liblapack` | 3.9.0 (openblas build) | LAPACK symbols |
 | `eigen` | >=3.4.0,<3.5 | Spectra (hicPCA --eigenSolver lanczos) |
-| `spectra-cpp` | 1.2.0 | Spectra headers |
 | `libboost-headers` | >=1.85,<1.86 | Boost.Math special functions (`erfc`, `lgamma`, `digamma`, `ibeta`, `gamma_q`, `gamma_p_inv`) |
 | `libbigwig` (bioconda) | 0.4.8 | bigWig reading and writing |
 | `pybind11` | 2.13.6 | the Python extensions (`-DHICX_BUILD_PYTHON=ON`) |
@@ -51,7 +50,7 @@ A build environment with exactly these packages:
 
     mamba create -n hicx-build -c conda-forge -c bioconda --override-channels \
         python=3.12 pybind11=2.13.6 libboost-headers=1.85 libbigwig=0.4.8 \
-        spectra-cpp=1.2.0 eigen=3.4.0 doctest=2.4.11 hdf5=1.14.3 blosc=1.21.6 \
+        eigen=3.4.0 doctest=2.4.11 hdf5=1.14.3 blosc=1.21.6 \
         libzlib=1.3.1 htslib=1.21 libopenblas=0.3.28 \
         libblas=3.9.0=25_linux64_openblas liblapack=3.9.0=25_linux64_openblas \
         graphviz

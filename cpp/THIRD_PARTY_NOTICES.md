@@ -190,3 +190,10 @@ CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
+
+## Spectra
+
+- Location: `third_party/spectra/include/Spectra/` (54 headers), the eigensolver of `hicPCA --eigenSolver lanczos`.
+- Origin: https://github.com/yixuan/spectra, release v1.2.0 (commit `6841bcb`), copied unchanged from the conda-forge package spectra-cpp 1.2.0, which has no build for linux-aarch64.
+- Licence: Mozilla Public License 2.0, Copyright (C) 2016-2025 Yixuan Qiu. The licence text is in `third_party/spectra/LICENSE`; every header carries the MPL-2.0 notice.
+- SHA256 of the sorted per-file SHA256 list of the headers: `4fdc79096af4b182e72111dcc06b9671709d936c861dfa1e7c33c94095cd9c98`.
