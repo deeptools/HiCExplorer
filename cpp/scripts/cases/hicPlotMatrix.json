@@ -244,10 +244,13 @@
       {
         "path": "{out}/matrix.png",
         "format": "png",
-        "class": "E6"
+        "class": "E6",
+        "options": {
+          "tolerance": 0.02
+        }
       }
     ],
-    "notes": "test_hicPlotMatrix_cool_log_region1_region2_without_cool_suffix: cooler.fileops.is_cooler recognises the file without the suffix. Budget: the harness recognises matrices by their suffix, so this input is not measured; the declared 90 MB is the budget the same file receives as Li_et_al_2015.cool in hicPlotMatrix.cool_region_region2.",
+    "notes": "test_hicPlotMatrix_cool_log_region1_region2_without_cool_suffix: cooler.fileops.is_cooler recognises the file without the suffix. Budget: the harness recognises matrices by their suffix, so this input is not measured; the declared 90 MB is the budget the same file receives as Li_et_al_2015.cool in hicPlotMatrix.cool_region_region2. Tolerance 0.02 instead of 5: the matrix holds balanced, non-integer values, which the C++ tool hands to the drawing layer as float32 (the Python tool draws float64); rounding to float32 (relative 6e-8) moves a few pixels across a colour boundary. Measured RMS 0.0096, every other case of this file is at RMS 0.",
     "memory": {
       "budget_mb": 90
     }
@@ -295,7 +298,10 @@
         "class": "E6"
       }
     ],
-    "notes": "test_hicPlotMatrix_perChr (--perChr abbreviates --perChromosome)."
+    "notes": "test_hicPlotMatrix_perChr (--perChr abbreviates --perChromosome). cpp_args: --noDownsample. This figure has more bins along an axis than the axes have pixels, so by default the C++ tool draws blocks of bins (sum or mean of the cells of a block) instead of single bins; that changes the pixels by design, so the case compares the full resolution, tiled path with the Python figure instead. The default reduction is checked by the case with the suffix _reduced.",
+    "cpp_args": [
+      "--noDownsample"
+    ]
   },
   {
     "id": "hicPlotMatrix.cool_per_chromosome_log_vmax",
@@ -319,7 +325,10 @@
         "class": "E6"
       }
     ],
-    "notes": "test_hicPlotMatrix_cool_perChr_log1p (--log1 abbreviates --log1p)."
+    "notes": "test_hicPlotMatrix_cool_perChr_log1p (--log1 abbreviates --log1p). cpp_args: --noDownsample. This figure has more bins along an axis than the axes have pixels, so by default the C++ tool draws blocks of bins (sum or mean of the cells of a block) instead of single bins; that changes the pixels by design, so the case compares the full resolution, tiled path with the Python figure instead. The default reduction is checked by the case with the suffix _reduced.",
+    "cpp_args": [
+      "--noDownsample"
+    ]
   },
   {
     "id": "hicPlotMatrix.h5_per_chromosome_log_order",
@@ -346,7 +355,10 @@
         "class": "E6"
       }
     ],
-    "notes": "test_hicPlotMatrix_h5_perChr_log1p_chromosomeOrder: reorderChromosomes on the whole-matrix path."
+    "notes": "test_hicPlotMatrix_h5_perChr_log1p_chromosomeOrder: reorderChromosomes on the whole-matrix path. cpp_args: --noDownsample. This figure has more bins along an axis than the axes have pixels, so by default the C++ tool draws blocks of bins (sum or mean of the cells of a block) instead of single bins; that changes the pixels by design, so the case compares the full resolution, tiled path with the Python figure instead. The default reduction is checked by the case with the suffix _reduced.",
+    "cpp_args": [
+      "--noDownsample"
+    ]
   },
   {
     "id": "hicPlotMatrix.cool_per_chromosome_log1p_order",
@@ -372,7 +384,36 @@
         "class": "E6"
       }
     ],
-    "notes": "test_hicPlotMatrix_cool_perChr_log1p_chromosomeOrder, with tight_layout."
+    "notes": "test_hicPlotMatrix_cool_perChr_log1p_chromosomeOrder, with tight_layout. cpp_args: --noDownsample. This figure has more bins along an axis than the axes have pixels, so by default the C++ tool draws blocks of bins (sum or mean of the cells of a block) instead of single bins; that changes the pixels by design, so the case compares the full resolution, tiled path with the Python figure instead. The default reduction is checked by the case with the suffix _reduced.",
+    "cpp_args": [
+      "--noDownsample"
+    ]
+  },
+  {
+    "id": "hicPlotMatrix.cool_per_chromosome_log1p_order_reduced",
+    "tool": "hicPlotMatrix",
+    "tier": 7,
+    "args": [
+      "--matrix",
+      "{data}/small_test_matrix_50kb_res.cool",
+      "--perChr",
+      "--outFileName",
+      "{out}/matrix.png",
+      "--log1p",
+      "--chromosomeOrder",
+      "chr2L",
+      "chr3L",
+      "chr3R",
+      "chr2R"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/matrix.png",
+        "format": "png",
+        "class": "E7"
+      }
+    ],
+    "notes": "The default reduction of cool_per_chromosome_log1p_order (sum of 2 x 2 bins per chromosome, --log1p after the sum): the matrix has more bins along an axis than the axes have pixels, so the C++ tool draws blocks of bins, which changes the pixels of the figure by design (RMS up to 38 against the Python figure). Class E7: the figure is checked to be a valid PNG; its content is checked by cpp/tests/cli/hicPlotMatrix_tiles_cli.sh (block sums, edges, tiles) and by looking at it. The same arguments with --noDownsample are compared at E6 by the case without the suffix."
   },
   {
     "id": "hicPlotMatrix.per_chromosome_pca_bigwig",
@@ -395,7 +436,10 @@
         "class": "E6"
       }
     ],
-    "notes": "test_hicPlotMatrix_perChr_pca1_bigwig."
+    "notes": "test_hicPlotMatrix_perChr_pca1_bigwig. cpp_args: --noDownsample. This figure has more bins along an axis than the axes have pixels, so by default the C++ tool draws blocks of bins (sum or mean of the cells of a block) instead of single bins; that changes the pixels by design, so the case compares the full resolution, tiled path with the Python figure instead. The default reduction is checked by the case with the suffix _reduced.",
+    "cpp_args": [
+      "--noDownsample"
+    ]
   },
   {
     "id": "hicPlotMatrix.per_chromosome_two_bigwig_vertical",
@@ -420,7 +464,10 @@
         "class": "E6"
       }
     ],
-    "notes": "test_hicPlotMatrix_perChr_pca1_bigwig_vertical."
+    "notes": "test_hicPlotMatrix_perChr_pca1_bigwig_vertical. cpp_args: --noDownsample. This figure has more bins along an axis than the axes have pixels, so by default the C++ tool draws blocks of bins (sum or mean of the cells of a block) instead of single bins; that changes the pixels by design, so the case compares the full resolution, tiled path with the Python figure. The default reduction is covered by the case with the suffix _reduced (E7) and by cpp/tests/cli/hicPlotMatrix_tiles_cli.sh.",
+    "cpp_args": [
+      "--noDownsample"
+    ]
   },
   {
     "id": "hicPlotMatrix.region_chromosome_colormap_bigwig",
@@ -472,7 +519,37 @@
         "class": "E6"
       }
     ],
-    "notes": "test_hicPlotMatrix_bigwig_multiple_chr: four chromosomes reordered, getMatrix with NaN bins."
+    "notes": "test_hicPlotMatrix_bigwig_multiple_chr: four chromosomes reordered, getMatrix with NaN bins. cpp_args: --noDownsample. This figure has more bins along an axis than the axes have pixels, so by default the C++ tool draws blocks of bins (sum or mean of the cells of a block) instead of single bins; that changes the pixels by design, so the case compares the full resolution, tiled path with the Python figure instead. The default reduction is checked by the case with the suffix _reduced.",
+    "cpp_args": [
+      "--noDownsample"
+    ]
+  },
+  {
+    "id": "hicPlotMatrix.bigwig_chromosome_order_reduced",
+    "tool": "hicPlotMatrix",
+    "tier": 7,
+    "args": [
+      "--matrix",
+      "{data}/hicTransform/pearson_perChromosome.h5",
+      "--disable_tight_layout",
+      "--outFileName",
+      "{out}/matrix.png",
+      "--bigwig",
+      "{data}/hicPCA/pca1.bw",
+      "--chromosomeOrder",
+      "chr2L",
+      "chr3L",
+      "chr3R",
+      "chr2R"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/matrix.png",
+        "format": "png",
+        "class": "E7"
+      }
+    ],
+    "notes": "The default reduction of bigwig_chromosome_order (mean of 4 x 4 bins, balanced values, with a bigwig track): the matrix has more bins along an axis than the axes have pixels, so the C++ tool draws blocks of bins, which changes the pixels of the figure by design (RMS up to 38 against the Python figure). Class E7: the figure is checked to be a valid PNG; its content is checked by cpp/tests/cli/hicPlotMatrix_tiles_cli.sh (block sums, edges, tiles) and by looking at it. The same arguments with --noDownsample are compared at E6 by the case without the suffix."
   },
   {
     "id": "hicPlotMatrix.bigwig_pruned_matrix",
@@ -494,7 +571,10 @@
         "class": "E6"
       }
     ],
-    "notes": "test_hicPlotMatrix_bigwig_multiple_chr_matrix_pruned: chromosomes that do not start at 0, so make_start_pos_array shifts them."
+    "notes": "test_hicPlotMatrix_bigwig_multiple_chr_matrix_pruned: chromosomes that do not start at 0, so make_start_pos_array shifts them. cpp_args: --noDownsample. This figure has more bins along an axis than the axes have pixels, so by default the C++ tool draws blocks of bins (sum or mean of the cells of a block) instead of single bins; that changes the pixels by design, so the case compares the full resolution, tiled path with the Python figure instead. The default reduction is checked by the case with the suffix _reduced.",
+    "cpp_args": [
+      "--noDownsample"
+    ]
   },
   {
     "id": "hicPlotMatrix.plot_tads",
@@ -518,7 +598,10 @@
         "class": "E6"
       }
     ],
-    "notes": "test_hicPlotMatrix_plot_tads."
+    "notes": "test_hicPlotMatrix_plot_tads. cpp_args: --noDownsample. This figure has more bins along an axis than the axes have pixels, so by default the C++ tool draws blocks of bins (sum or mean of the cells of a block) instead of single bins; that changes the pixels by design, so the case compares the full resolution, tiled path with the Python figure instead. The default reduction is checked by the case with the suffix _reduced.",
+    "cpp_args": [
+      "--noDownsample"
+    ]
   },
   {
     "id": "hicPlotMatrix.whole_h5_nan_bins",
@@ -537,7 +620,32 @@
         "class": "E6"
       }
     ],
-    "notes": "The whole 2,794 bin matrix through getMatrix, 139 NaN bins drawn black. Budget: the figure is the whole matrix, so its dense float64 array (8 n^2 bytes, 62.4 MB for n = 2,794) is part of the working set; the formula's D term sizes the largest chromosome only. 1.3 W + 8 n^2 + C = 127 MB, declared 130 MB.",
+    "notes": "The whole 2,794 bin matrix through getMatrix, 139 NaN bins drawn black. Budget: the figure is the whole matrix, so its dense float64 array (8 n^2 bytes, 62.4 MB for n = 2,794) is part of the working set; the formula's D term sizes the largest chromosome only. 1.3 W + 8 n^2 + C = 127 MB, declared 130 MB. cpp_args: --noDownsample. This figure has more bins along an axis than the axes have pixels, so by default the C++ tool draws blocks of bins (sum or mean of the cells of a block) instead of single bins; that changes the pixels by design, so the case compares the full resolution, tiled path with the Python figure instead. The default reduction is checked by the case with the suffix _reduced.",
+    "memory": {
+      "budget_mb": 130
+    },
+    "cpp_args": [
+      "--noDownsample"
+    ]
+  },
+  {
+    "id": "hicPlotMatrix.whole_h5_nan_bins_reduced",
+    "tool": "hicPlotMatrix",
+    "tier": 7,
+    "args": [
+      "--matrix",
+      "{data}/small_test_matrix_50kb_res.h5",
+      "--outFileName",
+      "{out}/matrix.png"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/matrix.png",
+        "format": "png",
+        "class": "E7"
+      }
+    ],
+    "notes": "The default reduction of whole_h5_nan_bins (sum of 9 x 9 bins, NaN bins): the matrix has more bins along an axis than the axes have pixels, so the C++ tool draws blocks of bins, which changes the pixels of the figure by design (RMS up to 38 against the Python figure). Class E7: the figure is checked to be a valid PNG; its content is checked by cpp/tests/cli/hicPlotMatrix_tiles_cli.sh (block sums, edges, tiles) and by looking at it. The same arguments with --noDownsample are compared at E6 by the case without the suffix.",
     "memory": {
       "budget_mb": 130
     }

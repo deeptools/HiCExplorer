@@ -68,6 +68,10 @@ void write_npy_float64(const std::string& path, const std::vector<double>& value
 void write_npy(const std::string& path, const std::string& dtype,
                const std::vector<std::int64_t>& shape, const std::string& bytes);
 
+// write_npy() for elements held in a buffer, without copying them into a string.
+void write_npy_raw(const std::string& path, const std::string& dtype,
+                   const std::vector<std::int64_t>& shape, const void* bytes, std::size_t size);
+
 // Hands the figure to the drawing layer, see the file comment. Returns the
 // exit status the tool should return: 0 after writing the --plotData file, 1
 // when the data could not be written or the interpreter could not be started.

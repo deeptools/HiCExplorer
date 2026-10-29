@@ -122,6 +122,7 @@ add_library(hicx4core
     src/matrix_qc_report.cpp
     src/qc_report_api.cpp
     src/plot_bridge.cpp
+    src/plot_tiles.cpp
     src/plot_matrix_data.cpp
     src/py_text.cpp
     src/read_bed.cpp

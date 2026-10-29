@@ -36,6 +36,17 @@ lower triangle, for the side-by-side comparison of two matrices. Both matrices a
 requested region and need the same shape there. The diagonal comes from `--matrix`. The option cannot be
 combined with `--perChromosome`.
 
+A matrix with more bins along an axis than the figure has pixels there (about 360 by 346 for the default
+`--dpi 72`, scaled with `--dpi`; the size of the grid cell with `--perChromosome`) is drawn as blocks of
+`ceil(bins / pixels)` bins, so that a whole genome of 300,000 bins needs the memory of a figure of a few
+hundred blocks. A block is the sum of its counts for a count matrix and the mean of its valid bins for
+balanced or other non-integer values. Blocks stop at chromosome ends (the last block of a chromosome is
+shorter), the axes, ticks and labels stay those of the bins, and `--log`/`--log1p` apply to the blocks, so
+the figure is the plot of the matrix at the coarser bin size that the figure can show. The message
+`N x N bins are drawn as M x M blocks` on standard error says when this happened. `--noDownsample` (C++ only)
+draws single bins; the matrix is then handed to the drawing process in tiles of at most 4096 x 4096 bins
+(`--tileBins`), but matplotlib keeps what it has drawn until the figure is saved, about 55 bytes per cell.
+
 ## Notes
 
 ### Details

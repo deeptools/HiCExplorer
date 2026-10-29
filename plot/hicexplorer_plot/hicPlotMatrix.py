@@ -1,9 +1,10 @@
 """The figure of hicPlotMatrix.
 
 The C++ binary loads the matrix, applies --clearMaskedBins, --chromosomeOrder,
---region and --region2, extracts the dense matrices pcolormesh draws (one per
-chromosome with --perChromosome), replaces zeros, NaN and infinite values
-for --log and --log1p and adds 1 for --log1p, and computes the bin start
+--region and --region2, extracts the matrices pcolormesh draws (one per
+chromosome with --perChromosome) as tiles, aggregated in blocks of bins where
+an axis has more bins than the figure has pixels, replaces zeros, NaN and
+infinite values for --log and --log1p and adds 1 for --log1p, and computes the bin start
 positions, the chromosome extents and the bin size, and it reads the tracks:
 the bigwig scores of every plotBigwig call with their positions and axis
 limits, and the loop and TAD positions of plotLongRangeContacts and plotTADs.
@@ -15,6 +16,22 @@ and plotPerChr() from the figure on.
 
 Data:
     options      the command line values the plotting reads
+    A matrix is given either as `matrix`, the path of one .npy file with the
+    whole matrix (rows by columns, drawn with the reference's single pcolormesh
+    call from `start_pos` and `start_pos2`), or as `tile_spec` with `matrix`
+    null, when the matrix is reduced to blocks or does not fit one tile:
+        tile_spec = {x_edges, y_edges (cell edges along the first and the
+                     second matrix axis, one more than blocks),
+                     bins, blocks, bins_per_block, blocks_by_chromosome,
+                     aggregate ("none", "sum" or "mean"), dtype,
+                     vmin, vmax (of all tiles; null for a single tile),
+                     tiles: [{file, r0, r1, c0, c1}]}
+        Each tile file holds the blocks r0..r1 of the first axis and c0..c1 of
+        the second as an array of shape (c1 - c0, r1 - r0), pcolormesh's
+        orientation. The tiles are drawn one after the other on the same axes
+        with one colour scale, and each is freed after it is drawn.
+    The arrays keep the type the C++ binary chose (int32 counts, int64 where
+    int32 does not hold them, float32 otherwise).
     resolution, chrom_names, chromosome_start_end: [[chrom, start, end]]
     chromosome_order_as_bytes   the reference converts --chromosomeOrder to
                                 bytes on the whole-matrix path (applied by the
@@ -76,15 +93,74 @@ def relabel_ticks(pXTicks):
     return labels
 
 
+def as_colour_input(array):
+    """float32 tiles are widened to float64 for the colour mapping. matplotlib
+    normalises float32 data in float32, which moves a few values across a
+    colour boundary compared with the float64 path (up to an RMS of 4 on a
+    figure of the test data); the copy is one tile (at most 4096 x 4096) and is
+    freed with it. Integer tiles are widened by matplotlib itself and
+    need no copy here."""
+    if array.dtype == np.float32:
+        return array.astype(np.float64)
+    return array
+
+
+def make_norm(args, spec=None):
+    """The LogNorm of --log and --log1p; with several tiles the limits the
+    C++ binary found over all of them fill the ones the user did not give."""
+    if not (args.log1p or args.log):
+        return None
+    vmin = args.vMin
+    vmax = args.vMax
+    if spec is not None:
+        if vmin is None:
+            vmin = spec["vmin"]
+        if vmax is None:
+            vmax = spec["vmax"]
+    return LogNorm(vmin=vmin, vmax=vmax)
+
+
+def draw_tiles(axis, spec, vmin, vmax, cmap, norm, temporary):
+    """One pcolormesh per tile at the block edges of the whole matrix, so the
+    tiles meet exactly; the tile files the C++ binary wrote as temporary files
+    are removed as they are read."""
+    import os
+    x_edges = np.asarray(spec["x_edges"], dtype=np.float64)
+    y_edges = np.asarray(spec["y_edges"], dtype=np.float64)
+    if len(spec["tiles"]) > 1 and norm is None:
+        if vmin is None:
+            vmin = spec["vmin"]
+        if vmax is None:
+            vmax = spec["vmax"]
+    image = None
+    for tile_info in spec["tiles"]:
+        tile = np.load(tile_info["file"])
+        if tile_info["file"] in temporary:
+            try:
+                os.remove(tile_info["file"])
+            except OSError:
+                pass
+        image = axis.pcolormesh(
+            x_edges[tile_info["r0"]:tile_info["r1"] + 1],
+            y_edges[tile_info["c0"]:tile_info["c1"] + 1],
+            as_colour_input(tile), vmin=vmin, vmax=vmax, cmap=cmap, norm=norm,
+            shading='flat')
+        image.set_rasterized(True)
+        del tile
+    return image
+
+
 def plotHeatmap(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=None,
                 ylabel=None, start_pos=None, start_pos2=None, pNorm=None, pAxis=None, pBigwig=None,
                 pLoops=None, pLoopLargeRegionsOperation=None, pHiCMatrix=None, pChromsomeStartEndDict=None, pResolution=None, pTads=None,
-                pBigwigTracks=None, pLoopPositions=None, pTadPositions=None):
+                pBigwigTracks=None, pLoopPositions=None, pTadPositions=None, pTileSpec=None,
+                pTemporary=()):
     log.debug("plotting heatmap")
-    if ma.shape[0] < 5:
+    shape = ma.shape if pTileSpec is None else tuple(pTileSpec["bins"])
+    if shape[0] < 5:
         chr_names = " ".join([toString(x) for x in chrBinBoundaries.keys()])
         log.info("Matrix for {} too small to plot. Matrix size: {}".format(
-            chr_names, ma.shape))
+            chr_names, shape))
         return
     if pAxis is not None:
         axHeat2 = pAxis
@@ -94,20 +170,24 @@ def plotHeatmap(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=None,
     if args.title:
         axHeat2.set_title(toString(args.title))
 
-    if start_pos2 is None:
-        start_pos2 = start_pos
-
-    xmesh, ymesh = np.meshgrid(start_pos, start_pos2)
-
     vmin = None
     vmax = None
     if pNorm is None:
         vmin = args.vMin
         vmax = args.vMax
 
-    img3 = axHeat2.pcolormesh(
-        xmesh.T, ymesh.T, ma, vmin=vmin, vmax=vmax, cmap=cmap, norm=pNorm)
-    img3.set_rasterized(True)
+    if pTileSpec is None:
+        if start_pos2 is None:
+            start_pos2 = start_pos
+
+        xmesh, ymesh = np.meshgrid(start_pos, start_pos2)
+
+        img3 = axHeat2.pcolormesh(
+            xmesh.T, ymesh.T, as_colour_input(ma), vmin=vmin, vmax=vmax, cmap=cmap,
+            norm=pNorm)
+        img3.set_rasterized(True)
+    else:
+        img3 = draw_tiles(axHeat2, pTileSpec, vmin, vmax, cmap, pNorm, pTemporary)
 
     if args.region:
         xtick_lables = relabel_ticks(axHeat2.get_xticks())
@@ -338,13 +418,9 @@ def plot_per_chromosome(data, cmap, args, pBigwig, pResolution, chromosome_start
         else:
             axis = plt.subplot(grids[row, col])
             axis.set_title(toString(chrname))
-        matrix = np.load(entry["matrix"])
-
-        norm = None
-        if args.log1p:
-            norm = LogNorm(vmin=args.vMin, vmax=args.vMax)
-        elif args.log:
-            norm = LogNorm(vmin=args.vMin, vmax=args.vMax)
+        spec = entry.get("tile_spec")
+        matrix = None if spec is not None else np.load(entry["matrix"])
+        norm = make_norm(args, spec)
 
         chr_bin_boundary = OrderedDict()
         chr_bin_boundary[chrname] = None
@@ -356,7 +432,8 @@ def plot_per_chromosome(data, cmap, args, pBigwig, pResolution, chromosome_start
                     args, cmap, xlabel=chrname, ylabel=chrname,
                     start_pos=start_pos1, start_pos2=start_pos2, pNorm=norm, pAxis=axis, pBigwig=bigwig_info,
                     pChromsomeStartEndDict=chromosome_start_end, pResolution=pResolution,
-                    pBigwigTracks=entry["bigwig_tracks"])
+                    pBigwigTracks=entry["bigwig_tracks"], pTileSpec=spec,
+                    pTemporary=set(data.get("temporary_files", [])))
     return fig
 
 
@@ -386,13 +463,10 @@ def draw(data):
                                   chromosome_start_end=chromosome_start_end)
 
     else:
-        matrix = np.load(data["matrix"])
+        spec = data.get("tile_spec")
+        matrix = None if spec is not None else np.load(data["matrix"])
         args.region = data["region"]
-        norm = None
-        if args.log1p:
-            norm = LogNorm(vmin=args.vMin, vmax=args.vMax)
-        elif args.log:
-            norm = LogNorm(vmin=args.vMin, vmax=args.vMax)
+        norm = make_norm(args, spec)
 
         fig_height = 7
         fig_width = 8
@@ -421,7 +495,8 @@ def draw(data):
                     start_pos=data["start_pos"], start_pos2=data["start_pos2"], pNorm=norm, pAxis=ax1, pBigwig=bigwig_info,
                     pLoops=args.loops, pLoopLargeRegionsOperation=args.loopLargeRegionsOperation, pHiCMatrix=None, pChromsomeStartEndDict=chromosome_start_end, pResolution=resolution, pTads=args.tads,
                     pBigwigTracks=data["bigwig_tracks"], pLoopPositions=data["loop_positions"],
-                    pTadPositions=data["tad_positions"])
+                    pTadPositions=data["tad_positions"], pTileSpec=spec,
+                    pTemporary=set(data.get("temporary_files", [])))
 
     if not args.disable_tight_layout:
         if args.perChromosome or args.bigwig:
