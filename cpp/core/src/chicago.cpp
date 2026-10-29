@@ -1,5 +1,6 @@
 // See hicx/chicago.hpp.
 
+#include "hicx/from_chars_double.hpp"
 #include "hicx/chicago.hpp"
 
 #include <algorithm>
@@ -399,7 +400,7 @@ bool parse_chinput_line(std::string_view line, ChinputRecord& r) {
     r.other_end_id = parse_long(fields[1]);
     {
         double v = 0.0;
-        std::from_chars(fields[2].data(), fields[2].data() + fields[2].size(), v);
+        hicx::from_chars_double(fields[2].data(), fields[2].data() + fields[2].size(), v);
         r.N = v;
     }
     r.other_end_len = parse_long(fields[3]);
@@ -665,7 +666,7 @@ hicx::MatrixData matrix_from_chinput(const std::string& chinput_path, const std:
                 throw std::runtime_error(chinput_path + ": file changed while it was read");
             }
             double n = 0.0;
-            std::from_chars(n_field.data(), n_field.data() + n_field.size(), n);
+            hicx::from_chars_double(n_field.data(), n_field.data() + n_field.size(), n);
             indices[k] = std::max(bait_bin, oe_bin);
             values[k] = n;
             transposed[k] = bait_bin > oe_bin ? 1 : 0;
