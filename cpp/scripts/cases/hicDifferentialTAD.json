@@ -8,13 +8,13 @@
              "-td", "{data}/hicDifferentialTAD/untreated_R1_domains.bed",
              "-m", "all", "-mr", "all", "-t", "1", "-o", "{out}/diff"],
     "outputs": [
-      {"path": "{out}/diff_accepted.diff_tad", "format": "text", "class": "E0"},
-      {"path": "{out}/diff_rejected.diff_tad", "format": "text", "class": "E0"},
-      {"path": "{out}/diff_accepted.diff_tad", "format": "interval", "class": "E5"},
-      {"path": "{out}/diff_rejected.diff_tad", "format": "interval", "class": "E5"}
+      {"path": "{out}/diff_accepted.diff_tad", "format": "text", "class": "E3", "options": {"schema": "tsv-header", "exact_comments": true}},
+      {"path": "{out}/diff_rejected.diff_tad", "format": "text", "class": "E3", "options": {"schema": "tsv-header", "exact_comments": true}},
+      {"path": "{out}/diff_accepted.diff_tad", "format": "interval", "class": "E5", "options": {"columns": 4}},
+      {"path": "{out}/diff_rejected.diff_tad", "format": "interval", "class": "E5", "options": {"columns": 4}}
     ],
     "threads_arg": "--threads",
-    "notes": "The invocation of test_cool_all_single_core. 140 TADs, 11 rejected. Every file is declared twice: text E0 as the regression signal, and interval E5 so that the report carries the Jaccard index of the called set that the task asks for. The acceptance gate is ED; E0 is what is met, because the ranks, the rank sum and the cephes normal tail are reproduced operation for operation. The last TAD's left test runs on the block the stale right_boundary_index selects (tad_contacts_impl.hpp point 3), p 0.9185395091955513."
+    "notes": "The invocation of test_cool_all_single_core. 140 TADs, 11 rejected. Every file is declared twice: text E0 as the regression signal, and interval E5 so that the report carries the Jaccard index of the called set that the task asks for. The acceptance gate is ED; E0 is what is met, because the ranks, the rank sum and the cephes normal tail are reproduced operation for operation. The last TAD's left test runs on the block the stale right_boundary_index selects (tad_contacts_impl.hpp point 3), p 0.9185395091955513. Since the special functions are Boost.Math's and no longer the Cephes routines of scipy, the last one or two bits of the p-values differ from 3.7.6 (largest relative difference 2.4e-15 over the corpus): the text outputs are declared E3 (relative 1e-12 on the float columns; chromosome, coordinates, names and comment lines exactly) instead of E0, and the called regions are compared on their first four columns, which keeps the accepted and rejected sets exact."
   },
   {
     "id": "hicDifferentialTAD.cool.chr1.intra_all",
@@ -25,13 +25,13 @@
              "-td", "{data}/hicDifferentialTAD/untreated_R1_domains.bed",
              "-m", "intra-TAD", "-mr", "all", "-t", "4", "-o", "{out}/diff"],
     "outputs": [
-      {"path": "{out}/diff_accepted.diff_tad", "format": "text", "class": "E0"},
-      {"path": "{out}/diff_rejected.diff_tad", "format": "text", "class": "E0"},
-      {"path": "{out}/diff_accepted.diff_tad", "format": "interval", "class": "E5"},
-      {"path": "{out}/diff_rejected.diff_tad", "format": "interval", "class": "E5"}
+      {"path": "{out}/diff_accepted.diff_tad", "format": "text", "class": "E3", "options": {"schema": "tsv-header", "exact_comments": true}},
+      {"path": "{out}/diff_rejected.diff_tad", "format": "text", "class": "E3", "options": {"schema": "tsv-header", "exact_comments": true}},
+      {"path": "{out}/diff_accepted.diff_tad", "format": "interval", "class": "E5", "options": {"columns": 4}},
+      {"path": "{out}/diff_rejected.diff_tad", "format": "interval", "class": "E5", "options": {"columns": 4}}
     ],
     "threads_arg": "--threads",
-    "notes": "Only the intra-TAD test decides, so --modeReject has no effect. 91 of 140 rejected. --threads 4: the Python's output on the full TAD file is identical at 1, 4, 11 and 16 processes, measured 2026-09-13."
+    "notes": "Only the intra-TAD test decides, so --modeReject has no effect. 91 of 140 rejected. --threads 4: the Python's output on the full TAD file is identical at 1, 4, 11 and 16 processes, measured 2026-09-13. Since the special functions are Boost.Math's and no longer the Cephes routines of scipy, the last one or two bits of the p-values differ from 3.7.6 (largest relative difference 2.4e-15 over the corpus): the text outputs are declared E3 (relative 1e-12 on the float columns; chromosome, coordinates, names and comment lines exactly) instead of E0, and the called regions are compared on their first four columns, which keeps the accepted and rejected sets exact."
   },
   {
     "id": "hicDifferentialTAD.cool.chr1.left_one",
@@ -42,13 +42,13 @@
              "-td", "{data}/hicDifferentialTAD/untreated_R1_domains.bed",
              "-m", "left-inter-TAD", "-mr", "one", "-t", "1", "-o", "{out}/diff"],
     "outputs": [
-      {"path": "{out}/diff_accepted.diff_tad", "format": "text", "class": "E0"},
-      {"path": "{out}/diff_rejected.diff_tad", "format": "text", "class": "E0"},
-      {"path": "{out}/diff_accepted.diff_tad", "format": "interval", "class": "E5"},
-      {"path": "{out}/diff_rejected.diff_tad", "format": "interval", "class": "E5"}
+      {"path": "{out}/diff_accepted.diff_tad", "format": "text", "class": "E3", "options": {"schema": "tsv-header", "exact_comments": true}},
+      {"path": "{out}/diff_rejected.diff_tad", "format": "text", "class": "E3", "options": {"schema": "tsv-header", "exact_comments": true}},
+      {"path": "{out}/diff_accepted.diff_tad", "format": "interval", "class": "E5", "options": {"columns": 4}},
+      {"path": "{out}/diff_rejected.diff_tad", "format": "interval", "class": "E5", "options": {"columns": 4}}
     ],
     "threads_arg": "--threads",
-    "notes": "left-inter-TAD with --modeReject one, which the original Python suite never ran (it ran left-inter-TAD with all only)."
+    "notes": "left-inter-TAD with --modeReject one, which the original Python suite never ran (it ran left-inter-TAD with all only). Since the special functions are Boost.Math's and no longer the Cephes routines of scipy, the last one or two bits of the p-values differ from 3.7.6 (largest relative difference 2.4e-15 over the corpus): the text outputs are declared E3 (relative 1e-12 on the float columns; chromosome, coordinates, names and comment lines exactly) instead of E0, and the called regions are compared on their first four columns, which keeps the accepted and rejected sets exact."
   },
   {
     "id": "hicDifferentialTAD.cool.chr1.right_all",
@@ -59,13 +59,13 @@
              "-td", "{data}/hicDifferentialTAD/untreated_R1_domains.bed",
              "-m", "right-inter-TAD", "-mr", "all", "-t", "4", "-o", "{out}/diff"],
     "outputs": [
-      {"path": "{out}/diff_accepted.diff_tad", "format": "text", "class": "E0"},
-      {"path": "{out}/diff_rejected.diff_tad", "format": "text", "class": "E0"},
-      {"path": "{out}/diff_accepted.diff_tad", "format": "interval", "class": "E5"},
-      {"path": "{out}/diff_rejected.diff_tad", "format": "interval", "class": "E5"}
+      {"path": "{out}/diff_accepted.diff_tad", "format": "text", "class": "E3", "options": {"schema": "tsv-header", "exact_comments": true}},
+      {"path": "{out}/diff_rejected.diff_tad", "format": "text", "class": "E3", "options": {"schema": "tsv-header", "exact_comments": true}},
+      {"path": "{out}/diff_accepted.diff_tad", "format": "interval", "class": "E5", "options": {"columns": 4}},
+      {"path": "{out}/diff_rejected.diff_tad", "format": "interval", "class": "E5", "options": {"columns": 4}}
     ],
     "threads_arg": "--threads",
-    "notes": "The right inter-TAD block on the cool path ends at the literal -1 of the region, so it drops the last bin of the next TAD; the h5 path keeps it (tad_contacts_impl.hpp point 2)."
+    "notes": "The right inter-TAD block on the cool path ends at the literal -1 of the region, so it drops the last bin of the next TAD; the h5 path keeps it (tad_contacts_impl.hpp point 2). Since the special functions are Boost.Math's and no longer the Cephes routines of scipy, the last one or two bits of the p-values differ from 3.7.6 (largest relative difference 2.4e-15 over the corpus): the text outputs are declared E3 (relative 1e-12 on the float columns; chromosome, coordinates, names and comment lines exactly) instead of E0, and the called regions are compared on their first four columns, which keeps the accepted and rejected sets exact."
   },
   {
     "id": "hicDifferentialTAD.cool.chr1.all_one.pvalue_0.01",
@@ -76,13 +76,13 @@
              "-td", "{data}/hicDifferentialTAD/untreated_R1_domains.bed",
              "-m", "all", "-mr", "one", "-p", "0.01", "-t", "2", "-o", "{out}/diff"],
     "outputs": [
-      {"path": "{out}/diff_accepted.diff_tad", "format": "text", "class": "E0"},
-      {"path": "{out}/diff_rejected.diff_tad", "format": "text", "class": "E0"},
-      {"path": "{out}/diff_accepted.diff_tad", "format": "interval", "class": "E5"},
-      {"path": "{out}/diff_rejected.diff_tad", "format": "interval", "class": "E5"}
+      {"path": "{out}/diff_accepted.diff_tad", "format": "text", "class": "E3", "options": {"schema": "tsv-header", "exact_comments": true}},
+      {"path": "{out}/diff_rejected.diff_tad", "format": "text", "class": "E3", "options": {"schema": "tsv-header", "exact_comments": true}},
+      {"path": "{out}/diff_accepted.diff_tad", "format": "interval", "class": "E5", "options": {"columns": 4}},
+      {"path": "{out}/diff_rejected.diff_tad", "format": "interval", "class": "E5", "options": {"columns": 4}}
     ],
     "threads_arg": "--threads",
-    "notes": "--pValue varied from its default for the first time; the header line repeats it as repr(float). 82 of 140 rejected. The one case of the corpus with a p-value within 1 % of its threshold: 0.010074561112534944, the left inter-TAD test of chr1:148600000, 0.75 % above 0.01, so that test does not reject (the row is rejected by another of its tests under --modeReject one). No p-value sits exactly on a threshold in any run."
+    "notes": "--pValue varied from its default for the first time; the header line repeats it as repr(float). 82 of 140 rejected. The one case of the corpus with a p-value within 1 % of its threshold: 0.010074561112534944, the left inter-TAD test of chr1:148600000, 0.75 % above 0.01, so that test does not reject (the row is rejected by another of its tests under --modeReject one). No p-value sits exactly on a threshold in any run. Since the special functions are Boost.Math's and no longer the Cephes routines of scipy, the last one or two bits of the p-values differ from 3.7.6 (largest relative difference 2.4e-15 over the corpus): the text outputs are declared E3 (relative 1e-12 on the float columns; chromosome, coordinates, names and comment lines exactly) instead of E0, and the called regions are compared on their first four columns, which keeps the accepted and rejected sets exact."
   },
   {
     "id": "hicDifferentialTAD.cool.chr1_chr2.all_all",
@@ -93,13 +93,13 @@
              "-td", "{data}/hicDifferentialTAD/untreated_R1_domains_chr1_chr2.bed",
              "-m", "all", "-mr", "all", "-t", "4", "-o", "{out}/diff"],
     "outputs": [
-      {"path": "{out}/diff_accepted.diff_tad", "format": "text", "class": "E0"},
-      {"path": "{out}/diff_rejected.diff_tad", "format": "text", "class": "E0"},
-      {"path": "{out}/diff_accepted.diff_tad", "format": "interval", "class": "E5"},
-      {"path": "{out}/diff_rejected.diff_tad", "format": "interval", "class": "E5"}
+      {"path": "{out}/diff_accepted.diff_tad", "format": "text", "class": "E3", "options": {"schema": "tsv-header", "exact_comments": true}},
+      {"path": "{out}/diff_rejected.diff_tad", "format": "text", "class": "E3", "options": {"schema": "tsv-header", "exact_comments": true}},
+      {"path": "{out}/diff_accepted.diff_tad", "format": "interval", "class": "E5", "options": {"columns": 4}},
+      {"path": "{out}/diff_rejected.diff_tad", "format": "interval", "class": "E5", "options": {"columns": 4}}
     ],
     "threads_arg": "--threads",
-    "notes": "Two chromosomes, 225 TADs, the largest input of the corpus for this tool (4,208,340 stored pixels in the control). The original test compared this at delta=2; it matches the master exactly."
+    "notes": "Two chromosomes, 225 TADs, the largest input of the corpus for this tool (4,208,340 stored pixels in the control). The original test compared this at delta=2; it matches the master exactly. Since the special functions are Boost.Math's and no longer the Cephes routines of scipy, the last one or two bits of the p-values differ from 3.7.6 (largest relative difference 2.4e-15 over the corpus): the text outputs are declared E3 (relative 1e-12 on the float columns; chromosome, coordinates, names and comment lines exactly) instead of E0, and the called regions are compared on their first four columns, which keeps the accepted and rejected sets exact."
   },
   {
     "id": "hicDifferentialTAD.h5.chr1.all_one",
@@ -110,13 +110,13 @@
              "-td", "{data}/hicDifferentialTAD/untreated_R1_domains.bed",
              "-m", "all", "-mr", "one", "-t", "1", "-o", "{out}/diff"],
     "outputs": [
-      {"path": "{out}/diff_accepted.diff_tad", "format": "text", "class": "E0"},
-      {"path": "{out}/diff_rejected.diff_tad", "format": "text", "class": "E0"},
-      {"path": "{out}/diff_accepted.diff_tad", "format": "interval", "class": "E5"},
-      {"path": "{out}/diff_rejected.diff_tad", "format": "interval", "class": "E5"}
+      {"path": "{out}/diff_accepted.diff_tad", "format": "text", "class": "E3", "options": {"schema": "tsv-header", "exact_comments": true}},
+      {"path": "{out}/diff_rejected.diff_tad", "format": "text", "class": "E3", "options": {"schema": "tsv-header", "exact_comments": true}},
+      {"path": "{out}/diff_accepted.diff_tad", "format": "interval", "class": "E5", "options": {"columns": 4}},
+      {"path": "{out}/diff_rejected.diff_tad", "format": "interval", "class": "E5", "options": {"columns": 4}}
     ],
     "threads_arg": "--threads",
-    "notes": "The whole-matrix h5 path. Its blocks differ from the cool path's (the right block keeps the next TAD's last bin) and the last TAD's left test is NaN, because the stale absolute index gives a block with no columns."
+    "notes": "The whole-matrix h5 path. Its blocks differ from the cool path's (the right block keeps the next TAD's last bin) and the last TAD's left test is NaN, because the stale absolute index gives a block with no columns. Since the special functions are Boost.Math's and no longer the Cephes routines of scipy, the last one or two bits of the p-values differ from 3.7.6 (largest relative difference 2.4e-15 over the corpus): the text outputs are declared E3 (relative 1e-12 on the float columns; chromosome, coordinates, names and comment lines exactly) instead of E0, and the called regions are compared on their first four columns, which keeps the accepted and rejected sets exact."
   },
   {
     "id": "hicDifferentialTAD.h5.chr1.left_one",
@@ -127,13 +127,13 @@
              "-td", "{data}/hicDifferentialTAD/untreated_R1_domains.bed",
              "-m", "left-inter-TAD", "-mr", "one", "-t", "3", "-o", "{out}/diff"],
     "outputs": [
-      {"path": "{out}/diff_accepted.diff_tad", "format": "text", "class": "E0"},
-      {"path": "{out}/diff_rejected.diff_tad", "format": "text", "class": "E0"},
-      {"path": "{out}/diff_accepted.diff_tad", "format": "interval", "class": "E5"},
-      {"path": "{out}/diff_rejected.diff_tad", "format": "interval", "class": "E5"}
+      {"path": "{out}/diff_accepted.diff_tad", "format": "text", "class": "E3", "options": {"schema": "tsv-header", "exact_comments": true}},
+      {"path": "{out}/diff_rejected.diff_tad", "format": "text", "class": "E3", "options": {"schema": "tsv-header", "exact_comments": true}},
+      {"path": "{out}/diff_accepted.diff_tad", "format": "interval", "class": "E5", "options": {"columns": 4}},
+      {"path": "{out}/diff_rejected.diff_tad", "format": "interval", "class": "E5", "options": {"columns": 4}}
     ],
     "threads_arg": "--threads",
-    "notes": "h5 with a mode other than all, which the original suite never ran."
+    "notes": "h5 with a mode other than all, which the original suite never ran. Since the special functions are Boost.Math's and no longer the Cephes routines of scipy, the last one or two bits of the p-values differ from 3.7.6 (largest relative difference 2.4e-15 over the corpus): the text outputs are declared E3 (relative 1e-12 on the float columns; chromosome, coordinates, names and comment lines exactly) instead of E0, and the called regions are compared on their first four columns, which keeps the accepted and rejected sets exact."
   },
   {
     "id": "hicDifferentialTAD.cool.chr1.four_tads",
@@ -144,13 +144,13 @@
              "-td", "{data}/hicDifferentialTAD/domains_chr1_4.bed",
              "-m", "all", "-mr", "one", "-t", "1", "-o", "{out}/diff"],
     "outputs": [
-      {"path": "{out}/diff_accepted.diff_tad", "format": "text", "class": "E0"},
-      {"path": "{out}/diff_rejected.diff_tad", "format": "text", "class": "E0"},
-      {"path": "{out}/diff_accepted.diff_tad", "format": "interval", "class": "E5"},
-      {"path": "{out}/diff_rejected.diff_tad", "format": "interval", "class": "E5"}
+      {"path": "{out}/diff_accepted.diff_tad", "format": "text", "class": "E3", "options": {"schema": "tsv-header", "exact_comments": true}},
+      {"path": "{out}/diff_rejected.diff_tad", "format": "text", "class": "E3", "options": {"schema": "tsv-header", "exact_comments": true}},
+      {"path": "{out}/diff_accepted.diff_tad", "format": "interval", "class": "E5", "options": {"columns": 4}},
+      {"path": "{out}/diff_rejected.diff_tad", "format": "interval", "class": "E5", "options": {"columns": 4}}
     ],
     "threads_arg": "--threads",
-    "notes": "The first four real TADs of chr1. Compared at --threads 1 on purpose: at --threads 4 the Python gives each process exactly one TAD and the last TAD loses its left test (p 0.8706579826550646 becomes nan), a defect of its partitioning pinned by test_threads_one_tad_per_thread_loses_last_left_test. The port is thread count invariant and reproduces --threads 1."
+    "notes": "The first four real TADs of chr1. Compared at --threads 1 on purpose: at --threads 4 the Python gives each process exactly one TAD and the last TAD loses its left test (p 0.8706579826550646 becomes nan), a defect of its partitioning pinned by test_threads_one_tad_per_thread_loses_last_left_test. The port is thread count invariant and reproduces --threads 1. Since the special functions are Boost.Math's and no longer the Cephes routines of scipy, the last one or two bits of the p-values differ from 3.7.6 (largest relative difference 2.4e-15 over the corpus): the text outputs are declared E3 (relative 1e-12 on the float columns; chromosome, coordinates, names and comment lines exactly) instead of E0, and the called regions are compared on their first four columns, which keeps the accepted and rejected sets exact."
   },
   {
     "id": "hicDifferentialTAD.cool.chr1_chr2.small_chromosome_first",
@@ -161,13 +161,13 @@
              "-td", "{data}/hicDifferentialTAD/domains_chr1_3_chr2_10.bed",
              "-m", "all", "-mr", "one", "-t", "1", "-o", "{out}/diff"],
     "outputs": [
-      {"path": "{out}/diff_accepted.diff_tad", "format": "text", "class": "E0"},
-      {"path": "{out}/diff_rejected.diff_tad", "format": "text", "class": "E0"},
-      {"path": "{out}/diff_accepted.diff_tad", "format": "interval", "class": "E5"},
-      {"path": "{out}/diff_rejected.diff_tad", "format": "interval", "class": "E5"}
+      {"path": "{out}/diff_accepted.diff_tad", "format": "text", "class": "E3", "options": {"schema": "tsv-header", "exact_comments": true}},
+      {"path": "{out}/diff_rejected.diff_tad", "format": "text", "class": "E3", "options": {"schema": "tsv-header", "exact_comments": true}},
+      {"path": "{out}/diff_accepted.diff_tad", "format": "interval", "class": "E5", "options": {"columns": 4}},
+      {"path": "{out}/diff_rejected.diff_tad", "format": "interval", "class": "E5", "options": {"columns": 4}}
     ],
     "threads_arg": "--threads",
-    "notes": "3 chr1 TADs, then 10 chr2 TADs. Compared at --threads 1 on purpose: at --threads 4 the Python drops chr2's last TAD (13 rows become 12), pinned by test_threads_small_chromosome_first_drops_last_tad. Includes a chromosome with exactly three TADs, so the i - 1 > 0 guard of the last TAD is on its boundary."
+    "notes": "3 chr1 TADs, then 10 chr2 TADs. Compared at --threads 1 on purpose: at --threads 4 the Python drops chr2's last TAD (13 rows become 12), pinned by test_threads_small_chromosome_first_drops_last_tad. Includes a chromosome with exactly three TADs, so the i - 1 > 0 guard of the last TAD is on its boundary. Since the special functions are Boost.Math's and no longer the Cephes routines of scipy, the last one or two bits of the p-values differ from 3.7.6 (largest relative difference 2.4e-15 over the corpus): the text outputs are declared E3 (relative 1e-12 on the float columns; chromosome, coordinates, names and comment lines exactly) instead of E0, and the called regions are compared on their first four columns, which keeps the accepted and rejected sets exact."
   },
   {
     "id": "hicDifferentialTAD.cool.chr1_chr2.small_chromosome_last",
@@ -178,13 +178,13 @@
              "-td", "{data}/hicDifferentialTAD/domains_chr1_10_chr2_3.bed",
              "-m", "all", "-mr", "one", "-t", "1", "-o", "{out}/diff"],
     "outputs": [
-      {"path": "{out}/diff_accepted.diff_tad", "format": "text", "class": "E0"},
-      {"path": "{out}/diff_rejected.diff_tad", "format": "text", "class": "E0"},
-      {"path": "{out}/diff_accepted.diff_tad", "format": "interval", "class": "E5"},
-      {"path": "{out}/diff_rejected.diff_tad", "format": "interval", "class": "E5"}
+      {"path": "{out}/diff_accepted.diff_tad", "format": "text", "class": "E3", "options": {"schema": "tsv-header", "exact_comments": true}},
+      {"path": "{out}/diff_rejected.diff_tad", "format": "text", "class": "E3", "options": {"schema": "tsv-header", "exact_comments": true}},
+      {"path": "{out}/diff_accepted.diff_tad", "format": "interval", "class": "E5", "options": {"columns": 4}},
+      {"path": "{out}/diff_rejected.diff_tad", "format": "interval", "class": "E5", "options": {"columns": 4}}
     ],
     "threads_arg": "--threads",
-    "notes": "10 chr1 TADs, then 3 chr2 TADs. Compared at --threads 1 on purpose: at --threads 4 the Python writes eight chr1 rows a second time from stale result slots (13 rows become 21), pinned by test_threads_small_chromosome_last_duplicates_rows."
+    "notes": "10 chr1 TADs, then 3 chr2 TADs. Compared at --threads 1 on purpose: at --threads 4 the Python writes eight chr1 rows a second time from stale result slots (13 rows become 21), pinned by test_threads_small_chromosome_last_duplicates_rows. Since the special functions are Boost.Math's and no longer the Cephes routines of scipy, the last one or two bits of the p-values differ from 3.7.6 (largest relative difference 2.4e-15 over the corpus): the text outputs are declared E3 (relative 1e-12 on the float columns; chromosome, coordinates, names and comment lines exactly) instead of E0, and the called regions are compared on their first four columns, which keeps the accepted and rejected sets exact."
   },
   {
     "id": "hicDifferentialTAD.error.mixed_formats",
@@ -210,11 +210,11 @@
              "-m", "all", "-mr", "one", "-t", "1", "-o", "{out}/diff",
              "--sharedMask"],
     "outputs": [
-      {"path": "{out}/diff_accepted.diff_tad", "format": "text", "class": "E0"},
-      {"path": "{out}/diff_rejected.diff_tad", "format": "text", "class": "E0"}
+      {"path": "{out}/diff_accepted.diff_tad", "format": "text", "class": "E3", "options": {"schema": "tsv-header", "exact_comments": true}},
+      {"path": "{out}/diff_rejected.diff_tad", "format": "text", "class": "E3", "options": {"schema": "tsv-header", "exact_comments": true}}
     ],
     "threads_arg": "--threads",
-    "notes": "C++ only option (PLAN.md 9.7 step 1, dual mode as in 5.8). The reference is cpp/scripts/py_hicDifferentialTAD_calibrated.py: the unmodified Python tool on matrices masked and saved through hicmatrix, with the p-value adjustment applied to its output. The shared mask alone. The untreated matrix has 83 all-zero bins and the auxin matrix 81 of them, so 2 bins are masked in the auxin matrix only."
+    "notes": "C++ only option (PLAN.md 9.7 step 1, dual mode as in 5.8). The reference is cpp/scripts/py_hicDifferentialTAD_calibrated.py: the unmodified Python tool on matrices masked and saved through hicmatrix, with the p-value adjustment applied to its output. The shared mask alone. The untreated matrix has 83 all-zero bins and the auxin matrix 81 of them, so 2 bins are masked in the auxin matrix only. Since the special functions are Boost.Math's and no longer the Cephes routines of scipy, the last one or two bits of the p-values differ from 3.7.6 (largest relative difference 2.4e-15 over the corpus): the text outputs are declared E3 (relative 1e-12 on the float columns; chromosome, coordinates, names and comment lines exactly) instead of E0, and the called regions are compared on their first four columns, which keeps the accepted and rejected sets exact."
   },
   {
     "id": "hicDifferentialTAD.v4.cool.chr1.fdr.all_all",
@@ -227,11 +227,11 @@
              "-m", "all", "-mr", "all", "-t", "1", "-o", "{out}/diff",
              "--correctForMultipleTesting", "fdr"],
     "outputs": [
-      {"path": "{out}/diff_accepted.diff_tad", "format": "text", "class": "E0"},
-      {"path": "{out}/diff_rejected.diff_tad", "format": "text", "class": "E0"}
+      {"path": "{out}/diff_accepted.diff_tad", "format": "text", "class": "E3", "options": {"schema": "tsv-header", "exact_comments": true}},
+      {"path": "{out}/diff_rejected.diff_tad", "format": "text", "class": "E3", "options": {"schema": "tsv-header", "exact_comments": true}}
     ],
     "threads_arg": "--threads",
-    "notes": "C++ only option (PLAN.md 9.7 step 1, dual mode as in 5.8). The reference is cpp/scripts/py_hicDifferentialTAD_calibrated.py: the unmodified Python tool on matrices masked and saved through hicmatrix, with the p-value adjustment applied to its output. Benjamini-Hochberg alone, per test across the 140 TADs, rejection by the adjusted p-values."
+    "notes": "C++ only option (PLAN.md 9.7 step 1, dual mode as in 5.8). The reference is cpp/scripts/py_hicDifferentialTAD_calibrated.py: the unmodified Python tool on matrices masked and saved through hicmatrix, with the p-value adjustment applied to its output. Benjamini-Hochberg alone, per test across the 140 TADs, rejection by the adjusted p-values. Since the special functions are Boost.Math's and no longer the Cephes routines of scipy, the last one or two bits of the p-values differ from 3.7.6 (largest relative difference 2.4e-15 over the corpus): the text outputs are declared E3 (relative 1e-12 on the float columns; chromosome, coordinates, names and comment lines exactly) instead of E0, and the called regions are compared on their first four columns, which keeps the accepted and rejected sets exact."
   },
   {
     "id": "hicDifferentialTAD.v4.cool.chr1.sharedMask_fdr.intra_one",
@@ -244,11 +244,11 @@
              "-m", "intra-TAD", "-mr", "one", "-t", "1", "-o", "{out}/diff",
              "--sharedMask", "--correctForMultipleTesting", "fdr"],
     "outputs": [
-      {"path": "{out}/diff_accepted.diff_tad", "format": "text", "class": "E0"},
-      {"path": "{out}/diff_rejected.diff_tad", "format": "text", "class": "E0"}
+      {"path": "{out}/diff_accepted.diff_tad", "format": "text", "class": "E3", "options": {"schema": "tsv-header", "exact_comments": true}},
+      {"path": "{out}/diff_rejected.diff_tad", "format": "text", "class": "E3", "options": {"schema": "tsv-header", "exact_comments": true}}
     ],
     "threads_arg": "--threads",
-    "notes": "C++ only option (PLAN.md 9.7 step 1, dual mode as in 5.8). The reference is cpp/scripts/py_hicDifferentialTAD_calibrated.py: the unmodified Python tool on matrices masked and saved through hicmatrix, with the p-value adjustment applied to its output. Both options, intra-TAD only."
+    "notes": "C++ only option (PLAN.md 9.7 step 1, dual mode as in 5.8). The reference is cpp/scripts/py_hicDifferentialTAD_calibrated.py: the unmodified Python tool on matrices masked and saved through hicmatrix, with the p-value adjustment applied to its output. Both options, intra-TAD only. Since the special functions are Boost.Math's and no longer the Cephes routines of scipy, the last one or two bits of the p-values differ from 3.7.6 (largest relative difference 2.4e-15 over the corpus): the text outputs are declared E3 (relative 1e-12 on the float columns; chromosome, coordinates, names and comment lines exactly) instead of E0, and the called regions are compared on their first four columns, which keeps the accepted and rejected sets exact."
   },
   {
     "id": "hicDifferentialTAD.v4.cool.chr1.sharedMask_bonferroni.left_all",
@@ -261,11 +261,11 @@
              "-m", "left-inter-TAD", "-mr", "all", "-p", "0.2", "-t", "1", "-o", "{out}/diff",
              "--sharedMask", "--correctForMultipleTesting", "bonferroni"],
     "outputs": [
-      {"path": "{out}/diff_accepted.diff_tad", "format": "text", "class": "E0"},
-      {"path": "{out}/diff_rejected.diff_tad", "format": "text", "class": "E0"}
+      {"path": "{out}/diff_accepted.diff_tad", "format": "text", "class": "E3", "options": {"schema": "tsv-header", "exact_comments": true}},
+      {"path": "{out}/diff_rejected.diff_tad", "format": "text", "class": "E3", "options": {"schema": "tsv-header", "exact_comments": true}}
     ],
     "threads_arg": "--threads",
-    "notes": "C++ only option (PLAN.md 9.7 step 1, dual mode as in 5.8). The reference is cpp/scripts/py_hicDifferentialTAD_calibrated.py: the unmodified Python tool on matrices masked and saved through hicmatrix, with the p-value adjustment applied to its output. Both options with Bonferroni, left inter-TAD with modeReject all, at --pValue 0.2."
+    "notes": "C++ only option (PLAN.md 9.7 step 1, dual mode as in 5.8). The reference is cpp/scripts/py_hicDifferentialTAD_calibrated.py: the unmodified Python tool on matrices masked and saved through hicmatrix, with the p-value adjustment applied to its output. Both options with Bonferroni, left inter-TAD with modeReject all, at --pValue 0.2. Since the special functions are Boost.Math's and no longer the Cephes routines of scipy, the last one or two bits of the p-values differ from 3.7.6 (largest relative difference 2.4e-15 over the corpus): the text outputs are declared E3 (relative 1e-12 on the float columns; chromosome, coordinates, names and comment lines exactly) instead of E0, and the called regions are compared on their first four columns, which keeps the accepted and rejected sets exact."
   },
   {
     "id": "hicDifferentialTAD.v4.cool.chr1.bonferroni.right_one",
@@ -278,11 +278,11 @@
              "-m", "right-inter-TAD", "-mr", "one", "-p", "0.2", "-t", "1", "-o", "{out}/diff",
              "--correctForMultipleTesting", "bonferroni"],
     "outputs": [
-      {"path": "{out}/diff_accepted.diff_tad", "format": "text", "class": "E0"},
-      {"path": "{out}/diff_rejected.diff_tad", "format": "text", "class": "E0"}
+      {"path": "{out}/diff_accepted.diff_tad", "format": "text", "class": "E3", "options": {"schema": "tsv-header", "exact_comments": true}},
+      {"path": "{out}/diff_rejected.diff_tad", "format": "text", "class": "E3", "options": {"schema": "tsv-header", "exact_comments": true}}
     ],
     "threads_arg": "--threads",
-    "notes": "C++ only option (PLAN.md 9.7 step 1, dual mode as in 5.8). The reference is cpp/scripts/py_hicDifferentialTAD_calibrated.py: the unmodified Python tool on matrices masked and saved through hicmatrix, with the p-value adjustment applied to its output. Bonferroni alone, right inter-TAD with modeReject one, at --pValue 0.2."
+    "notes": "C++ only option (PLAN.md 9.7 step 1, dual mode as in 5.8). The reference is cpp/scripts/py_hicDifferentialTAD_calibrated.py: the unmodified Python tool on matrices masked and saved through hicmatrix, with the p-value adjustment applied to its output. Bonferroni alone, right inter-TAD with modeReject one, at --pValue 0.2. Since the special functions are Boost.Math's and no longer the Cephes routines of scipy, the last one or two bits of the p-values differ from 3.7.6 (largest relative difference 2.4e-15 over the corpus): the text outputs are declared E3 (relative 1e-12 on the float columns; chromosome, coordinates, names and comment lines exactly) instead of E0, and the called regions are compared on their first four columns, which keeps the accepted and rejected sets exact."
   },
   {
     "id": "hicDifferentialTAD.v4.cool.chr1_chr2.sharedMask_fdr.all_one",
@@ -295,11 +295,11 @@
              "-m", "all", "-mr", "one", "-t", "1", "-o", "{out}/diff",
              "--sharedMask", "--correctForMultipleTesting", "fdr"],
     "outputs": [
-      {"path": "{out}/diff_accepted.diff_tad", "format": "text", "class": "E0"},
-      {"path": "{out}/diff_rejected.diff_tad", "format": "text", "class": "E0"}
+      {"path": "{out}/diff_accepted.diff_tad", "format": "text", "class": "E3", "options": {"schema": "tsv-header", "exact_comments": true}},
+      {"path": "{out}/diff_rejected.diff_tad", "format": "text", "class": "E3", "options": {"schema": "tsv-header", "exact_comments": true}}
     ],
     "threads_arg": "--threads",
-    "notes": "C++ only option (PLAN.md 9.7 step 1, dual mode as in 5.8). The reference is cpp/scripts/py_hicDifferentialTAD_calibrated.py: the unmodified Python tool on matrices masked and saved through hicmatrix, with the p-value adjustment applied to its output. Two chromosomes: the adjustment runs across the TADs of both, and the mask is the union over the whole matrix."
+    "notes": "C++ only option (PLAN.md 9.7 step 1, dual mode as in 5.8). The reference is cpp/scripts/py_hicDifferentialTAD_calibrated.py: the unmodified Python tool on matrices masked and saved through hicmatrix, with the p-value adjustment applied to its output. Two chromosomes: the adjustment runs across the TADs of both, and the mask is the union over the whole matrix. Since the special functions are Boost.Math's and no longer the Cephes routines of scipy, the last one or two bits of the p-values differ from 3.7.6 (largest relative difference 2.4e-15 over the corpus): the text outputs are declared E3 (relative 1e-12 on the float columns; chromosome, coordinates, names and comment lines exactly) instead of E0, and the called regions are compared on their first four columns, which keeps the accepted and rejected sets exact."
   },
   {
     "id": "hicDifferentialTAD.v4.h5.chr1.sharedMask_fdr.all_one",
@@ -312,11 +312,11 @@
              "-m", "all", "-mr", "one", "-t", "1", "-o", "{out}/diff",
              "--sharedMask", "--correctForMultipleTesting", "fdr"],
     "outputs": [
-      {"path": "{out}/diff_accepted.diff_tad", "format": "text", "class": "E0"},
-      {"path": "{out}/diff_rejected.diff_tad", "format": "text", "class": "E0"}
+      {"path": "{out}/diff_accepted.diff_tad", "format": "text", "class": "E3", "options": {"schema": "tsv-header", "exact_comments": true}},
+      {"path": "{out}/diff_rejected.diff_tad", "format": "text", "class": "E3", "options": {"schema": "tsv-header", "exact_comments": true}}
     ],
     "threads_arg": "--threads",
-    "notes": "C++ only option (PLAN.md 9.7 step 1, dual mode as in 5.8). The reference is cpp/scripts/py_hicDifferentialTAD_calibrated.py: the unmodified Python tool on matrices masked and saved through hicmatrix, with the p-value adjustment applied to its output. The h5 path: the invalid bins are the files' nan_bins, and the blocks are sliced from the whole matrix."
+    "notes": "C++ only option (PLAN.md 9.7 step 1, dual mode as in 5.8). The reference is cpp/scripts/py_hicDifferentialTAD_calibrated.py: the unmodified Python tool on matrices masked and saved through hicmatrix, with the p-value adjustment applied to its output. The h5 path: the invalid bins are the files' nan_bins, and the blocks are sliced from the whole matrix. Since the special functions are Boost.Math's and no longer the Cephes routines of scipy, the last one or two bits of the p-values differ from 3.7.6 (largest relative difference 2.4e-15 over the corpus): the text outputs are declared E3 (relative 1e-12 on the float columns; chromosome, coordinates, names and comment lines exactly) instead of E0, and the called regions are compared on their first four columns, which keeps the accepted and rejected sets exact."
   },
   {
     "id": "hicDifferentialTAD.v4.cool.chr1.correction_none.all_one",
@@ -329,11 +329,11 @@
              "-m", "all", "-mr", "one", "-t", "1", "-o", "{out}/diff",
              "--correctForMultipleTesting", "none"],
     "outputs": [
-      {"path": "{out}/diff_accepted.diff_tad", "format": "text", "class": "E0"},
-      {"path": "{out}/diff_rejected.diff_tad", "format": "text", "class": "E0"}
+      {"path": "{out}/diff_accepted.diff_tad", "format": "text", "class": "E3", "options": {"schema": "tsv-header", "exact_comments": true}},
+      {"path": "{out}/diff_rejected.diff_tad", "format": "text", "class": "E3", "options": {"schema": "tsv-header", "exact_comments": true}}
     ],
     "threads_arg": "--threads",
-    "notes": "C++ only option (PLAN.md 9.7 step 1, dual mode as in 5.8). The reference is cpp/scripts/py_hicDifferentialTAD_calibrated.py: the unmodified Python tool on matrices masked and saved through hicmatrix, with the p-value adjustment applied to its output. An explicit none is the Python output byte for byte."
+    "notes": "C++ only option (PLAN.md 9.7 step 1, dual mode as in 5.8). The reference is cpp/scripts/py_hicDifferentialTAD_calibrated.py: the unmodified Python tool on matrices masked and saved through hicmatrix, with the p-value adjustment applied to its output. An explicit none is the Python output byte for byte. Since the special functions are Boost.Math's and no longer the Cephes routines of scipy, the last one or two bits of the p-values differ from 3.7.6 (largest relative difference 2.4e-15 over the corpus): the text outputs are declared E3 (relative 1e-12 on the float columns; chromosome, coordinates, names and comment lines exactly) instead of E0, and the called regions are compared on their first four columns, which keeps the accepted and rejected sets exact."
   },
   {
     "id": "hicDifferentialTAD.v4.error.sharedMask_different_bins",

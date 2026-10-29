@@ -457,3 +457,29 @@ CASES = [
     Case('print_args', M + 'print_args', args=({'matrix': 'm.h5', 'delta': 0.01, 'chromosomes': None},),
          driver='print_args'),
 ]
+
+
+# Cases whose floats differ from 3.7.6 in the last bits since the special
+# functions (normal tail, incomplete beta and gamma functions, log-gamma) are
+# Boost.Math's and no longer the Cephes routines scipy uses: the p-values agree
+# to a relative 2e-14 or better. The cases compare every float at rtol 1e-12;
+# integers, strings, coordinates and the structure of the result are still
+# compared exactly, so a changed call, a moved TAD or a different row count
+# fails.
+_BOOST_LAST_BITS = {
+    'bedgraph_roundtrip',
+    'pipeline_50kb_bonferroni',
+    'pipeline_50kb_cool',
+    'pipeline_50kb_default_depths',
+    'pipeline_50kb_fdr',
+    'pipeline_50kb_genome_wide_zscore',
+    'pipeline_50kb_no_zscore',
+    'pipeline_50kb_none',
+    'pipeline_50kb_object_chromosomes',
+    'pipeline_small_10kb_cool',
+}
+for _case in CASES:
+    if _case.id in _BOOST_LAST_BITS:
+        _case.rtol = 1e-12
+        _case.note = (_case.note + '; ' if _case.note else '') + (
+            'Boost.Math special functions round the last bits of the p-values differently from scipy 1.14 (Cephes)')

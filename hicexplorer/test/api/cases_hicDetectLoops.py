@@ -385,3 +385,34 @@ CASES = [
          args=lambda: ('chr2L', namespace(maxLoopDistance=1000000), False), driver='loops_queued',
          compare_args=False),
 ]
+
+
+# Cases whose floats differ from 3.7.6 in the last bits since the special
+# functions (normal tail, incomplete beta and gamma functions, log-gamma) are
+# Boost.Math's and no longer the Cephes routines scipy uses: the p-values agree
+# to a relative 2e-14 or better. The cases compare every float at rtol 1e-12;
+# integers, strings, coordinates and the structure of the result are still
+# compared exactly, so a changed call, a moved TAD or a different row count
+# fails.
+_BOOST_LAST_BITS = {
+    'candidate_region_test/four_threads',
+    'candidate_region_test/one_thread',
+    'candidate_region_test_thread/real',
+    'candidate_region_test_thread/window_3',
+    'compute_long_range_contacts/one_thread',
+    'compute_long_range_contacts/three_threads',
+    'compute_long_range_contacts/threshold_dict',
+    'compute_loops/cool_queue',
+    'compute_loops/h5_chr2L',
+    'compute_loops/h5_chr2L_mean_nonzero',
+    'compute_loops/h5_chr2L_threshold_file',
+    'compute_loops/h5_chr2L_tight',
+    'compute_loops/h5_chr2L_window_defaults',
+    'compute_loops/h5_queue',
+    'compute_loops/li_x',
+}
+for _case in CASES:
+    if _case.id in _BOOST_LAST_BITS:
+        _case.rtol = 1e-12
+        _case.note = (_case.note + '; ' if _case.note else '') + (
+            'Boost.Math special functions round the last bits of the p-values differently from scipy 1.14 (Cephes)')
