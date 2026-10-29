@@ -6,29 +6,37 @@ runs. Test matrices are in `hicexplorer/test/test_data`. The CHiCAGO tools have 
 
 ## Detect stripes
 
-`hicDetectStripes` finds architectural stripes in a corrected matrix. The example is a 10 kb matrix of an
-AML Hi-C sample (GEO GSM4604271, balanced) on chromosome 1. The call set is limited by the raw p-value; here
-`--pValue 0.1` is used for this low-coverage sample.
+`hicDetectStripes` finds architectural stripes with the method of Stripenn (Yoon et al. 2022) and gives the
+same stripes, p-values and stripiness scores as Stripenn. The example is a 10 kb matrix of GM12878 (GEO
+GSE63525, converted with hic2cool, KR balancing weights in the `weight` column of the bin table) on
+chromosome 21. The call set is limited by the raw p-value (`--pValue`, default 0.1), as in Stripenn.
 
 ```bash
-hicDetectStripes -m GSM4604271_576.iced.mcool::/resolutions/10000 \
-    --chromosomes chr1 --pValue 0.1 --threads 8 -o stripes.tsv
+hicDetectStripes -m gm12878_10kb.cool --chromosomes 21 --threads 8 \
+    -o stripes.tsv --unfilteredFileName candidates.tsv
 ```
 
 ```text
-INFO:hicexplorer.hicDetectStripes:Number of detected stripes: 5
+INFO:hicexplorer.hicDetectStripes:Background distribution: 1000 samples from 23 chromosomes, 71.5 s
+INFO:hicexplorer.hicDetectStripes:21: 334 candidates, 1.6 s
+INFO:hicexplorer.hicDetectStripes:Number of detected stripes: 9
 ```
 
 `stripes.tsv` has one stripe per line: chromosome, start and end of the anchor, the orientation
-(`vertical` or `horizontal`), the start and end of the stripe body and the statistics.
+(`vertical` or `horizontal`), the start and end of the stripe body, the mean observed over expected
+contacts, the p-value and its Benjamini-Hochberg adjustment. `candidates.tsv` holds all 334 candidates with
+the columns of Stripenn's `result_unfiltered.tsv`, including the stripiness score.
 
 ```text
-chr1  40420000   40450000   vertical    39960000   40450000   0.235776  0.0388548  0.0805243
-chr1  165390000  165420000  horizontal  165390000  165800000  0.207182  0.0786948  0.0805243
-chr1  207480000  207510000  vertical    206430000  207510000  0.107577  0.0805243  0.0805243
+chrom  anchor_start  anchor_end  orientation  extent_start  extent_end  enrichment  pvalue  qvalue
+21     35700000      35740000    vertical     35230000      35740000    3.19798     0.037   0.98993
+21     43540000      43590000    horizontal   43540000      44260000    2.64960     0.06    0.98993
+21     34800000      34840000    vertical     34150000      34840000    2.77074     0.059   0.98993
 ```
 
-The run takes 33 s on chr1. See [hicDetectStripes](../tools/hicDetectStripes.md).
+The background distribution is estimated from all chromosomes of the matrix as in Stripenn, which takes
+most of the run: one chromosome takes 73 s and 2.2 GB on 8 threads, the 22 autosomes together 4.7 min.
+See [hicDetectStripes](../tools/hicDetectStripes.md).
 
 ## Differential TADs with replicates
 

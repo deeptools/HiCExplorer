@@ -49,6 +49,9 @@
     "stderr_contains": [
       "INFO:hicexplorer.hicDetectStripes:Number of detected stripes:"
     ],
-    "notes": "v4-only stripe caller on ENCODE GM12878 r8 chr17-19 at 25 kb (hg38, weight)."
+    "notes": "v4-only stripe caller on ENCODE GM12878 r8 chr17-19 at 25 kb (hg38, weight). memory.budget_mb 256: the background distribution of Stripenn is estimated from all chromosomes, which are held as bands of 2*400 + 2*background + 24 bins (measured peak 190 MB for this 3-chromosome input; the alpha/beta budget of 100.6 MB does not cover that fixed cost).",
+    "memory": {
+      "budget_mb": 256
+    }
   }
 ]

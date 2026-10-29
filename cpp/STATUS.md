@@ -86,6 +86,27 @@ shell).
     for tool outputs that embed input paths (hicInfo, hicPlotSVL,
     chicQualityControl, hicValidateLocations), which previously gave false
     mismatches when the cache was built in a different checkout.
+- **2026-10-29, branch `stripenn-exact`:** `hicDetectStripes` re-implemented
+  as an exact port of Stripenn 1.1.65.22 (owner directive: the Stripenn
+  approach, acceptance gate identical output). All earlier documented
+  simplifications are removed (stripes_impl.*, stripes_numpy.*).
+  - Measured against Stripenn on GM12878 10 kb (weight): all 22 autosomes,
+    38,535 candidates, identical candidate set, p-values (max abs difference 0),
+    Mean and Stripiness (bit equal), 887 calls identical. Planted matrices
+    (6x/12x, 3x/6x, default 1.5x/2x, raw, unplanted): tables identical;
+    recovery identical (6x/12x 50 of 60 for both tools; 3x/6x 28; 1.5x/2x 1).
+  - Every stage compared with the instrumented Stripenn
+    (`cpp/scripts/stripenn_oracle`): maxpixel quantiles, expected values, the
+    4 x 400 x 1000 null tables, 200 frames' images, edges and boxes.
+  - Residual: numpy's float64 exp on AVX512 CPUs is Intel SVML; the Gaussian
+    kernel of other sigmas than Stripenn's default 2 uses the C library exp
+    (last-bit differences, one float32 pixel in ~1/1200 images, no edge
+    changed in 1200 real images). Stripenn crashes where its masking indexes
+    past a matrix (mask touching a box edge) and where an unaligned last
+    chromosome bin is in a box; the port continues there.
+  - Memory 2.2 GB (bands of all chromosomes for the background), 73-107 s per
+    chromosome and 280 s for the 22 autosomes on 8 threads on a machine at
+    load 35-60; Stripenn needs 5-7 GB and 330-420 s per chromosome.
 - **Merged 2026-09-18, `ab2cff32`:** new tool `hicDetectStripes` (PLAN 9.3),
   a faithful C++ port of Stripenn 1.1.65.22's own detection pipeline.
   Verified merge-style from a clean export at `ab2cff32` (reproduced): full
