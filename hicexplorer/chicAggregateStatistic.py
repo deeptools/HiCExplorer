@@ -18,7 +18,6 @@ import logging
 log = logging.getLogger(__name__)
 
 import numpy as np
-import h5py
 
 from intervaltree import IntervalTree, Interval
 import hicmatrix.HiCMatrix as hm

@@ -26,8 +26,6 @@ dependencies = [
     # hicMergeDomains raises graphviz.backend.execute.ExecutableNotFound when
     # the dot executable is missing.
     "graphviz >= 0.20",
-    # the chic tools read and write HDF5 files with it.
-    "h5py >= 3.8",
 ]
 
 [project.optional-dependencies]
@@ -42,6 +40,7 @@ test = [
     "pybigwig >= 0.3",
     "tables >= 3.8",
     "cooler >= 0.9.3",
+    "h5py >= 3.8",
 ]
 
 [project.urls]
