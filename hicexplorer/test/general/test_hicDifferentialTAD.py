@@ -25,13 +25,46 @@ ROOT = os.path.join(os.path.dirname(
     os.path.dirname(os.path.abspath(__file__))), "test_data/hicDifferentialTAD/")
 
 
-def are_files_equal(file1, file2, delta=1, skip=0, eps=0.1):
+# Columns 5 onwards of a .diff_tad line hold the log fold change, the p-values
+# and the test statistics. They are compared with a relative tolerance: the
+# special functions underneath (Boost.Math's normal tail) round the last one
+# or two bits differently from the code that produced the expected files,
+# 3.7.6's scipy; the largest difference seen is 2e-15 relative. The chromosome,
+# the coordinates, the identifier and the placeholder column are compared
+# exactly, and so are the line counts of the accepted and the rejected file, so
+# a TAD that moves between the two files fails the comparison.
+PVALUE_RTOL = 1e-12
+FIRST_FLOAT_COLUMN = 4
+
+
+def lines_agree(x, y, rtol):
+    if x == y:
+        return True
+    fx, fy = x.rstrip('\n').split('\t'), y.rstrip('\n').split('\t')
+    if len(fx) != len(fy) or fx[:FIRST_FLOAT_COLUMN] != fy[:FIRST_FLOAT_COLUMN]:
+        return False
+    for a, b in zip(fx[FIRST_FLOAT_COLUMN:], fy[FIRST_FLOAT_COLUMN:]):
+        if a == b:
+            continue
+        try:
+            va, vb = float(a), float(b)
+        except ValueError:
+            return False
+        if np.isnan(va) and np.isnan(vb):
+            continue
+        if not abs(va - vb) <= rtol * abs(vb):
+            return False
+    return True
+
+
+def are_files_equal(file1, file2, delta=1, skip=0, eps=0.1, rtol=PVALUE_RTOL):
     """Line by line comparison after `skip` header lines.
 
     The earlier version iterated over zip(file1, file2), which stops at the
     shorter file, so a produced file that lost or gained rows at its end still
     compared equal. Both files must now have the same number of lines, and at
-    most `delta` of them may differ.
+    most `delta` of them may differ. Float columns agree within `rtol`
+    (relative), see PVALUE_RTOL.
     """
     with open(file1) as textfile1:
         lines1 = textfile1.readlines()[skip:]
@@ -44,7 +77,7 @@ def are_files_equal(file1, file2, delta=1, skip=0, eps=0.1):
     for x, y in zip(lines1, lines2):
         if x.startswith('File'):
             continue
-        if x != y:
+        if not lines_agree(x, y, rtol):
             mismatches += 1
     if mismatches <= delta:
         return True

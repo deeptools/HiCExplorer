@@ -113,13 +113,32 @@ def run_loops(arguments, expect_exit=None):
             return handle.read().splitlines()
 
 
+# The p-value column is compared with a relative tolerance. The special
+# functions underneath (Boost.Math's incomplete beta function and the gamma
+# function) round the last one or two bits differently from the code that
+# produced the expected text, 3.7.6's scipy; the largest difference seen is
+# 2e-15 relative. Coordinates are compared exactly, and so is the set of
+# loops, because a line with different coordinates or a missing line fails.
+PVALUE_RTOL = 1e-12
+
+
+def assert_line(got, want, where="line"):
+    got_fields = got.split("\t")
+    want_fields = want.split("\t")
+    assert len(got_fields) == len(want_fields), "%s:\n  got  %r\n  want %r" % (where, got, want)
+    assert got_fields[:-1] == want_fields[:-1], "%s:\n  got  %r\n  want %r" % (where, got, want)
+    got_p, want_p = float(got_fields[-1]), float(want_fields[-1])
+    assert abs(got_p - want_p) <= PVALUE_RTOL * abs(want_p), \
+        "%s: p-value %r, expected %r to a relative %g" % (where, got_p, want_p, PVALUE_RTOL)
+
+
 def assert_lines(actual, expected_text):
     expected = [line for line in expected_text.strip().split("\n")]
     assert actual is not None, "the tool wrote no output file"
     assert len(actual) == len(expected), (
         "expected %d loops, got %d" % (len(expected), len(actual)))
     for index, (got, want) in enumerate(zip(actual, expected)):
-        assert got == want, "line %d:\n  got  %r\n  want %r" % (index + 1, got, want)
+        assert_line(got, want, "line %d" % (index + 1))
 
 
 # ---------------------------------------------------------------------------
@@ -245,9 +264,9 @@ def test_h5_all_chromosomes_full_precision():
     # Only two of the 15 chromosomes produce any loop at all, and they come out
     # in bin table order, which puts chr3L before chr2L.
     assert [line.split("\t")[0] for line in lines] == ["chr3L"] * 27 + ["chr2L"] * 25
-    assert lines[0] == ("chr3L\t125000\t130000\tchr3L\t135000\t140000\t"
+    assert_line(lines[0], "chr3L\t125000\t130000\tchr3L\t135000\t140000\t"
                         "0.3633174801431127")
-    assert lines[26] == ("chr3L\t21545000\t21550000\tchr3L\t21550000\t21555000\t"
+    assert_line(lines[26], "chr3L\t21545000\t21550000\tchr3L\t21550000\t21555000\t"
                          "0.16869892359210836")
     # The chr2L block is exactly the single chromosome run, line for line.
     assert_lines(lines[27:], CHR2L_DEFAULT_EXPECTED)
@@ -312,9 +331,9 @@ def test_h5_expected_mean_nonzero_ligation():
         "-t 1 -tpc 1".format(MATRIX_H5))
     assert lines is not None
     assert len(lines) == 62
-    assert lines[0] == ("chr2L\t220000\t225000\tchr2L\t240000\t245000\t"
+    assert_line(lines[0], "chr2L\t220000\t225000\tchr2L\t240000\t245000\t"
                         "0.4016704795074202")
-    assert lines[-1] == ("chr2L\t22035000\t22040000\tchr2L\t22170000\t22175000\t"
+    assert_line(lines[-1], "chr2L\t22035000\t22040000\tchr2L\t22170000\t22175000\t"
                          "0.398086603716326")
     # Every line is a chr2L intra chromosomal pair with seven fields and a
     # p-value at or below the --pValue of 0.5.
@@ -370,9 +389,9 @@ def test_h5_tight_preselection_changes_the_call_set():
     assert len(loose) == 25
     assert len(tight) == 14
     assert set(tight).issubset(set(loose))
-    assert tight[0] == ("chr2L\t485000\t490000\tchr2L\t490000\t495000\t"
+    assert_line(tight[0], "chr2L\t485000\t490000\tchr2L\t490000\t495000\t"
                         "0.4385623894062053")
-    assert tight[-1] == ("chr2L\t22030000\t22035000\tchr2L\t22160000\t22165000\t"
+    assert_line(tight[-1], "chr2L\t22030000\t22035000\tchr2L\t22160000\t22165000\t"
                          "0.3565987181527521")
 
 
@@ -389,9 +408,9 @@ def test_h5_threshold_file_preselection():
         "-pp {} -pit 1 -p 0.5 -t 1 -tpc 1".format(MATRIX_H5, THRESHOLD_FILE))
     assert lines is not None
     assert len(lines) == 22
-    assert lines[0] == ("chr2L\t485000\t490000\tchr2L\t490000\t495000\t"
+    assert_line(lines[0], "chr2L\t485000\t490000\tchr2L\t490000\t495000\t"
                         "0.4385623894062053")
-    assert lines[-1] == ("chr2L\t22030000\t22035000\tchr2L\t22160000\t22165000\t"
+    assert_line(lines[-1], "chr2L\t22030000\t22035000\tchr2L\t22160000\t22165000\t"
                          "0.3565987181527521")
 
 
@@ -425,9 +444,9 @@ def test_h5_variable_bin_sizes():
         "-t 1 -tpc 1".format(ROOT + "Li_et_al_2015.h5"))
     assert lines is not None
     assert len(lines) == 832
-    assert lines[0] == "X\t43223\t44570\tX\t69085\t70854\t2.286311894128384e-08"
-    assert lines[1] == "X\t77008\t78499\tX\t78499\t79559\t0.18090119770452806"
-    assert lines[-1] == ("X\t22384424\t22386244\tX\t22409588\t22411768\t"
+    assert_line(lines[0], "X\t43223\t44570\tX\t69085\t70854\t2.286311894128384e-08")
+    assert_line(lines[1], "X\t77008\t78499\tX\t78499\t79559\t0.18090119770452806")
+    assert_line(lines[-1], "X\t22384424\t22386244\tX\t22409588\t22411768\t"
                          "3.591168242233997e-12")
     # Every call is inside --maxLoopDistance measured on the genomic starts,
     # which is what cluster_to_genome_position_mapping enforces. On a fixed
@@ -553,11 +572,11 @@ def test_cool_expected_mean_nonzero():
         "-t 1 -tpc 1".format(MATRIX_COOL))
     assert lines is not None
     assert len(lines) == 11
-    assert lines[0] == ("1\t5000000\t7500000\t1\t17500000\t20000000\t"
+    assert_line(lines[0], "1\t5000000\t7500000\t1\t17500000\t20000000\t"
                         "0.001529886778055783")
-    assert lines[2] == ("1\t52500000\t55000000\t1\t92500000\t95000000\t"
+    assert_line(lines[2], "1\t52500000\t55000000\t1\t92500000\t95000000\t"
                         "4.178127655870946e-07")
-    assert lines[-1] == ("1\t200000000\t202500000\t1\t205000000\t207500000\t"
+    assert_line(lines[-1], "1\t200000000\t202500000\t1\t205000000\t207500000\t"
                          "0.026757454806728666")
 
 
@@ -567,11 +586,11 @@ def test_cool_tight_preselection():
         "-pit 1 -w 5 -pw 2 -p 0.5 -pp 0.1 -t 1 -tpc 1".format(MATRIX_COOL))
     assert lines is not None
     assert len(lines) == 3
-    assert lines == [
-        "1\t5000000\t7500000\t1\t17500000\t20000000\t0.004067531885338184",
-        "1\t120000000\t122500000\t1\t145000000\t147500000\t0.0788656354876193",
-        "1\t212500000\t215000000\t1\t245000000\t247500000\t0.031624120627730484",
-    ]
+    assert_lines(lines, """
+1	5000000	7500000	1	17500000	20000000	0.004067531885338184
+1	120000000	122500000	1	145000000	147500000	0.0788656354876193
+1	212500000	215000000	1	245000000	247500000	0.031624120627730484
+""")
 
 
 # ---------------------------------------------------------------------------
