@@ -33,6 +33,7 @@
 // --fdr is an option, off by default.
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <cstdio>
 #include <filesystem>
@@ -531,27 +532,53 @@ int main(int argc, char** argv) {
         }
         const std::int64_t depth = st::required_depth(res, params.max_width);
 
+        const auto clock_start = std::chrono::steady_clock::now();
+        auto seconds_since = [&](std::chrono::steady_clock::time_point from) {
+            return std::chrono::duration<double>(std::chrono::steady_clock::now() - from).count();
+        };
         // ---- the null distribution, from all chromosomes (nulldist)
+        // The bands of all chromosomes are kept between the two stages when
+        // they fit in about 4 GB (one read of the matrix instead of two);
+        // otherwise the first stage reads only the row flags and the second
+        // reads the bands again.
+        std::int64_t band_bytes = 0;
+        for (const st::ChromInfo& c : all) {
+            band_bytes += c.nbins * (depth + 1) * 8;
+        }
+        const bool keep_bands = band_bytes <= 4000000000LL;
+        std::vector<st::BandMatrix> kept(keep_bands ? all.size() : 0);
         std::vector<std::int64_t> available(all.size(), 0);
         hicx::parallel_for(all.size(), threads, [&](std::size_t i) {
-            st::BandMatrix flags(all[i].nbins, -1, res, all[i].size);
-            source->for_each_pixel(all[i], [&](std::int64_t a, std::int64_t b, double v) { flags.add(a, b, v); });
-            available[i] = st::available_columns(flags);
+            st::BandMatrix band(all[i].nbins, keep_bands ? depth : -1, res, all[i].size);
+            source->for_each_pixel(all[i], [&](std::int64_t a, std::int64_t b, double v) { band.add(a, b, v); });
+            band.set_bad(source->bad_bins(all[i]));
+            available[i] = st::available_columns(band);
+            if (keep_bands) {
+                kept[i] = std::move(band);
+            }
         });
         const std::vector<std::int64_t> samples = st::allocate_samples(all, available);
         std::vector<std::size_t> null_chroms;
         for (std::size_t i = 0; i < all.size(); ++i) {
             if (samples[i] >= 0) {
                 null_chroms.push_back(i);
+            } else if (keep_bands) {
+                kept[i] = st::BandMatrix();
             }
         }
         std::vector<st::NullColumns> parts(null_chroms.size());
         auto null_for = [&](std::size_t k, hicx::stripes::np::PyRandom& rng) {
-            const st::ChromInfo& c = all[null_chroms[k]];
+            const std::size_t i = null_chroms[k];
+            const st::ChromInfo& c = all[i];
+            if (keep_bands) {
+                parts[k] = st::compute_null(kept[i], samples[i], rng);
+                kept[i] = st::BandMatrix();
+                return;
+            }
             st::BandMatrix band(c.nbins, depth, res, c.size);
             source->for_each_pixel(c, [&](std::int64_t a, std::int64_t b, double v) { band.add(a, b, v); });
             band.set_bad(source->bad_bins(c));
-            parts[k] = st::compute_null(band, samples[null_chroms[k]], rng);
+            parts[k] = st::compute_null(band, samples[i], rng);
         };
         if (params.chained_rng) {
             st::np::PyRandom rng(params.seed);
@@ -566,6 +593,8 @@ int main(int argc, char** argv) {
         }
         const st::NullTables null = st::join_null(parts);
         parts.clear();
+        std::fprintf(stderr, "INFO:hicexplorer.hicDetectStripes:Background distribution: %lld samples from %zu chromosomes, %.1f s\n",
+                     static_cast<long long>(null.columns), null_chroms.size(), seconds_since(clock_start));
         if (dump.enabled()) {
             const std::vector<std::size_t> shape{400, static_cast<std::size_t>(null.columns)};
             dump_array(dump.dir() + "/null_leftup.npy", null.leftup, shape);
@@ -581,6 +610,7 @@ int main(int argc, char** argv) {
         std::vector<std::string> maxpixel_json;
         for (std::size_t ci = 0; ci < requested.size(); ++ci) {
             const st::ChromInfo& chrom = requested[ci];
+            const auto chrom_start = std::chrono::steady_clock::now();
             st::BandMatrix band(chrom.nbins, depth, res, chrom.size);
             st::QuantileSelector selector(params.maxpixel);
             source->for_each_pixel(chrom, [&](std::int64_t a, std::int64_t b, double v) {
@@ -653,8 +683,8 @@ int main(int argc, char** argv) {
             for (const st::Stripe& s : chrom_final) {
                 final_rows.push_back(s);
             }
-            std::fprintf(stderr, "INFO:hicexplorer.hicDetectStripes:%s: %zu candidates\n", chrom.name.c_str(),
-                         chrom_final.size());
+            std::fprintf(stderr, "INFO:hicexplorer.hicDetectStripes:%s: %zu candidates, %.1f s\n", chrom.name.c_str(),
+                         chrom_final.size(), seconds_since(chrom_start));
         }
         if (dump.enabled()) {
             std::ofstream json(dump.dir() + "/maxpixel.json");

@@ -236,3 +236,14 @@ import h5py
 with h5py.File(path, "a") as h:
     h["bins"].create_dataset("weight", data=weight, compression="gzip")
 print("cool bytes", os.path.getsize(path))
+
+# --- Stripenn's own tables on that cooler, unmasked and masked (two cores)
+import shutil
+import subprocess
+stripenn_bin = os.path.join(os.path.dirname(sys.executable), "stripenn")
+for tag, extra in [("tiny", []), ("tiny_mask", ["--mask", "c1:600000-630000"])]:
+    run_dir = os.path.join(tmp, tag + "_out")
+    subprocess.run([stripenn_bin, "compute", "--cool", path, "--out", run_dir, "--norm", "weight", "--numcores", "2"] + extra,
+                   check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    shutil.copy(os.path.join(run_dir, "result_unfiltered.tsv"), os.path.join(out, tag + "_unfiltered.tsv"))
+    shutil.copy(os.path.join(run_dir, "result_filtered.tsv"), os.path.join(out, tag + "_filtered.tsv"))

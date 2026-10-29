@@ -327,22 +327,15 @@ std::vector<std::int64_t> allocate_samples(const std::vector<ChromInfo>& chroms,
         return result;
     }
     // First stage, from the chromosome sizes.
-    double total_size = 0.0;
-    for (const ChromInfo& c : chroms) {
-        total_size += static_cast<double>(c.size);
-    }
     std::int64_t sum_size = 0;
     for (const ChromInfo& c : chroms) {
         sum_size += c.size;
     }
     std::vector<std::uint64_t> first(count);
-    std::uint64_t first_sum = 0;
     for (std::size_t i = 0; i < count; ++i) {
         const double share = (static_cast<double>(chroms[i].size) / static_cast<double>(sum_size)) * 1000.0;
         first[i] = static_cast<std::uint64_t>(share);
-        first_sum += first[i];
     }
-    (void)total_size;
     std::vector<std::size_t> names2;  // indices into chroms
     for (std::size_t i = 0; i < count; ++i) {
         if (first[i] != 0) {
@@ -363,7 +356,6 @@ std::vector<std::int64_t> allocate_samples(const std::vector<ChromInfo>& chroms,
     }
     const std::uint64_t dif = 1000 - second_sum;
     std::vector<std::size_t> names3;  // chromnames2 after the second notzero filter
-    std::vector<std::size_t> names3_position;
     for (std::size_t k = 0; k < names2.size(); ++k) {
         if (second[k] != 0) {
             names3.push_back(names2[k]);
@@ -376,7 +368,6 @@ std::vector<std::int64_t> allocate_samples(const std::vector<ChromInfo>& chroms,
     for (std::size_t p = 0; p < names3.size(); ++p) {
         result[names3[p]] = p < second.size() ? static_cast<std::int64_t>(second[p]) : 0;
     }
-    (void)first_sum;
     return result;
 }
 

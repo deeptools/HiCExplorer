@@ -51,6 +51,12 @@ expect "the output has the nine documented columns" [ "$(head -1 called_t1.tsv |
     > out4.txt 2> err4.txt
 expect "output is independent of --threads" cmp -s unfiltered_t1.tsv unfiltered_t4.tsv
 
+"$tool" -m "$fixtures/tiny_stripes.cool" -o called_mask.tsv --unfilteredFileName unfiltered_mask.tsv -t 2 \
+    --mask c1:600000-630000 > outm.txt 2> errm.txt
+expect "with --mask the unfiltered table is byte identical to Stripenn's" \
+    cmp -s unfiltered_mask.tsv "$fixtures/tiny_mask_unfiltered.tsv"
+expect "the mask changes the table" bash -c '! cmp -s unfiltered_mask.tsv unfiltered_t1.tsv'
+
 "$tool" -m "$fixtures/tiny_stripes.cool" -o called_seq.tsv --unfilteredFileName unfiltered_seq.tsv -t 2 \
     --sequentialRandom > outs.txt 2> errs.txt
 expect "--sequentialRandom draws another background" bash -c '! cmp -s unfiltered_seq.tsv unfiltered_t1.tsv'
