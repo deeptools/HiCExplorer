@@ -2,11 +2,14 @@
 
 #include <algorithm>
 
+#if defined(__linux__)
 #include <sched.h>
+#endif
 
 namespace coolercpp {
 
 int available_threads() {
+#if defined(__linux__)
     cpu_set_t set;
     CPU_ZERO(&set);
     if (sched_getaffinity(0, sizeof(set), &set) == 0) {
@@ -15,6 +18,7 @@ int available_threads() {
             return count;
         }
     }
+#endif
     return static_cast<int>(std::max(1u, std::thread::hardware_concurrency()));
 }
 

@@ -56,6 +56,7 @@ template <class T>
 [[nodiscard]] double python_float_mod(double a, double b) noexcept;
 // Python's int > float, exact for every int64.
 [[nodiscard]] bool python_greater(std::int64_t a, double b) noexcept;
+[[nodiscard]] bool python_less(std::int64_t a, double b) noexcept;
 
 // The numpy messages the kernels raise.
 [[nodiscard]] std::string index_out_of_bounds_message(std::int64_t index, std::int64_t size);

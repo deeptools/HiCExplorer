@@ -2,6 +2,7 @@
 // hicexplorer/hicMergeDomains.py.
 
 #include "hicx/merge_domains.hpp"
+#include "hicx/utilities.hpp"
 
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -111,12 +112,9 @@ std::string last_char(const std::string& text) {
 }
 
 // int(a) > float(b) and friends compare exactly in Python, without rounding
-// the integer to a double. long double holds every int64 exactly on x86-64.
+// the integer to a double.
 bool int_greater_than_float(std::int64_t a, double b) {
-    if (std::isnan(b)) {
-        return false;
-    }
-    return static_cast<long double>(a) > static_cast<long double>(b);
+    return hicx::utilities::python_greater(a, b);
 }
 
 std::string join_row(const Row& row) {

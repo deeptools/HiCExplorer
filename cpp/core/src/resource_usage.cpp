@@ -37,7 +37,11 @@ std::int64_t peak_rss_kb() {
     }
     rusage usage{};
     if (getrusage(RUSAGE_SELF, &usage) == 0) {
+#if defined(__APPLE__)
+        return static_cast<std::int64_t>(usage.ru_maxrss) / 1024;  // bytes on macOS
+#else
         return static_cast<std::int64_t>(usage.ru_maxrss);  // kilobytes on Linux
+#endif
     }
     return 0;
 }

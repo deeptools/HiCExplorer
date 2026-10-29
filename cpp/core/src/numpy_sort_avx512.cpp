@@ -8,11 +8,17 @@
 
 #include <cstdint>
 
-#include "avx512-64bit-argsort.hpp"
+#include <stdexcept>
+
 #include "hicx/numpy_sort.hpp"
+
+#if defined(__x86_64__)
+#include "avx512-64bit-argsort.hpp"
+#endif
 
 namespace hicx::npy::detail {
 
+#if defined(__x86_64__)
 void argsort_avx512_skx(const double* values, std::int64_t* index, std::int64_t n) {
     // numpy's ArgQSort<double> casts away the const; avx512_argsort only reads.
     avx512_argsort(const_cast<double*>(values), index, n);
@@ -21,5 +27,15 @@ void argsort_avx512_skx(const double* values, std::int64_t* index, std::int64_t 
 void argsort_avx512_skx(const std::int64_t* values, std::int64_t* index, std::int64_t n) {
     avx512_argsort(const_cast<std::int64_t*>(values), index, n);
 }
+#else
+// Not x86-64: avx512_skx_available() is false, nothing calls these.
+void argsort_avx512_skx(const double*, std::int64_t*, std::int64_t) {
+    throw std::logic_error("AVX-512 argsort is not available on this architecture");
+}
+
+void argsort_avx512_skx(const std::int64_t*, std::int64_t*, std::int64_t) {
+    throw std::logic_error("AVX-512 argsort is not available on this architecture");
+}
+#endif
 
 }  // namespace hicx::npy::detail
