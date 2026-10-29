@@ -13,7 +13,7 @@
 #include <vector>
 
 #include "api.hpp"
-#include "hicx/scipy_coo.hpp"
+#include "hicx/coo_ops.hpp"
 #include "hicx/utilities.hpp"
 
 namespace hicx::python::lc {
@@ -104,8 +104,8 @@ inline void eliminate_zeros(py::handle matrix_object, std::string_view function)
 
 // A csr matrix in its element type, in storage order.
 template <class T>
-hicx::scipy_coo::Csr<T> csr_of(const Sparse& matrix) {
-    hicx::scipy_coo::Csr<T> out;
+hicx::coo_ops::Csr<T> csr_of(const Sparse& matrix) {
+    hicx::coo_ops::Csr<T> out;
     out.rows = matrix.rows;
     out.cols = matrix.cols;
     out.indptr = matrix.indptr_vector();
@@ -117,7 +117,7 @@ hicx::scipy_coo::Csr<T> csr_of(const Sparse& matrix) {
 
 // scipy.sparse.csr_matrix((data, indices, indptr), shape) with int32 indices.
 template <class T>
-py::object csr_object(const hicx::scipy_coo::Csr<T>& matrix) {
+py::object csr_object(const hicx::coo_ops::Csr<T>& matrix) {
     std::vector<std::int32_t> indices(matrix.indices.begin(), matrix.indices.end());
     std::vector<std::int32_t> indptr(matrix.indptr.begin(), matrix.indptr.end());
     return py::module_::import("scipy.sparse").attr("csr_matrix")(

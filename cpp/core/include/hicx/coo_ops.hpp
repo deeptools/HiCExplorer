@@ -1,5 +1,10 @@
-// scipy.sparse operations whose rounding the public Python API reproduces,
-// in the element type of the matrix (int32, int64, float32, float64):
+// Sparse matrix operations whose observable behaviour (the order in which
+// duplicate entries are added, and hence the rounding) the public Python API
+// reproduces, in the element type of the matrix (int32, int64, float32,
+// float64). Each is the textbook algorithm written with the C++ standard
+// library (a counting scatter by row, a sort by column, a merge of two sorted
+// rows); the names below are those of the SciPy routines whose behaviour is
+// matched, not code taken from them:
 //
 //   * coo.tocsr() of a COO with duplicates: coo_tocsr scatters the entries
 //     into their rows in storage order, csr_sort_indices sorts every row with
@@ -18,8 +23,8 @@
 //
 // Built from them, hicexplorer.hicMergeMatrixBins.running_window_merge.
 
-#ifndef HICX_SCIPY_COO_HPP
-#define HICX_SCIPY_COO_HPP
+#ifndef HICX_COO_OPS_HPP
+#define HICX_COO_OPS_HPP
 
 #include <algorithm>
 #include <cmath>
@@ -31,7 +36,7 @@
 
 #include "hicx/numpy_compat.hpp"
 
-namespace hicx::scipy_coo {
+namespace hicx::coo_ops {
 
 template <class T>
 struct Csr {
@@ -385,6 +390,6 @@ BlockAssignment<T> assign_zero_block(const Csr<T>& matrix, bool sorted, std::int
     return out;
 }
 
-}  // namespace hicx::scipy_coo
+}  // namespace hicx::coo_ops
 
-#endif  // HICX_SCIPY_COO_HPP
+#endif  // HICX_COO_OPS_HPP

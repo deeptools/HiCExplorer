@@ -31,7 +31,7 @@
 #include "hicx/correct_ops.hpp"
 #include "hicx/numpy_compat.hpp"
 #include "hicx/python_error.hpp"
-#include "hicx/scipy_coo.hpp"
+#include "hicx/coo_ops.hpp"
 
 namespace hicx::correct_api {
 
@@ -111,10 +111,10 @@ std::vector<std::conditional_t<std::is_integral_v<T>, std::int64_t, double>> cov
             }
             segment.push_back(value);
             if (c == r) {
-                diagonal = hicx::scipy_coo::add(diagonal, value);
+                diagonal = hicx::coo_ops::add(diagonal, value);
             }
         }
-        const T sum = segment.empty() ? T(0) : hicx::scipy_coo::reduceat_run(segment);
+        const T sum = segment.empty() ? T(0) : hicx::coo_ops::reduceat_run(segment);
         sums[static_cast<std::size_t>(i)] = static_cast<Acc>(sum) - static_cast<Acc>(diagonal);
     }
     return sums;
@@ -144,7 +144,7 @@ class Grid {
             auto& cells = cells_[static_cast<std::size_t>(row[k])];
             auto [it, inserted] = cells.emplace(col[k], data[k]);
             if (!inserted) {
-                it->second = hicx::scipy_coo::add(it->second, data[k]);
+                it->second = hicx::coo_ops::add(it->second, data[k]);
             }
         }
     }
@@ -171,15 +171,15 @@ class Grid {
     // lil assignment of one value: a zero deletes the entry
     void set(std::int64_t i, std::int64_t j, T value) {
         auto& cells = cells_[static_cast<std::size_t>(i)];
-        if (hicx::scipy_coo::nonzero(value)) {
+        if (hicx::coo_ops::nonzero(value)) {
             cells[j] = value;
         } else {
             cells.erase(j);
         }
     }
 
-    [[nodiscard]] hicx::scipy_coo::Csr<T> csr() const {
-        hicx::scipy_coo::Csr<T> out;
+    [[nodiscard]] hicx::coo_ops::Csr<T> csr() const {
+        hicx::coo_ops::Csr<T> out;
         out.rows = rows_;
         out.cols = cols_;
         out.indptr.push_back(0);
@@ -224,7 +224,7 @@ T fill_value(T a, T b, T c, T d) {
 // fill_gaps on the matrix given as a COO in storage order (duplicates
 // summed), with the failed bins that are not part of a run.
 template <class T>
-hicx::scipy_coo::Csr<T> fill_gaps(std::int64_t rows, std::int64_t cols, const std::vector<std::int64_t>& row,
+hicx::coo_ops::Csr<T> fill_gaps(std::int64_t rows, std::int64_t cols, const std::vector<std::int64_t>& row,
                                   const std::vector<std::int64_t>& col, const std::vector<T>& data,
                                   const std::vector<std::int64_t>& discontinuous) {
     const Grid<T> original(rows, cols, row, col, data);
@@ -235,7 +235,7 @@ hicx::scipy_coo::Csr<T> fill_gaps(std::int64_t rows, std::int64_t cols, const st
             // fill_ma[missing_bin, 1:n - 1] = (M[missing_bin - 1, :n - 2] + M[missing_bin + 1, 2:]) / 2
             std::vector<T> values;
             for (std::int64_t j = 1; j < mat_size - 1; ++j) {
-                const T sum = hicx::scipy_coo::add(original.at(missing_bin - 1, j - 1), original.at(missing_bin + 1, j + 1));
+                const T sum = hicx::coo_ops::add(original.at(missing_bin - 1, j - 1), original.at(missing_bin + 1, j + 1));
                 values.push_back(cast_from_double<T>(static_cast<double>(sum) * 0.5));
             }
             for (std::int64_t j = 1; j < mat_size - 1; ++j) {
@@ -244,7 +244,7 @@ hicx::scipy_coo::Csr<T> fill_gaps(std::int64_t rows, std::int64_t cols, const st
             // the same for the column
             values.clear();
             for (std::int64_t i = 1; i < mat_size - 1; ++i) {
-                const T sum = hicx::scipy_coo::add(original.at(i - 1, missing_bin - 1), original.at(i + 1, missing_bin + 1));
+                const T sum = hicx::coo_ops::add(original.at(i - 1, missing_bin - 1), original.at(i + 1, missing_bin + 1));
                 values.push_back(cast_from_double<T>(static_cast<double>(sum) * 0.5));
             }
             for (std::int64_t i = 1; i < mat_size - 1; ++i) {

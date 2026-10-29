@@ -231,7 +231,7 @@ enum class NBinomPrecision {
 };
 
 // `initial` replaces the moment estimator start (initial_params of fit); it
-// applies to Float32 only, the Float64 flavour takes fit_nbinom_scipy.
+// applies to Float32 only, the Float64 flavour takes fit_nbinom_mle.
 [[nodiscard]] NBinomFit fit_nbinom(std::span<const double> data,
                                    NBinomPrecision precision,
                                    std::optional<std::array<double, 2>> initial = std::nullopt);

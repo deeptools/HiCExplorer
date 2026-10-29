@@ -3,11 +3,13 @@
 // fit(X, initial_params=None) is the maximum likelihood fit of the negative
 // binomial of the external fit_nbinom 1.2 package that 3.7.6 imported, which
 // HiCExplorer 4 carries itself. The objective, the moment estimator start
-// and the bounds are those of that package; the optimiser is the L-BFGS-B
-// port of hicx/lbfgsb_scipy.hpp (the one chicViewpointBackgroundModel uses),
-// and a float32 X takes the single precision objective of hicx/stats_ops.hpp
-// (the one hicDetectLoops uses), because numpy 1.26 evaluates two of the
-// five terms in float32 for such an array.
+// and the bounds are those of that package. A float64 or integer X is fitted
+// by the direct maximum likelihood solution of hicx/nbinom_mle.hpp (the one
+// chicViewpointBackgroundModel uses), where the package ran an L-BFGS-B
+// optimiser; a float32 X takes the single precision objective and own
+// projected optimiser of hicx/stats_ops.hpp (the one hicDetectLoops uses),
+// because numpy 1.26 evaluates two of the five terms in float32 for such an
+// array.
 //
 // Deviations from 3.7.6: int8, int16, uint8, uint16, uint32, uint64, float16,
 // longdouble, complex and non-native byte order arrays raise TypeError
@@ -22,7 +24,7 @@
 #include <vector>
 
 #include "api.hpp"
-#include "hicx/lbfgsb_scipy.hpp"
+#include "hicx/nbinom_mle.hpp"
 #include "hicx/stats_ops.hpp"
 
 namespace hicx::python {
@@ -79,7 +81,7 @@ py::object fit(py::handle X, py::handle initial_params) {
     if (single && !data.empty()) {
         result = hicx::stats::fit_nbinom(data, hicx::stats::NBinomPrecision::Float32, initial);
     } else {
-        result = hicx::stats::fit_nbinom_scipy(data, initial);
+        result = hicx::stats::fit_nbinom_mle(data, initial);
     }
     py::dict out;
     out["size"] = numpy_scalar<double>(result.size);

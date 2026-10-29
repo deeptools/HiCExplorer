@@ -81,8 +81,7 @@ LbfgsbResult minimise_lbfgsb(
         return objective(point);
     };
 
-    // approx_grad=1: forward differences with a fixed absolute step, exactly
-    // as scipy's approx_fprime does it.
+    // approx_grad=1: forward differences with a fixed absolute step.
     std::vector<double> probe(n);
     const auto gradient = [&](const std::vector<double>& point, double value,
                               std::vector<double>& out) {
@@ -192,7 +191,7 @@ LbfgsbResult minimise_lbfgsb(
         if (!(slope < 0.0)) {
             // The limited-memory model is not a descent direction here, which
             // happens after a bound becomes active. Restart from steepest
-            // descent, as the Fortran does when its subspace step fails.
+            // descent, the standard recovery of a quasi-Newton method.
             s_history.clear();
             y_history.clear();
             rho_history.clear();
@@ -269,7 +268,7 @@ LbfgsbResult minimise_lbfgsb(
         g = next_gradient;
         result.iterations = iteration + 1;
 
-        // The factr test, in the form the Fortran uses:
+        // The factr stopping test of L-BFGS-B (Zhu et al. 1997):
         // (f_k - f_{k+1}) / max(|f_k|, |f_{k+1}|, 1) <= factr * eps.
         const double denominator =
             std::max({std::abs(previous_f), std::abs(f), 1.0});
