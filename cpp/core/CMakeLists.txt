@@ -26,6 +26,25 @@ string(REGEX REPLACE "([0-9a-f][0-9a-f])" "0x\\1," _qc_template_bytes "${_qc_tem
 file(CONFIGURE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/generated/qc_template_html.inc"
      CONTENT "// Generated from hicexplorer/qc_template.html by cpp/core/CMakeLists.txt.\nconst unsigned char kQcTemplateHtml[] = {${_qc_template_bytes}};\n")
 
+# coolercpp (BSD-3-Clause, see cpp/THIRD_PARTY_NOTICES.md): cooler compatible
+# cool and mcool access, vendored from the commit named there. Its public
+# headers keep the include path coolercpp/<header>.
+set(HICX_COOLERCPP_DIR "${CMAKE_CURRENT_SOURCE_DIR}/io/coolercpp")
+set(HICX_COOLERCPP_SOURCES
+    io/coolercpp/src/api.cpp
+    io/coolercpp/src/create.cpp
+    io/coolercpp/src/dtype.cpp
+    io/coolercpp/src/fastio.cpp
+    io/coolercpp/src/h5.cpp
+    io/coolercpp/src/json.cpp
+    io/coolercpp/src/numpy_compat.cpp
+    io/coolercpp/src/parallel.cpp
+    io/coolercpp/src/rangequery.cpp
+    io/coolercpp/src/rangequery_api.cpp
+    io/coolercpp/src/region.cpp
+    io/coolercpp/src/table.cpp
+    io/coolercpp/src/util.cpp)
+
 add_library(hicx4core
     src/adjust_ops.cpp
     src/aggregate_contacts.cpp
@@ -105,16 +124,21 @@ add_library(hicx4core
     src/utilities.cpp
     src/dgeev_selected.cpp
     src/sparse_pca.cpp
-    src/svl.cpp)
+    src/svl.cpp
+    ${HICX_COOLERCPP_SOURCES})
 
 target_include_directories(hicx4core PUBLIC
     "${CMAKE_CURRENT_SOURCE_DIR}/include"
+    "${HICX_COOLERCPP_DIR}/include"
     "${CMAKE_CURRENT_BINARY_DIR}/generated")
 
 target_link_libraries(hicx4core
     PUBLIC hicx::hdf5
-    PRIVATE hicx::blosc hicx::zlib hicx::hts hicx::lapack coolercpp::coolercpp hicfilecpp::hicfilecpp hic2cool::core
+    PRIVATE hicx::blosc hicx::zlib hicx::hts hicx::lapack hicfilecpp::hicfilecpp hic2cool::core
             hicx_compile_options)
+
+# Cyclic on purpose: the fetched hic2cool library still links coolercpp::coolercpp.
+target_link_libraries(hicx_coolercpp_compat INTERFACE hicx4core)
 
 # np.argsort's tie order on a CPU with AVX512_SKX comes from x86-simd-sort, at
 # the commit numpy 1.26.4 vendors as a submodule (numpy_sort.hpp). The header is
