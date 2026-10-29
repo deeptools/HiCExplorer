@@ -4,7 +4,11 @@ its results.
 
 Environment:
     HICX_REFERENCE_PYTHON     interpreter with the 3.7.6 dependencies (default
+                              $HICX_REFERENCE_ENV/bin/python3 if that is set,
+                              else
                               ~/miniconda3/envs/__hicexplorer@3.7.6/bin/python3)
+    HICX_REFERENCE_ENV        conda prefix of the pinned reference environment
+                              (cpp/reference_env/README.md)
     HICX_REFERENCE_ROOT       the reference tree (default: made by
                               cpp/scripts/reference_tree.py of this checkout)
     HICX_API_EQUIV_CACHE      use (default), refresh or off
@@ -27,7 +31,10 @@ class Unavailable(Exception):
 
 
 def reference_python():
-    python = os.environ.get('HICX_REFERENCE_PYTHON', DEFAULT_PYTHON)
+    python = os.environ.get('HICX_REFERENCE_PYTHON')
+    if not python:
+        prefix = os.environ.get('HICX_REFERENCE_ENV')
+        python = os.path.join(os.path.expanduser(prefix), 'bin', 'python3') if prefix else DEFAULT_PYTHON
     if not os.path.isfile(python):
         raise Unavailable('no reference interpreter at {} (set HICX_REFERENCE_PYTHON)'.format(python))
     return python

@@ -307,13 +307,18 @@ RSS_TRACE_INTERVAL = 0.1              # PLAN.md 10, for large: true cases
 def _default_py_python():
     """Interpreter that runs the Python reference implementation.
 
-    HICX_PY_PYTHON wins; otherwise the python3 of the conda env named in
-    cpp/AGENTS_CONTRACT.md, which holds the reference's dependencies, if it
-    exists, and finally the interpreter running the harness.
+    HICX_PY_PYTHON wins; then the python3 of the conda prefix named by
+    HICX_REFERENCE_ENV (cpp/reference_env/README.md); otherwise the python3 of
+    the conda env named in cpp/AGENTS_CONTRACT.md, which holds the reference's
+    dependencies, if it exists, and finally the interpreter running the
+    harness.
     """
     from_env = os.environ.get("HICX_PY_PYTHON")
     if from_env:
         return Path(from_env)
+    ref_env = os.environ.get("HICX_REFERENCE_ENV")
+    if ref_env:
+        return Path(os.path.expanduser(ref_env)) / "bin" / "python3"
     contract_env = Path(os.path.expanduser(
         "~/miniconda3/envs/__hicexplorer@3.7.6/bin/python3"))
     if contract_env.exists():
@@ -345,8 +350,9 @@ NOISE_RUNNER = SCRIPT_DIR / "noise_runner.py"
 # programs a few tools run (graphviz's dot for hicMergeDomains). A case names
 # the directories it needs in `path_prepend`, with {deps} for this prefix, and
 # only that case's processes see them on PATH.
-HICX_DEPS = Path(os.environ.get("HICX_DEPS",
-                                "~/miniconda3/envs/__hicexplorer@3.7.6")).expanduser()
+HICX_DEPS = Path(os.environ.get(
+    "HICX_DEPS", os.environ.get("HICX_REFERENCE_ENV",
+                                "~/miniconda3/envs/__hicexplorer@3.7.6"))).expanduser()
 
 
 # --------------------------------------------------------------------------
