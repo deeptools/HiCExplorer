@@ -1520,7 +1520,7 @@ void compute_scores(const BandMatrix& band, const ChromInfo& chrom, const std::v
                 g_x = std::min(g_xl[i], g_xr[i]);
             }
             const double d = g_x - g_y[i];
-            if (d >= 0 || d < 0) {
+            if (!std::isnan(d)) {
                 diff.push_back(d);
             }
         }

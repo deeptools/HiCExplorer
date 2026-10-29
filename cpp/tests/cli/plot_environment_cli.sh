@@ -109,7 +109,9 @@ expect "--plotData writes the table and the data" [ -s table.txt ] && [ -s data.
 
 # 5b
 snapshot() {
-    (cd "$1" && find . -printf '%y %p %s\n' | sort && find . -type f -exec sha256sum {} + | sort)
+    # no GNU find -printf: BSD find (macOS) does not have it
+    (cd "$1" && { find . -type d | sed 's/^/d /'; find . -type f | sed 's/^/f /'; find . -type l | sed 's/^/l /'; } | sort \
+        && find . -type f -exec sha256sum {} + | sort)
 }
 
 unchanged_after_refusal() {
