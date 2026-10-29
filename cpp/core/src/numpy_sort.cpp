@@ -311,10 +311,14 @@ void introselect(const T* v, std::int64_t* tosort, std::int64_t num, std::int64_
 }
 
 bool detect_avx512_skx() {
+#if defined(__x86_64__) || defined(__i386__)
     __builtin_cpu_init();
     return __builtin_cpu_supports("avx512f") && __builtin_cpu_supports("avx512cd") &&
            __builtin_cpu_supports("avx512bw") && __builtin_cpu_supports("avx512dq") &&
            __builtin_cpu_supports("avx512vl");
+#else
+    return false;  // numpy has no simd_qsort dispatch outside x86-64
+#endif
 }
 
 }  // namespace

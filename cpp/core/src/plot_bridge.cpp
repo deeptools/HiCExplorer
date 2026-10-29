@@ -5,6 +5,10 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+#if defined(__APPLE__)
+#include <mach-o/dyld.h>
+#endif
+
 #include <cerrno>
 #include <climits>
 #include <cmath>
@@ -138,6 +142,18 @@ bool write_all(int fd, const std::string& text) {
 
 // The directory of the running executable, or "" when unknown.
 std::string binary_directory() {
+#if defined(__APPLE__)
+    char raw[PATH_MAX];
+    std::uint32_t size = sizeof raw;
+    if (_NSGetExecutablePath(raw, &size) != 0) {
+        return {};
+    }
+    char exe[PATH_MAX];
+    if (::realpath(raw, exe) == nullptr) {
+        return {};
+    }
+    const std::string path(exe);
+#else
     char exe[PATH_MAX];
     const ssize_t n = ::readlink("/proc/self/exe", exe, sizeof exe - 1);
     if (n <= 0) {
@@ -145,6 +161,7 @@ std::string binary_directory() {
     }
     exe[n] = '\0';
     const std::string path(exe);
+#endif
     const std::string::size_type slash = path.rfind('/');
     return slash == std::string::npos ? std::string() : path.substr(0, slash);
 }
@@ -161,7 +178,8 @@ void prepend_package_path() {
     const std::string root =
         parent_slash == std::string::npos ? std::string(".") : binary_dir.substr(0, parent_slash);
     std::string package;
-    for (const std::string candidate : {root + "/plot", root + "/share/hicexplorer/plot"}) {
+    for (const std::string& candidate :
+         std::initializer_list<std::string>{root + "/plot", root + "/share/hicexplorer/plot"}) {
         struct stat info {};
         if (::stat((candidate + "/hicexplorer_plot/__main__.py").c_str(), &info) == 0) {
             package = candidate;

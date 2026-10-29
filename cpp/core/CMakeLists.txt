@@ -172,8 +172,12 @@ target_link_libraries(hicx4core
 # called after a runtime CPU check; everything else stays at the baseline.
 # The headers are vendored in third_party/x86-simd-sort (no conda package
 # exists), see THIRD_PARTY_NOTICES.md.
-set_source_files_properties(src/numpy_sort_avx512.cpp PROPERTIES
-    COMPILE_OPTIONS "-mavx512f;-mavx512cd;-mavx512bw;-mavx512dq;-mavx512vl;-isystem${CMAKE_CURRENT_SOURCE_DIR}/../third_party/x86-simd-sort/src")
+# On other architectures (arm64) the translation unit compiles to stubs that are
+# never called: numpy takes the portable introsort there as well.
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|amd64|x64)$")
+    set_source_files_properties(src/numpy_sort_avx512.cpp PROPERTIES
+        COMPILE_OPTIONS "-mavx512f;-mavx512cd;-mavx512bw;-mavx512dq;-mavx512vl;-isystem${CMAKE_CURRENT_SOURCE_DIR}/../third_party/x86-simd-sort/src")
+endif()
 
 # clustering.cpp loads OpenBLAS with dlopen on first use instead of linking it,
 # so that a tool which may cluster does not start the BLAS threads at load.
