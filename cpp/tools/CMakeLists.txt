@@ -76,8 +76,12 @@ target_link_libraries(hicDetectLoops PRIVATE hicx::core hicx_compile_options)
 # Its statistical core is a second translation unit for the same reason as
 # hicDetectLoops': cpp/tests/test_detect_stripes.cpp links against exactly the
 # code the tool runs.
-add_executable(hicDetectStripes hicDetectStripes.cpp stripes_impl.cpp)
+add_executable(hicDetectStripes hicDetectStripes.cpp stripes_impl.cpp stripes_numpy.cpp)
 target_link_libraries(hicDetectStripes PRIVATE hicx::core hicx_compile_options)
+# The order of the floating point operations is part of the specification
+# (identical output to Stripenn): no contraction into fused multiply-adds
+# except where stripes_numpy.cpp asks for one with std::fma.
+set_source_files_properties(stripes_impl.cpp stripes_numpy.cpp PROPERTIES COMPILE_OPTIONS "-ffp-contract=off")
 
 # hicArrowhead has no Python counterpart (cpp/PLAN.md tier 9): a faithful
 # reimplementation of Juicer/Juicebox's own Arrowhead contact-domain caller.

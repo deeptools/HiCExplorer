@@ -1710,6 +1710,16 @@ Chromosight's own oracle commands (an orientation-label convention that was
 backwards and used exact bin equality instead of a distance comparison, and
 the two candidate-generation gaps above).
 
+**Revised 2026-10-29: the gate for `hicDetectStripes` is identical output to
+Stripenn.** The earlier "faithful" ports kept documented simplifications and
+a benchmark showed the gap (41,797 candidates and 88 calls against Stripenn's
+38,535 and 887 on GM12878). The project owner directed that the tool
+implements the Stripenn approach, not a novel algorithm. It now does, stage
+by stage (cpp/tools/stripes_impl.*, stripes_numpy.*, oracle comparison in
+cpp/scripts/stripenn_oracle), with the result in STATUS.md. The recall and
+precision numbers above describe Stripenn's method, which the tool now
+reproduces; they are no longer a property of a separate port.
+
 **9.4 SCALE normalisation in hicCorrectMatrix.** *Validation:* **ED** against the
 SCALE vector Juicer tools `addNorm` computes on the same matrix.
 

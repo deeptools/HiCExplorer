@@ -17,7 +17,7 @@ New tools:
   [CHiCAGO tutorial](example-usage/chicago-tutorial.md).
 - `hicDifferentialAnalysis` tests TADs, loops and A/B compartments for differences between conditions with
   replicates, using a negative binomial model.
-- `hicDetectStripes` detects stripes in a Hi-C matrix.
+- `hicDetectStripes` detects architectural stripes with the method of Stripenn (Yoon et al. 2022); it gives the same stripes, p-values and stripiness scores as Stripenn.
 - `hicMatrixQC` writes a quality-control report for finished cool and mcool matrices. `hicBuildMatrix` and
   `hicBuildMatrixMicroC` now store their QC statistics in the cool metadata (key `hicexplorer_qc`), which the
   report reads back.

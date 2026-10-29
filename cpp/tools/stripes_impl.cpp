@@ -1,722 +1,1584 @@
+// See stripes_impl.hpp. Each function names the Stripenn 1.1.65.22 function it
+// ports (stripenn/getStripe.py unless stated). The order of the arithmetic
+// follows the Python so that results are identical, not merely close.
+
 #include "stripes_impl.hpp"
 
 #include <algorithm>
+#include <charconv>
 #include <cmath>
-#include <limits>
+#include <cstring>
 #include <map>
+#include <stdexcept>
+
+#include "hicx/parallel.hpp"
 
 namespace hicx::stripes {
 
 namespace {
-constexpr double kPi = 3.14159265358979323846;
-}  // namespace
 
-double quantile(std::vector<double> values, double q) {
-    if (values.empty()) {
-        return 0.0;
+constexpr double kNaN = std::numeric_limits<double>::quiet_NaN();
+constexpr int kFrameDistance = 400;  // Stripenn's table height, in bins
+
+inline bool is_nan(double v) { return v != v; }
+
+// Python's slice normalisation for a step 1 slice on a dimension of length L.
+inline void normalise_slice(std::int64_t& start, std::int64_t& stop, std::int64_t length) {
+    if (start < 0) {
+        start += length;
+        if (start < 0) {
+            start = 0;
+        }
+    } else if (start > length) {
+        start = length;
     }
-    std::sort(values.begin(), values.end());
-    if (values.size() == 1) {
-        return values[0];
+    if (stop < 0) {
+        stop += length;
+        if (stop < 0) {
+            stop = 0;
+        }
+    } else if (stop > length) {
+        stop = length;
     }
-    const double idx = q * static_cast<double>(values.size() - 1);
-    const auto lo = static_cast<std::size_t>(std::floor(idx));
-    const auto hi = static_cast<std::size_t>(std::ceil(idx));
-    const double frac = idx - static_cast<double>(lo);
-    return values[lo] + (values[hi] - values[lo]) * frac;
 }
 
-Image box_blur(const Image& img, int k) {
-    Image out(img.rows, img.cols);
-    const int half = k / 2;
-    for (int r = 0; r < img.rows; ++r) {
-        for (int c = 0; c < img.cols; ++c) {
-            double sum = 0.0;
-            for (int dr = -half; dr <= half; ++dr) {
-                for (int dc = -half; dc <= half; ++dc) {
-                    const int rr = std::clamp(r + dr, 0, img.rows - 1);
-                    const int cc = std::clamp(c + dc, 0, img.cols - 1);
-                    sum += img.at(rr, cc);
-                }
-            }
-            out.at(r, c) = sum / static_cast<double>(k * k);
+// Python's list index with negative wrap; -1 when out of range.
+inline std::int64_t py_index(std::int64_t index, std::int64_t length) {
+    if (index < 0) {
+        index += length;
+    }
+    return (index < 0 || index >= length) ? -1 : index;
+}
+
+}  // namespace
+
+// ---------------------------------------------------------------------------
+// Geometry
+
+NullGeometry null_geometry(std::int64_t chrom_size, std::int64_t resolution) {
+    NullGeometry g;
+    // itera = min(chrsize / resol / 500, 25), unitsize = floor(chrsize / resol / itera)
+    const double raw = std::min(static_cast<double>(chrom_size) / static_cast<double>(resolution) / 500.0, 25.0);
+    g.itera = static_cast<int>(raw);
+    if (g.itera > 0) {
+        g.unitsize = static_cast<int>(std::floor(static_cast<double>(chrom_size) /
+                                                 static_cast<double>(resolution) / static_cast<double>(g.itera)));
+    }
+    return g;
+}
+
+std::int64_t required_depth(std::int64_t resolution, int max_width) {
+    const std::int64_t background = static_cast<std::int64_t>(50000.0 / static_cast<double>(resolution));
+    // 399 bins of the stripe table, a further 400 for the offset of the
+    // null distribution's stale unit index (see compute_null), the windows.
+    return 2 * kFrameDistance + 2 * background + max_width + 16;
+}
+
+// ---------------------------------------------------------------------------
+// BandMatrix
+
+BandMatrix::BandMatrix(std::int64_t bins, std::int64_t depth, std::int64_t resolution,
+                       std::int64_t chrom_size)
+    : bins_(bins), depth_(depth), resolution_(resolution), chrom_size_(chrom_size) {
+    values_.assign(static_cast<std::size_t>(bins) * static_cast<std::size_t>(depth + 1), 0.0);
+    geometry_ = null_geometry(chrom_size, resolution);
+    unit_flags_.assign(static_cast<std::size_t>(bins), 0);
+    window_flags_.assign(static_cast<std::size_t>(bins), 0);
+    unit_row_end_.assign(static_cast<std::size_t>(std::max(geometry_.itera, 0)), 0);
+    for (int it = 0; it < geometry_.itera; ++it) {
+        std::int64_t end1 = static_cast<std::int64_t>(geometry_.unitsize) * resolution * (it + 1);
+        if (end1 > chrom_size - kFrameDistance * resolution) {
+            end1 = chrom_size - kFrameDistance * resolution;
+        }
+        unit_row_end_[static_cast<std::size_t>(it)] = ceil_div(end1, resolution);
+    }
+}
+
+void BandMatrix::add(std::int64_t a, std::int64_t b, double value) {
+    const std::int64_t d = b - a;
+    if (d <= depth_) {
+        values_[static_cast<std::size_t>(a) * static_cast<std::size_t>(depth_ + 1) + static_cast<std::size_t>(d)] += value;
+    }
+    if (geometry_.itera <= 0 || geometry_.unitsize <= 0) {
+        return;
+    }
+    const std::int64_t unit = geometry_.unitsize;
+    const std::int64_t itera = geometry_.itera;
+    const std::int64_t ua = a / unit;
+    const std::int64_t ub = b / unit;
+    if (ua < itera && ua == ub) {
+        unit_flags_[static_cast<std::size_t>(a)] = 1;
+        unit_flags_[static_cast<std::size_t>(b)] = 1;
+    }
+    // The wide window of row a (unit ua): columns [max(unit*ua - 400, 0), min(unit*(ua+1) + 400, ...)).
+    auto in_window = [&](std::int64_t row_unit, std::int64_t column) {
+        const std::int64_t c0 = std::max<std::int64_t>(unit * row_unit - kFrameDistance, 0);
+        std::int64_t end2 = unit * resolution_ * (row_unit + 1) + kFrameDistance * resolution_;
+        if (end2 > chrom_size_) {
+            end2 = chrom_size_ - 1;
+        }
+        const std::int64_t c1 = ceil_div(end2, resolution_);
+        return column >= c0 && column < c1;
+    };
+    if (ua < itera && a < unit_row_end_[static_cast<std::size_t>(ua)] && in_window(ua, b)) {
+        window_flags_[static_cast<std::size_t>(a)] = 1;
+    }
+    if (b != a && ub < itera && b < unit_row_end_[static_cast<std::size_t>(ub)] && in_window(ub, a)) {
+        window_flags_[static_cast<std::size_t>(b)] = 1;
+    }
+}
+
+double BandMatrix::get(std::int64_t row, std::int64_t column) const {
+    if (row > column) {
+        std::swap(row, column);
+    }
+    if (bad(row) || bad(column)) {
+        return kNaN;
+    }
+    const std::int64_t d = column - row;
+    if (d > depth_) {
+        throw std::runtime_error("hicDetectStripes: internal error, matrix entry " + std::to_string(row) + "," +
+                                 std::to_string(column) + " is outside the stored band of " +
+                                 std::to_string(depth_) + " bins");
+    }
+    return values_[static_cast<std::size_t>(row) * static_cast<std::size_t>(depth_ + 1) + static_cast<std::size_t>(d)];
+}
+
+std::vector<double> BandMatrix::dense(std::int64_t row0, std::int64_t row1, std::int64_t col0,
+                                      std::int64_t col1) const {
+    const std::int64_t rows = std::max<std::int64_t>(row1 - row0, 0);
+    const std::int64_t cols = std::max<std::int64_t>(col1 - col0, 0);
+    std::vector<double> out(static_cast<std::size_t>(rows * cols));
+    for (std::int64_t r = 0; r < rows; ++r) {
+        for (std::int64_t c = 0; c < cols; ++c) {
+            out[static_cast<std::size_t>(r * cols + c)] = get(row0 + r, col0 + c);
         }
     }
     return out;
+}
+
+// ---------------------------------------------------------------------------
+// getQuantile_original
+
+QuantileSelector::QuantileSelector(std::vector<double> quantiles)
+    : quantiles_(std::move(quantiles)), histogram_(32768, 0), bucket_slot_(32768, -1) {}
+
+namespace {
+inline std::size_t bucket_of(double value) {
+    std::uint64_t bits;
+    std::memcpy(&bits, &value, sizeof bits);
+    return static_cast<std::size_t>(bits >> 48);
+}
+}  // namespace
+
+void QuantileSelector::count(double value, bool diagonal) {
+    if (!(value > 0.0)) {
+        return;
+    }
+    const std::uint64_t multiplicity = diagonal ? 1 : 2;
+    histogram_[bucket_of(value)] += multiplicity;
+    total_ += multiplicity;
+}
+
+void QuantileSelector::prepare() {
+    ranks_.clear();
+    for (const double q : quantiles_) {
+        ranks_.push_back(np::quantile_ranks(static_cast<std::int64_t>(total_), q));
+    }
+    std::vector<std::uint64_t> before(32768, 0);
+    std::uint64_t running = 0;
+    for (std::size_t k = 0; k < 32768; ++k) {
+        before[k] = running;
+        running += histogram_[k];
+    }
+    auto locate = [&](std::int64_t rank) {
+        std::size_t lo = 0;
+        for (std::size_t k = 0; k < 32768; ++k) {
+            if (histogram_[k] != 0 && before[k] <= static_cast<std::uint64_t>(rank) &&
+                static_cast<std::uint64_t>(rank) < before[k] + histogram_[k]) {
+                lo = k;
+                break;
+            }
+        }
+        return lo;
+    };
+    bucket_values_.clear();
+    bucket_start_.clear();
+    std::fill(bucket_slot_.begin(), bucket_slot_.end(), -1);
+    for (const np::QuantileRanks& r : ranks_) {
+        for (const std::int64_t rank : {r.previous, r.next}) {
+            const std::size_t b = locate(rank);
+            if (bucket_slot_[b] < 0) {
+                bucket_slot_[b] = static_cast<std::int64_t>(bucket_values_.size());
+                bucket_values_.emplace_back();
+                bucket_start_.push_back(before[b]);
+            }
+        }
+    }
+}
+
+void QuantileSelector::gather(double value, bool diagonal) {
+    if (!(value > 0.0)) {
+        return;
+    }
+    const std::int64_t slot = bucket_slot_[bucket_of(value)];
+    if (slot < 0) {
+        return;
+    }
+    bucket_values_[static_cast<std::size_t>(slot)].push_back(value);
+    if (!diagonal) {
+        bucket_values_[static_cast<std::size_t>(slot)].push_back(value);
+    }
+}
+
+std::vector<double> QuantileSelector::result() {
+    for (auto& values : bucket_values_) {
+        std::sort(values.begin(), values.end());
+    }
+    std::vector<double> out;
+    if (total_ == 0) {
+        out.assign(quantiles_.size(), kNaN);
+        return out;
+    }
+    auto order_statistic = [&](std::int64_t rank) {
+        // find the bucket holding this rank
+        for (std::size_t k = 0; k < 32768; ++k) {
+            const std::int64_t slot = bucket_slot_[k];
+            if (slot < 0) {
+                continue;
+            }
+            const std::uint64_t start = bucket_start_[static_cast<std::size_t>(slot)];
+            const auto& values = bucket_values_[static_cast<std::size_t>(slot)];
+            if (static_cast<std::uint64_t>(rank) >= start && static_cast<std::uint64_t>(rank) < start + values.size()) {
+                return values[static_cast<std::size_t>(static_cast<std::uint64_t>(rank) - start)];
+            }
+        }
+        throw std::runtime_error("hicDetectStripes: quantile rank not found, the two passes saw different pixels");
+    };
+    for (const np::QuantileRanks& r : ranks_) {
+        out.push_back(np::quantile_lerp(order_statistic(r.previous), order_statistic(r.next), r.gamma));
+    }
+    return out;
+}
+
+// ---------------------------------------------------------------------------
+// mpmean
+
+std::vector<double> expected_values(const BandMatrix& band) {
+    const std::int64_t n = band.bins();
+    const std::int64_t nframes = ceil_div(n, kFrameDistance);
+    std::vector<std::vector<double>> pixels(static_cast<std::size_t>(nframes), std::vector<double>(kFrameDistance, 0.0));
+    std::vector<std::vector<std::int64_t>> counts(static_cast<std::size_t>(nframes),
+                                                  std::vector<std::int64_t>(kFrameDistance, 0));
+    for (std::int64_t f = 0; f < nframes; ++f) {
+        const std::int64_t r0 = f * kFrameDistance;
+        const std::int64_t r1 = std::min((f + 1) * kFrameDistance, n);
+        const std::int64_t cols_end = std::min((f + 2) * kFrameDistance, n);
+        const std::int64_t cfm_cols = cols_end - r0;
+        for (std::int64_t i = 0; i < r1 - r0; ++i) {
+            for (std::int64_t j = 0; j < std::min<std::int64_t>(kFrameDistance, cfm_cols); ++j) {
+                if (i + j >= cfm_cols) {
+                    continue;
+                }
+                double count = band.get(r0 + i, r0 + i + j);
+                if (is_nan(count)) {
+                    count = 0.0;
+                }
+                pixels[static_cast<std::size_t>(f)][static_cast<std::size_t>(j)] += count;
+                counts[static_cast<std::size_t>(f)][static_cast<std::size_t>(j)] += 1;
+            }
+        }
+    }
+    std::vector<double> means(kFrameDistance);
+    for (int j = 0; j < kFrameDistance; ++j) {
+        double sum = 0.0;
+        std::int64_t count = 0;
+        for (std::int64_t f = 0; f < nframes; ++f) {
+            sum += pixels[static_cast<std::size_t>(f)][static_cast<std::size_t>(j)];
+            count += counts[static_cast<std::size_t>(f)][static_cast<std::size_t>(j)];
+        }
+        means[static_cast<std::size_t>(j)] = count == 0 ? kNaN : sum / static_cast<double>(count);
+    }
+    return means;
+}
+
+// ---------------------------------------------------------------------------
+// nulldist
+
+std::int64_t available_columns(const BandMatrix& band) {
+    const NullGeometry g = null_geometry(band.chrom_size(), band.resolution());
+    std::int64_t pool = 0;
+    for (int it = 0; it < g.itera; ++it) {
+        for (std::int64_t r = static_cast<std::int64_t>(g.unitsize) * it;
+             r < static_cast<std::int64_t>(g.unitsize) * (it + 1); ++r) {
+            if (band.unit_flags()[static_cast<std::size_t>(r)] != 0) {
+                ++pool;
+            }
+        }
+    }
+    return pool;
+}
+
+std::vector<std::int64_t> allocate_samples(const std::vector<ChromInfo>& chroms,
+                                           const std::vector<std::int64_t>& available) {
+    const std::size_t count = chroms.size();
+    std::vector<std::int64_t> result(count, -1);
+    if (count == 0) {
+        return result;
+    }
+    // First stage, from the chromosome sizes.
+    std::int64_t sum_size = 0;
+    for (const ChromInfo& c : chroms) {
+        sum_size += c.size;
+    }
+    std::vector<std::uint64_t> first(count);
+    for (std::size_t i = 0; i < count; ++i) {
+        const double share = (static_cast<double>(chroms[i].size) / static_cast<double>(sum_size)) * 1000.0;
+        first[i] = static_cast<std::uint64_t>(share);
+    }
+    std::vector<std::size_t> names2;  // indices into chroms
+    for (std::size_t i = 0; i < count; ++i) {
+        if (first[i] != 0) {
+            names2.push_back(i);
+        }
+    }
+    // Second stage, from the available columns of those chromosomes.
+    std::int64_t sum_available = 0;
+    for (const std::size_t i : names2) {
+        sum_available += available[i];
+    }
+    std::vector<std::uint64_t> second(names2.size());
+    std::uint64_t second_sum = 0;
+    for (std::size_t k = 0; k < names2.size(); ++k) {
+        const double share = (static_cast<double>(available[names2[k]]) / static_cast<double>(sum_available)) * 1000.0;
+        second[k] = share >= 0.0 ? static_cast<std::uint64_t>(share) : 0;
+        second_sum += second[k];
+    }
+    const std::uint64_t dif = 1000 - second_sum;
+    std::vector<std::size_t> names3;  // chromnames2 after the second notzero filter
+    for (std::size_t k = 0; k < names2.size(); ++k) {
+        if (second[k] != 0) {
+            names3.push_back(names2[k]);
+        }
+    }
+    if (!second.empty()) {
+        second[0] += dif;  // samplesize[0] += dif, on the unfiltered array
+    }
+    // main_null_calc: c = chromnames2.index(chr), ss = samplesize[c]
+    for (std::size_t p = 0; p < names3.size(); ++p) {
+        result[names3[p]] = p < second.size() ? static_cast<std::int64_t>(second[p]) : 0;
+    }
+    return result;
 }
 
 namespace {
 
-// scipy.ndimage's border modes, both needed exactly: the Gaussian smoothing
-// in skimage.feature._canny._preprocess uses mode='constant', cval=0 (the
-// canny() function's own defaults, and Stripenn never overrides them); the
-// Sobel step (scipy.ndimage.sobel) defaults to mode='reflect', which is
-// "edge value duplicated" (d c b a | a b c d | d c b a), not scipy's
-// 'mirror' (which does not duplicate it) and not plain replication.
-[[nodiscard]] inline int reflect_index(int i, int n) {
-    if (i < 0) {
-        return -i - 1;
-    }
-    if (i >= n) {
-        return 2 * n - 1 - i;
-    }
-    return i;
-}
+struct NullSettings {
+    int background_up = 0;
+    int background_down = 0;
+    int background_size = 0;
+};
 
-// scipy.ndimage.gaussian_filter's default truncate is 4.0, so the kernel
-// radius is int(4 * sigma + 0.5); skimage.feature.canny does not change it.
-Image gaussian_blur_constant(const Image& img, double sigma) {
-    const int radius = std::max(1, static_cast<int>(4.0 * sigma + 0.5));
-    std::vector<double> kernel(static_cast<std::size_t>(2 * radius + 1));
-    double sum = 0.0;
-    for (int i = -radius; i <= radius; ++i) {
-        const double value = std::exp(-(static_cast<double>(i) * i) / (2.0 * sigma * sigma));
-        kernel[static_cast<std::size_t>(i + radius)] = value;
-        sum += value;
-    }
-    for (double& v : kernel) {
-        v /= sum;
-    }
-    // Separable, zero (mode='constant', cval=0) border, matching
-    // skimage.feature._canny._preprocess's gaussian_kwargs exactly.
-    Image temp(img.rows, img.cols);
-    for (int r = 0; r < img.rows; ++r) {
-        for (int c = 0; c < img.cols; ++c) {
-            double acc = 0.0;
-            for (int i = -radius; i <= radius; ++i) {
-                const int cc = c + i;
-                const double v = (cc >= 0 && cc < img.cols) ? img.at(r, cc) : 0.0;
-                acc += v * kernel[static_cast<std::size_t>(i + radius)];
-            }
-            temp.at(r, c) = acc;
-        }
-    }
-    Image out(img.rows, img.cols);
-    for (int r = 0; r < img.rows; ++r) {
-        for (int c = 0; c < img.cols; ++c) {
-            double acc = 0.0;
-            for (int i = -radius; i <= radius; ++i) {
-                const int rr = r + i;
-                const double v = (rr >= 0 && rr < img.rows) ? temp.at(rr, c) : 0.0;
-                acc += v * kernel[static_cast<std::size_t>(i + radius)];
-            }
-            out.at(r, c) = acc;
-        }
-    }
-    return out;
-}
-
-// scipy.ndimage.sobel(image, axis=0) and axis=1, reflect border, verified
-// against scipy directly: axis=0 ("isobel") is positive when the row above
-// is brighter (kernel [[1,2,1],[0,0,0],[-1,-2,-1]] centred on the pixel,
-// correlation not convolution); axis=1 ("jsobel") is positive when the
-// column to the left is brighter (kernel [[1,0,-1],[2,0,-2],[1,0,-1]]). The
-// bilinear non-maximum suppression below is sign-sensitive, so getting
-// these two kernels' signs right (not just their shape) is part of being
-// faithful, not a detail: an initial version used the shape of Stripenn's
-// own (unrelated) verticalLine kernel for jsobel, which has the opposite
-// sign convention from scipy.ndimage.sobel and silently breaks the
-// direction logic below.
-// scipy.ndimage.sobel is itself separable (correlate1d with a [1, 0, -1]
-// derivative kernel along the requested axis, then correlate1d with a
-// [1, 2, 1] smoothing kernel along every other axis), and is applied here
-// the same way rather than as one fused 3x3 kernel. This is not merely a
-// style choice: a fused 2-D kernel accumulates its nine products in a
-// different order, and for a row-invariant image (a vertical edge far from
-// any row boundary) the true axis-0 gradient is exactly zero by symmetry.
-// The fused version left a tiny floating-point residual around zero instead
-// of an exact one, which the sign-sensitive is_up/is_down test below
-// amplified into a real, wrong-looking asymmetry between the two columns of
-// a straight, symmetric edge in a bigger synthetic test (caught while
-// checking this port against skimage.feature.canny directly). The
-// separable form matches scipy's actual computation and does not have that
-// residual.
-void sobel_reflect(const Image& img, Image& isobel, Image& jsobel) {
-    const int rows = img.rows;
-    const int cols = img.cols;
-
-    // Derivative along rows (axis 0), then smoothing along columns.
-    Image deriv_rows(rows, cols);
-    for (int r = 0; r < rows; ++r) {
-        for (int c = 0; c < cols; ++c) {
-            const int rm = reflect_index(r - 1, rows);
-            const int rp = reflect_index(r + 1, rows);
-            deriv_rows.at(r, c) = img.at(rm, c) - img.at(rp, c);
-        }
-    }
-    isobel = Image(rows, cols);
-    for (int r = 0; r < rows; ++r) {
-        for (int c = 0; c < cols; ++c) {
-            const int cm = reflect_index(c - 1, cols);
-            const int cp = reflect_index(c + 1, cols);
-            isobel.at(r, c) =
-                deriv_rows.at(r, cm) + 2.0 * deriv_rows.at(r, c) + deriv_rows.at(r, cp);
-        }
-    }
-
-    // Derivative along columns (axis 1), then smoothing along rows.
-    Image deriv_cols(rows, cols);
-    for (int r = 0; r < rows; ++r) {
-        for (int c = 0; c < cols; ++c) {
-            const int cm = reflect_index(c - 1, cols);
-            const int cp = reflect_index(c + 1, cols);
-            deriv_cols.at(r, c) = img.at(r, cm) - img.at(r, cp);
-        }
-    }
-    jsobel = Image(rows, cols);
-    for (int r = 0; r < rows; ++r) {
-        for (int c = 0; c < cols; ++c) {
-            const int rm = reflect_index(r - 1, rows);
-            const int rp = reflect_index(r + 1, rows);
-            jsobel.at(r, c) =
-                deriv_cols.at(rm, c) + 2.0 * deriv_cols.at(r, c) + deriv_cols.at(rp, c);
-        }
-    }
+NullSettings null_settings(std::int64_t resolution) {
+    NullSettings s;
+    const double background_size = 50000.0 / static_cast<double>(resolution);
+    const double up = std::floor(background_size / 2.0);
+    const double down = background_size - up;
+    s.background_up = static_cast<int>(up);
+    s.background_down = static_cast<int>(down);
+    s.background_size = static_cast<int>(background_size);
+    return s;
 }
 
 }  // namespace
 
-// A faithful port of skimage.feature.canny (0.26.0) as Stripenn's own call
-// site uses it (stripenn/getStripe.py:917, `feature.canny(gray, sigma=self.canny)`,
-// no low_threshold/high_threshold/use_quantiles/mode/cval given, all left at
-// their defaults). Traced end to end from the installed package's real
-// source (skimage/feature/_canny.py and the Cython
-// _nonmaximum_suppression_bilinear in _canny_cy.pyx, both read in full for
-// this port): Gaussian smoothing at `sigma` with zero border, unnormalised
-// Sobel gradients with reflected border, bilinear-interpolated non-maximum
-// suppression along the true (not quantised-to-45-degree) gradient
-// direction, and hysteresis at the fixed absolute thresholds low=0.1,
-// high=0.2 of a [0, 1]-scaled image (skimage's `low_threshold`/
-// `high_threshold` defaults, used as plain magnitude thresholds because
-// `use_quantiles` defaults to False and Stripenn never sets it -- there is
-// no percentile-based threshold selection anywhere in the path Stripenn
-// actually exercises). Border pixels (a 1-pixel frame) are never edges,
-// matching skimage's eroded_mask.
-//
-// This replaces an earlier version of this port that used a percentile
-// heuristic on the gradient magnitude instead, invented because skimage's
-// own algorithm looked hard to reproduce without importing it; that
-// simplification is why architectural stripe candidates never spanned their
-// full planted length on real, noisy GM12878 data even though the earlier
-// heuristic passed a clean synthetic step-edge unit test (see
-// cpp/scripts/stripe_calibration.py and the report to the orchestrating
-// session for that diagnosis, project owner direction 2026-09-17).
-Image canny(const Image& gray01, double sigma) {
-    const int rows = gray01.rows;
-    const int cols = gray01.cols;
-    // skimage.feature._canny._preprocess's "bleed-over" correction: since
-    // mode='constant' (Stripenn never changes it), the zero-padded Gaussian
-    // would otherwise darken every pixel within about a kernel radius of
-    // the image border, even where the real data has no edge there at all
-    // (an all-bright region touching the border, for instance). skimage
-    // compensates by also smoothing an all-ones image with the same kernel
-    // and dividing it out, recovering the effect of smoothing only the real
-    // data. Missing this produced a spurious edge near the border on a
-    // uniform region in this port's own unit test, which is what caught it.
-    Image smoothed = gaussian_blur_constant(gray01, sigma);
-    const Image ones(gray01.rows, gray01.cols, 1.0);
-    const Image bleed_over = gaussian_blur_constant(ones, sigma);
-    constexpr double kFloat64Eps = 2.220446049250313e-16;
-    for (std::size_t i = 0; i < smoothed.v.size(); ++i) {
-        smoothed.v[i] /= (bleed_over.v[i] + kFloat64Eps);
-    }
-    Image isobel;
-    Image jsobel;
-    sobel_reflect(smoothed, isobel, jsobel);
+NullColumns compute_null(const BandMatrix& band, std::int64_t ss, np::PyRandom& rng) {
+    const std::int64_t res = band.resolution();
+    const std::int64_t chrsize = band.chrom_size();
+    const NullSettings cfg = null_settings(res);
+    const NullGeometry geometry = null_geometry(chrsize, res);
+    const std::int64_t itera = geometry.itera;
+    const std::int64_t unitsize = geometry.unitsize;
 
-    Image magnitude(rows, cols);
-    for (std::size_t i = 0; i < magnitude.v.size(); ++i) {
-        const double x = isobel.v[i];
-        const double y = jsobel.v[i];
-        magnitude.v[i] = std::sqrt(x * x + y * y);
-    }
+    std::vector<std::vector<double>> cols_lu;
+    std::vector<std::vector<double>> cols_ru;
+    std::vector<std::vector<double>> cols_ld;
+    std::vector<std::vector<double>> cols_rd;
+    std::vector<std::int64_t> n_pool;
 
-    // dtype_max for a float image is 1.0 (skimage.util.dtype_limits), so
-    // the default low/high thresholds (10% / 20% of dtype_max) are these
-    // absolute values directly, applied to `magnitude` as computed (no
-    // normalisation): skimage only rescales when use_quantiles=True, which
-    // Stripenn's call never sets.
-    constexpr double kLowThreshold = 0.1;
-    constexpr double kHighThreshold = 0.2;
+    struct UnitWindow {
+        std::int64_t rows0 = 0;
+        std::int64_t nrow = 0;
+        std::int64_t cols0 = 0;
+        std::int64_t ncol = 0;
+    };
+    auto window_of = [&](std::int64_t unit) {
+        UnitWindow w;
+        const std::int64_t t_start1 = unitsize * res * unit + 1;
+        std::int64_t t_start0 = t_start1 - 400 * res;
+        std::int64_t t_end1 = unitsize * res * (unit + 1);
+        std::int64_t t_end2 = unitsize * res * (unit + 1) + 400 * res;
+        if (t_end2 > chrsize) {
+            t_end2 = chrsize - 1;
+        }
+        if (t_end1 > chrsize - 400 * res) {
+            t_end1 = chrsize - 400 * res;
+        }
+        if (t_start0 <= 1) {
+            t_start0 = 1;
+        }
+        if (t_end1 < t_start1 || t_end2 < t_start0) {
+            throw std::runtime_error("hicDetectStripes: chromosome too short for the null distribution");
+        }
+        w.rows0 = floor_div(t_start1, res);
+        w.nrow = ceil_div(t_end1, res) - w.rows0;
+        w.cols0 = floor_div(t_start0, res);
+        w.ncol = ceil_div(t_end2, res) - w.cols0;
+        return w;
+    };
 
-    // The bilinear non-maximum suppression of
-    // skimage/feature/_canny_cy.pyx::_nonmaximum_suppression_bilinear,
-    // ported line for line (the eroded_mask there strips a 1-pixel border,
-    // reproduced here as the loop bounds; low_threshold's zero-guard does
-    // not apply since Stripenn's low threshold is 0.1, never 0).
-    Image nms(rows, cols, 0.0);
-    for (int r = 1; r < rows - 1; ++r) {
-        for (int c = 1; c < cols - 1; ++c) {
-            const double m = magnitude.at(r, c);
-            if (m < kLowThreshold) {
-                continue;
+    // Mean of mat[r0:r1, c0:c1] as numpy computes it: NaN when empty, the
+    // values of masked bins read as zero.
+    std::vector<double> buffer;
+    auto block_mean = [&](const UnitWindow& w, std::int64_t r0, std::int64_t r1, std::int64_t c0,
+                          std::int64_t c1) {
+        normalise_slice(r0, r1, w.nrow);
+        normalise_slice(c0, c1, w.ncol);
+        if (r0 >= r1 || c0 >= c1) {
+            return kNaN;
+        }
+        const std::size_t rows = static_cast<std::size_t>(r1 - r0);
+        const std::size_t cols = static_cast<std::size_t>(c1 - c0);
+        buffer.resize(rows * cols);
+        for (std::size_t r = 0; r < rows; ++r) {
+            for (std::size_t c = 0; c < cols; ++c) {
+                buffer[r * cols + c] = band.get_zero(w.rows0 + r0 + static_cast<std::int64_t>(r),
+                                                     w.cols0 + c0 + static_cast<std::int64_t>(c));
             }
-            const double i_val = isobel.at(r, c);
-            const double j_val = jsobel.at(r, c);
-            const bool is_down = i_val <= 0.0;
-            const bool is_up = i_val >= 0.0;
-            const bool is_left = j_val <= 0.0;
-            const bool is_right = j_val >= 0.0;
-            const bool cond1 = (is_up && is_right) || (is_down && is_left);
-            const bool cond2 = (is_down && is_right) || (is_up && is_left);
-            if (!cond1 && !cond2) {
-                continue;
-            }
-            const double abs_i = std::fabs(i_val);
-            const double abs_j = std::fabs(j_val);
-            double w = 0.0;
-            double n1a = 0.0;
-            double n1b = 0.0;
-            double n2a = 0.0;
-            double n2b = 0.0;
-            if (cond1) {
-                if (abs_i > abs_j) {
-                    w = abs_j / abs_i;
-                    n1a = magnitude.at(r + 1, c);
-                    n1b = magnitude.at(r + 1, c + 1);
-                    n2a = magnitude.at(r - 1, c);
-                    n2b = magnitude.at(r - 1, c - 1);
-                } else {
-                    w = abs_i / abs_j;
-                    n1a = magnitude.at(r, c + 1);
-                    n1b = magnitude.at(r + 1, c + 1);
-                    n2a = magnitude.at(r, c - 1);
-                    n2b = magnitude.at(r - 1, c - 1);
+        }
+        const bool contiguous = rows == 1 || (c0 == 0 && c1 == w.ncol);
+        return np::mean_compact(buffer.data(), rows, cols, contiguous);
+    };
+
+    auto draw_columns = [&](const UnitWindow& w, const std::vector<std::int64_t>& pool, std::int64_t k,
+                            bool offset) {
+        std::vector<std::int64_t> picks(static_cast<std::size_t>(k));
+        for (std::int64_t i = 0; i < k; ++i) {
+            picks[static_cast<std::size_t>(i)] = pool[rng.choice_index(pool.size())];
+        }
+        for (std::int64_t i = 0; i < k; ++i) {
+            const std::int64_t x = picks[static_cast<std::size_t>(i)];
+            std::vector<double> lu(kFrameDistance);
+            std::vector<double> ru(kFrameDistance);
+            std::vector<double> ld(kFrameDistance);
+            std::vector<double> rd(kFrameDistance);
+            for (int j = 0; j < kFrameDistance; ++j) {
+                std::int64_t y_down = x + j;
+                std::int64_t y_up = x - j;
+                if (offset) {
+                    y_down += 400;
+                    y_up += 400;
                 }
-            } else {  // cond2
-                if (abs_i < abs_j) {
-                    w = abs_i / abs_j;
-                    n1a = magnitude.at(r, c + 1);
-                    n1b = magnitude.at(r - 1, c + 1);
-                    n2a = magnitude.at(r, c - 1);
-                    n2b = magnitude.at(r + 1, c - 1);
-                } else {
-                    w = abs_j / abs_i;
-                    n1a = magnitude.at(r - 1, c);
-                    n1b = magnitude.at(r - 1, c + 1);
-                    n2a = magnitude.at(r + 1, c);
-                    n2b = magnitude.at(r + 1, c - 1);
-                }
+                const std::int64_t bu = cfg.background_up;
+                const std::int64_t bd = cfg.background_down;
+                const std::int64_t bs = cfg.background_size;
+                const double left_up = block_mean(w, x - bu - bs, x - bu, y_up - bu, y_up + bd);
+                const double center_up = block_mean(w, x - bu, x + bd, y_up - bu, y_up + bd);
+                const double right_up = block_mean(w, x + bd, x + bd + bs, y_up - bu, y_up + bd);
+                const double left_down = block_mean(w, x - bu - bs, x - bu, y_down - bu, y_down + bd);
+                const double center_down = block_mean(w, x - bu, x + bd, y_down - bu, y_down + bd);
+                const double right_down = block_mean(w, x + bd, x + bd + bs, y_down - bu, y_down + bd);
+                lu[static_cast<std::size_t>(j)] = center_up - left_up;
+                ru[static_cast<std::size_t>(j)] = center_up - right_up;
+                ld[static_cast<std::size_t>(j)] = center_down - left_down;
+                rd[static_cast<std::size_t>(j)] = center_down - right_down;
             }
-            const bool c_plus = (n1b * w + n1a * (1.0 - w)) <= m;
-            if (!c_plus) {
+            cols_lu.push_back(std::move(lu));
+            cols_ru.push_back(std::move(ru));
+            cols_ld.push_back(std::move(ld));
+            cols_rd.push_back(std::move(rd));
+        }
+    };
+
+    for (std::int64_t it = 0; it < itera; ++it) {
+        const std::int64_t sss = static_cast<std::int64_t>(static_cast<double>(ss) / static_cast<double>(itera));
+        const UnitWindow w = window_of(it);
+        std::vector<std::int64_t> pool;
+        for (std::int64_t x = 0; x < w.nrow; ++x) {
+            if (band.window_flags()[static_cast<std::size_t>(w.rows0 + x)] == 0) {
                 continue;
             }
-            const bool c_minus = (n2b * w + n2a * (1.0 - w)) <= m;
-            if (c_minus) {
-                nms.at(r, c) = m;
+            if (x > 20 && x < unitsize - 20) {
+                if (it == 0 && !(x > 410 && x < w.ncol)) {
+                    continue;
+                }
+                pool.push_back(x);
             }
+        }
+        n_pool.push_back(static_cast<std::int64_t>(pool.size()));
+        if (pool.empty()) {
+            continue;
+        }
+        const std::int64_t k = static_cast<std::int64_t>(pool.size()) < sss ? static_cast<std::int64_t>(pool.size()) : sss;
+        draw_columns(w, pool, k, it > 0);
+    }
+
+    const std::int64_t depl = ss - static_cast<std::int64_t>(cols_lu.size());
+    if (depl > 0 && !n_pool.empty()) {
+        const std::int64_t rich = static_cast<std::int64_t>(
+            std::max_element(n_pool.begin(), n_pool.end()) - n_pool.begin());
+        const UnitWindow w = window_of(rich);
+        std::vector<std::int64_t> pool;
+        for (std::int64_t x = 0; x < w.nrow; ++x) {
+            if (band.window_flags()[static_cast<std::size_t>(w.rows0 + x)] != 0 && x > 20 && x < unitsize - 20) {
+                pool.push_back(x);
+            }
+        }
+        if (!pool.empty()) {
+            // `it` here is the loop variable left over from the loop above,
+            // not `rich`, as in the Python.
+            draw_columns(w, pool, depl, itera - 1 > 0);
         }
     }
 
-    // Hysteresis: an 8-connected component of the low mask (nms > 0) is
-    // promoted to edges iff it contains at least one pixel at or above the
-    // high threshold, matching skimage's connected-component labelling
-    // exactly (a BFS from every high pixel through connected low pixels is
-    // the same computation).
-    Image edges(rows, cols, 0.0);
-    std::vector<std::pair<int, int>> stack;
-    for (int r = 0; r < rows; ++r) {
-        for (int c = 0; c < cols; ++c) {
-            if (nms.at(r, c) >= kHighThreshold) {
-                edges.at(r, c) = 1.0;
-                stack.emplace_back(r, c);
-            }
+    NullColumns out;
+    out.columns = static_cast<std::int64_t>(cols_lu.size());
+    const std::size_t n = static_cast<std::size_t>(out.columns);
+    out.leftup.assign(kFrameDistance * n, 0.0);
+    out.rightup.assign(kFrameDistance * n, 0.0);
+    out.leftdown.assign(kFrameDistance * n, 0.0);
+    out.rightdown.assign(kFrameDistance * n, 0.0);
+    for (std::size_t k = 0; k < n; ++k) {
+        for (int d = 0; d < kFrameDistance; ++d) {
+            out.leftup[static_cast<std::size_t>(d) * n + k] = cols_lu[k][static_cast<std::size_t>(d)];
+            out.rightup[static_cast<std::size_t>(d) * n + k] = cols_ru[k][static_cast<std::size_t>(d)];
+            out.leftdown[static_cast<std::size_t>(d) * n + k] = cols_ld[k][static_cast<std::size_t>(d)];
+            out.rightdown[static_cast<std::size_t>(d) * n + k] = cols_rd[k][static_cast<std::size_t>(d)];
         }
     }
-    while (!stack.empty()) {
-        const auto [r, c] = stack.back();
-        stack.pop_back();
-        for (int dr = -1; dr <= 1; ++dr) {
-            for (int dc = -1; dc <= 1; ++dc) {
-                if (dr == 0 && dc == 0) {
-                    continue;
-                }
-                const int rr = r + dr;
-                const int cc = c + dc;
-                if (rr < 0 || rr >= rows || cc < 0 || cc >= cols) {
-                    continue;
-                }
-                if (edges.at(rr, cc) != 0.0) {
-                    continue;
-                }
-                if (nms.at(rr, cc) > 0.0) {
-                    edges.at(rr, cc) = 1.0;
-                    stack.emplace_back(rr, cc);
-                }
-            }
-        }
-    }
-    return edges;
+    return out;
 }
 
-Image vertical_line(const Image& edges, double low_degrees, double high_degrees) {
-    const int rows = edges.rows;
-    const int cols = edges.cols;
-    static constexpr int kGx[3][3] = {{-1, 0, 1}, {-2, 0, 2}, {-1, 0, 1}};
-    static constexpr int kGy[3][3] = {{1, 2, 1}, {0, 0, 0}, {-1, -2, -1}};
-    Image out(rows, cols, 0.0);
-    for (int r = 0; r < rows; ++r) {
-        for (int c = 0; c < cols; ++c) {
-            double fx = 0.0;
-            double fy = 0.0;
-            for (int dr = -1; dr <= 1; ++dr) {
-                for (int dc = -1; dc <= 1; ++dc) {
-                    const int rr = r + dr;
-                    const int cc = c + dc;
-                    const double v = (rr >= 0 && rr < rows && cc >= 0 && cc < cols) ? edges.at(rr, cc) : 0.0;
-                    fx += v * kGx[dr + 1][dc + 1];
-                    fy += v * kGy[dr + 1][dc + 1];
+NullTables join_null(const std::vector<NullColumns>& parts) {
+    NullTables t;
+    for (const NullColumns& p : parts) {
+        t.columns += p.columns;
+    }
+    const std::size_t n = static_cast<std::size_t>(t.columns);
+    t.leftup.assign(kFrameDistance * n, 0.0);
+    t.rightup.assign(kFrameDistance * n, 0.0);
+    t.leftdown.assign(kFrameDistance * n, 0.0);
+    t.rightdown.assign(kFrameDistance * n, 0.0);
+    std::size_t offset = 0;
+    for (const NullColumns& p : parts) {
+        const std::size_t pn = static_cast<std::size_t>(p.columns);
+        for (int d = 0; d < kFrameDistance; ++d) {
+            const std::size_t row = static_cast<std::size_t>(d);
+            std::copy_n(p.leftup.begin() + static_cast<std::ptrdiff_t>(row * pn), pn, t.leftup.begin() + static_cast<std::ptrdiff_t>(row * n + offset));
+            std::copy_n(p.rightup.begin() + static_cast<std::ptrdiff_t>(row * pn), pn, t.rightup.begin() + static_cast<std::ptrdiff_t>(row * n + offset));
+            std::copy_n(p.leftdown.begin() + static_cast<std::ptrdiff_t>(row * pn), pn, t.leftdown.begin() + static_cast<std::ptrdiff_t>(row * n + offset));
+            std::copy_n(p.rightdown.begin() + static_cast<std::ptrdiff_t>(row * pn), pn, t.rightdown.begin() + static_cast<std::ptrdiff_t>(row * n + offset));
+        }
+        offset += pn;
+    }
+    t.build_sorted();
+    return t;
+}
+
+void NullTables::build_sorted() {
+    const std::size_t n = static_cast<std::size_t>(columns);
+    auto build = [&](const std::vector<double>& table, std::vector<std::vector<double>>& sorted) {
+        sorted.assign(kFrameDistance, {});
+        for (int d = 0; d < kFrameDistance; ++d) {
+            auto& row = sorted[static_cast<std::size_t>(d)];
+            for (std::size_t k = 0; k < n; ++k) {
+                const double v = table[static_cast<std::size_t>(d) * n + k];
+                if (!is_nan(v)) {
+                    row.push_back(v);
                 }
             }
-            double orientation = std::atan2(fx, fy) * 180.0 / kPi;
-            if (orientation < 0) {
-                orientation += 360.0;
+            std::sort(row.begin(), row.end());
+        }
+    };
+    build(leftup, sorted_leftup);
+    build(rightup, sorted_rightup);
+    build(leftdown, sorted_leftdown);
+    build(rightdown, sorted_rightdown);
+}
+
+// ---------------------------------------------------------------------------
+// StripeSearch
+
+namespace {
+
+// ImageProcessing.verticalLine(edges, L=60, H=120)
+std::vector<std::uint8_t> vertical_line(const std::vector<std::uint8_t>& edges, int S) {
+    static const int gx[3][3] = {{-1, 0, 1}, {-2, 0, 2}, {-1, 0, 1}};
+    static const int gy[3][3] = {{1, 2, 1}, {0, 0, 0}, {-1, -2, -1}};
+    const std::vector<int> fx = np::convolve2d_same_3x3(edges, S, S, gx);
+    const std::vector<int> fy = np::convolve2d_same_3x3(edges, S, S, gy);
+    std::vector<std::uint8_t> out(static_cast<std::size_t>(S) * static_cast<std::size_t>(S), 0);
+    constexpr double kPi = 3.14159265358979323846;
+    for (int r = 0; r < S; ++r) {
+        for (int c = 0; c < S; ++c) {
+            const std::size_t at = static_cast<std::size_t>(r) * S + c;
+            double ori = std::atan2(static_cast<double>(fx[at]), static_cast<double>(fy[at]));
+            ori = ori * 180 / kPi;
+            if (ori < 0) {
+                ori += 360;
             }
-            if (orientation > low_degrees && orientation < high_degrees) {
-                const int shifted = c - 1;
-                if (shifted >= 0 && shifted < cols) {
-                    out.at(r, shifted) = 1.0;
+            if (ori > 60 && ori < 120) {
+                int y = c - 1;
+                if (y < 0) {
+                    y += S;  // numpy wraps the index -1 to the last column
                 }
+                out[static_cast<std::size_t>(r) * S + y] = 1;
             }
         }
     }
     return out;
 }
 
-BlockResult block_scan(const Image& vert, int column) {
-    const int rows = vert.rows;
-    const int cols = vert.cols;
-    std::vector<double> value(static_cast<std::size_t>(rows), 0.0);
-    for (int r = 0; r < rows; ++r) {
-        double m = 0.0;
-        for (int c = std::max(0, column - 1); c < std::min(cols, column + 2); ++c) {
-            m = std::max(m, vert.at(r, c));
-        }
-        value[static_cast<std::size_t>(r)] = m;
-    }
+// ImageProcessing.block(mat, c)
+void block_scan(const std::vector<std::uint8_t>& vert, int S, int c, int& length, int& end) {
+    const int lo = std::max(0, c - 1);
+    const int hi = std::min(S, c + 2);
     int count = 0;
-    int max_count = 0;
-    int end = column;
+    int maximum = 0;
+    int j = 0;
+    int end_row = 0;
     int buffer = 0;
-    int last_one = column;
-    bool seen_one = false;
-    for (int r = 0; r < rows; ++r) {
-        if (value[static_cast<std::size_t>(r)] == 1.0) {
+    for (int i = 0; i < S; ++i) {
+        bool one = false;
+        for (int k = lo; k < hi; ++k) {
+            if (vert[static_cast<std::size_t>(i) * S + k] == 1) {
+                one = true;
+                break;
+            }
+        }
+        if (one) {
             ++count;
-            last_one = r;
-            seen_one = true;
+            j = i;
         } else if (buffer < 5) {
             ++buffer;
         } else {
-            if (count > max_count) {
-                max_count = count;
-                end = last_one;
+            if (count > maximum) {
+                maximum = count;
+                end_row = j;
             }
             count = 0;
             buffer = 0;
         }
     }
-    if (count > max_count) {
-        max_count = count;
-        end = last_one;
+    if (count > maximum) {
+        maximum = count;
+        end_row = j;
     }
-    if (!seen_one) {
-        return {0, column};
+    length = maximum;
+    end = end_row;
+    if (end < c) {
+        end = end - length + 1;
     }
-    if (end < column) {
-        end = end - max_count + 1;
-    }
-    return {max_count, end};
-}
-
-namespace {
-
-double adjust_brightness(double v, double b) {
-    if (v <= 0.0) {
-        return 0.0;
-    }
-    if (v > b) {
-        return 1.0;
-    }
-    return v / b;
 }
 
 }  // namespace
 
-std::vector<FrameCandidate> stripe_search_frame(const Image& submat, double maxpixel_value,
-                                                 double canny_sigma, int min_length, int max_width,
-                                                 int blur_filter) {
-    std::vector<FrameCandidate> out;
-    const int S = submat.rows;
-    if (S < 5 || maxpixel_value <= 0.0) {
-        return out;
+std::vector<RawStripe> stripe_search(const std::vector<double>& submat, int S, double M,
+                                     const Parameters& params, FrameTrace* trace) {
+    std::vector<RawStripe> found;
+    const std::size_t pixels = static_cast<std::size_t>(S) * static_cast<std::size_t>(S);
+
+    // blue = 255 * (M - submat) / M, clipped below at 0, green = blue; the
+    // image channels are red 1, green blue / 255, clipped to [0, 1].
+    std::vector<double> green(pixels);
+    for (std::size_t i = 0; i < pixels; ++i) {
+        double blue = 255.0 * (M - submat[i]);
+        blue = blue / M;
+        if (blue < 0) {
+            blue = 0;
+        }
+        double g = blue / 255.0;
+        g = std::min(std::max(g, 0.0), 1.0);
+        green[i] = g;
+    }
+    if (trace != nullptr) {
+        trace->size = S;
+        trace->gray.assign(6 * pixels, 0.0F);
+        trace->edges.assign(6 * pixels, 0);
+        trace->vert.assign(6 * pixels, 0);
     }
 
-    // The blue = green channel intensity: bright where the count is low, dark
-    // near or above M. Red is constant, so the RGB2GRAY combination reduces
-    // to a fixed affine map of this single channel (see stripes_impl.hpp).
-    Image intensity(S, S);
-    for (int r = 0; r < S; ++r) {
-        for (int c = 0; c < S; ++c) {
-            const double value = 255.0 * (maxpixel_value - submat.at(r, c)) / maxpixel_value;
-            intensity.at(r, c) = std::clamp(value / 255.0, 0.0, 1.0);
+    const double delta = (0.5 + 0.1) - 0.5;  // numpy.arange(0.5, 1.01, 0.1)
+    // The red channel is 1 everywhere; its blur is the same constant at every pixel.
+    std::vector<double> ones(9, 1.0);
+    const double red_blur = np::box_filter(ones, 3, 3, params.bfilter)[0];
+    for (int bi = 0; bi < 6; ++bi) {
+        const double b = 0.5 + bi * delta;
+        // imBrightness3D(In=([0,0,0],[1,b,b]), Out=([0,0,0],[1,1,1]))
+        const double k = (1.0 - 0.0) / (b - 0.0);
+        std::vector<double> adj(pixels);
+        for (std::size_t i = 0; i < pixels; ++i) {
+            const double x = green[i];
+            double out;
+            if (x <= 0.0) {
+                out = 0.0;
+            } else if (x > b) {
+                out = 1.0;
+            } else {
+                out = k * (x - 0.0) + 0.0;
+            }
+            adj[i] = out;
         }
-    }
-
-    for (double b = 0.5; b <= 1.0001; b += 0.1) {
-        Image adjusted(S, S);
-        for (std::size_t i = 0; i < adjusted.v.size(); ++i) {
-            adjusted.v[i] = adjust_brightness(intensity.v[i], b);
+        std::vector<double> blur = np::box_filter(adj, S, S, params.bfilter);
+        np::ImageF gray(S, S);
+        {
+            const double red_clipped = std::min(std::max(red_blur, 0.0), 1.0);
+            const float r32 = static_cast<float>(red_clipped);
+            for (std::size_t i = 0; i < pixels; ++i) {
+                const double gb = std::min(std::max(blur[i], 0.0), 1.0);
+                const float g32 = static_cast<float>(gb);
+                gray.v[i] = np::rgb_to_gray(r32, g32, g32);
+            }
         }
-        // gray = 0.299 * red(=1) + 0.587 * green + 0.114 * blue, green == blue
-        // here, so gray = 0.299 + 0.701 * adjusted. Blurring commutes with this
-        // affine map, so blurring `adjusted` directly (rather than the three
-        // channels separately, then combining) is exact, not an approximation.
-        const Image blurred = box_blur(adjusted, std::max(1, blur_filter));
-        Image gray(S, S);
-        for (std::size_t i = 0; i < gray.v.size(); ++i) {
-            gray.v[i] = std::clamp(0.299 + 0.701 * blurred.v[i], 0.0, 1.0);
+        const std::vector<std::uint8_t> edges = np::canny(gray, params.canny);
+        const std::vector<std::uint8_t> vert = vertical_line(edges, S);
+        if (trace != nullptr) {
+            std::copy(gray.v.begin(), gray.v.end(), trace->gray.begin() + static_cast<std::ptrdiff_t>(bi * pixels));
+            std::copy(edges.begin(), edges.end(), trace->edges.begin() + static_cast<std::ptrdiff_t>(bi * pixels));
+            std::copy(vert.begin(), vert.end(), trace->vert.begin() + static_cast<std::ptrdiff_t>(bi * pixels));
         }
-
-        const Image edges = canny(gray, canny_sigma);
-        const Image vert = vertical_line(edges, 60.0, 120.0);
 
         std::vector<int> test_column;
         std::vector<int> end_points;
+        std::vector<int> start_points;
         std::vector<int> updown;
         for (int c = 0; c < S; ++c) {
-            const BlockResult block = block_scan(vert, c);
-            const int above = std::min(c, block.end);
-            const int bottom = std::max(c, block.end);
-            double column_sum = 0.0;
+            int line_length = 0;
+            int end = 0;
+            block_scan(vert, S, c, line_length, end);
+            const int above = std::min(c, end);
+            const int bottom = std::max(c, end);
+            bool any = false;
             for (int r = above; r <= bottom; ++r) {
-                column_sum += vert.at(r, c);
+                if (vert[static_cast<std::size_t>(r) * S + c] != 0) {
+                    any = true;
+                    break;
+                }
             }
-            if (block.length > min_length && column_sum != 0.0) {
+            if (line_length > params.min_length && any) {
                 test_column.push_back(c);
-                end_points.push_back(block.end);
-                updown.push_back(block.end > c ? 2 : 1);
+                end_points.push_back(end);
+                start_points.push_back(c);
+                updown.push_back(end > c ? 2 : 1);
             }
         }
 
-        for (const int ud : {1, 2}) {
-            std::vector<std::uint8_t> testmat(static_cast<std::size_t>(S) * static_cast<std::size_t>(S), 0);
-            const auto set = [&](int r, int c) { testmat[static_cast<std::size_t>(r) * S + c] = 1; };
-            const auto get = [&](int r, int c) { return testmat[static_cast<std::size_t>(r) * S + c]; };
-            for (std::size_t i = 0; i < test_column.size(); ++i) {
-                if (updown[i] != ud) {
-                    continue;
+        struct Pair {
+            int first;
+            int second;
+        };
+        std::vector<Pair> pairs;
+        std::vector<int> min_vec;
+        std::vector<int> max_vec;
+        for (int ud = 1; ud <= 2; ++ud) {
+            std::vector<std::uint8_t> testmat(pixels, 0);
+            std::vector<std::size_t> udidx;
+            for (std::size_t i = 0; i < updown.size(); ++i) {
+                if (updown[i] == ud) {
+                    udidx.push_back(i);
                 }
-                int st = test_column[i];
-                int en = end_points[i];
+            }
+            for (const std::size_t c : udidx) {
+                int st = test_column[c];
+                int en = end_points[c];
                 if (ud == 1) {
                     std::swap(st, en);
                 }
-                const int lo = std::min(st, en);
-                const int hi = std::max(st, en);
-                for (int r = lo; r <= hi; ++r) {
-                    set(r, test_column[i]);
+                // testmat[st:en, test_column[c]] = 1
+                for (int r = std::max(st, 0); r < std::min(en, S); ++r) {
+                    testmat[static_cast<std::size_t>(r) * S + test_column[c]] = 1;
                 }
             }
-
-            // Per-column run lengths, columns with length >= 3, grouped into
-            // contiguous runs of adjacent columns (stripenn.py:980-1028).
-            std::map<int, int> column_length;
-            for (int c = 0; c < S; ++c) {
-                int len = 0;
-                for (int r = 0; r < S; ++r) {
-                    len += get(r, c);
-                }
-                if (len >= 3) {
-                    column_length[c] = len;
-                }
-            }
-            std::vector<double> boundary_positions;
-            {
-                std::vector<int> run;
-                std::vector<int> run_len;
-                const auto flush = [&]() {
-                    if (run.empty()) {
-                        return;
+            // line refinement
+            for (int r = 0; r < S; ++r) {
+                std::uint8_t* vec = testmat.data() + static_cast<std::size_t>(r) * S;
+                std::vector<int> st;
+                std::vector<int> en;
+                for (int i = 0; i + 1 < S; ++i) {
+                    if (vec[i + 1] > vec[i]) {
+                        st.push_back(i + 1);
                     }
-                    double weight_sum = 0.0;
-                    for (const int w : run_len) {
-                        weight_sum += w;
+                    if (vec[i + 1] < vec[i]) {
+                        en.push_back(i);
                     }
-                    double acc = 0.0;
-                    if (weight_sum > 0.0) {
-                        for (std::size_t i = 0; i < run.size(); ++i) {
-                            acc += static_cast<double>(run[i]) * (static_cast<double>(run_len[i]) / weight_sum);
+                }
+                if (vec[0] == 1) {
+                    st.insert(st.begin(), 0);
+                }
+                if (vec[S - 1] == 1) {
+                    en.push_back(S - 1);
+                }
+                const std::size_t n_lines = st.size();
+                for (std::size_t l = 0; l < n_lines; ++l) {
+                    int sum = 0;
+                    for (int c = st[l]; c <= en[l] && c < S; ++c) {
+                        sum += edges[static_cast<std::size_t>(r) * S + c];
+                    }
+                    if (sum > 0) {
+                        for (int c = st[l]; c < en[l]; ++c) {
+                            vec[c] = vert[static_cast<std::size_t>(r) * S + c];
                         }
                     } else {
-                        acc = run.back();
+                        const int med = static_cast<int>(np::round_half_even(static_cast<double>(st[l] + en[l]) / 2.0));
+                        for (int c = st[l]; c < en[l]; ++c) {
+                            vec[c] = 0;
+                        }
+                        vec[med] = 1;
                     }
-                    boundary_positions.push_back(std::round(acc));
-                    run.clear();
-                    run_len.clear();
-                };
-                int previous = std::numeric_limits<int>::min();
-                for (const auto& [col, len] : column_length) {
-                    if (!run.empty() && col - previous != 1) {
-                        flush();
-                    }
-                    run.push_back(col);
-                    run_len.push_back(len);
-                    previous = col;
                 }
-                flush();
             }
-            std::sort(boundary_positions.begin(), boundary_positions.end());
-            boundary_positions.erase(std::unique(boundary_positions.begin(), boundary_positions.end()),
-                                     boundary_positions.end());
+            // value_counts of the columns holding a 1
+            std::vector<int> col_index;
+            std::vector<int> col_length;
+            for (int c = 0; c < S; ++c) {
+                int n = 0;
+                for (int r = 0; r < S; ++r) {
+                    n += testmat[static_cast<std::size_t>(r) * S + c] == 1;
+                }
+                if (n >= 3) {
+                    col_index.push_back(c);
+                    col_length.push_back(n);
+                }
+            }
+            const std::size_t nrow = col_index.size();
+            std::vector<double> mean_x;
+            std::vector<int> continuous;
+            std::vector<double> len;
+            bool is_continue = false;
+            auto finish_run = [&]() {
+                double total = 0.0;
+                for (const double a : len) {
+                    total += a;
+                }
+                // Len = [a / sum(Len) for a in Len]; the Python sums numpy ints
+                // here, so the sum is exact.
+                std::vector<double> shares;
+                for (const double a : len) {
+                    shares.push_back(a / total);
+                }
+                double temp = 0.0;
+                for (std::size_t i = 0; i < continuous.size(); ++i) {
+                    temp = temp + static_cast<double>(continuous[i]) * shares[i];
+                }
+                mean_x.push_back(np::round_half_even(temp));
+            };
+            for (std::size_t c = 0; c + 1 < nrow; ++c) {
+                const int current = col_index[c];
+                const int next = col_index[c + 1];
+                if (next - current == 1 && is_continue) {
+                    continuous.push_back(next);
+                    len.push_back(col_length[c + 1]);
+                } else if (next - current == 1 && !is_continue) {
+                    continuous = {current, next};
+                    len = {static_cast<double>(col_length[c]), static_cast<double>(col_length[c + 1])};
+                    is_continue = true;
+                } else if (next - current != 1 && !is_continue) {
+                    continuous = {current};
+                    len = {static_cast<double>(col_length[c])};
+                    is_continue = false;
+                    finish_run();
+                } else {
+                    finish_run();
+                    continuous = {current};
+                    len = {static_cast<double>(col_length[c])};
+                    is_continue = false;
+                }
+            }
+            finish_run();
 
-            for (std::size_t i = 0; i + 1 < boundary_positions.size(); ++i) {
-                const int n = static_cast<int>(boundary_positions[i]);
-                const int m = static_cast<int>(boundary_positions[i + 1]);
-                const int width = std::abs(m - n);
-                if (width <= 1 || width > max_width) {
-                    continue;
-                }
-                int pair_start = n;
-                int pair_end = m;
-                if (width > 4) {
-                    pair_end = m - 2;
-                }
-                const auto column_extent = [&](int center) {
-                    int lo = std::numeric_limits<int>::max();
-                    int hi = std::numeric_limits<int>::min();
-                    for (int c = std::max(0, center - 1); c < std::min(S, center + 2); ++c) {
+            std::vector<double> X = mean_x;
+            std::sort(X.begin(), X.end());
+            X.erase(std::unique(X.begin(), X.end()), X.end());
+            const std::size_t x_size = X.size();
+            for (std::size_t c = 0; c + 1 < x_size; ++c) {
+                const int n = static_cast<int>(X[c]);
+                const int m = static_cast<int>(X[c + 1]);
+                const int span = std::abs(m - n);
+                if (span > 1 && span <= params.max_width) {
+                    if (span > 4) {
+                        pairs.push_back({n, m - 2});
+                    } else {
+                        pairs.push_back({n, m});
+                    }
+                    int min1 = S;
+                    int max1 = -1;
+                    for (int cc = std::max(0, n - 1); cc < std::min(n + 2, S); ++cc) {
                         for (int r = 0; r < S; ++r) {
-                            if (get(r, c) == 1) {
-                                lo = std::min(lo, r);
-                                hi = std::max(hi, r);
+                            if (testmat[static_cast<std::size_t>(r) * S + cc] == 1) {
+                                min1 = std::min(min1, r);
+                                max1 = std::max(max1, r);
                             }
                         }
                     }
-                    return std::pair<int, int>(lo, hi);
-                };
-                const auto [min1, max1] = column_extent(n);
-                const auto [min2, max2] = column_extent(m);
-                if (min1 > max1 || min2 > max2) {
-                    continue;
-                }
-                int lo = std::min(min1, min2);
-                int hi = std::max(max1, max2);
-                if (ud == 1) {
-                    hi = (width > 4) ? (m - 2) : m;
-                } else {
-                    lo = n;
-                }
-                if (hi < lo) {
-                    continue;
-                }
-                FrameCandidate candidate;
-                candidate.x = std::min(pair_start, pair_end);
-                candidate.w = std::abs(pair_end - pair_start) + 1;
-                candidate.y = lo;
-                candidate.h = hi - lo + 1;
-                if (candidate.x >= 0 && candidate.y >= 0 && candidate.x + candidate.w <= S &&
-                    candidate.y + candidate.h <= S) {
-                    out.push_back(candidate);
+                    int min2 = S;
+                    int max2 = -1;
+                    for (int cc = std::max(0, m - 1); cc < std::min(m + 2, S); ++cc) {
+                        for (int r = 0; r < S; ++r) {
+                            if (testmat[static_cast<std::size_t>(r) * S + cc] == 1) {
+                                min2 = std::min(min2, r);
+                                max2 = std::max(max2, r);
+                            }
+                        }
+                    }
+                    if (max1 < 0 || max2 < 0) {
+                        throw std::runtime_error("hicDetectStripes: empty column in the stripe pairing (Stripenn would fail here)");
+                    }
+                    int mn = std::min(min1, min2);
+                    int mx = std::max(max1, max2);
+                    if (ud == 1) {
+                        mx = span > 4 ? m - 2 : m;
+                    } else {
+                        mn = static_cast<int>(X[c]);
+                    }
+                    min_vec.push_back(mn);
+                    max_vec.push_back(mx);
                 }
             }
+        }
+        for (std::size_t c = 0; c < pairs.size(); ++c) {
+            RawStripe s;
+            s.x = pairs[c].first;
+            s.y = min_vec[c];
+            s.w = pairs[c].second - pairs[c].first + 1;
+            s.h = max_vec[c] - min_vec[c] + 1;
+            if (s.h > 0 && s.w > 0) {
+                s.total = np::sum_block(submat.data() + static_cast<std::size_t>(s.y) * S + s.x,
+                                        static_cast<std::size_t>(s.h), static_cast<std::size_t>(s.w),
+                                        static_cast<std::size_t>(S));
+            } else {
+                s.total = 0.0;
+            }
+            s.mean = s.total / static_cast<double>(s.h) / static_cast<double>(s.w);
+            found.push_back(s);
+        }
+    }
+    return found;
+}
+
+// ---------------------------------------------------------------------------
+// search_frame
+
+FrameResult search_frame(const BandMatrix& band, const ChromInfo& chrom, std::int64_t idx, double M,
+                         const Parameters& params, FrameTrace* trace) {
+    FrameResult out;
+    const std::int64_t res = band.resolution();
+    const std::int64_t rowsize = chrom.nbins;
+    std::int64_t start = idx * 200 - 100;
+    std::int64_t end = (idx + 1) * 200 + 99;
+    if (end >= rowsize) {
+        end = rowsize - 1;
+    }
+    if (idx == 0) {
+        start = 0;
+    }
+    const std::int64_t framesize = end - start + 1;
+    if (framesize <= 0) {
+        return out;
+    }
+    std::vector<double> D = band.dense(start, end + 1, start, end + 1);
+    for (double& v : D) {
+        if (is_nan(v)) {
+            v = 0.0;
+        }
+    }
+    std::vector<std::int64_t> nonzero;
+    for (std::int64_t c = 0; c < framesize; ++c) {
+        bool any = false;
+        for (std::int64_t r = 0; r < framesize; ++r) {
+            if (D[static_cast<std::size_t>(r * framesize + c)] != 0.0) {
+                any = true;
+                break;
+            }
+        }
+        if (any) {
+            nonzero.push_back(c);
+        }
+    }
+    const std::int64_t S = static_cast<std::int64_t>(nonzero.size());
+    if (!(S > 10)) {
+        return out;
+    }
+    std::vector<std::int64_t> start_array(static_cast<std::size_t>(framesize));
+    std::vector<std::int64_t> end_array(static_cast<std::size_t>(framesize));
+    for (std::int64_t j = 0; j < framesize; ++j) {
+        start_array[static_cast<std::size_t>(j)] = (start + j) * res + 1;
+        end_array[static_cast<std::size_t>(j)] = start_array[static_cast<std::size_t>(j)] + res - 1;
+    }
+    if (end_array.back() >= chrom.size) {
+        end_array.back() = chrom.size;
+    }
+    out.submat.resize(static_cast<std::size_t>(S * S));
+    out.start_array.resize(static_cast<std::size_t>(S));
+    out.end_array.resize(static_cast<std::size_t>(S));
+    for (std::int64_t r = 0; r < S; ++r) {
+        for (std::int64_t c = 0; c < S; ++c) {
+            out.submat[static_cast<std::size_t>(r * S + c)] =
+                D[static_cast<std::size_t>(nonzero[static_cast<std::size_t>(r)] * framesize + nonzero[static_cast<std::size_t>(c)])];
+        }
+        out.start_array[static_cast<std::size_t>(r)] = start_array[static_cast<std::size_t>(nonzero[static_cast<std::size_t>(r)])];
+        out.end_array[static_cast<std::size_t>(r)] = end_array[static_cast<std::size_t>(nonzero[static_cast<std::size_t>(r)])];
+    }
+    out.searched = true;
+    const std::vector<RawStripe> raw = stripe_search(out.submat, static_cast<int>(S), M, params, trace);
+    for (const RawStripe& s : raw) {
+        Stripe st;
+        const std::int64_t x = s.x;
+        const std::int64_t y = s.y;
+        const std::int64_t w = s.w;
+        const std::int64_t h = s.h;
+        auto at = [&](const std::vector<std::int64_t>& arr, std::int64_t i) {
+            const std::int64_t k = py_index(i, S);
+            if (k < 0) {
+                throw std::runtime_error("hicDetectStripes: stripe outside its frame (Stripenn would fail here)");
+            }
+            return arr[static_cast<std::size_t>(k)];
+        };
+        st.pos1 = at(out.start_array, x);
+        st.pos2 = at(out.end_array, x + w - 1);
+        st.pos3 = at(out.start_array, y);
+        st.pos4 = at(out.end_array, y + h - 1);
+        st.length = st.pos4 - st.pos3 + 1;
+        st.width = st.pos2 - st.pos1 + 1;
+        st.total = s.total;
+        st.mean = s.mean;
+        st.num = idx;
+        st.start = start;
+        st.end = end;
+        st.x = s.x;
+        st.y = s.y;
+        st.h = s.h;
+        st.w = s.w;
+        out.stripes.push_back(st);
+    }
+    // StripeSearch ends with RemoveRedundant(result, 'size') on the frame's own boxes.
+    out.stripes = remove_redundant(out.stripes, RedundantBy::Size);
+    return out;
+}
+
+// ---------------------------------------------------------------------------
+// RemoveRedundant
+
+std::vector<Stripe> remove_redundant(const std::vector<Stripe>& stripes, RedundantBy by) {
+    const std::size_t total = stripes.size();
+    if (total == 0) {
+        return stripes;
+    }
+    std::vector<char> keep(total, 1);
+    std::map<std::int64_t, std::vector<std::size_t>> by_num;
+    for (std::size_t i = 0; i < total; ++i) {
+        by_num[stripes[i].num].push_back(i);
+    }
+    for (const auto& [n, own] : by_num) {
+        std::vector<std::size_t> merged = own;
+        const auto next = by_num.find(n + 1);
+        if (next != by_num.end()) {
+            merged.insert(merged.end(), next->second.begin(), next->second.end());
+            std::sort(merged.begin(), merged.end());
+        }
+        const std::size_t length = merged.size();
+        for (std::size_t i = 0; i + 1 < length; ++i) {
+            for (std::size_t j = i + 1; j < length; ++j) {
+                const Stripe& a = stripes[merged[i]];
+                const Stripe& b = stripes[merged[j]];
+                const std::int64_t int_x = std::max<std::int64_t>(0, std::min(a.pos2, b.pos2) + 1 - std::max(a.pos1, b.pos1));
+                const std::int64_t int_y = std::max<std::int64_t>(0, std::min(a.pos4, b.pos4) + 1 - std::max(a.pos3, b.pos3));
+                const double s_x = static_cast<double>(int_x) / static_cast<double>(std::min(a.pos2 - a.pos1, b.pos2 - b.pos1));
+                const double s_y = static_cast<double>(int_y) / static_cast<double>(std::min(a.pos4 - a.pos3, b.pos4 - b.pos3));
+                if (s_x > 0.2 && s_y > 0.2) {
+                    bool delete_first;
+                    if (by == RedundantBy::Size) {
+                        delete_first = static_cast<double>(a.h) / static_cast<double>(a.w) <=
+                                       static_cast<double>(b.h) / static_cast<double>(b.w);
+                    } else {
+                        delete_first = a.pvalue > b.pvalue;
+                    }
+                    keep[delete_first ? merged[i] : merged[j]] = 0;
+                }
+            }
+        }
+    }
+    std::vector<Stripe> out;
+    for (std::size_t i = 0; i < total; ++i) {
+        if (keep[i]) {
+            out.push_back(stripes[i]);
         }
     }
     return out;
 }
 
-std::vector<Candidate> remove_redundant(std::vector<Candidate> candidates, bool by_pvalue,
-                                        unsigned int threads) {
-    (void)threads;  // the per-chromosome group is small enough to run in one thread
-    std::map<std::string, std::vector<std::size_t>> by_chrom;
-    for (std::size_t i = 0; i < candidates.size(); ++i) {
-        by_chrom[candidates[i].chrom].push_back(i);
+// ---------------------------------------------------------------------------
+// pvalue
+
+void compute_pvalues(const BandMatrix& band, const ChromInfo& chrom, const NullTables& null,
+                     std::vector<Stripe>& stripes, unsigned int threads) {
+    const std::int64_t res = band.resolution();
+    const std::int64_t bs = static_cast<std::int64_t>(50000.0 / static_cast<double>(res));
+    const double all_columns = static_cast<double>(null.columns);
+    hicx::parallel_for(stripes.size(), threads, [&](std::size_t index) {
+        Stripe& s = stripes[index];
+        std::int64_t leftmost = s.pos1 - bs * res;
+        std::int64_t rightmost = s.pos2 + bs * res;
+        if (leftmost < 1) {
+            leftmost = 1;
+        }
+        if (rightmost > chrom.size) {
+            rightmost = chrom.size;
+        }
+        const std::int64_t col0 = floor_div(leftmost, res);
+        const std::int64_t col1 = ceil_div(rightmost, res);
+        const std::int64_t row0 = floor_div(s.pos3, res);
+        const std::int64_t row1 = ceil_div(s.pos4, res);
+        const std::int64_t R = row1 - row0;
+        const std::int64_t C = col1 - col0;
+        std::vector<double> mat = band.dense(row0, row1, col0, col1);
+        for (double& v : mat) {
+            if (is_nan(v)) {
+                v = 0.0;
+            }
+        }
+        // mat[:, bs:-bs], mat[:, :bs], mat[:, -bs:]
+        auto column_means = [&](std::int64_t c0, std::int64_t c1) {
+            normalise_slice(c0, c1, C);
+            std::vector<double> means(static_cast<std::size_t>(R));
+            std::vector<double> row;
+            for (std::int64_t r = 0; r < R; ++r) {
+                row.assign(mat.begin() + static_cast<std::ptrdiff_t>(r * C + c0),
+                           mat.begin() + static_cast<std::ptrdiff_t>(r * C + std::max(c0, c1)));
+                means[static_cast<std::size_t>(r)] =
+                    c1 > c0 ? np::mean_of_row(row.data(), static_cast<std::size_t>(c1 - c0)) : kNaN;
+            }
+            return means;
+        };
+        const std::vector<double> center = column_means(bs, -bs);
+        const std::vector<double> left = column_means(0, bs);
+        const std::vector<double> right = column_means(-bs, C);
+        const std::int64_t x1 = (s.pos1 - 1) / res;
+        const std::int64_t x2 = s.pos2 / res;
+        const std::int64_t y1 = (s.pos3 - 1) / res;
+        const std::int64_t y2 = s.pos4 / res;
+
+        std::vector<double> pvalues;
+        pvalues.reserve(static_cast<std::size_t>(R));
+        for (std::int64_t j = 0; j < R; ++j) {
+            const double left_diff = center[static_cast<std::size_t>(j)] - left[static_cast<std::size_t>(j)];
+            const double right_diff = center[static_cast<std::size_t>(j)] - right[static_cast<std::size_t>(j)];
+            const std::vector<std::vector<double>>* sorted_left = nullptr;
+            const std::vector<std::vector<double>>* sorted_right = nullptr;
+            std::int64_t difference;
+            if (x1 == y1) {
+                difference = j;
+                if (difference >= 400) {
+                    difference = 399;
+                }
+                sorted_left = &null.sorted_leftdown;
+                sorted_right = &null.sorted_rightdown;
+            } else if (x2 == y2) {
+                difference = y2 - y1 - j - 1;
+                if (difference >= 400) {
+                    difference = 399;
+                }
+                if (difference < 0) {
+                    difference += 400;  // numpy's negative row index
+                }
+                sorted_left = &null.sorted_leftup;
+                sorted_right = &null.sorted_rightup;
+            } else {
+                throw std::runtime_error("hicDetectStripes: stripe touches the diagonal at neither end (Stripenn would fail here)");
+            }
+            const std::vector<double>& bl = (*sorted_left)[static_cast<std::size_t>(difference)];
+            const std::vector<double>& br = (*sorted_right)[static_cast<std::size_t>(difference)];
+            auto count_ge = [](const std::vector<double>& sorted, double v) {
+                if (is_nan(v)) {
+                    return static_cast<std::size_t>(0);
+                }
+                return static_cast<std::size_t>(sorted.end() - std::lower_bound(sorted.begin(), sorted.end(), v));
+            };
+            const double p1 = static_cast<double>(count_ge(bl, left_diff)) / static_cast<double>(bl.size());
+            const double p2 = static_cast<double>(count_ge(br, right_diff)) / static_cast<double>(br.size());
+            double pval = std::max(p1, p2);
+            if (pval == 0) {
+                pval = 1 / all_columns;
+            }
+            pvalues.push_back(pval);
+        }
+        s.pvalue = np::median(pvalues);
+    });
+}
+
+// ---------------------------------------------------------------------------
+// scoringstripes
+
+namespace {
+
+struct Matrix {
+    std::int64_t rows = 0;
+    std::int64_t cols = 0;
+    std::vector<double> v;
+    Matrix() = default;
+    Matrix(std::int64_t r, std::int64_t c, double fill = 0.0)
+        : rows(r), cols(c), v(static_cast<std::size_t>(std::max<std::int64_t>(r, 0) * std::max<std::int64_t>(c, 0)), fill) {}
+    double& at(std::int64_t r, std::int64_t c) { return v[static_cast<std::size_t>(r * cols + c)]; }
+    double at(std::int64_t r, std::int64_t c) const { return v[static_cast<std::size_t>(r * cols + c)]; }
+};
+
+// expecMatrix: (len(y_seq) x len(x_seq)), exval[min(|x - y|, 399)]
+Matrix expec_matrix(const std::vector<double>& exval, std::int64_t xs, std::int64_t xe, std::int64_t ys,
+                    std::int64_t ye) {
+    Matrix m(std::max<std::int64_t>(ye - ys, 0), std::max<std::int64_t>(xe - xs, 0));
+    for (std::int64_t y = 0; y < m.rows; ++y) {
+        for (std::int64_t x = 0; x < m.cols; ++x) {
+            std::int64_t idx = std::llabs((xs + x) - (ys + y));
+            if (idx >= 400) {
+                idx = 399;
+            }
+            m.at(y, x) = exval[static_cast<std::size_t>(idx)];
+        }
     }
-    std::vector<bool> keep(candidates.size(), true);
-    for (auto& [chrom, indices] : by_chrom) {
-        (void)chrom;
-        std::sort(indices.begin(), indices.end(), [&](std::size_t a, std::size_t b) {
-            return candidates[a].frame_index < candidates[b].frame_index;
-        });
-        for (std::size_t ii = 0; ii < indices.size(); ++ii) {
-            for (std::size_t jj = ii + 1; jj < indices.size(); ++jj) {
-                const std::size_t i = indices[ii];
-                const std::size_t j = indices[jj];
-                if (std::abs(candidates[i].frame_index - candidates[j].frame_index) > 1) {
-                    continue;
+    return m;
+}
+
+// np.divide(observed, expected + 1e-8), observed cut to the expected shape
+// (Stripenn raises where the two differ, at an unaligned chromosome end).
+Matrix observed_over_expected(const BandMatrix& band, std::int64_t row0, std::int64_t col0, Matrix expected) {
+    for (double& e : expected.v) {
+        e += .00000001;
+    }
+    Matrix out(expected.rows, expected.cols);
+    for (std::int64_t r = 0; r < out.rows; ++r) {
+        for (std::int64_t c = 0; c < out.cols; ++c) {
+            const std::int64_t br = row0 + r;
+            const std::int64_t bc = col0 + c;
+            const double obs = (br < band.bins() && bc < band.bins()) ? band.get(br, bc) : kNaN;
+            out.at(r, c) = obs / expected.at(r, c);
+        }
+    }
+    return out;
+}
+
+// masking(matrix, mask_index_start, mask_index_end, start_index, end_index, direc)
+void apply_mask(Matrix& m, std::int64_t mask_start, std::int64_t mask_end, std::int64_t start_index,
+                std::int64_t end_index, int direc) {
+    const std::int64_t rel_start = mask_start - start_index;
+    const std::int64_t mask_size = mask_end - mask_start;
+    const std::int64_t rel_end = rel_start + mask_size;
+    const std::int64_t L = end_index - start_index + 1;
+    std::vector<std::int64_t> idx;
+    for (std::int64_t x = rel_start; x <= rel_end; ++x) {
+        if (x >= 0 && x < L) {
+            idx.push_back(x);
+        }
+    }
+    if (idx.empty()) {
+        return;
+    }
+    if (direc == 1) {
+        for (const std::int64_t y : idx) {
+            if (y < m.cols) {
+                for (std::int64_t x = 0; x < m.rows; ++x) {
+                    m.at(x, y) = kNaN;
                 }
-                const Candidate& a = candidates[i];
-                const Candidate& c = candidates[j];
-                const std::int64_t ix_lo = std::max(a.pos1, c.pos1);
-                const std::int64_t ix_hi = std::min(a.pos2, c.pos2);
-                const std::int64_t iy_lo = std::max(a.pos3, c.pos3);
-                const std::int64_t iy_hi = std::min(a.pos4, c.pos4);
-                if (ix_hi < ix_lo || iy_hi < iy_lo) {
-                    continue;
-                }
-                const double sx = static_cast<double>(ix_hi - ix_lo + 1) /
-                                  static_cast<double>(std::min(a.pos2 - a.pos1, c.pos2 - c.pos1) + 1);
-                const double sy = static_cast<double>(iy_hi - iy_lo + 1) /
-                                  static_cast<double>(std::min(a.pos4 - a.pos3, c.pos4 - c.pos3) + 1);
-                if (sx <= 0.2 || sy <= 0.2) {
-                    continue;
-                }
-                if (!keep[i] || !keep[j]) {
-                    continue;
-                }
-                if (by_pvalue) {
-                    if (a.pvalue > c.pvalue) {
-                        keep[i] = false;
-                    } else {
-                        keep[j] = false;
-                    }
-                } else {
-                    const double ratio_a = static_cast<double>(a.pos4 - a.pos3) /
-                                          static_cast<double>(std::max<std::int64_t>(1, a.pos2 - a.pos1));
-                    const double ratio_c = static_cast<double>(c.pos4 - c.pos3) /
-                                          static_cast<double>(std::max<std::int64_t>(1, c.pos2 - c.pos1));
-                    if (ratio_a <= ratio_c) {
-                        keep[i] = false;
-                    } else {
-                        keep[j] = false;
-                    }
+            }
+        }
+    } else {
+        for (const std::int64_t x : idx) {
+            if (x < m.rows) {
+                for (std::int64_t y = 0; y < m.cols; ++y) {
+                    m.at(x, y) = kNaN;
                 }
             }
         }
     }
-    std::vector<Candidate> result;
-    result.reserve(candidates.size());
-    for (std::size_t i = 0; i < candidates.size(); ++i) {
-        if (keep[i]) {
-            result.push_back(std::move(candidates[i]));
+}
+
+// stats.elementwise_product_sum(K, *COL)
+std::vector<double> elementwise_product_sum(const std::vector<std::array<int, 3>>& K_columns,
+                                            const std::vector<const std::vector<double>*>& cols) {
+    // K_columns[j] holds column j of K: {K[0][j], K[1][j], K[2][j]}
+    const std::size_t ncol_k = K_columns.size();
+    std::vector<double> result;
+    const std::size_t col_size = cols[0]->size();
+    for (std::size_t i = 1; i + 1 < col_size; ++i) {
+        double temp = 0.0;
+        for (std::size_t j = 0; j < ncol_k; ++j) {
+            const std::vector<double>& col = *cols[j];
+            const double a = static_cast<double>(K_columns[j][0]) * col[i - 1];
+            const double b = static_cast<double>(K_columns[j][1]) * col[i];
+            const double c = static_cast<double>(K_columns[j][2]) * col[i + 1];
+            temp += (a + b) + c;
         }
+        if (ncol_k == 3 && temp < 0) {
+            temp *= -1;
+        }
+        result.push_back(temp);
     }
     return result;
 }
 
-double candidate_pvalue(const BackgroundModel& model, int distance, double left_diff,
-                        double right_diff) {
-    const std::size_t d = static_cast<std::size_t>(std::clamp(distance, 0, 399));
-    if (d >= model.left.size() || model.left[d].empty()) {
-        return 1.0;
+}  // namespace
+
+void compute_scores(const BandMatrix& band, const ChromInfo& chrom, const std::vector<double>& exval,
+                    const Parameters& params, std::vector<Stripe>& stripes, unsigned int threads) {
+    const std::int64_t res = band.resolution();
+    const std::int64_t bs = static_cast<std::int64_t>(50000.0 / static_cast<double>(res));
+    const std::int64_t chrom_bin_size = chrom.nbins;
+
+    bool use_mask = false;
+    std::int64_t mask_start = 0;
+    std::int64_t mask_end = 0;
+    std::string mask_chr;
+    std::int64_t mask_x_start = 0;
+    std::int64_t mask_x_end = 0;
+    if (params.mask != "0") {
+        const std::size_t colon = params.mask.find(':');
+        const std::size_t dash = params.mask.find('-', colon == std::string::npos ? 0 : colon);
+        if (colon == std::string::npos || dash == std::string::npos) {
+            throw std::runtime_error("hicDetectStripes: --mask must look like chr9:12345678-12345789");
+        }
+        mask_chr = params.mask.substr(0, colon);
+        mask_start = std::stoll(params.mask.substr(colon + 1, dash - colon - 1));
+        mask_end = std::stoll(params.mask.substr(dash + 1));
+        mask_x_start = static_cast<std::int64_t>(static_cast<double>(mask_start) / static_cast<double>(res));
+        mask_x_end = static_cast<std::int64_t>(static_cast<double>(mask_end) / static_cast<double>(res));
+        use_mask = mask_chr == chrom.name;
     }
-    const auto rank = [](const std::vector<double>& sample, double observed) {
-        std::size_t at_least = 0;
-        for (const double v : sample) {
-            if (v >= observed) {
-                ++at_least;
+
+    static const std::vector<std::array<int, 3>> K_xl{{-1, -2, -1}, {1, 2, 1}};
+    static const std::vector<std::array<int, 3>> K_xr{{1, 2, 1}, {-1, -2, -1}};
+    static const std::vector<std::array<int, 3>> K_y{{1, 0, -1}, {2, 0, -2}, {1, 0, -1}};
+
+    hicx::parallel_for(stripes.size(), threads, [&](std::size_t index) {
+        Stripe& s = stripes[index];
+        const double xs = static_cast<double>(s.pos1);
+        const double xe = static_cast<double>(s.pos2);
+        const double ys = static_cast<double>(s.pos3);
+        const double ye = static_cast<double>(s.pos4);
+        const std::int64_t x_start_index = static_cast<std::int64_t>(xs / static_cast<double>(res));
+        const std::int64_t x_end_index = static_cast<std::int64_t>(xe / static_cast<double>(res));
+        const std::int64_t y_start_index = static_cast<std::int64_t>(ys / static_cast<double>(res));
+        const std::int64_t y_end_index = static_cast<std::int64_t>(ye / static_cast<double>(res));
+        std::int64_t leftmost = x_start_index - bs;
+        std::int64_t rightmost = x_end_index + bs;
+        if (leftmost < 1) {
+            leftmost = 1;
+        }
+        if (rightmost >= chrom_bin_size) {
+            rightmost = chrom_bin_size - 1;
+        }
+        const std::int64_t row0 = floor_div(s.pos3, res);
+        Matrix center = observed_over_expected(band, row0, floor_div(s.pos1, res),
+                                               expec_matrix(exval, x_start_index, x_end_index, y_start_index, y_end_index));
+        Matrix left = observed_over_expected(band, row0, leftmost,
+                                             expec_matrix(exval, leftmost, x_start_index, y_start_index, y_end_index));
+        Matrix right = observed_over_expected(band, row0, x_end_index,
+                                              expec_matrix(exval, x_end_index + 1, rightmost + 1, y_start_index, y_end_index));
+
+        if (use_mask && static_cast<double>(mask_start) > std::min(xs - 50000, ys) &&
+            static_cast<double>(mask_start) < std::max(xe + 50000, ye)) {
+            apply_mask(center, mask_x_start, mask_x_end, x_start_index, x_end_index, 1);
+            apply_mask(center, mask_x_start, mask_x_end, y_start_index, y_end_index, 2);
+            apply_mask(left, mask_x_start, mask_x_end, leftmost, x_start_index, 1);
+            apply_mask(left, mask_x_start, mask_x_end, y_start_index, y_end_index, 2);
+            apply_mask(right, mask_x_start, mask_x_end, x_end_index + 1, rightmost, 1);
+            apply_mask(right, mask_x_start, mask_x_end, y_start_index, y_end_index, 2);
+        }
+
+        auto all_nan_columns = [](const Matrix& m) {
+            std::vector<std::int64_t> cols;
+            for (std::int64_t c = 0; c < m.cols; ++c) {
+                bool all = true;
+                for (std::int64_t r = 0; r < m.rows; ++r) {
+                    if (!is_nan(m.at(r, c))) {
+                        all = false;
+                        break;
+                    }
+                }
+                if (all) {
+                    cols.push_back(c);
+                }
+            }
+            return cols;
+        };
+        auto delete_columns = [](Matrix& m, const std::vector<std::int64_t>& cols) {
+            Matrix out(m.rows, m.cols - static_cast<std::int64_t>(cols.size()));
+            std::int64_t oc = 0;
+            for (std::int64_t c = 0; c < m.cols; ++c) {
+                if (std::find(cols.begin(), cols.end(), c) != cols.end()) {
+                    continue;
+                }
+                for (std::int64_t r = 0; r < m.rows; ++r) {
+                    out.at(r, oc) = m.at(r, c);
+                }
+                ++oc;
+            }
+            m = std::move(out);
+        };
+        auto delete_rows = [](Matrix& m, const std::vector<std::int64_t>& rows) {
+            Matrix out(m.rows - static_cast<std::int64_t>(rows.size()), m.cols);
+            std::int64_t orow = 0;
+            for (std::int64_t r = 0; r < m.rows; ++r) {
+                if (std::find(rows.begin(), rows.end(), r) != rows.end()) {
+                    continue;
+                }
+                for (std::int64_t c = 0; c < m.cols; ++c) {
+                    out.at(orow, c) = m.at(r, c);
+                }
+                ++orow;
+            }
+            m = std::move(out);
+        };
+
+        const std::vector<std::int64_t> center_del = all_nan_columns(center);
+        const std::vector<std::int64_t> left_del = all_nan_columns(left);
+        const std::vector<std::int64_t> right_del = all_nan_columns(right);
+        std::vector<std::int64_t> rowdel;
+        const bool same_start = s.pos1 == s.pos3;
+        if (!center_del.empty()) {
+            delete_columns(center, center_del);
+            for (const std::int64_t x : center_del) {
+                rowdel.push_back(same_start ? x : center.rows - 1 - x);
             }
         }
-        double p = static_cast<double>(at_least) / static_cast<double>(sample.size());
-        if (p == 0.0) {
-            p = 1.0 / static_cast<double>(sample.size());
+        if (!left_del.empty()) {
+            delete_columns(left, left_del);
+            for (const std::int64_t x : left_del) {
+                rowdel.push_back(same_start ? x : left.rows - 1 - x);
+            }
         }
-        return p;
-    };
-    const double p1 = rank(model.left[d], left_diff);
-    const double p2 = rank(model.right[d], right_diff);
-    return std::max(p1, p2);
+        if (!right_del.empty()) {
+            delete_columns(right, right_del);
+            for (const std::int64_t x : right_del) {
+                rowdel.push_back(same_start ? x : right.rows - 1 - x);
+            }
+        }
+        if (!rowdel.empty()) {
+            const std::int64_t n_rows = center.rows;
+            std::vector<std::int64_t> unique_rows;
+            for (std::int64_t r : rowdel) {
+                const std::int64_t k = py_index(r, n_rows);
+                if (k >= 0) {
+                    unique_rows.push_back(k);
+                }
+            }
+            std::sort(unique_rows.begin(), unique_rows.end());
+            unique_rows.erase(std::unique(unique_rows.begin(), unique_rows.end()), unique_rows.end());
+            if (!unique_rows.empty()) {
+                delete_rows(center, unique_rows);
+                delete_rows(left, unique_rows);
+                delete_rows(right, unique_rows);
+            }
+        }
+        for (double& v : center.v) {
+            if (is_nan(v)) {
+                v = 0.0;
+            }
+        }
+        for (double& v : left.v) {
+            if (is_nan(v)) {
+                v = 0.0;
+            }
+        }
+        for (double& v : right.v) {
+            if (is_nan(v)) {
+                v = 0.0;
+            }
+        }
+        auto row_means = [](const Matrix& m) {
+            std::vector<double> means(static_cast<std::size_t>(std::max<std::int64_t>(m.rows, 0)));
+            for (std::int64_t r = 0; r < m.rows; ++r) {
+                means[static_cast<std::size_t>(r)] =
+                    np::mean_of_row(m.v.data() + static_cast<std::size_t>(r * m.cols), static_cast<std::size_t>(m.cols));
+            }
+            return means;
+        };
+        const std::vector<double> centerm = row_means(center);
+        const std::vector<double> leftm = row_means(left);
+        const std::vector<double> rightm = row_means(right);
+        if (!center.v.empty()) {
+            s.oe_mean = np::mean_of(center.v);
+        }
+
+        const std::vector<double> g_xl = elementwise_product_sum(K_xl, {&leftm, &centerm});
+        const std::vector<double> g_xr = elementwise_product_sum(K_xr, {&centerm, &rightm});
+        const std::vector<double> g_y = elementwise_product_sum(K_y, {&leftm, &centerm, &rightm});
+        std::vector<double> diff;
+        const std::size_t n = std::min({g_xl.size(), g_xr.size(), g_y.size()});
+        for (std::size_t i = 0; i < n; ++i) {
+            double g_x;
+            if (is_nan(g_xl[i]) || is_nan(g_xr[i])) {
+                g_x = kNaN;
+            } else {
+                g_x = std::min(g_xl[i], g_xr[i]);
+            }
+            const double d = g_x - g_y[i];
+            if (d >= 0 || d < 0) {
+                diff.push_back(d);
+            }
+        }
+        const double avgdiff = np::mean_of(diff);
+        s.stripiness = np::nanmedian(centerm) * avgdiff;
+    });
+}
+
+// ---------------------------------------------------------------------------
+// Python repr(float)
+
+std::string py_repr(double value) {
+    if (is_nan(value)) {
+        return "nan";
+    }
+    if (std::isinf(value)) {
+        return value < 0 ? "-inf" : "inf";
+    }
+    if (value == 0.0) {
+        return std::signbit(value) ? "-0.0" : "0.0";
+    }
+    char buf[64];
+    const auto result = std::to_chars(buf, buf + sizeof buf, value, std::chars_format::scientific);
+    std::string text(buf, result.ptr);
+    bool negative = false;
+    if (text[0] == '-') {
+        negative = true;
+        text.erase(0, 1);
+    }
+    const std::size_t e = text.find('e');
+    std::string mantissa = text.substr(0, e);
+    const int exponent = std::stoi(text.substr(e + 1));
+    std::string digits;
+    for (const char c : mantissa) {
+        if (c != '.') {
+            digits += c;
+        }
+    }
+    std::string out;
+    if (exponent >= -4 && exponent < 16) {
+        const int decpt = exponent + 1;
+        if (decpt <= 0) {
+            out = "0." + std::string(static_cast<std::size_t>(-decpt), '0') + digits;
+        } else if (static_cast<std::size_t>(decpt) >= digits.size()) {
+            out = digits + std::string(static_cast<std::size_t>(decpt) - digits.size(), '0') + ".0";
+        } else {
+            out = digits.substr(0, static_cast<std::size_t>(decpt)) + "." + digits.substr(static_cast<std::size_t>(decpt));
+        }
+    } else {
+        out = digits.substr(0, 1);
+        if (digits.size() > 1) {
+            out += "." + digits.substr(1);
+        }
+        char ebuf[16];
+        std::snprintf(ebuf, sizeof ebuf, "e%c%02d", exponent < 0 ? '-' : '+', std::abs(exponent));
+        out += ebuf;
+    }
+    return negative ? "-" + out : out;
 }
 
 }  // namespace hicx::stripes

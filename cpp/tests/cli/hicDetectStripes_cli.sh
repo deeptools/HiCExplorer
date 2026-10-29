@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
-# Command line behaviour of hicDetectStripes (cpp/PLAN.md 9.3, a faithful C++
-# reimplementation of Stripenn 1.1.65.22's own detection method), as a ctest
-# complement to cpp/scripts/cases/hicDetectStripes.json. The statistical
-# validation itself runs through cpp/scripts/stripe_calibration.py on real
-# data.
+# Command line behaviour of hicDetectStripes (the Stripenn 1.1.65.22 method in
+# C++), as a ctest complement to cpp/scripts/cases/hicDetectStripes.json. The
+# agreement with Stripenn itself is checked by hicDetectStripes_oracle.sh
+# (small fixture) and by cpp/scripts/stripenn_oracle on real data.
 #
 # Checks:
 #  1. --help-json succeeds and looks like a tool spec.
@@ -39,8 +38,8 @@ only_logs_in() {
     [ -z "$(ls -A "$1" | grep -v -x -e out.txt -e err.txt)" ]
 }
 
-lenient_args=(--minStripeLength 25000 --maxWidth 6 --canny 1.5 --backgroundSamples 2000
-             --pValue 1.0 --fdr 1.0)
+# small_test_matrix has no balancing weights: --norm None
+lenient_args=(--norm None --minL 5 --maxWidth 6 --canny 1.5 --pValue 1.0 --fdr 1.0)
 
 # 1
 mkdir "$work/help" && cd "$work/help" || exit 1
@@ -61,7 +60,7 @@ expect "the output file exists" [ -f stripes.tsv ]
 
 # 3
 mkdir "$work/missing" && cd "$work/missing" || exit 1
-"$tool" -m "$data/hicNormalize/small_test_matrix.cool" --chromosomes chrDoesNotExist \
+"$tool" -m "$data/hicNormalize/small_test_matrix.cool" --norm None --chromosomes chrDoesNotExist \
     -o stripes.tsv > out.txt 2> err.txt
 status=$?
 expect "an unknown chromosome exits non-zero" [ "$status" -ne 0 ]
