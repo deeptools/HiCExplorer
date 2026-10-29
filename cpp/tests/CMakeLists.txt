@@ -59,6 +59,7 @@ add_executable(hicx_tests
     test_correlate_api.cpp
     test_qc_report_api.cpp
     test_matrix_qc.cpp
+    test_matrix_qc_report.cpp
     test_tool_list.cpp
     # The computational cores of hicDifferentialAnalysis, of hicDetectStripes
     # and of hicArrowhead, so that the tests link against exactly the
@@ -107,6 +108,13 @@ add_test(NAME hicMergeDomains_cli
 add_test(NAME hicDetectStripes_cli
          COMMAND ${HICX_BASH} "${CMAKE_CURRENT_SOURCE_DIR}/cli/hicDetectStripes_cli.sh"
                  $<TARGET_FILE:hicDetectStripes> "${HICX_TEST_DATA}")
+
+# hicMatrixQC (no Python counterpart): the report and the table on the shared
+# test matrices, and the round trip with hicBuildMatrix' QC statistics, checked
+# here rather than through cpp/scripts/equiv.py.
+add_test(NAME hicMatrixQC_cli
+         COMMAND ${HICX_BASH} "${CMAKE_CURRENT_SOURCE_DIR}/cli/hicMatrixQC_cli.sh"
+                 $<TARGET_FILE:hicMatrixQC> $<TARGET_FILE:hicBuildMatrix> "${HICX_TEST_DATA}")
 
 # hicFindTADs --ctcfFile / --ctcfWindow (C++-only, cpp/PLAN.md tier 9): no
 # Python counterpart, checked here rather than through cpp/scripts/equiv.py.

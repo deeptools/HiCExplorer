@@ -75,6 +75,7 @@ add_library(hicx4core
     src/pairs_file.cpp
     src/qc_html.cpp
     src/matrix_qc.cpp
+    src/matrix_qc_report.cpp
     src/qc_report_api.cpp
     src/plot_bridge.cpp
     src/plot_matrix_data.cpp

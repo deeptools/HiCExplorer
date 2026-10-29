@@ -24,6 +24,7 @@ set(HICX_TOOLS
     hicFindTADs
     hicCorrectMatrix
     hicInfo
+    hicMatrixQC
     hicMergeMatrixBins
     hicMergeTADbins
     hicAverageRegions
