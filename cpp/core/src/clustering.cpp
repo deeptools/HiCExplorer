@@ -510,37 +510,40 @@ void heappushpop(std::vector<std::int64_t>& heap, std::int64_t item) {
     }
 }
 
-// scipy's LinkageUnionFind.
-struct LinkageUnionFind {
-    explicit LinkageUnionFind(std::int64_t n)
-        : parent(static_cast<std::size_t>(2 * n - 1)), size(static_cast<std::size_t>(2 * n - 1), 1),
-          next_label(n) {
+// Disjoint sets over the 2n - 1 nodes of a dendrogram (Mullner 2011, section
+// 3.2). Leaves are 0..n-1; the cluster made by the i-th merge is node n + i and
+// becomes the parent of the roots it joins. Finding a root compresses the path.
+struct DendrogramSets {
+    explicit DendrogramSets(std::int64_t leaves)
+        : parent(static_cast<std::size_t>(2 * leaves - 1)),
+          members(static_cast<std::size_t>(2 * leaves - 1), 1), next_node(leaves) {
         std::iota(parent.begin(), parent.end(), std::int64_t{0});
     }
-    std::int64_t merge(std::int64_t x, std::int64_t y) {
-        parent[static_cast<std::size_t>(x)] = next_label;
-        parent[static_cast<std::size_t>(y)] = next_label;
-        const std::int64_t merged =
-            size[static_cast<std::size_t>(x)] + size[static_cast<std::size_t>(y)];
-        size[static_cast<std::size_t>(next_label)] = merged;
-        next_label += 1;
-        return merged;
+    std::int64_t root(std::int64_t node) {
+        std::int64_t top = node;
+        while (parent[static_cast<std::size_t>(top)] != top) {
+            top = parent[static_cast<std::size_t>(top)];
+        }
+        while (parent[static_cast<std::size_t>(node)] != top) {
+            const std::int64_t up = parent[static_cast<std::size_t>(node)];
+            parent[static_cast<std::size_t>(node)] = top;
+            node = up;
+        }
+        return top;
     }
-    std::int64_t find(std::int64_t x) {
-        std::int64_t p = x;
-        while (parent[static_cast<std::size_t>(x)] != x) {
-            x = parent[static_cast<std::size_t>(x)];
-        }
-        while (parent[static_cast<std::size_t>(p)] != x) {
-            const std::int64_t next = parent[static_cast<std::size_t>(p)];
-            parent[static_cast<std::size_t>(p)] = x;
-            p = next;
-        }
-        return x;
+    // Joins two roots under a new node and returns the number of leaves below it.
+    std::int64_t join(std::int64_t first, std::int64_t second) {
+        const std::int64_t count =
+            members[static_cast<std::size_t>(first)] + members[static_cast<std::size_t>(second)];
+        parent[static_cast<std::size_t>(first)] = next_node;
+        parent[static_cast<std::size_t>(second)] = next_node;
+        members[static_cast<std::size_t>(next_node)] = count;
+        next_node += 1;
+        return count;
     }
     std::vector<std::int64_t> parent;
-    std::vector<std::int64_t> size;
-    std::int64_t next_label;
+    std::vector<std::int64_t> members;
+    std::int64_t next_node;
 };
 
 std::int64_t condensed_index(std::int64_t n, std::int64_t i, std::int64_t j) {
@@ -550,11 +553,16 @@ std::int64_t condensed_index(std::int64_t n, std::int64_t i, std::int64_t j) {
     return n * j - (j * (j + 1) / 2) + (i - j - 1);
 }
 
-// _ward in _hierarchy_distance_update.pxi, evaluated left to right as C does.
+// Lance-Williams update for Ward linkage (Mullner 2011, table 1, Ward row), for
+// distances that are not squared: with cluster k and the merged pair x, y,
+//   d(k, x+y)^2 = ((n_k + n_x) d(k,x)^2 + (n_k + n_y) d(k,y)^2 - n_k d(x,y)^2)
+//                 / (n_k + n_x + n_y).
+// The common denominator is applied as one reciprocal factor to each term.
 double ward_update(double d_xi, double d_yi, double d_xy, int size_x, int size_y, int size_i) {
-    const double t = 1.0 / (size_x + size_y + size_i);
-    return std::sqrt((size_i + size_x) * t * d_xi * d_xi + (size_i + size_y) * t * d_yi * d_yi -
-                     size_i * t * d_xy * d_xy);
+    const double reciprocal = 1.0 / (size_x + size_y + size_i);
+    return std::sqrt((size_i + size_x) * reciprocal * d_xi * d_xi +
+                     (size_i + size_y) * reciprocal * d_yi * d_yi -
+                     size_i * reciprocal * d_xy * d_xy);
 }
 
 void require_finite(const Samples& X, const char* estimator) {
@@ -646,125 +654,144 @@ std::vector<std::int64_t> dendrogram_leaves(const std::vector<double>& Z, std::i
 
 namespace {
 
+// Agglomerative clustering by the nearest-neighbour-chain algorithm (Murtagh
+// 1983; Mullner 2011, "Modern hierarchical, agglomerative clustering
+// algorithms", arXiv:1109.2378, section 3), for linkages that satisfy the
+// reducibility property (Ward and complete).
+//
+// Phase 1 grows a chain of clusters in which every cluster is the nearest
+// neighbour of its predecessor. When the last two clusters are nearest
+// neighbours of each other they are merged by the Lance-Williams update, the
+// two chain entries are dropped and the search continues from the shorter chain.
+// An empty chain restarts at the lowest-numbered live cluster.
+//
+// Ties, in the order the tools observe them: a cluster's nearest neighbour is
+// the live cluster at the smallest distance, a later cluster replacing an
+// earlier one only by being strictly closer, so the lowest index wins; the
+// predecessor in the chain wins over every other cluster at equal distance
+// (this is what ends the chain); the merged cluster occupies the slot of the
+// higher-numbered member and the lower slot is retired.
+//
+// Phase 2 (section 3.2): the merges come out in chain order, not by height, so
+// they are sorted by height with a stable sort (equal heights keep their chain
+// order) and the clusters are renamed in that order. The cluster made by the
+// i-th sorted merge is called n + i, and each row lists its two children with
+// the smaller name first.
 std::vector<double> nn_chain_linkage(const Samples& X, LinkageMethod method) {
     const std::int64_t n = X.samples;
-    const std::int64_t d = X.features;
-    // pdist(X, 'euclidean'): sequential sum of squared differences, sqrt.
-    std::vector<double> D(static_cast<std::size_t>(n * (n - 1) / 2));
+    const std::int64_t dims = X.features;
+    const auto sz = [](std::int64_t v) { return static_cast<std::size_t>(v); };
+
+    // Euclidean distances between all pairs of observations, row-major upper triangle.
+    std::vector<double> dist(sz(n * (n - 1) / 2));
     {
-        std::size_t position = 0;
+        std::size_t at = 0;
         for (std::int64_t i = 0; i < n; ++i) {
             for (std::int64_t j = i + 1; j < n; ++j) {
-                double sum = 0.0;
-                const double* a = X.row(i);
-                const double* b = X.row(j);
-                for (std::int64_t k = 0; k < d; ++k) {
-                    const double difference = std::abs(a[k] - b[k]);
-                    sum = sum + difference * difference;
+                double squares = 0.0;
+                const double* p = X.row(i);
+                const double* q = X.row(j);
+                for (std::int64_t k = 0; k < dims; ++k) {
+                    const double gap = std::abs(p[k] - q[k]);
+                    squares = squares + gap * gap;
                 }
-                D[position++] = std::sqrt(sum);
+                dist[at++] = std::sqrt(squares);
             }
         }
     }
+    const auto between = [&](std::int64_t a, std::int64_t b) -> double& {
+        return dist[sz(condensed_index(n, a, b))];
+    };
 
-    // nn_chain(dists, n, method=ward)
-    std::vector<double> Z(static_cast<std::size_t>((n - 1) * 4));
-    std::vector<int> size(static_cast<std::size_t>(n), 1);
-    std::vector<std::int64_t> cluster_chain(static_cast<std::size_t>(n));
-    std::int64_t chain_length = 0;
-    std::int64_t x = 0;
-    std::int64_t y = 0;
-    for (std::int64_t k = 0; k < n - 1; ++k) {
-        if (chain_length == 0) {
-            chain_length = 1;
-            for (std::int64_t i = 0; i < n; ++i) {
-                if (size[static_cast<std::size_t>(i)] > 0) {
-                    cluster_chain[0] = i;
+    // Phase 1. members[s] is the number of observations in the cluster held by
+    // slot s, 0 once the slot is retired.
+    struct Merge {
+        std::int64_t low_slot;
+        std::int64_t high_slot;
+        double height;
+    };
+    std::vector<Merge> merges;
+    merges.reserve(sz(n - 1));
+    std::vector<int> members(sz(n), 1);
+    std::vector<std::int64_t> chain;
+    chain.reserve(sz(n));
+    const double infinity = std::numeric_limits<double>::infinity();
+    while (static_cast<std::int64_t>(merges.size()) < n - 1) {
+        if (chain.empty()) {
+            for (std::int64_t s = 0; s < n; ++s) {
+                if (members[sz(s)] > 0) {
+                    chain.push_back(s);
                     break;
                 }
             }
         }
-        double current_min = 0.0;
+        std::int64_t tail = 0;
+        std::int64_t neighbour = 0;
+        double gap = infinity;
         while (true) {
-            x = cluster_chain[static_cast<std::size_t>(chain_length - 1)];
-            if (chain_length > 1) {
-                y = cluster_chain[static_cast<std::size_t>(chain_length - 2)];
-                current_min = D[static_cast<std::size_t>(condensed_index(n, x, y))];
+            tail = chain.back();
+            const bool has_predecessor = chain.size() > 1;
+            if (has_predecessor) {
+                neighbour = chain[chain.size() - 2];
+                gap = between(tail, neighbour);
             } else {
-                current_min = std::numeric_limits<double>::infinity();
+                gap = infinity;
             }
-            for (std::int64_t i = 0; i < n; ++i) {
-                if (size[static_cast<std::size_t>(i)] == 0 || x == i) {
+            for (std::int64_t s = 0; s < n; ++s) {
+                if (members[sz(s)] == 0 || s == tail) {
                     continue;
                 }
-                const double dist = D[static_cast<std::size_t>(condensed_index(n, x, i))];
-                if (dist < current_min) {
-                    current_min = dist;
-                    y = i;
+                const double candidate = between(tail, s);
+                if (candidate < gap) {
+                    gap = candidate;
+                    neighbour = s;
                 }
             }
-            if (chain_length > 1 && y == cluster_chain[static_cast<std::size_t>(chain_length - 2)]) {
-                break;
+            if (has_predecessor && neighbour == chain[chain.size() - 2]) {
+                break;  // tail and its predecessor are mutual nearest neighbours
             }
-            cluster_chain[static_cast<std::size_t>(chain_length)] = y;
-            chain_length += 1;
+            chain.push_back(neighbour);
         }
-        chain_length -= 2;
-        if (x > y) {
-            std::swap(x, y);
-        }
-        const int nx = size[static_cast<std::size_t>(x)];
-        const int ny = size[static_cast<std::size_t>(y)];
-        Z[static_cast<std::size_t>(k * 4)] = static_cast<double>(x);
-        Z[static_cast<std::size_t>(k * 4 + 1)] = static_cast<double>(y);
-        Z[static_cast<std::size_t>(k * 4 + 2)] = current_min;
-        Z[static_cast<std::size_t>(k * 4 + 3)] = static_cast<double>(nx + ny);
-        size[static_cast<std::size_t>(x)] = 0;
-        size[static_cast<std::size_t>(y)] = nx + ny;
-        for (std::int64_t i = 0; i < n; ++i) {
-            const int ni = size[static_cast<std::size_t>(i)];
-            if (ni == 0 || i == y) {
+        chain.pop_back();
+        chain.pop_back();
+
+        const std::int64_t low = std::min(tail, neighbour);
+        const std::int64_t high = std::max(tail, neighbour);
+        const int n_low = members[sz(low)];
+        const int n_high = members[sz(high)];
+        merges.push_back({low, high, gap});
+        members[sz(low)] = 0;
+        members[sz(high)] = n_low + n_high;
+        for (std::int64_t k = 0; k < n; ++k) {
+            if (members[sz(k)] == 0 || k == high) {
                 continue;
             }
-            const double d_xi = D[static_cast<std::size_t>(condensed_index(n, i, x))];
-            const double d_yi = D[static_cast<std::size_t>(condensed_index(n, i, y))];
-            // _complete in _hierarchy_distance_update.pxi: max(d_xi, d_yi).
-            D[static_cast<std::size_t>(condensed_index(n, i, y))] =
-                method == LinkageMethod::Complete ? std::max(d_xi, d_yi)
-                                                  : ward_update(d_xi, d_yi, current_min, nx, ny, ni);
+            const double to_low = between(k, low);
+            const double to_high = between(k, high);
+            between(k, high) = method == LinkageMethod::Complete
+                                   ? std::max(to_low, to_high)
+                                   : ward_update(to_low, to_high, gap, n_low, n_high, members[sz(k)]);
         }
     }
 
-    // np.argsort(Z[:, 2], kind='mergesort'), a stable sort.
-    std::vector<std::int64_t> order(static_cast<std::size_t>(n - 1));
-    std::iota(order.begin(), order.end(), std::int64_t{0});
-    std::stable_sort(order.begin(), order.end(), [&Z](std::int64_t a, std::int64_t b) {
-        return Z[static_cast<std::size_t>(a * 4 + 2)] < Z[static_cast<std::size_t>(b * 4 + 2)];
+    // Phase 2.
+    std::vector<std::size_t> by_height(merges.size());
+    std::iota(by_height.begin(), by_height.end(), std::size_t{0});
+    std::stable_sort(by_height.begin(), by_height.end(), [&merges](std::size_t a, std::size_t b) {
+        return merges[a].height < merges[b].height;
     });
-    std::vector<double> sorted(Z.size());
-    for (std::size_t row = 0; row < order.size(); ++row) {
-        std::copy(Z.begin() + order[row] * 4, Z.begin() + order[row] * 4 + 4,
-                  sorted.begin() + static_cast<std::ptrdiff_t>(row * 4));
+    std::vector<double> linkage(sz((n - 1) * 4));
+    DendrogramSets sets(n);
+    for (std::size_t row = 0; row < by_height.size(); ++row) {
+        const Merge& merge = merges[by_height[row]];
+        const std::int64_t first = sets.root(merge.low_slot);
+        const std::int64_t second = sets.root(merge.high_slot);
+        linkage[row * 4] = static_cast<double>(std::min(first, second));
+        linkage[row * 4 + 1] = static_cast<double>(std::max(first, second));
+        linkage[row * 4 + 2] = merge.height;
+        linkage[row * 4 + 3] = static_cast<double>(sets.join(first, second));
     }
-
-    // label(Z, n)
-    LinkageUnionFind union_find(n);
-    for (std::int64_t i = 0; i < n - 1; ++i) {
-        const auto a = static_cast<std::int64_t>(sorted[static_cast<std::size_t>(i * 4)]);
-        const auto b = static_cast<std::int64_t>(sorted[static_cast<std::size_t>(i * 4 + 1)]);
-        const std::int64_t root_a = union_find.find(a);
-        const std::int64_t root_b = union_find.find(b);
-        if (root_a < root_b) {
-            sorted[static_cast<std::size_t>(i * 4)] = static_cast<double>(root_a);
-            sorted[static_cast<std::size_t>(i * 4 + 1)] = static_cast<double>(root_b);
-        } else {
-            sorted[static_cast<std::size_t>(i * 4)] = static_cast<double>(root_b);
-            sorted[static_cast<std::size_t>(i * 4 + 1)] = static_cast<double>(root_a);
-        }
-        sorted[static_cast<std::size_t>(i * 4 + 3)] =
-            static_cast<double>(union_find.merge(root_a, root_b));
-    }
-    return sorted;
+    return linkage;
 }
 
 }  // namespace

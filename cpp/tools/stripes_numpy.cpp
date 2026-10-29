@@ -257,14 +257,13 @@ std::size_t PyRandom::choice_index(std::size_t size) {
 }
 
 // ---------------------------------------------------------------------------
-// scipy.ndimage
+// Image filters (the definitions of 1-D correlation, Sobel and Gaussian smoothing)
 
 namespace {
 
-enum class Boundary { Constant, Reflect };
-
-// Index into a line of `length` samples for a position outside it, scipy's
-// 'reflect' (d c b a | a b c d | d c b a).
+// Position in a line of `length` samples that stands for position k outside it
+// under the 'reflect' boundary (d c b a | a b c d | d c b a): the line is
+// mirrored about its ends with the end sample repeated, with period 2 * length.
 inline std::ptrdiff_t reflect_index(std::ptrdiff_t k, std::ptrdiff_t length) {
     const std::ptrdiff_t period = 2 * length;
     std::ptrdiff_t m = k % period;
@@ -274,88 +273,94 @@ inline std::ptrdiff_t reflect_index(std::ptrdiff_t k, std::ptrdiff_t length) {
     return m < length ? m : period - 1 - m;
 }
 
-// ndimage.correlate1d for a float32 image along `axis`: NI_Correlate1D
-// (ni_filters.c) on a line buffer extended by size1 samples before and size2
-// after, in double, with the symmetric / antisymmetric shortcuts.
+// Mirror structure of a 1-D kernel about its centre tap (index size1 = n / 2).
+enum class KernelSymmetry { None, Even, Odd };
+
+KernelSymmetry kernel_symmetry(const std::vector<double>& w) {
+    const std::ptrdiff_t n = static_cast<std::ptrdiff_t>(w.size());
+    if (n % 2 == 0) {
+        return KernelSymmetry::None;
+    }
+    const std::ptrdiff_t centre = n / 2;
+    bool even = true;
+    bool odd = true;
+    for (std::ptrdiff_t k = 1; k <= centre; ++k) {
+        even = even && w[centre + k] == w[centre - k];
+        odd = odd && w[centre + k] == -w[centre - k];
+    }
+    return even ? KernelSymmetry::Even : (odd ? KernelSymmetry::Odd : KernelSymmetry::None);
+}
+
+}  // namespace
+
+// 1-D correlation of a float32 image with `weights` along `axis`. By definition
+//   out[i] = sum_{t = 0}^{n-1} weights[t] * in[i + t - n / 2]
+// (n = weights.size(), centre tap n / 2), samples beyond the line taken from the
+// boundary mode (constant: cval; reflect: see reflect_index). Each line is
+// computed in double and the result is stored as float32.
+//
+// The order in which the terms are added is part of the specification, since
+// the output must equal the oracle's bit for bit (floating point addition is not
+// associative):
+//   even kernel (w[c+k] == w[c-k]): start with in[i] * w[c], then for k = c down
+//     to 1 add (in[i-k] + in[i+k]) * w[c-k]; the mirrored taps are paired first;
+//   odd kernel (w[c+k] == -w[c-k]): the same with (in[i-k] - in[i+k]) * w[c-k];
+//   other kernels: start with the last tap in[i + n-1-c] * w[n-1], then add the
+//     remaining taps in increasing offset, from t = 0 to n - 2.
 ImageF correlate1d(const ImageF& in, const std::vector<double>& weights, int axis, Boundary mode,
                    double cval) {
-    const std::ptrdiff_t filter_size = static_cast<std::ptrdiff_t>(weights.size());
-    const std::ptrdiff_t size1 = filter_size / 2;
-    const std::ptrdiff_t size2 = filter_size - size1 - 1;
-    int symmetric = 0;
-    if (filter_size & 1) {
-        symmetric = 1;
-        for (std::ptrdiff_t ii = 1; ii <= filter_size / 2; ++ii) {
-            if (std::fabs(weights[ii + size1] - weights[size1 - ii]) > DBL_EPSILON) {
-                symmetric = 0;
-                break;
-            }
-        }
-        if (symmetric == 0) {
-            symmetric = -1;
-            for (std::ptrdiff_t ii = 1; ii <= filter_size / 2; ++ii) {
-                if (std::fabs(weights[size1 + ii] + weights[size1 - ii]) > DBL_EPSILON) {
-                    symmetric = 0;
-                    break;
-                }
-            }
-        }
-    }
-    ImageF out(in.rows, in.cols);
+    const std::ptrdiff_t n = static_cast<std::ptrdiff_t>(weights.size());
+    const std::ptrdiff_t before = n / 2;       // taps left of the centre
+    const std::ptrdiff_t after = n - before - 1;  // taps right of the centre
+    const KernelSymmetry symmetry = kernel_symmetry(weights);
     const std::ptrdiff_t length = axis == 0 ? in.rows : in.cols;
     const std::ptrdiff_t lines = axis == 0 ? in.cols : in.rows;
-    std::vector<double> ext(static_cast<std::size_t>(length + size1 + size2));
-    std::vector<double> oline(static_cast<std::size_t>(length));
-    const double* fw = weights.data() + size1;  // fw[0] is the centre tap
+    const auto index_of = [&](std::ptrdiff_t line, std::ptrdiff_t k) {
+        return axis == 0 ? static_cast<std::size_t>(k) * static_cast<std::size_t>(in.cols) +
+                               static_cast<std::size_t>(line)
+                         : static_cast<std::size_t>(line) * static_cast<std::size_t>(in.cols) +
+                               static_cast<std::size_t>(k);
+    };
+
+    ImageF out(in.rows, in.cols);
+    // padded[before + k] holds sample k of the current line, k = -before .. length + after - 1.
+    std::vector<double> padded(static_cast<std::size_t>(length + before + after));
     for (std::ptrdiff_t line = 0; line < lines; ++line) {
-        auto sample = [&](std::ptrdiff_t k) -> double {
-            const std::size_t r = axis == 0 ? static_cast<std::size_t>(k) : static_cast<std::size_t>(line);
-            const std::size_t c = axis == 0 ? static_cast<std::size_t>(line) : static_cast<std::size_t>(k);
-            return static_cast<double>(in.v[r * static_cast<std::size_t>(in.cols) + c]);
-        };
-        for (std::ptrdiff_t k = -size1; k < length + size2; ++k) {
-            double value;
+        for (std::ptrdiff_t k = -before; k < length + after; ++k) {
+            double value = cval;
             if (k >= 0 && k < length) {
-                value = sample(k);
-            } else if (mode == Boundary::Constant) {
-                value = cval;
-            } else {
-                value = sample(reflect_index(k, length));
+                value = static_cast<double>(in.v[index_of(line, k)]);
+            } else if (mode == Boundary::Reflect) {
+                value = static_cast<double>(in.v[index_of(line, reflect_index(k, length))]);
             }
-            ext[static_cast<std::size_t>(k + size1)] = value;
+            padded[static_cast<std::size_t>(k + before)] = value;
         }
-        const double* iline = ext.data() + size1;
-        for (std::ptrdiff_t ll = 0; ll < length; ++ll, ++iline) {
-            double acc;
-            if (symmetric > 0) {
-                acc = iline[0] * fw[0];
-                for (std::ptrdiff_t jj = -size1; jj < 0; ++jj) {
-                    acc += (iline[jj] + iline[-jj]) * fw[jj];
-                }
-            } else if (symmetric < 0) {
-                acc = iline[0] * fw[0];
-                for (std::ptrdiff_t jj = -size1; jj < 0; ++jj) {
-                    acc += (iline[jj] - iline[-jj]) * fw[jj];
+        for (std::ptrdiff_t i = 0; i < length; ++i) {
+            const double* centre = padded.data() + before + i;  // centre[t] is sample i + t
+            double sum;
+            if (symmetry != KernelSymmetry::None) {
+                sum = centre[0] * weights[static_cast<std::size_t>(before)];
+                for (std::ptrdiff_t k = before; k >= 1; --k) {
+                    const double pair = symmetry == KernelSymmetry::Even ? centre[-k] + centre[k]
+                                                                         : centre[-k] - centre[k];
+                    sum += pair * weights[static_cast<std::size_t>(before - k)];
                 }
             } else {
-                acc = iline[size2] * fw[size2];
-                for (std::ptrdiff_t jj = -size1; jj < size2; ++jj) {
-                    acc += iline[jj] * fw[jj];
+                sum = centre[after] * weights[static_cast<std::size_t>(n - 1)];
+                for (std::ptrdiff_t t = 0; t < n - 1; ++t) {
+                    sum += centre[t - before] * weights[static_cast<std::size_t>(t)];
                 }
             }
-            oline[static_cast<std::size_t>(ll)] = acc;
-        }
-        for (std::ptrdiff_t k = 0; k < length; ++k) {
-            const std::size_t r = axis == 0 ? static_cast<std::size_t>(k) : static_cast<std::size_t>(line);
-            const std::size_t c = axis == 0 ? static_cast<std::size_t>(line) : static_cast<std::size_t>(k);
-            out.v[r * static_cast<std::size_t>(out.cols) + c] = static_cast<float>(oline[static_cast<std::size_t>(k)]);
+            out.v[index_of(line, i)] = static_cast<float>(sum);
         }
     }
     return out;
 }
 
-// ndimage.sobel(image, axis): [-1, 0, 1] along `axis`, then [1, 2, 1] along the
-// other axis, mode 'reflect'.
+namespace {
+
+// Sobel derivative along `axis`: correlation with [-1, 0, 1] along `axis`, then
+// with the smoothing kernel [1, 2, 1] along the other axis, boundary 'reflect'.
 ImageF sobel(const ImageF& in, int axis) {
     static const std::vector<double> derivative{-1.0, 0.0, 1.0};
     static const std::vector<double> smoothing{1.0, 2.0, 1.0};
@@ -627,8 +632,11 @@ float rgb_to_gray(float r, float g, float b) {
 }
 
 // ---------------------------------------------------------------------------
-// scipy.signal
+// 2-D convolution
 
+// Full 2-D convolution cropped to the size of the input ('same'), zero fill:
+//   out[i][j] = sum_{u,v} kernel[u][v] * m[i + 1 - u][j + 1 - v].
+// Integer arithmetic, so the order of the terms does not matter.
 std::vector<int> convolve2d_same_3x3(const std::vector<std::uint8_t>& m, int rows, int cols,
                                      const int kernel[3][3]) {
     std::vector<int> out(static_cast<std::size_t>(rows) * static_cast<std::size_t>(cols), 0);

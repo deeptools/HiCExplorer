@@ -10,7 +10,7 @@
 //   the Benjamini-Hochberg cutoff and the Bonferroni scaling as
 //   hicFindTADs.min_pvalue applies them
 //   fit_nbinom.fit                         negative binomial MLE by L-BFGS-B
-//   L-BFGS-B itself                        scipy.optimize.fmin_l_bfgs_b
+//   projected L-BFGS (own code)           stands in for scipy.optimize.fmin_l_bfgs_b (oracle only)
 //
 // Who uses what, so that the next tool does not reimplement any of it:
 //

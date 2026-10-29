@@ -30,7 +30,7 @@
 //     in numpy, whose summation order is not reproduced, so Spearman values
 //     agree at E3.
 //  5. linkage(method='complete') and the dendrogram leaf order through
-//     hicx::cluster (pdist, nn_chain, label).
+//     hicx::cluster (nearest-neighbour chain, Lance-Williams update).
 //
 // Memory: the reference holds every reduced matrix and then the vectors. Here
 // a matrix is freed as soon as its stored values are extracted, and its
