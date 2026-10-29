@@ -46,6 +46,7 @@ add_executable(hicx_tests
     test_merge_domains.cpp
     test_cool_chromosome_cut.cpp
     test_aggregate_support.cpp
+    test_linkage_ties.cpp
     test_diff_engine.cpp
     test_detect_stripes.cpp
     test_scc.cpp

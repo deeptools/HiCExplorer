@@ -11,7 +11,8 @@
 // version the order was read from or measured against:
 //   numpy 1.26.4     pairwise summation, quantile, median, round
 //   Python 3.9       random.Random (MT19937) and random.choices
-//   scipy 1.13.1     ndimage.gaussian_filter, sobel (ni_filters.c)
+//   (scipy 1.13.1 ndimage.gaussian_filter, sobel and signal.convolve2d are the
+//   oracle for the filters below, which are written from their definitions)
 //   scikit-image 0.24.0   feature.canny, _nonmaximum_suppression_bilinear
 //   OpenCV 4.9.0     filter2D with a normalised box kernel, cvtColor RGB2GRAY
 // None of those libraries is a dependency of HiCExplorer; they are only the
@@ -107,13 +108,15 @@ struct ImageF {
     [[nodiscard]] float at(int r, int c) const { return v[static_cast<std::size_t>(r) * cols + c]; }
 };
 
-// scipy.ndimage.gaussian_filter(image, sigma, mode='constant', cval=0.0,
-// truncate=4.0) on a float32 image: one 1-D correlation per axis (axis 0 then
-// axis 1), each line converted to double, filtered with the symmetric kernel
-// in scipy's term order and stored back as float32.
+// Gaussian smoothing of a float32 image with zero fill outside the image and the
+// kernel truncated at 4 sigma (the result of scipy.ndimage.gaussian_filter with
+// mode='constant', cval=0.0, truncate=4.0, the external oracle): one 1-D
+// correlation per axis (axis 0 then axis 1), each line converted to double,
+// filtered with the symmetric kernel (summation order documented at
+// correlate1d in the .cpp) and stored back as float32.
 [[nodiscard]] ImageF gaussian_filter_constant(const ImageF& image, double sigma);
 
-// The kernel scipy builds for gaussian_filter1d (order 0), exposed for tests.
+// The sampled, normalised Gaussian kernel exp(-x^2 / (2 sigma^2)) / sum, x = -radius..radius, exposed for tests.
 [[nodiscard]] std::vector<double> gaussian_kernel1d(double sigma, int radius);
 
 // skimage.feature.canny(image, sigma=sigma) with every other argument at its
@@ -143,9 +146,10 @@ struct CannyStages {
 // fma(b, 0.114f, fma(r, 0.299f, g * 0.587f)) in float32.
 [[nodiscard]] float rgb_to_gray(float r, float g, float b);
 
-// scipy.signal.convolve2d(M, kernel, mode='same') for a 3 x 3 integer kernel
-// and a 0/1 matrix M (zero fill), as stripenn.ImageProcessing.verticalLine
-// uses it; returns an int matrix.
+// 2-D convolution of a 0/1 matrix M with a 3 x 3 integer kernel, cropped to the
+// size of M with zero fill (what scipy.signal.convolve2d(M, kernel, mode='same')
+// returns, the oracle), as stripenn.ImageProcessing.verticalLine uses it;
+// returns an int matrix.
 [[nodiscard]] std::vector<int> convolve2d_same_3x3(const std::vector<std::uint8_t>& m, int rows,
                                                    int cols, const int kernel[3][3]);
 

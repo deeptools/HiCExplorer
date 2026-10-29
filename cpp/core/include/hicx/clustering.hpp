@@ -89,13 +89,16 @@ namespace detail {
 // np.einsum('ij,ij->i', X, X) for one row, bit for bit.
 [[nodiscard]] double einsum_row_norm_squared(const double* row, std::int64_t features);
 
-// scipy.cluster.hierarchy.ward(X): the (n - 1) by 4 linkage matrix, row major.
+// Ward linkage of the rows of X (Euclidean): the (n - 1) by 4 linkage matrix,
+// row major (children, height, size), the format of
+// scipy.cluster.hierarchy.ward, which serves as the external oracle.
 [[nodiscard]] std::vector<double> ward_linkage(const Samples& X);
 
-// scipy.cluster.hierarchy.linkage(X, method='complete') for hicCorrelate: the
-// same pdist, nn_chain, stable sort and label() as ward_linkage, with the
-// complete linkage update max(d_xi, d_yi). Throws ClusteringError for fewer
-// than two observations or a non-finite value, as scipy raises.
+// Complete linkage of the rows of X for hicCorrelate, in the same matrix
+// format: the nearest-neighbour-chain algorithm of ward_linkage with the update
+// max(d(k,x), d(k,y)). Throws ClusteringError for fewer than two observations
+// or a non-finite value, the conditions under which
+// scipy.cluster.hierarchy.linkage (the oracle) raises.
 [[nodiscard]] std::vector<double> complete_linkage(const Samples& X);
 
 // scipy.cluster.hierarchy.dendrogram(Z)['leaves'] with its defaults
