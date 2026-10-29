@@ -42,10 +42,11 @@
              "--outFileName", "{out}/matrix.cool", "-bs", "5000",
              "--QCfolder", "{out}/qc", "--threads", "4",
              "--genomeAssembly", "dm3", "--region", "chr3R"],
-    "outputs": [{"path": "{out}/matrix.cool", "format": "cool", "class": "E1"}],
+    "outputs": [{"path": "{out}/matrix.cool", "format": "cool", "class": "E1",
+                 "options": {"ignore_metadata_keys": ["hicexplorer_qc"]}}],
     "threads_arg": "--threads",
     "memory": {"budget_mb": 320},
-    "notes": "--region and --genomeAssembly, two of the ten options the Python test file never exercises, through the cool writer. Without a cut site file the --region defect of hicBuildMatrix cannot bite, so this is the one place where --region behaves as documented."
+    "notes": "--region and --genomeAssembly, two of the ten options the Python test file never exercises, through the cool writer. Without a cut site file the --region defect of hicBuildMatrix cannot bite, so this is the one place where --region behaves as documented. The v4 tools also write the QC statistics into the cool metadata under \"hicexplorer_qc\" (the metadata read by hicMatrixQC); 3.7.6 writes none, so this case drops exactly that one key of the metadata JSON (ignore_metadata_keys) and still compares every other key and attribute."
   },
   {
     "id": "hicBuildMatrixMicroC.h5.R1_1000.keepSelfCircles",

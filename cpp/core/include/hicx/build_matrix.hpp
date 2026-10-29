@@ -15,6 +15,7 @@
 #ifndef HICX_BUILD_MATRIX_HPP
 #define HICX_BUILD_MATRIX_HPP
 
+#include <array>
 #include <cstdint>
 #include <optional>
 #include <string>
@@ -225,8 +226,31 @@ struct QcCounters {
     std::int64_t pair_added = 0;
     std::int64_t iter_num = 0;
 
+    // Intra-chromosomal contacts per log-spaced distance bin, taken from the
+    // read pairs before binning (the distance of the two read start
+    // positions, which the short/long range counts of the QC log use as
+    // well). qc_distance_bin() defines the bins. Empty until a pair is
+    // recorded. `orientation_distance[o]` is the same histogram for the
+    // read pair type o (0 inward, 1 outward, 2 left, 3 right).
+    std::vector<std::int64_t> distance_contacts;
+    std::array<std::vector<std::int64_t>, 4> orientation_distance;
+
+    // Records one intra-chromosomal contact; `orientation` is -1 when the
+    // read pair type is unknown (a .pairs file without strands).
+    void record_intra(std::int64_t distance, int orientation);
+
     void add(const QcCounters& other);
 };
+
+// The distance bins of the QC tables stored in the cool metadata: 10 bins
+// per decade. Bin i holds the integer distances d with
+// ceil(10^(i/10)) <= d < ceil(10^((i+1)/10)); bin 0 starts at 1 bp and also
+// takes the distance 0. kQcDistanceBins bins reach 10^10 bp.
+inline constexpr int kQcDistanceBinsPerDecade = 10;
+inline constexpr int kQcDistanceBins = 100;
+// The lower edge (bp) of bin i, 0 <= i <= kQcDistanceBins.
+[[nodiscard]] std::int64_t qc_distance_edge(int i);
+[[nodiscard]] int qc_distance_bin(std::int64_t distance);
 
 // The parameters of the QC log header, so that the log can be produced without
 // dragging the whole argument set in.
@@ -239,12 +263,24 @@ struct QcLogInputs {
     // Restriction sequence and its dangling sequence, in the order the Python
     // dict holds them.
     std::vector<std::pair<std::string, std::string>> dangling_sequences;
+    // The longest chromosome of the run; the distance tables of the metadata
+    // end at the bin holding it. 0 means: at the last non-empty bin.
+    std::int64_t max_chromosome_length = 0;
 };
 
 // The exact text buildMatrixMethods.createMatrix writes to QCfolder/QC.log and
 // stores in the cool metadata under 'statistics'.
 [[nodiscard]] std::string format_qc_log(const QcLogInputs& inputs,
                                         const QcCounters& counters);
+
+// The QC statistics as the JSON object stored under the key "hicexplorer_qc"
+// of the cool `metadata` attribute: every count of the QC log, the
+// parameters of the run, the tool name and version, and the two distance
+// tables (contacts per log-spaced distance bin, and the same split by read
+// pair type). Schema version 1; see docs/tools/hicMatrixQC.md.
+[[nodiscard]] std::string format_qc_metadata_json(const QcLogInputs& inputs,
+                                                  const QcCounters& counters,
+                                                  const std::string& tool);
 
 // The five tab separated tables hicPrepareQCreport writes next to it. The PNGs
 // of that tool are matplotlib and pandas rendering, drawn by the tools through

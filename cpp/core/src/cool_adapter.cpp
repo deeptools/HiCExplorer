@@ -1030,6 +1030,13 @@ void write_cool(const std::string& uri, MatrixData& data, const CoolSaveOptions&
     for (const auto& [key, value] : info) {
         metadata[key] = value;
     }
+    for (const auto& [key, text] : options.metadata_json) {
+        if (std::optional<coolercpp::json::Value> parsed = coolercpp::json::parse(text)) {
+            metadata[key] = std::move(*parsed);
+        } else {
+            metadata[key] = text;
+        }
+    }
     create.metadata = metadata;
     create.ordered = true;
     create.symmetric_upper = options.symmetric;
