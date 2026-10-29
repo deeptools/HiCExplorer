@@ -2,7 +2,7 @@
 
 `cmake` configure and build need no network access. Everything the tree
 compiles is either in the tree (`core/io/` for coolercpp, hicfilecpp and
-hic2cool; `third_party/` for x86-simd-sort; see `THIRD_PARTY_NOTICES.md`) or
+hic2cool; see `THIRD_PARTY_NOTICES.md`) or
 comes from the dependency prefix given with `-DCMAKE_PREFIX_PATH`.
 
 ## Build requirements

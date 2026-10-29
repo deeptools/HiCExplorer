@@ -310,19 +310,7 @@ void introselect(const T* v, std::int64_t* tosort, std::int64_t num, std::int64_
     }
 }
 
-bool detect_avx512_skx() {
-    __builtin_cpu_init();
-    return __builtin_cpu_supports("avx512f") && __builtin_cpu_supports("avx512cd") &&
-           __builtin_cpu_supports("avx512bw") && __builtin_cpu_supports("avx512dq") &&
-           __builtin_cpu_supports("avx512vl");
-}
-
 }  // namespace
-
-bool avx512_skx_available() {
-    static const bool available = detect_avx512_skx();
-    return available;
-}
 
 void argsort_introsort(const double* values, std::int64_t* index, std::int64_t n) {
     aquicksort(values, index, n, double_less);
@@ -347,22 +335,14 @@ std::vector<std::int64_t> identity(std::size_t n) {
 std::vector<std::int64_t> argsort(const std::vector<double>& values) {
     std::vector<std::int64_t> index = identity(values.size());
     const auto n = static_cast<std::int64_t>(values.size());
-    if (detail::avx512_skx_available()) {
-        detail::argsort_avx512_skx(values.data(), index.data(), n);
-    } else {
-        detail::argsort_introsort(values.data(), index.data(), n);
-    }
+    detail::argsort_introsort(values.data(), index.data(), n);
     return index;
 }
 
 std::vector<std::int64_t> argsort(const std::vector<std::int64_t>& values) {
     std::vector<std::int64_t> index = identity(values.size());
     const auto n = static_cast<std::int64_t>(values.size());
-    if (detail::avx512_skx_available()) {
-        detail::argsort_avx512_skx(values.data(), index.data(), n);
-    } else {
-        detail::argsort_introsort(values.data(), index.data(), n);
-    }
+    detail::argsort_introsort(values.data(), index.data(), n);
     return index;
 }
 
@@ -376,10 +356,6 @@ std::vector<std::int64_t> argpartition(const std::vector<double>& values, std::i
         detail::introselect(values.data(), index.data(), n, kth, true, detail::double_less);
     }
     return index;
-}
-
-const char* argsort_dispatch_name() {
-    return detail::avx512_skx_available() ? "avx512_skx" : "introsort";
 }
 
 }  // namespace hicx::npy
