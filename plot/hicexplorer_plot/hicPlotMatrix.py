@@ -1,9 +1,10 @@
 """The figure of hicPlotMatrix.
 
 The C++ binary loads the matrix, applies --clearMaskedBins, --chromosomeOrder,
---region and --region2, extracts the dense matrices pcolormesh draws (one per
-chromosome with --perChromosome), replaces zeros, NaN and infinite values
-for --log and --log1p and adds 1 for --log1p, and computes the bin start
+--region and --region2, extracts the matrices pcolormesh draws (one per
+chromosome with --perChromosome) as tiles, aggregated in blocks of bins where
+an axis has more bins than the figure has pixels, replaces zeros, NaN and
+infinite values for --log and --log1p and adds 1 for --log1p, and computes the bin start
 positions, the chromosome extents and the bin size, and it reads the tracks:
 the bigwig scores of every plotBigwig call with their positions and axis
 limits, and the loop and TAD positions of plotLongRangeContacts and plotTADs.

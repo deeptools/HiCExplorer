@@ -35,9 +35,12 @@
 //     TADs are filtered against bytes names (the drawing module reproduces
 //     that from a flag).
 //
-// Memory: the dense matrices are what pcolormesh needs, so they are built
-// here and written to .npy files; the sparse matrix is freed before the
-// drawing process starts.
+// Memory: pcolormesh needs a value per cell, which for a whole genome is far
+// more than the figure has pixels. The matrices are therefore never built
+// whole: they are streamed from the sparse matrix as tiles (see "The dense
+// matrices of the figure, as tiles" below), aggregated in blocks where an axis
+// has more bins than pixels, and written to .npy files as int32 (counts) or
+// float32; the sparse matrix is freed before the drawing process starts.
 
 #include <sys/stat.h>
 #include <unistd.h>
@@ -114,7 +117,12 @@ const char* const kHelp =
     "side-by-side comparison of two matrices used throughout the Hi-C literature.\n"
     "Both matrices are read for the same requested region and must resolve to the\n"
     "same shape there; the diagonal itself is always taken from --matrix. It is\n"
-    "incompatible with --perChromosome.\n";
+    "incompatible with --perChromosome.\n"
+    "\n"
+    "A matrix with more bins along an axis than the figure has pixels there is drawn\n"
+    "as blocks of ceil(bins / pixels) bins (the sum of the counts, or the mean of the\n"
+    "other values; blocks stop at chromosome ends; --log and --log1p apply to the\n"
+    "blocks). The C++-only option --noDownsample draws single bins instead.\n";
 
 class ExitError : public std::runtime_error {
   public:
