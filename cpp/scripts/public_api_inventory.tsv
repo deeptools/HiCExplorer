@@ -231,6 +231,9 @@ hicexplorer.hicMergeLoops	def	parse_arguments(args=None)	4	C++-backed (runs/read
 hicexplorer.hicMergeLoops	def	mergeLoops(pDataFrame, pLowestResolution, pTupleX, pTupleY)	2	C++-backed (hicexplorer._hicx)	
 hicexplorer.hicMergeLoops	def	readFile(pFile)	2	C++-backed (hicexplorer._hicx)	
 hicexplorer.hicMergeLoops	def	main(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.hicMatrixQC	module		13		cpp/tools/hicMatrixQC.cpp
+hicexplorer.hicMatrixQC	def	parse_arguments(args=None)	4	C++-backed (runs/reads the executable)	
+hicexplorer.hicMatrixQC	def	main(args=None)	4	C++-backed (runs/reads the executable)	
 hicexplorer.hicMergeMatrixBins	module		137		cpp/tools/hicMergeMatrixBins.cpp
 hicexplorer.hicMergeMatrixBins	def	parse_arguments(args=None)	4	C++-backed (runs/reads the executable)	
 hicexplorer.hicMergeMatrixBins	def	remove_nans_if_needed(hic)	2	C++-backed (hicexplorer._hicx)	

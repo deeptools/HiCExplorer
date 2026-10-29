@@ -77,6 +77,17 @@
             "reason": "No Python counterpart: a tier 9 feature (cpp/PLAN.md 9.7, work item 2), validated as class EX by cpp/scripts/diff_calibration.py and the harness cases in cpp/scripts/cases/hicDifferentialAnalysis.json. tool_specs.py checks the structure of its spec only."
         }
     ],
+    "hicMatrixQC": [
+        {
+            "where": "",
+            "dest": "",
+            "fields": [
+                "tool"
+            ],
+            "kind": "cpp_only_tool",
+            "reason": "No Python counterpart: a quality-control report for a finished cool or mcool matrix, checked by cpp/tests/test_matrix_qc.cpp and cpp/tests/cli/hicMatrixQC_cli.sh. tool_specs.py checks the structure of its spec only."
+        }
+    ],
     "hicDetectStripes": [
         {
             "where": "",
