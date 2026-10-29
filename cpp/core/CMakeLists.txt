@@ -57,6 +57,19 @@ set(HICX_HICFILECPP_SOURCES
     io/hicfilecpp/src/reader.cpp
     io/hicfilecpp/src/writer.cpp)
 
+# hic2cool (MIT, see cpp/THIRD_PARTY_NOTICES.md): .hic to cool and cool to .hic
+# conversion, called from hic_adapter.cpp for hicConvertFormat. It is a library
+# of the core only; no converter executable is built from it.
+set(HICX_HIC2COOL_DIR "${CMAKE_CURRENT_SOURCE_DIR}/io/hic2cool")
+set(HICX_HIC2COOL_SOURCES
+    io/hic2cool/src/convert.cpp
+    io/hic2cool/src/cool2hic.cpp
+    io/hic2cool/src/extract_norms.cpp
+    io/hic2cool/src/hic_header.cpp
+    io/hic2cool/src/pyformat.cpp
+    io/hic2cool/src/runtime.cpp
+    io/hic2cool/src/update.cpp)
+
 add_library(hicx4core
     src/adjust_ops.cpp
     src/aggregate_contacts.cpp
@@ -138,22 +151,20 @@ add_library(hicx4core
     src/sparse_pca.cpp
     src/svl.cpp
     ${HICX_COOLERCPP_SOURCES}
-    ${HICX_HICFILECPP_SOURCES})
+    ${HICX_HICFILECPP_SOURCES}
+    ${HICX_HIC2COOL_SOURCES})
 
 target_include_directories(hicx4core PUBLIC
     "${CMAKE_CURRENT_SOURCE_DIR}/include"
     "${HICX_COOLERCPP_DIR}/include"
     "${HICX_HICFILECPP_DIR}/include"
+    "${HICX_HIC2COOL_DIR}/include"
     "${CMAKE_CURRENT_BINARY_DIR}/generated")
 
 target_link_libraries(hicx4core
     PUBLIC hicx::hdf5
-    PRIVATE hicx::blosc hicx::zlib hicx::hts hicx::lapack hic2cool::core
+    PRIVATE hicx::blosc hicx::zlib hicx::hts hicx::lapack
             hicx_compile_options)
-
-# Cyclic on purpose: the fetched hic2cool library still links these.
-target_link_libraries(hicx_coolercpp_compat INTERFACE hicx4core)
-target_link_libraries(hicx_hicfilecpp_compat INTERFACE hicx4core)
 
 # np.argsort's tie order on a CPU with AVX512_SKX comes from x86-simd-sort, at
 # the commit numpy 1.26.4 vendors as a submodule (numpy_sort.hpp). The header is

@@ -40,8 +40,6 @@ pybind11_add_module(hicx_matrix MODULE NO_EXTRAS
 target_link_libraries(hicx_matrix PRIVATE
     hicx::core
     hicx::hdf5
-    coolercpp::coolercpp
-    hicfilecpp::hicfilecpp
     hicx_compile_options)
 
 set_target_properties(hicx_matrix PROPERTIES

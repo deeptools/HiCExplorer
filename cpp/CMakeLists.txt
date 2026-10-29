@@ -36,13 +36,9 @@ endif()
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 include(HicxDependencies)
-# coolercpp and hicfilecpp are part of libhicx4core (core/io). Until hic2cool
-# is vendored as well, the fetched one links these targets.
-add_library(hicx_coolercpp_compat INTERFACE)
-add_library(coolercpp::coolercpp ALIAS hicx_coolercpp_compat)
-add_library(hicx_hicfilecpp_compat INTERFACE)
-add_library(hicfilecpp::hicfilecpp ALIAS hicx_hicfilecpp_compat)
-include(HicxHic2cool)
+# coolercpp, hicfilecpp and hic2cool (the cool to .hic and .hic to cool
+# conversion behind hicConvertFormat) are part of libhicx4core, see core/io and
+# THIRD_PARTY_NOTICES.md. Nothing is fetched at configure time.
 
 add_library(hicx_compile_options INTERFACE)
 target_compile_options(hicx_compile_options INTERFACE

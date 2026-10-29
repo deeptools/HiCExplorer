@@ -109,3 +109,35 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
+
+## hic2cool (repository hicxchange)
+
+- Location: `core/io/hic2cool/` (header in `include/hic2cool/`, sources in `src/`), compiled into libhicx4core. The `.hic` to cool and cool to `.hic` conversion is reachable only through `hicConvertFormat`; no converter executable is built.
+- Origin: hicxchange, git@github.com:MHH-Bioinformatics-Hematology/hicxchange.git (local clone `~/src/hicxchange`), commit `48d0042042f3a1d823847c7096d9afba37fed15d` ("cool2hic: accept a complete cooler group whose format attribute is bytes"), library version 2.0.0. This is the commit HiCExplorer pinned (`HICX_HIC2COOL_COMMIT`); the repository HEAD at the time of vendoring (`91502d4`) is a rebased line with the same subject, renames the library to `hicxchange` and was not used.
+- Changes: `include/hic2cool/version.hpp.in` became `version.hpp` with the project version written out. The command line tools (`apps/`), the Python module and package, the tests and test data, the examples and the CMake packaging were not copied.
+- Licence: MIT, Copyright (c) 2017 Harvard Medical School and Copyright (c) 2026 Joachim Wolff. hicxchange is a C++ fork of hic2cool (https://github.com/4dn-dcic/hic2cool), the licence text below is the one of that project extended by the 2026 notice.
+
+```
+The MIT License
+
+Copyright (c) 2017 Harvard Medical School
+Copyright (c) 2026 Joachim Wolff (C++ rewrite, .hic version 9 support and cool2hic)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+```
