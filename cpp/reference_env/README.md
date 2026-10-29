@@ -85,7 +85,13 @@ and pytest see the pinned h5py, PyTables and numpy:
     $HICX_REFERENCE_ENV/bin/python cpp/scripts/equiv.py run --tool hicInfo
 
 The API reference results are cached by interpreter path, so a new environment
-starts with an empty cache.
+starts with an empty cache (the first full API run takes longer). The equiv.py
+cache is keyed on the interpreter and package versions, so an environment with
+the same versions reuses entries; add `--cache off` to force fresh reference
+runs. `hicMergeDomains` needs graphviz `dot` on PATH when the tests start
+(without it five `hicMergeDomains` API cases fail with `ExecutableNotFound`,
+independent of versions); `export PATH=$HICX_REFERENCE_ENV/bin:$PATH` or
+activate the environment.
 
 ## Pinning limits
 
