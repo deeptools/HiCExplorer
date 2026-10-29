@@ -37,11 +37,24 @@ def compare(path_a, path_b, cls, opts=None):
         raw_b = handle.read()
     lines_a = _read_lines(path_a)
     lines_b = _read_lines(path_b)
+    columns = (opts or {}).get("columns")
+    if columns is not None:
+        # The records are the first `columns` tab separated fields of a line
+        # (for hicDifferentialTAD the region and its name), so that the
+        # last digits of the p-values and statistics that follow do not make
+        # a called region a different record. Those columns are compared by
+        # the text comparator of the same file. Lines of a comment keep their
+        # full text.
+        def key(line):
+            return line if line.startswith("#") else "\t".join(line.split("\t")[:columns])
+        lines_a = [key(line) for line in lines_a]
+        lines_b = [key(line) for line in lines_b]
 
     if lines_a == lines_b:
         # E0 is reserved for a byte comparison; equal lines with a different
         # final newline are E2, the value exact class.
-        return Result(True, "E0" if raw_a == raw_b else "E2",
+        met = "E0" if raw_a == raw_b else ("E5" if columns is not None else "E2")
+        return Result(True, met,
                       {"lines": len(lines_a), "jaccard": 1.0})
     if cls != "E5":
         diffs = []

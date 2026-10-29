@@ -9,10 +9,10 @@
              "-t", "1", "-tpc", "1",
              "-o", "{out}/loops.bedgraph"],
     "outputs": [
-      {"path": "{out}/loops.bedgraph", "format": "text", "class": "E0"}
+      {"path": "{out}/loops.bedgraph", "format": "bedpe", "class": "E3"}
     ],
     "threads_arg": "--threads",
-    "notes": "The default --expected mean on an integer count matrix, which is the path the Python test suite exercises and the one where the obs/exp result is truncated back to int64 (utilities.py:588). 25 loops on chromosome chr2L. Declared E0 because it is byte identical: 293 of the 373 per distance negative binomial fits are degenerate, in the sense that scipy's factorial overflows above 170 so the objective is constant and fmin_l_bfgs_b returns its starting point, and that starting point is R's moment estimator, which is exactly reproducible. A single chromosome also makes the Python's own line order well defined, so the comparison is line for line rather than as a set."
+    "notes": "The default --expected mean on an integer count matrix, which is the path the Python test suite exercises and the one where the obs/exp result is truncated back to int64 (utilities.py:588). 25 loops on chromosome chr2L. Declared E0 because it is byte identical: 293 of the 373 per distance negative binomial fits are degenerate, in the sense that scipy's factorial overflows above 170 so the objective is constant and fmin_l_bfgs_b returns its starting point, and that starting point is R's moment estimator, which is exactly reproducible. A single chromosome also makes the Python's own line order well defined, so the comparison is line for line rather than as a set. Since the incomplete beta function is Boost.Math's and no longer the routine scipy uses, the last one or two bits of the p-value column differ from 3.7.6 (largest relative difference 2.1e-15): the loops are declared E3 (relative 1e-12 on the p-value, anchors and the number of loops exactly) instead of E0."
   },
   {
     "id": "hicDetectLoops.h5.small_test_matrix.all_chromosomes",
@@ -23,10 +23,10 @@
              "-t", "1", "-tpc", "1",
              "-o", "{out}/loops.bedgraph"],
     "outputs": [
-      {"path": "{out}/loops.bedgraph", "format": "text", "class": "E0"}
+      {"path": "{out}/loops.bedgraph", "format": "bedpe", "class": "E3"}
     ],
     "threads_arg": "--threads",
-    "notes": "The whole file, all 15 chromosomes, 52 loops. This is the case test_hicDetectLoops.py::test_main_h5 runs and never asserts on. It is compared at E0 only because --threads 1 is passed: the Python starts one process per chromosome and appends each result as that process finishes, so at --threads 4 the same 52 loops come out in a different order from run to run. Measured: three runs at --threads 4 gave two distinct orderings, and --threads 8 --threadsPerChromosome 4 gave a third. The C++ writes the chromosomes in file order whatever the thread count is."
+    "notes": "The whole file, all 15 chromosomes, 52 loops. This is the case test_hicDetectLoops.py::test_main_h5 runs and never asserts on. It is compared at E0 only because --threads 1 is passed: the Python starts one process per chromosome and appends each result as that process finishes, so at --threads 4 the same 52 loops come out in a different order from run to run. Measured: three runs at --threads 4 gave two distinct orderings, and --threads 8 --threadsPerChromosome 4 gave a third. The C++ writes the chromosomes in file order whatever the thread count is. Since the incomplete beta function is Boost.Math's and no longer the routine scipy uses, the last one or two bits of the p-value column differ from 3.7.6 (largest relative difference 2.1e-15): the loops are declared E3 (relative 1e-12 on the p-value, anchors and the number of loops exactly) instead of E0."
   },
   {
     "id": "hicDetectLoops.h5.small_test_matrix.mean_nonzero",

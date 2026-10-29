@@ -42,7 +42,7 @@ include(HicxDependencies)
 # The results are specified as separate IEEE multiplications and additions (the
 # Python reference does not fuse them). gcc on the x86-64 baseline has no FMA and
 # never fuses; clang on arm64 fuses by default and changes the last bit of the
-# cephes and linkage results. x86-64 is left as it is: the AVX2 kernels in
+# special function and linkage results. x86-64 is left as it is: the AVX2 kernels in
 # transform_ops.cpp are compiled with target("fma") and their scalar tails are
 # meant to be contracted the same way as the intrinsics.
 add_library(hicx_compile_options INTERFACE)

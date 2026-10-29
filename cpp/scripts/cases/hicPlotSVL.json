@@ -384,27 +384,15 @@
       "{out}/plot.png"
     ],
     "outputs": [
-      {
-        "path": "{out}/data.txt",
-        "format": "text",
-        "class": "E0"
-      },
-      {
-        "path": "{out}/p_values.txt",
-        "format": "text",
-        "class": "E0"
-      },
-      {
-        "path": "{out}/plot.png",
-        "format": "png",
-        "class": "E6"
-      }
+      {"path": "{out}/data.txt", "format": "text", "class": "E0"},
+      {"path": "{out}/p_values.txt", "format": "text", "class": "E3", "options": {"schema": "tsv-header", "exact_comments": true}},
+      {"path": "{out}/plot.png", "format": "png", "class": "E6"}
     ],
     "memory": {
       "alpha": 1.3,
       "beta": 0.0
     },
-    "notes": "Two corrected 100 kb coolers with a weight column, two chromosomes each: the float64 path with correction factors applied at load."
+    "notes": "Two corrected 100 kb coolers with a weight column, two chromosomes each: the float64 path with correction factors applied at load. The p-values come from the normal tail of Boost.Math, which differs from scipy's ndtr in the last bits (relative 1e-16 here), so p_values.txt is declared E3 instead of E0."
   },
   {
     "id": "hicPlotSVL.float32_h5_and_cool",

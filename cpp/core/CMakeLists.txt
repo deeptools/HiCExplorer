@@ -113,7 +113,6 @@ add_library(hicx4core
     src/numpy_compat.cpp
     src/numpy_random.cpp
     src/numpy_sort.cpp
-    src/numpy_sort_avx512.cpp
     src/obsexp_ops.cpp
     src/pca_tracks.cpp
     src/pairs_file.cpp
@@ -165,19 +164,6 @@ target_link_libraries(hicx4core
     PUBLIC hicx::hdf5
     PRIVATE hicx::blosc hicx::zlib hicx::hts hicx::lapack
             hicx_compile_options)
-
-# np.argsort's tie order on a CPU with AVX512_SKX comes from x86-simd-sort, at
-# the commit numpy 1.26.4 vendors as a submodule (numpy_sort.hpp). The header is
-# compiled into one translation unit with numpy's SKX target flags and is only
-# called after a runtime CPU check; everything else stays at the baseline.
-# The headers are vendored in third_party/x86-simd-sort (no conda package
-# exists), see THIRD_PARTY_NOTICES.md.
-# On other architectures (arm64) the translation unit compiles to stubs that are
-# never called: numpy takes the portable introsort there as well.
-if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|amd64|x64)$")
-    set_source_files_properties(src/numpy_sort_avx512.cpp PROPERTIES
-        COMPILE_OPTIONS "-mavx512f;-mavx512cd;-mavx512bw;-mavx512dq;-mavx512vl;-isystem${CMAKE_CURRENT_SOURCE_DIR}/../third_party/x86-simd-sort/src")
-endif()
 
 # clustering.cpp loads OpenBLAS with dlopen on first use instead of linking it,
 # so that a tool which may cluster does not start the BLAS threads at load.

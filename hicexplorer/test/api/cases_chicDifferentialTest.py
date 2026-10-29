@@ -206,3 +206,25 @@ CASES = [
     Case('run_statistical_tests/empty', M + 'run_statistical_tests', driver='run',
          args=(AGGREGATE, [], 'fisher', 0.05)),
 ]
+
+
+# Cases whose floats differ from 3.7.6 in the last bits since the special
+# functions (normal tail, incomplete beta and gamma functions, log-gamma) are
+# Boost.Math's and no longer the routines scipy uses: the p-values agree
+# to a relative 2e-14 or better. The cases compare every float at rtol 1e-12;
+# integers, strings, coordinates and the structure of the result are still
+# compared exactly, so a changed call, a moved TAD or a different row count
+# fails.
+_BOOST_LAST_BITS = {
+    'chisquare_test/aggregate_target',
+    'chisquare_test/constructed',
+    'chisquare_test/eya1',
+    'chisquare_test/tfap2d_alpha',
+    'run_statistical_tests/chi2',
+    'writeResultHDF/chi2',
+}
+for _case in CASES:
+    if _case.id in _BOOST_LAST_BITS:
+        _case.rtol = 1e-12
+        _case.note = (_case.note + '; ' if _case.note else '') + (
+            'Boost.Math special functions round the last bits of the p-values differently from scipy 1.14')

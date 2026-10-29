@@ -158,8 +158,58 @@ def _apply_normalisations(raw, names, side):
     return raw, None
 
 
+def _compare_tie_unordered(path_a, path_b, column, normalise):
+    """E0 except for the order of lines whose key column is equal.
+
+    For a table written in np.argsort order of one column. np.argsort is not
+    stable and numpy 1.26 orders equal keys differently with and without its
+    AVX-512 argsort, so the order of lines with an equal key depends on the
+    CPU the reference ran on. The files must have the same lines in the same
+    runs: each run of consecutive lines with an equal value in `column` is
+    sorted before the byte comparison, so a different line, a different number
+    of lines, a different order of the runs or a different key all still fail.
+    """
+    if normalise:
+        return fail("tie_column is defined for files without named normalisations")
+
+    def runs(path):
+        lines = _read_bytes(path).decode("utf-8", errors="replace").split("\n")
+        trailing = bool(lines) and lines[-1] == ""
+        if trailing:
+            lines.pop()
+        grouped, current, key = [], [], None
+        for line in lines:
+            line_key = line.split("\t")[column]
+            if current and line_key != key:
+                grouped.append(current)
+                current = []
+            key = line_key
+            current.append(line)
+        if current:
+            grouped.append(current)
+        return grouped, trailing
+
+    runs_a, trailing_a = runs(path_a)
+    runs_b, trailing_b = runs(path_b)
+    metrics = {"lines": sum(len(r) for r in runs_a), "tie_runs": sum(1 for r in runs_a if len(r) > 1),
+               "tied_lines": sum(len(r) for r in runs_a if len(r) > 1), "tie_column": column}
+    if trailing_a != trailing_b or [len(r) for r in runs_a] != [len(r) for r in runs_b]:
+        return fail("the runs of equal keys differ in number or length", **metrics)
+    reordered = 0
+    for run_a, run_b in zip(runs_a, runs_b):
+        if sorted(run_a) != sorted(run_b):
+            return fail("a run of lines with key %r differs in content" % run_a[0].split("\t")[column], **metrics)
+        reordered += sum(1 for x, y in zip(run_a, run_b) if x != y)
+    metrics["reordered_lines"] = reordered
+    return Result(True, "E0", metrics)
+
+
 def compare(path_a, path_b, cls, opts=None):
     opts = opts or {}
+    if opts.get("tie_column") is not None:
+        if cls != "E0":
+            return fail("tie_column is an option of class E0")
+        return _compare_tie_unordered(path_a, path_b, int(opts["tie_column"]), list(opts.get("normalise") or []))
     schema_name = opts.get("schema", "plain")
     if schema_name not in SCHEMAS:
         return fail(f"unknown text schema {schema_name!r}")
@@ -187,6 +237,19 @@ def compare(path_a, path_b, cls, opts=None):
         return Result(False, None, {"bytes_py": len(a), "bytes_cpp": len(b)}, diffs)
     if normalise:
         return fail("named normalisations are defined for byte comparison (E0) only")
+
+    if opts.get("exact_comments"):
+        # The comment lines are compared as text, so that only the float
+        # columns of the data lines are subject to the class's tolerance.
+        prefix = schema["comment"]
+        comments_a = [x for x in _read_bytes(path_a).decode("utf-8", errors="replace").split("\n")
+                      if x.startswith(prefix)]
+        comments_b = [x for x in _read_bytes(path_b).decode("utf-8", errors="replace").split("\n")
+                      if x.startswith(prefix)]
+        if comments_a != comments_b:
+            return fail("comment lines differ: %r vs %r" % (
+                next((x for x, y in zip(comments_a, comments_b) if x != y), None),
+                next((y for x, y in zip(comments_a, comments_b) if x != y), None)))
 
     lines_a = _read_lines(path_a, schema)
     lines_b = _read_lines(path_b, schema)
