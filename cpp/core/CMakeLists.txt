@@ -170,15 +170,10 @@ target_link_libraries(hicx4core
 # the commit numpy 1.26.4 vendors as a submodule (numpy_sort.hpp). The header is
 # compiled into one translation unit with numpy's SKX target flags and is only
 # called after a runtime CPU check; everything else stays at the baseline.
-include(FetchContent)
-FetchContent_Declare(x86simdsort
-    GIT_REPOSITORY https://github.com/intel/x86-simd-sort.git
-    GIT_TAG 0631a88763a4a0a4c9e84d5eeb0ec5d36053730b
-    GIT_SHALLOW FALSE
-    SOURCE_SUBDIR does-not-exist)
-FetchContent_MakeAvailable(x86simdsort)
+# The headers are vendored in third_party/x86-simd-sort (no conda package
+# exists), see THIRD_PARTY_NOTICES.md.
 set_source_files_properties(src/numpy_sort_avx512.cpp PROPERTIES
-    COMPILE_OPTIONS "-mavx512f;-mavx512cd;-mavx512bw;-mavx512dq;-mavx512vl;-isystem${x86simdsort_SOURCE_DIR}/src")
+    COMPILE_OPTIONS "-mavx512f;-mavx512cd;-mavx512bw;-mavx512dq;-mavx512vl;-isystem${CMAKE_CURRENT_SOURCE_DIR}/../third_party/x86-simd-sort/src")
 
 # clustering.cpp loads OpenBLAS with dlopen on first use instead of linking it,
 # so that a tool which may cluster does not start the BLAS threads at load.
@@ -205,18 +200,28 @@ endforeach()
 set_source_files_properties(src/sparse_pca.cpp PROPERTIES COMPILE_OPTIONS "${_hicx_spectra_options}")
 
 # Boost.Math, header only, for hicx::scipy::betainc (hicx/scipy_special.hpp).
-# scipy.special.betainc is Boost's ibeta since scipy 1.12, so the exact
-# commit scipy v1.14.1 vendors as scipy/_lib/boost_math is used, fetched as a
-# tarball rather than a clone (the repository history is large), and in
-# standalone mode so that no other part of Boost is needed.
-include(FetchContent)
-FetchContent_Declare(boost_math
-    URL https://codeload.github.com/boostorg/math/tar.gz/a53b013c735caa98179532a32ad24d34569b9710
-    URL_HASH SHA256=8fe7ea31430e0a8652acf2659f78b2235e4947f0dca7e50a22257908294b35ed
-    SOURCE_SUBDIR does-not-exist)
-FetchContent_MakeAvailable(boost_math)
+# scipy.special.betainc is Boost's ibeta since scipy 1.12. The Boost.Math that
+# scipy v1.14.1 vendors (boostorg/math a53b013c735caa98179532a32ad24d34569b9710)
+# is, for every header betainc includes, the one of Boost 1.85.0 (one noexcept
+# specification of an unrelated long double specialisation differs), so the
+# headers are taken from the conda package libboost-headers 1.85. Other Boost
+# versions change betainc's last digits and are refused. Standalone mode keeps
+# the rest of Boost out of the include path.
+find_path(HICX_BOOST_INCLUDE_DIR
+    NAMES boost/math/special_functions/beta.hpp
+    HINTS "${HICX_DEPS_ROOT}/include"
+    NO_DEFAULT_PATH)
+if(NOT HICX_BOOST_INCLUDE_DIR)
+    message(FATAL_ERROR "Boost.Math headers not found under ${HICX_DEPS_ROOT}/include "
+                        "(conda package libboost-headers 1.85)")
+endif()
+file(STRINGS "${HICX_BOOST_INCLUDE_DIR}/boost/version.hpp" _hicx_boost_version
+     REGEX "^#define BOOST_VERSION [0-9]+$")
+if(NOT _hicx_boost_version MATCHES "BOOST_VERSION 1085[0-9][0-9]$")
+    message(FATAL_ERROR "Boost 1.85 is required for hicx::scipy::betainc, found: ${_hicx_boost_version}")
+endif()
 add_library(hicx_boost_math INTERFACE)
-target_include_directories(hicx_boost_math SYSTEM INTERFACE "${boost_math_SOURCE_DIR}/include")
+target_include_directories(hicx_boost_math SYSTEM INTERFACE "${HICX_BOOST_INCLUDE_DIR}")
 target_compile_definitions(hicx_boost_math INTERFACE BOOST_MATH_STANDALONE=1)
 target_link_libraries(hicx4core PRIVATE hicx_boost_math)
 
