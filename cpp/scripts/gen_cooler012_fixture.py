@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Writes cpp/tests/fixtures/cooler012/{ordinary,int64}.txt, the oracle of the three
+"""Writes cpp/tests/fixtures/cooler012/{ordinary,int64,empty}.txt, the oracle of the three
 behaviours of cooler 0.12.0/0.12.1 that coolercpp adopts (the rest of
 coolercpp keeps reproducing cooler 0.10.2):
 
@@ -87,6 +87,21 @@ INT64_CASES = [
     ]),
 ]
 
+
+
+EMPTY_CASES = [
+    # (2) coolers without pixels
+    ('empty_table', [('main.cool', 'w', 'table', 'chrA:1000,chrB:500', 100, 1, '')]),
+    ('empty_ordered_no_chunk', [('main.cool', 'w', 'ordered', 'chrA:1000,chrB:500', 100, 0, '')]),
+    ('empty_ordered_empty_chunk', [('main.cool', 'w', 'ordered', 'chrA:1000,chrB:500', 100, 1, '')]),
+    ('empty_unordered_no_chunk', [('main.cool', 'w', 'unordered', 'chrA:1000,chrB:500', 100, 0, '')]),
+    ('empty_unordered_empty_chunk', [('main.cool', 'w', 'unordered', 'chrA:1000,chrB:500', 100, 1, '')]),
+    ('empty_mcool', [
+        ('main.cool::/resolutions/100', 'a', 'ordered', 'chrA:1000,chrB:500', 100, 0, ''),
+        ('main.cool::/resolutions/500', 'a', 'table', 'chrA:1000,chrB:500', 500, 1, ''),
+    ]),
+    ('empty_big', [('main.cool', 'w', 'ordered', 'chrA:3000000000', 1000000000, 0, '')]),
+]
 
 
 def parse_pixels(text):
@@ -202,6 +217,7 @@ def main():
     os.makedirs(OUT_DIR, exist_ok=True)
     write_cases('ordinary.txt', ORDINARY_CASES)
     write_cases('int64.txt', INT64_CASES)
+    write_cases('empty.txt', EMPTY_CASES)
 
 
 if __name__ == '__main__':

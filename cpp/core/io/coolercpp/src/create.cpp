@@ -1171,6 +1171,18 @@ void create_impl(const CreateCall& call, const Table& bins, Source source) {
         }
     }
 
+    // cooler 0.12 (changelog): "Coolers with no pixels no longer contain
+    // placeholder rows in their pixel datasets." The datasets are created with
+    // 5 * n_bins rows (init_size) and shrink to the rows written; when no
+    // chunk reached the writer (an empty chunk list) cooler 0.10.2 left all
+    // init_size rows in place, 0.12.1 leaves none. Chunking and maxshape are
+    // the same in both.
+    if (nnz == 0) {
+        for (h5::Dataset& dataset : datasets) {
+            dataset.resize(0);
+        }
+    }
+
     // ---- indexes ----
     const std::string indexes_group = join_path(group_path, "indexes");
     file.create_group(indexes_group);
@@ -1413,8 +1425,15 @@ class CoolerMerger {
         state->epoch = 1;
         auto coolers = coolers_;
         auto columns = columns_;
-        return [state, coolers, columns]() -> std::optional<Table> {
-            if (state->epoch >= state->partition.size()) {
+        // Inputs without a single pixel: cooler 0.10.2 fails with "No objects
+        // to concatenate" in the first epoch, cooler 0.12.1 writes a cooler
+        // without pixels (test_cooler012.cpp, case empty_unordered_empty_chunk).
+        bool no_pixels = true;
+        for (const auto& index : state->indexes) {
+            no_pixels = no_pixels && (index.empty() || index.back() == 0);
+        }
+        return [state, coolers, columns, no_pixels]() -> std::optional<Table> {
+            if (no_pixels || state->epoch >= state->partition.size()) {
                 return std::nullopt;
             }
             const auto bin1_id = static_cast<std::size_t>(state->partition[state->epoch]);
@@ -1579,6 +1598,17 @@ void create_from_unordered(const std::string& cool_uri, const Table& bins, Pixel
         }
         return coolers;
     };
+
+    if (uris.empty()) {
+        // No chunk at all. cooler 0.10.2 fails here (the merger has no cooler
+        // to take the bin size from); cooler 0.12.1 writes a cooler without
+        // pixels, as for an empty chunk (checked against 0.12.1 in
+        // test_cooler012.cpp, case empty_unordered_no_chunk).
+        CreateCall empty_call = make_call(cool_uri, options);
+        empty_call.columns = columns;
+        create_impl(empty_call, bins, Source{});
+        return;
+    }
 
     std::vector<std::string> final_uris = uris;
     const auto n = static_cast<std::int64_t>(uris.size());

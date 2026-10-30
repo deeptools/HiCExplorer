@@ -457,3 +457,6 @@ TEST_CASE("chromosomes beyond the int32 maximum make chroms/length, bins/start a
     check_cases("int64.txt", 8);
 }
 
+TEST_CASE("a cooler without pixels has empty pixel datasets") {
+    check_cases("empty.txt", 7);
+}
