@@ -9,8 +9,10 @@
 // straight from a numeric HDF5 attribute, plus bytes for fixed length string
 // attributes (h5py returns numpy.bytes_ for those, which cooler never decodes).
 //
-// Derived from HiCExplorer v4 cpp/core/src/json_lite.cpp; reworked for
-// ordered objects, strict simplejson parsing and simplejson.dumps output.
+// The parser and the writer are our own code from RFC 8259 and the documented
+// behaviour of simplejson.loads / dumps, verified against simplejson 3.19.3
+// (Python 3.12.7) in tests/test_cpython_oracles.cpp; hicx::json (json_lite)
+// parses with this parser.
 
 #ifndef COOLERCPP_JSON_HPP
 #define COOLERCPP_JSON_HPP
@@ -109,13 +111,16 @@ class Value {
 };
 
 // simplejson.loads: returns nothing where simplejson raises JSONDecodeError
-// (the case Cooler.info swallows). Accepts NaN, Infinity and -Infinity,
-// rejects control characters inside strings, keeps object member order with
-// the last value of a repeated key at the key's first position.
+// (the case Cooler.info swallows). Rejects the NaN, Infinity and -Infinity
+// literals (allow_nan is off in simplejson 3.19) and control characters inside
+// strings, keeps object member order with the last value of a repeated key at
+// the key's first position, and turns integers beyond 64 bits into doubles.
 [[nodiscard]] std::optional<Value> parse(std::string_view text);
 
 // simplejson.dumps with its defaults: separators ", " and ": ", ensure_ascii,
-// NaN/Infinity literals, repr() for floats, insertion order.
+// repr() for floats, insertion order. NaN and the infinities are written as the
+// literals NaN, Infinity and -Infinity (simplejson.dumps(allow_nan=True)); the
+// default call raises ValueError for them.
 [[nodiscard]] std::string dumps(const Value& value);
 
 }  // namespace coolercpp::json

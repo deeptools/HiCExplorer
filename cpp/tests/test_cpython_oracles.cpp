@@ -9,13 +9,16 @@
 #include <cmath>
 #include <cstring>
 #include <fstream>
+#include <functional>
 #include <map>
 #include <regex>
 #include <sstream>
 #include <string>
 #include <vector>
 
+#include "coolercpp/json.hpp"
 #include "hicx/argparse.hpp"
+#include "hicx/json_lite.hpp"
 #include "hicx/py_intervaltree.hpp"
 #include "hicx/py_set_order.hpp"
 #include "hicx/py_text.hpp"
@@ -529,4 +532,189 @@ TEST_CASE("python_int and python_float accept what int() and float() accept (rep
     }
     CHECK(ints == 40000);
     CHECK(floats == 40000);
+}
+
+namespace {
+
+std::string to_hex(const std::string& bytes) {
+    constexpr char kDigits[] = "0123456789abcdef";
+    if (bytes.empty()) return "-";
+    std::string out;
+    for (const unsigned char c : bytes) {
+        out += kDigits[c >> 4];
+        out += kDigits[c & 15];
+    }
+    return out;
+}
+
+std::string bits_of(double value) {
+    std::uint64_t raw = 0;
+    std::memcpy(&raw, &value, sizeof(raw));
+    char buffer[24];
+    std::snprintf(buffer, sizeof(buffer), "%016llx", static_cast<unsigned long long>(raw));
+    return buffer;
+}
+
+// The token sequence of gen_json_fixture.py for a parsed value.
+std::string canon(const coolercpp::json::Value& v) {
+    using coolercpp::json::Type;
+    switch (v.type()) {
+        case Type::Null: return "N";
+        case Type::Bool: return v.as_bool() ? "T" : "F";
+        case Type::Int: return "i" + std::to_string(v.as_int());
+        case Type::UInt: return "u" + std::to_string(v.as_uint());
+        case Type::Double: return "d" + bits_of(v.as_double());
+        case Type::String:
+        case Type::Bytes: return "s" + to_hex(v.as_string());
+        case Type::Array: {
+            std::string out = "[ " + std::to_string(v.as_array().size());
+            for (const auto& item : v.as_array()) out += " " + canon(item);
+            return out;
+        }
+        case Type::Object: {
+            std::string out = "{ " + std::to_string(v.as_object().size());
+            for (const auto& [key, item] : v.as_object()) out += " s" + to_hex(key) + " " + canon(item);
+            return out;
+        }
+    }
+    return {};
+}
+
+std::string canon(const hicx::json::Value& v) {
+    using hicx::json::Type;
+    switch (v.type()) {
+        case Type::Null: return "N";
+        case Type::Bool: return v.as_bool() ? "T" : "F";
+        case Type::Int: return "i" + std::to_string(v.as_int());
+        case Type::Double: return "d" + bits_of(v.as_double());
+        case Type::String: return "s" + to_hex(v.as_string());
+        case Type::Array: {
+            std::string out = "[ " + std::to_string(v.as_array().size());
+            for (const auto& item : v.as_array()) out += " " + canon(item);
+            return out;
+        }
+        case Type::Object: {
+            // sorted by key, as the std::map holds them
+            std::string out = "{ " + std::to_string(v.as_object().size());
+            for (const auto& [key, item] : v.as_object()) out += " s" + to_hex(key) + " " + canon(item);
+            return out;
+        }
+    }
+    return {};
+}
+
+// Single spaces between tokens, none at the end.
+std::string squeeze(const std::string& tokens) {
+    std::istringstream in(tokens);
+    std::string out;
+    std::string token;
+    while (in >> token) out += (out.empty() ? "" : " ") + token;
+    return out;
+}
+
+struct JsonRecord {
+    std::string text;
+    bool valid = false;
+    std::string value;  // token sequence, single spaces
+    std::string dumped;
+};
+
+std::vector<JsonRecord> read_json_fixture() {
+    std::ifstream in(kFixtures + "/json.txt");
+    std::vector<JsonRecord> out;
+    std::string line;
+    std::getline(in, line);
+    CHECK(line.rfind("version 3.12.7 3.19.3", 0) == 0);
+    while (std::getline(in, line)) {
+        std::istringstream fields(line);
+        std::string tag;
+        std::string hex;
+        fields >> tag >> hex;
+        JsonRecord record;
+        record.text = from_hex(hex);
+        std::string rest;
+        std::getline(fields, rest);
+        rest.erase(0, rest.find_first_not_of(' '));
+        if (rest == "X") {
+            out.push_back(record);
+            continue;
+        }
+        record.valid = true;
+        const std::size_t cut = rest.rfind(' ');
+        record.value = rest.substr(0, cut);
+        record.dumped = from_hex(rest.substr(cut + 1));
+        out.push_back(record);
+    }
+    return out;
+}
+
+// Key order of the fixture is Python's insertion order, which the std::map of
+// hicx::json does not keep; the comparison there sorts the expected objects.
+bool has_big_int(const std::string& value) {
+    for (std::size_t i = 0; i + 1 < value.size(); ++i) {
+        if (value[i] == ' ' && value[i + 1] == 'b') return true;
+    }
+    return value[0] == 'b';
+}
+
+}  // namespace
+
+TEST_CASE("coolercpp::json::parse and dumps agree with simplejson (replay of json.txt)") {
+    const std::vector<JsonRecord> records = read_json_fixture();
+    CHECK(records.size() > 8000);
+    std::size_t valid = 0;
+    for (const JsonRecord& record : records) {
+        INFO("text " << to_hex(record.text));
+        const auto parsed = coolercpp::json::parse(record.text);
+        CHECK(parsed.has_value() == record.valid);
+        if (!parsed.has_value() || !record.valid) continue;
+        ++valid;
+        std::string expected = squeeze(record.value);
+        for (std::size_t i = 0; i < expected.size(); ++i) {
+            if (expected[i] == 'b' && (i == 0 || expected[i - 1] == ' ')) expected[i] = 'd';
+        }
+        CHECK(squeeze(canon(*parsed)) == expected);
+        if (!has_big_int(record.value)) {
+            CHECK(coolercpp::json::dumps(*parsed) == record.dumped);
+        }
+    }
+    CHECK(valid > 3000);
+}
+
+TEST_CASE("hicx::json::parse agrees with simplejson (replay of json.txt)") {
+    const std::vector<JsonRecord> records = read_json_fixture();
+    for (const JsonRecord& record : records) {
+        INFO("text " << to_hex(record.text));
+        const auto parsed = hicx::json::parse(record.text);
+        CHECK(parsed.has_value() == record.valid);
+        if (!parsed.has_value() || !record.valid) continue;
+        // std::map objects hold their keys sorted: compare the sorted form.
+        const auto reference = coolercpp::json::parse(record.text);
+        REQUIRE(reference.has_value());
+        std::function<hicx::json::Value(const coolercpp::json::Value&)> rebuild =
+            [&](const coolercpp::json::Value& v) -> hicx::json::Value {
+            using coolercpp::json::Type;
+            switch (v.type()) {
+                case Type::Null: return hicx::json::Value::null();
+                case Type::Bool: return hicx::json::Value::boolean(v.as_bool());
+                case Type::Int: return hicx::json::Value::integer(v.as_int());
+                case Type::UInt: return hicx::json::Value::number(static_cast<double>(v.as_uint()));
+                case Type::Double: return hicx::json::Value::number(v.as_double());
+                case Type::String:
+                case Type::Bytes: return hicx::json::Value::string(v.as_string());
+                case Type::Array: {
+                    hicx::json::Array items;
+                    for (const auto& item : v.as_array()) items.push_back(rebuild(item));
+                    return hicx::json::Value::array(items);
+                }
+                case Type::Object: {
+                    hicx::json::Object members;
+                    for (const auto& [key, item] : v.as_object()) members.emplace(key, rebuild(item));
+                    return hicx::json::Value::object(members);
+                }
+            }
+            return hicx::json::Value::null();
+        };
+        CHECK(squeeze(canon(*parsed)) == squeeze(canon(rebuild(*reference))));
+    }
 }
