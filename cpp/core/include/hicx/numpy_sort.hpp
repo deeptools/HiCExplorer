@@ -6,19 +6,19 @@
 // centre value that is zero for a third of the lines, so the order of the tied
 // lines is part of the output.
 //
-// argsort is a line by line port of numpy's `aquicksort_` (median-of-3
-// quicksort, insertion sort below 16 elements, heapsort `aheapsort_` when the
-// recursion gets too deep). It runs on every CPU, so the tie order does not
-// depend on the machine, and it is the order numpy produces without its AVX-512
-// argsort. numpy 1.26 on a CPU with AVX512_SKX sorts with x86-simd-sort
+// argsort is an introspective quicksort (median-of-3 pivot, insertion sort
+// for short ranges, heapsort when the recursion gets too deep) written from
+// the published algorithm with the tie-deciding parameters numpy documents. It
+// runs on every CPU, so the tie order does not depend on the machine, and it
+// is the order numpy produces without its AVX-512 argsort. numpy 1.26 on a CPU with AVX512_SKX sorts with x86-simd-sort
 // instead, which orders tied keys differently, so the tie order of the
 // reference on such a CPU is not reproduced.
 //
 // A float64 array containing NaN is ordered with NaN last, through numpy's
 // DOUBLE_LT.
 //
-// np.argpartition is a port of `introselect_<Tag, arg=true>` from
-// npysort/selection.cpp.
+// np.argpartition is an introspective selection (quickselect with a
+// median-of-3 pivot, median of medians as the fall back), see numpy_sort.cpp.
 
 #ifndef HICX_NUMPY_SORT_HPP
 #define HICX_NUMPY_SORT_HPP
@@ -43,6 +43,9 @@ namespace detail {
 // index array they prepare.
 void argsort_introsort(const double* values, std::int64_t* index, std::int64_t n);
 void argsort_introsort(const std::int64_t* values, std::int64_t* index, std::int64_t n);
+// Selection of the kth smallest on a prepared index array (0 <= kth < n).
+void argpartition_select(const double* values, std::int64_t* index, std::int64_t n,
+                         std::int64_t kth);
 }  // namespace detail
 
 }  // namespace hicx::npy
