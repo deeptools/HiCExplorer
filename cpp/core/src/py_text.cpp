@@ -1,5 +1,8 @@
 #include "hicx/py_text.hpp"
 
+#include <algorithm>
+#include <array>
+#include <iterator>
 #include <cstdint>
 
 namespace hicx::pytext {
@@ -14,7 +17,124 @@ inline bool is_continuation(unsigned char byte) noexcept {
     return (byte & 0xC0U) == 0x80U;
 }
 
+struct CodePointRange {
+    std::uint32_t first;
+    std::uint32_t last;
+};
+
+// The code points str.isprintable() rejects (see gen_py_text_tables.py).
+constexpr CodePointRange kNonPrintable[] = {
+#include "py_text_nonprintable.inc"
+};
+
+// The zero of each decimal digit block (see gen_py_text_tables.py).
+constexpr std::uint32_t kDigitZeros[] = {
+#include "py_text_digit_zeros.inc"
+};
+
+// The value 0..9 of a Unicode decimal digit, or -1.
+int decimal_value(std::uint32_t cp) noexcept {
+    const auto* end = std::end(kDigitZeros);
+    const auto* it = std::upper_bound(std::begin(kDigitZeros), end, cp);
+    if (it == std::begin(kDigitZeros)) {
+        return -1;
+    }
+    return cp - *(it - 1) < 10 ? static_cast<int>(cp - *(it - 1)) : -1;
+}
+
+bool is_printable(std::uint32_t cp) noexcept {
+    const auto* end = std::end(kNonPrintable);
+    const auto* it = std::lower_bound(std::begin(kNonPrintable), end, cp,
+                                      [](const CodePointRange& range, std::uint32_t value) {
+                                          return range.last < value;
+                                      });
+    return it == end || cp < it->first;
+}
+
+// Decodes the strictly valid UTF-8 sequence at text[pos]; returns its length,
+// or 0 when the bytes there are not a valid sequence.
+std::size_t decode_strict(std::string_view text, std::size_t pos, std::uint32_t& cp) noexcept {
+    const unsigned char b0 = byte_at(text, pos);
+    if (b0 < 0x80U) {
+        cp = b0;
+        return 1;
+    }
+    const std::string_view rest = text.substr(pos);
+    const std::size_t length = b0 >= 0xF0U ? 4 : (b0 >= 0xE0U ? 3 : 2);
+    if (b0 < 0xC2U || b0 > 0xF4U || rest.size() < length || first_invalid_utf8(rest.substr(0, length))) {
+        return 0;
+    }
+    cp = length == 2 ? (b0 & 0x1FU) : (length == 3 ? (b0 & 0x0FU) : (b0 & 0x07U));
+    for (std::size_t k = 1; k < length; ++k) {
+        cp = (cp << 6) | (byte_at(text, pos + k) & 0x3FU);
+    }
+    return length;
+}
+
+void append_escape(std::string& out, std::uint32_t cp) {
+    constexpr char kHex[] = "0123456789abcdef";
+    const int digits = cp < 0x100 ? 2 : (cp < 0x10000 ? 4 : 8);
+    out += cp < 0x100 ? "\\x" : (cp < 0x10000 ? "\\u" : "\\U");
+    for (int shift = 4 * (digits - 1); shift >= 0; shift -= 4) {
+        out += kHex[(cp >> shift) & 0xFU];
+    }
+}
+
 }  // namespace
+
+std::string numeric_text(std::string_view text) {
+    std::string out;
+    out.reserve(text.size());
+    std::size_t pos = 0;
+    while (pos < text.size()) {
+        std::uint32_t cp = 0;
+        const std::size_t length = decode_strict(text, pos, cp);
+        const int digit = length == 0 ? -1 : decimal_value(cp);
+        if (digit >= 0) {
+            out += static_cast<char>('0' + digit);
+        } else if (length != 0 && cp >= 0x80 && whitespace_length(text, pos) == length) {
+            out += ' ';
+        } else {
+            out.append(text.substr(pos, length == 0 ? 1 : length));
+        }
+        pos += length == 0 ? 1 : length;
+    }
+    return out;
+}
+
+std::string repr(std::string_view text) {
+    const bool has_single = text.find('\'') != std::string_view::npos;
+    const bool has_double = text.find('"') != std::string_view::npos;
+    const char quote = has_single && !has_double ? '"' : '\'';
+    std::string out(1, quote);
+    std::size_t pos = 0;
+    while (pos < text.size()) {
+        std::uint32_t cp = 0;
+        const std::size_t length = decode_strict(text, pos, cp);
+        if (length == 0) {
+            append_escape(out, 0xDC00U + byte_at(text, pos));
+            ++pos;
+            continue;
+        }
+        if (cp == static_cast<unsigned char>(quote) || cp == '\\') {
+            out += '\\';
+            out += static_cast<char>(cp);
+        } else if (cp == '\t') {
+            out += "\\t";
+        } else if (cp == '\n') {
+            out += "\\n";
+        } else if (cp == '\r') {
+            out += "\\r";
+        } else if (cp != ' ' && !is_printable(cp)) {
+            append_escape(out, cp);
+        } else {
+            out.append(text.substr(pos, length));
+        }
+        pos += length;
+    }
+    out += quote;
+    return out;
+}
 
 std::size_t whitespace_length(std::string_view text, std::size_t pos) noexcept {
     const std::size_t left = text.size() - pos;

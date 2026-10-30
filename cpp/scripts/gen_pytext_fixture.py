@@ -16,6 +16,9 @@ Records:
   p <sep hex> <n> <hex>*n      its split(sep)
   r <hex>                      ''.join(split())
   v <hex> <k>                  bytes; k = UnicodeDecodeError.start, or -1
+  e <hex> <hex>                bytes decoded utf-8/surrogateescape and its repr()
+  reprall <digest>             FNV-1a over repr(chr(c)) for every code point
+                               c except surrogates, each followed by a 0 byte
   n <hex> <count> <hex>*count  a valid UTF-8 text file and readlines() of it
                                opened with newline=None
 """
@@ -23,6 +26,9 @@ import os
 import random
 import sys
 import tempfile
+
+
+MASK64 = (1 << 64) - 1
 
 
 def hx(b):
@@ -83,6 +89,25 @@ def main():
                 except UnicodeDecodeError as e:
                     k = e.start
                 out.append('v %s %d' % (hx(data), k))
+    # repr: random text with quotes, escapes, every category, invalid bytes
+    rpool = pool + list('\'"\\\n\r\t\x00\x7f\x80\x9f') + ['\u00ad', '\u2028', '\u2029', '\ue000',
+                                                       '\U000f0000', '\U0010ffff', '\u0378', '\ufffe',
+                                                       '\U0001f600', '\u200e', '\u0600']
+    for _ in range(3000):
+        text = ''.join(rng.choice(rpool) for _ in range(rng.choice([0, 1, 2, 4, 8, 16])))
+        text = text.replace('\ud800', 'z').replace('\udfff', 'z')
+        data = enc(text)
+        if rng.random() < 0.4 and data:
+            k = rng.randrange(len(data))
+            data = data[:k] + bytes([rng.choice([0x80, 0xc0, 0xe4, 0xff, 0xed, 0xf4])]) + data[k:]
+        out.append('e %s %s' % (hx(data), hx(repr(data.decode('utf-8', 'surrogateescape')).encode('utf-8'))))
+    h = 0xCBF29CE484222325
+    for c in range(0x110000):
+        if 0xD800 <= c < 0xE000:
+            continue
+        for byte in repr(chr(c)).encode('utf-8') + b'\x00':
+            h = ((h ^ byte) * 0x100000001B3) & MASK64
+    out.append('reprall %d' % h)
     # universal newlines
     nl = ['\n', '\r', '\r\n', '\n\r', '\r\r\n']
     with tempfile.TemporaryDirectory() as d:

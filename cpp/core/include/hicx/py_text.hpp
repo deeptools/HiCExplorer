@@ -69,6 +69,16 @@ namespace hicx::pytext {
 // ends with "\n", and an empty file has no line.
 [[nodiscard]] std::vector<std::string> universal_newline_lines(std::string_view text);
 
+// The text int() and float() look at: every Unicode decimal digit replaced by
+// the ASCII digit of the same value and every non-ASCII whitespace code point by
+// a space, all other bytes unchanged (the ASCII controls U+001C-U+001F stay).
+[[nodiscard]] std::string numeric_text(std::string_view text);
+
+// repr(str) of UTF-8 text. A byte that does not start a valid sequence stands
+// for the lone surrogate U+DC00 + byte, as the interpreter decodes command line
+// arguments and file names (surrogateescape), and is written as \udcXX.
+[[nodiscard]] std::string repr(std::string_view text);
+
 }  // namespace hicx::pytext
 
 #endif  // HICX_PY_TEXT_HPP

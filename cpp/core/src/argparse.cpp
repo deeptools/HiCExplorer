@@ -12,6 +12,7 @@
 #include <stdexcept>
 
 #include "hicx/numpy_compat.hpp"
+#include "hicx/py_text.hpp"
 
 namespace hicx::cli {
 
@@ -61,24 +62,7 @@ std::string lower(std::string text) {
 
 // Python's repr of a str.
 std::string py_repr(const std::string& text) {
-    const bool has_single = text.find('\'') != std::string::npos;
-    const bool has_double = text.find('"') != std::string::npos;
-    const char quote = has_single && !has_double ? '"' : '\'';
-    std::string out(1, quote);
-    for (const char c : text) {
-        if (c == quote || c == '\\') {
-            out += '\\';
-            out += c;
-        } else if (c == '\n') {
-            out += "\\n";
-        } else if (c == '\t') {
-            out += "\\t";
-        } else {
-            out += c;
-        }
-    }
-    out += quote;
-    return out;
+    return pytext::repr(text);
 }
 
 std::string py_repr(const json::Value& value) {
@@ -316,7 +300,7 @@ std::string dest_from_flags(const std::vector<std::string>& flags) {
 // --------------------------------------------------------------- numbers
 
 bool python_int(const std::string& text, std::int64_t* value) {
-    std::string t = strip(text);
+    std::string t = strip(hicx::pytext::numeric_text(text));
     if (t.empty()) {
         return false;
     }
@@ -339,7 +323,7 @@ bool python_int(const std::string& text, std::int64_t* value) {
 }
 
 bool python_float(const std::string& text, double* value) {
-    std::string t = strip(text);
+    std::string t = strip(hicx::pytext::numeric_text(text));
     if (t.empty()) {
         return false;
     }

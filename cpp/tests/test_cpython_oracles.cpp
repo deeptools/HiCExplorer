@@ -6,15 +6,20 @@
 #include <doctest/doctest.h>
 
 #include <cstdint>
+#include <cmath>
+#include <cstring>
 #include <fstream>
 #include <map>
+#include <regex>
 #include <sstream>
 #include <string>
 #include <vector>
 
+#include "hicx/argparse.hpp"
 #include "hicx/py_intervaltree.hpp"
 #include "hicx/py_set_order.hpp"
 #include "hicx/py_text.hpp"
+#include "../core/io/hic2cool/src/pyformat.hpp"
 
 namespace {
 
@@ -361,6 +366,22 @@ TEST_CASE("py_text follows str, strict UTF-8 and universal newlines (replay of p
             INFO("bytes " << hex);
             CHECK((got ? static_cast<long>(*got) : -1L) == expected);
             ++decodings;
+        } else if (word == "e") {
+            std::string hex;
+            std::string repr_hex;
+            in >> hex >> repr_hex;
+            INFO("bytes " << hex);
+            CHECK(hicx::pytext::repr(from_hex(hex)) == from_hex(repr_hex));
+        } else if (word == "reprall") {
+            std::uint64_t expected = 0;
+            in >> expected;
+            std::uint64_t h = 0xCBF29CE484222325ULL;
+            for (std::uint32_t c = 0; c < 0x110000; ++c) {
+                if (c >= 0xD800 && c < 0xE000) continue;
+                const std::string r = hicx::pytext::repr(encode_code_point(c)) + '\0';
+                for (const char ch : r) h = (h ^ static_cast<unsigned char>(ch)) * 0x100000001B3ULL;
+            }
+            CHECK(h == expected);
         } else if (word == "n") {
             std::string hex;
             in >> hex;
@@ -374,4 +395,138 @@ TEST_CASE("py_text follows str, strict UTF-8 and universal newlines (replay of p
     CHECK(strings == 4000);
     CHECK(decodings > 6000);
     CHECK(files == 2000);
+}
+
+TEST_CASE("hic2cool's Python text matches repr and pandas (replay of pyformat.txt)") {
+    namespace hd = hic2cool::detail;
+    std::ifstream in(kFixtures + "/pyformat.txt");
+    REQUIRE(in.good());
+    std::string word;
+    std::string python_version;
+    std::string pandas_version;
+    in >> word >> python_version >> pandas_version;
+    REQUIRE(word == "version");
+    CHECK(python_version == "3.12.7");
+    CHECK(pandas_version == "2.2.3");
+    std::size_t floats = 0;
+    std::size_t frames = 0;
+    while (in >> word) {
+        if (word == "f") {
+            std::string bits;
+            std::string expected;
+            in >> bits >> expected;
+            const std::uint64_t raw = std::stoull(bits, nullptr, 16);
+            double value = 0;
+            std::memcpy(&value, &raw, sizeof(value));
+            INFO("bits " << bits);
+            CHECK(hd::py_repr(value) == from_hex(expected));
+            ++floats;
+        } else if (word == "l") {
+            std::size_t n = 0;
+            in >> n;
+            std::vector<std::int64_t> values(n);
+            for (auto& v : values) in >> v;
+            std::string expected;
+            in >> expected;
+            CHECK(hd::py_repr(values) == from_hex(expected));
+        } else if (word == "ls") {
+            const std::vector<std::string> values = read_hex_list(in);
+            std::string expected;
+            in >> expected;
+            CHECK(hd::py_repr(values) == from_hex(expected));
+        } else if (word == "d") {
+            std::size_t n = 0;
+            in >> n;
+            std::vector<std::pair<std::int64_t, std::string>> values(n);
+            for (auto& [k, v] : values) {
+                std::string hex;
+                in >> k >> hex;
+                v = from_hex(hex);
+            }
+            std::string expected;
+            in >> expected;
+            CHECK(hd::py_repr(values) == from_hex(expected));
+        } else if (word == "df") {
+            std::string norm;
+            std::size_t n = 0;
+            in >> norm >> n;
+            std::vector<hd::BinsPreviewRow> rows(n);
+            for (auto& row : rows) {
+                std::string chrom;
+                std::string bits;
+                in >> chrom >> row.start >> row.end >> bits;
+                row.chrom = from_hex(chrom);
+                const std::uint64_t raw = std::stoull(bits, nullptr, 16);
+                std::memcpy(&row.value, &raw, sizeof(row.value));
+            }
+            std::string expected;
+            in >> expected;
+            INFO("frame " << frames);
+            CHECK(hd::pandas_bins_head(from_hex(norm), rows) == from_hex(expected));
+            ++frames;
+        } else {
+            FAIL("unknown record " << word);
+        }
+    }
+    CHECK(floats == 3000);
+    CHECK(frames == 1500);
+}
+
+TEST_CASE("utcnow_isoformat has the shape of datetime.isoformat") {
+    // YYYY-MM-DDTHH:MM:SS, plus .ffffff unless the microsecond is zero.
+    const std::regex shape(R"(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{6})?)");
+    for (int i = 0; i < 50; ++i) {
+        CHECK(std::regex_match(hic2cool::detail::utcnow_isoformat(), shape));
+    }
+}
+
+TEST_CASE("python_int and python_float accept what int() and float() accept (replay of py_number.txt)") {
+    std::ifstream in(kFixtures + "/py_number.txt");
+    REQUIRE(in.good());
+    std::string word;
+    std::string version;
+    in >> word >> version;
+    REQUIRE(word == "version");
+    std::size_t ints = 0;
+    std::size_t floats = 0;
+    while (in >> word) {
+        std::string hex;
+        std::string expected;
+        in >> hex >> expected;
+        const std::string text = from_hex(hex);
+        INFO("text " << hex);
+        if (word == "i") {
+            std::int64_t value = 0;
+            const bool ok = hicx::cli::python_int(text, &value);
+            if (expected == "X" || expected == "B") {
+                CHECK_FALSE(ok);
+            } else {
+                CHECK(ok);
+                CHECK(value == std::stoll(expected));
+            }
+            ++ints;
+        } else if (word == "g") {
+            double value = 0;
+            const bool ok = hicx::cli::python_float(text, &value);
+            if (expected == "X") {
+                CHECK_FALSE(ok);
+            } else {
+                REQUIRE(ok);
+                const std::uint64_t raw = std::stoull(expected, nullptr, 16);
+                double want = 0;
+                std::memcpy(&want, &raw, sizeof(want));
+                if (std::isnan(want)) {
+                    CHECK(std::isnan(value));
+                } else {
+                    CHECK(value == want);
+                    CHECK(std::signbit(value) == std::signbit(want));
+                }
+            }
+            ++floats;
+        } else {
+            FAIL("unknown record " << word);
+        }
+    }
+    CHECK(ints == 40000);
+    CHECK(floats == 40000);
 }
