@@ -77,10 +77,8 @@
 //     serial run has;
 //   * the covariance rows (numpy_covariance), as before;
 //   * with lanczos, the sparse products of the Krylov solver.
-// And dgeev computes only the requested eigenvectors, bit for bit the columns
-// it would return (dgeev_selected_eigenvectors), which removes the
-// back-transform of all the others; the columns were checked against dgeev_
-// itself on mm9_reduced_chr1.cool and on both chrX blocks of the harness.
+// The eigensolver is LAPACK's dgeev, called as it is
+// (dgeev_selected_eigenvectors reads the requested columns of its result).
 
 #include <algorithm>
 #include <cctype>
