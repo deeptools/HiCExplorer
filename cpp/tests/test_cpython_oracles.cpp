@@ -18,6 +18,9 @@
 
 #include "coolercpp/json.hpp"
 #include "hicx/argparse.hpp"
+#include "hicx/chic_viewpoint.hpp"
+#include "hicx/compartmentalization.hpp"
+#include "hicx/find_tads.hpp"
 #include "hicx/json_lite.hpp"
 #include "hicx/py_intervaltree.hpp"
 #include "hicx/py_set_order.hpp"
@@ -717,4 +720,37 @@ TEST_CASE("hicx::json::parse agrees with simplejson (replay of json.txt)") {
         };
         CHECK(squeeze(canon(*parsed)) == squeeze(canon(rebuild(*reference))));
     }
+}
+
+TEST_CASE("fixed and exponent float formatting agrees with Python (replay of float_format.txt)") {
+    std::ifstream in(kFixtures + "/float_format.txt");
+    REQUIRE(in.good());
+    std::string word;
+    std::string version;
+    in >> word >> version;
+    REQUIRE(word == "version");
+    std::size_t count = 0;
+    while (in >> word) {
+        std::string bits;
+        in >> bits;
+        const std::uint64_t raw = std::stoull(bits, nullptr, 16);
+        double value = 0;
+        std::memcpy(&value, &raw, sizeof(value));
+        INFO("bits " << bits);
+        if (word == "f") {
+            int decimals = 0;
+            std::string expected;
+            in >> decimals >> expected;
+            CHECK(hicx::find_tads::format_fixed(value, decimals) == from_hex(expected));
+            CHECK(hicx::chic::format_fixed(value, decimals) == from_hex(expected));
+        } else if (word == "e") {
+            std::string expected;
+            in >> expected;
+            CHECK(hicx::compartments::savetxt_line({value}) == from_hex(expected) + "\n");
+        } else {
+            FAIL("unknown record " << word);
+        }
+        ++count;
+    }
+    CHECK(count == 12000);
 }
