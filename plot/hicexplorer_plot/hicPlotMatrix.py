@@ -198,7 +198,6 @@ def plotHeatmap(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=None,
         ytick_lables = relabel_ticks(axHeat2.get_yticks())
         axHeat2.get_yaxis().set_tick_params(which='both', bottom='on', direction='out')
         axHeat2.set_yticklabels(ytick_lables, size='small')
-        xticks = [xtick_lables]
     else:
 
         pos = 0
@@ -212,7 +211,6 @@ def plotHeatmap(ma, chrBinBoundaries, fig, position, args, cmap, xlabel=None,
         axHeat2.set_xticks(ticks)
         axHeat2.set_yticks(ticks)
         labels = toString(labels)
-        xticks = [labels, ticks]
 
         if len(labels) > 20:
             axHeat2.set_xticklabels(

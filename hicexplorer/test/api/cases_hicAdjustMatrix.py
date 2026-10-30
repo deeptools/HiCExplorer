@@ -98,7 +98,7 @@ for name, path in (('h5', H5), ('cool', COOL)):
             Case('{}/one_chromosome_{}'.format(name, action), A, args=namespace(path, ['chr3R'], action=action), **R),
             Case('{}/regions_{}'.format(name, action), A, args=namespace(path, regions=REGIONS, action=action), **R),
             Case('{}/regions_xfail_{}'.format(name, action), A, args=namespace(path, regions=REGIONS_XFAIL,
-                                                                             action=action), **R),
+                                                                               action=action), **R),
             Case('{}/unknown_chromosome_{}'.format(name, action), A, args=namespace(path, ['chr10'], action=action),
                  **R),
             Case('{}/unknown_and_known_{}'.format(name, action), A,

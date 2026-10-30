@@ -181,7 +181,7 @@ def main():
     for kind, seed, count in (('i', 1, 1000), ('i', 2, 100000), ('i', 3, 1000000),
                               ('t2', 4, 200000), ('t2', 5, 1000000), ('t3', 6, 50000)):
         out.append('bulk b%d %s %d %d %d' % (seed, kind, seed, count,
-                                              digest(list(bulk_run(kind, seed, count)))))
+                                             digest(list(bulk_run(kind, seed, count)))))
     print('\n'.join(out))
 
 

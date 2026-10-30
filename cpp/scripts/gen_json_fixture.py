@@ -106,7 +106,9 @@ def rand_value(rng, depth):
 
 def render(rng, v):
     """JSON text with random spacing and escape choices."""
-    ws = lambda: rng.choice(['', '', ' ', '\n', '\t', ' \r\n'])
+    def ws():
+        return rng.choice(['', '', ' ', '\n', '\t', ' \r\n'])
+
     if isinstance(v, list):
         return '[' + ws() + (',' + ws()).join(render(rng, x) for x in v) + ws() + ']'
     if isinstance(v, dict):

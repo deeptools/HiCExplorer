@@ -17,12 +17,22 @@ pin an argument error. It is still printed so that a person sees each one,
 because an error case can also point at a file that was accidentally left out,
 and would then exit for the wrong reason.
 """
-import json, re, subprocess, sys
+import json
+import re
+import subprocess
+import sys
 
-repo = sys.argv[1]; rev = sys.argv[2] if len(sys.argv) > 2 else "HEAD"
-git = lambda *a: subprocess.run(["git", "-C", repo, *a], capture_output=True, text=True, check=True).stdout
+repo = sys.argv[1]
+rev = sys.argv[2] if len(sys.argv) > 2 else "HEAD"
+
+
+def git(*a):
+    return subprocess.run(["git", "-C", repo, *a], capture_output=True, text=True, check=True).stdout
+
+
 tracked = git("ls-tree", "-r", "--name-only", rev, "hicexplorer/test/test_data").split()
 case_files = [p for p in git("ls-tree", "-r", "--name-only", rev, "cpp/scripts/cases").split() if p.endswith(".json")]
+
 
 def untracked_refs(obj):
     refs = set(re.findall(r"\{data\}/([^\"'\s,\]]+)", json.dumps(obj)))
@@ -32,6 +42,7 @@ def untracked_refs(obj):
         if not any(t == path or t.startswith(path) for t in tracked):
             out.append(ref)
     return out
+
 
 missing, intentional = [], []
 for case_file in case_files:

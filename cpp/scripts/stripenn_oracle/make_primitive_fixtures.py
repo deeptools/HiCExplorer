@@ -85,6 +85,7 @@ r_in = np.concatenate([rng.normal(size=500) * 50, [0.5, 1.5, 2.5, -0.5, -1.5, -2
 save("round_in", r_in)
 save("round_out", np.round(r_in))
 
+
 # canny: 36 images 37 x 41 of five kinds, and 12 tiny ones (4 x 5), with sigmas and thresholds
 def make(kind, h, w):
     if kind == 0:

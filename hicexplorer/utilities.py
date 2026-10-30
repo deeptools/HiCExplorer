@@ -223,4 +223,3 @@ def check_cooler(pFileName):
 
 def in_units(pBasePosition):
     return _impl.in_units(pBasePosition)
-

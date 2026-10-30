@@ -29,5 +29,7 @@ for c in range(1, 23):
     rss = int(re.search(r"Maximum resident set size \(kbytes\): (\d+)", log).group(1)) / 1024
     load = re.search(r"load before: (\S+)", log).group(1)
     print("%d\t%d\t%d\t%s\t%g\t%d/%d\t%d\t%d\t%s\t%.0f\t%.0f\t%s" % (c, len(o), len(h), ident, dp, sb, len(b), len(cs), len(ch), cs == ch, secs, rss, load))
-    tot[0] += len(o); tot[1] += len(h); tot[2] += len(cs)
+    tot[0] += len(o)
+    tot[1] += len(h)
+    tot[2] += len(cs)
 print("total\t%d\t%d" % (tot[0], tot[1]))

@@ -65,8 +65,10 @@ big = rng.random((300, 300)) * 3
 np.save(tmp + "/big.npy", big)
 q = []
 for _ in range(20000):
-    R = rng.integers(1, 40); C = rng.integers(1, 40)
-    r0 = rng.integers(0, 300 - R + 1); c0 = rng.integers(0, 300 - C + 1)
+    R = rng.integers(1, 40)
+    C = rng.integers(1, 40)
+    r0 = rng.integers(0, 300 - R + 1)
+    c0 = rng.integers(0, 300 - C + 1)
     q.append((r0, c0, R, C))
 for (R, C) in [(300, 300), (1, 300), (300, 1), (200, 150), (60, 300), (9, 300)]:
     q.append((0, 0, R, C))
@@ -251,7 +253,8 @@ big2 = rng.random((300, 8300)) * 3
 np.save(tmp + "/big2.npy", big2)
 q2 = []
 for _ in range(3000):
-    R = int(rng.integers(1, 120)); C = int(rng.integers(1, 120))
+    R = int(rng.integers(1, 120))
+    C = int(rng.integers(1, 120))
     q2.append((int(rng.integers(0, 300 - R + 1)), int(rng.integers(0, 8300 - C + 1)), R, C))
 q2 = np.array(q2 + [(0, 0, 100, 82), (0, 0, 82, 100), (3, 5, 128, 64)], dtype=np.int64)
 q2 = q2[(q2[:, 2] <= 300) & (q2[:, 0] + q2[:, 2] <= 300)]
@@ -273,9 +276,11 @@ o = np.load(tmp + "/o.npy")
 ref = np.array([[np.sum(zz[a:a + R, b:b + C]), np.mean(zz[a:a + R, b:b + C])] for a, b, R, C in qz])
 check("np.sum / np.mean of blocks of signed zeros: same bits incl. the sign", o.tobytes() == ref.tobytes(), "%d differ" % (o.view(np.int64) != ref.view(np.int64)).sum())
 
+
 # canny: random images with ties, several sigmas and thresholds, small and degenerate shapes
 def random_image(kind):
-    h = int(rng.integers(1, 90)); w = int(rng.integers(1, 90))
+    h = int(rng.integers(1, 90))
+    w = int(rng.integers(1, 90))
     if kind == 0:
         g = rng.random((h, w))
     elif kind == 1:  # values on a coarse grid: exact ties in every stage
@@ -317,7 +322,9 @@ check("canny stages and edges for %d random images (ties, several sigmas and thr
 # box filter: kernel sizes, shapes smaller than the kernel, ties
 bad = 0
 for trial in range(300):
-    h = int(rng.integers(1, 40)); w = int(rng.integers(1, 40)); k = int(rng.choice([1, 3, 5, 7]))
+    h = int(rng.integers(1, 40))
+    w = int(rng.integers(1, 40))
+    k = int(rng.choice([1, 3, 5, 7]))
     plane = rng.integers(0, 6, (h, w)).astype(float) / 3 if trial % 2 else rng.random((h, w)) * 100
     np.save(tmp + "/plane.npy", plane)
     run("box", tmp + "/plane.npy", k, tmp + "/b.npy")
@@ -345,7 +352,8 @@ check("cv.cvtColor RGB2GRAY uint8, all 16777216 colours", np.array_equal(np.load
 import scipy.signal as sig
 bad = 0
 for trial in range(300):
-    h = int(rng.integers(1, 30)); w = int(rng.integers(1, 30))
+    h = int(rng.integers(1, 30))
+    w = int(rng.integers(1, 30))
     m = (rng.random((h, w)) < rng.random()).astype(np.uint8)
     kern = rng.integers(-3, 4, (3, 3)).astype(np.int32)
     np.save(tmp + "/m.npy", m)

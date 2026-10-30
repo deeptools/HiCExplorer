@@ -66,7 +66,9 @@ def main():
         for p, h, hc in zip(plants, hit, has_candidate):
             key = "%dkb_x%s" % (p["length_bp"] // 1000, p["enrichment"])
             s = strata.setdefault(key, [0, 0, 0])
-            s[0] += int(h); s[1] += int(hc); s[2] += 1
+            s[0] += int(h)
+            s[1] += int(hc)
+            s[2] += 1
         out[name] = {"calls": len(calls), "candidates": len(cands), "recovered_as_call": int(sum(hit)),
                      "plants_with_candidate": int(sum(has_candidate)),
                      "by_length_enrichment [recovered, with candidate, plants]": strata}

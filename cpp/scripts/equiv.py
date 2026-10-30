@@ -1182,7 +1182,7 @@ def _compare_run_outputs(case, reference_dir, other_dir):
         normalise = _declared_options(case, name).get("normalise")
         if normalise and fmt in ("plain", "text"):
             comparison = compare_locked(fmt, str(left), str(right), "E0",
-                                             {"normalise": normalise})
+                                        {"normalise": normalise})
             if comparison.passed:
                 qualified.append(f"{name}: identical after the named normalisation "
                                  f"{normalise} but not byte for byte ({where})")
@@ -1195,7 +1195,7 @@ def _compare_run_outputs(case, reference_dir, other_dir):
         content_identical = None
         if strictest is not None:
             comparison = compare_locked(fmt, str(left), str(right),
-                                             strictest, None)
+                                        strictest, None)
             content_identical = comparison.passed
             if not content_identical:
                 diffs.append(f"{name}: differs at {strictest}, which is a real "
@@ -1512,8 +1512,6 @@ def run_case(case, options):
     # A tool case runs bin/<tool> against <cpp-bin>/<tool>. A tier 0 case has
     # no tool and names the two programs itself; that is how the file layer is
     # exercised before any tool exists (PLAN.md 8.2, tier 0).
-    python_tool = (REPO_ROOT / case["py_script"]) if case.get("py_script") \
-        else (PY_BIN / case["tool"])
     cpp_tool = (Path(options.cpp_bin) / case["cpp_binary"]).resolve() \
         if case.get("cpp_binary") else (Path(options.cpp_bin) / case["tool"])
 
@@ -1620,8 +1618,8 @@ def run_case(case, options):
                 expand(declared["path"], {"data": data, "out": noise_dir})
                 for noise_dir in noise_dirs]
         comparison = compare_locked(declared["format"], str(path_py),
-                                         str(path_cpp), entry["class"],
-                                         compare_options)
+                                    str(path_cpp), entry["class"],
+                                    compare_options)
         entry.update(comparison.to_json())
         outputs.append(entry)
         passed = passed and comparison.passed
@@ -2535,7 +2533,7 @@ def command_compare(options):
     if options.reference_runs:
         compare_options = {"noise_paths": [options.a] + list(options.reference_runs)}
     result = compare_locked(options.format, options.a, options.b,
-                                 getattr(options, "class"), compare_options)
+                            getattr(options, "class"), compare_options)
     print(json.dumps(result.to_json(), indent=2))
     return 0 if result.passed else 1
 
@@ -2619,6 +2617,7 @@ def _cache_verify(options, cache):
     fresh_options = argparse.Namespace(**{k: v for k, v in vars(options).items()
                                           if not k.startswith("_")})
     fresh_options.cache = "off"
+
     def verify_one(case, meta):
         fresh_root, fresh_dir = make_workdir(case["id"], options.tmpdir)
         cached_root, cached_dir = make_workdir(case["id"], options.tmpdir)

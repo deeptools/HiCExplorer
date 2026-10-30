@@ -138,4 +138,3 @@ CASES = [
          args=('active', 0, 'float64', 'chr2L')),
     Case('histone/bad_type', M + 'correlateEigenvectorWithHistonMarkTrack', driver='histone', args=('neutral',)),
 ]
-

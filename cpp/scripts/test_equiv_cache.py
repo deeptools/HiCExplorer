@@ -298,6 +298,7 @@ def test_scheduler_runs_thin_margin_cases_alone_and_auto_uses_half_the_physical_
 
 def test_no_history_drawing_and_thin_margin_tools_run_alone():
     options = argparse.Namespace(noise_runs=5, determinism=False)
+
     def case(tool, args=("x",), cpp_args=()):
         return {"id": tool, "tool": tool, "args": list(args), "cpp_args": list(cpp_args),
                 "outputs": [], "large": False, "memory": {}}

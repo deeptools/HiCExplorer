@@ -85,7 +85,7 @@ def check(tool, stream=None):
         version, problem = _imported_version(module_name, distribution)
         if problem is not None:
             missing.append("{} {} (required: {} {} or newer)".format(distribution, problem, distribution,
-                                                            required))
+                                                                     required))
         elif _numeric(version) < _numeric(required):
             mismatched.append("{} {} is installed, but {} {} or newer is required".format(
                 distribution, version, distribution, required))

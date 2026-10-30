@@ -187,7 +187,7 @@ CASES = [
     Case('read_protein_real', M + 'read_protein', args=(CTCF,), driver=None, compare_args=True),
     Case('read_protein_empty', M + 'read_protein', args=(File('p.bed'),), files={'p.bed': b''}),
     Case('merge_protein', M + 'merge_protein', args=lambda: ([[r[0:3] for r in rows(PEAKS) if r[0] == '1'],
-                                                            [r[0:3] for r in rows(PEAKS) if r[0] == '2']], 100000, 1)),
+                                                             [r[0:3] for r in rows(PEAKS) if r[0] == '2']], 100000, 1)),
     Case('merge_protein_min_peak', M + 'merge_protein', args=lambda: ([[r[0:3] for r in rows(PEAKS)]], 100000, 2)),
     Case('compare_boundaries_real', M + 'compare_boundaries_protein', args=(FIFTY, CTCF, 1), driver='protein_filter'),
     Case('compare_boundaries_real_para', M + 'compare_boundaries_protein', args=(TEN, CTCF, 2, 0.5),

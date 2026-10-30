@@ -91,8 +91,8 @@ def main():
                 out.append('v %s %d' % (hx(data), k))
     # repr: random text with quotes, escapes, every category, invalid bytes
     rpool = pool + list('\'"\\\n\r\t\x00\x7f\x80\x9f') + ['\u00ad', '\u2028', '\u2029', '\ue000',
-                                                       '\U000f0000', '\U0010ffff', '\u0378', '\ufffe',
-                                                       '\U0001f600', '\u200e', '\u0600']
+                                                          '\U000f0000', '\U0010ffff', '\u0378', '\ufffe',
+                                                          '\U0001f600', '\u200e', '\u0600']
     for _ in range(3000):
         text = ''.join(rng.choice(rpool) for _ in range(rng.choice([0, 1, 2, 4, 8, 16])))
         text = text.replace('\ud800', 'z').replace('\udfff', 'z')

@@ -44,7 +44,8 @@ save("choices.npy", np.array(picks, dtype=np.int64))
 big = rng.random((60, 60)) * 3
 q = []
 for _ in range(400):
-    R = int(rng.integers(1, 30)); C = int(rng.integers(1, 30))
+    R = int(rng.integers(1, 30))
+    C = int(rng.integers(1, 30))
     q.append((int(rng.integers(0, 60 - R + 1)), int(rng.integers(0, 60 - C + 1)), R, C))
 q += [(0, 0, 60, 60), (0, 0, 1, 60), (0, 0, 60, 1)]
 q = np.array(q, dtype=np.int64)
@@ -67,8 +68,11 @@ save("quantile_upper.npy", np.array(upper))
 qs = [0.0, 0.25, 0.5, 0.95, 0.96, 0.97, 0.98, 0.99, 1.0]
 save("quantile_q.npy", np.array(qs))
 save("quantile_expected.npy", np.array([np.quantile(mat[mat > 0], x) for x in qs]))
-save("median_in.npy", vals[:1001]); save("median_expected.npy", np.array([np.median(vals[:1001])]))
-save("median_in_even.npy", vals[:1000]); save("median_expected_even.npy", np.array([np.median(vals[:1000])]))
+save("median_in.npy", vals[:1001])
+save("median_expected.npy", np.array([np.median(vals[:1001])]))
+save("median_in_even.npy", vals[:1000])
+save("median_expected_even.npy", np.array([np.median(vals[:1000])]))
+
 
 # --- scipy gaussian filter, sobel and skimage canny, stage by stage
 def canny_stages(gray, sigma):
@@ -80,6 +84,7 @@ def canny_stages(gray, sigma):
     np.sqrt(mag, out=mag)
     low = _canny_cy._nonmaximum_suppression_bilinear(i, j, mag, eroded, 0.1)
     return smoothed, i, j, mag, low
+
 
 grays = []
 if frames:
@@ -117,6 +122,7 @@ reprs = [0.1 + 0.2, 1e-05, 1e16, 123456789012345680.0, 1.5e-7, -0.0, 0.0, 5e-324
          175.22304601696706, 0.734, -4.56370604659623, 1e22, 100.0, 99.99999999999999, 2.5e-05, 95.0]
 json.dump({"values": [float.hex(v) for v in reprs], "reprs": [repr(v) for v in reprs]}, open(os.path.join(out, "repr.json"), "w"))
 
+
 # --- nulldist's allocation of the samples over the chromosomes
 def allocate(sizes, available):
     sizes = np.array(sizes)
@@ -136,6 +142,7 @@ def allocate(sizes, available):
     for c, name in enumerate(names):
         res[name] = int(ss[c])
     return res
+
 
 cases = []
 for sizes, available in [
@@ -187,7 +194,12 @@ M = float(np.quantile(sub[sub > 0], 0.95))
 save("search_submat.npy", sub)
 save("search_M.npy", np.array([M]))
 obj2 = getStripe.getStripe.__new__(getStripe.getStripe)
-obj2.minH = 10; obj2.maxW = 8; obj2.canny = 2.0; obj2.bfilter = 3; obj2.core = 1; obj2.resol = res
+obj2.minH = 10
+obj2.maxW = 8
+obj2.canny = 2.0
+obj2.bfilter = 3
+obj2.core = 1
+obj2.resol = res
 sa = [j * res + 1 for j in range(S)]
 ea = [s + res - 1 for s in sa]
 ea[-1] = S * res

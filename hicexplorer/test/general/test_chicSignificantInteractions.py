@@ -258,7 +258,7 @@ def test_characterization_without_preselection(tmp_path, monkeypatch):
         "--pValue", "0.2", "-t", "1", "--combinationMode", "single"])
     positions = _relative_positions("significant.hdf5")
     assert positions['FL-E13-5_chr1']['Eya1'] == [-156000, -103000, -102000, -101000, 192000, 193000,
-                                                   194000, 195000, 196000, 199000, 200000]
+                                                  194000, 195000, 196000, 199000, 200000]
     assert positions['MB-E10-5_chr1'] == {'Eya1': [199000, 200000],
                                           'Tfap2d': [105000, 124000, 125000, 126000, 130000]}
     with h5py.File("significant.hdf5", 'r') as handle:

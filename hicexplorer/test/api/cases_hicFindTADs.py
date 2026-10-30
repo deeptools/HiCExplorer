@@ -273,8 +273,8 @@ BM = (b'#{"step":100000,"minDepth":150000,"maxDepth":500000,"binsize":50000}\n'
 # chromosome names out of sorted order: np.unique sorts them, np.split then
 # cuts the starts at unsorted points and the assert of 3.7.6 fails (pinned)
 BOUNDARIES_UNSORTED = [('chr1', 0, 1.0), ('chr1', 100, 0.5), ('chr1', 250, 0.9), ('chr1', 400, 0.2),
-              ('chr1', 600, 1.0), ('chrX', 50, 0.3), ('chrX', 300, 0.8), ('chrX', 520, 0.4),
-              ('chrX', 700, 0.7), ('chr10', 0, 0.1), ('chr10', 90, 0.6), ('chr10', 180, 0.6)]
+                       ('chr1', 600, 1.0), ('chrX', 50, 0.3), ('chrX', 300, 0.8), ('chrX', 520, 0.4),
+                       ('chrX', 700, 0.7), ('chr10', 0, 0.1), ('chr10', 90, 0.6), ('chr10', 180, 0.6)]
 BOUNDARIES = [('chr1', 0, 1.0), ('chr1', 100, 0.5), ('chr1', 250, 0.9), ('chr1', 400, 0.2),
               ('chr1', 600, 1.0), ('chr2', 50, 0.3), ('chr2', 300, 0.8), ('chr2', 520, 0.4),
               ('chr2', 700, 0.7), ('chr2', 810, 0.75), ('chr3', 0, 0.1), ('chr3', 90, 0.6),

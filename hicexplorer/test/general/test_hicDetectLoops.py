@@ -265,9 +265,9 @@ def test_h5_all_chromosomes_full_precision():
     # in bin table order, which puts chr3L before chr2L.
     assert [line.split("\t")[0] for line in lines] == ["chr3L"] * 27 + ["chr2L"] * 25
     assert_line(lines[0], "chr3L\t125000\t130000\tchr3L\t135000\t140000\t"
-                        "0.3633174801431127")
+                "0.3633174801431127")
     assert_line(lines[26], "chr3L\t21545000\t21550000\tchr3L\t21550000\t21555000\t"
-                         "0.16869892359210836")
+                "0.16869892359210836")
     # The chr2L block is exactly the single chromosome run, line for line.
     assert_lines(lines[27:], CHR2L_DEFAULT_EXPECTED)
 
@@ -332,9 +332,9 @@ def test_h5_expected_mean_nonzero_ligation():
     assert lines is not None
     assert len(lines) == 62
     assert_line(lines[0], "chr2L\t220000\t225000\tchr2L\t240000\t245000\t"
-                        "0.4016704795074202")
+                "0.4016704795074202")
     assert_line(lines[-1], "chr2L\t22035000\t22040000\tchr2L\t22170000\t22175000\t"
-                         "0.398086603716326")
+                "0.398086603716326")
     # Every line is a chr2L intra chromosomal pair with seven fields and a
     # p-value at or below the --pValue of 0.5.
     for line in lines:
@@ -390,9 +390,9 @@ def test_h5_tight_preselection_changes_the_call_set():
     assert len(tight) == 14
     assert set(tight).issubset(set(loose))
     assert_line(tight[0], "chr2L\t485000\t490000\tchr2L\t490000\t495000\t"
-                        "0.4385623894062053")
+                "0.4385623894062053")
     assert_line(tight[-1], "chr2L\t22030000\t22035000\tchr2L\t22160000\t22165000\t"
-                         "0.3565987181527521")
+                "0.3565987181527521")
 
 
 def test_h5_threshold_file_preselection():
@@ -409,9 +409,9 @@ def test_h5_threshold_file_preselection():
     assert lines is not None
     assert len(lines) == 22
     assert_line(lines[0], "chr2L\t485000\t490000\tchr2L\t490000\t495000\t"
-                        "0.4385623894062053")
+                "0.4385623894062053")
     assert_line(lines[-1], "chr2L\t22030000\t22035000\tchr2L\t22160000\t22165000\t"
-                         "0.3565987181527521")
+                "0.3565987181527521")
 
 
 def test_h5_max_loop_distance_filters_the_calls():
@@ -447,7 +447,7 @@ def test_h5_variable_bin_sizes():
     assert_line(lines[0], "X\t43223\t44570\tX\t69085\t70854\t2.286311894128384e-08")
     assert_line(lines[1], "X\t77008\t78499\tX\t78499\t79559\t0.18090119770452806")
     assert_line(lines[-1], "X\t22384424\t22386244\tX\t22409588\t22411768\t"
-                         "3.591168242233997e-12")
+                "3.591168242233997e-12")
     # Every call is inside --maxLoopDistance measured on the genomic starts,
     # which is what cluster_to_genome_position_mapping enforces. On a fixed
     # width matrix that filter is redundant because the bin distance cut is
@@ -573,11 +573,11 @@ def test_cool_expected_mean_nonzero():
     assert lines is not None
     assert len(lines) == 11
     assert_line(lines[0], "1\t5000000\t7500000\t1\t17500000\t20000000\t"
-                        "0.001529886778055783")
+                "0.001529886778055783")
     assert_line(lines[2], "1\t52500000\t55000000\t1\t92500000\t95000000\t"
-                        "4.178127655870946e-07")
+                "4.178127655870946e-07")
     assert_line(lines[-1], "1\t200000000\t202500000\t1\t205000000\t207500000\t"
-                         "0.026757454806728666")
+                "0.026757454806728666")
 
 
 def test_cool_tight_preselection():

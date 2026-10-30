@@ -92,7 +92,6 @@ def main(argv):
     Viewpoint.readInteractionFile = read
 
     original_compute = tool.compute_new_p_values
-    original_filter = tool.filter_by_pvalue
     original_call = tool.call_multi_core
     original_write_significant = tool.writeSignificantHDF
     original_write_target = tool.writeTargetHDF

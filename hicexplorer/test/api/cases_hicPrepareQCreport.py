@@ -33,6 +33,7 @@ def Case(*args, **kwargs):
     kwargs.setdefault('compare_args', False)
     return _Case(*args, **kwargs)
 
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 TEST_DATA = os.path.join(HERE, '..', 'test_data')
 Q = 'hicexplorer.hicPrepareQCreport.'

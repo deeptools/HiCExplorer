@@ -146,12 +146,12 @@ def read_calls(path):
 
 def run_tool(cpp_bin, matrix_uri, chromosomes, out_path, threads, extra_args=None):
     cmd = [os.path.join(cpp_bin, "hicDetectStripes"), "-m", matrix_uri, "-o", out_path,
-          "--chromosomes"] + list(chromosomes) + TOOL_ARGS + \
+           "--chromosomes"] + list(chromosomes) + TOOL_ARGS + \
         ["--threads", str(threads)] + list(extra_args or [])
     code, wall, cpu, peak_rss_kb, stderr = measured_run(cmd)
     calls = read_calls(out_path) if code == 0 else []
     return {"returncode": code, "wall_seconds": wall, "cpu_seconds": cpu,
-           "peak_rss_kb": peak_rss_kb, "calls": calls, "stderr_tail": stderr[-2000:]}
+            "peak_rss_kb": peak_rss_kb, "calls": calls, "stderr_tail": stderr[-2000:]}
 
 
 # --------------------------------------------------------------------------
@@ -263,7 +263,6 @@ def recovered(plant, calls, bin_size, tolerance_bins=2):
             continue
         if abs(call["anchor_start"] - plant["anchor_bp"]) > tolerance_bins * bin_size:
             continue
-        call_len = call["extent_end"] - call["extent_start"]
         overlap_start = max(call["extent_start"], plant["extent_start"])
         overlap_end = min(call["extent_end"], plant["extent_end"])
         overlap = max(0, overlap_end - overlap_start)
@@ -277,7 +276,7 @@ def calls_key(call, bin_size, tolerance_bins=2):
     same call": chrom, orientation, and the anchor bin rounded down to the
     tolerance window."""
     return (call["chrom"], call["orientation"],
-           call["anchor_start"] // (tolerance_bins * bin_size + 1))
+            call["anchor_start"] // (tolerance_bins * bin_size + 1))
 
 
 def jaccard(calls_a, calls_b, bin_size, tolerance_bins=2):
@@ -328,8 +327,8 @@ def build_plant_plan(chromosomes, chrom_lengths, bin_size, seed):
                             chrom = c
                             break
                     slots.append({"chrom": chrom, "length_bp": length_bp,
-                                 "enrichment": enrichment,
-                                 "vertical": orientation == "vertical"})
+                                  "enrichment": enrichment,
+                                  "vertical": orientation == "vertical"})
     return slots
 
 
@@ -519,7 +518,7 @@ def main():
 
     def recall(length_min_bp, enrichment):
         subset = [p for p in plants if p["length_bp"] >= length_min_bp and
-                 p["enrichment"] == enrichment]
+                  p["enrichment"] == enrichment]
         if not subset:
             return None, 0
         hits = sum(1 for p in subset if p["recovered"])
@@ -547,7 +546,7 @@ def main():
     precision = precision_hits / len(new_calls) if new_calls else None
     report["precision_gate"] = {
         "criterion": ">=0.9 of calls present on the planted matrix but not the unplanted one "
-                    "are recovered plants",
+                     "are recovered plants",
         "n_new_calls": len(new_calls), "n_matched_plants": precision_hits,
         "value": precision, "passed": (precision is not None and precision >= 0.9),
     }
@@ -595,8 +594,8 @@ def main():
             _shutil.rmtree(stripenn_out)
         os.makedirs(stripenn_out, exist_ok=True)
         cmd = [os.path.join(os.path.dirname(args.stripenn_python), "stripenn"), "compute",
-              "--cool", unplanted_uri, "--out", stripenn_out,
-              "--chrom", ",".join(args.chromosomes), "--numcores", str(args.threads)]
+               "--cool", unplanted_uri, "--out", stripenn_out,
+               "--chrom", ",".join(args.chromosomes), "--numcores", str(args.threads)]
         code, wall, cpu, peak_rss_kb, stderr = measured_run(cmd)
         report["stripenn"] = {"returncode": code, "wall_seconds": wall, "cpu_seconds": cpu,
                               "peak_rss_kb": peak_rss_kb, "stderr_tail": stderr[-2000:],

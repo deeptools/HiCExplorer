@@ -524,9 +524,9 @@ def test_spectral_option_is_ignored(tmp_path):
 
 
 @pytest.mark.parametrize("pOption, pPairs", [("--max_deviation 1", 229),
-                                              ("", 251),
-                                              ("--max_deviation 5", 272),
-                                              ("--keep_outlier", 279)])
+                                             ("", 251),
+                                             ("--max_deviation 5", 272),
+                                             ("--keep_outlier", 279)])
 def test_max_deviation_controls_outlier_removal(tmp_path, pOption, pPairs):
     """Outliers are removed from the 279 submatrices before clustering.
 

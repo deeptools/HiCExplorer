@@ -445,7 +445,7 @@ CASES = [
     Case('avg/sum', M + 'compute_avg', args=lambda: (random_stack((4, 3, 3), 11), 'sum')),
     Case('avg/other_is_sum', M + 'compute_avg', args=lambda: (random_stack((4, 3, 3), 12), 'max')),
     Case('avg/median_zero', M + 'compute_avg', args=lambda: (np.array([np.zeros((3, 3)), np.zeros((3, 3)),
-                                                                        np.ones((3, 3))]), 'median')),
+                                                                       np.ones((3, 3))]), 'median')),
     Case('avg/all_zero', M + 'compute_avg', args=lambda: (np.zeros((3, 2, 2)), 'median')),
     Case('avg/nan', M + 'compute_avg', args=lambda: (np.array([[[np.nan, 1.0]], [[2.0, 3.0]]]), 'median')),
     Case('avg/list_of_matrices', M + 'compute_avg', driver='average_of_matrices', args=('mean',)),

@@ -131,7 +131,6 @@ def frames(a):
     ImageProcessing.verticalLine = vert
     getStripe.getStripe.StripeSearch = ss
     try:
-        out = []
         for i, perc in enumerate(maxpixel):
             res = obj.extract(MP, i, perc, *nul)
             res.to_csv(os.path.join(a.out, "extract_%d.tsv" % i), sep="\t", index=False)

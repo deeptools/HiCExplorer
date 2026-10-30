@@ -490,7 +490,7 @@ def chic_background_downstream(context):
     for label in [label for label in models if label != "python"]:
         calls, pvalues = outcome[label]
         differing = sum(int(np.count_nonzero(~((pvalues[key] == python_pvalues[key])
-                                                | (np.isnan(pvalues[key])
+                                               | (np.isnan(pvalues[key])
                                                    & np.isnan(python_pvalues[key])))))
                         for key in python_pvalues)
         total = sum(values.size for values in python_pvalues.values())
