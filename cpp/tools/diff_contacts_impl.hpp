@@ -125,7 +125,8 @@ void thin_pixels(ChromosomeData& data, const std::function<bool(std::int64_t, st
 // start with '#', "track" or "browser".
 [[nodiscard]] std::vector<std::vector<std::string>> read_fields(const std::string& path);
 
-// numpy.median of a copy.
+// The median of a copy of the values, the mean of the two middle values for an
+// even count (the definition of numpy.median); NaN for no values.
 [[nodiscard]] double median(std::vector<double> values);
 
 }  // namespace hicx::diffc

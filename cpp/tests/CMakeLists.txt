@@ -17,6 +17,7 @@ target_include_directories(doctest_header SYSTEM INTERFACE "${HICX_DOCTEST_INCLU
 add_executable(hicx_tests
     test_main.cpp
     test_numpy_compat.cpp
+    test_numpy_oracle.cpp
     test_bins.cpp
     test_plot_tiles.cpp
     test_sparse_matrix.cpp
@@ -79,7 +80,8 @@ target_link_libraries(hicx_tests PRIVATE hicx::core doctest_header hicx_compile_
 set_source_files_properties(../tools/stripes_impl.cpp ../tools/stripes_numpy.cpp
                             PROPERTIES COMPILE_OPTIONS "-ffp-contract=off")
 target_compile_definitions(hicx_tests PRIVATE
-    HICX_STRIPES_FIXTURE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/fixtures/stripenn")
+    HICX_STRIPES_FIXTURE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/fixtures/stripenn"
+    HICX_NUMPY_ORACLE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/fixtures/numpy_oracle")
 
 # Real matrices from the Python test suite, used by the reader tests.
 target_compile_definitions(hicx_tests PRIVATE

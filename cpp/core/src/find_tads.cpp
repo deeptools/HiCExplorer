@@ -18,6 +18,7 @@
 #include "hicx/adjust_ops.hpp"
 #include "hicx/numpy_compat.hpp"
 #include "hicx/numpy_sort.hpp"
+#include "hicx/numpy_stats.hpp"
 #include "hicx/python_error.hpp"
 #include "hicx/simd_reduce.hpp"
 #include "hicx/utilities.hpp"
@@ -793,26 +794,7 @@ double numpy_median(std::vector<double> values) {
 }
 
 double numpy_percentile(std::vector<double> values, double q) {
-    if (values.empty()) {
-        return kNaN;
-    }
-    for (const double v : values) {
-        if (std::isnan(v)) {
-            return kNaN;
-        }
-    }
-    std::sort(values.begin(), values.end());
-    const double virtual_index = static_cast<double>(values.size() - 1) * (q / 100.0);
-    const double previous = std::floor(virtual_index);
-    std::size_t below = static_cast<std::size_t>(std::max(0.0, previous));
-    below = std::min(below, values.size() - 1);
-    const std::size_t above = std::min(below + 1, values.size() - 1);
-    const double gamma = virtual_index - previous;
-    const double a = values[below];
-    const double b = values[above];
-    const double diff = b - a;
-    // numpy's _lerp
-    return gamma >= 0.5 ? b - diff * (1.0 - gamma) : a + diff * gamma;
+    return hicx::npy::percentile_linear(std::move(values), q);
 }
 
 std::vector<std::pair<std::size_t, std::size_t>> numpy_split_bounds(

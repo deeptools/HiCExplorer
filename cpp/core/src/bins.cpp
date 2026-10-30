@@ -4,6 +4,8 @@
 #include <cmath>
 #include <stdexcept>
 
+#include "hicx/numpy_stats.hpp"
+
 namespace hicx {
 
 BinTable::BinTable(std::vector<CutInterval> intervals)
@@ -205,18 +207,10 @@ std::int64_t BinTable::bin_size() const {
             "cannot compute the bin size: every chromosome holds a single bin");
     }
 
-    std::sort(diffs.begin(), diffs.end());
-    const std::size_t n = diffs.size();
-    double median = 0.0;
-    if (n % 2 == 1) {
-        median = static_cast<double>(diffs[n / 2]);
-    } else {
-        // np.median averages the two central values in float64.
-        median = (static_cast<double>(diffs[n / 2 - 1]) +
-                  static_cast<double>(diffs[n / 2])) /
-                 2.0;
-    }
-    const std::int64_t median_int = static_cast<std::int64_t>(median);  // int() truncates
+    // np.median of the bin widths (the mean of the two middle ones for an even
+    // count, in float64), then int(), which truncates.
+    const double median = npy::median(std::vector<double>(diffs.begin(), diffs.end()));
+    const std::int64_t median_int = static_cast<std::int64_t>(median);
 
     std::size_t deviating = 0;
     for (const CutInterval& interval : intervals_) {

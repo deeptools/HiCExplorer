@@ -12,14 +12,14 @@ namespace hicx::simd {
 
 namespace {
 
-// numpy's constants: PW_BLOCKSIZE from
-// numpy/core/src/umath/loops_arithm_fp.dispatch.c.src, and the ufunc buffer
-// size from np.getbufsize().
+// The constants numpy documents for its pairwise sum: blocks of 128 summed
+// with eight partial sums (Higham 1993, see numpy_compat.cpp), and the
+// 8192 element ufunc buffer (np.getbufsize()).
 constexpr std::size_t kPairwiseBlockSize = 128;
 constexpr std::size_t kReduceBufferSize = 8192;
 
 // The tail every kernel shares: fewer than eight elements are summed left to
-// right, exactly as numpy does.
+// right, as numpy documents.
 double small_sum(const double* a, std::size_t n) {
     double result = 0.0;
     for (std::size_t i = 0; i < n; ++i) {
@@ -34,25 +34,26 @@ double combine(const std::array<double, 8>& r) {
     return ((r[0] + r[1]) + (r[2] + r[3])) + ((r[4] + r[5]) + (r[6] + r[7]));
 }
 
+// The eight partial sums advance together, partial sum k taking elements
+// k, k+8, k+16, ...; the remainder after the last full group is added to the
+// combined result one value at a time.
 double block_scalar(const double* a, std::size_t n) {
     if (n < 8) {
         return small_sum(a, n);
     }
     if (n <= kPairwiseBlockSize) {
-        std::array<double, 8> r{a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7]};
-        std::size_t i = 8;
-        const std::size_t limit = n - (n % 8);
-        for (; i < limit; i += 8) {
-            r[0] += a[i + 0];
-            r[1] += a[i + 1];
-            r[2] += a[i + 2];
-            r[3] += a[i + 3];
-            r[4] += a[i + 4];
-            r[5] += a[i + 5];
-            r[6] += a[i + 6];
-            r[7] += a[i + 7];
+        std::array<double, 8> partial;
+        for (std::size_t k = 0; k < 8; ++k) {
+            partial[k] = a[k];
         }
-        double result = combine(r);
+        const std::size_t whole = n - n % 8;
+        std::size_t i = 8;
+        for (; i < whole; i += 8) {
+            for (std::size_t k = 0; k < 8; ++k) {
+                partial[k] += a[i + k];
+            }
+        }
+        double result = combine(partial);
         for (; i < n; ++i) {
             result += a[i];
         }

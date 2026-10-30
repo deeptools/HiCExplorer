@@ -203,7 +203,8 @@ struct TrimmedMoments {
 [[nodiscard]] TrimmedMoments trimmed_log_f_moments(double d1, double d2, double lower,
                                                    double upper);
 
-// numpy.quantile's linear interpolation on sorted values.
+// Linear interpolation between order statistics (Hyndman and Fan 1996, type 7)
+// on sorted values.
 [[nodiscard]] double quantile_sorted(const std::vector<double>& sorted, double q);
 
 struct RobustPrior {

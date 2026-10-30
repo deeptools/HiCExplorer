@@ -17,54 +17,69 @@ namespace coolercpp::npy {
 
 namespace {
 
-constexpr std::size_t kPairwiseBlockSize = 128;
+// Pairwise summation after N. J. Higham, "The accuracy of floating point
+// summation", SIAM J. Sci. Comput. 14(4), 1993: a long sum is split in two
+// halves that are summed separately and added, which keeps the rounding error
+// growth logarithmic in the length. numpy's documentation (numpy.sum, Notes)
+// states how its float summation is arranged, and the same arrangement is
+// reproduced here because the order of the additions decides the last bits:
+//   * below eight elements the values are added left to right;
+//   * up to 128 elements, eight partial sums run side by side (element i goes
+//     to partial sum i mod 8) and are combined as ((0+1)+(2+3))+((4+5)+(6+7)),
+//     after which the leftover elements are added one by one;
+//   * longer ranges are cut in two, the first half being a multiple of eight
+//     long;
+//   * a reduction over a whole array is not one pairwise pass but one pass per
+//     buffer of 8192 elements (the documented ufunc buffer size), with the
+//     buffer results added to a running total in order.
+// Identity with np.add.reduce was verified bit for bit on random float32 and
+// float64 arrays, see cpp/tests/test_numpy_oracle.cpp and
+// cpp/scripts/gen_numpy_oracle_fixture.py.
+constexpr std::size_t kUnroll = 8;
+constexpr std::size_t kUnrolledLimit = 128;
 constexpr std::size_t kReduceBufferSize = 8192;
 
 template <typename T>
-T pairwise_block(const T* a, std::size_t n) {
-    if (n < 8) {
-        T res = 0;
+T pairwise_range(const T* a, std::size_t n) {
+    if (n < kUnroll) {
+        T total = 0;
         for (std::size_t i = 0; i < n; ++i) {
-            res += a[i];
+            total += a[i];
         }
-        return res;
+        return total;
     }
-    if (n <= kPairwiseBlockSize) {
-        // Eight accumulators, exactly as numpy does it; the unrolling is part
-        // of the result.
-        std::array<T, 8> r{a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7]};
-        std::size_t i = 8;
-        for (; i < n - (n % 8); i += 8) {
-            r[0] += a[i + 0];
-            r[1] += a[i + 1];
-            r[2] += a[i + 2];
-            r[3] += a[i + 3];
-            r[4] += a[i + 4];
-            r[5] += a[i + 5];
-            r[6] += a[i + 6];
-            r[7] += a[i + 7];
+    if (n <= kUnrolledLimit) {
+        std::array<T, kUnroll> lane;
+        for (std::size_t k = 0; k < kUnroll; ++k) {
+            lane[k] = a[k];
         }
-        T res = ((r[0] + r[1]) + (r[2] + r[3])) + ((r[4] + r[5]) + (r[6] + r[7]));
+        const std::size_t whole = n - n % kUnroll;
+        std::size_t i = kUnroll;
+        for (; i < whole; i += kUnroll) {
+            for (std::size_t k = 0; k < kUnroll; ++k) {
+                lane[k] += a[i + k];
+            }
+        }
+        T total = ((lane[0] + lane[1]) + (lane[2] + lane[3])) +
+                  ((lane[4] + lane[5]) + (lane[6] + lane[7]));
         for (; i < n; ++i) {
-            res += a[i];
+            total += a[i];
         }
-        return res;
+        return total;
     }
-    std::size_t n2 = n / 2;
-    n2 -= n2 % 8;
-    return pairwise_block(a, n2) + pairwise_block(a + n2, n - n2);
+    std::size_t first = n / 2;
+    first -= first % kUnroll;
+    return pairwise_range(a, first) + pairwise_range(a + first, n - first);
 }
 
+// One pairwise pass per buffer, the buffer sums accumulated in order.
 template <typename T>
 T buffered_pairwise_sum(const T* a, std::size_t n) {
-    T accumulated = 0;
-    std::size_t offset = 0;
-    while (offset < n) {
-        const std::size_t block = std::min(kReduceBufferSize, n - offset);
-        accumulated += pairwise_block(a + offset, block);
-        offset += block;
+    T total = 0;
+    for (std::size_t offset = 0; offset < n; offset += kReduceBufferSize) {
+        total += pairwise_range(a + offset, std::min(kReduceBufferSize, n - offset));
     }
-    return accumulated;
+    return total;
 }
 
 }  // namespace
@@ -75,68 +90,79 @@ float pairwise_sum(const float* a, std::size_t n) { return buffered_pairwise_sum
 
 namespace {
 
+// The shortest decimal string that converts back to the same value (the
+// std::to_chars guarantee) laid out by the rules Python documents for
+// repr(float): positional notation for 1e-4 <= |x| < 1e16 (compared as the stored value) with at least one
+// digit after the point, otherwise d[.ddd]e[+-]XX with an exponent of at least
+// two digits and no ".0" for a single digit. numpy prints float32 scalars with
+// the same layout from the float32 shortest digits. Checked against Python's
+// repr and numpy's str on random doubles and floats (all exponents including
+// subnormals, zeros, infinities, NaN), see cpp/tests/test_numpy_oracle.cpp.
 template <typename T>
 std::string repr_impl(T value) {
     if (std::isnan(value)) {
         return "nan";
     }
-    if (std::isinf(value)) {
-        return value < 0 ? "-inf" : "inf";
-    }
     const bool negative = std::signbit(value);
-    const T magnitude = negative ? -value : value;
+    const std::string sign = negative ? "-" : "";
+    if (std::isinf(value)) {
+        return sign + "inf";
+    }
+    if (value == 0) {
+        return sign + "0.0";
+    }
 
     std::array<char, 64> buffer{};
-    auto [end, ec] = std::to_chars(buffer.data(), buffer.data() + buffer.size(), magnitude,
-                                   std::chars_format::scientific);
-    if (ec != std::errc()) {
-        return std::to_string(value);
+    const auto converted = std::to_chars(buffer.data(), buffer.data() + buffer.size(),
+                                         negative ? -value : value, std::chars_format::scientific);
+    if (converted.ec != std::errc()) {
+        return std::to_string(static_cast<double>(value));
     }
-    const std::string scientific(buffer.data(), end);
-    const std::size_t e_pos = scientific.find('e');
-    std::string digits = scientific.substr(0, e_pos);
-    const int exponent = std::atoi(scientific.c_str() + e_pos + 1);
-    const std::size_t dot = digits.find('.');
-    if (dot != std::string::npos) {
-        digits.erase(dot, 1);
+    // "d[.ddd]e[+-]XX": collect the significant digits and the decimal exponent.
+    const std::string text(buffer.data(), converted.ptr);
+    const std::size_t e_pos = text.find('e');
+    std::string digits;
+    for (std::size_t i = 0; i < e_pos; ++i) {
+        if (text[i] != '.') {
+            digits.push_back(text[i]);
+        }
     }
-    while (digits.size() > 1 && digits.back() == '0') {
-        digits.pop_back();
-    }
-    const int decpt = (digits == "0") ? 1 : exponent + 1;
+    const int exponent = std::atoi(text.c_str() + e_pos + 1);  // value = d.ddd * 10^exponent
 
-    std::string out;
-    if (negative) {
-        out.push_back('-');
-    }
-    if (decpt <= -4 || decpt > 16) {
+    // The switch to exponent form is decided on the value itself, not on the
+    // digits: float32(1e-4) is slightly below 1e-4 and prints as 1e-04.
+    const T magnitude = negative ? -value : value;
+    if (static_cast<double>(magnitude) < 1e-4 || static_cast<double>(magnitude) >= 1e16) {
+        std::string out = sign;
         out.push_back(digits[0]);
         if (digits.size() > 1) {
             out.push_back('.');
             out.append(digits, 1, std::string::npos);
         }
         out.push_back('e');
-        const int exp10 = (digits == "0") ? 0 : exponent;
-        out.push_back(exp10 < 0 ? '-' : '+');
-        std::string exp_digits = std::to_string(exp10 < 0 ? -exp10 : exp10);
-        if (exp_digits.size() < 2) {
-            exp_digits.insert(exp_digits.begin(), '0');
+        out.push_back(exponent < 0 ? '-' : '+');
+        const std::string exp_text = std::to_string(exponent < 0 ? -exponent : exponent);
+        if (exp_text.size() < 2) {
+            out.push_back('0');
         }
-        out.append(exp_digits);
+        out.append(exp_text);
         return out;
     }
-    if (decpt <= 0) {
+
+    const int point = exponent + 1;  // number of digits before the decimal point
+    std::string out = sign;
+    if (point <= 0) {
         out.append("0.");
-        out.append(static_cast<std::size_t>(-decpt), '0');
+        out.append(static_cast<std::size_t>(-point), '0');
         out.append(digits);
-    } else if (static_cast<std::size_t>(decpt) >= digits.size()) {
+    } else if (static_cast<std::size_t>(point) >= digits.size()) {
         out.append(digits);
-        out.append(static_cast<std::size_t>(decpt) - digits.size(), '0');
+        out.append(static_cast<std::size_t>(point) - digits.size(), '0');
         out.append(".0");
     } else {
-        out.append(digits, 0, static_cast<std::size_t>(decpt));
+        out.append(digits, 0, static_cast<std::size_t>(point));
         out.push_back('.');
-        out.append(digits, static_cast<std::size_t>(decpt), std::string::npos);
+        out.append(digits, static_cast<std::size_t>(point), std::string::npos);
     }
     return out;
 }
@@ -152,7 +178,11 @@ std::vector<std::int64_t> linspace_int(std::int64_t lo, std::int64_t hi, std::in
         throw ValueError("Number of samples, " + std::to_string(num) +
                          ", must be non-negative.");
     }
-    // numpy/core/function_base.py linspace, endpoint=True, scalar bounds.
+    // numpy.linspace as its documentation defines it, endpoint included: the
+    // samples are start + k * step with step = (stop - start) / (num - 1), the
+    // last sample being stop itself. (A step that underflows to zero is
+    // handled by dividing k first, as the documentation notes.) The int
+    // conversion floors. Verified against np.linspace(dtype=int).
     const double start = static_cast<double>(lo) * 1.0;
     const double stop = static_cast<double>(hi) * 1.0;
     const std::int64_t div = num - 1;

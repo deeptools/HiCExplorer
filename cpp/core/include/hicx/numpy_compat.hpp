@@ -23,8 +23,8 @@
 
 namespace hicx::npy {
 
-// numpy's pairwise summation for contiguous float64 data, as implemented in
-// numpy/core/src/umath/loops_arithm_fp.dispatch.c.src (PW_BLOCKSIZE = 128).
+// np.add.reduce over contiguous float64 data: pairwise summation as numpy's
+// documentation describes it, bit identical (see numpy_compat.cpp).
 double pairwise_sum(const double* data, std::size_t n);
 
 inline double pairwise_sum(const std::vector<double>& data) {

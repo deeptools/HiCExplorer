@@ -11,28 +11,22 @@
 
 #include "hicx/matrix_ops.hpp"
 #include "hicx/numpy_compat.hpp"
+#include "hicx/numpy_stats.hpp"
 #include "hicx/simd_reduce.hpp"
 
 namespace hicx {
 
 namespace {
 
-// np.median over a vector of integers, then int(), which truncates.
-std::int64_t median_int(std::vector<std::int64_t> values) {
+// The median bin width as an integer: np.median of the widths (the mean of the
+// two middle ones for an even count, in float64), truncated by int().
+std::int64_t median_int(const std::vector<std::int64_t>& values) {
     if (values.empty()) {
         throw std::runtime_error(
             "cannot determine a bin size: no chromosome has more than one bin");
     }
-    std::sort(values.begin(), values.end());
-    const std::size_t n = values.size();
-    double median = 0.0;
-    if (n % 2 == 1) {
-        median = static_cast<double>(values[n / 2]);
-    } else {
-        median = 0.5 * (static_cast<double>(values[n / 2 - 1]) +
-                        static_cast<double>(values[n / 2]));
-    }
-    return static_cast<std::int64_t>(median);
+    std::vector<double> widths(values.begin(), values.end());
+    return static_cast<std::int64_t>(npy::median(std::move(widths)));
 }
 
 // snap_nearest_multiple in HiCMatrix.fit_cut_intervals. Python's % is never
@@ -86,7 +80,7 @@ std::vector<CutInterval> fit_cut_intervals(const std::vector<CutInterval>& inter
             have_previous = true;
         }
     }
-    const std::int64_t median = median_int(std::move(differences));
+    const std::int64_t median = median_int(differences);
 
     std::size_t deviating = 0;
     for (const CutInterval& interval : intervals) {

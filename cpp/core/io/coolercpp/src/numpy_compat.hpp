@@ -1,8 +1,9 @@
 // Internal: bit exact reimplementations of the numpy and CPython behaviour
 // that cooler's stored results and query semantics depend on.
 //
-// pairwise_sum and float_repr are derived from HiCExplorer v4
-// cpp/core/src/numpy_compat.cpp.
+// pairwise_sum and float_repr follow the numpy and Python documentation (see
+// numpy_compat.cpp); hicx keeps its own copy of them so that this library has
+// no dependency on hicx.
 
 #ifndef COOLERCPP_NUMPY_COMPAT_HPP
 #define COOLERCPP_NUMPY_COMPAT_HPP
