@@ -1,6 +1,6 @@
 // Clustering of dense sample vectors, reproducing scikit-learn's partitions.
 //
-// Two methods are implemented, because they are the two a ported tool
+// Two methods are implemented, because they are the two the tool
 // actually executes (hicAggregateContacts, --kmeans and --hclust):
 //
 //  * kmeans: sklearn.cluster.KMeans(n_clusters=k, random_state=seed).fit(X)
@@ -12,7 +12,7 @@
 //    .labels_, which for Euclidean ward linkage without connectivity builds
 //    the full tree with scipy.cluster.hierarchy.ward (pdist, then the
 //    nearest-neighbour chain algorithm with the Lance-Williams ward update)
-//    and cuts it with sklearn's _hc_cut.
+//    and cuts the tree into k clusters.
 //
 // Spectral clustering is not implemented: hicAggregateContacts parses
 // --spectral but never reads it (pinned by
@@ -29,26 +29,28 @@
 //    dlopen on first use (see clustering.cpp): cblas_dgemv
 //    and cblas_dgemm for the matmul calls of the seeding (numpy's matmul
 //    selects gemv for a row or column operand and gemm otherwise), cblas_ddot
-//    for the potential, and Fortran dgemm with the transposition scikit-learn's
-//    _gemm applies for the RowMajor E-step. The library is the one numpy is
+//    for the potential, and Fortran dgemm (the row-major product evaluated as
+//    the column-major product of the transposed operands) for the assignment step. The library is the one numpy is
 //    linked against, run on one thread;
 //  * row norms follow np.einsum('ij,ij->i'), whose inner loop at numpy's
 //    baseline (SSE3, two float64 lanes) accumulates even and odd elements in
 //    separate lanes, in blocks of eight taken from the back, and adds the two
 //    lanes at the end;
-//  * the Euclidean kernels are scikit-learn's four-way unrolled loop and
+//  * the Euclidean kernels are a four-coordinate grouped loop and
 //    scipy's sequential pdist loop;
 //  * the E-step works on chunks of 256 samples whose centre sums are
 //    accumulated per chunk and combined in chunk order. scikit-learn combines
 //    them in the order its OpenMP threads finish, which gives the same bits
 //    for up to two chunks (512 samples) because a two-term sum commutes, and
-//    may differ in the last bits beyond that; this port is deterministic.
+//    may differ in the last bits beyond that; this implementation is deterministic.
 //  * the inertia that picks the best of the ten initialisations is summed
 //    sequentially; scikit-learn sums it with an OpenMP reduction. It only
 //    decides between two different partitions whose inertias agree to the
 //    last bits, which does not happen on real data.
 //
-// Measured agreement is recorded in the hicAggregateContacts port.
+// Agreement is checked bit for bit on random data against scikit-learn 1.3.2
+// (cpp/tests/test_sklearn_oracle.cpp, fixtures written by
+// cpp/scripts/sklearn_oracle_fixture.py).
 
 #ifndef HICX_CLUSTERING_HPP
 #define HICX_CLUSTERING_HPP
@@ -86,6 +88,15 @@ class ClusteringError : public std::runtime_error {
 
 namespace detail {
 
+// The result of KMeans(n_clusters, random_state).fit(X): labels_ and
+// cluster_centers_ (row major, n_clusters by features).
+struct KMeansFit {
+    std::vector<std::int64_t> labels;
+    std::vector<double> centers;
+};
+[[nodiscard]] KMeansFit kmeans_fit(const Samples& X, std::int64_t n_clusters,
+                                   std::uint32_t random_state);
+
 // np.einsum('ij,ij->i', X, X) for one row, bit for bit.
 [[nodiscard]] double einsum_row_norm_squared(const double* row, std::int64_t features);
 
@@ -107,8 +118,9 @@ namespace detail {
 [[nodiscard]] std::vector<std::int64_t> dendrogram_leaves(const std::vector<double>& Z,
                                                           std::int64_t n);
 
-// sklearn.cluster._agglomerative._hc_cut(n_clusters, children, n_leaves), with
-// children the first two columns of the linkage matrix.
+// The labels AgglomerativeClustering gives when the dendrogram is cut into
+// n_clusters clusters (the last n_clusters - 1 merges undone), with children
+// the first two columns of the linkage matrix.
 [[nodiscard]] std::vector<std::int64_t> hc_cut(std::int64_t n_clusters,
                                                const std::vector<std::int64_t>& children,
                                                std::int64_t n_leaves);
