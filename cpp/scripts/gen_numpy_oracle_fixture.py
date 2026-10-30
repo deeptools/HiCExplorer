@@ -15,6 +15,9 @@ parameters and numpy's answer only. Families:
                through strided views: bit pattern of the result.
   repr.txt     repr(float) and str(np.float32): the string.
   arraystr.txt str(np.array(list of str)); tab separated, newlines escaped.
+  stats.txt    np.median, np.nanquantile, np.percentile, np.linspace and
+               np.searchsorted(side='right') on arrays with ties, NaN,
+               infinities and negative zero, also unsorted search arrays.
 
 sort_adversary_keys.txt (input, not generated here) holds integer key arrays
 that force the heapsort fall back of the introsort. They were produced by
@@ -201,7 +204,73 @@ def write_arraystr():
         handle.write("\n".join(lines) + "\n")
 
 
+def stat_values(mode, n, seed):
+    """Values with ties (modes 1, 3), NaN (2, 3), infinities and -0.0 (3)."""
+    u = stream(seed, n)
+    u2 = stream(seed + 5, n)
+    if mode == 0:
+        return unit(seed, n) * 100.0 - 20.0
+    if mode == 1:
+        return (u % np.uint64(6)).astype(np.float64)
+    v = unit(seed, n) - 0.5
+    if mode == 2:
+        v[(u2 % np.uint64(5)) == 0] = np.nan
+        return v
+    v[(u2 % np.uint64(9)) == 0] = np.nan
+    v[(u2 % np.uint64(9)) == 1] = np.inf
+    v[(u2 % np.uint64(9)) == 2] = -np.inf
+    v[(u2 % np.uint64(9)) == 3] = -0.0
+    return v
+
+
+def bits64(x):
+    """Bit pattern of a float64, every NaN as the quiet NaN 0x7ff8000000000000."""
+    if np.isnan(x):
+        return 0x7FF8000000000000
+    return int(np.array([x], dtype=np.float64).view(np.uint64)[0])
+
+
+def fnv_bits(values):
+    h = 0xCBF29CE484222325
+    for x in [bits64(v) for v in np.asarray(values, dtype=np.float64)]:
+        for b in int(x).to_bytes(8, "little"):
+            h = ((h ^ b) * 0x100000001B3) & 0xFFFFFFFFFFFFFFFF
+    return h
+
+
+def write_stats():
+    import warnings
+    warnings.simplefilter("ignore")
+    lines = []
+    seed = 5000
+    for n in list(range(1, 12)) + [20, 33, 100, 1001, 5000]:
+        for mode in range(4):
+            v = stat_values(mode, n, seed)
+            lines.append(f"median {mode} {n} {seed} {bits64(np.median(v))}")
+            qs = np.concatenate([[0.0, 1.0, 0.5, 0.25], unit(seed + 9, 12)])
+            res = np.nanquantile(v, qs)
+            lines.append(f"nanquantile {mode} {n} {seed} {len(qs)} {fnv_bits(res)}")
+            for q in (0.0, 100.0, 50.0, 2.5, 97.5, 33.3):
+                lines.append(f"percentile {mode} {n} {seed} {q!r} {bits64(np.percentile(v, q))}")
+            # search arrays: sorted (ties), unsorted, with NaN
+            keys = stat_values(mode, 40, seed + 3)
+            keys = np.concatenate([keys, [np.nan, np.inf, -np.inf]])
+            for sorted_flag in (1, 0):
+                arr = np.sort(v) if sorted_flag else v
+                lines.append(f"searchsorted {mode} {n} {seed} {sorted_flag} "
+                             f"{fnv(np.searchsorted(arr, keys, side='right'))}")
+            seed += 1
+    rng = np.random.default_rng(5)
+    for _ in range(300):
+        a, b = (float(x) for x in rng.choice([-1e3, -2.5, 0.0, 1.0, 7.0, 1e5, 1.3e-12], 2))
+        num = int(rng.choice([0, 1, 2, 3, 7, 10, 100, 1001]))
+        lines.append(f"linspace {bits64(a)} {bits64(b)} {num} {fnv_bits(np.linspace(a, b, num))}")
+    lines.append(f"linspace {bits64(0.0)} {bits64(5e-324)} 10 {fnv_bits(np.linspace(0.0, 5e-324, 10))}")
+    with open(os.path.join(OUT, "stats.txt"), "w") as handle:
+        handle.write("\n".join(lines) + "\n")
+
+
 if __name__ == "__main__":
-    families = sys.argv[1:] or ["sum", "repr", "arraystr", "sort"]
+    families = sys.argv[1:] or ["sum", "repr", "arraystr", "sort", "stats"]
     for family in families:
         globals()["write_" + family]()

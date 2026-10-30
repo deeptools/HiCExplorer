@@ -114,6 +114,7 @@ add_library(hicx4core
     src/numpy_compat.cpp
     src/numpy_random.cpp
     src/numpy_sort.cpp
+    src/numpy_stats.cpp
     src/obsexp_ops.cpp
     src/pca_tracks.cpp
     src/pairs_file.cpp

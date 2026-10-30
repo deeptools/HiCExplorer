@@ -5,6 +5,7 @@
 
 #include <doctest/doctest.h>
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
@@ -251,4 +252,126 @@ TEST_CASE("int_with_thousands_separator") {
     CHECK(int_with_thousands_separator(1000) == "1,000");
     CHECK(int_with_thousands_separator(-1234567) == "-1,234,567");
     CHECK(int_with_thousands_separator(INT64_MIN) == "-9,223,372,036,854,775,808");
+}
+
+#include "hicx/numpy_stats.hpp"
+
+namespace {
+
+std::uint64_t canonical_bits(double x) {
+    if (std::isnan(x)) {
+        return 0x7FF8000000000000ULL;
+    }
+    std::uint64_t bits = 0;
+    std::memcpy(&bits, &x, 8);
+    return bits;
+}
+
+std::uint64_t fnv_bits(const std::vector<double>& values) {
+    std::uint64_t h = 0xCBF29CE484222325ULL;
+    for (const double v : values) {
+        const std::uint64_t bits = canonical_bits(v);
+        for (int b = 0; b < 8; ++b) {
+            h = (h ^ ((bits >> (8 * b)) & 0xFF)) * 0x100000001B3ULL;
+        }
+    }
+    return h;
+}
+
+double from_bits(std::uint64_t bits) {
+    double x = 0;
+    std::memcpy(&x, &bits, 8);
+    return x;
+}
+
+std::vector<double> stat_values(int mode, std::size_t n, std::uint64_t seed) {
+    const auto u = stream(seed, n);
+    const auto u2 = stream(seed + 5, n);
+    std::vector<double> v = unit(seed, n);
+    for (std::size_t i = 0; i < n; ++i) {
+        switch (mode) {
+            case 0:
+                v[i] = v[i] * 100.0 - 20.0;
+                break;
+            case 1:
+                v[i] = static_cast<double>(u[i] % 6);
+                break;
+            case 2:
+                v[i] = (u2[i] % 5 == 0) ? std::nan("") : v[i] - 0.5;
+                break;
+            default: {
+                const std::uint64_t r = u2[i] % 9;
+                v[i] = r == 0 ? std::nan("")
+                       : r == 1 ? HUGE_VAL
+                       : r == 2 ? -HUGE_VAL
+                       : r == 3 ? -0.0
+                                : v[i] - 0.5;
+            }
+        }
+    }
+    return v;
+}
+
+}  // namespace
+
+TEST_CASE("median, quantile, percentile, linspace and searchsorted match numpy") {
+    int checked = 0;
+    for (const std::string& line : fixture_lines("stats.txt")) {
+        std::istringstream in(line);
+        std::string kind;
+        in >> kind;
+        if (kind == "linspace") {
+            std::uint64_t a = 0, b = 0, expected = 0;
+            std::int64_t num = 0;
+            in >> a >> b >> num >> expected;
+            CHECK_MESSAGE(fnv_bits(hicx::npy::linspace(from_bits(a), from_bits(b), num)) == expected,
+                          line);
+        } else if (kind == "median") {
+            int mode = 0;
+            std::size_t n = 0;
+            std::uint64_t seed = 0, expected = 0;
+            in >> mode >> n >> seed >> expected;
+            CHECK_MESSAGE(canonical_bits(hicx::npy::median(stat_values(mode, n, seed))) == expected,
+                          line);
+        } else if (kind == "nanquantile") {
+            int mode = 0;
+            std::size_t n = 0, count = 0;
+            std::uint64_t seed = 0, expected = 0;
+            in >> mode >> n >> seed >> count >> expected;
+            std::vector<double> qs = {0.0, 1.0, 0.5, 0.25};
+            for (const double q : unit(seed + 9, count - 4)) {
+                qs.push_back(q);
+            }
+            CHECK_MESSAGE(
+                fnv_bits(hicx::npy::nanquantile_linear(stat_values(mode, n, seed), qs)) == expected,
+                line);
+        } else if (kind == "percentile") {
+            int mode = 0;
+            std::size_t n = 0;
+            std::uint64_t seed = 0, expected = 0;
+            double q = 0;
+            in >> mode >> n >> seed >> q >> expected;
+            CHECK_MESSAGE(canonical_bits(hicx::npy::percentile_linear(stat_values(mode, n, seed), q)) ==
+                              expected,
+                          line);
+        } else {
+            int mode = 0, sorted_flag = 0;
+            std::size_t n = 0;
+            std::uint64_t seed = 0, expected = 0;
+            in >> mode >> n >> seed >> sorted_flag >> expected;
+            std::vector<double> arr = stat_values(mode, n, seed);
+            if (sorted_flag) {
+                // np.sort: NaN last.
+                std::sort(arr.begin(), arr.end(),
+                          [](double x, double y) { return x < y || (y != y && x == x); });
+            }
+            std::vector<double> keys = stat_values(mode, 40, seed + 3);
+            keys.push_back(std::nan(""));
+            keys.push_back(HUGE_VAL);
+            keys.push_back(-HUGE_VAL);
+            CHECK_MESSAGE(fnv(hicx::npy::searchsorted_right(arr, keys)) == expected, line);
+        }
+        ++checked;
+    }
+    CHECK(checked > 900);
 }

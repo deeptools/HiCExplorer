@@ -5,6 +5,7 @@
 #include <limits>
 
 #include "hicx/math/sparse_kernels.hpp"
+#include "hicx/numpy_stats.hpp"
 
 namespace hicx::correct {
 
@@ -27,19 +28,7 @@ std::vector<double> block_diagonal(const kernels::DiagonalBlock& block) {
 }  // namespace
 
 double numpy_median(std::vector<double> values) {
-    if (values.empty()) {
-        return std::numeric_limits<double>::quiet_NaN();
-    }
-    const std::size_t half = values.size() / 2;
-    std::nth_element(values.begin(), values.begin() + static_cast<std::ptrdiff_t>(half),
-                     values.end());
-    const double upper = values[half];
-    if (values.size() % 2 == 1) {
-        return upper;
-    }
-    const double lower =
-        *std::max_element(values.begin(), values.begin() + static_cast<std::ptrdiff_t>(half));
-    return (lower + upper) / 2.0;
+    return hicx::npy::median(std::move(values));
 }
 
 Mad::Mad(const std::vector<double>& points) {

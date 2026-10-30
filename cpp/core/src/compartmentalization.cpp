@@ -12,6 +12,7 @@
 #include <unordered_set>
 
 #include "hicx/numpy_compat.hpp"
+#include "hicx/numpy_stats.hpp"
 
 namespace hicx::compartments {
 
@@ -51,9 +52,6 @@ std::int64_t parse_int64(const std::string& text, const std::string& path, int l
     }
     return static_cast<std::int64_t>(value);
 }
-
-// numpy's ordering for floating point sort and search: NaN after everything.
-bool npy_less(double a, double b) { return a < b || (b != b && a == a); }
 
 }  // namespace
 
@@ -117,128 +115,16 @@ std::vector<PcaRow> read_pca_bedgraph(const std::string& path) {
 
 std::vector<double> nanquantile_linear(std::vector<double> values,
                                        const std::vector<double>& quantiles) {
-    for (const double q : quantiles) {
-        if (!(q >= 0.0 && q <= 1.0)) {
-            throw std::invalid_argument("Quantiles must be in the range [0, 1]");
-        }
-    }
-    values.erase(std::remove_if(values.begin(), values.end(),
-                                [](double v) { return std::isnan(v); }),
-                 values.end());
-    std::vector<double> result(quantiles.size(), std::numeric_limits<double>::quiet_NaN());
-    const auto n = static_cast<std::int64_t>(values.size());
-    if (n == 0) {
-        return result;  // numpy warns "All-NaN slice encountered" and returns NaN
-    }
-    std::sort(values.begin(), values.end());
-    for (std::size_t k = 0; k < quantiles.size(); ++k) {
-        // _QuantileMethods['linear'].get_virtual_index: (n - 1) * quantiles
-        const double virtual_index = static_cast<double>(n - 1) * quantiles[k];
-        // _get_indexes
-        double previous = std::floor(virtual_index);
-        double next = previous + 1.0;
-        if (virtual_index >= static_cast<double>(n - 1)) {
-            previous = -1.0;
-            next = -1.0;
-        }
-        if (virtual_index < 0.0) {
-            previous = 0.0;
-            next = 0.0;
-        }
-        if (std::isnan(virtual_index)) {
-            previous = -1.0;
-            next = -1.0;
-        }
-        const auto previous_index = static_cast<std::int64_t>(previous);
-        const auto next_index = static_cast<std::int64_t>(next);
-        // _get_gamma: virtual_indexes - previous_indexes, the latter as intp.
-        const double gamma = virtual_index - static_cast<double>(previous_index);
-        const double a =
-            values[static_cast<std::size_t>(previous_index < 0 ? n + previous_index
-                                                               : previous_index)];
-        const double b =
-            values[static_cast<std::size_t>(next_index < 0 ? n + next_index : next_index)];
-        // _lerp
-        const double diff_b_a = b - a;
-        double lerp = a + diff_b_a * gamma;
-        if (gamma >= 0.5) {
-            lerp = b - diff_b_a * (1.0 - gamma);
-        }
-        result[k] = lerp;
-    }
-    return result;
+    return npy::nanquantile_linear(std::move(values), quantiles);
 }
 
 std::vector<double> linspace(double start, double stop, std::int64_t num) {
-    if (num < 0) {
-        throw std::invalid_argument("Number of samples, " + std::to_string(num) +
-                                    ", must be non-negative.");
-    }
-    const std::int64_t div = num - 1;
-    const double delta = stop - start;
-    std::vector<double> y(static_cast<std::size_t>(num));
-    for (std::int64_t i = 0; i < num; ++i) {
-        y[static_cast<std::size_t>(i)] = static_cast<double>(i);
-    }
-    if (div > 0) {
-        const double step = delta / static_cast<double>(div);
-        if (step == 0.0) {
-            for (double& value : y) {
-                value /= static_cast<double>(div);
-                value *= delta;
-            }
-        } else {
-            for (double& value : y) {
-                value *= step;
-            }
-        }
-    } else {
-        for (double& value : y) {
-            value = value * delta;
-        }
-    }
-    for (double& value : y) {
-        value += start;
-    }
-    if (num > 1) {
-        y.back() = stop;
-    }
-    return y;
+    return npy::linspace(start, stop, num);
 }
 
 std::vector<std::int64_t> searchsorted_right(const std::vector<double>& sorted,
                                              const std::vector<double>& keys) {
-    // numpy/_core/src/npysort/binsearch.cpp, side right: cmp(a, b) is
-    // !less(b, a).
-    const auto cmp = [](double a, double b) { return !npy_less(b, a); };
-    std::vector<std::int64_t> result(keys.size());
-    if (keys.empty()) {
-        return result;
-    }
-    const auto arr_len = static_cast<std::int64_t>(sorted.size());
-    std::int64_t min_idx = 0;
-    std::int64_t max_idx = arr_len;
-    double last_key = keys[0];
-    for (std::size_t k = 0; k < keys.size(); ++k) {
-        const double key = keys[k];
-        if (cmp(last_key, key)) {
-            max_idx = arr_len;
-        } else {
-            min_idx = 0;
-            max_idx = (max_idx < arr_len) ? (max_idx + 1) : arr_len;
-        }
-        last_key = key;
-        while (min_idx < max_idx) {
-            const std::int64_t mid = min_idx + ((max_idx - min_idx) >> 1);
-            if (cmp(sorted[static_cast<std::size_t>(mid)], key)) {
-                min_idx = mid + 1;
-            } else {
-                max_idx = mid;
-            }
-        }
-        result[k] = min_idx;
-    }
-    return result;
+    return npy::searchsorted_right(sorted, keys);
 }
 
 std::vector<double> quantile_boundaries(const std::vector<PcaRow>& rows,

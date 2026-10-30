@@ -31,21 +31,20 @@ struct PcaRow {
 // NA, because the Python then fails in getRegionBinRange.
 [[nodiscard]] std::vector<PcaRow> read_pca_bedgraph(const std::string& path);
 
-// np.nanquantile(values, quantiles) with the default method 'linear', numpy
-// 1.26 arithmetic: virtual index (n - 1) * q, the two neighbours, and _lerp's
-// two sided formula. Throws std::invalid_argument with numpy's message when a
-// quantile is outside [0, 1] or NaN.
+// np.nanquantile(values, quantiles) with the default method 'linear'
+// (hicx::npy::nanquantile_linear). Throws std::invalid_argument with numpy's
+// message when a quantile is outside [0, 1] or NaN.
 [[nodiscard]] std::vector<double> nanquantile_linear(std::vector<double> values,
                                                      const std::vector<double>& quantiles);
 
-// np.linspace(start, stop, num) for float64 scalars, numpy 1.26 arithmetic.
+// np.linspace(start, stop, num) for float64 scalars (hicx::npy::linspace).
 // Throws std::invalid_argument for a negative num, as numpy does.
 [[nodiscard]] std::vector<double> linspace(double start, double stop, std::int64_t num);
 
-// np.searchsorted(sorted, keys, side='right'), including numpy's binary search
-// that seeds each search from the previous key and its ordering in which NaN
-// sorts after everything. The seeding only changes results for an array that
-// is not sorted, which quantile boundaries can in principle be by an ulp.
+// np.searchsorted(sorted, keys, side='right') (hicx::npy::searchsorted_right),
+// with NaN ordered after everything and each search seeded from the previous
+// key. The seeding only changes results for an array that is not sorted, which
+// quantile boundaries can in principle be by an ulp.
 [[nodiscard]] std::vector<std::int64_t> searchsorted_right(const std::vector<double>& sorted,
                                                            const std::vector<double>& keys);
 
