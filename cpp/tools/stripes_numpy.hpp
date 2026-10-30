@@ -1,22 +1,26 @@
-// The numerical building blocks of the Stripenn method, reproduced operation
-// by operation: the numpy, scipy, OpenCV and scikit-image routines that
-// Stripenn 1.1.65.22 (Yoon et al. 2022) calls, in the order of floating point
-// operations those libraries perform them. hicDetectStripes implements the
-// Stripenn approach and its acceptance gate is identical output to Stripenn on
-// the same input, so rounding is part of the specification here: a sum whose
-// terms are added in another order can move a p-value comparison or a Canny
-// threshold test.
+// The numerical building blocks of the Stripenn method (Yoon et al. 2022,
+// Stripenn 1.1.65.22) that hicDetectStripes needs: summation, order statistics
+// and a seeded random generator, a Gaussian / Sobel / Canny edge detector, a
+// box filter, a grey conversion and a 3 x 3 convolution. hicDetectStripes
+// implements the Stripenn method and its acceptance gate is identical output
+// to Stripenn on the same input, so rounding is part of the specification: a
+// sum whose terms are added in another order, or a product kept in another
+// precision, can move a p-value comparison or an edge decision.
 //
-// Every routine states the library routine it follows and the library
-// version the order was read from or measured against:
-//   numpy 1.26.4     pairwise summation, quantile, median, round
-//   Python 3.9       random.Random (MT19937) and random.choices
-//   (scipy 1.13.1 ndimage.gaussian_filter, sobel and signal.convolve2d are the
-//   oracle for the filters below, which are written from their definitions)
-//   scikit-image 0.24.0   feature.canny, _nonmaximum_suppression_bilinear
-//   OpenCV 4.9.0     filter2D with a normalised box kernel, cvtColor RGB2GRAY
-// None of those libraries is a dependency of HiCExplorer; they are only the
-// external oracle the unit tests and cpp/scripts/stripenn_oracle compare to.
+// All routines are written here from the published algorithms and the
+// documented behaviour of the routines Stripenn calls (Matsumoto and
+// Nishimura 1998 for the generator, Canny 1986 for the edge detector, the
+// definitions of correlation, convolution and linear interpolation of order
+// statistics). The result of each is compared bit for bit with the original
+// library as a black-box oracle, never read from its source:
+//   numpy 1.26.4          sum / mean / median / quantile / round
+//   Python 3.9            random.Random and random.choices
+//   scipy                 ndimage.gaussian_filter, sobel; signal.convolve2d
+//   scikit-image 0.24.0   feature.canny
+//   OpenCV 4.9.0          filter2D (normalised box kernel), cvtColor RGB2GRAY
+// None of those libraries is a dependency of HiCExplorer. The comparisons are
+// cpp/scripts/stripenn_oracle/check_primitives.py (randomised, large) and the
+// fixtures of tests/test_detect_stripes.cpp and tests/test_stripes_primitives.cpp.
 
 #ifndef HICX_TOOLS_STRIPES_NUMPY_HPP
 #define HICX_TOOLS_STRIPES_NUMPY_HPP
@@ -28,16 +32,20 @@
 
 namespace hicx::stripes::np {
 
-// numpy's pairwise summation of a contiguous double array (loops_utils.h.src
-// DOUBLE_pairwise_sum): fewer than 8 terms are added in order, up to 128 terms
-// with eight interleaved accumulators, more by halving at a multiple of 8.
+// The sum numpy.sum returns for a contiguous double array. Floating point
+// addition is not associative, so the grouping is part of the result: it is
+// the pairwise summation of Higham (1993, "The accuracy of floating point
+// summation", SIAM J. Sci. Comput. 14:783-799) with an unrolled base case:
+// fewer than 8 terms are added in order, up to 128 terms with eight
+// interleaved partial sums, more by halving at a multiple of 8.
 [[nodiscard]] double pairwise_sum(const double* values, std::size_t count);
 
 // numpy.sum of a rows x cols block cut out of a larger row-major array
-// (stride between rows: row_stride). A view whose rows are not adjacent in
-// memory is reduced through numpy's 8192 element buffer, one pairwise sum per
-// buffer filled in row-major order and the buffers added in sequence. A single
-// row or a block whose rows are adjacent (row_stride == cols) is one
+// (stride between rows: row_stride). numpy reduces a view whose rows are not
+// adjacent in memory through a working buffer of 8192 elements (its
+// documented default buffer size, numpy.getbufsize): one pairwise sum per
+// buffer, filled in row-major order, and the buffer sums added in sequence. A
+// single row or a block whose rows are adjacent (row_stride == cols) is one
 // contiguous reduction.
 [[nodiscard]] double sum_block(const double* base, std::size_t rows, std::size_t cols,
                                std::size_t row_stride);
@@ -67,10 +75,12 @@ namespace hicx::stripes::np {
 [[nodiscard]] double median(std::vector<double> values);
 [[nodiscard]] double nanmedian(std::vector<double> values);
 
-// numpy.quantile(values, q) with the default 'linear' method given the two
-// order statistics around the virtual index: sorted[k] and sorted[k + 1].
-// `n` is the number of values; the function returns the interpolated value
-// and reports the indices it needs through the two out parameters.
+// numpy.quantile(values, q) with the default 'linear' method, which is
+// definition 7 of Hyndman and Fan (1996, Am. Stat. 50:361-365): the virtual
+// index is (n - 1) q, and the quantile is interpolated linearly between the
+// order statistics sorted[previous] and sorted[next] with weight gamma on the
+// upper one. quantile_ranks gives previous, next and gamma for n values;
+// quantile_lerp interpolates.
 struct QuantileRanks {
     std::int64_t previous = 0;
     std::int64_t next = 0;
@@ -79,9 +89,12 @@ struct QuantileRanks {
 [[nodiscard]] QuantileRanks quantile_ranks(std::int64_t n, double q);
 [[nodiscard]] double quantile_lerp(double previous_value, double next_value, double gamma);
 
-// Python's random.Random(seed) for a non-negative integer seed: the MT19937
-// generator initialised by init_by_array over the seed's 32 bit words, and
-// random() as (a * 67108864 + b) / 2^53 with a = genrand >> 5, b = genrand >> 6.
+// Python's random.Random(seed) for a non-negative integer seed: the Mersenne
+// Twister MT19937 (Matsumoto and Nishimura 1998, ACM TOMACS 8:3-30) seeded
+// with the init_by_array procedure of the authors' 2002 reference
+// implementation over the seed's 32 bit words (least significant first), and
+// random() as the 53 bit value (a * 2^26 + b) / 2^53 with a the upper 27 bits
+// of one output and b the upper 26 bits of the next (the authors' genrand_res53).
 class PyRandom {
   public:
     explicit PyRandom(std::uint64_t seed);
@@ -89,6 +102,10 @@ class PyRandom {
     // random.choices(population, k=1)[0] over a population of `size`
     // elements: floor(random() * size), the index of the pick.
     [[nodiscard]] std::size_t choice_index(std::size_t size);
+    // random.choices(population, cum_weights=cum_weights, k=1)[0]: the index
+    // found by bisecting the cumulative weights (bisect_right over the first
+    // n - 1 entries) at random() times the total weight.
+    [[nodiscard]] std::size_t weighted_choice_index(const std::vector<double>& cum_weights);
 
   private:
     std::uint32_t next32();
@@ -120,20 +137,28 @@ enum class Boundary { Constant, Reflect };
                                  Boundary mode, double cval);
 
 // Gaussian smoothing of a float32 image with zero fill outside the image and the
-// kernel truncated at 4 sigma (the result of scipy.ndimage.gaussian_filter with
-// mode='constant', cval=0.0, truncate=4.0, the external oracle): one 1-D
-// correlation per axis (axis 0 then axis 1), each line converted to double,
-// filtered with the symmetric kernel (summation order documented at
-// correlate1d in the .cpp) and stored back as float32.
+// kernel truncated at 4 sigma (what scipy.ndimage.gaussian_filter returns with
+// mode='constant', cval=0.0, truncate=4.0): one 1-D correlation per axis
+// (axis 0 then axis 1), each line converted to double, filtered with the
+// symmetric kernel (summation order documented at correlate1d in the .cpp) and
+// stored back as float32.
 [[nodiscard]] ImageF gaussian_filter_constant(const ImageF& image, double sigma);
 
 // The sampled, normalised Gaussian kernel exp(-x^2 / (2 sigma^2)) / sum, x = -radius..radius, exposed for tests.
 [[nodiscard]] std::vector<double> gaussian_kernel1d(double sigma, int radius);
 
-// skimage.feature.canny(image, sigma=sigma) with every other argument at its
-// default (thresholds 0.1 and 0.2 of the dtype maximum 1, mode='constant',
-// no mask), on a float32 image. Returns 0/1 per pixel.
-[[nodiscard]] std::vector<std::uint8_t> canny(const ImageF& image, double sigma);
+// The Canny (1986) edge detector as skimage.feature.canny(image, sigma=sigma,
+// low_threshold, high_threshold) computes it on a float32 image with zero fill
+// outside the image, no mask and thresholds as absolute gradient magnitudes
+// (defaults 0.1 and 0.2): Gaussian smoothing, Sobel gradient, non-maximum
+// suppression of the gradient magnitude along the gradient direction with
+// bilinear interpolation between neighbours, and hysteresis thresholding
+// (a suppressed pixel above the low threshold is an edge when it is 8-connected
+// through such pixels to one at or above the high threshold). The one pixel
+// border of the image is never an edge. Returns 0/1 per pixel.
+[[nodiscard]] std::vector<std::uint8_t> canny(const ImageF& image, double sigma,
+                                              double low_threshold = 0.1,
+                                              double high_threshold = 0.2);
 
 // The stages of canny, exposed so tests compare each against skimage.
 struct CannyStages {
@@ -144,23 +169,35 @@ struct CannyStages {
     ImageF suppressed;
     std::vector<std::uint8_t> edges;
 };
-[[nodiscard]] CannyStages canny_stages(const ImageF& image, double sigma);
+[[nodiscard]] CannyStages canny_stages(const ImageF& image, double sigma, double low_threshold = 0.1,
+                                       double high_threshold = 0.2);
 
-// cv2.filter2D(img, -1, ones((k, k)) / (k * k)) on a single double channel
-// with OpenCV's default border (BORDER_REFLECT_101) and anchor (centre): the
-// kernel taps are accumulated in row-major order by fused multiply-add, as the
-// dispatched OpenCV build does.
+// The normalised box filter, cv2.filter2D(img, -1, ones((k, k)) / (k * k)), on
+// a single double channel: the correlation of the plane with a k x k kernel of
+// weights 1 / k^2, anchored at its centre, with the default border of OpenCV
+// (BORDER_REFLECT_101: gfedcb|abcdefgh|gfedcba, the edge sample not repeated).
+// The taps are accumulated in row-major order, each by a fused multiply-add of
+// the weight, which is how the OpenCV 4.9 build used as oracle rounds for
+// kernels up to 7 x 7 (identity checked for k = 1, 3, 5, 7; OpenCV computes
+// larger kernels, area 50 and above, by a Fourier transform whose rounding
+// is not reproduced, so the result then agrees to about 1e-15 relative only;
+// Stripenn's default is k = 3).
 [[nodiscard]] std::vector<double> box_filter(const std::vector<double>& plane, int rows, int cols,
                                              int ksize);
 
-// cv2.cvtColor(float32 RGB image, COLOR_RGB2GRAY) for one pixel:
-// fma(b, 0.114f, fma(r, 0.299f, g * 0.587f)) in float32.
+// Grey value of one RGB pixel, cv2.cvtColor(..., COLOR_RGB2GRAY): the weights
+// 0.299, 0.587, 0.114 (ITU-R BT.601 luma). Float32 pixels are combined in
+// float32 as fma(b, 0.114f, fma(r, 0.299f, g * 0.587f)); 8 bit pixels with the
+// weights as 15 bit fixed point integers, (9798 r + 19235 g + 3735 b + 2^14) >> 15
+// (0.299 and 0.587 times 2^15, rounded; the blue weight is the remainder to 2^15),
+// which rounds half up.
 [[nodiscard]] float rgb_to_gray(float r, float g, float b);
+[[nodiscard]] std::uint8_t rgb_to_gray_u8(std::uint8_t r, std::uint8_t g, std::uint8_t b);
 
 // 2-D convolution of a 0/1 matrix M with a 3 x 3 integer kernel, cropped to the
 // size of M with zero fill (what scipy.signal.convolve2d(M, kernel, mode='same')
-// returns, the oracle), as stripenn.ImageProcessing.verticalLine uses it;
-// returns an int matrix.
+// returns), as Stripenn's vertical line detection uses it; returns an int
+// matrix.
 [[nodiscard]] std::vector<int> convolve2d_same_3x3(const std::vector<std::uint8_t>& m, int rows,
                                                    int cols, const int kernel[3][3]);
 
