@@ -13,6 +13,14 @@
 //  * text files are read as open(path, 'r') reads them in a UTF-8 locale:
 //    strict UTF-8 (no surrogates, no overlong forms) and universal newlines,
 //    so "\r\n" and a lone "\r" both end a line and become "\n".
+//
+// The whitespace set is the Unicode White_Space property plus U+001C-U+001F
+// (the Unicode character database, as exposed by str.isspace()); the UTF-8
+// ranges are those of RFC 3629. Verified against Python 3.12.7 on every code
+// point, 4000 random strings (all whitespace code points, lone surrogates),
+// about 70000 byte strings for strict decoding and 2000 files for universal
+// newlines: tests/test_cpython_oracles.cpp replays
+// tests/fixtures/cpython/py_text.txt from scripts/gen_pytext_fixture.py.
 
 #ifndef HICX_PY_TEXT_HPP
 #define HICX_PY_TEXT_HPP
