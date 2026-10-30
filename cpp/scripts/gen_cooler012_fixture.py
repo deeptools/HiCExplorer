@@ -15,8 +15,7 @@ into one file, followed by a structural dump of that file. The dump is written
 in a form that test_cooler012.cpp reproduces from an HDF5 file written by
 coolercpp, so that the two texts are compared character by character:
 
-    ~/src/HiCExplorer-v4-worktrees/env-v4test/bin/python \
-        cpp/scripts/gen_cooler012_fixture.py
+    <python with cooler 0.12.1> cpp/scripts/gen_cooler012_fixture.py
 
 Reference: cooler 0.12.1 (the version is asserted). Format of a case:
 
@@ -36,6 +35,7 @@ Reference: cooler 0.12.1 (the version is asserted). Format of a case:
 The creation-date and generated-by attributes are left out of the dump.
 """
 import os
+import sys
 import struct
 import subprocess
 import tempfile
