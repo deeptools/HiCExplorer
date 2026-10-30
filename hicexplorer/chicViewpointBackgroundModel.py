@@ -5,20 +5,11 @@ main() runs the executable and parse_arguments() is built from its --help-json
 hicexplorer._hicx.chicViewpointBackgroundModel (cpp/python/src/api/chicViewpointBackgroundModel.cpp);
 the tool does not use it.
 """
-import argparse
-import math
-from multiprocessing import Process, Queue
-import time
 import logging
 log = logging.getLogger(__name__)
 
-import numpy as np
-from hicexplorer.lib import fit_nbinom
 
-from hicmatrix import HiCMatrix as hm
-from hicexplorer._version import __version__
 from hicexplorer._hicx import chicViewpointBackgroundModel as _impl
-from .lib import Viewpoint
 
 
 def parse_arguments(args=None):

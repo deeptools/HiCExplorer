@@ -9,7 +9,6 @@ in hicexplorer/test/api/cases_hicMergeDomains.py.
 """
 import logging
 log = logging.getLogger(__name__)
-from hicexplorer._version import __version__
 
 from hicexplorer._hicx import hicMergeDomains as _impl
 

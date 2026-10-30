@@ -11,14 +11,11 @@ and plotTADs are matplotlib drawing code and stay Python
 they draw from hicexplorer._hicx.hicPlotMatrix.
 """
 import logging
-from collections import OrderedDict
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import matplotlib.gridspec as gridspec
-from matplotlib import colormaps as cm
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
 import matplotlib
-import matplotlib as mpl
 import numpy as np
 from hicexplorer.utilities import toString
 import warnings

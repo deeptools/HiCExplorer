@@ -5,24 +5,14 @@ main() runs the executable and parse_arguments() is built from its --help-json
 hicexplorer._hicx.chicQualityControl (cpp/python/src/api/chicQualityControl.cpp);
 the tool does not use it.
 """
-import argparse
-import math
-from multiprocessing import Process, Queue
-import time
-import os
 import logging
 logging.getLogger('hicmatrix').setLevel(logging.CRITICAL)
 log = logging.getLogger(__name__)
 
-import numpy as np
 import matplotlib
 matplotlib.use('Agg')
-import matplotlib.pyplot as plt
 
-from hicmatrix import HiCMatrix as hm
-from hicexplorer._version import __version__
 from hicexplorer._hicx import chicQualityControl as _impl
-from .lib import Viewpoint
 
 
 def parse_arguments(args=None):

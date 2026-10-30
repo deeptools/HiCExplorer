@@ -6,8 +6,6 @@ compatibility and are not used by the tool; they are C++ too
 (hicexplorer._hicx.lib_buildMatrixMethods through the star import below, and
 hicexplorer._hicx.hicBuildMatrixMicroC for Tester).
 """
-import argparse
-import os
 
 import warnings
 warnings.simplefilter(action="ignore", category=RuntimeWarning)
@@ -15,13 +13,11 @@ warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 
 
 # own tools
-from hicexplorer.utilities import genomicRegion
-from hicexplorer._version import __version__
 
 import logging
 log = logging.getLogger(__name__)
 
-from hicexplorer.lib.buildMatrixMethods import *
+from hicexplorer.lib.buildMatrixMethods import *  # noqa: F401,F403 (tests and the equivalence cases use the build functions through this module)
 
 from hicexplorer._hicx import hicBuildMatrixMicroC as _impl
 

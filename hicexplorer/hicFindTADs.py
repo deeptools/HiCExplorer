@@ -17,9 +17,8 @@ import warnings
 warnings.simplefilter(action="ignore", category=RuntimeWarning)
 warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 import logging
-from hicexplorer.utilities import enlarge_bins
-from hicexplorer._version import __version__
-from hicexplorer.utilities import toString, toBytes, check_chrom_str_bytes
+from hicexplorer.utilities import enlarge_bins  # noqa: F401 (the C++ hicFindTADs looks it up in this module)
+from hicexplorer.utilities import toString, toBytes  # noqa: F401 (the C++ hicFindTADs looks them up in this module)
 
 log = logging.getLogger(__name__)
 

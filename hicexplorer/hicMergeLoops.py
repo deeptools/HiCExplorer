@@ -11,7 +11,6 @@ warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 import logging
 log = logging.getLogger(__name__)
 
-from hicexplorer._version import __version__  # noqa: F401
 
 from hicexplorer._hicx import hicMergeLoops as _impl
 

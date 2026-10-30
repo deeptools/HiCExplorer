@@ -13,8 +13,7 @@ import logging
 log = logging.getLogger(__name__)
 
 from hicmatrix import HiCMatrix as hm  # noqa: F401 (the doctests use it)
-from hicexplorer.reduceMatrix import reduce_matrix  # noqa: F401 (merge_bins calls it through this module)
-from hicexplorer._version import __version__  # noqa: F401
+from hicexplorer.reduceMatrix import reduce_matrix  # noqa: F401 (the C++ hicMergeMatrixBins looks it up in this module)
 
 from hicexplorer._hicx import hicMergeMatrixBins as _impl
 

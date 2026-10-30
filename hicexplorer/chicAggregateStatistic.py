@@ -6,26 +6,11 @@ behaviour and call hicexplorer._hicx.chicAggregateStatistic
 (cpp/python/src/api/chicAggregateStatistic.cpp); the tool does not use them.
 call_multi_core runs the worker function in this process, once per thread.
 """
-import argparse
-import sys
-import errno
-import os
-import math
-from multiprocessing import Process, Queue
-import time
-import traceback
 import logging
 log = logging.getLogger(__name__)
 
-import numpy as np
 
-from intervaltree import IntervalTree, Interval
-import hicmatrix.HiCMatrix as hm
-
-from hicexplorer import utilities
-from hicexplorer._version import __version__
 from hicexplorer._hicx import chicAggregateStatistic as _impl
-from .lib import Viewpoint
 
 
 def parse_arguments(args=None):

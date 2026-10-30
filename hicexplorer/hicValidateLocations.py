@@ -9,14 +9,9 @@ executable runs.
 import warnings
 warnings.simplefilter(action="ignore", category=RuntimeWarning)
 warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
-import argparse
-from hicexplorer._version import __version__
-from hicexplorer.utilities import toString
 import logging
 log = logging.getLogger(__name__)
 
-import pandas as pd
-import numpy as np
 
 from hicexplorer._hicx import hicValidateLocations as _impl
 

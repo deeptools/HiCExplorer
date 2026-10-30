@@ -8,14 +8,6 @@ import warnings
 warnings.simplefilter(action="ignore", category=RuntimeWarning)
 warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 
-from tempfile import NamedTemporaryFile
-import shutil
-import argparse
-import os
-import errno
-
-from hicexplorer import hicBuildMatrix as hicBuildMatrix
-from hicexplorer._version import __version__
 
 import logging
 log = logging.getLogger(__name__)

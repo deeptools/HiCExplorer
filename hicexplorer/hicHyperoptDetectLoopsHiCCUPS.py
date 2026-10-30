@@ -3,7 +3,7 @@ warnings.simplefilter(action="ignore", category=RuntimeWarning)
 warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 import argparse
 
-from hyperopt import hp, fmin, tpe, space_eval, STATUS_OK, Trials
+from hyperopt import hp, fmin, tpe, space_eval, Trials
 import logging
 log = logging.getLogger(__name__)
 from tempfile import NamedTemporaryFile, mkdtemp

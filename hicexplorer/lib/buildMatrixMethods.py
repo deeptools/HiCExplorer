@@ -11,38 +11,15 @@ attributes 3.7.6 read from the objects it is given.
 import logging
 log = logging.getLogger(__name__)
 
-import argparse
-import numpy as np
-from scipy.sparse import coo_matrix, dia_matrix
-import time
-from os import unlink
-import os
-from pathlib import Path
-from io import StringIO
-import traceback
+import os  # noqa: F401 (the doctests use it)
 import warnings
 warnings.simplefilter(action="ignore", category=RuntimeWarning)
 warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 
-from collections import OrderedDict
-
-from copy import deepcopy
-from ctypes import Structure, c_uint, c_ushort
-from multiprocessing import Process, Queue
-from multiprocessing.sharedctypes import Array, RawArray
-
-from intervaltree import IntervalTree, Interval
-
 
 # own tools
-from hicmatrix import HiCMatrix as hm
-from hicexplorer.utilities import getUserRegion, genomicRegion
-from hicexplorer._version import __version__
-import hicexplorer.hicPrepareQCreport as QC
 
-from hicmatrix.lib import MatrixFileHandler
 
-from hicexplorer import hicMergeMatrixBins
 import logging
 log = logging.getLogger(__name__)
 

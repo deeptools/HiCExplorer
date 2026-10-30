@@ -8,11 +8,7 @@ which loads the matrix with the C++ matrix layer.
 import warnings
 warnings.simplefilter(action="ignore", category=RuntimeWarning)
 warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
-import argparse  # noqa: F401
-from hicmatrix import HiCMatrix as hm  # noqa: F401
-from hicexplorer._version import __version__  # noqa: F401
-from hicexplorer.utilities import check_cooler  # noqa: F401 (adjustMatrix calls it)
-import numpy as np  # noqa: F401
+from hicexplorer.utilities import check_cooler  # noqa: F401 (the C++ adjustMatrix looks it up in this module)
 import logging
 log = logging.getLogger(__name__)
 

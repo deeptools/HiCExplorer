@@ -5,22 +5,10 @@ main() runs the executable and parse_arguments() is built from its --help-json
 behaviour and call hicexplorer._hicx.chicViewpoint
 (cpp/python/src/api/chicViewpoint.cpp); the tool does not use them.
 """
-import argparse
-import sys
-import os
-import errno
-from multiprocessing import Process, Queue
-import time
-import math
 import logging
 log = logging.getLogger(__name__)
 
-import numpy as np
 
-import hicmatrix.HiCMatrix as hm
-from hicexplorer import utilities
-from .lib import Viewpoint
-from hicexplorer._version import __version__
 from hicexplorer._hicx import chicViewpoint as _impl
 
 

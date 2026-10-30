@@ -10,12 +10,9 @@ computes.
 import warnings
 warnings.simplefilter(action="ignore", category=RuntimeWarning)
 warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
-import argparse
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-import matplotlib as mpl
-from hicexplorer._version import __version__
 
 import logging
 log = logging.getLogger(__name__)

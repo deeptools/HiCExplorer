@@ -5,24 +5,11 @@ main() runs the executable and parse_arguments() is built from its --help-json
 behaviour and call hicexplorer._hicx.chicDifferentialTest
 (cpp/python/src/api/chicDifferentialTest.cpp); the tool does not use them.
 """
-import argparse
-import sys
-import errno
-import os
-import math
-from multiprocessing import Process, Queue
-import time
 import logging
 log = logging.getLogger(__name__)
 
-import numpy as np
-from scipy import stats
 
-import hicmatrix.HiCMatrix as hm
-from hicexplorer import utilities
-from hicexplorer._version import __version__
 from hicexplorer._hicx import chicDifferentialTest as _impl
-from .lib import Viewpoint
 
 
 def parse_arguments(args=None):
