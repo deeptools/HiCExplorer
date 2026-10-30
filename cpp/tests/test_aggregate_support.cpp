@@ -7,8 +7,8 @@
 // Every expected value below was produced by numpy 1.26.4, scipy 1.14.1 and
 // scikit-learn 1.3.2 in the reference environment, 2026-09-13, except the
 // argsort expectations (kIntro*): those were produced by numpy 1.23.5, which
-// has no AVX-512 argsort and runs the introsort (aquicksort_) that
-// hicx::npy::argsort ports, as numpy 1.26.4 does on a CPU without AVX512_SKX.
+// has no AVX-512 argsort and runs the portable introsort that
+// hicx::npy::argsort reproduces, as numpy 1.26.4 does on a CPU without AVX512_SKX.
 // Floats are written as C hex literals so that they are exact.
 
 #include <algorithm>
