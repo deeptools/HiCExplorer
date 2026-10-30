@@ -8,6 +8,7 @@
 #include <stdexcept>
 
 #include "coolercpp/errors.hpp"
+#include "hicx/from_chars_double.hpp"
 #include "numpy_compat.hpp"
 
 namespace coolercpp::json {
@@ -432,7 +433,9 @@ class Reader {
             }
         }
         double number = 0.0;
-        if (std::from_chars(begin, end, number).ec == std::errc::result_out_of_range) {
+        // hicx::from_chars_double: std::from_chars for double is unavailable in
+        // conda-forge's libc++ on macOS.
+        if (hicx::from_chars_double(begin, end, number).ec == std::errc::result_out_of_range) {
             number = std::strtod(std::string(begin, end).c_str(), nullptr);  // inf or 0
         }
         out = Value(number);
