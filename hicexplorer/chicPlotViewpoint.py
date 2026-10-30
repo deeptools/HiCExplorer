@@ -6,34 +6,19 @@ draws with matplotlib, and the data it draws come from the Viewpoint object's
 C++ methods and hicexplorer._hicx.chicPlotViewpoint
 (cpp/python/src/api/chicPlotViewpoint.cpp). The tool does not use it.
 """
-import argparse
-import sys
-import os
-import errno
-import math
-from multiprocessing import Process, Queue
-import time
 import traceback
 
 import logging
 log = logging.getLogger(__name__)
 
-import numpy as np
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
-import matplotlib as mpl
-import hicmatrix.HiCMatrix as hm
-from hicexplorer import utilities
-from hicexplorer._version import __version__
 from hicexplorer._hicx import chicPlotViewpoint as _impl
-from .lib import Viewpoint
 
 import io
-import tarfile
-from contextlib import closing
 
 
 def parse_arguments(args=None):

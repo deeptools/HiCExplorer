@@ -7,18 +7,11 @@ and call hicexplorer._hicx.hicCorrectMatrix
 matplotlib from data computed there.
 """
 import warnings
-import sys  # noqa: F401
 warnings.simplefilter(action="ignore", category=RuntimeWarning)
 warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
-import argparse  # noqa: F401
-from scipy.sparse import lil_matrix  # noqa: F401
 
-from hicexplorer.iterativeCorrection import iterativeCorrection  # noqa: F401 (iterative_correction calls it)
-from hicmatrix import HiCMatrix as hm  # noqa: F401
-from hicexplorer._version import __version__  # noqa: F401
-from hicexplorer.utilities import toString  # noqa: F401
-from hicexplorer.utilities import convertNansToZeros, convertInfsToZeros  # noqa: F401 (the plot data use them)
-from hicexplorer.utilities import check_cooler  # noqa: F401
+from hicexplorer.iterativeCorrection import iterativeCorrection  # noqa: F401 (the C++ hicCorrectMatrix looks it up in this module)
+from hicexplorer.utilities import convertNansToZeros, convertInfsToZeros  # noqa: F401 (the C++ hicCorrectMatrix looks them up in this module)
 
 
 # packages needed for plotting:
@@ -26,7 +19,6 @@ from matplotlib import use
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from matplotlib.ticker import MultipleLocator, FormatStrFormatter
-import matplotlib  # noqa: F401
 import numpy as np
 debug = 0
 

@@ -7,21 +7,8 @@ compatibility and are not used by the tool.
 import warnings
 warnings.simplefilter(action="ignore", category=RuntimeWarning)
 warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
-import argparse
-from hicexplorer._version import __version__
-from scipy.sparse import triu
-import sys
 import logging
 log = logging.getLogger(__name__)
-
-from hicmatrix.lib import MatrixFileHandler
-
-from hicexplorer import hicMergeMatrixBins
-from hicmatrix import HiCMatrix
-
-from copy import deepcopy
-from collections import OrderedDict
-from scipy.sparse import csr_matrix, coo_matrix, lil_matrix
 
 
 def parse_arguments(args=None):

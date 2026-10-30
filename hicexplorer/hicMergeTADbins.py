@@ -12,8 +12,6 @@ hicexplorer/test/api/cases_hicMergeTADbins.py.
 import warnings
 warnings.simplefilter(action="ignore", category=RuntimeWarning)
 warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
-from hicexplorer.utilities import toString
-from hicexplorer._version import __version__
 
 import logging
 log = logging.getLogger(__name__)

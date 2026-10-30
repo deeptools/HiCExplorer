@@ -7,25 +7,11 @@ behaviour and call hicexplorer._hicx.chicSignificantInteractions
 them. call_multi_core runs compute_interaction_file in this process, once per
 thread.
 """
-import argparse
-import sys
-import os
-import errno
-import math
-from multiprocessing import Process, Queue
-import time
 import logging
 log = logging.getLogger(__name__)
 
-import numpy as np
 
-import hicmatrix.HiCMatrix as hm
-from hicexplorer import utilities
-from hicexplorer._version import __version__
 from hicexplorer._hicx import chicSignificantInteractions as _impl
-from .lib import Viewpoint
-from hicexplorer.lib import cnb
-import traceback
 
 
 def parse_arguments(args=None):

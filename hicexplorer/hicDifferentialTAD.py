@@ -10,8 +10,6 @@ in hicexplorer/test/api/cases_hicDifferentialTAD.py.
 import logging
 log = logging.getLogger(__name__)
 
-from hicexplorer.utilities import check_cooler
-from hicexplorer._version import __version__
 
 from hicexplorer._hicx import hicDifferentialTAD as _impl
 

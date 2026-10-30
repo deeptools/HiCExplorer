@@ -4,8 +4,6 @@ main() runs the executable and parse_arguments() is built from its --help-json
 (hicexplorer._cpp). The other names of this module are kept for API
 compatibility and are not used by the tool.
 """
-import argparse
-import os
 
 import warnings
 warnings.simplefilter(action="ignore", category=RuntimeWarning)
@@ -13,13 +11,11 @@ warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 
 
 # own tools
-from hicexplorer.utilities import genomicRegion
-from hicexplorer._version import __version__
 
 import logging
 log = logging.getLogger(__name__)
 
-from hicexplorer.lib.buildMatrixMethods import *
+from hicexplorer.lib.buildMatrixMethods import *  # noqa: F401,F403 (the module re-exports the build functions)
 
 
 def parse_arguments(args=None):

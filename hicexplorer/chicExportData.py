@@ -4,38 +4,17 @@ main() runs the executable and parse_arguments() is built from its --help-json
 (hicexplorer._cpp). exportData keeps its 3.7.6 signature and behaviour and calls
 hicexplorer._hicx.chicExportData (cpp/python/src/api/chicExportData.cpp); the tool does not use it.
 """
-import argparse
-import sys
-import os
-import errno
-import math
-from multiprocessing import Process, Queue
-import time
-import traceback
 
 import logging
 log = logging.getLogger(__name__)
 
-import numpy as np
 # import matplotlib
 # matplotlib.use('Agg')
 # import matplotlib.pyplot as plt
 # import matplotlib.gridspec as gridspec
 # from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 
-import hicmatrix.HiCMatrix as hm
-from hicexplorer import utilities
-from hicexplorer._version import __version__
 from hicexplorer._hicx import chicExportData as _impl
-from .lib import Viewpoint
-
-import io
-import tarfile
-from contextlib import closing
-from collections import OrderedDict
-
-from tempfile import mkdtemp
-import shutil
 
 
 def parse_arguments(args=None):

@@ -6,9 +6,7 @@ main() runs the executable and parse_arguments() is built from its --help-json
 import warnings
 warnings.simplefilter(action="ignore", category=RuntimeWarning)
 warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
-import argparse
 
-from hicexplorer._version import __version__  # noqa: F401
 
 import logging
 log = logging.getLogger(__name__)

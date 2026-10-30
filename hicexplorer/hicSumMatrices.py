@@ -7,9 +7,6 @@ compatibility and are not used by the tool.
 import warnings
 warnings.simplefilter(action="ignore", category=RuntimeWarning)
 warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
-import argparse
-from hicmatrix import HiCMatrix as hm
-from hicexplorer._version import __version__
 
 import logging
 log = logging.getLogger(__name__)

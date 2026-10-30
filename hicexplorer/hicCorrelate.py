@@ -10,20 +10,15 @@ warnings.simplefilter(action="ignore", category=UserWarning)
 warnings.simplefilter(action="ignore", category=RuntimeWarning)
 warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 
-import argparse
 import numpy as np
 
-from hicexplorer._version import __version__
 # for plotting
 from matplotlib import use as mplt_use
-import matplotlib as mpl
 from matplotlib import colormaps as cm
 
 mplt_use('Agg')
 
 import matplotlib.pyplot as plt
-import matplotlib.gridspec as gridspec
-from matplotlib.ticker import FixedLocator
 import matplotlib.colors as pltcolors
 import logging
 log = logging.getLogger(__name__)

@@ -6,32 +6,12 @@ and call hicexplorer._hicx.hicDetectLoops (cpp/python/src/api/hicDetectLoops.cpp
 cpp/core/include/hicx/detect_loops.hpp); the work 3.7.6 spread over processes
 runs in C++ threads of this process.
 """
-import argparse  # noqa: F401
-from multiprocessing import Process, Queue  # noqa: F401
-from multiprocessing.sharedctypes import Array, RawArray  # noqa: F401
-from copy import deepcopy  # noqa: F401
 import logging
 log = logging.getLogger(__name__)
-import time  # noqa: F401
-import gc  # noqa: F401
-import numpy as np  # noqa: F401
-from scipy.sparse import csr_matrix, triu  # noqa: F401
-from scipy.stats import anderson_ksamp, ranksums  # noqa: F401
-from scipy.stats import nbinom  # noqa: F401
-from hicexplorer.lib import fit_nbinom  # noqa: F401
-
-from hicmatrix import HiCMatrix as hm  # noqa: F401
-from hicmatrix.lib import MatrixFileHandler  # noqa: F401
-from hicexplorer._version import __version__  # noqa: F401
-from hicexplorer.utilities import check_cooler  # noqa: F401
-from hicexplorer.hicPlotMatrix import translate_region  # noqa: F401
-from hicexplorer.lib import cnb  # noqa: F401
-from inspect import currentframe  # noqa: F401
-import traceback  # noqa: F401
 
 
 # compute_loops calls them through this module
-from hicexplorer.utilities import obs_exp_matrix, obs_exp_matrix_non_zero  # noqa: F401
+from hicexplorer.utilities import obs_exp_matrix, obs_exp_matrix_non_zero  # noqa: F401 (the C++ hicDetectLoops looks them up in this module)
 
 from hicexplorer._hicx import hicDetectLoops as _impl
 

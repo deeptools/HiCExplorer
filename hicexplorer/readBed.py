@@ -7,7 +7,6 @@ self (cpp/python/src/api/readBed.cpp, cpp/core/include/hicx/read_bed.hpp).
 import warnings
 warnings.simplefilter(action="ignore", category=RuntimeWarning)
 warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
-from hicexplorer.utilities import toString
 
 import logging
 log = logging.getLogger(__name__)

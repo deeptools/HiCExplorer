@@ -10,9 +10,9 @@ import warnings
 warnings.simplefilter(action="ignore", category=RuntimeWarning)
 warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 # numpy and HiCMatrix are the names the doctest of from_bed_to_cut_interval uses
-import numpy as np
+import numpy as np  # noqa: F401
 
-from hicmatrix import HiCMatrix
+from hicmatrix import HiCMatrix  # noqa: F401
 
 import matplotlib
 matplotlib.use('Agg')

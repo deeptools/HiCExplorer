@@ -4,8 +4,6 @@ main() runs the executable and parse_arguments() is built from its --help-json
 (hicexplorer._cpp). The other names of this module are kept for API
 compatibility and are not used by the tool.
 """
-import argparse
-from hicexplorer._version import __version__
 
 
 def parse_arguments(args=None):

@@ -8,17 +8,9 @@ signatures and behaviour and call hicexplorer._hicx.hicPlotViewpoint
 import warnings
 warnings.simplefilter(action="ignore", category=RuntimeWarning)
 warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
-import argparse
-import numpy as np
-from hicmatrix import HiCMatrix as hm
-from hicexplorer.utilities import toString
 
 import matplotlib
 matplotlib.use('Agg')
-import matplotlib.pyplot as plt
-import matplotlib as mpl
-import os
-from hicexplorer._version import __version__
 from hicexplorer._hicx import hicPlotViewpoint as _impl
 
 import logging

@@ -8,8 +8,8 @@ import warnings
 warnings.simplefilter(action="ignore", category=RuntimeWarning)
 warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 # the doctests below use these names
-from scipy.sparse import coo_matrix, dia_matrix, triu  # noqa: F401
-import numpy as np  # noqa: F401
+from scipy.sparse import dia_matrix  # noqa: F401 (the doctests use it)
+import numpy as np  # noqa: F401 (the doctests use it)
 
 import logging
 log = logging.getLogger(__name__)

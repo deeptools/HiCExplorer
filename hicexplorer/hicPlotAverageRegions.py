@@ -7,19 +7,10 @@ compatibility and are not used by the tool.
 import warnings
 warnings.simplefilter(action="ignore", category=RuntimeWarning)
 warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
-import argparse
-from hicexplorer._version import __version__
 import logging
 log = logging.getLogger(__name__)
-from scipy.sparse import load_npz
 import matplotlib
 matplotlib.use('Agg')
-import matplotlib as mpl
-from matplotlib.colors import LogNorm
-import matplotlib.pyplot as plt
-import numpy as np
-from scipy.ndimage import rotate
-from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 
 def parse_arguments(args=None):
