@@ -1,6 +1,7 @@
-// See stripes_numpy.hpp. Each routine follows the library source named in the
-// comment above it; the unit tests compare them with the libraries
-// themselves, on fixtures produced by cpp/scripts/stripenn_oracle.
+// See stripes_numpy.hpp. Every routine is written from the published algorithm
+// or the documented behaviour named in the comment above it; the unit tests
+// and cpp/scripts/stripenn_oracle/check_primitives.py compare each with the
+// original library (as a black-box oracle) bit for bit.
 
 #include "stripes_numpy.hpp"
 
@@ -14,39 +15,60 @@
 namespace hicx::stripes::np {
 
 // ---------------------------------------------------------------------------
-// numpy
+// Summation, means and order statistics
 
 namespace {
 
-double pairwise(const double* a, std::size_t n) {
-    if (n < 8) {
-        double res = -0.0;
-        for (std::size_t i = 0; i < n; ++i) {
-            res += a[i];
+// Pairwise summation (Higham 1993) of n doubles with an unrolled base case,
+// the grouping numpy.sum uses for a contiguous float64 array.
+//  * n < 8: left to right.
+//  * 8 <= n <= 128: eight partial sums over elements i, i + 8, i + 16, ...,
+//    combined as ((s0 + s1) + (s2 + s3)) + ((s4 + s5) + (s6 + s7)), then the
+//    n mod 8 trailing elements added in order.
+//  * n > 128: the two halves (the first rounded down to a multiple of 8) are
+//    summed recursively and added.
+double unrolled_sum(const double* a, std::size_t n) {
+    double partial[8];
+    for (int j = 0; j < 8; ++j) {
+        partial[j] = a[j];
+    }
+    const std::size_t body = n - n % 8;
+    for (std::size_t i = 8; i < body; i += 8) {
+        for (int j = 0; j < 8; ++j) {
+            partial[j] += a[i + static_cast<std::size_t>(j)];
         }
-        return res;
+    }
+    double total = ((partial[0] + partial[1]) + (partial[2] + partial[3])) +
+                   ((partial[4] + partial[5]) + (partial[6] + partial[7]));
+    for (std::size_t i = body; i < n; ++i) {
+        total += a[i];
+    }
+    return total;
+}
+
+double grouped_sum(const double* a, std::size_t n) {
+    if (n < 8) {
+        double total = 0.0;
+        for (std::size_t i = 0; i < n; ++i) {
+            total += a[i];
+        }
+        return total;
     }
     if (n <= 128) {
-        double r[8];
-        for (int j = 0; j < 8; ++j) {
-            r[j] = a[j];
-        }
-        std::size_t i = 8;
-        for (; i < n - (n % 8); i += 8) {
-            for (int j = 0; j < 8; ++j) {
-                r[j] += a[i + j];
-            }
-        }
-        double res = ((r[0] + r[1]) + (r[2] + r[3])) + ((r[4] + r[5]) + (r[6] + r[7]));
-        for (; i < n; ++i) {
-            res += a[i];
-        }
-        return res;
+        return unrolled_sum(a, n);
     }
-    std::size_t n2 = n / 2;
-    n2 -= n2 % 8;
-    return pairwise(a, n2) + pairwise(a + n2, n - n2);
+    std::size_t half = n / 2;
+    half -= half % 8;
+    return grouped_sum(a, half) + grouped_sum(a + half, n - half);
 }
+
+// numpy's reduction adds the grouped sum to the additive identity +0.0, so a
+// sum of negative zeros is +0.0 (numpy 1.26; checked in check_primitives.py).
+double pairwise(const double* a, std::size_t n) { return 0.0 + grouped_sum(a, n); }
+
+// numpy reduces a non-contiguous view in chunks of its working buffer of 8192
+// elements (numpy.getbufsize()).
+constexpr std::size_t kReductionBuffer = 8192;
 
 }  // namespace
 
@@ -57,24 +79,17 @@ double sum_compact(const double* compact, std::size_t rows, std::size_t cols,
     if (rows == 0 || cols == 0) {
         return 0.0;
     }
-    if (rows == 1 || cols == 1 || contiguous_in_source) {
-        return pairwise(compact, rows * cols);
-    }
-    constexpr std::size_t kBuffer = 8192;
     const std::size_t total = rows * cols;
-    double acc = 0.0;
-    bool first = true;
-    for (std::size_t done = 0; done < total; done += kBuffer) {
-        const std::size_t take = std::min(kBuffer, total - done);
-        const double part = pairwise(compact + done, take);
-        if (first) {
-            acc = part;
-            first = false;
-        } else {
-            acc += part;
-        }
+    if (rows == 1 || cols == 1 || contiguous_in_source) {
+        return pairwise(compact, total);
     }
-    return acc;
+    // One pairwise sum per full buffer, the first buffer's sum starting the
+    // accumulation and every later one added to it.
+    double accumulated = 0.0;
+    for (std::size_t done = 0; done < total; done += kReductionBuffer) {
+        accumulated += grouped_sum(compact + done, std::min(kReductionBuffer, total - done));
+    }
+    return accumulated;
 }
 
 double mean_compact(const double* compact, std::size_t rows, std::size_t cols,
@@ -94,9 +109,7 @@ double sum_block(const double* base, std::size_t rows, std::size_t cols, std::si
     }
     std::vector<double> compact(rows * cols);
     for (std::size_t r = 0; r < rows; ++r) {
-        for (std::size_t k = 0; k < cols; ++k) {
-            compact[r * cols + k] = base[r * row_stride + k];
-        }
+        std::copy(base + r * row_stride, base + r * row_stride + cols, compact.begin() + static_cast<std::ptrdiff_t>(r * cols));
     }
     return sum_compact(compact.data(), rows, cols, false);
 }
@@ -116,14 +129,16 @@ double mean_of_row(const double* row, std::size_t cols) {
 }
 
 double mean_of(const std::vector<double>& values) {
-    if (values.empty()) {
-        return std::numeric_limits<double>::quiet_NaN();
-    }
-    return pairwise(values.data(), values.size()) / static_cast<double>(values.size());
+    return mean_of_row(values.data(), values.size());
 }
 
+// Round half to even (IEEE 754 roundToIntegralTiesToEven), what numpy.round
+// and Python's round do for zero decimals; the default rounding mode of the
+// floating point environment is to nearest even.
 double round_half_even(double value) { return std::nearbyint(value); }
 
+// The median of n values is the middle one for odd n and the mean of the two
+// middle ones for even n; any NaN makes it NaN, and an empty input gives NaN.
 double median(std::vector<double> values) {
     if (values.empty()) {
         return std::numeric_limits<double>::quiet_NaN();
@@ -135,11 +150,11 @@ double median(std::vector<double> values) {
     }
     std::sort(values.begin(), values.end());
     const std::size_t n = values.size();
+    // numpy takes the mean of the one or two middle values, a sum from +0.0.
     if (n % 2 == 1) {
-        return values[n / 2];
+        return 0.0 + values[n / 2];
     }
-    const double pair[2] = {values[n / 2 - 1], values[n / 2]};
-    return pairwise(pair, 2) / 2.0;
+    return (0.0 + values[n / 2 - 1] + values[n / 2]) / 2.0;
 }
 
 double nanmedian(std::vector<double> values) {
@@ -148,95 +163,106 @@ double nanmedian(std::vector<double> values) {
     return median(std::move(values));
 }
 
+// Hyndman and Fan (1996) definition 7: virtual index h = (n - 1) q; the
+// quantile lies between the order statistics floor(h) and floor(h) + 1 (both
+// n - 1 when q reaches 1) with weight h - floor(h) on the upper one.
 QuantileRanks quantile_ranks(std::int64_t n, double q) {
     QuantileRanks ranks;
-    const double virtual_index = static_cast<double>(n - 1) * q;
-    if (virtual_index >= static_cast<double>(n - 1)) {
+    const double last = static_cast<double>(n - 1);
+    const double virtual_index = last * q;
+    if (virtual_index >= last) {
         ranks.previous = n - 1;
         ranks.next = n - 1;
-        ranks.gamma = virtual_index - static_cast<double>(n - 1);
+        ranks.gamma = virtual_index - last;
         return ranks;
     }
-    const double previous = std::floor(virtual_index);
-    ranks.previous = static_cast<std::int64_t>(previous);
+    const double lower = std::floor(virtual_index);
+    ranks.previous = static_cast<std::int64_t>(lower);
     ranks.next = ranks.previous + 1;
-    ranks.gamma = virtual_index - previous;
+    ranks.gamma = virtual_index - lower;
     return ranks;
 }
 
+// Linear interpolation lo + gamma (hi - lo), evaluated from the nearer end
+// (hi - (1 - gamma)(hi - lo) for gamma >= 1/2) so that it is exact at both
+// ends and monotone in gamma, the usual stable form of a lerp.
 double quantile_lerp(double previous_value, double next_value, double gamma) {
-    const double diff = next_value - previous_value;
-    double result = previous_value + diff * gamma;
+    const double span = next_value - previous_value;
     if (gamma >= 0.5) {
-        result = next_value - diff * (1.0 - gamma);
+        return next_value - span * (1.0 - gamma);
     }
-    return result;
+    return previous_value + span * gamma;
 }
 
 // ---------------------------------------------------------------------------
-// Python random
+// Mersenne Twister MT19937 (Matsumoto and Nishimura 1998), seeded as Python's
+// random.Random does for an integer: init_by_array of the authors' 2002
+// reference implementation with the seed's 32 bit words as the key.
+
+namespace {
+
+constexpr int kStateSize = 624;
+constexpr int kShift = 397;
+constexpr std::uint32_t kMatrixA = 0x9908b0dfU;
+constexpr std::uint32_t kUpperMask = 0x80000000U;
+constexpr std::uint32_t kLowerMask = 0x7fffffffU;
+
+}  // namespace
 
 PyRandom::PyRandom(std::uint64_t seed) {
-    // init_genrand(19650218)
+    // Linear congruential fill of the state (init_genrand with 19650218).
     state_[0] = 19650218U;
-    for (int i = 1; i < 624; ++i) {
+    for (int i = 1; i < kStateSize; ++i) {
         state_[i] = 1812433253U * (state_[i - 1] ^ (state_[i - 1] >> 30)) + static_cast<std::uint32_t>(i);
     }
-    // the seed's 32 bit words, least significant first (a seed of 0 is one word)
-    std::uint32_t key[2];
-    int key_length = 1;
-    key[0] = static_cast<std::uint32_t>(seed & 0xFFFFFFFFULL);
-    if ((seed >> 32) != 0) {
-        key[1] = static_cast<std::uint32_t>(seed >> 32);
-        key_length = 2;
-    }
-    int i = 1;
-    int j = 0;
-    for (int k = std::max(624, key_length); k > 0; --k) {
-        state_[i] = (state_[i] ^ ((state_[i - 1] ^ (state_[i - 1] >> 30)) * 1664525U)) + key[j] +
-                    static_cast<std::uint32_t>(j);
-        ++i;
-        ++j;
-        if (i >= 624) {
-            state_[0] = state_[623];
-            i = 1;
+    // The key: the seed's 32 bit words, least significant first (seed 0 is one word).
+    std::uint32_t key[2] = {static_cast<std::uint32_t>(seed & 0xFFFFFFFFULL),
+                            static_cast<std::uint32_t>(seed >> 32)};
+    const int key_length = key[1] != 0 ? 2 : 1;
+    // Mix the key into the state, then mix the state with itself; both passes
+    // walk the state cyclically and wrap element 623 into element 0.
+    int at = 1;
+    int key_at = 0;
+    for (int steps = std::max(kStateSize, key_length); steps > 0; --steps) {
+        state_[at] = (state_[at] ^ ((state_[at - 1] ^ (state_[at - 1] >> 30)) * 1664525U)) + key[key_at] +
+                     static_cast<std::uint32_t>(key_at);
+        ++at;
+        ++key_at;
+        if (at >= kStateSize) {
+            state_[0] = state_[kStateSize - 1];
+            at = 1;
         }
-        if (j >= key_length) {
-            j = 0;
+        if (key_at >= key_length) {
+            key_at = 0;
         }
     }
-    for (int k = 623; k > 0; --k) {
-        state_[i] = (state_[i] ^ ((state_[i - 1] ^ (state_[i - 1] >> 30)) * 1566083941U)) -
-                    static_cast<std::uint32_t>(i);
-        ++i;
-        if (i >= 624) {
-            state_[0] = state_[623];
-            i = 1;
+    for (int steps = kStateSize - 1; steps > 0; --steps) {
+        state_[at] = (state_[at] ^ ((state_[at - 1] ^ (state_[at - 1] >> 30)) * 1566083941U)) -
+                     static_cast<std::uint32_t>(at);
+        ++at;
+        if (at >= kStateSize) {
+            state_[0] = state_[kStateSize - 1];
+            at = 1;
         }
     }
-    state_[0] = 0x80000000U;
-    index_ = 624;
+    state_[0] = kUpperMask;  // the first element is set to 2^31 so the initial array is non-zero
+    index_ = kStateSize;
 }
 
 std::uint32_t PyRandom::next32() {
-    if (index_ >= 624) {
-        constexpr std::uint32_t kUpper = 0x80000000U;
-        constexpr std::uint32_t kLower = 0x7fffffffU;
-        constexpr std::uint32_t kMatrix = 0x9908b0dfU;
-        int kk = 0;
-        std::uint32_t y;
-        for (; kk < 624 - 397; ++kk) {
-            y = (state_[kk] & kUpper) | (state_[kk + 1] & kLower);
-            state_[kk] = state_[kk + 397] ^ (y >> 1) ^ ((y & 1U) ? kMatrix : 0U);
+    if (index_ >= kStateSize) {
+        // Regenerate all 624 words in place: word i takes the upper bit of
+        // itself and the lower 31 bits of the next word (cyclically), shifted
+        // right by one and, when the combined low bit is set, xor-ed with the
+        // matrix constant, then combined with the word kShift positions ahead.
+        for (int i = 0; i < kStateSize; ++i) {
+            const std::uint32_t mixed =
+                (state_[i] & kUpperMask) | (state_[(i + 1) % kStateSize] & kLowerMask);
+            state_[i] = state_[(i + kShift) % kStateSize] ^ (mixed >> 1) ^ ((mixed & 1U) ? kMatrixA : 0U);
         }
-        for (; kk < 623; ++kk) {
-            y = (state_[kk] & kUpper) | (state_[kk + 1] & kLower);
-            state_[kk] = state_[kk + (397 - 624)] ^ (y >> 1) ^ ((y & 1U) ? kMatrix : 0U);
-        }
-        y = (state_[623] & kUpper) | (state_[0] & kLower);
-        state_[623] = state_[396] ^ (y >> 1) ^ ((y & 1U) ? kMatrix : 0U);
         index_ = 0;
     }
+    // Tempering.
     std::uint32_t y = state_[index_++];
     y ^= (y >> 11);
     y ^= (y << 7) & 0x9d2c5680U;
@@ -246,14 +272,22 @@ std::uint32_t PyRandom::next32() {
 }
 
 double PyRandom::random() {
-    const std::uint32_t a = next32() >> 5;
-    const std::uint32_t b = next32() >> 6;
-    return (static_cast<double>(a) * 67108864.0 + static_cast<double>(b)) * (1.0 / 9007199254740992.0);
+    const std::uint32_t upper = next32() >> 5;  // 27 bits
+    const std::uint32_t lower = next32() >> 6;  // 26 bits
+    return (static_cast<double>(upper) * 67108864.0 + static_cast<double>(lower)) * (1.0 / 9007199254740992.0);
 }
 
 std::size_t PyRandom::choice_index(std::size_t size) {
-    // random.choices: population[floor(random() * (n + 0.0))]
     return static_cast<std::size_t>(std::floor(random() * static_cast<double>(size)));
+}
+
+std::size_t PyRandom::weighted_choice_index(const std::vector<double>& cum_weights) {
+    const double total = cum_weights.back() + 0.0;
+    const double target = random() * total;
+    // bisect_right over cum_weights[0 .. n - 2]: the first index whose
+    // cumulative weight exceeds the target (n - 1 if none does).
+    return static_cast<std::size_t>(std::upper_bound(cum_weights.begin(), cum_weights.end() - 1, target) -
+                                    cum_weights.begin());
 }
 
 // ---------------------------------------------------------------------------
@@ -372,22 +406,27 @@ ImageF sobel(const ImageF& in, int axis) {
 
 namespace {
 
-// numpy.exp(-0.5 / 4 * x ** 2) for x = 0..8, the exponentials of Stripenn's
-// default Canny sigma of 2 (radius 8). numpy 1.26 evaluates float64 exp on
-// CPUs with AVX512 through Intel's SVML, which differs from the C library's
-// exp in the last bit for five of these nine values; the table holds the
-// values numpy returns on such a CPU (the one Stripenn was run on for the
-// comparison), so that the default kernel is bit identical. Other sigmas use
+// exp(-0.5 / sigma^2 * x^2) for sigma = 2 and x = 0..8 (the radius of the
+// default Canny sigma of Stripenn), as numpy.exp returns it for the
+// float64 array of exponents. These nine numbers are data, not code: numpy
+// 1.26 evaluates float64 exp with a vectorised routine on CPUs with AVX512,
+// and that routine differs from the C library's exp in the last bit for five
+// of them, so the table fixes the values the comparison with Stripenn was made
+// with (an AVX512 machine). cpp/scripts/stripenn_oracle/gen_exp_table.py
+// regenerates the table with numpy and prints the hexadecimal floats below;
+// on a CPU without AVX512 it reports which entries differ. Other sigmas use
 // the C library's exp and can differ from numpy's kernel by one unit in the
-// last place of a weight, which moves a float32 pixel of the smoothed image
-// in about one image in a thousand and an edge of the Canny map in none of
-// the 1200 frames images checked (cpp/scripts/stripenn_oracle/check_primitives.py).
+// last place of a weight, which moves a float32 pixel of the smoothed image in
+// about one image in a thousand and an edge of the Canny map in none of the
+// 1200 frame images checked (cpp/scripts/stripenn_oracle/check_primitives.py).
 constexpr double kExpSigma2[9] = {0x1.0000000000000p+0,  0x1.c3d6a24ed8221p-1, 0x1.368b2fc6f960ap-1,
                                   0x1.4c71b2477ab20p-2,  0x1.152aaa3bf81cbp-3, 0x1.67ee6d9ff847bp-5,
                                   0x1.6c0504695c418p-7,  0x1.1eb805a03296cp-9, 0x1.5fc21041027acp-12};
 
 }  // namespace
 
+// The Gaussian kernel exp(-x^2 / (2 sigma^2)), x = -radius..radius, scaled to
+// sum 1 (the sum taken pairwise, as numpy.sum would).
 std::vector<double> gaussian_kernel1d(double sigma, int radius) {
     const double sigma2 = sigma * sigma;
     std::vector<double> phi(static_cast<std::size_t>(2 * radius + 1));
@@ -412,231 +451,219 @@ ImageF gaussian_filter_constant(const ImageF& image, double sigma) {
 }
 
 // ---------------------------------------------------------------------------
-// skimage.feature.canny
+// Canny edge detection (Canny 1986, IEEE TPAMI 8:679-698)
 
 namespace {
 
-// _canny_cy._nonmaximum_suppression_bilinear for float32 arrays, with the
-// expression types of the Cython source: w and the neighbour products are
-// float, (1.0 - w) is double.
-ImageF nonmaximum_suppression(const ImageF& isobel, const ImageF& jsobel, const ImageF& magnitude,
+// Non-maximum suppression of the gradient magnitude. A pixel survives when its
+// magnitude is at least the low threshold and not smaller than the magnitude
+// interpolated at the two points where the gradient line through the pixel
+// crosses the ring of its eight neighbours (Canny 1986, section on
+// non-maximum suppression). The gradient (g_row, g_col) lies in one of two
+// diagonal quadrants: with equal signs (or a zero component) between the
+// directions towards (+1, +1) and (-1, -1), otherwise between (-1, +1) and
+// (+1, -1). Inside the quadrant the gradient is closer to one axis; the line
+// then crosses between the axis neighbour and the diagonal neighbour on each
+// side, at the fraction w = minor / major of the way to the diagonal one:
+//   interpolated = w * diagonal + (1 - w) * axis neighbour.
+// The precision of the arithmetic reproduces scikit-image 0.24 (the magnitude,
+// w and the diagonal product are float32, the axis term is formed in double;
+// a pixel with a NaN weight is dropped); ties |g_row| == |g_col| take the
+// column-axis neighbour in the first quadrant and the row-axis neighbour in
+// the second.
+ImageF nonmaximum_suppression(const ImageF& g_row, const ImageF& g_col, const ImageF& magnitude,
                               float low_threshold) {
     const int rows = magnitude.rows;
     const int cols = magnitude.cols;
     ImageF out(rows, cols, 0.0F);
-    for (int x = 1; x < rows - 1; ++x) {  // eroded_mask is 0 on the one pixel border
-        for (int y = 1; y < cols - 1; ++y) {
-            const float m = magnitude.at(x, y);
+    for (int r = 1; r < rows - 1; ++r) {  // the one pixel border is never an edge
+        for (int c = 1; c < cols - 1; ++c) {
+            const float m = magnitude.at(r, c);
             if (!(m >= low_threshold)) {
                 continue;
             }
-            const float iso = isobel.at(x, y);
-            const float jso = jsobel.at(x, y);
-            const bool is_down = iso <= 0;
-            const bool is_up = iso >= 0;
-            const bool is_left = jso <= 0;
-            const bool is_right = jso >= 0;
-            const bool cond1 = (is_up && is_right) || (is_down && is_left);
-            const bool cond2 = (is_down && is_right) || (is_up && is_left);
-            if (!cond1 && !cond2) {
+            const float gr = g_row.at(r, c);
+            const float gc = g_col.at(r, c);
+            const bool toward_down_right = gr >= 0 && gc >= 0;   // gradient in (+1, +1) quadrant
+            const bool toward_up_left = gr <= 0 && gc <= 0;      // gradient in (-1, -1) quadrant
+            const bool toward_down_left = gr >= 0 && gc <= 0;
+            const bool toward_up_right = gr <= 0 && gc >= 0;
+            const bool main_diagonal = toward_down_right || toward_up_left;
+            const bool anti_diagonal = toward_down_left || toward_up_right;
+            if (!main_diagonal && !anti_diagonal) {
                 continue;
             }
-            const float abs_isobel = std::fabs(iso);
-            const float abs_jsobel = std::fabs(jso);
-            float w = 0.0F;
-            float n11 = 0.0F;
-            float n12 = 0.0F;
-            float n21 = 0.0F;
-            float n22 = 0.0F;
-            if (cond1) {
-                if (abs_isobel > abs_jsobel) {
-                    w = abs_jsobel / abs_isobel;
-                    n11 = magnitude.at(x + 1, y);
-                    n12 = magnitude.at(x + 1, y + 1);
-                    n21 = magnitude.at(x - 1, y);
-                    n22 = magnitude.at(x - 1, y - 1);
-                } else {
-                    w = abs_isobel / abs_jsobel;
-                    n11 = magnitude.at(x, y + 1);
-                    n12 = magnitude.at(x + 1, y + 1);
-                    n21 = magnitude.at(x, y - 1);
-                    n22 = magnitude.at(x - 1, y - 1);
-                }
-            } else {
-                if (abs_isobel < abs_jsobel) {
-                    w = abs_isobel / abs_jsobel;
-                    n11 = magnitude.at(x, y + 1);
-                    n12 = magnitude.at(x - 1, y + 1);
-                    n21 = magnitude.at(x, y - 1);
-                    n22 = magnitude.at(x + 1, y - 1);
-                } else {
-                    w = abs_jsobel / abs_isobel;
-                    n11 = magnitude.at(x - 1, y);
-                    n12 = magnitude.at(x - 1, y + 1);
-                    n21 = magnitude.at(x + 1, y);
-                    n22 = magnitude.at(x + 1, y - 1);
-                }
-            }
-            const float p1 = n12 * w;
-            const double t1 = static_cast<double>(n11) * (1.0 - static_cast<double>(w));
-            const bool c_plus = (static_cast<double>(p1) + t1) <= static_cast<double>(m);
-            if (c_plus) {
-                const float p2 = n22 * w;
-                const double t2 = static_cast<double>(n21) * (1.0 - static_cast<double>(w));
-                const bool c_minus = (static_cast<double>(p2) + t2) <= static_cast<double>(m);
-                if (c_minus) {
-                    out.at(x, y) = m;
-                }
+            const float abs_row = std::fabs(gr);
+            const float abs_col = std::fabs(gc);
+            // Offsets of the "plus" side; the "minus" side is the negation.
+            // The diagonal neighbour is at (diag_row, +1). The axis neighbour
+            // is at (diag_row, 0) when the gradient is closer to the row axis
+            // and at (0, +1) when it is closer to the column axis.
+            const int diag_row = main_diagonal ? 1 : -1;
+            const bool near_row_axis = main_diagonal ? abs_row > abs_col : !(abs_row < abs_col);
+            const float w = near_row_axis ? abs_col / abs_row : abs_row / abs_col;
+            const int axis_row = near_row_axis ? diag_row : 0;
+            const int axis_col = near_row_axis ? 0 : 1;
+            const double one_minus_w = 1.0 - static_cast<double>(w);
+            const auto interpolated = [&](int sign) {
+                const float diagonal = magnitude.at(r + sign * diag_row, c + sign);
+                const float axis = magnitude.at(r + sign * axis_row, c + sign * axis_col);
+                const float weighted_diagonal = diagonal * w;
+                return static_cast<double>(weighted_diagonal) + static_cast<double>(axis) * one_minus_w;
+            };
+            if (interpolated(1) <= static_cast<double>(m) && interpolated(-1) <= static_cast<double>(m)) {
+                out.at(r, c) = m;
             }
         }
     }
     return out;
+}
+
+// Hysteresis thresholding: the edges are the pixels of `suppressed` above zero
+// that are 8-connected, through such pixels, to a pixel at or above `high`.
+// Region growing from those strong pixels visits every pixel once.
+std::vector<std::uint8_t> hysteresis(const ImageF& suppressed, float high) {
+    const int rows = suppressed.rows;
+    const int cols = suppressed.cols;
+    std::vector<std::uint8_t> edge(suppressed.v.size(), 0);
+    std::vector<std::size_t> frontier;
+    for (std::size_t i = 0; i < suppressed.v.size(); ++i) {
+        if (suppressed.v[i] > 0.0F && suppressed.v[i] >= high) {
+            edge[i] = 1;
+            frontier.push_back(i);
+        }
+    }
+    while (!frontier.empty()) {
+        const std::size_t at = frontier.back();
+        frontier.pop_back();
+        const int r = static_cast<int>(at / static_cast<std::size_t>(cols));
+        const int c = static_cast<int>(at % static_cast<std::size_t>(cols));
+        for (int dr = -1; dr <= 1; ++dr) {
+            for (int dc = -1; dc <= 1; ++dc) {
+                const int rr = r + dr;
+                const int cc = c + dc;
+                if (rr < 0 || rr >= rows || cc < 0 || cc >= cols) {
+                    continue;
+                }
+                const std::size_t nb = static_cast<std::size_t>(rr) * static_cast<std::size_t>(cols) +
+                                       static_cast<std::size_t>(cc);
+                if (!edge[nb] && suppressed.v[nb] > 0.0F) {
+                    edge[nb] = 1;
+                    frontier.push_back(nb);
+                }
+            }
+        }
+    }
+    return edge;
 }
 
 }  // namespace
 
-CannyStages canny_stages(const ImageF& image, double sigma) {
+CannyStages canny_stages(const ImageF& image, double sigma, double low_threshold, double high_threshold) {
     CannyStages st;
     const int rows = image.rows;
     const int cols = image.cols;
-    // _preprocess: mode='constant' computes the bleed-over of the border.
-    ImageF mask(rows, cols, 1.0F);
-    ImageF bleed = gaussian_filter_constant(mask, sigma);
+    // Smoothing with zero fill outside the image darkens the border; dividing
+    // by the smoothed all-ones image (plus one float32 epsilon) undoes it.
+    const ImageF bleed = gaussian_filter_constant(ImageF(rows, cols, 1.0F), sigma);
     const float eps = std::numeric_limits<float>::epsilon();
-    for (float& v : bleed.v) {
-        v = v + eps;
-    }
     st.smoothed = gaussian_filter_constant(image, sigma);
     for (std::size_t i = 0; i < st.smoothed.v.size(); ++i) {
-        st.smoothed.v[i] = st.smoothed.v[i] / bleed.v[i];
+        st.smoothed.v[i] = st.smoothed.v[i] / (bleed.v[i] + eps);
     }
+    // Sobel gradient along the columns (jsobel) and the rows (isobel), and its magnitude.
     st.jsobel = sobel(st.smoothed, 1);
     st.isobel = sobel(st.smoothed, 0);
     st.magnitude = ImageF(rows, cols);
     for (std::size_t i = 0; i < st.magnitude.v.size(); ++i) {
-        const float a = st.isobel.v[i] * st.isobel.v[i];
-        const float b = st.jsobel.v[i] * st.jsobel.v[i];
-        const float s = a + b;
-        st.magnitude.v[i] = std::sqrt(s);
+        const float row_sq = st.isobel.v[i] * st.isobel.v[i];
+        const float col_sq = st.jsobel.v[i] * st.jsobel.v[i];
+        st.magnitude.v[i] = std::sqrt(row_sq + col_sq);
     }
-    const float low_threshold = 0.1F;
-    const float high_threshold = 0.2F;
-    st.suppressed = nonmaximum_suppression(st.isobel, st.jsobel, st.magnitude, low_threshold);
-
-    // ndi.label(low_mask, ones((3, 3))): 8-connected components; a component is
-    // kept when it holds a pixel at or above the high threshold.
-    const std::size_t total = st.suppressed.v.size();
-    st.edges.assign(total, 0);
-    std::vector<std::uint8_t> seen(total, 0);
-    std::vector<std::size_t> stack;
-    std::vector<std::size_t> component;
-    for (std::size_t start = 0; start < total; ++start) {
-        if (!(st.suppressed.v[start] > 0.0F) || seen[start]) {
-            continue;
-        }
-        component.clear();
-        stack.clear();
-        stack.push_back(start);
-        seen[start] = 1;
-        bool high = false;
-        while (!stack.empty()) {
-            const std::size_t at = stack.back();
-            stack.pop_back();
-            component.push_back(at);
-            if (st.suppressed.v[at] >= high_threshold) {
-                high = true;
-            }
-            const int r = static_cast<int>(at / static_cast<std::size_t>(cols));
-            const int c = static_cast<int>(at % static_cast<std::size_t>(cols));
-            for (int dr = -1; dr <= 1; ++dr) {
-                for (int dc = -1; dc <= 1; ++dc) {
-                    const int rr = r + dr;
-                    const int cc = c + dc;
-                    if (rr < 0 || rr >= rows || cc < 0 || cc >= cols) {
-                        continue;
-                    }
-                    const std::size_t nb = static_cast<std::size_t>(rr) * static_cast<std::size_t>(cols) +
-                                           static_cast<std::size_t>(cc);
-                    if (seen[nb] || !(st.suppressed.v[nb] > 0.0F)) {
-                        continue;
-                    }
-                    seen[nb] = 1;
-                    stack.push_back(nb);
-                }
-            }
-        }
-        if (high) {
-            for (const std::size_t at : component) {
-                st.edges[at] = 1;
-            }
-        }
-    }
+    // The thresholds are float32 in every comparison.
+    st.suppressed = nonmaximum_suppression(st.isobel, st.jsobel, st.magnitude, static_cast<float>(low_threshold));
+    st.edges = hysteresis(st.suppressed, static_cast<float>(high_threshold));
     return st;
 }
 
-std::vector<std::uint8_t> canny(const ImageF& image, double sigma) {
-    return canny_stages(image, sigma).edges;
+std::vector<std::uint8_t> canny(const ImageF& image, double sigma, double low_threshold,
+                                double high_threshold) {
+    return canny_stages(image, sigma, low_threshold, high_threshold).edges;
 }
 
 // ---------------------------------------------------------------------------
-// OpenCV
+// Box filter and grey conversion
+
+namespace {
+
+// Index of sample p of a line of `length` samples under the border
+// reflect-101 (gfedcb|abcdefgh|gfedcba): mirrored about the end samples,
+// which are not repeated. A line of one sample maps everything to it.
+int reflect101(int p, int length) {
+    if (length == 1) {
+        return 0;
+    }
+    const int period = 2 * (length - 1);
+    int m = p % period;
+    if (m < 0) {
+        m += period;
+    }
+    return m < length ? m : period - m;
+}
+
+}  // namespace
 
 std::vector<double> box_filter(const std::vector<double>& plane, int rows, int cols, int ksize) {
-    const double kv = 1.0 / static_cast<double>(ksize * ksize);
+    const double weight = 1.0 / static_cast<double>(ksize * ksize);
     const int anchor = ksize / 2;
-    std::vector<double> out(plane.size());
-    auto reflect101 = [](int p, int len) {
-        if (len == 1) {
-            return 0;
-        }
-        while (p < 0 || p >= len) {
-            if (p < 0) {
-                p = -p;
-            } else {
-                p = 2 * (len - 1) - p;
-            }
-        }
-        return p;
-    };
-    std::vector<int> row_index(static_cast<std::size_t>(ksize));
-    std::vector<int> col_index(static_cast<std::size_t>(cols) * static_cast<std::size_t>(ksize));
-    for (int c = 0; c < cols; ++c) {
-        for (int dx = 0; dx < ksize; ++dx) {
-            col_index[static_cast<std::size_t>(c) * ksize + dx] = reflect101(c + dx - anchor, cols);
+    // The plane padded by the anchor on every side with the reflect-101 border.
+    const int padded_cols = cols + ksize - 1;
+    std::vector<double> padded(static_cast<std::size_t>(rows + ksize - 1) * static_cast<std::size_t>(padded_cols));
+    for (int pr = 0; pr < rows + ksize - 1; ++pr) {
+        const double* source = plane.data() + static_cast<std::size_t>(reflect101(pr - anchor, rows)) * cols;
+        for (int pc = 0; pc < padded_cols; ++pc) {
+            padded[static_cast<std::size_t>(pr) * padded_cols + pc] = source[reflect101(pc - anchor, cols)];
         }
     }
+    std::vector<double> out(plane.size());
     for (int r = 0; r < rows; ++r) {
-        for (int dy = 0; dy < ksize; ++dy) {
-            row_index[static_cast<std::size_t>(dy)] = reflect101(r + dy - anchor, rows);
-        }
         for (int c = 0; c < cols; ++c) {
-            double s = 0.0;
+            double sum = 0.0;
             for (int dy = 0; dy < ksize; ++dy) {
-                const double* line = plane.data() + static_cast<std::size_t>(row_index[dy]) * cols;
+                const double* line = padded.data() + static_cast<std::size_t>(r + dy) * padded_cols + c;
                 for (int dx = 0; dx < ksize; ++dx) {
-                    s = std::fma(kv, line[col_index[static_cast<std::size_t>(c) * ksize + dx]], s);
+                    sum = std::fma(weight, line[dx], sum);
                 }
             }
-            out[static_cast<std::size_t>(r) * cols + c] = s;
+            out[static_cast<std::size_t>(r) * cols + c] = sum;
         }
     }
     return out;
 }
 
+// Luma of ITU-R BT.601: 0.299 R + 0.587 G + 0.114 B.
 float rgb_to_gray(float r, float g, float b) {
-    const float c0 = 0.299F;
-    const float c1 = 0.587F;
-    const float c2 = 0.114F;
-    const float inner = std::fma(r, c0, g * c1);
-    return std::fma(b, c2, inner);
+    const float inner = std::fma(r, 0.299F, g * 0.587F);
+    return std::fma(b, 0.114F, inner);
+}
+
+// The weights as integers over 2^15: 0.299 * 32768 = 9798.1 and 0.587 * 32768
+// = 19234.8 rounded to the nearest integer, and the blue weight the remainder
+// that makes the three sum to exactly 2^15 (3735; 0.114 * 32768 = 3735.6 would
+// round to 3736), so that white stays white. The weighted sum is rounded to
+// nearest, ties upwards, by adding 2^14 before the shift.
+std::uint8_t rgb_to_gray_u8(std::uint8_t r, std::uint8_t g, std::uint8_t b) {
+    const std::uint32_t weighted = 9798U * r + 19235U * g + 3735U * b + (1U << 14);
+    return static_cast<std::uint8_t>(weighted >> 15);
 }
 
 // ---------------------------------------------------------------------------
 // 2-D convolution
 
 // Full 2-D convolution cropped to the size of the input ('same'), zero fill:
-//   out[i][j] = sum_{u,v} kernel[u][v] * m[i + 1 - u][j + 1 - v].
-// Integer arithmetic, so the order of the terms does not matter.
+//   out[i][j] = sum_{u,v} kernel[u][v] * m[i + 1 - u][j + 1 - v]
+// (the kernel is flipped, unlike correlation). Integer arithmetic, so the
+// order of the terms does not matter.
 std::vector<int> convolve2d_same_3x3(const std::vector<std::uint8_t>& m, int rows, int cols,
                                      const int kernel[3][3]) {
     std::vector<int> out(static_cast<std::size_t>(rows) * static_cast<std::size_t>(cols), 0);
