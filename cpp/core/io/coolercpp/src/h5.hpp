@@ -175,6 +175,9 @@ class File {
     void create_group(const std::string& path);
     // del group[name]; a missing name raises KeyError.
     void remove(const std::string& path);
+    // Group.move: relinks the object under a new name (the data stay where
+    // they are); the new name's parent groups must exist.
+    void move(const std::string& from, const std::string& to);
     // Creates a one dimensional dataset. HDF5 failures raise ValueError, which
     // is what h5py raises for, for example, an enum header that is too large.
     Dataset create_dataset(const std::string& path, hid_t type, const DatasetCreate& options);

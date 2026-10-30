@@ -721,6 +721,15 @@ void File::remove(const std::string& path) {
     }
 }
 
+void File::move(const std::string& from, const std::string& to) {
+    if (!exists(from)) {
+        throw KeyError("Unable to move link (" + from + ")");
+    }
+    if (H5Lmove(id(), from.c_str(), id(), to.c_str(), H5P_DEFAULT, H5P_DEFAULT) < 0) {
+        throw ValueError("Unable to move link (" + from + " to " + to + ")");
+    }
+}
+
 Dataset File::create_dataset(const std::string& path, hid_t type,
                              const DatasetCreate& options) {
     const hsize_t dims = options.length;

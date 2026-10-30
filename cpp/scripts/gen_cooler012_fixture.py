@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Writes cpp/tests/fixtures/cooler012/{ordinary,int64,empty}.txt, the oracle of the three
+"""Writes cpp/tests/fixtures/cooler012/{ordinary,int64,empty,atomic}.txt, the oracle of the three
 behaviours of cooler 0.12.0/0.12.1 that coolercpp adopts (the rest of
 coolercpp keeps reproducing cooler 0.10.2):
 
@@ -37,6 +37,7 @@ The creation-date and generated-by attributes are left out of the dump.
 """
 import os
 import struct
+import subprocess
 import tempfile
 
 import cooler
@@ -86,8 +87,6 @@ INT64_CASES = [
         ('main.cool::/resolutions/2', 'a', 'table', 'chrA:2147483649', 1073741825, 1, '0:0:1'),
     ]),
 ]
-
-
 
 EMPTY_CASES = [
     # (2) coolers without pixels
@@ -195,6 +194,81 @@ def dump(path):
     return lines
 
 
+def listing(directory):
+    return ','.join(sorted(os.listdir(directory)))
+
+
+def group_paths(path):
+    """Paths of all groups of the file, by a separate process, which is how a
+    file that is being written can be looked at."""
+    code = ("import sys, h5py\n"
+            "f = h5py.File(sys.argv[1], 'r', locking=False)\n"
+            "out = ['/']\n"
+            "f.visititems(lambda n, o: out.append('/' + n) if isinstance(o, h5py.Group) else None)\n"
+            "print(','.join(out))\n")
+    result = subprocess.run([sys.executable, '-c', code, path], capture_output=True, text=True)
+    return result.stdout.strip() or 'unreadable'
+
+
+def read_bytes(path):
+    with open(path, 'rb') as f:
+        return f.read()
+
+
+def scenario(name, directory, mode, uri, fail):
+    """One create_cooler call of two chunks, the second invalid when `fail`,
+    into a directory that holds a cooler already (a plain file for mode w, the
+    groups /resolutions/100 and /resolutions/500 for mode a). Records what is
+    visible while the call is in progress and when it is over."""
+    lines = ['scenario %s' % name]
+    bins = cooler.util.binnify(parse_chroms('chrA:1000,chrB:500'), 100)
+    main = os.path.join(directory, 'main.cool')
+    if mode == 'w':
+        cooler.create_cooler(main, bins, parse_pixels('0:0:5,1:2:3'), mode='w')
+    else:
+        for res in (100, 500):
+            cooler.create_cooler(main + '::/resolutions/%d' % res, cooler.util.binnify(
+                parse_chroms('chrA:1000,chrB:500'), res), parse_pixels('0:1:1'), mode='a')
+    before = read_bytes(main)
+    groups_before = group_paths(main)
+
+    def chunks():
+        yield parse_pixels('0:0:1')
+        if mode == 'w':
+            lines.append('mid dir=%s unchanged=%d' % (listing(directory), read_bytes(main) == before))
+        else:
+            lines.append('mid groups=%s' % group_paths(main))
+        yield parse_pixels('1:99:2' if fail else '1:2:2')
+
+    target = main if uri == '' else main + '::' + uri
+    error = 0
+    try:
+        cooler.create_cooler(target, bins, chunks(), mode=mode, ordered=True)
+    except Exception:
+        error = 1
+    lines.append('error=%d dir=%s' % (error, listing(directory)))
+    if mode == 'w':
+        lines.append('unchanged=%d' % (read_bytes(main) == before))
+    lines.append('groups=%s' % group_paths(main))
+    lines.append('groups_before=%s' % groups_before)
+    lines.append('end')
+    return lines
+
+
+SCENARIOS = [
+    ('w_success', 'w', '', 0),
+    ('w_failure', 'w', '', 1),
+    ('w_group_failure', 'w', '/x/y', 1),
+    ('a_new_group_success', 'a', '/resolutions/200', 0),
+    ('a_new_group_failure', 'a', '/resolutions/200', 1),
+    ('a_replace_group_success', 'a', '/resolutions/100', 0),
+    ('a_replace_group_failure', 'a', '/resolutions/100', 1),
+    ('a_nested_new_group_failure', 'a', '/other/deep/new', 1),
+    ('a_root_success', 'a', '', 0),
+    ('a_root_failure', 'a', '', 1),
+]
+
+
 def write_cases(name, cases):
     out = []
     for case, calls in cases:
@@ -218,6 +292,14 @@ def main():
     write_cases('ordinary.txt', ORDINARY_CASES)
     write_cases('int64.txt', INT64_CASES)
     write_cases('empty.txt', EMPTY_CASES)
+    out = []
+    for name, mode, uri, fail in SCENARIOS:
+        with tempfile.TemporaryDirectory() as directory:
+            out.extend(scenario(name, directory, mode, uri, fail))
+    path = os.path.join(OUT_DIR, 'atomic.txt')
+    with open(path, 'w') as f:
+        f.write('\n'.join(out) + '\n')
+    print('wrote %s (%d scenarios)' % (os.path.normpath(path), len(SCENARIOS)))
 
 
 if __name__ == '__main__':

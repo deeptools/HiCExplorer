@@ -4,6 +4,9 @@
 //
 //   1. chroms/length, bins/start and bins/end are int64 when a chromosome is
 //      longer than 2147483647 bp, int32 otherwise (cooler #480),
+//   2. a cooler without pixels has empty pixel datasets,
+//   3. a cooler is written into a temporary file (mode "w") or a temporary
+//      group (mode "a") that takes the destination's place when complete.
 //
 // Every case writes the same calls with coolercpp and compares a structural
 // dump of the file (groups, links, attributes except creation-date and
@@ -459,4 +462,188 @@ TEST_CASE("chromosomes beyond the int32 maximum make chroms/length, bins/start a
 
 TEST_CASE("a cooler without pixels has empty pixel datasets") {
     check_cases("empty.txt", 7);
+}
+
+// ---------------------------------------------------------------------------
+// Atomic writes. scenario() in gen_cooler012_fixture.py does the same calls
+// with cooler 0.12.1 and records what is visible while the write is in
+// progress and after it; the text is compared line by line.
+
+std::string group_paths(const std::string& path) {
+    const hid_t file = H5Fopen(path.c_str(), H5F_ACC_RDWR, H5P_DEFAULT);
+    if (file < 0) {
+        return "unreadable";
+    }
+    std::string out;
+    // Depth first in name order, like h5py's visititems.
+    std::vector<std::string> all;
+    std::function<void(const std::string&)> walk = [&](const std::string& group) {
+        all.push_back(group);
+        const hid_t g = H5Gopen2(file, group.c_str(), H5P_DEFAULT);
+        const std::string names = links_text(g);
+        H5Gclose(g);
+        for (const std::string& name : split(names, ',')) {
+            const std::string child = (group == "/" ? "" : group) + "/" + name;
+            H5O_info2_t info{};
+            H5Oget_info_by_name3(file, child.c_str(), &info, H5O_INFO_BASIC, H5P_DEFAULT);
+            if (info.type == H5O_TYPE_GROUP) {
+                walk(child);
+            }
+        }
+    };
+    walk("/");
+    for (std::size_t i = 0; i < all.size(); ++i) {
+        out += (i ? "," : "") + all[i];
+    }
+    H5Fclose(file);
+    return out;
+}
+
+std::vector<std::string> run_scenario(const std::string& name, const std::string& mode,
+                                      const std::string& uri, bool fail) {
+    std::vector<std::string> lines{"scenario " + name};
+    const std::string directory = fresh_directory("scenario_" + name);
+    const std::string main = directory + "/main.cool";
+    const Table bins = make_bins("chrA:1000,chrB:500", 100);
+    if (mode == "w") {
+        run_create(directory, Create{"main.cool", "w", "table", "chrA:1000,chrB:500", "0:0:5,1:2:3", 100, 1});
+    } else {
+        for (const int res : {100, 500}) {
+            run_create(directory, Create{"main.cool::/resolutions/" + std::to_string(res), "a", "table",
+                                         "chrA:1000,chrB:500", "0:1:1", res, 1});
+        }
+    }
+    const std::string before = file_bytes(main);
+    const std::string groups_before = group_paths(main);
+    const auto joined = [](const std::vector<std::string>& names) {
+        std::string out;
+        for (std::size_t i = 0; i < names.size(); ++i) {
+            out += (i ? "," : "") + names[i];
+        }
+        return out;
+    };
+
+    int served = 0;
+    PixelChunks chunks = [&]() -> std::optional<Table> {
+        if (served == 0) {
+            ++served;
+            return make_pixels("0:0:1", 0, 1);
+        }
+        if (served == 1) {
+            ++served;
+            if (mode == "w") {
+                lines.push_back("mid dir=" + joined(directory_listing(directory)) +
+                                " unchanged=" + std::to_string(file_bytes(main) == before ? 1 : 0));
+            } else {
+                lines.push_back("mid groups=" + group_paths(main));
+            }
+            return make_pixels(fail ? "1:99:2" : "1:2:2", 0, 1);
+        }
+        return std::nullopt;
+    };
+    CreateOptions options;
+    options.mode = mode;
+    options.ordered = true;
+    int error = 0;
+    try {
+        create_cooler(uri.empty() ? main : main + "::" + uri, bins, std::move(chunks), options);
+    } catch (const std::exception&) {
+        error = 1;
+    }
+    lines.push_back("error=" + std::to_string(error) + " dir=" + joined(directory_listing(directory)));
+    if (mode == "w") {
+        lines.push_back("unchanged=" + std::to_string(file_bytes(main) == before ? 1 : 0));
+    }
+    lines.push_back("groups=" + group_paths(main));
+    lines.push_back("groups_before=" + groups_before);
+    lines.push_back("end");
+    return lines;
+}
+
+TEST_CASE("coolers are written to a temporary file or group and moved into place when complete") {
+    std::ifstream in(kFixtures + "atomic.txt");
+    REQUIRE(in.good());
+    std::vector<std::string> expected;
+    std::string line;
+    while (std::getline(in, line)) {
+        expected.push_back(line);
+    }
+    const struct {
+        const char* name;
+        const char* mode;
+        const char* uri;
+        bool fail;
+    } scenarios[] = {
+        {"w_success", "w", "", false},
+        {"w_failure", "w", "", true},
+        {"w_group_failure", "w", "/x/y", true},
+        {"a_new_group_success", "a", "/resolutions/200", false},
+        {"a_new_group_failure", "a", "/resolutions/200", true},
+        {"a_replace_group_success", "a", "/resolutions/100", false},
+        {"a_replace_group_failure", "a", "/resolutions/100", true},
+        {"a_nested_new_group_failure", "a", "/other/deep/new", true},
+        {"a_root_success", "a", "", false},
+        {"a_root_failure", "a", "", true},
+    };
+    std::vector<std::string> got;
+    for (const auto& s : scenarios) {
+        const std::vector<std::string> lines = run_scenario(s.name, s.mode, s.uri, s.fail);
+        got.insert(got.end(), lines.begin(), lines.end());
+    }
+    REQUIRE(got.size() == expected.size());
+    for (std::size_t i = 0; i < got.size(); ++i) {
+        CHECK_MESSAGE(got[i] == expected[i], "line " << i);
+    }
+}
+
+TEST_CASE("a failing write leaves an existing destination, its groups and the directory as they were") {
+    const std::string directory = fresh_directory("atomic_direct");
+    run_create(directory, Create{"main.cool", "w", "table", "chrA:1000,chrB:500", "0:0:5,1:2:3", 100, 1});
+    const std::string before = file_bytes(directory + "/main.cool");
+    const Table bins = make_bins("chrA:1000,chrB:500", 100);
+
+    // Mode w: the destination is byte for byte the old file, no temporary file
+    // remains, also when the failing chunk is not the first.
+    for (const bool chunked : {false, true}) {
+        CreateOptions options;
+        options.ordered = true;
+        if (chunked) {
+            std::vector<Table> parts{make_pixels("0:0:1", 0, 1), make_pixels("1:99:2", 0, 1)};
+            CHECK_THROWS(create_cooler(directory + "/main.cool", bins, iterate_chunks(std::move(parts)), options));
+        } else {
+            CHECK_THROWS(create_cooler(directory + "/main.cool", bins, make_pixels("1:99:2", 0, 1), options));
+        }
+        CHECK(file_bytes(directory + "/main.cool") == before);
+        CHECK(directory_listing(directory) == std::vector<std::string>{"main.cool"});
+    }
+    CreateOptions plain;
+    CHECK_THROWS(create_cooler(directory + "/new.cool", bins, make_pixels("1:99:2", 0, 1), plain));
+    CHECK(directory_listing(directory) == std::vector<std::string>{"main.cool"});
+
+    // A temporary file left by a crash is overwritten and gone afterwards.
+    {
+        std::ofstream stale(directory + "/main.cool.__writing__");
+        stale << "stale";
+    }
+    run_create(directory, Create{"main.cool", "w", "table", "chrA:1000,chrB:500", "0:0:5,1:2:3", 100, 1});
+    CHECK(directory_listing(directory) == std::vector<std::string>{"main.cool"});
+
+    // Mode a: the groups that exist stay as they are and no partial group is left.
+    const std::string mcool = fresh_directory("atomic_direct_a");
+    for (const int res : {100, 500}) {
+        run_create(mcool, Create{"main.cool::/resolutions/" + std::to_string(res), "a", "table",
+                                 "chrA:1000,chrB:500", "0:1:1", res, 1});
+    }
+    const std::vector<std::string> groups = dump_file(mcool + "/main.cool");
+    for (const char* uri : {"/resolutions/100", "/resolutions/200", ""}) {
+        CreateOptions options;
+        options.mode = "a";
+        options.ordered = true;
+        std::vector<Table> parts{make_pixels("0:0:1", 0, 1), make_pixels("1:99:2", 0, 1)};
+        CAPTURE(uri);
+        CHECK_THROWS(create_cooler(mcool + "/main.cool" + (*uri ? std::string("::") + uri : ""), bins,
+                                   iterate_chunks(std::move(parts)), options));
+        CHECK(dump_file(mcool + "/main.cool") == groups);
+        CHECK(directory_listing(mcool) == std::vector<std::string>{"main.cool"});
+    }
 }
