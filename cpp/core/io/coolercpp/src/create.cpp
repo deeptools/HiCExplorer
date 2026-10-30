@@ -948,6 +948,18 @@ void create_impl(const CreateCall& call, const Table& bins, Source source) {
     if (chromsizes.size() == 0) {
         throw ValueError("not enough values to unpack (expected 2, got 0)");
     }
+    // cooler 0.12 (changelog, #480): chromosomes longer than the int32 maximum
+    // "are now written as int64 when a chromosome needs it, and as int32
+    // otherwise". Observed black-box on cooler 0.12.1: when the longest
+    // chromosome exceeds 2147483647 bp, chroms/length, bins/start and bins/end
+    // are all int64 (the whole file, not per dataset); bins/chrom, the pixel
+    // columns and the indexes are unchanged.
+    DType coordinate_dtype = DType::Int32;
+    for (const std::int64_t length : chromsizes.lengths()) {
+        if (length > std::numeric_limits<std::int32_t>::max()) {
+            coordinate_dtype = DType::Int64;
+        }
+    }
     const json::Value binsize = get_binsize(bins);
     const std::size_t n_chroms = chromsizes.size();
     const std::size_t n_bins = bins.num_rows();
@@ -987,11 +999,11 @@ void create_impl(const CreateCall& call, const Table& bins, Source source) {
                                              TypeSpec{type.get(), width, 'S'}, n_chroms,
                                              std::nullopt, std::nullopt, h5opts);
         dataset.write_column(0, Column(names));
-        const h5::Handle length_type = h5::file_type(DType::Int32);
+        const h5::Handle length_type = h5::file_type(coordinate_dtype);
         h5::Dataset lengths = create_dataset(file, join_path(chroms_group, "length"),
-                                             numeric_spec(length_type, DType::Int32), n_chroms,
+                                             numeric_spec(length_type, coordinate_dtype), n_chroms,
                                              std::nullopt, std::nullopt, h5opts);
-        lengths.write_column(0, Column(chromsizes.lengths()).astype(DType::Int32));
+        lengths.write_column(0, Column(chromsizes.lengths()).astype(coordinate_dtype));
     }
 
     // ---- bins ----
@@ -1048,12 +1060,12 @@ void create_impl(const CreateCall& call, const Table& bins, Source source) {
         if (!as_enum) {
             file.set_attribute(chrom_path, "enum_path", json::Value("/chroms/name"));
         }
-        const h5::Handle coord_type = h5::file_type(DType::Int32);
+        const h5::Handle coord_type = h5::file_type(coordinate_dtype);
         for (const char* name : {"start", "end"}) {
             h5::Dataset dataset = create_dataset(file, join_path(bins_group, name),
-                                                 numeric_spec(coord_type, DType::Int32), n_bins,
+                                                 numeric_spec(coord_type, coordinate_dtype), n_bins,
                                                  std::nullopt, std::nullopt, h5opts);
-            dataset.write_column(0, bins[name].astype(DType::Int32));
+            dataset.write_column(0, bins[name].astype(coordinate_dtype));
         }
         for (std::size_t c = 0; c < bins.num_columns(); ++c) {
             const std::string& name = bins.columns()[c];
