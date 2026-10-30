@@ -61,6 +61,8 @@ cmake.source-dir = "cpp"
 cmake.build-type = "Release"
 cmake.version = ">=3.24"
 wheel.packages = ["hicexplorer"]
+# The licences of the ported and included code must travel with the binaries.
+wheel.license-files = ["LICENSE", "cpp/THIRD_PARTY_NOTICES.md", "cpp/third_party/spectra/LICENSE"]
 wheel.exclude = ["hicexplorer/test/**", "**/__pycache__/**", "/include/**", "/lib/**"]
 sdist.include = ["cpp", "plot", "hicexplorer/_version.py"]
 sdist.exclude = ["cpp/build", "hicexplorer/test/test_data/**", "docs", "examples"]
