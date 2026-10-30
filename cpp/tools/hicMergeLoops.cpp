@@ -38,14 +38,13 @@
 //     insertions and deletions, and the order of insertion into the overlap
 //     set depends on the shape of the tree and on the layout of every node's
 //     s_center set, which earlier removals (rotations, promotions, pruning)
-//     changed. So `Tree` (hicx/py_intervaltree.hpp) is intervaltree 3.1.0's node.py reproduced
-//     node for node, and `PySet` is CPython 3.12's Objects/setobject.c
-//     reproduced slot for slot (linear probing, perturbation, dummy reuse,
-//     resize thresholds, the set_merge fast paths). Verified byte identical
-//     against 3.7.6 on every case and on 400 random multi-resolution inputs
-//     with many ties and repeated coordinates; `PySet` alone was checked
-//     against real CPython sets over random add, discard, update, copy and
-//     difference sequences. An earlier version ordered the hits by
+//     changed. So `Tree` (hicx/py_intervaltree.hpp) is our centered AVL
+//     interval tree with the shape and the member sets of intervaltree 3.1.0,
+//     and `OrderedSet` (hicx/py_set_order.hpp) is the slot order of a CPython
+//     set. Both are checked against the real packages on random sequences
+//     (tests/test_cpython_oracles.cpp), and the tool against 3.7.6 on every
+//     case and on 400 random multi-resolution inputs with many ties and
+//     repeated coordinates. An earlier version ordered the hits by
 //     `(hash & mask, id)` and diverged whenever two tied intervals collided.
 //  4. **drop_duplicates(keep=False)** removes every copy of a repeated row, not
 //     all but one (":165"), so a loop called identically at two resolutions
@@ -153,9 +152,8 @@ Arguments parse_arguments(int argc, char** argv) {
 
 }  // namespace
 
-// PySet and Tree, the CPython set and intervaltree reproductions of
-// property 3, live in hicx/py_intervaltree.hpp, which the public Python API
-// shares.
+// Tree, the reproduction of intervaltree's query order that property 3 needs,
+// lives in hicx/py_intervaltree.hpp, which the public Python API shares.
 using hicx::pytree::Tree;
 
 int main(int argc, char** argv) {

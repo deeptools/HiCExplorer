@@ -6,6 +6,7 @@
 
 #include "hicx/math/sparse_kernels.hpp"
 #include "hicx/numpy_stats.hpp"
+#include "hicx/py_set_order.hpp"
 
 namespace hicx::correct {
 
@@ -337,111 +338,12 @@ std::size_t add_missing_diagonal(CsrMatrix& matrix, double value) {
     return missing;
 }
 
-namespace {
-
-// CPython 3.12 Objects/setobject.c, for a set of distinct non-negative Python
-// ints. -1 marks an empty slot; a set built by set(iterable) never holds a
-// dummy, because nothing is ever removed from it.
-constexpr std::size_t kLinearProbes = 9;
-constexpr std::size_t kPerturbShift = 5;
-constexpr std::size_t kMinSize = 8;
-
-struct PySet {
-    std::vector<std::int64_t> table = std::vector<std::int64_t>(kMinSize, -1);
-    std::size_t mask = kMinSize - 1;
-    std::size_t fill = 0;
-    std::size_t used = 0;
-};
-
-// set_insert_clean: no equality checks, because a resize only moves keys that
-// are already known to be distinct.
-void set_insert_clean(std::vector<std::int64_t>& table, std::size_t mask,
-                      std::int64_t key) {
-    std::size_t perturb = static_cast<std::size_t>(key);
-    std::size_t i = static_cast<std::size_t>(key) & mask;
-    while (true) {
-        if (table[i] < 0) {
-            table[i] = key;
-            return;
-        }
-        if (i + kLinearProbes <= mask) {
-            for (std::size_t j = 1; j <= kLinearProbes; ++j) {
-                if (table[i + j] < 0) {
-                    table[i + j] = key;
-                    return;
-                }
-            }
-        }
-        perturb >>= kPerturbShift;
-        i = (i * 5 + 1 + perturb) & mask;
-    }
-}
-
-// set_table_resize: the smallest power of two strictly greater than minused,
-// with the old table rehashed in slot order.
-void set_table_resize(PySet& set, std::size_t minused) {
-    std::size_t newsize = kMinSize;
-    while (newsize <= minused) {
-        newsize <<= 1;
-    }
-    std::vector<std::int64_t> table(newsize, -1);
-    const std::size_t newmask = newsize - 1;
-    for (const std::int64_t key : set.table) {
-        if (key >= 0) {
-            set_insert_clean(table, newmask, key);
-        }
-    }
-    set.table = std::move(table);
-    set.mask = newmask;
-    set.fill = set.used;
-}
-
-void set_add_entry(PySet& set, std::int64_t key) {
-    std::size_t perturb = static_cast<std::size_t>(key);
-    std::size_t i = static_cast<std::size_t>(key) & set.mask;
-    while (true) {
-        // do { ... } while (probes--) runs ten times when the whole linear run
-        // fits below the mask and once when it does not.
-        std::size_t probes = (i + kLinearProbes <= set.mask) ? kLinearProbes : 0;
-        std::size_t slot = i;
-        while (true) {
-            if (set.table[slot] < 0) {
-                set.table[slot] = key;
-                ++set.fill;
-                ++set.used;
-                if (set.fill * 5 >= set.mask * 3) {
-                    set_table_resize(set, set.used > 50000 ? set.used * 2 : set.used * 4);
-                }
-                return;
-            }
-            if (set.table[slot] == key) {
-                return;
-            }
-            if (probes-- == 0) {
-                break;
-            }
-            ++slot;
-        }
-        perturb >>= kPerturbShift;
-        i = (i * 5 + 1 + perturb) & set.mask;
-    }
-}
-
-}  // namespace
-
 std::vector<std::int64_t> cpython_set_order(const std::vector<std::int64_t>& keys) {
-    PySet set;
+    pyorder::OrderedSet set;
     for (const std::int64_t key : keys) {
-        set_add_entry(set, key);
+        set.add(key, pyorder::hash_of_int(key));
     }
-    std::vector<std::int64_t> order;
-    order.reserve(set.used);
-    for (const std::int64_t key : set.table) {
-        if (key >= 0) {
-            order.push_back(key);
-        }
-    }
-    return order;
+    return set.items();
 }
 
 void keep_only_diagonal_blocks(

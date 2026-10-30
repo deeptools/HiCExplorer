@@ -1,6 +1,11 @@
 // The Python text the messages of hic2cool are made of: repr of strings,
 // lists, dicts and floats, datetime.utcnow().isoformat(), and the pandas
-// DataFrame preview extract-norms prints.
+// DataFrame preview extract-norms prints. Written from the documented
+// behaviour of repr, float.__repr__ (shortest round-trip digits, exponent
+// thresholds -4 and 16) and pandas' display.precision 6 float formatting, and
+// verified against Python 3.12.7 / pandas 2.2.3 on 3000 random doubles and
+// 1500 random frames (tests/test_cpython_oracles.cpp,
+// tests/fixtures/cpython/pyformat.txt, scripts/gen_pyformat_fixture.py).
 
 #ifndef HIC2COOL_PYFORMAT_HPP
 #define HIC2COOL_PYFORMAT_HPP

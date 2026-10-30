@@ -1,250 +1,43 @@
 #include "hicx/json_lite.hpp"
 
-#include <cctype>
-#include <cstdlib>
-#include <sstream>
+#include <utility>
 
+#include "coolercpp/json.hpp"
 #include "hicx/numpy_compat.hpp"
 
 namespace hicx::json {
 
 namespace {
 
-class Parser {
-  public:
-    explicit Parser(const std::string& text) : text_(text) {}
-
-    std::optional<Value> parse_document() {
-        skip_whitespace();
-        std::optional<Value> value = parse_value();
-        if (!value.has_value()) {
-            return std::nullopt;
-        }
-        skip_whitespace();
-        if (position_ != text_.size()) {
-            return std::nullopt;
-        }
-        return value;
-    }
-
-  private:
-    void skip_whitespace() {
-        while (position_ < text_.size() &&
-               (text_[position_] == ' ' || text_[position_] == '\t' ||
-                text_[position_] == '\n' || text_[position_] == '\r')) {
-            ++position_;
-        }
-    }
-
-    bool consume(char expected) {
-        if (position_ < text_.size() && text_[position_] == expected) {
-            ++position_;
-            return true;
-        }
-        return false;
-    }
-
-    bool consume_literal(const char* literal) {
-        const std::size_t length = std::char_traits<char>::length(literal);
-        if (text_.compare(position_, length, literal) == 0) {
-            position_ += length;
-            return true;
-        }
-        return false;
-    }
-
-    std::optional<Value> parse_value() {
-        skip_whitespace();
-        if (position_ >= text_.size()) {
-            return std::nullopt;
-        }
-        const char c = text_[position_];
-        if (c == '{') {
-            return parse_object();
-        }
-        if (c == '[') {
-            return parse_array();
-        }
-        if (c == '"') {
-            std::optional<std::string> text = parse_string();
-            if (!text.has_value()) {
-                return std::nullopt;
+// The same value in this header's types: objects as sorted maps, integers
+// beyond 64 bits as doubles.
+Value convert(const coolercpp::json::Value& value) {
+    namespace cj = coolercpp::json;
+    switch (value.type()) {
+        case cj::Type::Null: return Value::null();
+        case cj::Type::Bool: return Value::boolean(value.as_bool());
+        case cj::Type::Int: return Value::integer(value.as_int());
+        case cj::Type::UInt: return Value::number(static_cast<double>(value.as_uint()));
+        case cj::Type::Double: return Value::number(value.as_double());
+        case cj::Type::String:
+        case cj::Type::Bytes: return Value::string(value.as_string());
+        case cj::Type::Array: {
+            Array items;
+            for (const cj::Value& item : value.as_array()) {
+                items.push_back(convert(item));
             }
-            return Value::string(*text);
+            return Value::array(std::move(items));
         }
-        if (consume_literal("null")) {
-            return Value::null();
-        }
-        if (consume_literal("true")) {
-            return Value::boolean(true);
-        }
-        if (consume_literal("false")) {
-            return Value::boolean(false);
-        }
-        return parse_number();
-    }
-
-    std::optional<Value> parse_object() {
-        if (!consume('{')) {
-            return std::nullopt;
-        }
-        Object object;
-        skip_whitespace();
-        if (consume('}')) {
-            return Value::object(std::move(object));
-        }
-        while (true) {
-            skip_whitespace();
-            std::optional<std::string> key = parse_string();
-            if (!key.has_value()) {
-                return std::nullopt;
+        case cj::Type::Object: {
+            Object members;
+            for (const auto& [key, item] : value.as_object()) {
+                members.emplace(key, convert(item));
             }
-            skip_whitespace();
-            if (!consume(':')) {
-                return std::nullopt;
-            }
-            std::optional<Value> value = parse_value();
-            if (!value.has_value()) {
-                return std::nullopt;
-            }
-            object.emplace(*key, *value);
-            skip_whitespace();
-            if (consume(',')) {
-                continue;
-            }
-            if (consume('}')) {
-                return Value::object(std::move(object));
-            }
-            return std::nullopt;
+            return Value::object(std::move(members));
         }
     }
-
-    std::optional<Value> parse_array() {
-        if (!consume('[')) {
-            return std::nullopt;
-        }
-        Array array;
-        skip_whitespace();
-        if (consume(']')) {
-            return Value::array(std::move(array));
-        }
-        while (true) {
-            std::optional<Value> value = parse_value();
-            if (!value.has_value()) {
-                return std::nullopt;
-            }
-            array.push_back(*value);
-            skip_whitespace();
-            if (consume(',')) {
-                continue;
-            }
-            if (consume(']')) {
-                return Value::array(std::move(array));
-            }
-            return std::nullopt;
-        }
-    }
-
-    std::optional<std::string> parse_string() {
-        if (!consume('"')) {
-            return std::nullopt;
-        }
-        std::string out;
-        while (position_ < text_.size()) {
-            const char c = text_[position_++];
-            if (c == '"') {
-                return out;
-            }
-            if (c != '\\') {
-                out.push_back(c);
-                continue;
-            }
-            if (position_ >= text_.size()) {
-                return std::nullopt;
-            }
-            const char escape = text_[position_++];
-            switch (escape) {
-                case '"': out.push_back('"'); break;
-                case '\\': out.push_back('\\'); break;
-                case '/': out.push_back('/'); break;
-                case 'b': out.push_back('\b'); break;
-                case 'f': out.push_back('\f'); break;
-                case 'n': out.push_back('\n'); break;
-                case 'r': out.push_back('\r'); break;
-                case 't': out.push_back('\t'); break;
-                case 'u': {
-                    if (position_ + 4 > text_.size()) {
-                        return std::nullopt;
-                    }
-                    const std::string hex = text_.substr(position_, 4);
-                    position_ += 4;
-                    const long code = std::strtol(hex.c_str(), nullptr, 16);
-                    // Only the BMP subset that fits into UTF-8 is needed here.
-                    if (code < 0x80) {
-                        out.push_back(static_cast<char>(code));
-                    } else if (code < 0x800) {
-                        out.push_back(static_cast<char>(0xC0 | (code >> 6)));
-                        out.push_back(static_cast<char>(0x80 | (code & 0x3F)));
-                    } else {
-                        out.push_back(static_cast<char>(0xE0 | (code >> 12)));
-                        out.push_back(static_cast<char>(0x80 | ((code >> 6) & 0x3F)));
-                        out.push_back(static_cast<char>(0x80 | (code & 0x3F)));
-                    }
-                    break;
-                }
-                default: return std::nullopt;
-            }
-        }
-        return std::nullopt;
-    }
-
-    std::optional<Value> parse_number() {
-        const std::size_t start = position_;
-        if (position_ < text_.size() && (text_[position_] == '-' || text_[position_] == '+')) {
-            ++position_;
-        }
-        bool has_digits = false;
-        while (position_ < text_.size() &&
-               std::isdigit(static_cast<unsigned char>(text_[position_])) != 0) {
-            ++position_;
-            has_digits = true;
-        }
-        bool is_double = false;
-        if (position_ < text_.size() && text_[position_] == '.') {
-            is_double = true;
-            ++position_;
-            while (position_ < text_.size() &&
-                   std::isdigit(static_cast<unsigned char>(text_[position_])) != 0) {
-                ++position_;
-                has_digits = true;
-            }
-        }
-        if (position_ < text_.size() && (text_[position_] == 'e' || text_[position_] == 'E')) {
-            is_double = true;
-            ++position_;
-            if (position_ < text_.size() &&
-                (text_[position_] == '-' || text_[position_] == '+')) {
-                ++position_;
-            }
-            while (position_ < text_.size() &&
-                   std::isdigit(static_cast<unsigned char>(text_[position_])) != 0) {
-                ++position_;
-            }
-        }
-        if (!has_digits) {
-            position_ = start;
-            return std::nullopt;
-        }
-        const std::string token = text_.substr(start, position_ - start);
-        if (is_double) {
-            return Value::number(std::strtod(token.c_str(), nullptr));
-        }
-        return Value::integer(static_cast<std::int64_t>(std::strtoll(token.c_str(), nullptr, 10)));
-    }
-
-    const std::string& text_;
-    std::size_t position_ = 0;
-};
+    return Value::null();
+}
 
 }  // namespace
 
@@ -338,8 +131,11 @@ std::string Value::to_python_string() const {
 }
 
 std::optional<Value> parse(const std::string& text) {
-    Parser parser(text);
-    return parser.parse_document();
+    const std::optional<coolercpp::json::Value> parsed = coolercpp::json::parse(text);
+    if (!parsed.has_value()) {
+        return std::nullopt;
+    }
+    return convert(*parsed);
 }
 
 std::string dump_object(

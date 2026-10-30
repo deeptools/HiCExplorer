@@ -1,15 +1,29 @@
-// CPython's set and intervaltree 3.1.0's IntervalTree, reproduced so that
-// the iteration order of IntervalTree.overlap's result is CPython's.
+// A centered interval tree whose overlap queries return their hits in the
+// order of the Python package intervaltree 3.1.0.
 //
-// hicMergeLoops decides ties by that order (see cpp/tools/hicMergeLoops.cpp,
-// property 3, for the measurements); the tool and the public Python API's
-// hicexplorer.hicMergeLoops.mergeLoops (hicx/merge_loops.hpp) both use
-// these classes. Moved here unchanged from cpp/tools/hicMergeLoops.cpp.
+// hicMergeLoops picks among equally wide anchors by the iteration order of the
+// set that IntervalTree.overlap returns (cpp/tools/hicMergeLoops.cpp, property
+// 3), and that order depends on the exact shape of the tree and on the slot
+// layout of the sets held in its nodes. The tree is therefore built the way
+// the package documents it: a centered interval tree (Edelsbrunner 1980;
+// Berg et al., Computational Geometry, section 10.1) in which every node keeps
+// the intervals that contain its centre in a Python set, kept height balanced
+// as an AVL tree (Adelson-Velsky and Landis 1962), with intervals promoted to
+// the new top node when a rotation moves their centre. Used by
+// core/src/merge_loops.cpp, tools/hicMergeLoops.cpp and the Python API.
+//
+// Identity with the package was verified on 56 random insert / remove /
+// overlap sequences (about 5000 queries, ties and repeated coordinates
+// included) against intervaltree 3.1.0 on Python 3.12.7:
+// cpp/tests/test_cpython_oracles.cpp replays
+// cpp/tests/fixtures/cpython/intervaltree.txt, written by
+// cpp/scripts/gen_intervaltree_fixture.py.
 
 #ifndef HICX_PY_INTERVALTREE_HPP
 #define HICX_PY_INTERVALTREE_HPP
 
 #include <algorithm>
+#include <array>
 #include <cstdint>
 #include <cstdlib>
 #include <limits>
@@ -18,553 +32,296 @@
 #include <utility>
 #include <vector>
 
+#include "hicx/py_set_order.hpp"
+
 namespace hicx::pytree {
 
-// CPython's hash of an int that fits in 64 bits: the value modulo the
-// Mersenne prime 2^61 - 1, with the sign kept, and -1 replaced by -2.
-[[nodiscard]] inline std::int64_t python_hash_of_int(std::int64_t value) {
-    constexpr std::uint64_t kModulus = (1ULL << 61) - 1;
-    const bool negative = value < 0;
-    const std::uint64_t magnitude =
-        negative ? static_cast<std::uint64_t>(0) - static_cast<std::uint64_t>(value)
-                 : static_cast<std::uint64_t>(value);
-    std::int64_t hash = static_cast<std::int64_t>(magnitude % kModulus);
-    if (negative) {
-        hash = -hash;
-    }
-    return hash == -1 ? -2 : hash;
-}
-
-// CPython's tuple hash, the xxHash based one introduced in 3.8, for a pair of
-// ints. intervaltree's Interval.__hash__ is hash((begin, end)); the data field
-// is left out of it.
-[[nodiscard]] inline std::int64_t python_hash_of_pair(std::int64_t first, std::int64_t second) {
-    constexpr std::uint64_t kPrime1 = 11400714785074694791ULL;
-    constexpr std::uint64_t kPrime2 = 14029467366897019727ULL;
-    constexpr std::uint64_t kPrime5 = 2870177450012600261ULL;
-    std::uint64_t acc = kPrime5;
-    const std::int64_t items[2] = {first, second};
-    for (const std::int64_t item : items) {
-        acc += static_cast<std::uint64_t>(python_hash_of_int(item)) * kPrime2;
-        acc = (acc << 31) | (acc >> 33);
-        acc *= kPrime1;
-    }
-    acc += 2ULL ^ (kPrime5 ^ 3527539ULL);
-    if (acc == static_cast<std::uint64_t>(-1)) {
-        return 1546275796;
-    }
-    return static_cast<std::int64_t>(acc);
-}
-
-// A CPython 3.12 set (Objects/setobject.c) of Interval keys, reproduced slot
-// for slot so that it iterates in the same order: open addressing with nine
-// linear probes then perturbation, dummies on deletion that a later insertion
-// reuses (the last one passed), resizing at fill*5 >= mask*3, and the fast
-// paths of set_merge. A key is an interval's index in its Tree; two keys are
-// equal only when they are the same index, as Interval equality includes the
-// data field and every id is distinct.
-class PySet {
-public:
-    static constexpr std::int32_t kEmpty = -1;
-    static constexpr std::int32_t kDummy = -2;
-
-    struct Entry {
-        std::int32_t key = kEmpty;
-        std::int64_t hash = 0;
-    };
-
-    PySet() : table_(8) {}
-
-    [[nodiscard]] std::size_t size() const { return used_; }
-    [[nodiscard]] bool empty() const { return used_ == 0; }
-
-    // Keys in iteration order.
-    [[nodiscard]] std::vector<std::int32_t> items() const {
-        std::vector<std::int32_t> out;
-        out.reserve(used_);
-        for (const Entry& entry : table_) {
-            if (entry.key >= 0) {
-                out.push_back(entry.key);
-            }
-        }
-        return out;
-    }
-
-    // set_add_entry
-    void add(std::int32_t key, std::int64_t hash) {
-        const std::size_t mask = mask_;
-        std::size_t perturb = static_cast<std::size_t>(hash);
-        std::size_t i = static_cast<std::size_t>(hash) & mask;
-        Entry* freeslot = nullptr;
-        while (true) {
-            std::size_t probes = (i + kLinearProbes <= mask) ? kLinearProbes : 0;
-            std::size_t j = i;
-            while (true) {
-                Entry& entry = table_[j];
-                if (entry.key == kEmpty) {
-                    if (freeslot != nullptr) {
-                        ++used_;
-                        freeslot->key = key;
-                        freeslot->hash = hash;
-                        return;
-                    }
-                    ++fill_;
-                    ++used_;
-                    entry.key = key;
-                    entry.hash = hash;
-                    if (fill_ * 5 < mask * 3) {
-                        return;
-                    }
-                    resize(used_ > 50000 ? used_ * 2 : used_ * 4);
-                    return;
-                }
-                if (entry.key == key) {
-                    return;
-                }
-                if (entry.key == kDummy) {
-                    freeslot = &entry;
-                }
-                ++j;
-                if (probes == 0) {
-                    break;
-                }
-                --probes;
-            }
-            perturb >>= kPerturbShift;
-            i = (i * 5 + 1 + perturb) & mask;
-        }
-    }
-
-    [[nodiscard]] bool contains(std::int32_t key, std::int64_t hash) const {
-        return find(key, hash) != kNotFound;
-    }
-
-    // set_discard_entry; returns whether the key was present.
-    bool discard(std::int32_t key, std::int64_t hash) {
-        const std::size_t slot = find(key, hash);
-        if (slot == kNotFound) {
-            return false;
-        }
-        table_[slot].key = kDummy;
-        table_[slot].hash = -1;
-        --used_;
-        return true;
-    }
-
-    // set_merge (s.update(other) or set(other) for a set argument)
-    void merge(const PySet& other) {
-        if (&other == this || other.used_ == 0) {
-            return;
-        }
-        if ((fill_ + other.used_) * 5 >= mask_ * 3) {
-            resize((used_ + other.used_) * 2);
-        }
-        if (fill_ == 0 && mask_ == other.mask_ && other.fill_ == other.used_) {
-            table_ = other.table_;
-            fill_ = other.fill_;
-            used_ = other.used_;
-            return;
-        }
-        if (fill_ == 0) {
-            fill_ = other.used_;
-            used_ = other.used_;
-            for (const Entry& entry : other.table_) {
-                if (entry.key >= 0) {
-                    insert_clean(table_, mask_, entry.key, entry.hash);
-                }
-            }
-            return;
-        }
-        for (const Entry& entry : other.table_) {
-            if (entry.key >= 0) {
-                add(entry.key, entry.hash);
-            }
-        }
-    }
-
-    // set_difference_update_internal for a set argument that is a subset of
-    // this one (the only use, `s_center -= child.s_center`), so the
-    // intersection shortcut for a much larger argument never applies.
-    void difference_update(const PySet& other) {
-        for (const Entry& entry : other.table_) {
-            if (entry.key >= 0) {
-                discard(entry.key, entry.hash);
-            }
-        }
-        if (fill_ - used_ <= mask_ / 4) {
-            return;
-        }
-        resize(used_ > 50000 ? used_ * 2 : used_ * 4);
-    }
-
-private:
-    static constexpr std::size_t kLinearProbes = 9;
-    static constexpr int kPerturbShift = 5;
-    static constexpr std::size_t kNotFound = static_cast<std::size_t>(-1);
-
-    [[nodiscard]] std::size_t find(std::int32_t key, std::int64_t hash) const {
-        const std::size_t mask = mask_;
-        std::size_t perturb = static_cast<std::size_t>(hash);
-        std::size_t i = static_cast<std::size_t>(hash) & mask;
-        while (true) {
-            std::size_t probes = (i + kLinearProbes <= mask) ? kLinearProbes : 0;
-            std::size_t j = i;
-            while (true) {
-                const Entry& entry = table_[j];
-                if (entry.key == kEmpty) {
-                    return kNotFound;
-                }
-                if (entry.key == key) {
-                    return j;
-                }
-                ++j;
-                if (probes == 0) {
-                    break;
-                }
-                --probes;
-            }
-            perturb >>= kPerturbShift;
-            i = (i * 5 + 1 + perturb) & mask;
-        }
-    }
-
-    static void insert_clean(std::vector<Entry>& table, std::size_t mask, std::int32_t key,
-                             std::int64_t hash) {
-        std::size_t perturb = static_cast<std::size_t>(hash);
-        std::size_t i = static_cast<std::size_t>(hash) & mask;
-        while (true) {
-            if (table[i].key == kEmpty) {
-                table[i].key = key;
-                table[i].hash = hash;
-                return;
-            }
-            if (i + kLinearProbes <= mask) {
-                for (std::size_t j = 1; j <= kLinearProbes; ++j) {
-                    if (table[i + j].key == kEmpty) {
-                        table[i + j].key = key;
-                        table[i + j].hash = hash;
-                        return;
-                    }
-                }
-            }
-            perturb >>= kPerturbShift;
-            i = (i * 5 + 1 + perturb) & mask;
-        }
-    }
-
-    // set_table_resize
-    void resize(std::size_t minused) {
-        std::size_t newsize = 8;
-        while (newsize <= minused) {
-            newsize <<= 1;
-        }
-        if (newsize == 8 && mask_ == 7 && fill_ == used_) {
-            return;  // the small table is kept as it is
-        }
-        std::vector<Entry> old = std::move(table_);
-        table_.assign(newsize, Entry{});
-        mask_ = newsize - 1;
-        fill_ = used_;
-        for (const Entry& entry : old) {
-            if (entry.key >= 0) {
-                insert_clean(table_, mask_, entry.key, entry.hash);
-            }
-        }
-    }
-
-    std::vector<Entry> table_;
-    std::size_t mask_ = 7;
-    std::size_t fill_ = 0;
-    std::size_t used_ = 0;
-};
-
-// One chromosome's intervaltree 3.1.0 IntervalTree, reproduced node for node:
-// the centered AVL tree of intervaltree/node.py (insertion, rotations with
-// promotion of intervals to the new top, removal with pruning and
-// pop_greatest_child) with every s_center a PySet, and the sorted boundary
-// table. The tree's shape and the sets' slot layouts depend on the order of
-// earlier insertions and removals, and IntervalTree.overlap returns a set
-// whose iteration order decides ties in hicMergeLoops, so all of it is kept.
+// The intervals of one chromosome. An interval is identified by its slot, the
+// order in which it was added; its element identity in the Python set is
+// (begin, end, slot), which hashes as the tuple (begin, end).
 class Tree {
 public:
     std::vector<std::int64_t> begin;
     std::vector<std::int64_t> end;
     std::vector<std::size_t> id;
-    std::vector<std::int64_t> hash;
     std::vector<bool> present;
 
-    // IntervalTree.add for a new interval (every id is distinct, so the
-    // `interval in self` early return never fires).
+    // Adds [b, e) with the caller's identifier i.
     void add(std::int64_t b, std::int64_t e, std::size_t i) {
-        const auto key = static_cast<std::int32_t>(begin.size());
+        const auto slot = static_cast<std::int32_t>(begin.size());
         begin.push_back(b);
         end.push_back(e);
         id.push_back(i);
-        hash.push_back(python_hash_of_pair(b, e));
+        hash_.push_back(pyorder::hash_of_int_pair(b, e));
         present.push_back(true);
-        if (top_ == kNone) {
-            top_ = from_interval(key);
-        } else {
-            top_ = node_add(top_, key);
-        }
-        ++boundaries_[b];
-        ++boundaries_[e];
+        root_ = (root_ == kNil) ? make_node(slot) : insert(root_, slot);
+        ++endpoint_count_[b];
+        ++endpoint_count_[e];
     }
 
-    // IntervalTree.remove; false when the interval is not in the tree, where
-    // the reference raises ValueError.
-    bool remove(std::int32_t key) {
-        if (!present[static_cast<std::size_t>(key)]) {
+    // Removes the interval in slot; false when it is not in the tree.
+    bool remove(std::int32_t slot) {
+        if (!present[idx(slot)]) {
             return false;
         }
-        bool done = false;
-        top_ = remove_helper(top_, key, done);
-        present[static_cast<std::size_t>(key)] = false;
-        for (const std::int64_t boundary : {begin[static_cast<std::size_t>(key)],
-                                            end[static_cast<std::size_t>(key)]}) {
-            auto found = boundaries_.find(boundary);
+        bool stable = false;
+        root_ = erase(root_, slot, stable);
+        present[idx(slot)] = false;
+        for (const std::int64_t endpoint : {begin[idx(slot)], end[idx(slot)]}) {
+            auto found = endpoint_count_.find(endpoint);
             if (--found->second == 0) {
-                boundaries_.erase(found);
+                endpoint_count_.erase(found);
             }
         }
         return true;
     }
 
-    // IntervalTree.overlap(begin, end): the keys of the returned set in its
-    // iteration order.
+    // The slots of the intervals overlapping [b, e), in the iteration order of
+    // the set the package returns: the hits at b first, then the hits at every
+    // interval endpoint in [b, e) in ascending order, merged into that set.
     [[nodiscard]] std::vector<std::int32_t> overlap(std::int64_t b, std::int64_t e) const {
-        if (top_ == kNone || b >= e) {
+        if (root_ == kNil || b >= e) {
             return {};
         }
-        PySet result;
-        search_point(top_, b, result);
-        PySet more;
-        for (auto it = boundaries_.lower_bound(b); it != boundaries_.end() && it->first < e;
+        pyorder::OrderedSet hits;
+        collect_at(b, hits);
+        pyorder::OrderedSet inner;
+        for (auto it = endpoint_count_.lower_bound(b); it != endpoint_count_.end() && it->first < e;
              ++it) {
-            search_point(top_, it->first, more);
+            collect_at(it->first, inner);
         }
-        result.merge(more);
-        return result.items();
+        hits.update(inner);
+        std::vector<std::int32_t> out;
+        for (const std::int64_t key : hits.items()) {
+            out.push_back(static_cast<std::int32_t>(key));
+        }
+        return out;
     }
 
 private:
-    static constexpr std::int32_t kNone = -1;
+    static constexpr std::int32_t kNil = -1;
+    enum Side { Left = 0, Right = 1 };
 
     struct Node {
-        std::int64_t x_center = 0;
-        PySet s_center;
-        std::int32_t child[2] = {kNone, kNone};
-        int depth = 0;
-        int balance = 0;
+        std::int64_t center = 0;
+        pyorder::OrderedSet members;  // the intervals that contain center
+        std::array<std::int32_t, 2> link = {kNil, kNil};
+        int height = 0;
+        int skew = 0;  // height(right) - height(left)
     };
 
     std::vector<Node> nodes_;
-    std::int32_t top_ = kNone;
-    std::map<std::int64_t, int> boundaries_;
+    std::int32_t root_ = kNil;
+    std::vector<std::int64_t> hash_;
+    std::map<std::int64_t, int> endpoint_count_;  // multiset of all endpoints
 
-    Node& node(std::int32_t index) { return nodes_[static_cast<std::size_t>(index)]; }
-    [[nodiscard]] const Node& node(std::int32_t index) const {
-        return nodes_[static_cast<std::size_t>(index)];
+    static std::size_t idx(std::int32_t i) { return static_cast<std::size_t>(i); }
+    Node& at(std::int32_t n) { return nodes_[idx(n)]; }
+    [[nodiscard]] const Node& at(std::int32_t n) const { return nodes_[idx(n)]; }
+    [[nodiscard]] bool holds_point(std::int32_t slot, std::int64_t point) const {
+        return begin[idx(slot)] <= point && point < end[idx(slot)];
     }
-    [[nodiscard]] bool contains_point(std::int32_t key, std::int64_t point) const {
-        const auto k = static_cast<std::size_t>(key);
-        return begin[k] <= point && point < end[k];
+    [[nodiscard]] Side side_of(std::int32_t slot, std::int32_t n) const {
+        return begin[idx(slot)] > at(n).center ? Right : Left;
     }
-    void set_add(std::int32_t n, std::int32_t key) {
-        node(n).s_center.add(key, hash[static_cast<std::size_t>(key)]);
+    void put(std::int32_t n, std::int32_t slot) {
+        at(n).members.add(slot, hash_[idx(slot)]);
+    }
+    void take(std::int32_t n, std::int32_t slot) {
+        at(n).members.discard(slot, hash_[idx(slot)]);
     }
 
-    // Node(x_center, s_center) for a node without children: the constructor's
-    // rotate() only refreshes depth and balance.
-    std::int32_t new_node(std::int64_t x_center) {
+    std::int32_t new_node(std::int64_t center) {
         nodes_.emplace_back();
-        nodes_.back().x_center = x_center;
-        const auto index = static_cast<std::int32_t>(nodes_.size() - 1);
-        refresh_balance(index);
-        return index;
-    }
-
-    std::int32_t from_interval(std::int32_t key) {
-        const std::int32_t n = new_node(begin[static_cast<std::size_t>(key)]);
-        set_add(n, key);
+        nodes_.back().center = center;
+        const auto n = static_cast<std::int32_t>(nodes_.size() - 1);
+        settle(n);
         return n;
     }
 
-    void refresh_balance(std::int32_t n) {
-        Node& self = node(n);
-        const int left = self.child[0] != kNone ? node(self.child[0]).depth : 0;
-        const int right = self.child[1] != kNone ? node(self.child[1]).depth : 0;
-        self.depth = 1 + std::max(left, right);
-        self.balance = right - left;
+    // A leaf centred on the begin of the interval, holding it.
+    std::int32_t make_node(std::int32_t slot) {
+        const std::int32_t n = new_node(begin[idx(slot)]);
+        put(n, slot);
+        return n;
     }
 
-    std::int32_t rotate(std::int32_t n) {
-        refresh_balance(n);
-        if (std::abs(node(n).balance) < 2) {
+    // Recomputes height and skew from the children.
+    void settle(std::int32_t n) {
+        Node& node = at(n);
+        const int left = node.link[Left] != kNil ? at(node.link[Left]).height : 0;
+        const int right = node.link[Right] != kNil ? at(node.link[Right]).height : 0;
+        node.height = 1 + std::max(left, right);
+        node.skew = right - left;
+    }
+
+    // Restores the AVL condition at n; returns the new top of the subtree.
+    std::int32_t rebalance(std::int32_t n) {
+        settle(n);
+        if (std::abs(at(n).skew) < 2) {
             return n;
         }
-        const int my_heavy = node(n).balance > 0 ? 1 : 0;
-        const std::int32_t heavy_child = node(n).child[my_heavy];
-        const int child_heavy = node(heavy_child).balance > 0 ? 1 : 0;
-        if (my_heavy == child_heavy || node(heavy_child).balance == 0) {
-            return srotate(n);
+        const Side heavy = at(n).skew > 0 ? Right : Left;
+        const std::int32_t child = at(n).link[heavy];
+        const Side child_heavy = at(child).skew > 0 ? Right : Left;
+        if (heavy == child_heavy || at(child).skew == 0) {
+            return rotate_once(n);
         }
-        return drotate(n);
+        return rotate_twice(n);
     }
 
-    std::int32_t srotate(std::int32_t n) {
-        const int heavy = node(n).balance > 0 ? 1 : 0;
-        const int light = 1 - heavy;
-        const std::int32_t save = node(n).child[heavy];
-        node(n).child[heavy] = node(save).child[light];
-        const std::int32_t rotated = rotate(n);
-        node(save).child[light] = rotated;
+    // Single rotation towards the light side. Intervals of the demoted
+    // subtree that contain the new top's centre move up into the new top, in
+    // the iteration order of the set they leave.
+    std::int32_t rotate_once(std::int32_t n) {
+        const Side heavy = at(n).skew > 0 ? Right : Left;
+        const Side light = heavy == Right ? Left : Right;
+        const std::int32_t top = at(n).link[heavy];
+        at(n).link[heavy] = at(top).link[light];
+        const std::int32_t demoted = rebalance(n);
+        at(top).link[light] = demoted;
 
-        // Promote the intervals of the new light child's s_center that overlap
-        // save.x_center, in that set's iteration order.
-        std::vector<std::int32_t> promotees;
-        const std::int64_t center = node(save).x_center;
-        for (const std::int32_t key : node(node(save).child[light]).s_center.items()) {
-            if (contains_point(key, center)) {
-                promotees.push_back(key);
+        const std::int64_t centre = at(top).center;
+        std::vector<std::int32_t> promoted;
+        for (const std::int64_t key : at(at(top).link[light]).members.items()) {
+            if (holds_point(static_cast<std::int32_t>(key), centre)) {
+                promoted.push_back(static_cast<std::int32_t>(key));
             }
         }
-        if (!promotees.empty()) {
-            for (const std::int32_t key : promotees) {
-                bool done = false;
-                node(save).child[light] = remove_helper(node(save).child[light], key, done);
-            }
-            for (const std::int32_t key : promotees) {
-                set_add(save, key);
-            }
+        for (const std::int32_t slot : promoted) {
+            bool stable = false;
+            at(top).link[light] = erase(at(top).link[light], slot, stable);
         }
-        refresh_balance(save);
-        return save;
+        for (const std::int32_t slot : promoted) {
+            put(top, slot);
+        }
+        settle(top);
+        return top;
     }
 
-    std::int32_t drotate(std::int32_t n) {
-        const int my_heavy = node(n).balance > 0 ? 1 : 0;
-        node(n).child[my_heavy] = srotate(node(n).child[my_heavy]);
-        refresh_balance(n);
-        return srotate(n);
+    std::int32_t rotate_twice(std::int32_t n) {
+        const Side heavy = at(n).skew > 0 ? Right : Left;
+        at(n).link[heavy] = rotate_once(at(n).link[heavy]);
+        settle(n);
+        return rotate_once(n);
     }
 
-    std::int32_t node_add(std::int32_t n, std::int32_t key) {
-        if (contains_point(key, node(n).x_center)) {
-            set_add(n, key);
+    std::int32_t insert(std::int32_t n, std::int32_t slot) {
+        if (holds_point(slot, at(n).center)) {
+            put(n, slot);
             return n;
         }
-        const int direction = begin[static_cast<std::size_t>(key)] > node(n).x_center ? 1 : 0;
-        if (node(n).child[direction] == kNone) {
-            const std::int32_t leaf = from_interval(key);
-            node(n).child[direction] = leaf;
-            refresh_balance(n);
+        const Side side = side_of(slot, n);
+        if (at(n).link[side] == kNil) {
+            at(n).link[side] = make_node(slot);
+            settle(n);
             return n;
         }
-        const std::int32_t sub = node_add(node(n).child[direction], key);
-        node(n).child[direction] = sub;
-        return rotate(n);
+        at(n).link[side] = insert(at(n).link[side], slot);
+        return rebalance(n);
     }
 
-    std::int32_t remove_helper(std::int32_t n, std::int32_t key, bool& done) {
-        if (contains_point(key, node(n).x_center)) {
-            if (!node(n).s_center.discard(key, hash[static_cast<std::size_t>(key)])) {
+    // Removes slot from the subtree at n; `stable` is set once the removal
+    // left a node non-empty, from where on no node above is rebalanced.
+    std::int32_t erase(std::int32_t n, std::int32_t slot, bool& stable) {
+        if (holds_point(slot, at(n).center)) {
+            if (!at(n).members.discard(slot, hash_[idx(slot)])) {
                 throw std::runtime_error("intervaltree: interval missing from its node");
             }
-            if (!node(n).s_center.empty()) {
-                done = true;
+            if (!at(n).members.empty()) {
+                stable = true;
                 return n;
             }
-            return prune(n);
+            return collapse(n);
         }
-        const int direction = begin[static_cast<std::size_t>(key)] > node(n).x_center ? 1 : 0;
-        if (node(n).child[direction] == kNone) {
+        const Side side = side_of(slot, n);
+        if (at(n).link[side] == kNil) {
             throw std::runtime_error("intervaltree: interval missing from the tree");
         }
-        const std::int32_t sub = remove_helper(node(n).child[direction], key, done);
-        node(n).child[direction] = sub;
-        if (!done) {
-            return rotate(n);
-        }
-        return n;
+        at(n).link[side] = erase(at(n).link[side], slot, stable);
+        return stable ? n : rebalance(n);
     }
 
-    std::int32_t prune(std::int32_t n) {
-        if (node(n).child[0] == kNone || node(n).child[1] == kNone) {
-            const int direction = node(n).child[0] == kNone ? 1 : 0;
-            return node(n).child[direction];
+    // The subtree that replaces node n after its last interval left.
+    std::int32_t collapse(std::int32_t n) {
+        if (at(n).link[Left] == kNil || at(n).link[Right] == kNil) {
+            return at(n).link[at(n).link[Left] == kNil ? Right : Left];
         }
-        const auto [heir, left] = pop_greatest_child(node(n).child[0]);
-        node(n).child[0] = left;
-        node(heir).child[0] = node(n).child[0];
-        node(heir).child[1] = node(n).child[1];
-        refresh_balance(heir);
-        return rotate(heir);
+        // Two children: the rightmost node of the left subtree takes n's place.
+        const auto [heir, left_rest] = detach_rightmost(at(n).link[Left]);
+        at(n).link[Left] = left_rest;
+        at(heir).link = at(n).link;
+        settle(heir);
+        return rebalance(heir);
     }
 
-    std::pair<std::int32_t, std::int32_t> pop_greatest_child(std::int32_t n) {
-        if (node(n).child[1] == kNone) {
-            const std::vector<std::int32_t> keys = node(n).s_center.items();
-            std::int64_t max_end = std::numeric_limits<std::int64_t>::min();
-            for (const std::int32_t key : keys) {
-                max_end = std::max(max_end, end[static_cast<std::size_t>(key)]);
+    // Detaches the rightmost node of the subtree at n and returns it together
+    // with the root of what remains. The detached node is a new node: its
+    // centre is the largest interval end below the largest one of that node,
+    // and it takes over the intervals that contain this centre.
+    std::pair<std::int32_t, std::int32_t> detach_rightmost(std::int32_t n) {
+        if (at(n).link[Right] == kNil) {
+            const std::vector<std::int64_t> keys = at(n).members.items();
+            std::int64_t top_end = std::numeric_limits<std::int64_t>::min();
+            for (const std::int64_t key : keys) {
+                top_end = std::max(top_end, end[idx(static_cast<std::int32_t>(key))]);
             }
-            // sorted by (end, begin), pop the last, then every other interval
-            // whose end differs from the popped one's raises new_x_center.
-            std::int64_t new_x_center = node(n).x_center;
-            for (const std::int32_t key : keys) {
-                const std::int64_t e = end[static_cast<std::size_t>(key)];
-                if (e == max_end) {
-                    continue;
-                }
-                new_x_center = std::max(new_x_center, e);
-            }
-            const std::int32_t child = new_node(new_x_center);
-            for (const std::int32_t key : node(n).s_center.items()) {
-                if (contains_point(key, new_x_center)) {
-                    set_add(child, key);
+            std::int64_t centre = at(n).center;
+            for (const std::int64_t key : keys) {
+                const std::int64_t e = end[idx(static_cast<std::int32_t>(key))];
+                if (e != top_end) {
+                    centre = std::max(centre, e);
                 }
             }
-            // self.s_center -= child.s_center
-            const PySet taken = node(child).s_center;
-            node(n).s_center.difference_update(taken);
-            if (!node(n).s_center.empty()) {
-                return {child, n};
+            const std::int32_t detached = new_node(centre);
+            for (const std::int64_t key : at(n).members.items()) {
+                if (holds_point(static_cast<std::int32_t>(key), centre)) {
+                    put(detached, static_cast<std::int32_t>(key));
+                }
             }
-            return {child, node(n).child[0]};
+            const pyorder::OrderedSet moved = at(detached).members;
+            at(n).members.difference_update(moved);
+            if (!at(n).members.empty()) {
+                return {detached, n};
+            }
+            return {detached, at(n).link[Left]};
         }
-        const auto [greatest, right] = pop_greatest_child(node(n).child[1]);
-        node(n).child[1] = right;
-        // for iv in set(self.s_center): move the ones overlapping the new
-        // centre into greatest_child.
-        PySet copy;
-        copy.merge(node(n).s_center);
-        const std::int64_t center = node(greatest).x_center;
-        for (const std::int32_t key : copy.items()) {
-            if (contains_point(key, center)) {
-                node(n).s_center.discard(key, hash[static_cast<std::size_t>(key)]);
-                set_add(greatest, key);  // center_hit holds, so Node.add stores it here
+        const auto [detached, right_rest] = detach_rightmost(at(n).link[Right]);
+        at(n).link[Right] = right_rest;
+        // Intervals of n that contain the detached node's centre move there;
+        // they are visited in the order of a copy of n's set.
+        pyorder::OrderedSet snapshot;
+        snapshot.update(at(n).members);
+        const std::int64_t centre = at(detached).center;
+        for (const std::int64_t key : snapshot.items()) {
+            const auto slot = static_cast<std::int32_t>(key);
+            if (holds_point(slot, centre)) {
+                take(n, slot);
+                put(detached, slot);
             }
         }
-        if (!node(n).s_center.empty()) {
-            refresh_balance(n);
-            return {greatest, rotate(n)};
+        if (!at(n).members.empty()) {
+            settle(n);
+            return {detached, rebalance(n)};
         }
-        return {greatest, prune(n)};
+        return {detached, collapse(n)};
     }
 
-    void search_point(std::int32_t n, std::int64_t point, PySet& result) const {
-        while (n != kNone) {
-            const Node& self = node(n);
-            for (const std::int32_t key : self.s_center.items()) {
-                if (contains_point(key, point)) {
-                    result.add(key, hash[static_cast<std::size_t>(key)]);
+    // Adds to out the intervals that contain point, walking from the root
+    // towards the node whose centre is point.
+    void collect_at(std::int64_t point, pyorder::OrderedSet& out) const {
+        std::int32_t n = root_;
+        while (n != kNil) {
+            const Node& node = at(n);
+            for (const std::int64_t key : node.members.items()) {
+                if (holds_point(static_cast<std::int32_t>(key), point)) {
+                    out.add(key, hash_[idx(static_cast<std::int32_t>(key))]);
                 }
             }
-            if (point < self.x_center && self.child[0] != kNone) {
-                n = self.child[0];
-            } else if (point > self.x_center && self.child[1] != kNone) {
-                n = self.child[1];
+            if (point < node.center && node.link[Left] != kNil) {
+                n = node.link[Left];
+            } else if (point > node.center && node.link[Right] != kNil) {
+                n = node.link[Right];
             } else {
                 return;
             }

@@ -13,6 +13,14 @@
 //  * text files are read as open(path, 'r') reads them in a UTF-8 locale:
 //    strict UTF-8 (no surrogates, no overlong forms) and universal newlines,
 //    so "\r\n" and a lone "\r" both end a line and become "\n".
+//
+// The whitespace set is the Unicode White_Space property plus U+001C-U+001F
+// (the Unicode character database, as exposed by str.isspace()); the UTF-8
+// ranges are those of RFC 3629. Verified against Python 3.12.7 on every code
+// point, 4000 random strings (all whitespace code points, lone surrogates),
+// about 70000 byte strings for strict decoding and 2000 files for universal
+// newlines: tests/test_cpython_oracles.cpp replays
+// tests/fixtures/cpython/py_text.txt from scripts/gen_pytext_fixture.py.
 
 #ifndef HICX_PY_TEXT_HPP
 #define HICX_PY_TEXT_HPP
@@ -60,6 +68,16 @@ namespace hicx::pytext {
 // "\r\n" and "\r" are translated to "\n", every line but possibly the last
 // ends with "\n", and an empty file has no line.
 [[nodiscard]] std::vector<std::string> universal_newline_lines(std::string_view text);
+
+// The text int() and float() look at: every Unicode decimal digit replaced by
+// the ASCII digit of the same value and every non-ASCII whitespace code point by
+// a space, all other bytes unchanged (the ASCII controls U+001C-U+001F stay).
+[[nodiscard]] std::string numeric_text(std::string_view text);
+
+// repr(str) of UTF-8 text. A byte that does not start a valid sequence stands
+// for the lone surrogate U+DC00 + byte, as the interpreter decodes command line
+// arguments and file names (surrogateescape), and is written as \udcXX.
+[[nodiscard]] std::string repr(std::string_view text);
 
 }  // namespace hicx::pytext
 

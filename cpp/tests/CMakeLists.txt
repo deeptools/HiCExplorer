@@ -67,6 +67,7 @@ add_executable(hicx_tests
     test_matrix_qc.cpp
     test_matrix_qc_report.cpp
     test_tool_list.cpp
+    test_cpython_oracles.cpp
     # The computational cores of hicDifferentialAnalysis, of hicDetectStripes
     # and of hicArrowhead, so that the tests link against exactly the
     # translation units the tools run.
@@ -84,7 +85,8 @@ set_source_files_properties(../tools/stripes_impl.cpp ../tools/stripes_numpy.cpp
 target_compile_definitions(hicx_tests PRIVATE
     HICX_STRIPES_FIXTURE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/fixtures/stripenn"
     HICX_NUMPY_ORACLE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/fixtures/numpy_oracle"
-    HICX_SKLEARN_FIXTURE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/fixtures/sklearn")
+    HICX_SKLEARN_FIXTURE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/fixtures/sklearn"
+    HICX_CPYTHON_FIXTURE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/fixtures/cpython")
 
 # Real matrices from the Python test suite, used by the reader tests.
 target_compile_definitions(hicx_tests PRIVATE

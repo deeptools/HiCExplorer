@@ -8,34 +8,12 @@
 #include <ctime>
 #include <limits>
 
+#include "hicx/py_text.hpp"
+
 namespace hic2cool::detail {
 
 std::string py_repr(const std::string& text) {
-    const bool has_single = text.find('\'') != std::string::npos;
-    const bool has_double = text.find('"') != std::string::npos;
-    const char quote = has_single && !has_double ? '"' : '\'';
-    std::string out(1, quote);
-    for (unsigned char c : text) {
-        if (c == '\\') {
-            out += "\\\\";
-        } else if (c == static_cast<unsigned char>(quote)) {
-            out += '\\';
-            out += static_cast<char>(c);
-        } else if (c == '\n') {
-            out += "\\n";
-        } else if (c == '\r') {
-            out += "\\r";
-        } else if (c == '\t') {
-            out += "\\t";
-        } else if (c < 0x20 || c == 0x7f) {
-            char buffer[8];
-            std::snprintf(buffer, sizeof(buffer), "\\x%02x", c);
-            out += buffer;
-        } else {
-            out += static_cast<char>(c);
-        }
-    }
-    return out + quote;
+    return hicx::pytext::repr(text);
 }
 
 namespace {
@@ -182,8 +160,8 @@ std::string pandas_bins_head(const std::string& norm, const std::vector<BinsPrev
         bool trim = false;
         bool any = false;
         for (const auto& v : values) {
-            if (v == "NaN") {
-                continue;
+            if (v == "NaN" || v.find("inf") != std::string::npos) {
+                continue;  // not numbers with trailing zeros
             }
             any = true;
             const auto dot = v.find('.');
@@ -197,7 +175,7 @@ std::string pandas_bins_head(const std::string& norm, const std::vector<BinsPrev
             break;
         }
         for (auto& v : values) {
-            if (v != "NaN") {
+            if (v != "NaN" && v.find("inf") == std::string::npos) {
                 v.pop_back();
             }
         }

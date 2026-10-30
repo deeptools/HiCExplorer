@@ -3,8 +3,10 @@
 // cooler stores every piece of file metadata as an HDF5 attribute and runs
 // json.loads over string valued attributes when it builds Cooler.info. That is
 // why 'bin-size' can come back as None from the literal string "null" and why
-// 'metadata' turns into a dictionary. The reader below reproduces exactly that
-// step; it is not meant as a general purpose JSON library.
+// 'metadata' turns into a dictionary. parse() reproduces that step with the
+// parser of coolercpp::json (simplejson.loads semantics, see
+// coolercpp/json.hpp) and returns the result in this header's types; it is not
+// meant as a general purpose JSON library.
 
 #ifndef HICX_JSON_LITE_HPP
 #define HICX_JSON_LITE_HPP

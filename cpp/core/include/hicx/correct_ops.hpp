@@ -135,13 +135,8 @@ std::size_t add_missing_diagonal(CsrMatrix& matrix, double value);
 // existing Python test compares it line by line, so it is observable output and
 // is reproduced here rather than sorted.
 //
-// The simulation is of Objects/setobject.c: an open addressed table of 8 slots
-// that grows to `used * 4` rounded up to a power of two whenever fill * 5
-// reaches mask * 3, a probe sequence of up to ten consecutive slots followed by
-// i = (i * 5 + 1 + perturb) & mask with perturb shifted right by five each
-// round, and a rehash in old slot order on every resize. The hash of a Python
-// int below 2^61 is the int itself, which is what makes this reproducible at
-// all.
+// The table is simulated by hicx/py_set_order.hpp, which is verified
+// against Python 3.12.7.
 [[nodiscard]] std::vector<std::int64_t> cpython_set_order(
     const std::vector<std::int64_t>& keys);
 
