@@ -96,6 +96,12 @@ target_compile_definitions(hicx_tests PRIVATE
     HICX_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}")
 
 add_test(NAME hicx_unit_tests COMMAND hicx_tests)
+# The k-means oracle fixtures of x86-64 were written with OpenBLAS's Haswell
+# kernel, which every x86-64 CPU with AVX2 runs; the test selects it so that
+# the comparison is bitwise on any such machine (test_sklearn_oracle.cpp).
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|amd64)$")
+    set_tests_properties(hicx_unit_tests PROPERTIES ENVIRONMENT "OPENBLAS_CORETYPE=Haswell")
+endif()
 
 # hicCompartmentalization's C++-only --noPlot writes the numeric outputs
 # without the figure; the equivalence harness cannot compare an option the

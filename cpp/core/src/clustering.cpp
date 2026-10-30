@@ -37,6 +37,8 @@ struct Blas {
     void (*dgemm)(const char*, const char*, const int*, const int*, const int*, const double*,
                   const double*, const int*, const double*, const int*, const double*, double*,
                   const int*) = nullptr;
+    char* (*corename)() = nullptr;
+    char* (*config)() = nullptr;
 };
 
 const Blas& blas() {
@@ -64,6 +66,8 @@ const Blas& blas() {
         table.dgemm_rowmajor = reinterpret_cast<decltype(table.dgemm_rowmajor)>(symbol("cblas_dgemm"));
         table.ddot = reinterpret_cast<decltype(table.ddot)>(symbol("cblas_ddot"));
         table.dgemm = reinterpret_cast<decltype(table.dgemm)>(symbol("dgemm_"));
+        table.corename = reinterpret_cast<decltype(table.corename)>(dlsym(handle, "openblas_get_corename"));
+        table.config = reinterpret_cast<decltype(table.config)>(dlsym(handle, "openblas_get_config"));
         if (void* set_threads = dlsym(handle, "openblas_set_num_threads")) {
             reinterpret_cast<void (*)(int)>(set_threads)(1);
         }
@@ -621,11 +625,24 @@ std::int64_t condensed_index(std::int64_t n, std::int64_t i, std::int64_t j) {
 //   d(k, x+y)^2 = ((n_k + n_x) d(k,x)^2 + (n_k + n_y) d(k,y)^2 - n_k d(x,y)^2)
 //                 / (n_k + n_x + n_y).
 // The common denominator is applied as one reciprocal factor to each term.
+// On arm64 the compiled SciPy forms the sum with two fused multiply-adds, the
+// first term fused onto the rounded second and the third subtracted fused
+// onto that; this was found by comparison with scipy.cluster.hierarchy.ward on
+// 20,000 random three-point inputs on macOS (all equal), and the oracle test
+// test_sklearn_oracle.cpp checks it on the arm64 fixtures. On x86-64 each
+// product is rounded.
 double ward_update(double d_xi, double d_yi, double d_xy, int size_x, int size_y, int size_i) {
     const double reciprocal = 1.0 / (size_x + size_y + size_i);
+#if defined(__aarch64__) || defined(_M_ARM64)
+    const double first = (size_i + size_x) * reciprocal * d_xi;
+    const double second = (size_i + size_y) * reciprocal * d_yi;
+    const double third = size_i * reciprocal * d_xy;
+    return std::sqrt(std::fma(-third, d_xy, std::fma(first, d_xi, second * d_yi)));
+#else
     return std::sqrt((size_i + size_x) * reciprocal * d_xi * d_xi +
                      (size_i + size_y) * reciprocal * d_yi * d_yi -
                      size_i * reciprocal * d_xy * d_xy);
+#endif
 }
 
 void require_finite(const Samples& X, const char* estimator) {
@@ -642,31 +659,51 @@ void require_finite(const Samples& X, const char* estimator) {
 
 namespace detail {
 
+std::string blas_kernel() {
+    const Blas& table = blas();
+    if (table.corename == nullptr || table.config == nullptr) {
+        return "unknown";
+    }
+    // openblas_get_config() starts with "OpenBLAS <version>".
+    std::string version = table.config();
+    const std::size_t space = version.find(' ', version.find(' ') + 1);
+    if (space != std::string::npos) {
+        version.resize(space);
+    }
+    return version + " " + table.corename();
+}
+
 double einsum_row_norm_squared(const double* row, std::int64_t features) {
-    // Sum of squares of one row as numpy.einsum('ij,ij->i') evaluates it on a
-    // CPU with two float64 lanes (the SSE baseline numpy dispatches to). Even
-    // positions accumulate in one lane and odd positions in the other. A
-    // multiply-add is formed as x*x + lane (not an FMA; numpy's baseline has
-    // none). Full blocks of eight elements add their four pairs from the
-    // last pair to the first; the remaining elements are taken two at a time,
-    // an odd last element paired with zero. The lanes are added at the end.
-    // The summation order was found by comparison with einsum on random rows
-    // of every length from 1 to 130 (test_sklearn_oracle.cpp and
-    // test_aggregate_support.cpp).
+    // Sum of squares of one row as numpy.einsum('ij,ij->i') evaluates it with
+    // two float64 lanes (the SSE baseline on x86-64, NEON on arm64). Even
+    // positions accumulate in one lane and odd positions in the other. Full
+    // blocks of eight elements add their four pairs from the last pair to the
+    // first; the remaining elements are taken two at a time, an odd last
+    // element paired with zero. The lanes are added at the end. The
+    // multiply-add is x*x + lane rounded twice on x86-64 (the SSE baseline has
+    // no FMA) and a fused multiply-add on arm64 (NEON's). The order was found
+    // by comparison with einsum on random rows of every length from 1 to 130,
+    // on x86-64 and on arm64 (macOS), see test_sklearn_oracle.cpp and
+    // test_aggregate_support.cpp.
+#if defined(__aarch64__) || defined(_M_ARM64)
+    const auto madd = [](double a, double b, double c) { return std::fma(a, b, c); };
+#else
+    const auto madd = [](double a, double b, double c) { return a * b + c; };
+#endif
     double lane0 = 0.0;
     double lane1 = 0.0;
     std::int64_t remaining = features;
     const double* x = row;
     for (; remaining >= 8; remaining -= 8, x += 8) {
         for (int pair = 3; pair >= 0; --pair) {
-            lane0 = x[2 * pair] * x[2 * pair] + lane0;
-            lane1 = x[2 * pair + 1] * x[2 * pair + 1] + lane1;
+            lane0 = madd(x[2 * pair], x[2 * pair], lane0);
+            lane1 = madd(x[2 * pair + 1], x[2 * pair + 1], lane1);
         }
     }
     for (; remaining > 0; remaining -= 2, x += 2) {
-        lane0 = x[0] * x[0] + lane0;
+        lane0 = madd(x[0], x[0], lane0);
         const double second = remaining >= 2 ? x[1] : 0.0;
-        lane1 = second * second + lane1;
+        lane1 = madd(second, second, lane1);
     }
     return 0.0 + (lane0 + lane1);
 }

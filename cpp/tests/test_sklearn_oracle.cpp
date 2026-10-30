@@ -17,7 +17,21 @@
 
 namespace {
 
-const std::string kFixtures = HICX_SKLEARN_FIXTURE_DIR;
+// numpy's einsum and the BLAS kernels differ between the machines, so each has
+// its own fixtures (see the generator).
+#if defined(__aarch64__) || defined(_M_ARM64)
+const std::string kFixtures = std::string(HICX_SKLEARN_FIXTURE_DIR) + "/arm64";
+#else
+const std::string kFixtures = std::string(HICX_SKLEARN_FIXTURE_DIR) + "/x86_64";
+#endif
+
+// The BLAS the fixtures were written with, "OpenBLAS <version> <kernel>".
+std::string fixture_blas() {
+    std::ifstream in(kFixtures + "/blas.txt");
+    std::string line;
+    std::getline(in, line);
+    return line;
+}
 
 class Reader {
   public:
@@ -52,6 +66,16 @@ bool same_bits(const std::vector<double>& a, const std::vector<double>& b) {
 }  // namespace
 
 TEST_CASE("k-means and ward agree with scikit-learn on random data") {
+    // The distances come from BLAS, whose kernels round differently; the bits
+    // are only comparable with the BLAS the fixtures were written with.
+    const std::string expected_blas = fixture_blas();
+    const std::string loaded_blas = hicx::cluster::detail::blas_kernel();
+    const bool same_blas = loaded_blas == expected_blas;
+    if (!same_blas) {
+        MESSAGE("k-means part skipped (ward still checked): fixtures from " << expected_blas
+                                                                           << ", running with "
+                                                                           << loaded_blas);
+    }
     Reader in("kmeans_oracle.bin");
     const int cases = in.one<std::int32_t>();
     int checked = 0;
@@ -71,19 +95,21 @@ TEST_CASE("k-means and ward agree with scikit-learn on random data") {
         CAPTURE(n);
         CAPTURE(d);
         CAPTURE(k);
-        const hicx::cluster::detail::KMeansFit fit = hicx::cluster::detail::kmeans_fit(X, k, seed);
-        CHECK(fit.labels == labels);
-        if (n <= 512) {
-            // up to two blocks of the assignment step the sums are
-            // independent of the thread count
-            CHECK(same_bits(fit.centers, centers));
-        } else {
-            REQUIRE(fit.centers.size() == centers.size());
-            for (std::size_t i = 0; i < centers.size(); ++i) {
-                CHECK(fit.centers[i] == doctest::Approx(centers[i]).epsilon(1e-12));
+        if (same_blas) {
+            const hicx::cluster::detail::KMeansFit fit = hicx::cluster::detail::kmeans_fit(X, k, seed);
+            CHECK(fit.labels == labels);
+            if (n <= 512) {
+                // up to two blocks of the assignment step the sums are
+                // independent of the thread count
+                CHECK(same_bits(fit.centers, centers));
+            } else {
+                REQUIRE(fit.centers.size() == centers.size());
+                for (std::size_t i = 0; i < centers.size(); ++i) {
+                    CHECK(fit.centers[i] == doctest::Approx(centers[i]).epsilon(1e-12));
+                }
             }
+            CHECK(hicx::cluster::kmeans(X, k, seed) == labels);
         }
-        CHECK(hicx::cluster::kmeans(X, k, seed) == labels);
         if (n >= 2) {
             CHECK(hicx::cluster::ward(X, k) == ward);
         }

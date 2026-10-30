@@ -4,8 +4,16 @@
 Run with the HiCExplorer 3.7.6 reference environment (numpy 1.26.4,
 scikit-learn 1.3.2):
 
-    ~/miniconda3/envs/hicx-ref-3.7.6/bin/python cpp/scripts/sklearn_oracle_fixture.py \
-        cpp/tests/fixtures/sklearn
+    OPENBLAS_CORETYPE=Haswell ~/miniconda3/envs/hicx-ref-3.7.6/bin/python \
+        cpp/scripts/sklearn_oracle_fixture.py cpp/tests/fixtures/sklearn
+
+The files go into a subdirectory named after the machine (x86_64 or arm64):
+numpy's einsum and the BLAS kernels differ between them. blas.txt records the
+BLAS as "OpenBLAS <version> <kernel>"; the C++ test compares k-means bit for
+bit only when it runs on the same one (on x86-64 ctest selects the Haswell
+kernel, which runs on every CPU with AVX2). On arm64 the fixtures were written
+on macOS with an environment of the same numpy and scikit-learn and OpenBLAS
+0.3.28.
 
 kmeans_oracle.bin (little endian):
     int32 cases; per case: int32 n, d, k, seed; float64 X[n*d];
@@ -18,6 +26,7 @@ einsum_oracle.bin:
     int32 rows; per row: int32 length; float64 x[length]; float64 einsum('ij,ij->i')
 """
 import os
+import platform
 import struct
 import sys
 import warnings
@@ -125,9 +134,22 @@ def write_einsum(path):
     print(path, len(rows), "rows")
 
 
+def blas_kernel():
+    from threadpoolctl import threadpool_info
+
+    for library in threadpool_info():
+        if library.get("internal_api") == "openblas":
+            return "OpenBLAS %s %s" % (library["version"], library["architecture"])
+    raise SystemExit("numpy is not linked against OpenBLAS")
+
+
 if __name__ == "__main__":
-    target = sys.argv[1]
+    machine = {"x86_64": "x86_64", "amd64": "x86_64", "arm64": "arm64", "aarch64": "arm64"}[
+        platform.machine().lower()]
+    target = os.path.join(sys.argv[1], machine)
     os.makedirs(target, exist_ok=True)
+    with open(os.path.join(target, "blas.txt"), "w") as out:
+        out.write(blas_kernel() + "\n")
     write_kmeans(os.path.join(target, "kmeans_oracle.bin"))
     write_random(os.path.join(target, "random_state_oracle.bin"))
     write_einsum(os.path.join(target, "einsum_oracle.bin"))

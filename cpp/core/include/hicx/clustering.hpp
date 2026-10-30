@@ -57,6 +57,7 @@
 
 #include <cstdint>
 #include <stdexcept>
+#include <string>
 #include <vector>
 
 namespace hicx::cluster {
@@ -96,6 +97,12 @@ struct KMeansFit {
 };
 [[nodiscard]] KMeansFit kmeans_fit(const Samples& X, std::int64_t n_clusters,
                                    std::uint32_t random_state);
+
+// The BLAS the k-means distances are computed with, as "OpenBLAS <version>
+// <kernel>" (for example "OpenBLAS 0.3.28 Haswell"), or "unknown". The bits of
+// k-means depend on it; the oracle test compares only against fixtures written
+// with the same one.
+[[nodiscard]] std::string blas_kernel();
 
 // np.einsum('ij,ij->i', X, X) for one row, bit for bit.
 [[nodiscard]] double einsum_row_norm_squared(const double* row, std::int64_t features);
