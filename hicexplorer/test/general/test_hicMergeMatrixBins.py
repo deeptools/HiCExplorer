@@ -165,8 +165,8 @@ def test_running_window_keeps_the_resolution_and_the_intervals():
 
     boundaries = hm.hiCMatrix(SMALL_50KB_H5).chrBinBoundaries
     assert list(boundaries) == ['chr2RHet', 'chr3RHet', 'chr2LHet', 'chr4',
-                               'chr3L', 'chr2L', 'chrU', 'chrX', 'chrXHet',
-                               'chr2R', 'chr3R', 'chr3LHet']
+                                'chr3L', 'chr2L', 'chrU', 'chrX', 'chrXHet',
+                                'chr2R', 'chr3R', 'chr3LHet']
     # A cell that spans the chr2RHet / chr3RHet border of the nan free matrix
     # is non zero although the two bins are on different chromosomes.
     sub, sub_intervals = nan_free_input(SMALL_50KB_H5)

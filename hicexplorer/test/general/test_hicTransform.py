@@ -640,7 +640,7 @@ def test_obs_exp_lieberman_ignores_perChromosome():
          '--perChromosome'.format(original_matrix_h5, per_chromosome.name))
 
     assert_matrix_identical(hm.hiCMatrix(per_chromosome.name).matrix,
-                           hm.hiCMatrix(plain.name).matrix)
+                            hm.hiCMatrix(plain.name).matrix)
     os.unlink(plain.name)
     os.unlink(per_chromosome.name)
 

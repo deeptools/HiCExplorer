@@ -42,7 +42,11 @@ jobs:
 
       - name: Install dependencies
         run: |
-          mamba install --yes python=${{ matrix.python }} --file requirements.txt
+          # The tests compute their expected values with numpy, scipy and
+          # pandas as the reference of HiCExplorer 3.7.6, so these three are
+          # the versions of its environment; newer releases print floats and
+          # sum sparse matrices with other last bits.
+          mamba install --yes python=${{ matrix.python }} --file requirements.txt 'numpy=1.26.4' 'scipy=1.14.1' 'pandas=2.2.3'
           mamba install --yes cmake ninja compilers 'hdf5>=1.14.3,<1.15' 'blosc>=1.21.6,<1.22' zlib 'htslib>=1.21,<1.22' 'libopenblas=0.3.28' liblapack graphviz pybind11=2.13.6 libboost-headers=1.85 libbigwig=0.4.8 eigen=3.4 doctest=2.4.11
           mamba install --yes pytest flake8 pytest-xdist pytest-forked configparser psutil pysam pybedtools pybigwig pytables cooler scikit-build-core pathspec
 
@@ -59,8 +63,10 @@ jobs:
             pip install . --no-deps --no-build-isolation
           cd "$RUNNER_TEMP" && hicInfo --version
 
+      # W503 and W504 contradict each other (a line break before or after a
+      # binary operator); flake8's own default ignores both.
       - name: Lint
-        run: flake8 . --exclude=.venv,.build,planemo_test_env,build,deps --ignore=E501,F401,F403,E402,F999,F405,E712,W504
+        run: flake8 . --exclude=.venv,.build,planemo_test_env,build,deps --ignore=E501,F401,F403,E402,F999,F405,E712,W503,W504
 
       - name: Doctests and number of test cases
         env:
