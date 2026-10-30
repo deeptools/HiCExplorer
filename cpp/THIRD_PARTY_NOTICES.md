@@ -202,6 +202,36 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
+## GenomeDISCO
+
+- Location: `core/include/hicx/genomedisco.hpp`/`core/src/genomedisco.cpp`, used by `hicCorrelate --method genomedisco`.
+- Origin: GenomeDISCO (https://github.com/kundajelab/genomedisco, master `1e60ee1`), ported from `genomedisco/data_operations.py` (`sqrtvc`, `subsample_to_depth`, `subsample_to_depth_csr_upperTri`) and `genomedisco/comparison_types/disco_random_walks.py` (`to_transition`, `random_walk` and the score). Method: Ursu et al., Bioinformatics 34 (2018) 2701-2707, doi:10.1093/bioinformatics/bty164.
+- Licence: the genomedisco repository carries no licence file. The Kundaje Lab distributes the same code under MIT as part of 3DChromatin_ReplicateQC (https://github.com/kundajelab/3DChromatin_ReplicateQC, commit `942949b`, `software/genomedisco/`); both ported files are byte-identical in the two repositories. HiCExplorer uses them under that licence.
+
+```
+MIT License
+
+Copyright (c) 2017 Kundaje Lab
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
 ## pandas
 
 - Location: `core/src/text_table.cpp` (the float parser `precise_xstrtod` of `read_csv`, its NA spellings and column type inference) and `core/src/qc_html.cpp` (the HTML of `Styler.to_html` used by `hicPrepareQCreport`).
