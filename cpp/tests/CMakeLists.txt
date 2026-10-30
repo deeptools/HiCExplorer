@@ -46,6 +46,7 @@ add_executable(hicx_tests
     test_chicago.cpp
     test_merge_domains.cpp
     test_cool_chromosome_cut.cpp
+    test_cooler012.cpp
     test_aggregate_support.cpp
     test_sklearn_oracle.cpp
     test_linkage_ties.cpp

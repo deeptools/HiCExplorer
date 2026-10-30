@@ -9,6 +9,10 @@
 //   cooler/util.py             rlencode
 // together with the h5py rules they rely on (h5py/_hl/dataset.py
 // make_new_dset, h5py/_hl/filters.py fill_dcpl).
+//
+// Three behaviours of cooler 0.12.1 are adopted (int64 coordinates beyond
+// int32, no placeholder pixel rows, atomic writes). They are marked where they
+// are implemented and checked in tests/test_cooler012.cpp.
 
 #include "coolercpp/create.hpp"
 
@@ -892,8 +896,51 @@ bool contains(const std::vector<std::string>& v, const std::string& s) {
     return std::find(v.begin(), v.end(), s) != v.end();
 }
 
+// Name suffix of the staging file and of the staging group (cooler 0.12: a
+// cooler is written under "<destination>.__writing__" and takes the
+// destination's place only when it is complete).
+constexpr const char* kStaging = ".__writing__";
+
+// Writes one cooler into `file`. The cooler is built under the staging group
+// (non-root group paths: "<group>.__writing__"; root: "/.__writing__") unless
+// `staged` is false, in which case it is built in place (the file itself is
+// the staging area, see create_impl).
+void write_cooler(h5::File& file, const std::string& group_path, bool staged,
+                  const CreateCall& call, const Table& bins, Source& source);
+
 void create_impl(const CreateCall& call, const Table& bins, Source source) {
-    const auto [file_path, group_path] = parse_cooler_uri(call.cool_uri);
+    const std::string file_path = parse_cooler_uri(call.cool_uri).first;
+    const std::string group_path = parse_cooler_uri(call.cool_uri).second;
+    const h5::Mode mode = h5::parse_mode(call.mode);
+    if (mode == h5::Mode::Truncate) {
+        // cooler 0.12 (changelog): "Creating a cooler into a new or truncated
+        // file (mode "w") writes to a temporary file that replaces the
+        // destination only when complete." The temporary file is
+        // "<destination>.__writing__" in the destination's directory
+        // (observed black-box with strace on cooler 0.12.1); it is removed when
+        // the write fails, and the destination is left as it was.
+        const std::string temp_path = file_path + kStaging;
+        try {
+            {
+                h5::File file(temp_path, mode);
+                write_cooler(file, group_path, false, call, bins, source);
+            }
+            if (std::rename(temp_path.c_str(), file_path.c_str()) != 0) {
+                throw OSError("[Errno " + std::to_string(errno) + "] " + std::strerror(errno) +
+                              ": '" + temp_path + "' -> '" + file_path + "'");
+            }
+        } catch (...) {
+            ::unlink(temp_path.c_str());
+            throw;
+        }
+        return;
+    }
+    h5::File file(file_path, mode);
+    write_cooler(file, group_path, true, call, bins, source);
+}
+
+void write_cooler(h5::File& file, const std::string& final_group, bool staged,
+                  const CreateCall& call, const Table& bins, Source& source) {
     const Kwargs h5opts = set_h5opts(call.h5opts);
 
     for (const char* col : {"chrom", "start", "end"}) {
@@ -948,6 +995,18 @@ void create_impl(const CreateCall& call, const Table& bins, Source source) {
     if (chromsizes.size() == 0) {
         throw ValueError("not enough values to unpack (expected 2, got 0)");
     }
+    // cooler 0.12 (changelog, #480): chromosomes longer than the int32 maximum
+    // "are now written as int64 when a chromosome needs it, and as int32
+    // otherwise". Observed black-box on cooler 0.12.1: when the longest
+    // chromosome exceeds 2147483647 bp, chroms/length, bins/start and bins/end
+    // are all int64 (the whole file, not per dataset); bins/chrom, the pixel
+    // columns and the indexes are unchanged.
+    DType coordinate_dtype = DType::Int32;
+    for (const std::int64_t length : chromsizes.lengths()) {
+        if (length > std::numeric_limits<std::int32_t>::max()) {
+            coordinate_dtype = DType::Int64;
+        }
+    }
     const json::Value binsize = get_binsize(bins);
     const std::size_t n_chroms = chromsizes.size();
     const std::size_t n_bins = bins.num_rows();
@@ -959,19 +1018,41 @@ void create_impl(const CreateCall& call, const Table& bins, Source source) {
     }
     const bool validate = call.boundscheck || triucheck || call.dupcheck || call.ensure_sorted;
 
-    h5::File file(file_path, h5::parse_mode(call.mode));
-    if (group_path == "/") {
-        for (const char* name : {"chroms", "bins", "pixels", "indexes"}) {
-            if (file.exists(std::string("/") + name)) {
-                file.remove(std::string("/") + name);
-            }
-        }
-    } else {
+    const bool root = final_group == "/";
+    const std::string group_path =
+        !staged ? final_group : (root ? std::string("/") + kStaging : final_group + kStaging);
+    if (staged) {
+        // cooler 0.12 (changelog): "A failure while creating a cooler no
+        // longer leaves a partial cooler ...: coolers are written into a
+        // temporary group and moved into place when complete." The temporary
+        // group is the sibling "<group>.__writing__" ("/.__writing__" for the
+        // root group); the existing cooler stays untouched until the move
+        // (observed black-box on cooler 0.12.1 by listing the file during a
+        // write that is in progress).
         if (file.exists(group_path)) {
             file.remove(group_path);
         }
         file.create_group(group_path);
+    } else if (!root) {
+        file.create_group(group_path);
     }
+    // Removes the staging group again when the write fails.
+    struct StagingGuard {
+        h5::File& file;
+        const std::string& group;
+        bool armed;
+        ~StagingGuard() {
+            if (!armed) {
+                return;
+            }
+            try {
+                if (file.exists(group)) {
+                    file.remove(group);
+                }
+            } catch (...) {
+            }
+        }
+    } guard{file, group_path, staged};
 
     // ---- chroms ----
     const std::string chroms_group = join_path(group_path, "chroms");
@@ -987,11 +1068,11 @@ void create_impl(const CreateCall& call, const Table& bins, Source source) {
                                              TypeSpec{type.get(), width, 'S'}, n_chroms,
                                              std::nullopt, std::nullopt, h5opts);
         dataset.write_column(0, Column(names));
-        const h5::Handle length_type = h5::file_type(DType::Int32);
+        const h5::Handle length_type = h5::file_type(coordinate_dtype);
         h5::Dataset lengths = create_dataset(file, join_path(chroms_group, "length"),
-                                             numeric_spec(length_type, DType::Int32), n_chroms,
+                                             numeric_spec(length_type, coordinate_dtype), n_chroms,
                                              std::nullopt, std::nullopt, h5opts);
-        lengths.write_column(0, Column(chromsizes.lengths()).astype(DType::Int32));
+        lengths.write_column(0, Column(chromsizes.lengths()).astype(coordinate_dtype));
     }
 
     // ---- bins ----
@@ -1048,12 +1129,12 @@ void create_impl(const CreateCall& call, const Table& bins, Source source) {
         if (!as_enum) {
             file.set_attribute(chrom_path, "enum_path", json::Value("/chroms/name"));
         }
-        const h5::Handle coord_type = h5::file_type(DType::Int32);
+        const h5::Handle coord_type = h5::file_type(coordinate_dtype);
         for (const char* name : {"start", "end"}) {
             h5::Dataset dataset = create_dataset(file, join_path(bins_group, name),
-                                                 numeric_spec(coord_type, DType::Int32), n_bins,
+                                                 numeric_spec(coord_type, coordinate_dtype), n_bins,
                                                  std::nullopt, std::nullopt, h5opts);
-            dataset.write_column(0, bins[name].astype(DType::Int32));
+            dataset.write_column(0, bins[name].astype(coordinate_dtype));
         }
         for (std::size_t c = 0; c < bins.num_columns(); ++c) {
             const std::string& name = bins.columns()[c];
@@ -1159,6 +1240,18 @@ void create_impl(const CreateCall& call, const Table& bins, Source source) {
         }
     }
 
+    // cooler 0.12 (changelog): "Coolers with no pixels no longer contain
+    // placeholder rows in their pixel datasets." The datasets are created with
+    // 5 * n_bins rows (init_size) and shrink to the rows written; when no
+    // chunk reached the writer (an empty chunk list) cooler 0.10.2 left all
+    // init_size rows in place, 0.12.1 leaves none. Chunking and maxshape are
+    // the same in both.
+    if (nnz == 0) {
+        for (h5::Dataset& dataset : datasets) {
+            dataset.resize(0);
+        }
+    }
+
     // ---- indexes ----
     const std::string indexes_group = join_path(group_path, "indexes");
     file.create_group(indexes_group);
@@ -1222,9 +1315,34 @@ void create_impl(const CreateCall& call, const Table& bins, Source source) {
     info["format"] = kMagic;
     info["format-version"] = json::Value::integer(kFormatVersion);
     info["format-url"] = kFormatUrl;
-    for (const auto& [key, value] : info.as_object()) {
-        file.set_attribute(group_path, key, value);
+    if (!(staged && root)) {
+        for (const auto& [key, value] : info.as_object()) {
+            file.set_attribute(group_path, key, value);
+        }
     }
+
+    // ---- move into place ----
+    if (staged) {
+        if (root) {
+            for (const char* name : {"chroms", "bins", "pixels", "indexes"}) {
+                const std::string target = std::string("/") + name;
+                if (file.exists(target)) {
+                    file.remove(target);
+                }
+                file.move(group_path + "/" + name, target);
+            }
+            file.remove(group_path);
+            for (const auto& [key, value] : info.as_object()) {
+                file.set_attribute("/", key, value);
+            }
+        } else {
+            if (file.exists(final_group)) {
+                file.remove(final_group);
+            }
+            file.move(group_path, final_group);
+        }
+    }
+    guard.armed = false;
 }
 
 // ---------------------------------------------------------------------------
@@ -1401,8 +1519,15 @@ class CoolerMerger {
         state->epoch = 1;
         auto coolers = coolers_;
         auto columns = columns_;
-        return [state, coolers, columns]() -> std::optional<Table> {
-            if (state->epoch >= state->partition.size()) {
+        // Inputs without a single pixel: cooler 0.10.2 fails with "No objects
+        // to concatenate" in the first epoch, cooler 0.12.1 writes a cooler
+        // without pixels (test_cooler012.cpp, case empty_unordered_empty_chunk).
+        bool no_pixels = true;
+        for (const auto& index : state->indexes) {
+            no_pixels = no_pixels && (index.empty() || index.back() == 0);
+        }
+        return [state, coolers, columns, no_pixels]() -> std::optional<Table> {
+            if (no_pixels || state->epoch >= state->partition.size()) {
                 return std::nullopt;
             }
             const auto bin1_id = static_cast<std::size_t>(state->partition[state->epoch]);
@@ -1567,6 +1692,17 @@ void create_from_unordered(const std::string& cool_uri, const Table& bins, Pixel
         }
         return coolers;
     };
+
+    if (uris.empty()) {
+        // No chunk at all. cooler 0.10.2 fails here (the merger has no cooler
+        // to take the bin size from); cooler 0.12.1 writes a cooler without
+        // pixels, as for an empty chunk (checked against 0.12.1 in
+        // test_cooler012.cpp, case empty_unordered_no_chunk).
+        CreateCall empty_call = make_call(cool_uri, options);
+        empty_call.columns = columns;
+        create_impl(empty_call, bins, Source{});
+        return;
+    }
 
     std::vector<std::string> final_uris = uris;
     const auto n = static_cast<std::int64_t>(uris.size());
