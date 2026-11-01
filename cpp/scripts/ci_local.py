@@ -7,9 +7,10 @@
 
 The steps are read from the workflow files themselves, so the pins and
 commands cannot drift from what CI runs. Every job whose runner matches this
-machine (ubuntu-24.04 on x86-64, ubuntu-24.04-arm on aarch64, macos-15 on
-arm64 macOS) runs in a fresh conda environment of its own, on a copy of the
-committed tree (git archive HEAD) or, with --worktree, of the working tree.
+machine (ubuntu-24.04 on x86-64, ubuntu-24.04-arm on aarch64, macos-15 or
+macos-latest on arm64 macOS, by its version) runs in a fresh conda
+environment of its own, on a copy of the committed tree (git archive HEAD)
+or, with --worktree, of the working tree.
 The two `uses:` actions the jobs need are emulated: actions/checkout is that
 copy, conda-incubator/setup-miniconda is `mamba create` with the channels and
 Python version the step names. Jobs for other runners are listed as skipped.
@@ -42,7 +43,12 @@ WORKFLOWS = ROOT / ".github" / "workflows"
 def host_runners():
     machine = platform.machine().lower()
     if sys.platform == "darwin":
-        return {"macos-15", "macos-latest"} if machine == "arm64" else {"macos-15-intel"}
+        # CI runs macos-15 and macos-latest (macOS 26) with the same steps;
+        # one Mac stands for one of them, the label of its own macOS.
+        if machine != "arm64":
+            return {"macos-15-intel"}
+        major = int(platform.mac_ver()[0].split(".")[0] or 0)
+        return {"macos-15"} if major == 15 else {"macos-latest"}
     if machine in ("aarch64", "arm64"):
         return {"ubuntu-24.04-arm"}
     return {"ubuntu-24.04", "ubuntu-latest"}
