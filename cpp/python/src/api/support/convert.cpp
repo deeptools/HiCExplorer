@@ -201,7 +201,9 @@ hicx::utilities::SparseEntries Sparse::entries() const {
     if (compressed()) {
         const std::vector<std::int64_t> pointer = index_vector(indptr);
         std::vector<std::int64_t> minor = index_vector(indices);
-        std::vector<std::int64_t> major(minor.size(), 0);
+        // Not major(...): glibc 2.17's <sys/types.h> defines a major(dev)
+        // macro.
+        std::vector<std::int64_t> major = std::vector<std::int64_t>(minor.size(), 0);
         for (std::size_t i = 0; i + 1 < pointer.size(); ++i) {
             for (std::int64_t k = pointer[i]; k < pointer[i + 1] &&
                                               static_cast<std::size_t>(k) < major.size(); ++k) {
