@@ -1,5 +1,6 @@
 #include "hicx/utilities.hpp"
 
+#include <cstdlib>
 #include <fcntl.h>
 #include <unistd.h>
 

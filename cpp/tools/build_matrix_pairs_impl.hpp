@@ -108,6 +108,7 @@
 #ifndef HICX_TOOLS_BUILD_MATRIX_PAIRS_IMPL_HPP
 #define HICX_TOOLS_BUILD_MATRIX_PAIRS_IMPL_HPP
 
+#include <cstdlib>
 #include <deque>
 #include <functional>
 #include <string_view>

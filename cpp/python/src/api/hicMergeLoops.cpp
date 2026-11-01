@@ -16,6 +16,7 @@
 // tool's message for a ragged file.
 
 #include <cmath>
+#include <cstdlib>
 #include <exception>
 #include <optional>
 #include <string>
