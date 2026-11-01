@@ -7,7 +7,7 @@
 
 The steps are read from the workflow files themselves, so the pins and
 commands cannot drift from what CI runs. Every job whose runner matches this
-machine (ubuntu-24.04 on x86-64, ubuntu-24.04-arm on aarch64, macos-14 on
+machine (ubuntu-24.04 on x86-64, ubuntu-24.04-arm on aarch64, macos-15 on
 arm64 macOS) runs in a fresh conda environment of its own, on a copy of the
 committed tree (git archive HEAD) or, with --worktree, of the working tree.
 The two `uses:` actions the jobs need are emulated: actions/checkout is that
@@ -42,7 +42,7 @@ WORKFLOWS = ROOT / ".github" / "workflows"
 def host_runners():
     machine = platform.machine().lower()
     if sys.platform == "darwin":
-        return {"macos-14", "macos-latest"} if machine == "arm64" else {"macos-13"}
+        return {"macos-15", "macos-latest"} if machine == "arm64" else {"macos-15-intel"}
     if machine in ("aarch64", "arm64"):
         return {"ubuntu-24.04-arm"}
     return {"ubuntu-24.04", "ubuntu-latest"}
