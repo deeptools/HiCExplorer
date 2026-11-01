@@ -11,10 +11,14 @@
 
 include_guard(GLOBAL)
 
+# The headers are in the source tree, which is under no CMAKE_FIND_ROOT_PATH:
+# conda's compiler activation sets CMAKE_FIND_ROOT_PATH_MODE_INCLUDE=ONLY,
+# which would otherwise re-root this path under the host and build prefixes.
 find_path(HICX_SPECTRA_INCLUDE_DIR
     NAMES Spectra/Util/Version.h
     HINTS "${CMAKE_CURRENT_LIST_DIR}/../third_party/spectra/include"
-    NO_DEFAULT_PATH)
+    NO_DEFAULT_PATH
+    NO_CMAKE_FIND_ROOT_PATH)
 if(NOT HICX_SPECTRA_INCLUDE_DIR)
     message(FATAL_ERROR "Spectra headers missing from cpp/third_party/spectra/include")
 endif()
