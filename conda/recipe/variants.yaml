@@ -9,5 +9,6 @@ c_stdlib:
 c_stdlib_version:
   - if: linux
     then: "2.17"
+  # Floating-point std::to_chars (build_matrix.cpp) needs macOS 13.3.
   - if: osx
-    then: "11.0"
+    then: "13.3"

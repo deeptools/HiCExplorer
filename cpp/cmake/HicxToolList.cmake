@@ -1,6 +1,6 @@
 # Generates the tool table of the `hicexplorer` command (cpp/tools/hicexplorer.cpp).
 #
-#   cmake -DLIST=<entries file> -DOUTPUT=<include file> -P HicxToolList.cmake
+#   cmake -DLIST=<entries file> -DOUTPUT=<include file> [-DEMULATOR=<a|b>] -P HicxToolList.cmake
 #
 # Each line of LIST is `<name>|exe|<path>` for a C++ executable or
 # `<name>|python|<path>` for a Python driver (pyproject.toml console script).
@@ -12,6 +12,9 @@
 cmake_minimum_required(VERSION 3.24)
 
 file(STRINGS "${LIST}" _entries)
+# The command that runs a target executable on the build machine in a cross
+# build ("|"-separated), empty otherwise.
+string(REPLACE "|" ";" _emulator "${EMULATOR}")
 set(_body "")
 foreach(_entry IN LISTS _entries)
     string(REPLACE "|" ";" _fields "${_entry}")
@@ -19,7 +22,7 @@ foreach(_entry IN LISTS _entries)
     list(GET _fields 1 _kind)
     list(GET _fields 2 _path)
     if(_kind STREQUAL "exe")
-        execute_process(COMMAND "${_path}" --help-json
+        execute_process(COMMAND ${_emulator} "${_path}" --help-json
                         OUTPUT_VARIABLE _json ERROR_VARIABLE _error RESULT_VARIABLE _status)
         if(NOT _status EQUAL 0)
             message(FATAL_ERROR "${_name} --help-json exited ${_status}: ${_error}")

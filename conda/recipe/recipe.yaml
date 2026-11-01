@@ -2,6 +2,9 @@
 #
 #   rattler-build build --recipe conda/recipe -c conda-forge -c bioconda
 #
+# A cross build for linux-aarch64 adds --target-platform linux-aarch64
+# --test skip; its tests then run on an aarch64 machine.
+#
 # pip installs everything the package consists of: the C++ tools and the
 # `hicexplorer` command into bin, the extension and the Python drivers into
 # site-packages, and the drawing package into share/hicexplorer/plot.
@@ -33,6 +36,11 @@ build:
   number: 0
   script:
     - export CMAKE_ARGS="${CMAKE_ARGS:-} -DCMAKE_PREFIX_PATH=$PREFIX"
+    # A cross build runs the built tools under qemu to list them in the
+    # `hicexplorer` command.
+    - if: build_platform != target_platform
+      then:
+        - export CMAKE_ARGS="$CMAKE_ARGS -DCMAKE_CROSSCOMPILING_EMULATOR=$BUILD_PREFIX/bin/qemu-aarch64;-L;$CONDA_BUILD_SYSROOT"
     - $PYTHON -m pip install . -vv --no-deps --no-build-isolation
 
 requirements:
@@ -42,6 +50,17 @@ requirements:
     - ${{ stdlib('c') }}
     - cmake >=3.24
     - ninja
+    # Cross-compiling (rattler-build --target-platform linux-aarch64): the
+    # extension is built by the build machine's Python posing as the target's.
+    - if: build_platform != target_platform
+      then:
+        - python
+        - cross-python_${{ target_platform }}
+        - pybind11 ==2.13.6
+        - scikit-build-core >=0.10
+    - if: build_platform != target_platform and target_platform == "linux-aarch64"
+      then:
+        - qemu-execve-aarch64
   host:
     - python
     - pip

@@ -148,10 +148,22 @@ foreach(_driver IN LISTS HICX_PYTHON_DRIVERS)
 endforeach()
 file(GENERATE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/hicexplorer_tools.txt"
      CONTENT "${_hicx_tool_list_lines}")
+# A cross build runs the tools through CMAKE_CROSSCOMPILING_EMULATOR (e.g.
+# qemu-aarch64); its list separators travel as "|" through the command line.
+if(CMAKE_CROSSCOMPILING AND NOT CMAKE_CROSSCOMPILING_EMULATOR)
+    message(FATAL_ERROR
+        "Cross-compiling needs CMAKE_CROSSCOMPILING_EMULATOR: the hicexplorer "
+        "command's tool list is read from the built tools' --help-json")
+endif()
+set(_hicx_emulator "")
+if(CMAKE_CROSSCOMPILING)
+    string(REPLACE ";" "|" _hicx_emulator "${CMAKE_CROSSCOMPILING_EMULATOR}")
+endif()
 add_custom_command(
     OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/hicexplorer_tool_list.inc"
     COMMAND "${CMAKE_COMMAND}" "-DLIST=${CMAKE_CURRENT_BINARY_DIR}/hicexplorer_tools.txt"
             "-DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/hicexplorer_tool_list.inc"
+            "-DEMULATOR=${_hicx_emulator}"
             -P "${PROJECT_SOURCE_DIR}/cmake/HicxToolList.cmake"
     DEPENDS ${_hicx_tool_list_depends} "${CMAKE_CURRENT_BINARY_DIR}/hicexplorer_tools.txt"
             "${PROJECT_SOURCE_DIR}/cmake/HicxToolList.cmake"
