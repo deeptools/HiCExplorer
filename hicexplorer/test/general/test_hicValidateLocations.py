@@ -3,6 +3,7 @@ import numpy.testing as nt
 
 from tempfile import NamedTemporaryFile
 import os
+import sys
 from hicexplorer.test.test_compute_function import compute
 
 
@@ -53,6 +54,12 @@ def assert_files_identical(pExpected, pObserved, pSkip=0):
     A port that sorted stably would have passed the set comparison and written
     a differently ordered file.
 
+    That tie order is the one of libstdc++'s std::sort, which bedtools and
+    this tool share on Linux. libc++, the standard library of macOS, leaves
+    ties in another order, as it does for bedtools there. Outside Linux the
+    comparison is therefore on the same lines in the same sequence of sort
+    keys (chromosome, start), with the order inside a tie left open.
+
     `pSkip` drops the leading comment lines of the statistics files, which
     carry the version and the absolute input paths.
     """
@@ -61,6 +68,12 @@ def assert_files_identical(pExpected, pObserved, pSkip=0):
     with open(pObserved) as observed_file:
         observed = observed_file.readlines()[pSkip:]
     nt.assert_equal(len(expected), len(observed))
+    if not sys.platform.startswith('linux'):
+        def sort_key(pLine):
+            return pLine.split('\t')[:2]
+        assert [sort_key(line) for line in expected] == [sort_key(line) for line in observed]
+        assert sorted(expected) == sorted(observed)
+        return
     for index, (left, right) in enumerate(zip(expected, observed)):
         assert left == right, 'line {} differs:\n  expected {!r}\n  observed {!r}'.format(
             index + 1 + pSkip, left, right)
