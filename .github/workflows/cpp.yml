@@ -87,7 +87,10 @@ jobs:
       - uses: msys2/setup-msys2@v2
         with:
           msystem: ${{ matrix.msystem }}
-          update: true
+          # No full system upgrade (pacman -Syuu) of the runner's MSYS2: the
+          # build does not need it, and it is the step that times out when
+          # mirror.msys2.org is slow.
+          update: false
           install: >-
             git
             ${{ matrix.prefix }}-toolchain
