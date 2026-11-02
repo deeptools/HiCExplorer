@@ -132,14 +132,17 @@ def expected_compare(matrix_a, matrix_b, operation, no_norm):
     return expected, nan_union
 
 
-def assert_csr_identical(got, expected):
+def assert_csr_identical(got, expected, pMaxUlp=0):
     got = got.tocsr()
     got.sort_indices()
     assert got.shape == expected.shape
     assert got.nnz == expected.nnz
     nt.assert_array_equal(got.indptr, expected.indptr)
     nt.assert_array_equal(got.indices, expected.indices)
-    nt.assert_array_equal(got.data, expected.data)
+    if pMaxUlp == 0:
+        nt.assert_array_equal(got.data, expected.data)
+    else:
+        nt.assert_array_max_ulp(got.data, expected.data, maxulp=pMaxUlp)
 
 
 def test_ratio_noNorm_of_a_doubled_matrix_is_exactly_two():
@@ -214,25 +217,32 @@ def test_ratio_noNorm_h5_is_bit_exact():
     assert_csr_identical(new.matrix, expected)
 
 
-def test_log2ratio_h5_is_bit_exact():
+def test_log2ratio_h5_matches_numpy_to_two_ulp():
+    """The tool's log2 and numpy's agree to two ulp, not to the bit.
+
+    The last bits of numpy's log2 depend on the numpy build: its vectorised
+    log2 differs between x86 and arm and between releases, so the expected
+    values themselves move between CI runners. The sparsity structure is
+    compared exactly.
+    """
     expected, _ = expected_compare(UNTREATED_H5, AUXIN_H5, 'log2ratio', False)
     new = run_compare(UNTREATED_H5, AUXIN_H5, 'log2ratio', False, '.h5')
     assert new.matrix.nnz == 2277549
-    assert_csr_identical(new.matrix, expected)
+    assert_csr_identical(new.matrix, expected, pMaxUlp=2)
 
 
-def test_log2ratio_noNorm_h5_is_bit_exact():
+def test_log2ratio_noNorm_h5_matches_numpy_to_two_ulp():
     expected, _ = expected_compare(UNTREATED_H5, AUXIN_H5, 'log2ratio', True,)
     new = run_compare(UNTREATED_H5, AUXIN_H5, 'log2ratio', True, '.h5')
-    assert_csr_identical(new.matrix, expected)
+    assert_csr_identical(new.matrix, expected, pMaxUlp=2)
 
 
-def test_log2ratio_cool_is_bit_exact():
+def test_log2ratio_cool_matches_numpy_to_two_ulp():
     """cool output takes a different writer than h5."""
     expected, nan_union = expected_compare(UNTREATED_COOL, AUXIN_COOL,
                                            'log2ratio', False)
     new = run_compare(UNTREATED_COOL, AUXIN_COOL, 'log2ratio', False, '.cool')
-    assert_csr_identical(new.matrix, expected)
+    assert_csr_identical(new.matrix, expected, pMaxUlp=2)
     nt.assert_array_equal(sorted(new.nan_bins), nan_union)
 
 
