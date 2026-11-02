@@ -161,9 +161,7 @@ def test_hic_transfer_pearson_perChromosome():
     test = hm.hiCMatrix(ROOT + "hicTransform/pearson_perChromosome.h5")
 
     new = hm.hiCMatrix(outfile.name)
-    nt.assert_array_almost_equal(test.matrix.data, new.matrix.data, decimal=DELTA_DECIMAL)
-    assert_structure_matches_reference(new.matrix, test.matrix)
-    assert_reference_values_tight(new.matrix, test.matrix, 'pearson_perChromosome.h5')
+    assert_matches_reference_up_to_cancellation_noise(new.matrix, test.matrix, 'pearson_perChromosome.h5')
     os.unlink(outfile.name)
 
 
@@ -193,9 +191,7 @@ def test_hic_transfer_covariance_perChromosome():
     test = hm.hiCMatrix(ROOT + "hicTransform/covariance_perChromosome.h5")
 
     new = hm.hiCMatrix(outfile.name)
-    nt.assert_array_almost_equal(test.matrix.data, new.matrix.data, decimal=DELTA_DECIMAL)
-    assert_structure_matches_reference(new.matrix, test.matrix)
-    assert_reference_values_tight(new.matrix, test.matrix, 'covariance_perChromosome.h5')
+    assert_matches_reference_up_to_cancellation_noise(new.matrix, test.matrix, 'covariance_perChromosome.h5')
     os.unlink(outfile.name)
 
 
@@ -383,6 +379,35 @@ def assert_reference_values_tight(pActual, pReference, pName):
                        np.asarray(pReference.data, dtype=np.float64),
                        rtol=1e-12, atol=1e-12,
                        err_msg=pName + ': values drifted from the reference')
+
+
+def assert_matches_reference_up_to_cancellation_noise(pActual, pReference, pName):
+    """The per chromosome references, where the pattern itself is not portable.
+
+    Correlations whose true value is zero come out as cancellation noise
+    around 1e-17, and whether such an entry is noise or exactly 0.0 depends on
+    the compiler: clang on arm64 contracts a * b + c into one fused
+    multiply-add, and 38 of the 1,142,710 entries of pearson_perChromosome.h5
+    then become exactly zero and are not stored. So the two matrices are
+    compared as matrices, to the bound of assert_reference_values_tight, and
+    an entry stored on one side only must be such noise.
+    """
+    actual = pActual.tocsr()
+    reference = pReference.tocsr()
+    assert actual.shape == reference.shape
+    difference = abs(actual - reference)
+    assert difference.nnz == 0 or difference.max() <= 1e-12, \
+        pName + ': values drifted from the reference'
+    actual_pattern = actual.copy()
+    actual_pattern.data[:] = 1
+    reference_pattern = reference.copy()
+    reference_pattern.data[:] = 1
+    only_one_side = abs(actual_pattern - reference_pattern)
+    only_one_side.eliminate_zeros()
+    # Where only one side stores a value, the difference is that value.
+    unpaired = difference.multiply(only_one_side).tocsr()
+    assert unpaired.nnz == 0 or unpaired.max() < 1e-15, \
+        pName + ': an entry stored on one side only is not cancellation noise'
 
 
 def test_pearson_matches_numpy_corrcoef_at_full_precision():
