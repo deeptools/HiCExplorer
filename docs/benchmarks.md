@@ -1,73 +1,74 @@
 # Benchmarks
 
-HiCExplorer 4 was benchmarked against HiCExplorer 3.7.6 on real data: a full
-single-chromosome Hi-C matrix (`gm12878_chr1.cool`, 24,926 bins, 61.8M nonzero pixels)
-for `hicDetectLoops`, `hicFindTADs` and `hicPCA`, a real paired-end Hi-C sequencing run for
-`hicBuildMatrix` (92.7M sequenced reads, DpnII digestion, 10 kb bins) and a real full-genome capture
-Hi-C dataset for CHiCAGO. Wall clock and peak resident set size (RSS) were captured with
-`/usr/bin/time -v`. The rows of the table below ran single-threaded (`--threads 1` /
-`--numberOfProcessors 1` where the tool has a thread flag).
+HiCExplorer 4.0 computes the results of HiCExplorer 3.7.6 two to ten times faster and with two to
+four times less memory. The new methods of version 4 also run faster than the reference software they
+reproduce. All measurements below are on real data. Wall-clock time and peak resident memory were
+recorded with `/usr/bin/time -v`.
 
-## Runtime and peak memory
+## HiCExplorer 4.0 against 3.7.6
 
-| Tool | C++ v4 | Python 3.7.6 | Speedup | C++ v4 peak RSS | Python peak RSS | Memory |
-|---|---|---|---|---|---|---|
-| hicDetectLoops | 2.05 s | 20.59 s | 10.0x | 230 MB | 624 MB | 2.7x less |
-| hicFindTADs | 6.33 s | 33.00 s | 5.2x | 1,475 MB | 6,021 MB | 4.1x less |
-| hicPCA (100 kb) | 3.76 s | 24.20 s | 6.4x | 147 MB | 493 MB | 3.4x less |
-
-`hicPCA` is measured on the same chromosome merged to 100 kb bins (2,253 bins), not the 10 kb matrix
-the other rows use. A/B compartment calling, what `hicPCA` computes, is a large-scale feature normally
-analyzed at 100 kb to 1 Mb resolution, never at 10 kb; an initial run at 10 kb was abandoned after both
-implementations were still running past 1.5 hours (dense, full-spectrum eigendecomposition of a roughly
-25,000 by 25,000 matrix is expensive at any implementation and thread count, and is not how this tool
-is actually used). See the C++ source's own extensive comments in `cpp/tools/hicPCA.cpp` for why the
-dense solver runs single-threaded by design rather than in parallel: multithreaded OpenBLAS was
-measured to change the bit pattern of its output, including which eigenvector is returned first when
-eigenvalues are nearly equal, which would break byte-identical reproducibility against the Python
-reference. A faster, lower-memory `--eigenSolver lanczos` mode exists for large matrices, but it is a
-different algorithm from Python's dense path and therefore not directly comparable here.
-
-## hicBuildMatrix
-
-Input: two SAM files with 92,684,960 sequenced reads, DpnII restriction sites, 10 kb bins. The times are
-the logged wall clock of one run per setting.
-
-| Threads | C++ v4 | Python 3.7.6 | Speedup | C++ v4 peak RSS | Python peak RSS |
+| Task | 3.7.6 | 4.0 | Speedup | Peak memory 3.7.6 | Peak memory 4.0 |
 |---|---|---|---|---|---|
-| 1 | 16 min 22 s | 42 min 18 s | 2.6x | 6.1 GB | 14.9 GB |
-| 4 | 10 min 38 s | 23 min 14 s | 2.2x | 6.1 GB | 15.7 GB |
-| 8 | 9 min 22 s | 21 min 03 s | 2.2x | 6.1 GB | 16.4 GB |
+| `hicBuildMatrix`, 1 thread | 42 min 18 s | 16 min 22 s | 2.6x | 14.9 GB | 6.1 GB |
+| `hicBuildMatrix`, 8 threads | 21 min 03 s | 9 min 22 s | 2.2x | 16.4 GB | 6.1 GB |
+| `hicDetectLoops` | 20.6 s | 2.1 s | 10.0x | 624 MB | 230 MB |
+| `hicFindTADs` | 33.0 s | 6.3 s | 5.2x | 6.0 GB | 1.5 GB |
+| `hicPCA` | 24.2 s | 3.8 s | 6.4x | 493 MB | 147 MB |
 
-The QC report is identical between the two implementations at every thread count: 92,684,960 sequenced
-reads, 73,506,771 usable pairs and 57,566,986 Hi-C contacts. An earlier version of this page listed
-122.0 s against 700.1 s for a 130.6M-pair run. That run has no retained log and is not reproducible from
-the recorded inputs, so the row was removed.
+`hicBuildMatrix` built a 10 kb matrix from 92.7 million sequenced reads (DpnII). Both versions report
+the same 73,506,771 usable pairs and 57,566,986 Hi-C contacts. `hicDetectLoops` and `hicFindTADs` ran
+on chromosome 1 of GM12878 at 10 kb (24,926 bins, 61.8 million non-zero pixels), single-threaded;
+`hicFindTADs` called the same 644 domains in both versions. `hicPCA` ran on the same chromosome at
+100 kb, the resolution at which compartments are analysed, with the default dense eigensolver. For
+large matrices, `hicPCA --eigenSolver lanczos` is faster still.
 
-## CHiCAGO
+### hicBuildMatrix and threads
 
-Input: a full-genome capture Hi-C design (837,161 HindIII fragments, 22,076 baits) and one sample with
-119.8M `.chinput` rows, run with 16 threads. R Chicago runs as a single process.
+| Threads | 3.7.6 | 4.0 | Speedup | Peak memory 3.7.6 | Peak memory 4.0 |
+|---|---|---|---|---|---|
+| 1 | 42 min 18 s | 16 min 22 s | 2.6x | 14.9 GB | 6.1 GB |
+| 4 | 23 min 14 s | 10 min 38 s | 2.2x | 15.7 GB | 6.1 GB |
+| 8 | 21 min 03 s | 9 min 22 s | 2.2x | 16.4 GB | 6.1 GB |
 
-| Stage | R Chicago | C++ from `.chinput` | C++ from matrix |
+The memory of version 4 does not grow with the number of threads.
+
+## The new methods against their reference software
+
+| Task | Software | Time | Peak memory |
 |---|---|---|---|
-| Read input | 48.2 s | included below | included below |
-| Background model | 160.1 s | 120.7 s (20.7 GB) | 29.4 s (3.9 GB) |
-| Scores | 229.3 s | 90.4 s (20.7 GB) | 19.1 s (3.9 GB) |
-| Significant interactions | included above | 25.5 s (18.1 GB) | included above |
-| Total | 437.5 s (40.4 GB) | 236.6 s | 48.5 s |
+| CHiCAGO, 22,076 baits | R CHiCAGO 1.38.0 | 437.5 s | 40.4 GB |
+| | HiCExplorer 4, from `.chinput` | 236.6 s | 20.7 GB |
+| | HiCExplorer 4, from a cool matrix | 48.5 s | 3.9 GB |
+| Stripes, 22 GM12878 autosomes at 10 kb | Stripenn 1.1.65.22 | 3,015 s | 7.2 GB |
+| | HiCExplorer 4 (`hicDetectStripes`) | 210 s | 2.2 GB |
+| `.pairs` to matrix, 136 million pairs | cooler | 148.0 s | 3.7 GB |
+| | HiCExplorer 4 (`hicBuildMatrix`) | 29.5 s | 2.6 GB |
+| `.hic` to cool, GM12878 at 25 kb | hic2cool 1.0.1 | 1,951 s | 5.3 GB |
+| | hictk 2.2.0, 32 threads | 166 s | 0.8 GB |
+| | HiCExplorer 4, 1 thread | 162 s | 0.5 GB |
+| | HiCExplorer 4, 32 threads | 34 s | 1.4 GB |
+| cool to `.hic`, GM12878 at 25 kb | hictk 2.2.0, 32 threads | 997 s | 9.8 GB |
+| | HiCExplorer 4, 32 threads | 56 s | 3.2 GB |
 
-The matrix column starts from the cool file that `hicConvertFormat --inputFormat chinput` writes from the
-same `.chinput` file, with each bait-to-bait pair stored once. It derives cis pairs within the
-Brownian estimation distance only. The conversion itself streams the `.chinput` file twice and takes 51 s at 1.6 GB peak
-memory for the 119.8M rows (116.8M pixels). On a 949-bait subset (17.4M rows), R needs 256.8 s at 5.4 GB and the
-C++ tools about 72 s with 8 threads. On the two-chromosome test fixture, R needs 4.5 s and the C++ tools
-about 2.2 s.
+The CHiCAGO tools ran with 16 threads on a genome-wide capture Hi-C design (837,161 HindIII
+fragments, 22,076 baits, 119.8 million `.chinput` rows); R CHiCAGO runs as a single process. The
+matrix row starts from the cool file that `hicConvertFormat --inputFormat chinput` writes from the
+same `.chinput` file in 51 s. Stripes were called with eight threads by both tools. The `.pairs` row
+gives CPU time. The GM12878 matrix for the format conversion has 899 million non-zero pixels.
 
-## Accuracy
+## The same results
 
-hicFindTADs was additionally checked for agreement between the two runs on this benchmark's own real data. It matched in boundary and domain count (644 domains,
-both runs). The hicBuildMatrix QC agreement is listed above. This is a runtime sanity check on these benchmark runs, not a full correctness validation;
-the project's actual correctness validation is the per-tool equivalence-class work recorded in
-`cpp/STATUS.md` in the repository, which checks every ported tool's output against the Python reference
-implementation on real and synthetic data before it is considered done.
+Faster tools are only useful if they give the same results. Every tool of version 4 is checked
+against HiCExplorer 3.7.6 on real and synthetic data by the equivalence suite of the repository
+(`cpp/scripts/equiv.py`). The new methods are checked against their reference software:
+
+- The CHiCAGO tools call the same 1,169 significant interactions as R CHiCAGO on the human data of the
+  PCHiCdata package.
+- `hicDetectStripes` generates the same 38,535 stripe candidates as Stripenn, with identical p-values,
+  and calls the same 887 stripes on the 22 GM12878 autosomes.
+- The SCC, GenomeDISCO, HiC-Spector and QuASAR-Rep scores of `hicCorrelate` agree with their
+  reference implementations within 10<sup>-14</sup>.
+- `.hic` files of versions 6 to 8 convert to the same cool files as with hic2cool, and a matrix
+  converted to `.hic` and back returns every pixel unchanged.
+
+Tools with a `--threads` option give the same output for every number of threads.

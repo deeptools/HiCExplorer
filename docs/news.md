@@ -1,12 +1,22 @@
 # News
 
 ### Release 4.0.0
+**November 2026**
 
-HiCExplorer 4 is a port of HiCExplorer to C++. Every tool of release 3.7.6 is available under the same name
-with the same command line, file formats and outputs, checked tool by tool against 3.7.6. The tools run
-as native executables, and the Python modules stay as an API that calls them. On real data the tools are 5 to
-70 times faster and use 3 to 9 times less memory (see [Benchmarks](benchmarks.md)), and most of them run
-multithreaded (`--threads`).
+HiCExplorer 4.0 is a new major version. Every tool of release 3.7.6 keeps its name, command line, file
+formats and outputs, checked tool by tool against 3.7.6, and the Python modules keep their API. The tools
+now run on a new compiled core. On real data they compute the results of 3.7.6 two to ten times faster with
+two to four times less memory, and most of them run multithreaded (`--threads`):
+
+| Task | 3.7.6 | 4.0 | Speedup |
+|---|---|---|---|
+| `hicBuildMatrix`, 92.7M reads, 10 kb | 42 min 18 s | 16 min 22 s | 2.6x |
+| `hicDetectLoops`, GM12878 chr1, 10 kb | 20.6 s | 2.1 s | 10.0x |
+| `hicFindTADs`, GM12878 chr1, 10 kb | 33.0 s | 6.3 s | 5.2x |
+| `hicPCA`, GM12878 chr1, 100 kb | 24.2 s | 3.8 s | 6.4x |
+
+See [Benchmarks](benchmarks.md) for memory, threads and the comparison with R CHiCAGO, Stripenn,
+cooler, hic2cool and hictk.
 
 New tools:
 
@@ -18,6 +28,7 @@ New tools:
 - `hicDifferentialAnalysis` tests TADs, loops and A/B compartments for differences between conditions with
   replicates, using a negative binomial model.
 - `hicDetectStripes` detects architectural stripes with the method of Stripenn (Yoon et al. 2022); it gives the same stripes, p-values and stripiness scores as Stripenn.
+- `hicArrowhead` calls contact domains with the Arrowhead algorithm of Juicer tools.
 - `hicMatrixQC` writes a quality-control report for finished cool and mcool matrices. `hicBuildMatrix` and
   `hicBuildMatrixMicroC` now store their QC statistics in the cool metadata (key `hicexplorer_qc`), which the
   report reads back.
@@ -33,9 +44,16 @@ New options and features:
 
 - `hicConvertFormat` reads CHiCAGO `.chinput` files (`--inputFormat chinput`, with `--rmap`), reads `.hic`
   files of versions 6 to 9 and writes `.hic` files of versions 8 and 9 (`--outputFormat hic`). A cool or
-  mcool file is converted to `.hic` by streaming its pixels with hicxchange's cool2hic, with raw counts as
-  pixels; `--hicNormalizations auto`, the default, keeps the normalization vectors the file stores and
-  computes VC, VC_SQRT, KR and SCALE only when it stores none.
+  mcool file is converted to `.hic` by streaming its pixels, with raw counts as pixels;
+  `--hicNormalizations auto`, the default, keeps the normalization vectors the file stores and computes
+  VC, VC_SQRT, KR and SCALE only when it stores none.
+- `hicBuildMatrix` reads deduplicated read pairs in the 4DN `.pairs` format (`--pairsFile`) as well as
+  SAM/BAM files.
+- `hicFindTADs` calls nested domains within the domains of its first pass (`--nestedMinDepth`,
+  `--nestedMaxDepth`, `--nestedStep`) and keeps boundaries with divergent CTCF motifs, a reverse site
+  before and a forward site after the boundary (`--ctcfFile`).
+- `hicCorrelate --method` computes the reproducibility measures SCC (HiCRep), GenomeDISCO, HiC-Spector
+  and QuASAR-Rep, with the default parameters of their reference implementations.
 - `hicPlotMatrix --matrix2` draws two matrices as the upper and lower triangle of one heatmap.
 - `hicPCA --eigenSolver lanczos` computes the eigenvectors of large matrices with less time and memory.
 - `hicDifferentialTAD` and `chicSignificantInteractions` accept `--correctForMultipleTesting` and

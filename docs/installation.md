@@ -34,8 +34,8 @@ The wheels contain the tools and the libraries they need for Linux (x86_64 and a
 ## Build from source
 
 ```bash
-git clone <repository-url> HiCExplorer-v4
-cd HiCExplorer-v4
+git clone https://github.com/deeptools/HiCExplorer.git
+cd HiCExplorer
 
 cmake -B cpp/build -S cpp \
   -DCMAKE_BUILD_TYPE=Release \
@@ -63,5 +63,7 @@ honored; see the individual tool's page if `--help` alone reports missing argume
 
 ## Running the test suites
 
-The equivalence-test harness that checks every tool against HiCExplorer 3.7.6 is documented in
-`cpp/AGENTS_CONTRACT.md` and `cpp/STATUS.md` in the repository. It is aimed at contributors.
+The C++ unit tests run with `ctest` in the build directory, and the Python tests with `pytest
+hicexplorer/test/general`. The equivalence suite that checks every tool against HiCExplorer 3.7.6 is
+`cpp/scripts/equiv.py`. `cpp/scripts/ci_local.py` runs the jobs of the continuous integration on the
+local machine. These are aimed at contributors.

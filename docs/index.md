@@ -5,18 +5,32 @@ Micro-C and capture Hi-C (cHi-C) data. This is version 4.
 
 ## What is new in version 4
 
-- **Faster, much less memory.** On a real single-chromosome Hi-C matrix (24,926 bins, 61.8M nonzero
-  pixels), the tools of version 4 measured 5 to 70 times faster than HiCExplorer 3.7.6,
-  single-threaded, at 3 to 9 times less peak memory. Most tools also run multithreaded. See
-  [Benchmarks](benchmarks.md) for the numbers.
+- **Faster, with less memory.** On real data, version 4 computes the results of HiCExplorer 3.7.6
+  two to ten times faster with two to four times less peak memory, and most tools run
+  multithreaded:
+
+    | Task | 3.7.6 | 4.0 | Speedup |
+    |---|---|---|---|
+    | `hicBuildMatrix`, 92.7M reads, 10 kb | 42 min 18 s | 16 min 22 s | 2.6x |
+    | `hicDetectLoops`, GM12878 chr1, 10 kb | 20.6 s | 2.1 s | 10.0x |
+    | `hicFindTADs`, GM12878 chr1, 10 kb | 33.0 s | 6.3 s | 5.2x |
+    | `hicPCA`, GM12878 chr1, 100 kb | 24.2 s | 3.8 s | 6.4x |
+
+    CHiCAGO scoring of 22,076 baits takes 48.5 s instead of 437.5 s in R CHiCAGO, and stripe
+    calling 210 s instead of 3,015 s in Stripenn. See [Benchmarks](benchmarks.md) for memory,
+    threads and the data.
+
 - **The same results.** Every tool is checked against the output of HiCExplorer 3.7.6 on real and
   synthetic data. Command lines, file formats and outputs stay compatible, and known differences are
   listed on the page of the tool.
 - **CHiCAGO scoring.** The `chicChicago*` tools score capture Hi-C interactions with the CHiCAGO
   method from cool, h5 or `.hic` matrices, and plot them as viewpoints, arcs and genome tracks. See the
   [CHiCAGO tutorial](example-usage/chicago-tutorial.md).
-- **New analysis tools.** `hicDifferentialAnalysis` (replicate-aware differential TADs, loops and
-  compartments) and `hicDetectStripes`.
+- **New analysis tools.** `hicDifferentialAnalysis` (differential TADs, loops and compartments
+  between conditions with replicates), `hicDetectStripes` (architectural stripes with the method of
+  Stripenn), `hicArrowhead` (contact domains with the Arrowhead algorithm), nested domains and a CTCF
+  motif filter in `hicFindTADs`, and the four reproducibility measures SCC, GenomeDISCO, HiC-Spector
+  and QuASAR-Rep in `hicCorrelate`.
 - **One package.** `conda install hicexplorer` installs the tools together with the Python API. Existing
   scripts that call the commands or import `hicexplorer` keep working.
 

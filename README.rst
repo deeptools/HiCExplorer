@@ -1,7 +1,9 @@
-|azure| |rtd| |conda| |docker| |galaxy|
+|cpp| |python| |rtd| |conda| |docker| |galaxy|
 
-.. |azure| image:: https://dev.azure.com/wolffj/HiCExplorer/_apis/build/status/deeptools.HiCExplorer?branchName=master
-	:target: https://dev.azure.com/wolffj/HiCExplorer/_build/latest?definitionId=2&branchName=master
+.. |cpp| image:: https://github.com/deeptools/HiCExplorer/actions/workflows/cpp.yml/badge.svg?branch=version4-cpp
+   :target: https://github.com/deeptools/HiCExplorer/actions/workflows/cpp.yml
+.. |python| image:: https://github.com/deeptools/HiCExplorer/actions/workflows/python.yml/badge.svg?branch=version4-cpp
+   :target: https://github.com/deeptools/HiCExplorer/actions/workflows/python.yml
 .. |rtd| image:: https://readthedocs.org/projects/hicexplorer/badge/?version=latest
    :target: http://hicexplorer.readthedocs.io/?badge=latest
 .. |conda| image:: https://anaconda.org/bioconda/hicexplorer/badges/installer/conda.svg
@@ -20,13 +22,55 @@ Set of programs to process, analyze and visualize Hi-C, Micro-C and cHi-C data
 ------------------------------------------------------------------------------
 
 Sequencing techniques that probe the 3D organization of the genome generate large amounts of data whose processing,
-analysis and visualization is challenging. Here, we present HiCExplorer, a set of tools for the analysis and
-visualization of chromosome conformation data. HiCExplorer facilitates the creation of contact matrices, correction
-of contacts, TAD detection, A/B compartments, merging, reordering or chromosomes, conversion from different formats including
-`cooler <https://github.com/mirnylab/cooler>`_ and detection of long-range contacts. Moreover, it allows the visualization of
-multiple contact matrices along with other types of data like genes, compartments, ChIP-seq coverage tracks (and in general
-any type of genomic scores), long range contacts and the visualization of viewpoints.
-With version 3.7.6 we introduce the support for Micro-C data for the build of matrices.
+analysis and visualization is challenging. HiCExplorer is a set of tools for the analysis and visualization of
+chromosome conformation data. It builds contact matrices from Hi-C, Micro-C and capture Hi-C reads, corrects them,
+checks their quality and reproducibility, calls domains, loops, compartments and stripes, compares conditions, scores
+capture Hi-C interactions and converts between the cool, mcool, h5 and .hic formats. It visualizes contact matrices
+together with genes, ChIP-seq coverage and other genomic tracks, long-range contacts and viewpoints.
+
+HiCExplorer 4.0
+---------------
+
+HiCExplorer 4.0 (November 2026) keeps the names, command lines, file formats and outputs of every tool of 3.7.6 and
+the Python API, and runs them on a new compiled core. On real data it computes the results of 3.7.6 two to ten times
+faster with two to four times less memory, and most tools run multithreaded (``--threads``):
+
+==========================================  ============  ============  =======  =================
+Task                                        3.7.6         4.0           Speedup  Peak memory
+==========================================  ============  ============  =======  =================
+hicBuildMatrix, 92.7M reads, 10 kb          42 min 18 s   16 min 22 s   2.6x     14.9 GB to 6.1 GB
+hicDetectLoops, GM12878 chr1, 10 kb         20.6 s        2.1 s         10.0x    624 MB to 230 MB
+hicFindTADs, GM12878 chr1, 10 kb            33.0 s        6.3 s         5.2x     6.0 GB to 1.5 GB
+hicPCA, GM12878 chr1, 100 kb                24.2 s        3.8 s         6.4x     493 MB to 147 MB
+==========================================  ============  ============  =======  =================
+
+Version 4 adds new methods, each giving the results of its reference software, also faster than that software:
+
+===============================================  ==========================  ===================  ==================
+Task                                             Reference software          Reference            HiCExplorer 4.0
+===============================================  ==========================  ===================  ==================
+CHiCAGO scores, 22,076 baits                     R CHiCAGO 1.38.0            437.5 s, 40.4 GB     48.5 s, 3.9 GB
+Stripes, 22 GM12878 autosomes, 10 kb             Stripenn 1.1.65.22          3,015 s, 7.2 GB      210 s, 2.2 GB
+.hic to cool, GM12878 at 25 kb                   hic2cool 1.0.1              1,951 s, 5.3 GB      162 s, 0.5 GB
+===============================================  ==========================  ===================  ==================
+
+New in version 4:
+
+- **Capture Hi-C with CHiCAGO**: ``chicChicagoBackgroundModel``, ``chicChicagoScores``,
+  ``chicChicagoSignificantInteractions`` and ``chicChicagoPlotViewpoint`` call the same interactions as R CHiCAGO,
+  from CHiCAGO's input files or directly from contact matrices.
+- **Domains**: ``hicArrowhead`` (the Arrowhead algorithm of Juicer tools), nested domains and a CTCF motif filter
+  in ``hicFindTADs``.
+- **Stripes**: ``hicDetectStripes`` calls the same stripes as Stripenn.
+- **Differential analysis**: ``hicDifferentialAnalysis`` tests domains, loops and compartments between conditions
+  with replicates.
+- **Quality control**: ``hicMatrixQC`` reports on finished cool and mcool matrices, and ``hicCorrelate`` computes
+  the reproducibility measures SCC, GenomeDISCO, HiC-Spector and QuASAR-Rep.
+- **Formats**: ``hicConvertFormat`` reads .hic files of versions 6 to 9 and writes versions 8 and 9, and
+  ``hicBuildMatrix`` reads the 4DN .pairs format.
+
+The full list is in the `release notes <https://hicexplorer.readthedocs.io/en/latest/news/>`_, and the data and
+all measurements are on the `benchmarks page <https://hicexplorer.readthedocs.io/en/latest/benchmarks/>`_.
 
 Single-cell Hi-C data
 ---------------------
@@ -64,67 +108,31 @@ while a Galaxy Tour is available `here <https://hicexplorer.usegalaxy.eu/tours/h
 Installation
 ^^^^^^^^^^^^
 
-With version 3.0, HiCExplorer is available for Python 3 only, the Python 2 support is discontinued. HiCExplorer can be installed with conda.
-
--  Anaconda and GitHub for command line usage.
--  Toolshed and Docker image for its integration on Galaxy servers.
-
-There are many easy ways to install HiCExplorer. Details can be found
-`here <https://hicexplorer.readthedocs.io/en/latest/content/installation.html>`_.
-
-
-**We strongly recommended to use conda to install HiCExplorer.**
-
-
-Command line version
-++++++++++++++++++++
-
-Install with conda
-__________________
-
-The easiest way to install HiCExplorer is using `BioConda <http://bioconda.github.io/>`_
-::
-
-   $ conda install hicexplorer -c bioconda -c conda-forge
-   
-   
-We highly recommend conda environments to separate software from each other. With it, different versions of dependencies do not interfere with each other.
+HiCExplorer runs on Linux (x86_64 and arm64) and macOS (arm64). We recommend installing it with conda from
+`Bioconda <http://bioconda.github.io/>`_:
 
 ::
 
-   $ conda create --name hicexplorer hicexplorer=3.6 python=3.8 -c bioconda -c conda-forge
+   $ conda create --name hicexplorer -c conda-forge -c bioconda hicexplorer=4.0
    $ conda activate hicexplorer
-   
-To deactivate the environment use:
 
-::
+The package contains the command-line tools and the Python API. To learn more about conda environments, see the
+`conda documentation <https://docs.conda.io/projects/conda/en/latest/user-guide/getting-started.html>`_.
 
-   $ conda deactivate
-   
+Build from source
+_________________
 
-To learn more about conda and environments, please consider the following `documentation <https://docs.conda.io/projects/conda/en/latest/user-guide/getting-started.html#>`_.
-   
-   
-
-Install by cloning this repository
-__________________________________
-
-You can install any one of the HiCExplorer branches on command line
-(linux/mac) by cloning this git repository :
+Building from source needs a C++20 compiler, CMake 3.24 or newer and the native libraries listed in
+`cpp/BUILDING.md <cpp/BUILDING.md>`_, most easily taken from a conda environment:
 
 ::
 
     $ git clone https://github.com/deeptools/HiCExplorer.git
     $ cd HiCExplorer
-    $ python setup.py install
+    $ pip install .
 
-If you don't have root permission, you can set a specific folder using the ``--prefix`` option
-
-::
-
-	$ python setup.py install --prefix /User/Tools/hicexplorer
-
-If you don't use conda, please take care of all dependencies on your own.
+The `installation documentation <https://hicexplorer.readthedocs.io/en/latest/installation/>`_ describes the
+details.
 
 Galaxy version
 ++++++++++++++

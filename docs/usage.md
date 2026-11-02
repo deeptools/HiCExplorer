@@ -51,8 +51,8 @@ still written.
 
 Tools that accept a `--threads` / `--numberOfProcessors` option are deterministic regardless of the
 thread count: the number of threads changes only wall-clock time and peak memory, never the numeric
-result. This was checked as part of each tool's equivalence validation (see `cpp/STATUS.md` in the
-repository for the per-tool ledger).
+result. This is checked for each tool by the equivalence suite of the repository
+(`cpp/scripts/equiv.py`).
 
 ## Calling the tools from Python
 
