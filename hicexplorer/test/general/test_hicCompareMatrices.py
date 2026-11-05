@@ -222,7 +222,7 @@ def test_ratio_noNorm_h5_is_bit_exact():
     assert_csr_identical(new.matrix, expected)
 
 
-def test_log2ratio_h5_matches_numpy_to_two_ulp():
+def test_log2ratio_h5_matches_numpy_to_the_ulp_bound():
     """The tool's log2 and numpy's agree to two ulp, not to the bit.
 
     The last bits of numpy's log2 depend on the numpy build: its vectorised
@@ -236,13 +236,13 @@ def test_log2ratio_h5_matches_numpy_to_two_ulp():
     assert_csr_identical(new.matrix, expected, pMaxUlp=LOG2_MAX_ULP)
 
 
-def test_log2ratio_noNorm_h5_matches_numpy_to_two_ulp():
+def test_log2ratio_noNorm_h5_matches_numpy_to_the_ulp_bound():
     expected, _ = expected_compare(UNTREATED_H5, AUXIN_H5, 'log2ratio', True,)
     new = run_compare(UNTREATED_H5, AUXIN_H5, 'log2ratio', True, '.h5')
     assert_csr_identical(new.matrix, expected, pMaxUlp=LOG2_MAX_ULP)
 
 
-def test_log2ratio_cool_matches_numpy_to_two_ulp():
+def test_log2ratio_cool_matches_numpy_to_the_ulp_bound():
     """cool output takes a different writer than h5."""
     expected, nan_union = expected_compare(UNTREATED_COOL, AUXIN_COOL,
                                            'log2ratio', False)

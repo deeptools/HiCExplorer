@@ -6,7 +6,7 @@ from hicmatrix import HiCMatrix as hm
 
 from tempfile import NamedTemporaryFile
 import os
-import platform
+from itertools import zip_longest
 import pytest
 import numpy.testing as nt
 import numpy as np
@@ -835,20 +835,25 @@ def test_pca_output_file_count_must_match_eigenvector_count():
         os.unlink(path)
 
 
-def are_files_equal(file1, file2, pSkipChromosome=None):
-    def lines(pHandle):
-        return (line for line in pHandle
-                if line.split('\t', 1)[0] != pSkipChromosome)
+def are_files_equal(file1, file2, pCoordinatesOnly=()):
+    """Line by line, up to sign and 0.01; both files must have the same lines.
 
+    The lines of the chromosomes in `pCoordinatesOnly` are compared by their
+    coordinates alone, not by their values.
+    """
     equal = True
     with open(file1) as textfile1, open(file2) as textfile2:
-        for x, y in zip(lines(textfile1), lines(textfile2)):
+        for x, y in zip_longest(textfile1, textfile2):
+            if x is None or y is None:
+                return False
             if x.startswith('File'):
                 continue
             if x != y:
                 # handle the case of flipped values
                 split_x = x.split('\t')
                 split_y = y.split('\t')
+                if split_x[0] in pCoordinatesOnly and split_x[:3] == split_y[:3]:
+                    continue
                 if split_x[0] == split_y[0] and split_x[1] == split_y[1] and split_x[2] == split_y[2]:
                     # to ignore rounding errors after 2th digit
                     if 0 <= abs(abs(np.complex128(split_x[3].strip()).real) - abs(np.complex128(split_y[3].strip()).real)) <= 0.01:
@@ -967,14 +972,17 @@ def test_pca_bedgraph_lieberman_gene_density():
     # chrXHet holds 7 contacts; after obs/exp its four non-zero bins give a
     # Pearson matrix whose largest eigenvalue, 1.025, is threefold, next to a
     # single 0.925. Which of these dgeev returns in its first column is decided
-    # by the last bits of the BLAS kernels, and OpenBLAS on arm64 puts the
-    # 0.925 eigenvector first. The references are those of x86-64.
-    skip = None if platform.machine() in ('x86_64', 'AMD64') else 'chrXHet'
-    assert are_files_equal(ROOT + "hicPCA/pca1_gene_track.bedgraph", pca1.name, skip)
-    assert are_files_equal(ROOT + "hicPCA/pca2_gene_track.bedgraph", pca2.name, skip)
-
-    os.unlink(pca1.name)
-    os.unlink(pca2.name)
+    # by the last bits of the BLAS kernels (OpenBLAS on arm64 puts the 0.925
+    # eigenvector first, OpenBLAS on x86-64 a 1.025 one), so the chrXHet
+    # values are not portable and only its bins are compared.
+    try:
+        assert are_files_equal(ROOT + "hicPCA/pca1_gene_track.bedgraph",
+                               pca1.name, ('chrXHet',))
+        assert are_files_equal(ROOT + "hicPCA/pca2_gene_track.bedgraph",
+                               pca2.name, ('chrXHet',))
+    finally:
+        os.unlink(pca1.name)
+        os.unlink(pca2.name)
 
 
 def test_pca_bigwig_lieberman_gene_density():

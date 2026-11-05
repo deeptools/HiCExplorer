@@ -390,17 +390,19 @@ def assert_matches_reference_up_to_cancellation_noise(pActual, pReference, pName
     multiply-add, and 38 of the 1,142,710 entries of pearson_perChromosome.h5
     then become exactly zero and are not stored. So the two matrices are
     compared as matrices, to the bound of assert_reference_values_tight, and
-    an entry stored on one side only must be such noise.
+    an entry that is non-zero on one side only must be such noise.
     """
     actual = pActual.tocsr()
     reference = pReference.tocsr()
     assert actual.shape == reference.shape
     difference = abs(actual - reference)
-    assert difference.max() <= 1e-12, pName + ': values drifted from the reference'
-    # Where only one side stores a value, the difference is that value.
+    assert not np.isnan(difference.data).any(), pName + ': NaN in a matrix'
+    assert difference.nnz == 0 or difference.max() <= 1e-12, \
+        pName + ': values drifted from the reference'
+    # Where only one side is non-zero, the difference is that value.
     unpaired = difference.multiply((actual != 0) != (reference != 0))
-    assert unpaired.max() < 1e-15, \
-        pName + ': an entry stored on one side only is not cancellation noise'
+    assert unpaired.nnz == 0 or unpaired.max() < 1e-15, \
+        pName + ': an entry non-zero on one side only is not cancellation noise'
 
 
 def test_pearson_matches_numpy_corrcoef_at_full_precision():
