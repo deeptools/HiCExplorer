@@ -1,0 +1,117 @@
+# Local conda package of this checkout:
+#
+#   rattler-build build --recipe conda/recipe -c conda-forge -c bioconda
+#
+# A cross build for linux-aarch64 adds --target-platform linux-aarch64
+# --test skip; its tests then run on an aarch64 machine.
+#
+# pip installs everything the package consists of: the C++ tools and the
+# `hicexplorer` command into bin, the extension and the Python drivers into
+# site-packages, and the drawing package into share/hicexplorer/plot.
+context:
+  version: "4.0.0"
+
+package:
+  name: hicexplorer
+  version: ${{ version }}
+
+source:
+  path: ../..
+  # .gitignore ignores every directory named lib, hicexplorer/lib among them,
+  # so the tree is filtered here instead.
+  use_gitignore: false
+  filter:
+    exclude:
+      - .git/**
+      - build/**
+      - cpp/build/**
+      - cpp/local/**
+      - "**/__pycache__/**"
+      - hicexplorer/test/**
+      - docs/**
+      - examples/**
+      - gui/**
+
+build:
+  number: 0
+  script:
+    - export CMAKE_ARGS="${CMAKE_ARGS:-} -DCMAKE_PREFIX_PATH=$PREFIX"
+    # A cross build runs the built tools under qemu to list them in the
+    # `hicexplorer` command.
+    - if: build_platform != target_platform
+      then:
+        - export CMAKE_ARGS="$CMAKE_ARGS -DCMAKE_CROSSCOMPILING_EMULATOR=$BUILD_PREFIX/bin/qemu-aarch64;-L;$CONDA_BUILD_SYSROOT"
+    - $PYTHON -m pip install . -vv --no-deps --no-build-isolation
+
+requirements:
+  build:
+    - ${{ compiler('c') }}
+    - ${{ compiler('cxx') }}
+    - ${{ stdlib('c') }}
+    - cmake >=3.24
+    - ninja
+    # Cross-compiling (rattler-build --target-platform linux-aarch64): the
+    # extension is built by the build machine's Python posing as the target's.
+    - if: build_platform != target_platform
+      then:
+        - python
+        - cross-python_${{ target_platform }}
+        - pybind11 ==2.13.6
+        - scikit-build-core >=0.10
+    - if: build_platform != target_platform and target_platform == "linux-aarch64"
+      then:
+        - qemu-execve-aarch64
+  host:
+    - python
+    - pip
+    - scikit-build-core >=0.10
+    - pybind11 ==2.13.6
+    - libboost-headers 1.85.*
+    - eigen 3.4.*
+    - hdf5 >=1.14.3,<1.15
+    - blosc >=1.21.6,<1.22
+    - zlib
+    - htslib >=1.21,<1.22
+    # liblapack.so is the development link; libopenblas ships only the
+    # versioned library.
+    - libblas
+    - liblapack
+    - libopenblas
+    - libbigwig ==0.4.8
+  run:
+    - python
+    - numpy >=1.19
+    - scipy >=1.10
+    - matplotlib-base >=3.8
+    - intervaltree >=3.1
+    - pandas >=2.0
+    - unidecode >=1.3
+    - hicmatrix >=17
+    - hyperopt >=0.2.7
+    - python-graphviz >=0.20
+    # hicMergeDomains runs the dot executable.
+    - graphviz
+    - libbigwig ==0.4.8
+
+tests:
+  - python:
+      imports:
+        - hicexplorer
+        - hicexplorer._hicx
+      pip_check: false
+  - script:
+      - hicexplorer
+      - hicInfo --version
+      - hicConvertFormat --help
+      - hicHyperoptDetectLoops --help
+      - test -d "$PREFIX/share/hicexplorer/plot/hicexplorer_plot"
+
+about:
+  homepage: https://github.com/deeptools/HiCExplorer
+  license: GPL-3.0-or-later
+  license_file:
+    - LICENSE
+    - cpp/THIRD_PARTY_NOTICES.md
+    - cpp/third_party/spectra/LICENSE
+  summary: Set of programs to process, analyze and visualize Hi-C data
+  documentation: https://hicexplorer.readthedocs.io

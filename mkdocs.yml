@@ -1,0 +1,125 @@
+site_name: HiCExplorer
+site_description: >-
+  HiCExplorer, a tool suite to process, normalize,
+  analyze and visualize Hi-C and capture Hi-C data
+site_author: Joachim Wolff
+copyright: GPL-3.0 License
+
+# repo_url and edit_uri stay unset until the documentation has its public repository. Then set:
+#   repo_url: https://github.com/<org>/<repo>
+#   repo_name: <org>/<repo>
+#   edit_uri: edit/<default-branch>/docs/
+
+theme:
+  name: material
+  features:
+    - navigation.sections
+    - navigation.top
+    - content.code.copy
+    - toc.integrate
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+
+markdown_extensions:
+  - admonition
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.highlight
+  - pymdownx.superfences
+  - pymdownx.details
+
+nav:
+  - Home: index.md
+  - Installation: installation.md
+  - Usage: usage.md
+  - Tools:
+      - Overview: tools/index.md
+      - Pre-processing:
+          - Overview: tools/preprocessing.md
+          - hicFindRestSite: tools/hicFindRestSite.md
+          - hicBuildMatrix: tools/hicBuildMatrix.md
+          - hicBuildMatrixMicroC: tools/hicBuildMatrixMicroC.md
+          - hicSumMatrices: tools/hicSumMatrices.md
+          - hicMergeMatrixBins: tools/hicMergeMatrixBins.md
+          - hicCorrectMatrix: tools/hicCorrectMatrix.md
+          - hicNormalize: tools/hicNormalize.md
+      - Quality control:
+          - Overview: tools/qc.md
+          - hicQuickQC: tools/hicQuickQC.md
+          - hicQC: tools/hicQC.md
+          - hicPrepareQCreport: tools/hicPrepareQCreport.md
+          - hicMatrixQC: tools/hicMatrixQC.md
+          - hicCorrelate: tools/hicCorrelate.md
+          - hicPlotDistVsCounts: tools/hicPlotDistVsCounts.md
+          - hicInfo: tools/hicInfo.md
+      - Analysis:
+          - Overview: tools/analysis.md
+          - hicCompareMatrices: tools/hicCompareMatrices.md
+          - hicPCA: tools/hicPCA.md
+          - hicTransform: tools/hicTransform.md
+          - hicAverageRegions: tools/hicAverageRegions.md
+          - hicDetectLoops: tools/hicDetectLoops.md
+          - hicDetectStripes: tools/hicDetectStripes.md
+          - hicValidateLocations: tools/hicValidateLocations.md
+          - hicMergeLoops: tools/hicMergeLoops.md
+          - hicHyperoptDetectLoops: tools/hicHyperoptDetectLoops.md
+          - hicHyperoptDetectLoopsHiCCUPS: tools/hicHyperoptDetectLoopsHiCCUPS.md
+          - hicCompartmentalization: tools/hicCompartmentalization.md
+          - hicPlotSVL: tools/hicPlotSVL.md
+          - hicDifferentialAnalysis: tools/hicDifferentialAnalysis.md
+      - TADs:
+          - Overview: tools/tads.md
+          - hicFindTADs: tools/hicFindTADs.md
+          - hicMergeDomains: tools/hicMergeDomains.md
+          - hicDifferentialTAD: tools/hicDifferentialTAD.md
+          - hicMergeTADbins: tools/hicMergeTADbins.md
+          - hicInterIntraTAD: tools/hicInterIntraTAD.md
+      - Visualization:
+          - Overview: tools/visualization.md
+          - hicPlotMatrix: tools/hicPlotMatrix.md
+          - hicPlotViewpoint: tools/hicPlotViewpoint.md
+          - hicAggregateContacts: tools/hicAggregateContacts.md
+          - hicPlotAverageRegions: tools/hicPlotAverageRegions.md
+      - Matrix handling:
+          - Overview: tools/matrix-handling.md
+          - hicConvertFormat: tools/hicConvertFormat.md
+          - hicAdjustMatrix: tools/hicAdjustMatrix.md
+          - hicCreateThresholdFile: tools/hicCreateThresholdFile.md
+      - Capture Hi-C:
+          - Overview: tools/capture-hic.md
+          - chicQualityControl: tools/chicQualityControl.md
+          - chicViewpointBackgroundModel: tools/chicViewpointBackgroundModel.md
+          - chicViewpoint: tools/chicViewpoint.md
+          - chicSignificantInteractions: tools/chicSignificantInteractions.md
+          - chicAggregateStatistic: tools/chicAggregateStatistic.md
+          - chicDifferentialTest: tools/chicDifferentialTest.md
+          - chicPlotViewpoint: tools/chicPlotViewpoint.md
+          - chicExportData: tools/chicExportData.md
+          - chicChicagoBackgroundModel: tools/chicChicagoBackgroundModel.md
+          - chicChicagoScores: tools/chicChicagoScores.md
+          - chicChicagoSignificantInteractions: tools/chicChicagoSignificantInteractions.md
+          - chicChicagoPlotViewpoint: tools/chicChicagoPlotViewpoint.md
+  - File formats: file-formats.md
+  - Example usage:
+      - Overview: example-usage.md
+      - mES-HiC analysis: example-usage/mes-hic-analysis.md
+      - hicExport (removed tool): example-usage/hicexport.md
+      - Capture Hi-C analysis: example-usage/capture-hic-tutorial.md
+      - New in version 4: example-usage/new-in-version-4.md
+      - CHiCAGO analysis: example-usage/chicago-tutorial.md
+  - Benchmarks: benchmarks.md
+  - News: news.md
+  - Citation: citation.md
+  - Support: support.md

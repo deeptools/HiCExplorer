@@ -43,3 +43,6 @@ nosetests.xml
 # pytest
 .pytest_cache/
 .cache
+
+# Local development notes and validation on local data, never committed
+/cpp/local/

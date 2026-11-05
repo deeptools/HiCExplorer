@@ -1,0 +1,202 @@
+[
+  {
+    "id": "hicAdjustMatrix.h5.regions.keep",
+    "tool": "hicAdjustMatrix",
+    "tier": 1,
+    "args": ["-m", "{data}/small_test_matrix_50kb_res.h5", "-o", "{out}/adjusted.h5",
+             "--regions", "{data}/regions.bed", "--action", "keep"],
+    "outputs": [{"path": "{out}/adjusted.h5", "format": "h5", "class": "E2"}],
+    "notes": "--regions on its own, which the pre-existing Python tests never reached: test_remove_inter and test_remove_intra pass the BED path positionally after --chromosomes 1 2 3, where nargs='+' swallows it as a fourth chromosome name. regions.bed selects 182 bins of chrX in two intervals; reorderBins keeps them in the order the BED lists them."
+  },
+  {
+    "id": "hicAdjustMatrix.h5.regions.mask",
+    "tool": "hicAdjustMatrix",
+    "tier": 1,
+    "args": ["-m", "{data}/small_test_matrix_50kb_res.h5", "-o", "{out}/adjusted.h5",
+             "--regions", "{data}/regions.bed", "--action", "mask"],
+    "outputs": [{"path": "{out}/adjusted.h5", "format": "h5", "class": "E2"}],
+    "notes": "maskBins followed by the restoreMaskedBins that hiCMatrix.save performs. The shape stays 2,794, the masked set is the union of the 182 selected bins and the 139 NaN bins the file carries, 318 after the overlap, and the matrix is upcast to float64 because restoreMaskedBins pads with an empty float64 block."
+  },
+  {
+    "id": "hicAdjustMatrix.h5.regions.remove",
+    "tool": "hicAdjustMatrix",
+    "tier": 1,
+    "args": ["-m", "{data}/small_test_matrix_50kb_res.h5", "-o", "{out}/adjusted.h5",
+             "--regions", "{data}/regions.bed", "--action", "remove"],
+    "outputs": [{"path": "{out}/adjusted.h5", "format": "h5", "class": "E2"}],
+    "notes": "hicAdjustMatrix.py:157-159 clears orig_bin_ids, orig_cut_intervals and nan_bins after masking, so restoreMaskedBins has nothing to put back and the bins really disappear, the pre-existing NaN bins with them: 2,794 - 318 = 2,476 bins and no NaN bins in the output."
+  },
+  {
+    "id": "hicAdjustMatrix.cool.regions.mask",
+    "tool": "hicAdjustMatrix",
+    "tier": 1,
+    "args": ["-m", "{data}/small_test_matrix_50kb_res.cool", "-o", "{out}/adjusted.cool",
+             "--regions", "{data}/regions.bed", "--action", "mask"],
+    "outputs": [{"path": "{out}/adjusted.cool", "format": "cool", "class": "E1"}],
+    "notes": "The same selection through the cool reader and writer. A cool file carries no NaN bin list, so the loader rebuilds it from the empty rows: 843 bins are masked and 848 come back, because masking emptied five further rows."
+  },
+  {
+    "id": "hicAdjustMatrix.h5.regions.mask.second_bed",
+    "tool": "hicAdjustMatrix",
+    "tier": 1,
+    "args": ["-m", "{data}/small_test_matrix_50kb_res.h5", "-o", "{out}/adjusted.h5",
+             "--regions", "{data}/hicAdjustMatrix/mask.bed", "--action", "mask"],
+    "outputs": [{"path": "{out}/adjusted.h5", "format": "h5", "class": "E2"}],
+    "notes": "A second BED file with a different pair of chrX intervals, one of them 2 Mb wide, so the bin ranges the interval lookup resolves are not the ones of regions.bed."
+  },
+  {
+    "id": "hicAdjustMatrix.h5.regions.keep.domains_with_duplicate_bins",
+    "tool": "hicAdjustMatrix",
+    "tier": 1,
+    "args": ["-m", "{data}/Li_et_al_2015.h5", "-o", "{out}/adjusted.h5",
+             "--regions", "{data}/domains.bed", "--action", "keep"],
+    "outputs": [{"path": "{out}/adjusted.h5", "format": "h5", "class": "E2"}],
+    "large": true,
+    "notes": "The hardest --regions case in the corpus, and the one that pins scipy's fancy indexing semantics. domains.bed tiles chromosome X with 498 adjacent domains and getRegionBinRange returns an inclusive end bin, so consecutive domains share a bin and the selection is not injective: it holds 11,601 indices over 11,104 bins, with 497 of them appearing twice. reorderBins duplicates those rows and columns rather than merging them, giving a 11,601 bin matrix with 1,827,350 stored entries. The index list is not strictly increasing, so this is also the case in which the port takes the both-triangles exemption of PLAN.md 4.4 rule 2."
+  },
+  {
+    "id": "hicAdjustMatrix.h5.regions.mask.domains",
+    "tool": "hicAdjustMatrix",
+    "tier": 1,
+    "args": ["-m", "{data}/Li_et_al_2015.h5", "-o", "{out}/adjusted.h5",
+             "--regions", "{data}/domains.bed", "--action", "mask"],
+    "outputs": [{"path": "{out}/adjusted.h5", "format": "h5", "class": "E2"}],
+    "notes": "The domains cover almost the whole chromosome, so masking them leaves 351 entries of 3.3 million. The degenerate end of the mask path, and the case where a wrong bin in the mask would be obvious."
+  },
+  {
+    "id": "hicAdjustMatrix.cool.regions.remove.domains",
+    "tool": "hicAdjustMatrix",
+    "tier": 1,
+    "args": ["-m", "{data}/Li_et_al_2015.cool", "-o", "{out}/adjusted.cool",
+             "--regions", "{data}/domains.bed", "--action", "remove"],
+    "outputs": [{"path": "{out}/adjusted.cool", "format": "cool", "class": "E1"}],
+    "notes": "The remove path on a cool file, where the surviving bin table is written back with a rebuilt chromosome offset index."
+  },
+  {
+    "id": "hicAdjustMatrix.cool.chromosomes.keep.reordered",
+    "tool": "hicAdjustMatrix",
+    "tier": 1,
+    "args": ["-m", "{data}/hicAdjustMatrix/gm12878_1_2_3.cool", "-o", "{out}/adjusted.cool",
+             "--chromosomes", "3", "1", "--action", "keep"],
+    "outputs": [{"path": "{out}/adjusted.cool", "format": "cool", "class": "E1"}],
+    "notes": "reorderChromosomes keeps the chromosomes in the order they are given, so the first block of the 449 bin output is chromosome 3. A genuine permutation, which is what makes hicAdjustMatrix the tool that needs both triangles."
+  },
+  {
+    "id": "hicAdjustMatrix.cool.chromosomes.remove",
+    "tool": "hicAdjustMatrix",
+    "tier": 1,
+    "args": ["-m", "{data}/hicAdjustMatrix/gm12878_1_2_3.cool", "-o", "{out}/adjusted.cool",
+             "--chromosomes", "2", "--action", "remove"],
+    "outputs": [{"path": "{out}/adjusted.cool", "format": "cool", "class": "E1"}],
+    "notes": "The removed chromosome is taken out of the list of all chromosomes and what is left is reordered, so the survivors keep their original order: 1 then 3."
+  },
+  {
+    "id": "hicAdjustMatrix.cool.chromosomes.mask",
+    "tool": "hicAdjustMatrix",
+    "tier": 1,
+    "args": ["-m", "{data}/hicAdjustMatrix/gm12878_1_2_3.cool", "-o", "{out}/adjusted.cool",
+             "--chromosomes", "2", "--action", "mask"],
+    "outputs": [{"path": "{out}/adjusted.cool", "format": "cool", "class": "E1"}],
+    "notes": "maskChromosomes blanks the 244 bins of chromosome 2 but keeps all 693. With the 25 NaN bins the file carries, minus the 2 that overlap, the output has 267 NaN bins and a float64 matrix."
+  },
+  {
+    "id": "hicAdjustMatrix.cool.chromosomes.keep.single_cooler_fast_path",
+    "tool": "hicAdjustMatrix",
+    "tier": 1,
+    "args": ["-m", "{data}/hicAdjustMatrix/gm12878_1_2_3.cool", "-o", "{out}/adjusted.cool",
+             "--chromosomes", "1", "--action", "keep"],
+    "outputs": [{"path": "{out}/adjusted.cool", "format": "cool", "class": "E1"}],
+    "notes": "One chromosome, --action keep and a cool input take the branch at hicAdjustMatrix.py:73-76, which passes pChrnameList to hicmatrix and loads only that chromosome. The branch is observable and not an optimisation: the NaN bin heuristic then runs on the 250 bin block alone and finds 20 empty rows, where a whole file load followed by a selection would find fewer, because an inter-chromosomal contact keeps a row non empty. This is the case the port's CoolLoadOptions::chrom_name exists for."
+  },
+  {
+    "id": "hicAdjustMatrix.cool.chromosomes.unknown_name_is_ignored",
+    "tool": "hicAdjustMatrix",
+    "tier": 1,
+    "args": ["-m", "{data}/hicAdjustMatrix/gm12878_1_2_3.cool", "-o", "{out}/adjusted.cool",
+             "--chromosomes", "1", "not_a_chromosome", "--action", "keep"],
+    "outputs": [{"path": "{out}/adjusted.cool", "format": "cool", "class": "E1"}],
+    "notes": "A name that is not in the matrix is warned about and ignored, and the run continues with what is left. That is what makes the stray BED path of the pre-existing test_remove_inter harmless. Note that two names means the cooler fast path is not taken, so the NaN bins differ from the single chromosome case above even though the values are the same block."
+  },
+  {
+    "id": "hicAdjustMatrix.cool.interIntraHandling.inter",
+    "tool": "hicAdjustMatrix",
+    "tier": 1,
+    "args": ["-m", "{data}/hicAdjustMatrix/gm12878_1_2_3.cool", "-o", "{out}/adjusted.cool",
+             "--chromosomes", "1", "2", "3", "--action", "keep",
+             "--interIntraHandling", "inter"],
+    "outputs": [{"path": "{out}/adjusted.cool", "format": "cool", "class": "E1"}],
+    "notes": "The clean form of the pre-existing test_remove_inter, without the BED path that test passes positionally. hicAdjustMatrix.py:178 zeroes matrix[start:end, end:] per chromosome, that is only the blocks above the diagonal; the mirrored entries survive in memory and are dropped by the triu(k=0) the writer applies, so the file holds the intra-chromosomal contacts only."
+  },
+  {
+    "id": "hicAdjustMatrix.cool.interIntraHandling.intra",
+    "tool": "hicAdjustMatrix",
+    "tier": 1,
+    "args": ["-m", "{data}/hicAdjustMatrix/gm12878_1_2_3.cool", "-o", "{out}/adjusted.cool",
+             "--chromosomes", "1", "2", "3", "--action", "keep",
+             "--interIntraHandling", "intra"],
+    "outputs": [{"path": "{out}/adjusted.cool", "format": "cool", "class": "E1"}],
+    "notes": "The complementary branch: the diagonal blocks are zeroed and only the inter-chromosomal contacts remain."
+  },
+  {
+    "id": "hicAdjustMatrix.cool.chromosomes.keep.reordered.GSM_chr1_chr2",
+    "tool": "hicAdjustMatrix",
+    "tier": 1,
+    "args": ["-m",
+             "{data}/hicDifferentialTAD/GSM2644945_Untreated-R1.100000_chr1_chr2.cool",
+             "-o", "{out}/adjusted.cool", "--chromosomes", "chr2", "chr1",
+             "--action", "keep"],
+    "outputs": [{"path": "{out}/adjusted.cool", "format": "cool", "class": "E1"}],
+    "large": true,
+    "notes": "The memory case for this tool: 3,790 bins, 4,208,340 stored pixels and a permutation, so the port has to materialise both triangles. 3,202,457 symmetric entries in the output."
+  },
+  {
+    "id": "hicAdjustMatrix.cool.interIntraHandling.inter.GSM_chr1_chr2",
+    "tool": "hicAdjustMatrix",
+    "tier": 1,
+    "args": ["-m",
+             "{data}/hicDifferentialTAD/GSM2644945_Untreated-R1.100000_chr1_chr2.cool",
+             "-o", "{out}/adjusted.cool", "--chromosomes", "chr1", "chr2",
+             "--action", "keep", "--interIntraHandling", "inter"],
+    "outputs": [{"path": "{out}/adjusted.cool", "format": "cool", "class": "E1"}],
+    "large": true,
+    "notes": "The block zeroing on a matrix large enough for it to matter. In the Python this is a csr slice assignment that inserts explicit zeros; both writers call eliminate_zeros before storing, so dropping the entries outright produces the same file."
+  },
+  {
+    "id": "hicAdjustMatrix.h5.maskBadRegions_is_a_no_op",
+    "tool": "hicAdjustMatrix",
+    "tier": 1,
+    "args": ["-m", "{data}/small_test_matrix_50kb_res.h5", "-o", "{out}/adjusted.h5",
+             "--maskBadRegions", "{data}/hicAdjustMatrix/mask.bed"],
+    "outputs": [{"path": "{out}/adjusted.h5", "format": "h5", "class": "E2"}],
+    "notes": "The pinned defect. hicAdjustMatrix.py:161-165 never opens the BED file it is given: :162 evaluates len(pArgs.chromosomes), and --chromosomes is mutually exclusive with --maskBadRegions and therefore always None. For an h5 input check_cooler is false and short circuits the expression, so the matrix is loaded, nothing is masked, and it is written back unchanged at exit 0. Reproduced, not fixed."
+  },
+  {
+    "id": "hicAdjustMatrix.cool.maskBadRegions_raises_a_type_error",
+    "tool": "hicAdjustMatrix",
+    "tier": 1,
+    "args": ["-m", "{data}/small_test_matrix_50kb_res.cool", "-o", "{out}/adjusted.cool",
+             "--maskBadRegions", "{data}/hicAdjustMatrix/mask.bed"],
+    "outputs": [],
+    "expect_exit": 1,
+    "notes": "The same option on a cool input reaches the len(None) that check_cooler short circuits for h5, and the run ends with a TypeError and no output file. Pinned as it stands; the port prints what the expression was rather than a traceback and exits 1."
+  },
+  {
+    "id": "hicAdjustMatrix.h5.no_selection_writes_no_file",
+    "tool": "hicAdjustMatrix",
+    "tier": 1,
+    "args": ["-m", "{data}/small_test_matrix_50kb_res.h5", "-o", "{out}/adjusted.h5"],
+    "outputs": [],
+    "expect_exit": 0,
+    "notes": "Without --chromosomes, --regions or --maskBadRegions the tool logs one info line, returns None from adjustMatrix, skips the save and exits 0. A calling pipeline cannot tell that from success. Pinned because it is exactly the kind of silent no-op a port would be tempted to turn into an error."
+  },
+  {
+    "id": "hicAdjustMatrix.cool.no_valid_chromosome_exits_1",
+    "tool": "hicAdjustMatrix",
+    "tier": 1,
+    "args": ["-m", "{data}/hicAdjustMatrix/gm12878_1_2_3.cool", "-o", "{out}/adjusted.cool",
+             "--chromosomes", "not_a_chromosome", "--action", "remove"],
+    "outputs": [],
+    "expect_exit": 1,
+    "notes": "Only when no requested chromosome survives the membership filter does the tool exit 1, at hicAdjustMatrix.py:92-94, before anything is written. --action remove rather than keep, so that the single-chromosome cooler fast path with its own error message is not the branch under test."
+  }
+]

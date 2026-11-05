@@ -1,0 +1,113 @@
+[
+  {
+    "id": "hicNormalize.h5.smallest.pair",
+    "tool": "hicNormalize",
+    "tier": 2,
+    "args": ["--matrices", "{data}/hicNormalize/small_test_matrix.h5",
+             "{data}/hicNormalize/small_test_matrix_scaled_up.h5",
+             "--normalize", "smallest",
+             "-o", "{out}/one.h5", "{out}/two.h5"],
+    "outputs": [
+      {"path": "{out}/one.h5", "format": "h5", "class": "E2"},
+      {"path": "{out}/two.h5", "format": "h5", "class": "E2"}
+    ],
+    "notes": "The pair the Python suite uses, 33,754 bins over 15 chromosomes. The first matrix carries int64 counts and the second float32, so the run exercises both the astype(float32) cast and the divide by the adjust factor. The adjust factor is exactly 1.5 here, so the second output must come back equal to the first."
+  },
+  {
+    "id": "hicNormalize.cool.smallest.pair",
+    "tool": "hicNormalize",
+    "tier": 2,
+    "args": ["--matrices", "{data}/hicNormalize/small_test_matrix.cool",
+             "{data}/hicNormalize/small_test_matrix_scaled_up.cool",
+             "--normalize", "smallest",
+             "-o", "{out}/one.cool", "{out}/two.cool"],
+    "outputs": [
+      {"path": "{out}/one.cool", "format": "cool", "class": "E1"},
+      {"path": "{out}/two.cool", "format": "cool", "class": "E1"}
+    ],
+    "notes": "The same pair through the cool reader and writer. The cool loader derives 14,845 NaN bins from the empty rows, which the h5 loader does not, so this is a distinct bin table as well as a distinct file layer."
+  },
+  {
+    "id": "hicNormalize.h5.norm_range.pair",
+    "tool": "hicNormalize",
+    "tier": 2,
+    "args": ["--matrices", "{data}/hicNormalize/small_test_matrix.h5",
+             "{data}/hicNormalize/small_test_matrix_scaled_up.h5",
+             "--normalize", "norm_range",
+             "-o", "{out}/one.h5", "{out}/two.h5"],
+    "outputs": [
+      {"path": "{out}/one.h5", "format": "h5", "class": "E2"},
+      {"path": "{out}/two.h5", "format": "h5", "class": "E2"}
+    ],
+    "notes": "norm_range subtracts the minimum, which is 1 in both matrices, so 67,243 of the 69,213 stored entries fall to zero and are eliminated. The remaining 1,970 values are k/7 for k in 1..7, which is only bit reproducible if the subtraction and the division both happen in float32 as numpy's value based casting makes them."
+  },
+  {
+    "id": "hicNormalize.cool.norm_range.pair",
+    "tool": "hicNormalize",
+    "tier": 2,
+    "args": ["--matrices", "{data}/hicNormalize/small_test_matrix.cool",
+             "{data}/hicNormalize/small_test_matrix_scaled_up.cool",
+             "--normalize", "norm_range",
+             "-o", "{out}/one.cool", "{out}/two.cool"],
+    "outputs": [
+      {"path": "{out}/one.cool", "format": "cool", "class": "E1"},
+      {"path": "{out}/two.cool", "format": "cool", "class": "E1"}
+    ],
+    "notes": "norm_range through the cool writer, where the count column becomes float32 and the NaN bin set grows from 14,845 to 31,998 because eliminate_zeros empties most rows."
+  },
+  {
+    "id": "hicNormalize.cool.multiplicative",
+    "tool": "hicNormalize",
+    "tier": 2,
+    "args": ["--matrices", "{data}/hicNormalize/small_test_matrix.cool",
+             "--normalize", "multiplicative", "--multiplicativeValue", "2",
+             "-o", "{out}/scaled.cool"],
+    "outputs": [{"path": "{out}/scaled.cool", "format": "cool", "class": "E1"}],
+    "notes": "The multiplicative branch, whose master in the repository is small_test_matrix_scaled_by_2.cool."
+  },
+  {
+    "id": "hicNormalize.h5.multiplicative.default_value",
+    "tool": "hicNormalize",
+    "tier": 2,
+    "args": ["--matrices", "{data}/hicNormalize/small_test_matrix.h5",
+             "--normalize", "multiplicative",
+             "-o", "{out}/scaled.h5"],
+    "outputs": [{"path": "{out}/scaled.h5", "format": "h5", "class": "E2"}],
+    "notes": "--multiplicativeValue defaults to 1, so the branch only rewrites the dtype. The Python suite never ran the default; the characterization test added to test_hicNormalize.py pins it, and this case pins that the int64 h5 input really is written back as float32."
+  },
+  {
+    "id": "hicNormalize.h5.smallest.setToZeroThreshold",
+    "tool": "hicNormalize",
+    "tier": 2,
+    "args": ["--matrices", "{data}/hicNormalize/small_test_matrix.h5",
+             "--normalize", "smallest", "--setToZeroThreshold", "2.0",
+             "-o", "{out}/thresholded.h5"],
+    "outputs": [{"path": "{out}/thresholded.h5", "format": "h5", "class": "E2"}],
+    "notes": "--setToZeroThreshold was never exercised by the Python suite. The threshold sits exactly on a value that occurs 1,706 times in this matrix, so the case pins the comparison operator as well as the threshold: the mask is `< t`, so those 1,706 entries survive and the stored count falls from 69,213 to 1,970."
+  },
+  {
+    "id": "hicNormalize.cool.norm_range.setToZeroThreshold",
+    "tool": "hicNormalize",
+    "tier": 2,
+    "args": ["--matrices", "{data}/hicNormalize/small_test_matrix.cool",
+             "--normalize", "norm_range", "-sz", "0.5",
+             "-o", "{out}/thresholded.cool"],
+    "outputs": [{"path": "{out}/thresholded.cool", "format": "cool", "class": "E1"}],
+    "notes": "The short option spelling, and the threshold on the norm_range branch, where it cuts 1,970 stored entries down to 23."
+  },
+  {
+    "id": "hicNormalize.h5.smallest.Li_pair",
+    "tool": "hicNormalize",
+    "tier": 2,
+    "args": ["--matrices", "{data}/Li_et_al_2015.h5", "{data}/Li_et_al_2015_twice.h5",
+             "--normalize", "smallest",
+             "-o", "{out}/li_one.h5", "{out}/li_two.h5"],
+    "outputs": [
+      {"path": "{out}/li_one.h5", "format": "h5", "class": "E2"},
+      {"path": "{out}/li_two.h5", "format": "h5", "class": "E2"}
+    ],
+    "memory": {"alpha": 2.6, "beta": 0.0},
+    "large": true,
+    "notes": "The designated large input, on real float64 data spanning 0.170 to 1914.015 rather than small integers, and the only case where both matrices are of a size worth measuring. alpha is 2.6 rather than the 1.3 of PLAN.md 4.5 because hicNormalize.py:68-72 loads every matrix before it normalizes any of them, so two matrices are live at once; 1.3 per live matrix is the same rule, applied twice. The h5 values are float64 and the cast to float32 is a real rounding here, unlike on the small integer matrices."
+  }
+]

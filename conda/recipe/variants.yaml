@@ -1,0 +1,14 @@
+# What conda-forge's global pinning provides to a feedstock or to bioconda.
+python:
+  - "3.12"
+c_stdlib:
+  - if: linux
+    then: sysroot
+  - if: osx
+    then: macosx_deployment_target
+c_stdlib_version:
+  - if: linux
+    then: "2.17"
+  # Floating-point std::to_chars (build_matrix.cpp) needs macOS 13.3.
+  - if: osx
+    then: "13.3"

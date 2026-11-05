@@ -1,3 +1,10 @@
+"""hicexplorer.parserCommon: argparse helpers shared by the tools.
+
+writableFile calls hicexplorer._hicx.parserCommon (C++,
+cpp/python/src/api/parserCommon.cpp). getParentArgParse and CustomFormatter
+only construct argparse objects and compute nothing; they stay as they were
+in HiCExplorer 3.7.6 (cpp/scripts/public_api_allowlist.tsv).
+"""
 import warnings
 warnings.simplefilter(action="ignore", category=RuntimeWarning)
 warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
@@ -5,6 +12,8 @@ import argparse
 
 import logging
 log = logging.getLogger(__name__)
+
+from hicexplorer._hicx import parserCommon as _impl
 
 
 def getParentArgParse(args=None):
@@ -18,13 +27,7 @@ def getParentArgParse(args=None):
 
 
 def writableFile(string):
-    try:
-        open(string, 'w').close()
-    except IOError:
-        msg = "{} file can be opened for writting".format(string)
-        log.debug(msg)
-        raise argparse.ArgumentTypeError(msg)
-    return string
+    return _impl.writableFile(string)
 
 
 class CustomFormatter(argparse.ArgumentDefaultsHelpFormatter, argparse.RawDescriptionHelpFormatter):

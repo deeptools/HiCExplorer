@@ -1,0 +1,680 @@
+// See hicx/chic_hdf5.hpp.
+
+#include "hicx/chic_hdf5.hpp"
+
+#include <hdf5.h>
+
+#include <algorithm>
+#include <cerrno>
+#include <cmath>
+#include <cstring>
+#include <vector>
+
+#include <fcntl.h>
+#include <unistd.h>
+
+#include "hicx/python_error.hpp"
+
+namespace hicx::chic {
+
+namespace {
+
+using h5::Error;
+using h5::Handle;
+
+Handle variable_string_type() {
+    Handle type(H5Tcopy(H5T_C_S1), Handle::Kind::DataType);
+    if (!type.valid() || H5Tset_size(type.get(), H5T_VARIABLE) < 0 ||
+        H5Tset_cset(type.get(), H5T_CSET_UTF8) < 0 ||
+        H5Tset_strpad(type.get(), H5T_STR_NULLTERM) < 0) {
+        throw Error("cannot create a variable length string type");
+    }
+    return type;
+}
+
+Handle link_create_plist() {
+    Handle plist(H5Pcreate(H5P_LINK_CREATE), Handle::Kind::PropertyList);
+    if (!plist.valid() || H5Pset_create_intermediate_group(plist.get(), 1) < 0) {
+        throw Error("cannot create a link creation property list");
+    }
+    return plist;
+}
+
+Handle dataset_create_plist() {
+    Handle plist(H5Pcreate(H5P_DATASET_CREATE), Handle::Kind::PropertyList);
+    if (!plist.valid() || H5Pset_obj_track_times(plist.get(), 0) < 0) {
+        throw Error("cannot create a dataset creation property list");
+    }
+    return plist;
+}
+
+Handle open_object(hid_t file, const std::string& path) {
+    const hid_t id = H5Oopen(file, path.c_str(), H5P_DEFAULT);
+    if (id < 0) {
+        throw Error("cannot open " + path);
+    }
+    // H5Oopen hands back a group or a dataset; Handle closes either through
+    // H5Oclose when told it is a group, which H5Oclose accepts for both.
+    return Handle(id, H5Iget_type(id) == H5I_DATASET ? Handle::Kind::Dataset
+                                                     : Handle::Kind::Group);
+}
+
+}  // namespace
+
+Hdf5Writer::Hdf5Writer(const std::string& path) : path_(path) {
+    const hid_t id = H5Fcreate(path.c_str(), H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT);
+    if (id < 0) {
+        throw Error("cannot create HDF5 file: " + path);
+    }
+    file_ = Handle(id, Handle::Kind::File);
+}
+
+bool Hdf5Writer::exists(const std::string& object_path) const {
+    if (object_path.empty() || object_path == "/") {
+        return true;
+    }
+    std::string prefix;
+    std::size_t position = 0;
+    while (position < object_path.size()) {
+        const std::size_t slash = object_path.find('/', position);
+        const std::size_t end = slash == std::string::npos ? object_path.size() : slash;
+        const std::string component = object_path.substr(position, end - position);
+        position = end + 1;
+        if (component.empty()) {
+            continue;
+        }
+        prefix += "/" + component;
+        if (H5Lexists(file_.get(), prefix.c_str(), H5P_DEFAULT) <= 0) {
+            return false;
+        }
+    }
+    return true;
+}
+
+void Hdf5Writer::create_group(const std::string& path) {
+    if (exists(path)) {
+        throw Error("Unable to create group (name already exists): " + path);
+    }
+    const Handle link_plist = link_create_plist();
+    const Handle group_plist(H5Pcreate(H5P_GROUP_CREATE), Handle::Kind::PropertyList);
+    if (!group_plist.valid() || H5Pset_obj_track_times(group_plist.get(), 0) < 0) {
+        throw Error("cannot create a group creation property list");
+    }
+    const Handle group(H5Gcreate2(file_.get(), path.c_str(), link_plist.get(),
+                                  group_plist.get(), H5P_DEFAULT),
+                       Handle::Kind::Group);
+    if (!group.valid()) {
+        throw Error("cannot create group " + path + " in " + path_);
+    }
+}
+
+void Hdf5Writer::set_attribute(const std::string& object_path, const std::string& name,
+                               const std::string& value) {
+    const Handle object = open_object(file_.get(), object_path);
+    const Handle type = variable_string_type();
+    const Handle space(H5Screate(H5S_SCALAR), Handle::Kind::DataSpace);
+    const Handle attribute(
+        H5Acreate2(object.get(), name.c_str(), type.get(), space.get(), H5P_DEFAULT, H5P_DEFAULT),
+        Handle::Kind::Attribute);
+    const char* pointer = value.c_str();
+    if (!attribute.valid() || H5Awrite(attribute.get(), type.get(), &pointer) < 0) {
+        throw Error("cannot write attribute " + name + " on " + object_path);
+    }
+}
+
+void Hdf5Writer::set_attribute(const std::string& object_path, const std::string& name,
+                               std::int64_t value) {
+    const Handle object = open_object(file_.get(), object_path);
+    const Handle space(H5Screate(H5S_SCALAR), Handle::Kind::DataSpace);
+    const Handle attribute(H5Acreate2(object.get(), name.c_str(), H5T_STD_I64LE, space.get(),
+                                      H5P_DEFAULT, H5P_DEFAULT),
+                           Handle::Kind::Attribute);
+    if (!attribute.valid() || H5Awrite(attribute.get(), H5T_NATIVE_INT64, &value) < 0) {
+        throw Error("cannot write attribute " + name + " on " + object_path);
+    }
+}
+
+void Hdf5Writer::set_attribute(const std::string& object_path, const std::string& name,
+                               std::span<const std::int64_t> values) {
+    const Handle object = open_object(file_.get(), object_path);
+    const hsize_t dims[1] = {static_cast<hsize_t>(values.size())};
+    const Handle space(H5Screate_simple(1, dims, nullptr), Handle::Kind::DataSpace);
+    const Handle attribute(H5Acreate2(object.get(), name.c_str(), H5T_STD_I64LE, space.get(),
+                                      H5P_DEFAULT, H5P_DEFAULT),
+                           Handle::Kind::Attribute);
+    if (!attribute.valid() ||
+        H5Awrite(attribute.get(), H5T_NATIVE_INT64, values.data()) < 0) {
+        throw Error("cannot write attribute " + name + " on " + object_path);
+    }
+}
+
+void Hdf5Writer::set_attribute(const std::string& object_path, const std::string& name,
+                               double value) {
+    const Handle object = open_object(file_.get(), object_path);
+    const Handle space(H5Screate(H5S_SCALAR), Handle::Kind::DataSpace);
+    const Handle attribute(H5Acreate2(object.get(), name.c_str(), H5T_IEEE_F64LE, space.get(),
+                                      H5P_DEFAULT, H5P_DEFAULT),
+                           Handle::Kind::Attribute);
+    if (!attribute.valid() || H5Awrite(attribute.get(), H5T_NATIVE_DOUBLE, &value) < 0) {
+        throw Error("cannot write attribute " + name + " on " + object_path);
+    }
+}
+
+void Hdf5Writer::set_bool_attribute(const std::string& object_path, const std::string& name,
+                                    bool value) {
+    const Handle object = open_object(file_.get(), object_path);
+    const Handle type(H5Tenum_create(H5T_NATIVE_INT8), Handle::Kind::DataType);
+    const signed char false_value = 0;
+    const signed char true_value = 1;
+    if (!type.valid() || H5Tenum_insert(type.get(), "FALSE", &false_value) < 0 ||
+        H5Tenum_insert(type.get(), "TRUE", &true_value) < 0) {
+        throw Error("cannot create the bool enumeration type");
+    }
+    const Handle space(H5Screate(H5S_SCALAR), Handle::Kind::DataSpace);
+    const Handle attribute(
+        H5Acreate2(object.get(), name.c_str(), type.get(), space.get(), H5P_DEFAULT, H5P_DEFAULT),
+        Handle::Kind::Attribute);
+    const signed char stored = value ? 1 : 0;
+    if (!attribute.valid() || H5Awrite(attribute.get(), type.get(), &stored) < 0) {
+        throw Error("cannot write attribute " + name + " on " + object_path);
+    }
+}
+
+void Hdf5Writer::write_strings(const std::string& path, const std::vector<std::string>& values) {
+    const Handle type = variable_string_type();
+    const hsize_t dims[1] = {static_cast<hsize_t>(values.size())};
+    const Handle space(H5Screate_simple(1, dims, nullptr), Handle::Kind::DataSpace);
+    const Handle link_plist = link_create_plist();
+    const Handle plist = dataset_create_plist();
+    const Handle dataset(H5Dcreate2(file_.get(), path.c_str(), type.get(), space.get(),
+                                    link_plist.get(), plist.get(), H5P_DEFAULT),
+                         Handle::Kind::Dataset);
+    std::vector<const char*> pointers;
+    pointers.reserve(values.size());
+    for (const std::string& value : values) {
+        pointers.push_back(value.c_str());
+    }
+    if (!dataset.valid() ||
+        (!values.empty() && H5Dwrite(dataset.get(), type.get(), H5S_ALL, H5S_ALL, H5P_DEFAULT,
+                                     pointers.data()) < 0)) {
+        throw Error("cannot write dataset " + path + " in " + path_);
+    }
+}
+
+void Hdf5Writer::write_string(const std::string& path, const std::string& value) {
+    const Handle type = variable_string_type();
+    const Handle space(H5Screate(H5S_SCALAR), Handle::Kind::DataSpace);
+    const Handle link_plist = link_create_plist();
+    const Handle plist = dataset_create_plist();
+    const Handle dataset(H5Dcreate2(file_.get(), path.c_str(), type.get(), space.get(),
+                                    link_plist.get(), plist.get(), H5P_DEFAULT),
+                         Handle::Kind::Dataset);
+    const char* pointer = value.c_str();
+    if (!dataset.valid() ||
+        H5Dwrite(dataset.get(), type.get(), H5S_ALL, H5S_ALL, H5P_DEFAULT, &pointer) < 0) {
+        throw Error("cannot write dataset " + path + " in " + path_);
+    }
+}
+
+void Hdf5Writer::write_scalar(const std::string& path, std::int64_t value) {
+    const Handle space(H5Screate(H5S_SCALAR), Handle::Kind::DataSpace);
+    const Handle link_plist = link_create_plist();
+    const Handle plist = dataset_create_plist();
+    const Handle dataset(H5Dcreate2(file_.get(), path.c_str(), H5T_STD_I64LE, space.get(),
+                                    link_plist.get(), plist.get(), H5P_DEFAULT),
+                         Handle::Kind::Dataset);
+    if (!dataset.valid() || H5Dwrite(dataset.get(), H5T_NATIVE_INT64, H5S_ALL, H5S_ALL,
+                                     H5P_DEFAULT, &value) < 0) {
+        throw Error("cannot write dataset " + path + " in " + path_);
+    }
+}
+
+void Hdf5Writer::write_scalar(const std::string& path, double value) {
+    const Handle space(H5Screate(H5S_SCALAR), Handle::Kind::DataSpace);
+    const Handle link_plist = link_create_plist();
+    const Handle plist = dataset_create_plist();
+    const Handle dataset(H5Dcreate2(file_.get(), path.c_str(), H5T_IEEE_F64LE, space.get(),
+                                    link_plist.get(), plist.get(), H5P_DEFAULT),
+                         Handle::Kind::Dataset);
+    if (!dataset.valid() || H5Dwrite(dataset.get(), H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL,
+                                     H5P_DEFAULT, &value) < 0) {
+        throw Error("cannot write dataset " + path + " in " + path_);
+    }
+}
+
+void Hdf5Writer::write_numeric_array(const std::string& path, hid_t file_type,
+                                     hid_t memory_type, std::size_t length,
+                                     std::size_t type_size, const void* data, int level) {
+    const hsize_t dims[1] = {static_cast<hsize_t>(length)};
+    const Handle space(H5Screate_simple(1, dims, nullptr), Handle::Kind::DataSpace);
+    const Handle link_plist = link_create_plist();
+    const Handle plist = dataset_create_plist();
+    if (level > 0) {
+        const hsize_t chunk[1] = {static_cast<hsize_t>(h5::guess_chunk(length, type_size))};
+        if (H5Pset_chunk(plist.get(), 1, chunk) < 0 || H5Pset_deflate(plist.get(), level) < 0) {
+            throw Error("cannot set the gzip filter of " + path);
+        }
+    }
+    const Handle dataset(H5Dcreate2(file_.get(), path.c_str(), file_type, space.get(),
+                                    link_plist.get(), plist.get(), H5P_DEFAULT),
+                         Handle::Kind::Dataset);
+    if (!dataset.valid()) {
+        throw Error("cannot create dataset " + path + " in " + path_);
+    }
+    if (length > 0 &&
+        H5Dwrite(dataset.get(), memory_type, H5S_ALL, H5S_ALL, H5P_DEFAULT, data) < 0) {
+        throw Error("cannot write dataset " + path + " in " + path_);
+    }
+}
+
+void Hdf5Writer::write_array(const std::string& path, std::span<const std::int64_t> values,
+                             int level) {
+    write_numeric_array(path, H5T_STD_I64LE, H5T_NATIVE_INT64, values.size(), 8,
+                        values.data(), level);
+}
+
+void Hdf5Writer::write_array(const std::string& path, std::span<const double> values,
+                             int level) {
+    write_numeric_array(path, H5T_IEEE_F64LE, H5T_NATIVE_DOUBLE, values.size(), 8,
+                        values.data(), level);
+}
+
+bool Hdf5Writer::hard_link(const std::string& target_path, const std::string& link_path) {
+    if (exists(link_path)) {
+        return false;
+    }
+    const Handle link_plist = link_create_plist();
+    return H5Lcreate_hard(file_.get(), target_path.c_str(), file_.get(), link_path.c_str(),
+                          link_plist.get(), H5P_DEFAULT) >= 0;
+}
+
+void write_interaction_datasets(Hdf5Writer& writer, const std::string& group_path,
+                                const InteractionFileData& data,
+                                std::int64_t reference_point_start,
+                                std::int64_t reference_point_end) {
+    constexpr int kGzip = 9;
+    const std::string prefix = group_path + "/";
+    // A list of ints that happens to be empty is np.array([]), float64.
+    const auto write_int_list = [&](const std::string& name,
+                                    const std::vector<std::int64_t>& values) {
+        if (values.empty()) {
+            writer.write_array(prefix + name, std::span<const double>(), kGzip);
+        } else {
+            writer.write_array(prefix + name, std::span<const std::int64_t>(values), kGzip);
+        }
+    };
+    writer.write_string(prefix + "chromosome", data.chromosome);
+    write_int_list("start_list", data.starts);
+    write_int_list("end_list", data.ends);
+    writer.write_string(prefix + "gene", data.gene);
+    writer.write_scalar(prefix + "sum_of_interactions", data.sum_of_interactions);
+    write_int_list("relative_position_list", data.relative_positions);
+    writer.write_array(prefix + "interaction_data_list",
+                       std::span<const double>(data.interaction_data), kGzip);
+    writer.write_array(prefix + "pvalue", std::span<const double>(data.pvalues), kGzip);
+    writer.write_array(prefix + "xfold", std::span<const double>(data.xfold), kGzip);
+    writer.write_array(prefix + "raw", std::span<const double>(data.raw), kGzip);
+    writer.write_scalar(prefix + "reference_point_start", reference_point_start);
+    writer.write_scalar(prefix + "reference_point_end", reference_point_end);
+}
+
+bool contains(const h5::File& file, const std::string& path) {
+    std::string prefix;
+    std::size_t begin = 0;
+    while (begin <= path.size()) {
+        std::size_t end = path.find('/', begin);
+        if (end == std::string::npos) {
+            end = path.size();
+        }
+        const std::string component = path.substr(begin, end - begin);
+        if (!component.empty()) {
+            prefix += "/" + component;
+            if (!file.exists(prefix)) {
+                return false;
+            }
+        }
+        begin = end + 1;
+    }
+    return !prefix.empty();
+}
+
+InteractionTable read_interaction_table(const h5::File& file,
+                                        const std::vector<std::string>& triplet) {
+    std::string internal;
+    for (std::size_t i = 0; i < triplet.size(); ++i) {
+        internal += (i > 0 ? "/" : "") + triplet[i];
+    }
+    InteractionTable out;
+    if (!contains(file, internal)) {
+        return out;
+    }
+    const std::string base = "/" + internal + "/";
+    // Only the arrays that exist are appended, so a missing one shifts the
+    // later ones down, as `data.append` does.
+    std::vector<std::vector<double>> data;
+    for (const char* name : {"relative_position_list", "interaction_data_list", "pvalue", "raw",
+                             "xfold", "start_list", "end_list"}) {
+        if (contains(file, internal + "/" + name)) {
+            data.push_back(file.read_doubles(base + name));
+        }
+    }
+    std::optional<std::string> chromosome;
+    std::optional<std::string> gene;
+    std::optional<double> sum;
+    if (contains(file, internal + "/chromosome")) {
+        chromosome = file.read_strings(base + "chromosome").at(0);
+    }
+    if (contains(file, internal + "/gene")) {
+        gene = file.read_strings(base + "gene").at(0);
+    }
+    if (contains(file, internal + "/sum_of_interactions")) {
+        sum = file.read_doubles(base + "sum_of_interactions").at(0);
+    }
+    std::optional<std::int64_t> reference_start;
+    std::optional<std::int64_t> reference_end;
+    if (file.exists(base + "reference_point_start")) {
+        reference_start = static_cast<std::int64_t>(
+            file.read_doubles(base + "reference_point_start").at(0));
+    }
+    if (file.exists(base + "reference_point_end")) {
+        reference_end =
+            static_cast<std::int64_t>(file.read_doubles(base + "reference_point_end").at(0));
+    }
+    // The try block around `for i in range(len(data[0]))`: an exception
+    // anywhere in it (no arrays at all, a missing array, chromosome, gene or
+    // sum, a shorter array, int() of a non-finite value) discards every record
+    // and the reference point.
+    if (data.empty()) {
+        return InteractionTable{};
+    }
+    if (data[0].empty()) {
+        out.reference_point = {reference_start, reference_end};
+        return out;
+    }
+    if (data.size() < 7 || !chromosome.has_value() || !gene.has_value() || !sum.has_value()) {
+        return InteractionTable{};
+    }
+    for (std::size_t i = 0; i < data[0].size(); ++i) {
+        for (std::size_t column = 1; column < 7; ++column) {
+            if (i >= data[column].size()) {
+                return InteractionTable{};
+            }
+        }
+        for (const double value : {data[5][i], data[6][i], data[0][i]}) {
+            if (!std::isfinite(value)) {
+                return InteractionTable{};
+            }
+        }
+        InteractionRecord record;
+        record.chromosome = *chromosome;
+        record.start = static_cast<std::int64_t>(data[5][i]);
+        record.end = static_cast<std::int64_t>(data[6][i]);
+        record.gene = *gene;
+        record.sum_of_interactions = *sum;
+        record.relative_position = static_cast<std::int64_t>(data[0][i]);
+        record.interaction = data[1][i];
+        record.pvalue = data[2][i];
+        record.xfold = data[4][i];
+        record.raw = data[3][i];
+        const double key = data[0][i];
+        if (out.records.find(key) == out.records.end()) {
+            out.keys.push_back(key);
+        }
+        out.records[key] = record;
+    }
+    out.reference_point = {reference_start, reference_end};
+    return out;
+}
+
+// ---------------------------------------------------------------------------
+// H5Reader
+
+namespace {
+
+// The OSError subclass Python's OSError(errno, ...) constructor picks.
+const char* os_error_type(int error) {
+    switch (error) {
+        case ENOENT: return "FileNotFoundError";
+        case EACCES:
+        case EPERM: return "PermissionError";
+        case EISDIR: return "IsADirectoryError";
+        case ENOTDIR: return "NotADirectoryError";
+        default: return "OSError";
+    }
+}
+
+template <class T>
+T load(const unsigned char* p) {
+    T value;
+    std::memcpy(&value, p, sizeof(T));
+    return value;
+}
+
+}  // namespace
+
+double H5Value::as_double(std::size_t i) const {
+    const unsigned char* p = raw.data() + i * item_size;
+    switch (kind) {
+        case Kind::Float:
+            return item_size == 4 ? static_cast<double>(load<float>(p)) : load<double>(p);
+        case Kind::Integer:
+            switch (item_size) {
+                case 1: return static_cast<double>(load<std::int8_t>(p));
+                case 2: return static_cast<double>(load<std::int16_t>(p));
+                case 4: return static_cast<double>(load<std::int32_t>(p));
+                default: return static_cast<double>(load<std::int64_t>(p));
+            }
+        case Kind::Unsigned:
+            switch (item_size) {
+                case 1: return static_cast<double>(load<std::uint8_t>(p));
+                case 2: return static_cast<double>(load<std::uint16_t>(p));
+                case 4: return static_cast<double>(load<std::uint32_t>(p));
+                default: return static_cast<double>(load<std::uint64_t>(p));
+            }
+        default:
+            throw PythonError("TypeError", "not a numeric dataset");
+    }
+}
+
+std::int64_t H5Value::as_int64(std::size_t i) const {
+    const unsigned char* p = raw.data() + i * item_size;
+    switch (kind) {
+        case Kind::Integer:
+            switch (item_size) {
+                case 1: return load<std::int8_t>(p);
+                case 2: return load<std::int16_t>(p);
+                case 4: return load<std::int32_t>(p);
+                default: return load<std::int64_t>(p);
+            }
+        case Kind::Unsigned:
+            switch (item_size) {
+                case 1: return load<std::uint8_t>(p);
+                case 2: return load<std::uint16_t>(p);
+                case 4: return load<std::uint32_t>(p);
+                default: return static_cast<std::int64_t>(load<std::uint64_t>(p));
+            }
+        default:
+            return static_cast<std::int64_t>(as_double(i));
+    }
+}
+
+std::string H5Value::dtype_str() const {
+    switch (kind) {
+        case Kind::Integer: return "<i" + std::to_string(item_size);
+        case Kind::Unsigned: return item_size == 1 ? "|u1" : "<u" + std::to_string(item_size);
+        case Kind::Float: return "<f" + std::to_string(item_size);
+        case Kind::Bytes: return variable_length ? "|O" : "|S" + std::to_string(item_size);
+        default: return "|V";
+    }
+}
+
+H5Reader::H5Reader(const std::string& path) {
+    const int fd = ::open(path.c_str(), O_RDONLY);
+    if (fd < 0) {
+        const int error = errno;
+        throw PythonError(os_error_type(error),
+                          "[Errno " + std::to_string(error) +
+                              "] Unable to synchronously open file (unable to open file: name = '" +
+                              path + "', errno = " + std::to_string(error) +
+                              ", error message = '" + std::strerror(error) +
+                              "', flags = 0, o_flags = 0)");
+    }
+    ::close(fd);
+    try {
+        file_.emplace(path);
+    } catch (const h5::Error&) {
+        throw PythonError("OSError", "Unable to synchronously open file (file signature not found)");
+    }
+}
+
+H5Reader::Kind H5Reader::kind(const std::string& path) const {
+    std::string prefix;
+    std::size_t begin = 0;
+    bool through_dataset = false;
+    while (begin <= path.size()) {
+        std::size_t end = path.find('/', begin);
+        if (end == std::string::npos) {
+            end = path.size();
+        }
+        const std::string component = path.substr(begin, end - begin);
+        begin = end + 1;
+        if (component.empty()) {
+            continue;
+        }
+        if (through_dataset) {
+            return Kind::Missing;
+        }
+        prefix += "/" + component;
+        if (H5Lexists(file_->id(), prefix.c_str(), H5P_DEFAULT) <= 0) {
+            return Kind::Missing;
+        }
+        H5O_info2_t info;
+        if (H5Oget_info_by_name3(file_->id(), prefix.c_str(), &info, H5O_INFO_BASIC,
+                                 H5P_DEFAULT) < 0) {
+            return Kind::Missing;
+        }
+        through_dataset = info.type == H5O_TYPE_DATASET;
+    }
+    if (prefix.empty()) {
+        return Kind::Group;
+    }
+    return through_dataset ? Kind::Dataset : Kind::Group;
+}
+
+std::string H5Reader::missing_message(const std::string& path) const {
+    std::vector<std::string> components;
+    std::size_t begin = 0;
+    while (begin <= path.size()) {
+        std::size_t end = path.find('/', begin);
+        if (end == std::string::npos) {
+            end = path.size();
+        }
+        if (end > begin) {
+            components.push_back(path.substr(begin, end - begin));
+        }
+        begin = end + 1;
+    }
+    std::string prefix;
+    for (std::size_t i = 0; i + 1 < components.size(); ++i) {
+        prefix += "/" + components[i];
+        if (H5Lexists(file_->id(), prefix.c_str(), H5P_DEFAULT) <= 0) {
+            return "Unable to synchronously open object (component not found)";
+        }
+    }
+    return "Unable to synchronously open object (object '" +
+           (components.empty() ? std::string() : components.back()) + "' doesn't exist)";
+}
+
+std::vector<std::string> H5Reader::keys(const std::string& path) const {
+    const Kind k = kind(path);
+    if (k == Kind::Missing) {
+        throw PythonError("KeyError", missing_message(path));
+    }
+    if (k == Kind::Dataset) {
+        throw PythonError("AttributeError", "'Dataset' object has no attribute 'keys'");
+    }
+    return file_->children(path.empty() ? "/" : (path[0] == '/' ? path : "/" + path));
+}
+
+H5Value H5Reader::read(const std::string& path) const {
+    const Kind k = kind(path);
+    if (k == Kind::Missing) {
+        throw PythonError("KeyError", missing_message(path));
+    }
+    if (k == Kind::Group) {
+        throw PythonError("TypeError", "a group is not a dataset: " + path);
+    }
+    const std::string full = path[0] == '/' ? path : "/" + path;
+    const h5::Handle dataset(H5Dopen2(file_->id(), full.c_str(), H5P_DEFAULT),
+                             h5::Handle::Kind::Dataset);
+    if (!dataset.valid()) {
+        throw PythonError("KeyError", missing_message(path));
+    }
+    const h5::Handle type(H5Dget_type(dataset.get()), h5::Handle::Kind::DataType);
+    const h5::Handle space(H5Dget_space(dataset.get()), h5::Handle::Kind::DataSpace);
+    H5Value value;
+    const int rank = H5Sget_simple_extent_ndims(space.get());
+    value.scalar = rank == 0;
+    const hssize_t points = H5Sget_simple_extent_npoints(space.get());
+    value.length = points < 0 ? 0 : static_cast<std::size_t>(points);
+    const H5T_class_t type_class = H5Tget_class(type.get());
+    if (type_class == H5T_STRING) {
+        value.kind = H5Value::Kind::Bytes;
+        value.variable_length = H5Tis_variable_str(type.get()) > 0;
+        value.item_size = value.variable_length ? 0 : H5Tget_size(type.get());
+        if (value.length > 0) {
+            // a scalar's extent is one element
+            value.strings = file_->read_strings(full);
+        }
+        return value;
+    }
+    hid_t memory_type = -1;
+    if (type_class == H5T_INTEGER) {
+        value.item_size = H5Tget_size(type.get());
+        const bool is_signed = H5Tget_sign(type.get()) == H5T_SGN_2;
+        value.kind = is_signed ? H5Value::Kind::Integer : H5Value::Kind::Unsigned;
+        switch (value.item_size) {
+            case 1: memory_type = is_signed ? H5T_NATIVE_INT8 : H5T_NATIVE_UINT8; break;
+            case 2: memory_type = is_signed ? H5T_NATIVE_INT16 : H5T_NATIVE_UINT16; break;
+            case 4: memory_type = is_signed ? H5T_NATIVE_INT32 : H5T_NATIVE_UINT32; break;
+            default:
+                value.item_size = 8;
+                memory_type = is_signed ? H5T_NATIVE_INT64 : H5T_NATIVE_UINT64;
+        }
+    } else if (type_class == H5T_FLOAT) {
+        value.kind = H5Value::Kind::Float;
+        value.item_size = H5Tget_size(type.get()) <= 4 ? 4 : 8;
+        memory_type = value.item_size == 4 ? H5T_NATIVE_FLOAT : H5T_NATIVE_DOUBLE;
+    } else {
+        throw PythonError("TypeError", "unsupported HDF5 datatype in " + path);
+    }
+    value.raw.assign(value.length * value.item_size, 0);
+    if (value.length > 0 &&
+        H5Dread(dataset.get(), memory_type, H5S_ALL, H5S_ALL, H5P_DEFAULT, value.raw.data()) < 0) {
+        throw PythonError("OSError", "Can't read data (" + path + ")");
+    }
+    return value;
+}
+
+std::vector<TargetRegion> sort_merge_regions(std::vector<TargetRegion> regions,
+                                             std::int64_t distance) {
+    std::stable_sort(regions.begin(), regions.end(),
+                     [](const TargetRegion& a, const TargetRegion& b) {
+                         if (a.chromosome != b.chromosome) {
+                             return a.chromosome < b.chromosome;
+                         }
+                         return a.start < b.start;
+                     });
+    std::vector<TargetRegion> merged;
+    for (const TargetRegion& region : regions) {
+        if (!merged.empty() && merged.back().chromosome == region.chromosome &&
+            region.start - merged.back().end <= distance) {
+            merged.back().end = std::max(merged.back().end, region.end);
+        } else {
+            merged.push_back(region);
+        }
+    }
+    return merged;
+}
+
+}  // namespace hicx::chic

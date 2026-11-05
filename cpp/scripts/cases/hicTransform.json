@@ -1,0 +1,584 @@
+[
+  {
+    "id": "hicTransform.obs_exp.cool.small_test_matrix",
+    "tool": "hicTransform",
+    "tier": 3,
+    "args": [
+      "-m",
+      "{data}/small_test_matrix.cool",
+      "-o",
+      "{out}/obs_exp.cool",
+      "--method",
+      "obs_exp"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/obs_exp.cool",
+        "format": "cool",
+        "class": "ED"
+      }
+    ],
+    "threads_arg": "--threads",
+    "memory": {
+      "alpha": 2.4,
+      "beta": 0.0
+    },
+    "notes": "The whole-matrix obs/exp branch on a 33,754 bin cooler with fifteen chromosomes. It is also the case that pins the dtype quirk: utilities.obs_exp_matrix casts its float64 quotient back to `type(pSubmatrix.data[0])`, the dtype the matrix had before the float32 step, so an int32 cooler comes back int32 and the fractional part of every obs/exp value is truncated away. The checked-in reference test_data/hicTransform/obs_exp.cool disagrees with this tree by exactly 1 on some entries for that reason, which is why the Python test could only be written at decimal=0; the harness compares against a live Python run instead. Why alpha 2.4 and not the 1.2 of cpp/PLAN.md 4.5: every obs/exp kernel sums over both triangles (the expected value at distance d is the sum over the full symmetric matrix, twice the upper-triangle sum for d > 0 but not for d = 0), so the port takes the both-triangles exemption of rule 2 exactly as the Python's fillLowerTriangle does, and materialize_full's transient is 3 W. beta is 0 because no branch of this tool allocates a dense block."
+  },
+  {
+    "id": "hicTransform.obs_exp.perChromosome.cool.small_test_matrix",
+    "tool": "hicTransform",
+    "tier": 3,
+    "args": [
+      "-m",
+      "{data}/small_test_matrix.cool",
+      "-o",
+      "{out}/obs_exp.cool",
+      "--method",
+      "obs_exp",
+      "--perChromosome"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/obs_exp.cool",
+        "format": "cool",
+        "class": "ED"
+      }
+    ],
+    "memory": {
+      "alpha": 2.4,
+      "beta": 0.0
+    },
+    "notes": "The per chromosome branch, which is a different computation and not only a different loop: the expected value per distance is taken within the chromosome block, the inter-chromosomal entries are dropped entirely because the accumulator starts empty, and the result is float64 whatever the input dtype was, because lil_matrix(shape) is float64 and assigning an integer block into it does not change that. Two chromosomes of this cooler (chrYHet and chrM) have no stored entry at all, which is the branch where utilities.obs_exp_matrix returns None and hicTransform's `if len(pSubmatrix.data) == 0` guard is what keeps the run alive."
+  },
+  {
+    "id": "hicTransform.obs_exp_non_zero.cool.small_test_matrix",
+    "tool": "hicTransform",
+    "tier": 3,
+    "args": [
+      "-m",
+      "{data}/small_test_matrix.cool",
+      "-o",
+      "{out}/obs_exp_non_zero.cool",
+      "--method",
+      "obs_exp_non_zero"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/obs_exp_non_zero.cool",
+        "format": "cool",
+        "class": "ED"
+      }
+    ],
+    "memory": {
+      "alpha": 2.4,
+      "beta": 0.0
+    },
+    "notes": "The second obs/exp kernel, which is not the first with a different divisor. utilities.obs_exp_matrix_non_zero divides element by element and assigns each quotient back into a float32 array, so every value is rounded to float32 *after* the division and the output stays float32 with no cast back; utilities.obs_exp_matrix divides the whole array at once, comes back float64 and is then cast to the input dtype. It also reads the expected value at index abs(i - j) where the other reads it at ceil(abs(i - j) / 2)."
+  },
+  {
+    "id": "hicTransform.obs_exp_non_zero.perChromosome.cool.small_test_matrix",
+    "tool": "hicTransform",
+    "tier": 3,
+    "args": [
+      "-m",
+      "{data}/small_test_matrix.cool",
+      "-o",
+      "{out}/obs_exp_non_zero.cool",
+      "--method",
+      "obs_exp_non_zero",
+      "--perChromosome"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/obs_exp_non_zero.cool",
+        "format": "cool",
+        "class": "ED"
+      }
+    ],
+    "memory": {
+      "alpha": 2.4,
+      "beta": 0.0
+    },
+    "notes": "obs_exp_non_zero per chromosome, where the float32 rounding of the kernel meets the float64 LIL accumulator: the values are rounded to float32 inside the block and then widened again, so the file carries float64 values that all happen to be float32 representable."
+  },
+  {
+    "id": "hicTransform.obs_exp_non_zero.ligationFactor.h5.small_test_matrix_50kb",
+    "tool": "hicTransform",
+    "tier": 3,
+    "args": [
+      "-m",
+      "{data}/small_test_matrix_50kb_res.h5",
+      "-o",
+      "{out}/obs_exp_norm.h5",
+      "--method",
+      "obs_exp_non_zero",
+      "--ligation_factor"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/obs_exp_norm.h5",
+        "format": "h5",
+        "class": "ED"
+      }
+    ],
+    "memory": {
+      "alpha": 2.4,
+      "beta": 0.0
+    },
+    "notes": "The Homer proximity-ligation scaling, exp_i,j *= row_sum(i) * row_sum(j) / sum(matrix). The row sums and the total are taken from the whole symmetric matrix, so this is also a check that the port materialises both triangles before the kernel runs rather than after."
+  },
+  {
+    "id": "hicTransform.obs_exp_non_zero.ligationFactor.perChromosome.h5.small_test_matrix_50kb",
+    "tool": "hicTransform",
+    "tier": 3,
+    "args": [
+      "-m",
+      "{data}/small_test_matrix_50kb_res.h5",
+      "-o",
+      "{out}/obs_exp_norm.h5",
+      "--method",
+      "obs_exp_non_zero",
+      "--ligation_factor",
+      "--perChromosome"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/obs_exp_norm.h5",
+        "format": "h5",
+        "class": "ED"
+      }
+    ],
+    "memory": {
+      "alpha": 2.4,
+      "beta": 0.0
+    },
+    "notes": "The same with the row sums taken per chromosome block, which is a different scaling and not a restriction of the same one."
+  },
+  {
+    "id": "hicTransform.obs_exp_lieberman.h5.small_test_matrix_50kb",
+    "tool": "hicTransform",
+    "tier": 3,
+    "args": [
+      "-m",
+      "{data}/small_test_matrix_50kb_res.h5",
+      "-o",
+      "{out}/obs_exp_lieberman.h5",
+      "--method",
+      "obs_exp_lieberman"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/obs_exp_lieberman.h5",
+        "format": "h5",
+        "class": "ED"
+      }
+    ],
+    "memory": {
+      "alpha": 2.4,
+      "beta": 0.0
+    },
+    "notes": "The third kernel, and the one method that ignores --perChromosome: hicTransform.py:194-211 always runs the per chromosome loop for it, and feeds every block the same two genome-wide numbers, the total bin count and the chromosome count. Its divisor, length_chromosome - d * chromosome_count, goes negative for a large enough distance, which is why utilities.expected_interactions_in_distance is the one of the three with no NaN or infinity cleanup of its own and leaves that to the caller."
+  },
+  {
+    "id": "hicTransform.obs_exp_lieberman.perChromosome.h5.small_test_matrix_50kb",
+    "tool": "hicTransform",
+    "tier": 3,
+    "args": [
+      "-m",
+      "{data}/small_test_matrix_50kb_res.h5",
+      "-o",
+      "{out}/obs_exp_lieberman.h5",
+      "--method",
+      "obs_exp_lieberman",
+      "--perChromosome"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/obs_exp_lieberman.h5",
+        "format": "h5",
+        "class": "ED"
+      }
+    ],
+    "memory": {
+      "alpha": 2.4,
+      "beta": 0.0
+    },
+    "notes": "--perChromosome with obs_exp_lieberman, which the help text says is not valid for it. It is accepted and ignored, and this case is what pins that it produces the same file as the invocation without it. No Python test passed the combination."
+  },
+  {
+    "id": "hicTransform.pearson.h5.small_test_matrix_50kb",
+    "tool": "hicTransform",
+    "tier": 3,
+    "args": [
+      "-m",
+      "{data}/small_test_matrix_50kb_res.h5",
+      "-o",
+      "{out}/pearson.h5",
+      "--method",
+      "pearson"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/pearson.h5",
+        "format": "h5",
+        "class": "ED"
+      }
+    ],
+    "threads_arg": "--threads",
+    "memory": {
+      "alpha": 2.4,
+      "beta": 0.0
+    },
+    "notes": "np.corrcoef of the *whole genome* densified matrix, not of a chromosome block, although the --method help text says the transformation is computed per chromosome. 2,794 bins over twelve chromosomes, so the correlation of two bins on different chromosomes is a real entry of the result. The port computes it as (A A^T - n m m^T) / (n - 1) rescaled by the square roots of its diagonal, straight out of the sparse matrix and one row at a time, so neither the dense input block nor the dense output ever exists."
+  },
+  {
+    "id": "hicTransform.pearson.perChromosome.h5.small_test_matrix_50kb",
+    "tool": "hicTransform",
+    "tier": 3,
+    "args": [
+      "-m",
+      "{data}/small_test_matrix_50kb_res.h5",
+      "-o",
+      "{out}/pearson.h5",
+      "--method",
+      "pearson",
+      "--perChromosome"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/pearson.h5",
+        "format": "h5",
+        "class": "E3"
+      }
+    ],
+    "threads_arg": "--threads",
+    "memory": {
+      "alpha": 2.4,
+      "beta": 0.0
+    },
+    "notes": "Declared E3 and not ED, and the reason is worth stating exactly because it is the one place in this tool where the acceptance gate is not the stricter test. Measured: 572,628 of 572,647 values agree at ED; the remaining 19 are entries whose true value is zero and which both implementations produce as cancellation noise, the Python around 1e-17 and the port around 1e-19. ED is a pure relative comparison with no absolute floor (comparators/base.py:66-78), so two different roundings of zero fail it however small they are, while E3's floor of 1 turns the bound into an absolute 1e-12 and the largest difference over the whole file is 2.1e-14, fifty times inside it. The noise is intrinsic to the memory rewrite: the Python centres a dense block and calls dgemm, the port evaluates (A A^T - n m m^T) / (n - 1) out of the CSR, and no tolerance can make two different cancellation patterns agree relatively at zero. cpp/PLAN.md 4.4 and 5.3 anticipate exactly this and declare the pearson and covariance paths E3 for it. The entries are in the smallest blocks, chrXHet at 5 bins and chr2LHet at 8, where a nearly constant row makes the correlation ill conditioned; the whole-genome branch of the sibling case has none and passes at ED."
+  },
+  {
+    "id": "hicTransform.covariance.h5.small_test_matrix_50kb",
+    "tool": "hicTransform",
+    "tier": 3,
+    "args": [
+      "-m",
+      "{data}/small_test_matrix_50kb_res.h5",
+      "-o",
+      "{out}/covariance.h5",
+      "--method",
+      "covariance"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/covariance.h5",
+        "format": "h5",
+        "class": "ED"
+      }
+    ],
+    "threads_arg": "--threads",
+    "memory": {
+      "alpha": 2.4,
+      "beta": 0.0
+    },
+    "notes": "np.cov of the whole densified matrix. Note the asymmetry with the pearson branch that this case exists to pin: hicTransform.py:249 applies no convertNansToZeros to the covariance, so a NaN would reach the file, where the pearson branch maps it to zero and the writer then drops it. No NaN can arise on this input, because np.cov performs no division by a per-row quantity, but it is a different code path and a port that cleaned both would be wrong."
+  },
+  {
+    "id": "hicTransform.covariance.perChromosome.h5.small_test_matrix_50kb",
+    "tool": "hicTransform",
+    "tier": 3,
+    "args": [
+      "-m",
+      "{data}/small_test_matrix_50kb_res.h5",
+      "-o",
+      "{out}/covariance.h5",
+      "--method",
+      "covariance",
+      "--perChromosome"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/covariance.h5",
+        "format": "h5",
+        "class": "E3"
+      }
+    ],
+    "memory": {
+      "alpha": 2.4,
+      "beta": 0.0
+    },
+    "notes": "E3 for the same reason as the pearson per chromosome case: the small blocks produce entries that are zero in exact arithmetic and cancellation noise in both implementations."
+  },
+  {
+    "id": "hicTransform.pearson.h5.Li_cut",
+    "tool": "hicTransform",
+    "tier": 3,
+    "args": [
+      "-m",
+      "{data}/Li_cut.h5",
+      "-o",
+      "{out}/pearson.h5",
+      "--method",
+      "pearson"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/pearson.h5",
+        "format": "h5",
+        "class": "ED"
+      }
+    ],
+    "threads_arg": "--threads",
+    "memory": {
+      "alpha": 2.4,
+      "beta": 0.0
+    },
+    "notes": "306 bins of float64 data at 56 % density, the one small matrix in the corpus whose values are floats rather than counts, so the float32 rounding the obs/exp kernels apply is not hiding behind integers here and neither is the correlation. A fast whole-genome check of the same path the Li_et_al_2015 case measures memory on."
+  },
+  {
+    "id": "hicTransform.covariance.h5.Li_cut",
+    "tool": "hicTransform",
+    "tier": 3,
+    "args": [
+      "-m",
+      "{data}/Li_cut.h5",
+      "-o",
+      "{out}/covariance.h5",
+      "--method",
+      "covariance"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/covariance.h5",
+        "format": "h5",
+        "class": "ED"
+      }
+    ],
+    "memory": {
+      "alpha": 2.4,
+      "beta": 0.0
+    },
+    "notes": "The covariance of the same float64 matrix, where the entries span several orders of magnitude and a pure relative comparison is therefore a real test rather than a formality."
+  },
+  {
+    "id": "hicTransform.obs_exp.h5.Li_cut",
+    "tool": "hicTransform",
+    "tier": 3,
+    "args": [
+      "-m",
+      "{data}/Li_cut.h5",
+      "-o",
+      "{out}/obs_exp.h5",
+      "--method",
+      "obs_exp"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/obs_exp.h5",
+        "format": "h5",
+        "class": "ED"
+      }
+    ],
+    "memory": {
+      "alpha": 2.4,
+      "beta": 0.0
+    },
+    "notes": "obs/exp on float64 input, which is the only configuration in which utilities.obs_exp_matrix's cast back to the input dtype is not a truncation to an integer. Every other obs/exp case in this file compares numbers whose fractional part the Python threw away."
+  },
+  {
+    "id": "hicTransform.chromosomes.two.h5.small_test_matrix",
+    "tool": "hicTransform",
+    "tier": 3,
+    "args": [
+      "-m",
+      "{data}/small_test_matrix.h5",
+      "-o",
+      "{out}/obs_exp.h5",
+      "--method",
+      "obs_exp_non_zero",
+      "--chromosomes",
+      "chrX",
+      "chr4"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/obs_exp.h5",
+        "format": "h5",
+        "class": "ED"
+      }
+    ],
+    "memory": {
+      "alpha": 2.4,
+      "beta": 0.0
+    },
+    "notes": "--chromosomes had no Python test at all before this workstream. This is the keepOnlyTheseChr path (hicTransform.py:155-156), which every h5 input takes. The bin table, the NaN bins and the correction factors follow the selection and distance_counts is cleared."
+  },
+  {
+    "id": "hicTransform.chromosomes.single.cool.small_test_matrix",
+    "tool": "hicTransform",
+    "tier": 3,
+    "args": [
+      "-m",
+      "{data}/small_test_matrix.cool",
+      "-o",
+      "{out}/obs_exp.cool",
+      "--method",
+      "obs_exp_non_zero",
+      "--chromosomes",
+      "chrX"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/obs_exp.cool",
+        "format": "cool",
+        "class": "ED"
+      }
+    ],
+    "memory": {
+      "alpha": 2.4,
+      "beta": 0.0
+    },
+    "notes": "The other --chromosomes branch: a cool input with exactly *one* chromosome is handed to the cool reader as pChrnameList instead of being reduced afterwards (hicTransform.py:151-152). Two chromosomes take the branch above even for a cooler, so the two cases together cover the split. The distinction matters because the cool loader builds the bin table from the selected rows while keepOnlyTheseChr edits an existing one, and only one of them can be right about the correction factors."
+  },
+  {
+    "id": "hicTransform.pearson.chromosomes.cool.small_test_matrix",
+    "tool": "hicTransform",
+    "tier": 3,
+    "args": [
+      "-m",
+      "{data}/small_test_matrix.cool",
+      "-o",
+      "{out}/pearson.cool",
+      "--method",
+      "pearson",
+      "--chromosomes",
+      "chrXHet",
+      "chr4"
+    ],
+    "outputs": [],
+    "memory": {
+      "alpha": 2.4,
+      "beta": 0.0
+    },
+    "notes": "The one path that still holds a dense result: cooler has no streaming writer, so a .cool output is materialised as a CsrMatrix. Deliberately a 312 bin selection (chrXHet 41 plus chr4 271), because a whole-genome pearson of this 33,754 bin cooler would be 1.1 G stored entries and is out of reach of the Python as well. Recorded as a limitation of the port rather than of the algorithm; the h5 path streams and is what the memory table describes. The output is produced and compared by hand but deliberately not declared, for the same reason as hicPCA.intermediateMatrices.cool.small_test_matrix: a cooler carries a `sum` root attribute that cooler computes as an exact sequential reduction over the count column, and the cool comparator compares attributes for exact equality at every class. Measured with the output declared: all 22,366 pixels pass at ED with a maximum absolute difference of 2.4e-14, and the file fails on the attribute alone, 289.7766034580237 against 289.7766034580234, a relative 1e-15. Declaring it would fail the case for a difference the comparator has no class for; leaving it undeclared is recorded here as a gap that needs either a comparator which compares float attributes at the case's class, which this workstream may not add, or a decision that the cool `sum` attribute is one of the normalised fields. The case still gates the exit status, the peak RSS and the CPU time of the cool writing path."
+  },
+  {
+    "id": "hicTransform.obs_exp.h5.Li_et_al_2015",
+    "tool": "hicTransform",
+    "tier": 3,
+    "args": [
+      "-m",
+      "{data}/Li_et_al_2015.h5",
+      "-o",
+      "{out}/obs_exp.h5",
+      "--method",
+      "obs_exp"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/obs_exp.h5",
+        "format": "h5",
+        "class": "ED"
+      }
+    ],
+    "memory": {
+      "alpha": 2.4,
+      "beta": 0.0
+    },
+    "large": true,
+    "notes": "The obs/exp row of the memory table in cpp/PLAN.md 4.5: 11,104 bins, 1,661,678 stored nonzeros, W = 20.0 MB, on which the Python peaks at 305 MB. Float64 data, so no truncation."
+  },
+  {
+    "id": "hicTransform.pearson.h5.Li_et_al_2015",
+    "tool": "hicTransform",
+    "tier": 3,
+    "args": [
+      "-m",
+      "{data}/Li_et_al_2015.h5",
+      "-o",
+      "{out}/pearson.h5",
+      "--method",
+      "pearson"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/pearson.h5",
+        "format": "h5",
+        "class": "ED"
+      }
+    ],
+    "threads_arg": "--threads",
+    "memory": {
+      "alpha": 2.4,
+      "beta": 0.0
+    },
+    "large": true,
+    "notes": "The designated memory benchmark of cpp/PLAN.md 4.2 and the second worst memory-to-data ratio in the corpus: 11,104 bins whose stored form is 19.9 MB, on which the Python peaks at 5,150 MB, a factor of 259. The result is 52,526,125 stored entries, 373 MB on disk, so it is also the case that proves the streamed output is not a convenience: as a CsrMatrix it would be 630 MB of values and indices on top of everything else. Measured on this tree: the port peaks at 97 MB against the Python's 5,534 MB and spends 4.0 s of CPU against 66.3 s, and every one of the 52.5 M values agrees at ED. The budget declared here is 2.4 W + 64 MB = 112 MB, not the 1.1 W + 1.15 D + 64 MB = 1,221 MB of cpp/PLAN.md 4.5, because beta exists to pay for a dense chromosome block and this port allocates none."
+  },
+  {
+    "id": "hicTransform.unknownOutputSuffix",
+    "tool": "hicTransform",
+    "tier": 3,
+    "args": [
+      "-m",
+      "{data}/small_test_matrix_50kb_res.h5",
+      "-o",
+      "{out}/result.txt",
+      "--method",
+      "obs_exp"
+    ],
+    "outputs": [],
+    "expect_exit": 1,
+    "memory": {
+      "alpha": 2.4,
+      "beta": 0.0
+    },
+    "notes": "hicTransform.py:145-149 exits 1 when the output name ends in neither .h5 nor .cool. No Python test covered it. Note what the check does *not* do: it decides whether the run is refused, not which writer runs. hiCMatrix.save reuses the file handler built during the load, so `-m x.h5 -o out.cool` is accepted and writes a HiCExplorer h5 file named out.cool.h5, and out.cool never appears. That is pinned on the Python side by test_output_format_follows_the_input_not_the_file_name."
+  },
+  {
+    "id": "hicTransform.unknownChromosome.h5",
+    "tool": "hicTransform",
+    "tier": 3,
+    "args": [
+      "-m",
+      "{data}/small_test_matrix_50kb_res.h5",
+      "-o",
+      "{out}/result.h5",
+      "--method",
+      "obs_exp",
+      "--chromosomes",
+      "notAChromosome"
+    ],
+    "outputs": [],
+    "expect_exit": 1,
+    "memory": {
+      "alpha": 2.4,
+      "beta": 0.0
+    },
+    "notes": "keepOnlyTheseChr raises a ValueError for a name the matrix does not carry (HiCMatrix.py:614) and the script exits 1. No Python test covered any --chromosomes path, error or otherwise."
+  },
+  {
+    "id": "hicTransform.unknownChromosome.cool.singleChromosomeLoader",
+    "tool": "hicTransform",
+    "tier": 3,
+    "args": [
+      "-m",
+      "{data}/small_test_matrix.cool",
+      "-o",
+      "{out}/result.cool",
+      "--method",
+      "obs_exp",
+      "--chromosomes",
+      "notAChromosome"
+    ],
+    "outputs": [],
+    "expect_exit": 1,
+    "memory": {
+      "alpha": 2.4,
+      "beta": 0.0
+    },
+    "notes": "The same error on the other branch, where the name goes to the cool reader as pChrnameList and cooler raises \"Unknown sequence label\". Worth its own case because the port's shared cool reader does *not* raise there: it returns an empty matrix and the run failed much later with a message from the writer about /bins/chrom. The exit status was 1 either way, so the harness would have passed the case while the diagnostic was wrong. hicTransform now checks the loaded bin table for the requested name and raises cooler's message itself; the reader-level defect is reported rather than fixed here, because the cool reader is shared with every other tool."
+  }
+]

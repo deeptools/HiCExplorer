@@ -1,0 +1,1054 @@
+[
+  {
+    "id": "hicMergeDomains.one_file.protein_mismatched_names",
+    "tool": "hicMergeDomains",
+    "tier": 5,
+    "args": [
+      "-d",
+      "{data}/hicMergeDomains/10kbtad_domains.bed",
+      "-om",
+      "{out}/merged.bed",
+      "-p",
+      "{data}/hicMergeDomains/ctcf_sorted.bed"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/merged.bed",
+        "format": "text",
+        "class": "E0"
+      }
+    ],
+    "notes": "The invocation of test_main_one_file_protein. ctcf_sorted.bed names chromosomes chr1..chrX and the domain files 1..X, so compare_boundaries_protein never matches a chromosome and the protein file changes nothing: the 9,175 TADs come back renumbered, identical to test_data/hicMergeDomains/one_file. No tree with one domain file."
+  },
+  {
+    "id": "hicMergeDomains.one_file.protein",
+    "tool": "hicMergeDomains",
+    "tier": 5,
+    "args": [
+      "-d",
+      "{data}/hicMergeDomains/10kbtad_domains.bed",
+      "-om",
+      "{out}/merged.bed",
+      "-p",
+      "{data}/hicMergeDomains/ctcf_sorted_nochr.bed"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/merged.bed",
+        "format": "text",
+        "class": "E0"
+      }
+    ],
+    "notes": "ctcf_sorted_nochr.bed is ctcf_sorted.bed with the chr prefix removed (sed 's/^chr//'), so that the protein filter actually runs: 1,168 of 9,175 TADs are removed. Exercises merge_protein, whose last bin per chromosome is never appended, and compare_boundaries_protein, whose list.remove takes the first row with equal content."
+  },
+  {
+    "id": "hicMergeDomains.two_files.protein_mismatched_names.png",
+    "tool": "hicMergeDomains",
+    "tier": 5,
+    "args": [
+      "-d",
+      "{data}/hicMergeDomains/10kbtad_domains.bed",
+      "{data}/hicMergeDomains/50kbtad_domains.bed",
+      "-om",
+      "{out}/merged.bed",
+      "-or",
+      "{out}/relations.txt",
+      "-ot",
+      "{out}/tree",
+      "-of",
+      "png",
+      "-p",
+      "{data}/hicMergeDomains/ctcf_sorted.bed"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/merged.bed",
+        "format": "text",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/relations.txt",
+        "format": "text",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_1.png",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_2.png",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_3.png",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_4.png",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_5.png",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_6.png",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_7.png",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_8.png",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_9.png",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_10.png",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_11.png",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_12.png",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_13.png",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_14.png",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_15.png",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_16.png",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_17.png",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_18.png",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_19.png",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_20.png",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_21.png",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_22.png",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_X.png",
+        "format": "rendered",
+        "class": "E0"
+      }
+    ],
+    "path_prepend": [
+      "{deps}/bin"
+    ],
+    "notes": "The invocation of test_main_two_file_protein, which fails on master only because graphviz's dot is not on the venv's PATH; path_prepend supplies it here. Text outputs identical to two_files_ctcf.bed and two_files_relation_ctcf.txt. The 23 trees are rendered by the same dot from a DOT source that cpp/tests/test_merge_domains.cpp pins byte identical to graphviz's Digraph.source, and png rendering is reproducible, so they are compared at E0."
+  },
+  {
+    "id": "hicMergeDomains.two_files.pdf",
+    "tool": "hicMergeDomains",
+    "tier": 5,
+    "args": [
+      "-d",
+      "{data}/hicMergeDomains/10kbtad_domains.bed",
+      "{data}/hicMergeDomains/50kbtad_domains.bed",
+      "-om",
+      "{out}/merged.bed",
+      "-or",
+      "{out}/relations.txt",
+      "-ot",
+      "{out}/tree"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/merged.bed",
+        "format": "text",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/relations.txt",
+        "format": "text",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_1.pdf",
+        "format": "rendered",
+        "class": "E7"
+      },
+      {
+        "path": "{out}/tree_2.pdf",
+        "format": "rendered",
+        "class": "E7"
+      },
+      {
+        "path": "{out}/tree_3.pdf",
+        "format": "rendered",
+        "class": "E7"
+      },
+      {
+        "path": "{out}/tree_4.pdf",
+        "format": "rendered",
+        "class": "E7"
+      },
+      {
+        "path": "{out}/tree_5.pdf",
+        "format": "rendered",
+        "class": "E7"
+      },
+      {
+        "path": "{out}/tree_6.pdf",
+        "format": "rendered",
+        "class": "E7"
+      },
+      {
+        "path": "{out}/tree_7.pdf",
+        "format": "rendered",
+        "class": "E7"
+      },
+      {
+        "path": "{out}/tree_8.pdf",
+        "format": "rendered",
+        "class": "E7"
+      },
+      {
+        "path": "{out}/tree_9.pdf",
+        "format": "rendered",
+        "class": "E7"
+      },
+      {
+        "path": "{out}/tree_10.pdf",
+        "format": "rendered",
+        "class": "E7"
+      },
+      {
+        "path": "{out}/tree_11.pdf",
+        "format": "rendered",
+        "class": "E7"
+      },
+      {
+        "path": "{out}/tree_12.pdf",
+        "format": "rendered",
+        "class": "E7"
+      },
+      {
+        "path": "{out}/tree_13.pdf",
+        "format": "rendered",
+        "class": "E7"
+      },
+      {
+        "path": "{out}/tree_14.pdf",
+        "format": "rendered",
+        "class": "E7"
+      },
+      {
+        "path": "{out}/tree_15.pdf",
+        "format": "rendered",
+        "class": "E7"
+      },
+      {
+        "path": "{out}/tree_16.pdf",
+        "format": "rendered",
+        "class": "E7"
+      },
+      {
+        "path": "{out}/tree_17.pdf",
+        "format": "rendered",
+        "class": "E7"
+      },
+      {
+        "path": "{out}/tree_18.pdf",
+        "format": "rendered",
+        "class": "E7"
+      },
+      {
+        "path": "{out}/tree_19.pdf",
+        "format": "rendered",
+        "class": "E7"
+      },
+      {
+        "path": "{out}/tree_20.pdf",
+        "format": "rendered",
+        "class": "E7"
+      },
+      {
+        "path": "{out}/tree_21.pdf",
+        "format": "rendered",
+        "class": "E7"
+      },
+      {
+        "path": "{out}/tree_22.pdf",
+        "format": "rendered",
+        "class": "E7"
+      },
+      {
+        "path": "{out}/tree_X.pdf",
+        "format": "rendered",
+        "class": "E7"
+      }
+    ],
+    "path_prepend": [
+      "{deps}/bin"
+    ],
+    "notes": "The default tree format. A pdf from dot (cairo) embeds /CreationDate in a compressed object stream and a second compressed stream changes as well, so two renderings of the same source are never byte identical and no named field normalisation fixes that (measured with graphviz 12.0.0, 2026-09-13). The pdfs are declared E7: each must exist under <prefix>_<chromosome>.pdf and start with %PDF-; their equivalence rests on the identical DOT source and the identical dot, as for the png case."
+  },
+  {
+    "id": "hicMergeDomains.two_files.protein.svg",
+    "tool": "hicMergeDomains",
+    "tier": 5,
+    "args": [
+      "-d",
+      "{data}/hicMergeDomains/10kbtad_domains.bed",
+      "{data}/hicMergeDomains/50kbtad_domains.bed",
+      "-om",
+      "{out}/merged.bed",
+      "-or",
+      "{out}/relations.txt",
+      "-ot",
+      "{out}/tree",
+      "-of",
+      "svg",
+      "-p",
+      "{data}/hicMergeDomains/ctcf_sorted_nochr.bed"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/merged.bed",
+        "format": "text",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/relations.txt",
+        "format": "text",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_1.svg",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_2.svg",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_3.svg",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_4.svg",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_5.svg",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_6.svg",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_7.svg",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_8.svg",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_9.svg",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_10.svg",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_11.svg",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_12.svg",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_13.svg",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_14.svg",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_15.svg",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_16.svg",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_17.svg",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_18.svg",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_19.svg",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_20.svg",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_21.svg",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_22.svg",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_X.svg",
+        "format": "rendered",
+        "class": "E0"
+      }
+    ],
+    "path_prepend": [
+      "{deps}/bin"
+    ],
+    "notes": "Protein filtering with two files: 11,966 merged TADs and 6,002 relations. svg rendering is reproducible, so E0."
+  },
+  {
+    "id": "hicMergeDomains.two_files.minimumNumberOfPeaks3",
+    "tool": "hicMergeDomains",
+    "tier": 5,
+    "args": [
+      "-d",
+      "{data}/hicMergeDomains/10kbtad_domains.bed",
+      "{data}/hicMergeDomains/50kbtad_domains.bed",
+      "-om",
+      "{out}/merged.bed",
+      "-or",
+      "{out}/relations.txt",
+      "-ot",
+      "{out}/tree",
+      "-of",
+      "png",
+      "-p",
+      "{data}/hicMergeDomains/ctcf_sorted_nochr.bed",
+      "-m",
+      "3"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/merged.bed",
+        "format": "text",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/relations.txt",
+        "format": "text",
+        "class": "E0"
+      }
+    ],
+    "path_prepend": [
+      "{deps}/bin"
+    ],
+    "notes": "--minimumNumberOfPeaks, untested by the Python suite: bins with fewer than 3 peaks are dropped from the protein list, 11,410 TADs and 5,503 relations against 11,966 and 6,002 at the default of 1."
+  },
+  {
+    "id": "hicMergeDomains.two_files.value20000",
+    "tool": "hicMergeDomains",
+    "tier": 5,
+    "args": [
+      "-d",
+      "{data}/hicMergeDomains/10kbtad_domains.bed",
+      "{data}/hicMergeDomains/50kbtad_domains.bed",
+      "-om",
+      "{out}/merged.bed",
+      "-or",
+      "{out}/relations.txt",
+      "-ot",
+      "{out}/tree",
+      "-of",
+      "png",
+      "-v",
+      "20000"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/merged.bed",
+        "format": "text",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/relations.txt",
+        "format": "text",
+        "class": "E0"
+      }
+    ],
+    "path_prepend": [
+      "{deps}/bin"
+    ],
+    "notes": "--value, untested by the Python suite: two TADs count as one only when both borders are within 20 kb, 13,038 merged TADs against 13,329 at the default 5 kb."
+  },
+  {
+    "id": "hicMergeDomains.two_files.percent0.1",
+    "tool": "hicMergeDomains",
+    "tier": 5,
+    "args": [
+      "-d",
+      "{data}/hicMergeDomains/10kbtad_domains.bed",
+      "{data}/hicMergeDomains/50kbtad_domains.bed",
+      "-om",
+      "{out}/merged.bed",
+      "-or",
+      "{out}/relations.txt",
+      "-ot",
+      "{out}/tree",
+      "-of",
+      "png",
+      "-pe",
+      "0.1"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/merged.bed",
+        "format": "text",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/relations.txt",
+        "format": "text",
+        "class": "E0"
+      }
+    ],
+    "path_prepend": [
+      "{deps}/bin"
+    ],
+    "notes": "--percent, untested by the Python suite: the merged list is the default one and the relation list grows from 7,152 to 8,315 lines. Exercises the float comparisons of create_relationsship_list, which mix float() and int() of the same fields."
+  },
+  {
+    "id": "hicMergeDomains.three_files",
+    "tool": "hicMergeDomains",
+    "tier": 5,
+    "args": [
+      "-d",
+      "{data}/hicMergeDomains/10kbtad_domains.bed",
+      "{data}/hicMergeDomains/50kbtad_domains.bed",
+      "{data}/hicMergeDomains/100kbtad_domains.bed",
+      "-om",
+      "{out}/merged.bed",
+      "-or",
+      "{out}/relations.txt",
+      "-ot",
+      "{out}/tree",
+      "-of",
+      "png"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/merged.bed",
+        "format": "text",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/relations.txt",
+        "format": "text",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_1.png",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_2.png",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_3.png",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_4.png",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_5.png",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_6.png",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_7.png",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_8.png",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_9.png",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_10.png",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_11.png",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_12.png",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_13.png",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_14.png",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_15.png",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_16.png",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_17.png",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_18.png",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_19.png",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_20.png",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_21.png",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_22.png",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_X.png",
+        "format": "rendered",
+        "class": "E0"
+      }
+    ],
+    "path_prepend": [
+      "{deps}/bin"
+    ],
+    "notes": "Three resolutions, so merge_list runs twice on its own output: 15,402 TADs, 18,108 relations."
+  },
+  {
+    "id": "hicMergeDomains.three_files.protein",
+    "tool": "hicMergeDomains",
+    "tier": 5,
+    "args": [
+      "-d",
+      "{data}/hicMergeDomains/10kbtad_domains.bed",
+      "{data}/hicMergeDomains/50kbtad_domains.bed",
+      "{data}/hicMergeDomains/100kbtad_domains.bed",
+      "-om",
+      "{out}/merged.bed",
+      "-or",
+      "{out}/relations.txt",
+      "-ot",
+      "{out}/tree",
+      "-of",
+      "png",
+      "-p",
+      "{data}/hicMergeDomains/ctcf_sorted_nochr.bed"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/merged.bed",
+        "format": "text",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/relations.txt",
+        "format": "text",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_1.png",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_2.png",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_3.png",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_4.png",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_5.png",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_6.png",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_7.png",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_8.png",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_9.png",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_10.png",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_11.png",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_12.png",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_13.png",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_14.png",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_15.png",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_16.png",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_17.png",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_18.png",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_19.png",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_20.png",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_21.png",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_22.png",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_X.png",
+        "format": "rendered",
+        "class": "E0"
+      }
+    ],
+    "path_prepend": [
+      "{deps}/bin"
+    ],
+    "notes": "Three resolutions with protein filtering; each file bins the protein list with its own bin size derived from the last non zero digit of its first 20 start coordinates. 13,978 TADs, 15,635 relations."
+  },
+  {
+    "id": "hicMergeDomains.reversed_order",
+    "tool": "hicMergeDomains",
+    "tier": 5,
+    "args": [
+      "-d",
+      "{data}/hicMergeDomains/50kbtad_domains.bed",
+      "{data}/hicMergeDomains/10kbtad_domains.bed",
+      "-om",
+      "{out}/merged.bed",
+      "-or",
+      "{out}/relations.txt",
+      "-ot",
+      "{out}/tree",
+      "-of",
+      "png"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/merged.bed",
+        "format": "text",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/relations.txt",
+        "format": "text",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_1.png",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_2.png",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_3.png",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_4.png",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_5.png",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_6.png",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_7.png",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_8.png",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_9.png",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_10.png",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_11.png",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_12.png",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_13.png",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_14.png",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_15.png",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_16.png",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_17.png",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_18.png",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_19.png",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_20.png",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_21.png",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_22.png",
+        "format": "rendered",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/tree_X.png",
+        "format": "rendered",
+        "class": "E0"
+      }
+    ],
+    "path_prepend": [
+      "{deps}/bin"
+    ],
+    "notes": "The 50 kb file first. merge_list appends the last TAD of X twice as the same list object (:139-142 and :171-173), and add_id numbers that object twice, so the merged list holds one line twice, both as ID_13237: 13,330 lines against 13,329 in the other order. Reproduced through the port's row pool."
+  }
+]

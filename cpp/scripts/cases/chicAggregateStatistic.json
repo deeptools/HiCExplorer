@@ -1,0 +1,112 @@
+[
+  {
+    "id": "chicAggregateStatistic.bed3",
+    "tool": "chicAggregateStatistic",
+    "tier": 6,
+    "args": ["--interactionFile", "{data}/cHi-C/chicViewpoint/two_matrices.hdf5",
+             "--targetFile", "{data}/cHi-C/chicAggregateStatistic/target_list_3col.bed",
+             "--outFileName", "{out}/aggregate.hdf5", "-t", "10"],
+    "outputs": [
+      {"path": "{out}/aggregate.hdf5", "format": "chic_hdf5", "class": "E1"}
+    ],
+    "threads_arg": "--threads",
+    "notes": "test_chicAggregateStatistic.py::test_target_list. One three column BED for every reference point; ten threads are lowered to the three reference points."
+  },
+  {
+    "id": "chicAggregateStatistic.hdf5target",
+    "tool": "chicAggregateStatistic",
+    "tier": 6,
+    "args": ["--interactionFile", "{data}/cHi-C/chicViewpoint/two_matrices.hdf5",
+             "--targetFile", "{data}/cHi-C/chicSignificantInteractions/targetFile_dual.hdf5",
+             "--outFileName", "{out}/aggregate.hdf5", "-t", "1"],
+    "outputs": [
+      {"path": "{out}/aggregate.hdf5", "format": "chic_hdf5", "class": "E1"}
+    ],
+    "threads_arg": "--threads",
+    "notes": "test_chicAggregateStatistic.py::test_regular_mode: the target file of chicSignificantInteractions in dual mode, whose start and end lists are strings."
+  },
+  {
+    "id": "chicAggregateStatistic.hdf5target.t10",
+    "tool": "chicAggregateStatistic",
+    "tier": 6,
+    "args": ["--interactionFile", "{data}/cHi-C/chicViewpoint/two_matrices.hdf5",
+             "--targetFile", "{data}/cHi-C/chicSignificantInteractions/targetFile_dual.hdf5",
+             "--outFileName", "{out}/aggregate.hdf5", "-t", "10"],
+    "outputs": [
+      {"path": "{out}/aggregate.hdf5", "format": "chic_hdf5", "class": "E1"}
+    ],
+    "threads_arg": "--threads",
+    "notes": "test_chicAggregateStatistic.py::test_regular_mode_threads."
+  },
+  {
+    "id": "chicAggregateStatistic.bed3.custom_keys",
+    "tool": "chicAggregateStatistic",
+    "tier": 6,
+    "args": ["--interactionFile", "{data}/cHi-C/chicViewpoint/two_matrices_custom_keys.hdf5",
+             "--targetFile", "{data}/cHi-C/chicAggregateStatistic/target_list_3col.bed",
+             "--outFileName", "{out}/aggregate.hdf5", "-t", "10"],
+    "outputs": [
+      {"path": "{out}/aggregate.hdf5", "format": "chic_hdf5", "class": "E1"}
+    ],
+    "threads_arg": "--threads",
+    "notes": "test_chicAggregateStatistic.py::test_target_list_bed3."
+  },
+  {
+    "id": "chicAggregateStatistic.bed4.custom_keys",
+    "tool": "chicAggregateStatistic",
+    "tier": 6,
+    "args": ["--interactionFile", "{data}/cHi-C/chicViewpoint/two_matrices_custom_keys.hdf5",
+             "--targetFile", "{data}/cHi-C/chicAggregateStatistic/target_list_4col.bed",
+             "--outFileName", "{out}/aggregate.hdf5", "-t", "10"],
+    "outputs": [
+      {"path": "{out}/aggregate.hdf5", "format": "chic_hdf5", "class": "E1"}
+    ],
+    "threads_arg": "--threads",
+    "notes": "test_chicAggregateStatistic.py::test_target_list_bed4. The four column BED is filed under the fixed matrix names c_adj_norm and t_adj_norm (utilities.readTargetBed), which this interaction file uses."
+  },
+  {
+    "id": "chicAggregateStatistic.bed4.fails",
+    "tool": "chicAggregateStatistic",
+    "tier": 6,
+    "args": ["--interactionFile", "{data}/cHi-C/chicViewpoint/two_matrices.hdf5",
+             "--targetFile", "{data}/cHi-C/chicAggregateStatistic/target_list_4col.bed",
+             "--outFileName", "{out}/aggregate.hdf5", "-t", "1"],
+    "expect_exit": 1,
+    "outputs": [],
+    "notes": "A four column BED with any matrix names but c_adj_norm and t_adj_norm: KeyError before any output."
+  },
+  {
+    "id": "chicAggregateStatistic.singleTarget.fails",
+    "tool": "chicAggregateStatistic",
+    "tier": 6,
+    "args": ["--interactionFile", "{data}/cHi-C/chicViewpoint/two_matrices.hdf5",
+             "--targetFile", "{data}/cHi-C/chicSignificantInteractions/targetFile_single.hdf5",
+             "--outFileName", "{out}/aggregate.hdf5", "-t", "1"],
+    "expect_exit": 1,
+    "outputs": [],
+    "notes": "A target file of chicSignificantInteractions in single mode has no genes group below the matrix groups readTargetHDFFile expects: KeyError before any output."
+  },
+  {
+    "id": "chicAggregateStatistic.threads0.fails",
+    "tool": "chicAggregateStatistic",
+    "tier": 6,
+    "args": ["--interactionFile", "{data}/cHi-C/chicViewpoint/two_matrices.hdf5",
+             "--targetFile", "{data}/cHi-C/chicSignificantInteractions/targetFile_dual.hdf5",
+             "--outFileName", "{out}/aggregate.hdf5", "-t", "0"],
+    "expect_exit": 1,
+    "outputs": [],
+    "notes": "--threads 0: ZeroDivisionError in call_multi_core."
+  },
+  {
+    "id": "chicAggregateStatistic.threadsNegative",
+    "tool": "chicAggregateStatistic",
+    "tier": 6,
+    "args": ["--interactionFile", "{data}/cHi-C/chicViewpoint/two_matrices.hdf5",
+             "--targetFile", "{data}/cHi-C/chicSignificantInteractions/targetFile_dual.hdf5",
+             "--outFileName", "{out}/aggregate.hdf5", "-t", "-1"],
+    "outputs": [
+      {"path": "{out}/aggregate.hdf5", "format": "chic_hdf5", "class": "E1"}
+    ],
+    "notes": "A negative --threads starts no worker: exit 0 with a file holding its attributes only."
+  }
+]

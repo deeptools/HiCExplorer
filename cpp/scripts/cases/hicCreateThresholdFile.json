@@ -1,0 +1,46 @@
+[
+  {
+    "id": "hicCreateThresholdFile.default_resolution",
+    "tool": "hicCreateThresholdFile",
+    "tier": 2,
+    "args": ["--range", "200000", "200000", "-tv", "0.5", "-o", "{out}/threshold.txt"],
+    "outputs": [{"path": "{out}/threshold.txt", "format": "plain", "class": "E0"}],
+    "notes": "The invocation the Python test uses, with --resolution at its default of 1000 and a positive upstream value that the tool negates in place. 401 rows plus two header lines."
+  },
+  {
+    "id": "hicCreateThresholdFile.resolution",
+    "tool": "hicCreateThresholdFile",
+    "tier": 2,
+    "args": ["--range", "-20000", "20000", "-tv", "0.25", "-r", "10000",
+             "-o", "{out}/threshold.txt"],
+    "outputs": [{"path": "{out}/threshold.txt", "format": "plain", "class": "E0"}],
+    "notes": "--resolution/-r was never exercised by the Python suite. It is both the step and part of the stop value, since the loop runs to range[1] + resolution exclusive, so the downstream end is included: five rows from -20000 to 20000."
+  },
+  {
+    "id": "hicCreateThresholdFile.negative_upstream",
+    "tool": "hicCreateThresholdFile",
+    "tier": 2,
+    "args": ["--range", "-500000", "500000", "-tv", "0.75", "-r", "5000",
+             "-o", "{out}/threshold.txt"],
+    "outputs": [{"path": "{out}/threshold.txt", "format": "plain", "class": "E0"}],
+    "notes": "The upstream value given negative, which is the spelling the help text documents and which skips the negation branch. 201 rows."
+  },
+  {
+    "id": "hicCreateThresholdFile.integer_threshold",
+    "tool": "hicCreateThresholdFile",
+    "tier": 2,
+    "args": ["--range", "0", "0", "-tv", "1", "-r", "10000",
+             "-o", "{out}/threshold.txt"],
+    "outputs": [{"path": "{out}/threshold.txt", "format": "plain", "class": "E0"}],
+    "notes": "The threshold is parsed as a float and written with str(), so -tv 1 prints as 1.0 and not as 1. A single row, at zero."
+  },
+  {
+    "id": "hicCreateThresholdFile.exponent_threshold",
+    "tool": "hicCreateThresholdFile",
+    "tier": 2,
+    "args": ["--range", "0", "0", "-tv", "0.00001", "-r", "10000",
+             "-o", "{out}/threshold.txt"],
+    "outputs": [{"path": "{out}/threshold.txt", "format": "plain", "class": "E0"}],
+    "notes": "repr() of a small float switches to exponent notation at 1e-05 and spells it without a trailing zero in the mantissa, which printf's %g does not do. The case exists to pin hicx::npy::float_repr against CPython on this tool's only piece of formatting."
+  }
+]

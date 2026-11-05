@@ -3,7 +3,7 @@ warnings.simplefilter(action="ignore", category=RuntimeWarning)
 warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
 import argparse
 
-from hyperopt import hp, fmin, tpe, space_eval, STATUS_OK, Trials
+from hyperopt import hp, fmin, tpe, space_eval, Trials
 import logging
 log = logging.getLogger(__name__)
 from tempfile import NamedTemporaryFile, mkdtemp
@@ -20,6 +20,7 @@ def parse_arguments(args=None):
         formatter_class=argparse.RawDescriptionHelpFormatter,
         add_help=False,
         description="""
+Searches the Juicer HiCCUPS parameters whose loops agree best with a protein peak file, using hyperopt.
 """)
 
     parserRequired = parser.add_argument_group('Required arguments')

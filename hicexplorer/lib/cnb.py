@@ -1,29 +1,24 @@
-import numpy as np
+"""hicexplorer.lib.cnb, implemented in C++.
 
+The continuous generalisation of the negative binomial distribution; pdf and
+cdf keep their 3.7.6 signatures and call hicexplorer._hicx.lib_cnb
+(cpp/python/src/api/lib_cnb.cpp, cpp/core/include/hicx/cnb.hpp).
+"""
 import logging
 log = logging.getLogger(__name__)
-import copy
 
-import sys
-# from mpl_toolkits.axes_grid1 import make_axes_locatable
-from scipy.stats import nbinom
-from scipy.special import gammaln
-from scipy import special
+from hicexplorer._hicx import lib_cnb as _impl
 
 
 def pdf(pX, pR, pP):
     """
     PDF for a continuous generalization of NB distribution
     """
-
-    gamma_part = gammaln(pR + pX) - gammaln(pX + 1) - gammaln(pR)
-    return np.exp(gamma_part + (pR * np.log(pP)) + special.xlog1py(pX, -pP))
+    return _impl.pdf(pX, pR, pP)
 
 
 def cdf(pX, pR, pP):
     """
     Cumulative density function of a continuous generalization of NB distribution
     """
-    # if pX == 0:
-    # return 0
-    return special.betainc(pR, pX + 1, pP)
+    return _impl.cdf(pX, pR, pP)

@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hicexplorer-plot"
+version = "0.1.0"
+description = "Drawing layer of the HiCExplorer v4 C++ plotting tools: matplotlib figures from the data the C++ binaries compute"
+requires-python = ">=3.9"
+dependencies = [
+    "matplotlib>=3.8",
+    "numpy",
+    # hicPlotAverageRegions rotates its image with scipy.ndimage.rotate, an
+    # interpolation that is part of the figure.
+    "scipy",
+    # The QC charts are pandas plotting calls (hicQC.html is written by the
+    # C++ binaries).
+    "pandas",
+    # hicPlotMatrix transliterates --title, as the reference does (its
+    # bigwig tracks are read by the C++ binary).
+    "unidecode",
+]
+
+[tool.setuptools]
+packages = ["hicexplorer_plot"]

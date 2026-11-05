@@ -1,0 +1,27 @@
+# Public names that stay pure Python: matplotlib drawing code (owner directive,
+# cpp/python/API_BINDINGS.md). One row per name: module<TAB>name<TAB>reason.
+# A name that computes data besides drawing does not belong here; its
+# computation moves to C++ and the drawing calls stay.
+hicexplorer.hicAggregateContacts	plot_aggregated_contacts	matplotlib imshow or plot_surface of the cluster averages; the averages, their log records and the --outFilePrefixMatrix and --outFileContactPairs files come from hicexplorer._hicx.hicAggregateContacts
+hicexplorer.hicAggregateContacts	plot_diagnostic_heatmaps	matplotlib imshow and line plots of the diagonal rows; the rows sorted by their centre value and their means come from hicexplorer._hicx.hicAggregateContacts
+hicexplorer.hicCompartmentalization	plot_polarization_ratio	draws the polarization ratio curves with matplotlib from values it is given
+hicexplorer.hicPlotMatrix	plotHeatmap	matplotlib pcolormesh and colorbar of a matrix it is given
+hicexplorer.hicPlotMatrix	plotPerChr	matplotlib grid of per chromosome heatmaps; the chromosome blocks, the --log/--log1p clearing and the regions come from hicexplorer._hicx.hicPlotMatrix
+hicexplorer.hicPlotMatrix	bigwig_axes_config	matplotlib subplot2grid layout of the heatmap and bigwig axes, no data
+hicexplorer.hicPlotMatrix	plotBigwig	matplotlib fill_between of bigwig tracks; the scores, positions, limits and their flipping, scaling and clipping come from hicexplorer._hicx.hicPlotMatrix
+hicexplorer.hicPlotMatrix	plotLongRangeContacts	draws arcs with matplotlib from given contacts
+hicexplorer.hicPlotMatrix	plotTADs	draws TAD triangles with matplotlib from given domains
+hicexplorer.hicPrepareQCreport	make_figure_pairs_used	matplotlib/pandas bar chart; the tables it plots and returns come from C++ (hicexplorer._hicx.hicPrepareQCreport)
+hicexplorer.hicPrepareQCreport	make_figure_umappable_non_unique_reads	matplotlib/pandas bar chart; the tables it plots and returns come from C++ (hicexplorer._hicx.hicPrepareQCreport)
+hicexplorer.hicPrepareQCreport	make_figure_pairs_discarded	matplotlib/pandas bar chart; the tables it plots and returns come from C++ (hicexplorer._hicx.hicPrepareQCreport)
+hicexplorer.hicPrepareQCreport	make_figure_distance	matplotlib/pandas bar chart; the tables it plots and returns come from C++ (hicexplorer._hicx.hicPrepareQCreport)
+hicexplorer.hicPrepareQCreport	make_figure_read_orientation	matplotlib/pandas bar chart; the tables it plots and returns come from C++ (hicexplorer._hicx.hicPrepareQCreport)
+hicexplorer.hicCorrelate	plot_correlation	matplotlib heatmap and scipy dendrogram drawing; the linkage and the colour range come from C++ (hicexplorer._hicx.hicCorrelate)
+hicexplorer.lib.viewpoint	Viewpoint	the class row: every method body calls hicexplorer._hicx.lib_viewpoint except the three matplotlib drawing methods below
+hicexplorer.lib.viewpoint	Viewpoint.plotViewpoint	draws the viewpoint curve and highlighted regions with matplotlib from data it is given
+hicexplorer.lib.viewpoint	Viewpoint.plotBackgroundModel	draws the background model curve and x-fold band with matplotlib; the band values come from _hicx.lib_viewpoint.Viewpoint_backgroundModelBand
+hicexplorer.lib.viewpoint	Viewpoint.plotPValue	draws the p-value heat strip and colorbar with matplotlib; rows, ticks and levels come from _hicx.lib_viewpoint
+hicexplorer.chicPlotViewpoint	plot_images	lays out and draws the viewpoint figures with matplotlib; the curves, regions and p-values come from the Viewpoint object's C++ methods and the p-value strip and axis ticks from _hicx.chicPlotViewpoint
+hicexplorer.hicCorrectMatrix	plot_total_contact_dist	draws the coverage histograms with matplotlib; the row sums, MAD z-scores, outlier filter and threshold come from hicexplorer._hicx.hicCorrectMatrix
+hicexplorer.parserCommon	getParentArgParse	argparse construction only: returns an ArgumentParser with one --matrix option, no computation to back in C++
+hicexplorer.parserCommon	CustomFormatter	argparse formatter class without a body (two argparse HelpFormatter bases), no computation to back in C++

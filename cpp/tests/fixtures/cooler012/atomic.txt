@@ -1,0 +1,63 @@
+scenario w_success
+mid dir=main.cool,main.cool.__writing__ unchanged=1
+error=0 dir=main.cool
+unchanged=0
+groups=/,/bins,/chroms,/indexes,/pixels
+groups_before=/,/bins,/chroms,/indexes,/pixels
+end
+scenario w_failure
+mid dir=main.cool,main.cool.__writing__ unchanged=1
+error=1 dir=main.cool
+unchanged=1
+groups=/,/bins,/chroms,/indexes,/pixels
+groups_before=/,/bins,/chroms,/indexes,/pixels
+end
+scenario w_group_failure
+mid dir=main.cool,main.cool.__writing__ unchanged=1
+error=1 dir=main.cool
+unchanged=1
+groups=/,/bins,/chroms,/indexes,/pixels
+groups_before=/,/bins,/chroms,/indexes,/pixels
+end
+scenario a_new_group_success
+mid groups=/,/resolutions,/resolutions/100,/resolutions/100/bins,/resolutions/100/chroms,/resolutions/100/indexes,/resolutions/100/pixels,/resolutions/200.__writing__,/resolutions/200.__writing__/bins,/resolutions/200.__writing__/chroms,/resolutions/200.__writing__/pixels,/resolutions/500,/resolutions/500/bins,/resolutions/500/chroms,/resolutions/500/indexes,/resolutions/500/pixels
+error=0 dir=main.cool
+groups=/,/resolutions,/resolutions/100,/resolutions/100/bins,/resolutions/100/chroms,/resolutions/100/indexes,/resolutions/100/pixels,/resolutions/200,/resolutions/200/bins,/resolutions/200/chroms,/resolutions/200/indexes,/resolutions/200/pixels,/resolutions/500,/resolutions/500/bins,/resolutions/500/chroms,/resolutions/500/indexes,/resolutions/500/pixels
+groups_before=/,/resolutions,/resolutions/100,/resolutions/100/bins,/resolutions/100/chroms,/resolutions/100/indexes,/resolutions/100/pixels,/resolutions/500,/resolutions/500/bins,/resolutions/500/chroms,/resolutions/500/indexes,/resolutions/500/pixels
+end
+scenario a_new_group_failure
+mid groups=/,/resolutions,/resolutions/100,/resolutions/100/bins,/resolutions/100/chroms,/resolutions/100/indexes,/resolutions/100/pixels,/resolutions/200.__writing__,/resolutions/200.__writing__/bins,/resolutions/200.__writing__/chroms,/resolutions/200.__writing__/pixels,/resolutions/500,/resolutions/500/bins,/resolutions/500/chroms,/resolutions/500/indexes,/resolutions/500/pixels
+error=1 dir=main.cool
+groups=/,/resolutions,/resolutions/100,/resolutions/100/bins,/resolutions/100/chroms,/resolutions/100/indexes,/resolutions/100/pixels,/resolutions/500,/resolutions/500/bins,/resolutions/500/chroms,/resolutions/500/indexes,/resolutions/500/pixels
+groups_before=/,/resolutions,/resolutions/100,/resolutions/100/bins,/resolutions/100/chroms,/resolutions/100/indexes,/resolutions/100/pixels,/resolutions/500,/resolutions/500/bins,/resolutions/500/chroms,/resolutions/500/indexes,/resolutions/500/pixels
+end
+scenario a_replace_group_success
+mid groups=/,/resolutions,/resolutions/100,/resolutions/100/bins,/resolutions/100/chroms,/resolutions/100/indexes,/resolutions/100/pixels,/resolutions/100.__writing__,/resolutions/100.__writing__/bins,/resolutions/100.__writing__/chroms,/resolutions/100.__writing__/pixels,/resolutions/500,/resolutions/500/bins,/resolutions/500/chroms,/resolutions/500/indexes,/resolutions/500/pixels
+error=0 dir=main.cool
+groups=/,/resolutions,/resolutions/100,/resolutions/100/bins,/resolutions/100/chroms,/resolutions/100/indexes,/resolutions/100/pixels,/resolutions/500,/resolutions/500/bins,/resolutions/500/chroms,/resolutions/500/indexes,/resolutions/500/pixels
+groups_before=/,/resolutions,/resolutions/100,/resolutions/100/bins,/resolutions/100/chroms,/resolutions/100/indexes,/resolutions/100/pixels,/resolutions/500,/resolutions/500/bins,/resolutions/500/chroms,/resolutions/500/indexes,/resolutions/500/pixels
+end
+scenario a_replace_group_failure
+mid groups=/,/resolutions,/resolutions/100,/resolutions/100/bins,/resolutions/100/chroms,/resolutions/100/indexes,/resolutions/100/pixels,/resolutions/100.__writing__,/resolutions/100.__writing__/bins,/resolutions/100.__writing__/chroms,/resolutions/100.__writing__/pixels,/resolutions/500,/resolutions/500/bins,/resolutions/500/chroms,/resolutions/500/indexes,/resolutions/500/pixels
+error=1 dir=main.cool
+groups=/,/resolutions,/resolutions/100,/resolutions/100/bins,/resolutions/100/chroms,/resolutions/100/indexes,/resolutions/100/pixels,/resolutions/500,/resolutions/500/bins,/resolutions/500/chroms,/resolutions/500/indexes,/resolutions/500/pixels
+groups_before=/,/resolutions,/resolutions/100,/resolutions/100/bins,/resolutions/100/chroms,/resolutions/100/indexes,/resolutions/100/pixels,/resolutions/500,/resolutions/500/bins,/resolutions/500/chroms,/resolutions/500/indexes,/resolutions/500/pixels
+end
+scenario a_nested_new_group_failure
+mid groups=/,/other,/other/deep,/other/deep/new.__writing__,/other/deep/new.__writing__/bins,/other/deep/new.__writing__/chroms,/other/deep/new.__writing__/pixels,/resolutions,/resolutions/100,/resolutions/100/bins,/resolutions/100/chroms,/resolutions/100/indexes,/resolutions/100/pixels,/resolutions/500,/resolutions/500/bins,/resolutions/500/chroms,/resolutions/500/indexes,/resolutions/500/pixels
+error=1 dir=main.cool
+groups=/,/other,/other/deep,/resolutions,/resolutions/100,/resolutions/100/bins,/resolutions/100/chroms,/resolutions/100/indexes,/resolutions/100/pixels,/resolutions/500,/resolutions/500/bins,/resolutions/500/chroms,/resolutions/500/indexes,/resolutions/500/pixels
+groups_before=/,/resolutions,/resolutions/100,/resolutions/100/bins,/resolutions/100/chroms,/resolutions/100/indexes,/resolutions/100/pixels,/resolutions/500,/resolutions/500/bins,/resolutions/500/chroms,/resolutions/500/indexes,/resolutions/500/pixels
+end
+scenario a_root_success
+mid groups=/,/.__writing__,/.__writing__/bins,/.__writing__/chroms,/.__writing__/pixels,/resolutions,/resolutions/100,/resolutions/100/bins,/resolutions/100/chroms,/resolutions/100/indexes,/resolutions/100/pixels,/resolutions/500,/resolutions/500/bins,/resolutions/500/chroms,/resolutions/500/indexes,/resolutions/500/pixels
+error=0 dir=main.cool
+groups=/,/bins,/chroms,/indexes,/pixels,/resolutions,/resolutions/100,/resolutions/100/bins,/resolutions/100/chroms,/resolutions/100/indexes,/resolutions/100/pixels,/resolutions/500,/resolutions/500/bins,/resolutions/500/chroms,/resolutions/500/indexes,/resolutions/500/pixels
+groups_before=/,/resolutions,/resolutions/100,/resolutions/100/bins,/resolutions/100/chroms,/resolutions/100/indexes,/resolutions/100/pixels,/resolutions/500,/resolutions/500/bins,/resolutions/500/chroms,/resolutions/500/indexes,/resolutions/500/pixels
+end
+scenario a_root_failure
+mid groups=/,/.__writing__,/.__writing__/bins,/.__writing__/chroms,/.__writing__/pixels,/resolutions,/resolutions/100,/resolutions/100/bins,/resolutions/100/chroms,/resolutions/100/indexes,/resolutions/100/pixels,/resolutions/500,/resolutions/500/bins,/resolutions/500/chroms,/resolutions/500/indexes,/resolutions/500/pixels
+error=1 dir=main.cool
+groups=/,/resolutions,/resolutions/100,/resolutions/100/bins,/resolutions/100/chroms,/resolutions/100/indexes,/resolutions/100/pixels,/resolutions/500,/resolutions/500/bins,/resolutions/500/chroms,/resolutions/500/indexes,/resolutions/500/pixels
+groups_before=/,/resolutions,/resolutions/100,/resolutions/100/bins,/resolutions/100/chroms,/resolutions/100/indexes,/resolutions/100/pixels,/resolutions/500,/resolutions/500/bins,/resolutions/500/chroms,/resolutions/500/indexes,/resolutions/500/pixels
+end

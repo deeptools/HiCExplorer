@@ -1,0 +1,651 @@
+[
+  {
+    "id": "hicConvertFormat.h5_to_cool.small_test_matrix",
+    "tier": 1,
+    "args": ["--matrices", "{data}/hicConvertFormat/small_test_matrix.h5",
+             "--outFileName", "{out}/matrix.cool",
+             "--inputFormat", "h5", "--outputFormat", "cool"],
+    "outputs": [{"path": "{out}/matrix.cool", "format": "cool", "class": "E1"}],
+    "notes": "33,754 bins over 15 chromosomes, int64 counts on disk that the cool writer narrows to int32. The h5 source sets fileWasH5, so the nan bin masking of cool.py:267-279 runs."
+  },
+  {
+    "id": "hicConvertFormat.h5_to_cool.enforce_integer.small_test_matrix",
+    "tier": 1,
+    "args": ["--matrices", "{data}/hicConvertFormat/small_test_matrix.h5",
+             "--outFileName", "{out}/matrix.cool",
+             "--inputFormat", "h5", "--outputFormat", "cool", "--enforce_integer"],
+    "outputs": [{"path": "{out}/matrix.cool", "format": "cool", "class": "E1"}],
+    "notes": "--enforce_integer on a matrix that already holds integers is inert, except that the sum attribute stays float64 because np.rint produces a float column that cooler sums before casting it."
+  },
+  {
+    "id": "hicConvertFormat.h5_to_cool.corrected",
+    "tier": 1,
+    "args": ["--matrices",
+             "{data}/hicDifferentialTAD/GSM2644945_Untreated-R1.100000_chr1.h5",
+             "--outFileName", "{out}/matrix.cool",
+             "--inputFormat", "h5", "--outputFormat", "cool"],
+    "outputs": [{"path": "{out}/matrix.cool", "format": "cool", "class": "E1"}],
+    "notes": "A corrected float64 matrix, 1,252,980 stored pixels between 1.3e-05 and 0.12. The control for the case below."
+  },
+  {
+    "id": "hicConvertFormat.h5_to_cool.enforce_integer.corrected",
+    "tier": 1,
+    "args": ["--matrices",
+             "{data}/hicDifferentialTAD/GSM2644945_Untreated-R1.100000_chr1.h5",
+             "--outFileName", "{out}/matrix.cool",
+             "--inputFormat", "h5", "--outputFormat", "cool", "--enforce_integer"],
+    "outputs": [{"path": "{out}/matrix.cool", "format": "cool", "class": "E1"}],
+    "notes": "The data destroying defect, pinned rather than fixed: every value is below 0.5, np.rint sends all 1,252,980 of them to zero, the file is written with sum 0 and the tool exits 0 without a warning. See test_hicConvertFormat.py:435 and the comment in cpp/tools/hicConvertFormat.cpp."
+  },
+  {
+    "id": "hicConvertFormat.cool_to_h5.small_test_matrix",
+    "tier": 1,
+    "args": ["--matrices", "{data}/hicConvertFormat/small_test_matrix.cool",
+             "--outFileName", "{out}/matrix.h5",
+             "--inputFormat", "cool", "--outputFormat", "h5"],
+    "outputs": [{"path": "{out}/matrix.h5", "format": "h5", "class": "E2"}],
+    "notes": "The reverse direction. The 14,845 nan bins the cool loader recovers heuristically end up in /nan_bins."
+  },
+  {
+    "id": "hicConvertFormat.cool_to_homer.small_test_matrix_chr4",
+    "tier": 1,
+    "args": ["--matrices", "{data}/hicConvertFormat/small_test_matrix_chr4.cool",
+             "--outFileName", "{out}/matrix.homer",
+             "--inputFormat", "cool", "--outputFormat", "homer"],
+    "outputs": [{"path": "{out}/matrix.homer", "format": "text", "class": "E0"}],
+    "notes": "272 bins of int32 counts written as a dense gzipped table with no trailing newline. E0 is on the decompressed content: gzip stores a timestamp, so the compressed bytes can never match."
+  },
+  {
+    "id": "hicConvertFormat.cool_to_cool.chromosome.gm12878_KR_chr2",
+    "tier": 1,
+    "args": ["--matrices", "{data}/hicCorrectMatrix/gm12878_KR.cool",
+             "--outFileName", "{out}/matrix.cool",
+             "--inputFormat", "cool", "--outputFormat", "cool",
+             "--chromosome", "2"],
+    "outputs": [{"path": "{out}/matrix.cool", "format": "cool", "class": "E1"}],
+    "notes": "--chromosome on a cool input: hicmatrix's chrnameList path (cool.py:119-161) loads only chromosome 2's block, bins and weight column out of the 25 chromosomes, applies the weights, and the cool written holds that one chromosome."
+  },
+  {
+    "id": "hicConvertFormat.cool_to_homer.chromosome.GSE63525_KR_chr22",
+    "tier": 1,
+    "args": ["--matrices", "{data}/hicDetectLoops/GSE63525_GM12878_insitu_primary_2_5mb.cool",
+             "--outFileName", "{out}/matrix.homer",
+             "--inputFormat", "cool", "--outputFormat", "homer",
+             "--chromosome", "22", "--correction_name", "KR"],
+    "outputs": [{"path": "{out}/matrix.homer", "format": "text", "class": "E0"}],
+    "notes": "--chromosome with a hic2cool file and its divisive KR column (the operator follows from the column name): chromosome 22 at 2.5 Mb as a dense homer table."
+  },
+  {
+    "id": "hicConvertFormat.cool_to_cool.chromosome.unknown_name",
+    "tier": 1,
+    "args": ["--matrices", "{data}/hicCorrectMatrix/gm12878_KR.cool",
+             "--outFileName", "{out}/matrix.cool",
+             "--inputFormat", "cool", "--outputFormat", "cool",
+             "--chromosome", "chr2"],
+    "outputs": [],
+    "expect_exit": 1,
+    "memory": {"budget_mb": 64},
+    "notes": "A name the cooler does not have: cooler's fetch raises ValueError, hicmatrix logs it and the load fails, exit status 1 in both."
+  },
+  {
+    "id": "hicConvertFormat.h5_to_homer.Li_cut",
+    "tier": 1,
+    "args": ["--matrices", "{data}/Li_cut.h5",
+             "--outFileName", "{out}/matrix.homer",
+             "--inputFormat", "h5", "--outputFormat", "homer"],
+    "outputs": [{"path": "{out}/matrix.homer", "format": "text", "class": "E0"}],
+    "notes": "306 bins of float64, which is the case that exercises the float repr: a dense table of a float matrix prints '0.0' for every absent cell and the shortest round tripping decimal for every present one."
+  },
+  {
+    "id": "hicConvertFormat.h5_to_ginteractions.small_test_matrix",
+    "tier": 1,
+    "args": ["--matrices", "{data}/hicConvertFormat/small_test_matrix.h5",
+             "--outFileName", "{out}/matrix.ginteractions",
+             "--inputFormat", "h5", "--outputFormat", "ginteractions"],
+    "outputs": [{"path": "{out}/matrix.ginteractions.tsv", "format": "text",
+                 "class": "E0"}],
+    "notes": "35,857 upper triangle entries. The declared output is the '.tsv' sidecar, because --outFileName names a file the tool never writes."
+  },
+  {
+    "id": "hicConvertFormat.h5_to_ginteractions.Li_et_al_2015",
+    "tier": 1,
+    "args": ["--matrices", "{data}/Li_et_al_2015.h5",
+             "--outFileName", "{out}/matrix.ginteractions",
+             "--inputFormat", "h5", "--outputFormat", "ginteractions"],
+    "outputs": [{"path": "{out}/matrix.ginteractions.tsv", "format": "text",
+                 "class": "E0"}],
+    "notes": "1,661,678 float64 values printed as text, the widest test of the float repr in the tier."
+  },
+  {
+    "id": "hicConvertFormat.h5_to_hicpro.small_test_matrix",
+    "tier": 1,
+    "args": ["--matrices", "{data}/hicConvertFormat/small_test_matrix.h5",
+             "--outFileName", "{out}/matrix.hicpro",
+             "--inputFormat", "h5", "--outputFormat", "hicpro",
+             "--bedFileHicpro", "{out}/matrix.bed"],
+    "outputs": [{"path": "{out}/matrix.hicpro", "format": "text", "class": "E0"},
+                {"path": "{out}/matrix.bed", "format": "text", "class": "E0"}],
+    "notes": "One based bin ids for the 35,857 stored entries plus a bed file of all 33,754 bins. Hicpro.save ignores pSymmetric and writes whatever is stored, which for an h5 source is the upper triangle."
+  },
+  {
+    "id": "hicConvertFormat.h5_to_hicpro.Li_cut",
+    "tier": 1,
+    "args": ["--matrices", "{data}/Li_cut.h5",
+             "--outFileName", "{out}/matrix.hicpro",
+             "--inputFormat", "h5", "--outputFormat", "hicpro",
+             "--bedFileHicpro", "{out}/matrix.bed"],
+    "outputs": [{"path": "{out}/matrix.hicpro", "format": "text", "class": "E0"},
+                {"path": "{out}/matrix.bed", "format": "text", "class": "E0"}],
+    "notes": "The float64 variant, and the one bed file in the tier whose bins have unequal widths."
+  },
+  {
+    "id": "hicConvertFormat.hicpro_to_cool.test_matrix",
+    "tier": 1,
+    "args": ["--matrices", "{data}/hicConvertFormat/test_matrix.hicpro",
+             "--outFileName", "{out}/matrix.cool",
+             "--inputFormat", "hicpro", "--outputFormat", "cool",
+             "--bedFileHicpro", "{data}/hicConvertFormat/test_matrix.bed"],
+    "outputs": [{"path": "{out}/matrix.cool", "format": "cool", "class": "E1"}],
+    "notes": "3,114 one megabase bins, 57,034 triplets of float64. The reader has to sum duplicate coordinates, as csr_matrix((data, (i, j))) does."
+  },
+  {
+    "id": "hicConvertFormat.2D_text_to_cool.GSM1436265",
+    "tier": 1,
+    "args": ["--matrices",
+             "{data}/hicConvertFormat/GSM1436265_RAD21_ENCFF002EMQ.txt",
+             "--outFileName", "{out}/matrix.cool",
+             "--inputFormat", "2D-text", "--outputFormat", "cool",
+             "-r", "10000",
+             "--chromosomeSizes", "{data}/hicConvertFormat/hg19.chrom.sizes"],
+    "outputs": [{"path": "{out}/matrix.cool", "format": "cool", "class": "E1"}],
+    "notes": "313,762 bins over 93 hg19 contigs from 8,688 input lines, of which 7,987 cells survive. Exercises the two quirks of the 2D-text path: an interval that straddles a bin boundary sets two cells, and a repeated pair keeps the last value rather than the sum."
+  },
+  {
+    "id": "hicConvertFormat.cool_to_mcool.small_test_matrix_50kb",
+    "tier": 1,
+    "args": ["--matrices", "{data}/small_test_matrix_50kb_res.cool",
+             "--outFileName", "{out}/matrix.mcool",
+             "--inputFormat", "cool", "--outputFormat", "mcool",
+             "-r", "50000", "100000", "200000"],
+    "outputs": [{"path": "{out}/matrix.mcool", "format": "mcool", "class": "E1"}],
+    "notes": "Three resolutions under /resolutions. 50000 is the source resolution and is copied, the other two go through merge_bins; 200000 loses a chromosome that is too short to merge, so its nchroms is 14 and not 15. Also pins the metadata quirk: hic_metadata is consumed in place, so only the first resolution carries genome-assembly in its metadata attribute, and only the first writes hicmatrix's provenance onto the file root."
+  },
+  {
+    "id": "hicConvertFormat.h5_to_mcool.small_test_matrix",
+    "tier": 1,
+    "args": ["--matrices", "{data}/hicConvertFormat/small_test_matrix.h5",
+             "--outFileName", "{out}/matrix.mcool",
+             "--inputFormat", "h5", "--outputFormat", "mcool",
+             "-r", "10000", "100000", "200000"],
+    "outputs": [{"path": "{out}/matrix.mcool", "format": "mcool", "class": "E1"}],
+    "notes": "The same path from an h5 source, where none of the three resolutions equals the 5 kb source bin size so merge_bins runs three times. fileWasH5 is set, so the nan bins merge_bins recomputes are also the ones the cool writer masks with."
+  },
+  {
+    "id": "hicConvertFormat.cool_to_mcool.two_matrices_no_resolutions",
+    "tier": 1,
+    "args": ["--matrices", "{data}/hicConvertFormat/small_test_matrix_chr4.cool",
+             "{data}/hicConvertFormat/small_test_matrix.cool",
+             "--outFileName", "{out}/matrix.mcool",
+             "--inputFormat", "cool", "--outputFormat", "mcool"],
+    "outputs": [{"path": "{out}/matrix.mcool", "format": "mcool", "class": "E1"}],
+    "notes": "The other mcool branch (hicConvertFormat.py:331-344): no --resolutions, one group per input matrix named after its own bin size, the second matrix appended. Both inputs are at 5 kb, so the second replaces the first's group and the file ends with a single resolution. Also the only case where the output handler is built with neither pHiCInfo nor pEnforceInteger."
+  },
+  {
+    "id": "hicConvertFormat.h5_to_cool.Li_et_al_2015",
+    "tier": 1,
+    "args": ["--matrices", "{data}/Li_et_al_2015.h5",
+             "--outFileName", "{out}/matrix.cool",
+             "--inputFormat", "h5", "--outputFormat", "cool"],
+    "outputs": [{"path": "{out}/matrix.cool", "format": "cool", "class": "E1"}],
+    "memory": {"nnz_stored": 1661678, "nbins": 11104, "alpha": 1.3, "beta": 0.0},
+    "notes": "The memory reference of PLAN.md 4.5: Python peaks at 390 MB against a 19.9 MB working set, the budget is 1.3 * 19.9 + 64 = 90 MB. Also the correction path, where the 855 nan bins are masked, the factors are inverted into the weight column and divided back out of the counts."
+  },
+  {
+    "id": "hicConvertFormat.hic_to_cool.SRR1791297_30.250000",
+    "tier": 1,
+    "args": [
+      "--matrices",
+      "{data}/hicHyperoptDetectLoopsHiCCUPS/SRR1791297_30.hic",
+      "--outFileName",
+      "{out}/matrix.cool",
+      "--inputFormat",
+      "hic",
+      "--outputFormat",
+      "cool",
+      "--resolutions",
+      "250000"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/matrix_250000.cool",
+        "format": "cool",
+        "class": "E1"
+      }
+    ],
+    "notes": "hic2cool_convert at one resolution (hicConvertFormat.py:131-138): the resolution goes into the file name, and the cool file is hic2cool's layout with the .hic header's statistics and graphs attributes and the KR, VC and VC_SQRT columns. Version 8 Juicer file, 57 bins, 1,653 pixels."
+  },
+  {
+    "id": "hicConvertFormat.hic_to_cool.SRR1791297_30.5000_and_1000000",
+    "tier": 1,
+    "args": [
+      "--matrices",
+      "{data}/hicHyperoptDetectLoopsHiCCUPS/SRR1791297_30.hic",
+      "--outFileName",
+      "{out}/matrix.cool",
+      "--inputFormat",
+      "hic",
+      "--outputFormat",
+      "cool",
+      "--resolutions",
+      "5000",
+      "1000000"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/matrix_5000.cool",
+        "format": "cool",
+        "class": "E1"
+      },
+      {
+        "path": "{out}/matrix_1000000.cool",
+        "format": "cool",
+        "class": "E1"
+      }
+    ],
+    "memory": {
+      "budget_mb": 115
+    },
+    "notes": "One cool file per resolution. At 5 kb: 2,421,438 pixels in 2,418 bins over 16 chromosomes and 136 chromosome pairs, several pixel chunks of 1024 and the chromosome-grouped pixel order of hic2cool's loop. Memory: reviewed budget of 115 MB instead of the 101.8 MB formula of PLAN.md 4.5. Measured peak RSS (/usr/bin/time, three runs each, 2026-10-28): 100.9 to 105.0 MB in v4 against 156.3 to 163.2 MB in the 3.7.6 reference hicConvertFormat on the same input; the owner rule is that using less memory than 3.7.6 is fine, and the formula counts only the input's pixel arrays, not the sorted pixel chunks the conversion holds."
+  },
+  {
+    "id": "hicConvertFormat.hic_to_cool.SRR1791297_30.every_resolution",
+    "tier": 1,
+    "args": [
+      "--matrices",
+      "{data}/hicHyperoptDetectLoopsHiCCUPS/SRR1791297_30.hic",
+      "--outFileName",
+      "{out}/matrix.cool",
+      "--inputFormat",
+      "hic",
+      "--outputFormat",
+      "cool"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/matrix.mcool",
+        "format": "mcool",
+        "class": "E1"
+      }
+    ],
+    "memory": {
+      "budget_mb": 140
+    },
+    "notes": "Without --resolutions hic2cool converts every resolution and renames matrix.cool to matrix.mcool, whose root carries format HDF5::MCOOL and format-version 2. Memory: reviewed budget of 140 MB instead of the 101.8 MB formula of PLAN.md 4.5. Measured peak RSS (/usr/bin/time, three runs each, 2026-10-28): 124.2 to 125.6 MB in v4 against 158.0 to 158.6 MB in the 3.7.6 reference hicConvertFormat on the same input; the owner rule is that using less memory than 3.7.6 is fine, and the formula counts only the input's pixel arrays, not the sorted pixel chunks the conversion holds."
+  },
+  {
+    "id": "hicConvertFormat.hic_to_cool.SRR1791297_30.unsupported_resolution",
+    "tier": 1,
+    "args": [
+      "--matrices",
+      "{data}/hicHyperoptDetectLoopsHiCCUPS/SRR1791297_30.hic",
+      "--outFileName",
+      "{out}/matrix.cool",
+      "--inputFormat",
+      "hic",
+      "--outputFormat",
+      "cool",
+      "--resolutions",
+      "12345"
+    ],
+    "expect_exit": 1,
+    "outputs": [],
+    "memory": {
+      "budget_mb": 100
+    },
+    "notes": "hic2cool's force_exit: a resolution the file lacks prints the list of resolutions and exits 1 before writing."
+  },
+  {
+    "id": "hicConvertFormat.hic_to_mcool.SRR1791297_30",
+    "tier": 1,
+    "py_script": "cpp/scripts/py_hic_reference.py",
+    "args": [
+      "--matrices",
+      "{data}/hicHyperoptDetectLoopsHiCCUPS/SRR1791297_30.hic",
+      "--outFileName",
+      "{out}/matrix.mcool",
+      "--inputFormat",
+      "hic",
+      "--outputFormat",
+      "mcool"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/matrix.mcool",
+        "format": "mcool",
+        "class": "E1"
+      }
+    ],
+    "memory": {
+      "budget_mb": 140
+    },
+    "notes": "Class EX (cpp/PLAN.md tier 9, 9.1): the Python refuses --outputFormat mcool for hic input. The reference is hicConvertFormat --outputFormat cool with the .mcool name, whose hic2cool call writes every resolution into it. Memory: reviewed budget of 140 MB instead of the 101.8 MB formula of PLAN.md 4.5. Measured peak RSS (/usr/bin/time, three runs each, 2026-10-28): 124.2 to 125.6 MB (same call as every_resolution) in v4 against 158.0 to 158.6 MB (the reference writes the .mcool name through the same hic2cool call) in the 3.7.6 reference hicConvertFormat on the same input; the owner rule is that using less memory than 3.7.6 is fine, and the formula counts only the input's pixel arrays, not the sorted pixel chunks the conversion holds."
+  },
+  {
+    "id": "hicConvertFormat.hic_to_h5.SRR1791297_30.50000",
+    "tier": 1,
+    "py_script": "cpp/scripts/py_hic_reference.py",
+    "args": [
+      "--matrices",
+      "{data}/hicHyperoptDetectLoopsHiCCUPS/SRR1791297_30.hic",
+      "--outFileName",
+      "{out}/matrix.h5",
+      "--inputFormat",
+      "hic",
+      "--outputFormat",
+      "h5",
+      "--resolutions",
+      "50000"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/matrix.h5",
+        "format": "h5",
+        "class": "E2"
+      }
+    ],
+    "notes": "Class EX. The reference converts the 50 kb resolution with hic2cool and that cool file with hicConvertFormat --inputFormat cool, the Python route in two steps. The hic2cool cool has no weight column, so no correction is applied, and its generated-by names hic2cool."
+  },
+  {
+    "id": "hicConvertFormat.hic_to_ginteractions.SRR1791297_30.250000",
+    "tier": 1,
+    "py_script": "cpp/scripts/py_hic_reference.py",
+    "args": [
+      "--matrices",
+      "{data}/hicHyperoptDetectLoopsHiCCUPS/SRR1791297_30.hic",
+      "--outFileName",
+      "{out}/matrix.ginteractions",
+      "--inputFormat",
+      "hic",
+      "--outputFormat",
+      "ginteractions",
+      "--resolutions",
+      "250000"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/matrix.ginteractions.tsv",
+        "format": "text",
+        "class": "E0"
+      }
+    ],
+    "memory": {
+      "budget_mb": 100
+    },
+    "notes": "Class EX, the two step route as above into the ginteractions text format."
+  },
+  {
+    "id": "hicConvertFormat.hic_to_hicpro.SRR1791297_30.100000",
+    "tier": 1,
+    "py_script": "cpp/scripts/py_hic_reference.py",
+    "args": [
+      "--matrices",
+      "{data}/hicHyperoptDetectLoopsHiCCUPS/SRR1791297_30.hic",
+      "--outFileName",
+      "{out}/matrix.hicpro",
+      "--inputFormat",
+      "hic",
+      "--outputFormat",
+      "hicpro",
+      "--resolutions",
+      "100000",
+      "--bedFileHicpro",
+      "{out}/matrix.bed"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/matrix.hicpro",
+        "format": "text",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/matrix.bed",
+        "format": "text",
+        "class": "E0"
+      }
+    ],
+    "memory": {
+      "budget_mb": 100
+    },
+    "notes": "Class EX, the two step route as above into the hicpro matrix and bed files."
+  },
+  {
+    "id": "hicConvertFormat.cool_to_hic.gm12878_raw_values.v8",
+    "tier": 1,
+    "py_script": "cpp/scripts/py_hic_reference.py",
+    "args": [
+      "--matrices",
+      "{data}/hicCorrectMatrix/gm12878_raw_values.cool",
+      "--outFileName",
+      "{out}/matrix.hic",
+      "--inputFormat",
+      "cool",
+      "--outputFormat",
+      "hic",
+      "--resolutions",
+      "5000000",
+      "10000000",
+      "--load_raw_values"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/matrix.hic",
+        "format": "hic",
+        "class": "E2"
+      }
+    ],
+    "notes": "Class EX: no Python writes .hic. The reference writes the pixels the file must hold; comparators/hic.py reads the C++ .hic back and requires them bit for bit at 2.5, 5 and 10 Mb, plus VC, VC_SQRT, KR and SCALE vectors of Juicer's length for every chromosome. Genome wide, 25 chromosomes, int32 counts. The vectors' values are validated against Juicer tools in hicfilecpp's harness."
+  },
+  {
+    "id": "hicConvertFormat.cool_to_hic.gm12878_KR.v9",
+    "tier": 1,
+    "py_script": "cpp/scripts/py_hic_reference.py",
+    "args": [
+      "--matrices",
+      "{data}/hicCorrectMatrix/gm12878_KR.cool",
+      "--outFileName",
+      "{out}/matrix.hic",
+      "--inputFormat",
+      "cool",
+      "--outputFormat",
+      "hic",
+      "--hicVersion",
+      "9",
+      "--hicNormalizations",
+      "VC",
+      "SCALE",
+      "--threads",
+      "4"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/matrix.hic",
+        "format": "hic",
+        "class": "E2"
+      }
+    ],
+    "notes": "Class EX, version 9, a cool file with a weight column: the pixels are its raw counts (a .hic file never holds balanced values, and the weight is not written as a vector), two normalizations computed, four threads."
+  },
+  {
+    "id": "hicConvertFormat.h5_to_hic.GSM2644945_Untreated_chr1.v9",
+    "tier": 1,
+    "py_script": "cpp/scripts/py_hic_reference.py",
+    "args": [
+      "--matrices",
+      "{data}/hicDifferentialTAD/GSM2644945_Untreated-R1.100000_chr1.h5",
+      "--outFileName",
+      "{out}/matrix.hic",
+      "--inputFormat",
+      "h5",
+      "--outputFormat",
+      "hic",
+      "--hicVersion",
+      "9"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/matrix.hic",
+        "format": "hic",
+        "class": "E2"
+      }
+    ],
+    "memory": {
+      "budget_mb": 160
+    },
+    "notes": "Class EX, an h5 matrix of 100 kb bins on chr1 with 1,252,980 float64 values stored as float32 pixels. Budget: the formula of PLAN.md 4.5 counts the input matrix only, while writing also holds one resolution's pixels sorted into blocks (16 bytes each, twice during the sort) and the merged records the normalizations are computed from (12 bytes each), about 3.5 times the stored matrix for a single chromosome; measured 112 MB."
+  },
+  {
+    "id": "hicConvertFormat.mcool_to_hic.multi_small_test_matrix.v8",
+    "tier": 1,
+    "py_script": "cpp/scripts/py_hic_reference.py",
+    "args": [
+      "--matrices",
+      "{data}/hicBuildMatrix/multi_small_test_matrix.mcool",
+      "--outFileName",
+      "{out}/matrix.hic",
+      "--inputFormat",
+      "cool",
+      "--outputFormat",
+      "hic"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/matrix.hic",
+        "format": "hic",
+        "class": "E2"
+      }
+    ],
+    "notes": "Class EX, a multi resolution cool file given to --inputFormat cool: every resolution group (5, 10 and 20 kb) is written as its own .hic resolution."
+  },
+  {
+    "id": "hicConvertFormat.mcool_to_hic.multi_small_test_matrix.subset.v9",
+    "tier": 1,
+    "py_script": "cpp/scripts/py_hic_reference.py",
+    "args": ["--matrices", "{data}/hicBuildMatrix/multi_small_test_matrix.mcool",
+             "--outFileName", "{out}/matrix.hic",
+             "--inputFormat", "cool", "--outputFormat", "hic", "--hicVersion", "9",
+             "--resolutions", "5000", "20000"],
+    "outputs": [{"path": "{out}/matrix.hic", "format": "hic", "class": "E2"}],
+    "notes": "Class EX, two of the three resolution groups of an mcool file. cool2hic writes every group or one, so this subset is loaded group by group and written by write_hic; the groups store no vectors, so auto computes the four."
+  },
+  {
+    "id": "hicConvertFormat.cool_to_hic.GSE63525_hic2cool.auto.v8",
+    "tier": 1,
+    "py_script": "cpp/scripts/py_hic_reference.py",
+    "args": ["--matrices", "{data}/hicDetectLoops/GSE63525_GM12878_insitu_primary_2_5mb.cool",
+             "--outFileName", "{out}/matrix.hic",
+             "--inputFormat", "cool", "--outputFormat", "hic", "--threads", "2"],
+    "outputs": [{"path": "{out}/matrix.hic", "format": "hic", "class": "E2"}],
+    "notes": "Class EX, --hicNormalizations auto (the default) on a hic2cool file: its KR, VC and VC_SQRT columns are carried as the .hic vectors and nothing is computed. The comparator checks every carried name has a vector of Juicer's length for every chromosome."
+  },
+  {
+    "id": "hicConvertFormat.cool_to_hic.gm12878_KR.none.v9",
+    "tier": 1,
+    "py_script": "cpp/scripts/py_hic_reference.py",
+    "args": ["--matrices", "{data}/hicCorrectMatrix/gm12878_KR.cool",
+             "--outFileName", "{out}/matrix.hic",
+             "--inputFormat", "cool", "--outputFormat", "hic", "--hicVersion", "9",
+             "--hicNormalizations", "none", "--resolutions", "5000000"],
+    "outputs": [{"path": "{out}/matrix.hic", "format": "hic", "class": "E2"}],
+    "notes": "Class EX, --hicNormalizations none with an added resolution binned from the raw counts."
+  },
+  {
+    "id": "hicConvertFormat.hic_to_cool.GM12878_chr21_chr22.v7.250000",
+    "tier": 1,
+    "args": [
+      "--matrices",
+      "{data}/hicConvertFormat/GM12878_combined_30.chr21_chr22.v7.hic",
+      "--outFileName",
+      "{out}/matrix.cool",
+      "--inputFormat",
+      "hic",
+      "--outputFormat",
+      "cool",
+      "--resolutions",
+      "250000"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/matrix_250000.cool",
+        "format": "cool",
+        "class": "E1"
+      }
+    ],
+    "notes": "A version 7 .hic file (hicfilecpp reads versions 6 to 9): chromosomes 21 and 22 of GSE63525 GM12878 combined_30 at 2.5 Mb, 1 Mb, 500 kb and 250 kb, cut out of the deposited version 7 file byte for byte by hicfilecpp tests/data/extract_legacy_subset.py. 399 bins, 39,771 pixels, the VC, VC_SQRT, KR and GW_/INTER_ vectors as bin columns. Pinned by test_hic_input_versions_7_and_6_write_the_same_cool_file."
+  },
+  {
+    "id": "hicConvertFormat.hic_to_cool.GM12878_chr21_chr22.v6.250000",
+    "tier": 1,
+    "args": [
+      "--matrices",
+      "{data}/hicConvertFormat/GM12878_combined_30.chr21_chr22.v6.hic",
+      "--outFileName",
+      "{out}/matrix.cool",
+      "--inputFormat",
+      "hic",
+      "--outputFormat",
+      "cool",
+      "--resolutions",
+      "250000"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/matrix_250000.cool",
+        "format": "cool",
+        "class": "E1"
+      }
+    ],
+    "notes": "The same pixels in version 6 block records (int32 binX, int32 binY, float32 counts), the one layout where version 6 differs; hic2cool reads it through read_block with version < 7."
+  },
+  {
+    "id": "hicConvertFormat.hic_to_cool.GM12878_chr21_chr22.v7.every_resolution",
+    "tier": 1,
+    "args": [
+      "--matrices",
+      "{data}/hicConvertFormat/GM12878_combined_30.chr21_chr22.v7.hic",
+      "--outFileName",
+      "{out}/matrix.cool",
+      "--inputFormat",
+      "hic",
+      "--outputFormat",
+      "cool"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/matrix.mcool",
+        "format": "mcool",
+        "class": "E1"
+      }
+    ],
+    "notes": "Every resolution of the version 7 file into matrix.mcool: 528, 2,775, 10,525 and 39,771 pixels at 2.5 Mb, 1 Mb, 500 kb and 250 kb."
+  },
+  {
+    "id": "hicConvertFormat.cool_to_hic.refuse_version_7",
+    "tier": 1,
+    "args": [
+      "--matrices",
+      "{data}/hicCorrectMatrix/gm12878_raw_values.cool",
+      "--outFileName",
+      "{out}/matrix.hic",
+      "--inputFormat",
+      "cool",
+      "--outputFormat",
+      "hic",
+      "--hicVersion",
+      "7"
+    ],
+    "outputs": [],
+    "expect_exit": 2,
+    "memory": {"budget_mb": 64},
+    "notes": "Writing .hic version 7 is refused with exit status 2 and the reason: no Juicer tools release that writes it can be obtained to validate against. The Python has no --hicVersion and exits 2 on the unrecognized argument."
+  }
+]
