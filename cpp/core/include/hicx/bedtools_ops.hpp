@@ -25,10 +25,13 @@
 // BED structs. Verified on the real loop file: the 11,723 sorted rows match
 // `bedtools sort` byte for byte, ties included.
 //
-// This does tie the port to libstdc++'s std::sort. It is the same standard
-// library on the same machine, and the algorithm has been unchanged for many
-// years, but a change there would show up as a reordered output file rather
-// than as wrong data, and the harness would catch it.
+// This ties the order of tied rows to the standard library the tool is built
+// against, as it is for bedtools: libstdc++ on Linux and libc++ on macOS leave
+// ties in different orders, and the tool agrees with bedtools built against
+// the same library. The tests compare against the references of the library
+// of the build (hicexplorer/test/sort_ties.py, made with libstdc++ and with
+// libc++ 19), so a change of either library's std::sort shows up there as a
+// reordered output file.
 
 #ifndef HICX_BEDTOOLS_OPS_HPP
 #define HICX_BEDTOOLS_OPS_HPP

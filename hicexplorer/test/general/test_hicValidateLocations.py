@@ -4,6 +4,7 @@ import numpy.testing as nt
 from tempfile import NamedTemporaryFile
 import os
 from hicexplorer.test.test_compute_function import compute
+from hicexplorer.test.sort_ties import sort_tie_reference
 
 
 ROOT = os.path.join(os.path.dirname(os.path.dirname(
@@ -51,7 +52,9 @@ def assert_files_identical(pExpected, pObserved, pSkip=0):
     3,730 rows of loops_1.bedgraph that share a start with another row come out
     in an order that is neither the input order nor sorted by any other field.
     A port that sorted stably would have passed the set comparison and written
-    a differently ordered file.
+    a differently ordered file. That tie order is the standard library's
+    (hicexplorer/test/sort_ties.py), so the loop tests take their reference
+    through sort_tie_reference.
 
     `pSkip` drops the leading comment lines of the statistics files, which
     carry the version and the absolute input paths.
@@ -87,7 +90,8 @@ def test_loop_narrow_peak():
                                                                                                                               'loops', outfile.name, 10000, 'add').split()
     compute(hicValidateLocations.main, args, 5)
     assert_files_identical(
-        ROOT + 'overlap_smc3_matched_locations', outfile.name + '_matched_locations')
+        sort_tie_reference(ROOT + 'overlap_smc3_matched_locations'),
+        outfile.name + '_matched_locations')
     assert_files_identical(ROOT + 'overlap_smc3_statistics',
                            outfile.name + '_statistics', pSkip=3)
 
@@ -102,7 +106,8 @@ def test_loop_broad_peak():
     compute(hicValidateLocations.main, args, 5)
 
     assert_files_identical(
-        ROOT + 'overlap_ctcf_matched_locations', outfile.name + '_matched_locations')
+        sort_tie_reference(ROOT + 'overlap_ctcf_matched_locations'),
+        outfile.name + '_matched_locations')
     assert_files_identical(ROOT + 'overlap_ctcf_statistics',
                            outfile.name + '_statistics', pSkip=3)
 
@@ -117,7 +122,8 @@ def test_loop_cool():
     compute(hicValidateLocations.main, args, 5)
 
     assert_files_identical(
-        ROOT + 'overlap_rad21_cool_matched_locations', outfile.name + '_matched_locations')
+        sort_tie_reference(ROOT + 'overlap_rad21_cool_matched_locations'),
+        outfile.name + '_matched_locations')
     assert_files_identical(ROOT + 'overlap_rad21_cool_statistics',
                            outfile.name + '_statistics', pSkip=3)
 

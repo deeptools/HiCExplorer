@@ -32,6 +32,18 @@ PYBIND11_MODULE(_hicx, module) {
 #undef HICX_API_MODULE
     module.attr("MODULES") = py::tuple(names);
 
+    // The C++ standard library of this build. The order std::sort leaves equal
+    // elements in is the library's, and the bedtools sort order of the loop
+    // tools (hicx/bedtools_ops.hpp) follows it; the tests pick the reference
+    // files of that library.
+#if defined(_LIBCPP_VERSION)
+    module.attr("STANDARD_LIBRARY") = "libc++";
+#elif defined(__GLIBCXX__)
+    module.attr("STANDARD_LIBRARY") = "libstdc++";
+#else
+    module.attr("STANDARD_LIBRARY") = "other";
+#endif
+
     // For the tests of the conversion helpers (hicexplorer/test/api/test_convert.py):
     // reads a hiCMatrix-like object into hicx::MatrixData and writes it back.
     module.def("_roundtrip_matrix_data", [](py::handle source, py::handle target) {

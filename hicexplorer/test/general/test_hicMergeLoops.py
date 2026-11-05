@@ -4,6 +4,8 @@ import numpy.testing as nt
 from tempfile import NamedTemporaryFile
 import os
 
+from hicexplorer.test.sort_ties import sort_tie_reference
+
 
 ROOT = os.path.join(os.path.dirname(os.path.dirname(
     os.path.abspath(__file__))), "test_data/hicMergeLoops/")
@@ -45,6 +47,9 @@ def assert_files_identical(pExpected, pObserved):
     The set comparison this file used before is blind to the row order, and to
     a duplicated line. The output here is a subset of the bedtools-sorted input
     table written in that table's order, so the order is part of the result.
+    Which loop of a cluster survives follows the order of tied rows, which is
+    the standard library's (hicexplorer/test/sort_ties.py): with libc++ one of
+    the 16,549 merged loops is another member of its cluster.
     """
     with open(pExpected) as expected_file:
         expected = expected_file.readlines()
@@ -76,7 +81,8 @@ def test_loop_narrow_peak():
                                             ROOT + 'gm12878_5kb.bedgraph', outfile.name, 5000).split()
     hicMergeLoops.main(args)
 
-    assert_files_identical(ROOT + 'gm12878_all.bedgraph', outfile.name)
+    assert_files_identical(sort_tie_reference(ROOT + 'gm12878_all.bedgraph'),
+                           outfile.name)
 
 
 def test_result_is_a_subsequence_of_the_sorted_input():
