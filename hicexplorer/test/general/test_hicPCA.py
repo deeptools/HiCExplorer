@@ -835,10 +835,14 @@ def test_pca_output_file_count_must_match_eigenvector_count():
         os.unlink(path)
 
 
-def are_files_equal(file1, file2):
+def are_files_equal(file1, file2, pSkipChromosome=None):
+    def lines(pHandle):
+        return (line for line in pHandle
+                if line.split('\t', 1)[0] != pSkipChromosome)
+
     equal = True
     with open(file1) as textfile1, open(file2) as textfile2:
-        for x, y in zip(textfile1, textfile2):
+        for x, y in zip(lines(textfile1), lines(textfile2)):
             if x.startswith('File'):
                 continue
             if x != y:
@@ -965,28 +969,12 @@ def test_pca_bedgraph_lieberman_gene_density():
     # single 0.925. Which of these dgeev returns in its first column is decided
     # by the last bits of the BLAS kernels, and OpenBLAS on arm64 puts the
     # 0.925 eigenvector first. The references are those of x86-64.
-    expected = [ROOT + "hicPCA/pca1_gene_track.bedgraph",
-                ROOT + "hicPCA/pca2_gene_track.bedgraph"]
-    observed = [pca1.name, pca2.name]
-    if platform.machine() not in ('x86_64', 'AMD64'):
-        expected = [without_chromosome(path, 'chrXHet') for path in expected]
-        observed = [without_chromosome(path, 'chrXHet') for path in observed]
-    for expected_file, observed_file in zip(expected, observed):
-        assert are_files_equal(expected_file, observed_file)
+    skip = None if platform.machine() in ('x86_64', 'AMD64') else 'chrXHet'
+    assert are_files_equal(ROOT + "hicPCA/pca1_gene_track.bedgraph", pca1.name, skip)
+    assert are_files_equal(ROOT + "hicPCA/pca2_gene_track.bedgraph", pca2.name, skip)
 
-    for path in set(expected + observed + [pca1.name, pca2.name]):
-        if not path.startswith(ROOT):
-            os.unlink(path)
-
-
-def without_chromosome(pPath, pChromosome):
-    """A temporary copy of a bedgraph file without the lines of one chromosome."""
-    copy = NamedTemporaryFile(mode='w', suffix='.bedgraph', delete=False)
-    with open(pPath) as handle, copy:
-        for line in handle:
-            if line.split('\t', 1)[0] != pChromosome:
-                copy.write(line)
-    return copy.name
+    os.unlink(pca1.name)
+    os.unlink(pca2.name)
 
 
 def test_pca_bigwig_lieberman_gene_density():

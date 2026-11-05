@@ -132,6 +132,11 @@ def expected_compare(matrix_a, matrix_b, operation, no_norm):
     return expected, nan_union
 
 
+# log2 of numpy and of the C++ tool agree to this many units in the last place;
+# numpy's own log2 differs in its last bits between builds.
+LOG2_MAX_ULP = 2
+
+
 def assert_csr_identical(got, expected, pMaxUlp=0):
     got = got.tocsr()
     got.sort_indices()
@@ -228,13 +233,13 @@ def test_log2ratio_h5_matches_numpy_to_two_ulp():
     expected, _ = expected_compare(UNTREATED_H5, AUXIN_H5, 'log2ratio', False)
     new = run_compare(UNTREATED_H5, AUXIN_H5, 'log2ratio', False, '.h5')
     assert new.matrix.nnz == 2277549
-    assert_csr_identical(new.matrix, expected, pMaxUlp=2)
+    assert_csr_identical(new.matrix, expected, pMaxUlp=LOG2_MAX_ULP)
 
 
 def test_log2ratio_noNorm_h5_matches_numpy_to_two_ulp():
     expected, _ = expected_compare(UNTREATED_H5, AUXIN_H5, 'log2ratio', True,)
     new = run_compare(UNTREATED_H5, AUXIN_H5, 'log2ratio', True, '.h5')
-    assert_csr_identical(new.matrix, expected, pMaxUlp=2)
+    assert_csr_identical(new.matrix, expected, pMaxUlp=LOG2_MAX_ULP)
 
 
 def test_log2ratio_cool_matches_numpy_to_two_ulp():
@@ -242,7 +247,7 @@ def test_log2ratio_cool_matches_numpy_to_two_ulp():
     expected, nan_union = expected_compare(UNTREATED_COOL, AUXIN_COOL,
                                            'log2ratio', False)
     new = run_compare(UNTREATED_COOL, AUXIN_COOL, 'log2ratio', False, '.cool')
-    assert_csr_identical(new.matrix, expected, pMaxUlp=2)
+    assert_csr_identical(new.matrix, expected, pMaxUlp=LOG2_MAX_ULP)
     nt.assert_array_equal(sorted(new.nan_bins), nan_union)
 
 

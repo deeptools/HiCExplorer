@@ -396,17 +396,10 @@ def assert_matches_reference_up_to_cancellation_noise(pActual, pReference, pName
     reference = pReference.tocsr()
     assert actual.shape == reference.shape
     difference = abs(actual - reference)
-    assert difference.nnz == 0 or difference.max() <= 1e-12, \
-        pName + ': values drifted from the reference'
-    actual_pattern = actual.copy()
-    actual_pattern.data[:] = 1
-    reference_pattern = reference.copy()
-    reference_pattern.data[:] = 1
-    only_one_side = abs(actual_pattern - reference_pattern)
-    only_one_side.eliminate_zeros()
+    assert difference.max() <= 1e-12, pName + ': values drifted from the reference'
     # Where only one side stores a value, the difference is that value.
-    unpaired = difference.multiply(only_one_side).tocsr()
-    assert unpaired.nnz == 0 or unpaired.max() < 1e-15, \
+    unpaired = difference.multiply((actual != 0) != (reference != 0))
+    assert unpaired.max() < 1e-15, \
         pName + ': an entry stored on one side only is not cancellation noise'
 
 
