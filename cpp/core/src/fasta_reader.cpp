@@ -1,5 +1,7 @@
 #include "hicx/fasta_reader.hpp"
 
+#include "hicx/utilities.hpp"
+
 #include <zlib.h>
 
 #include <algorithm>
@@ -12,6 +14,7 @@
 #include <regex>
 #include <sstream>
 #include <stdexcept>
+#include <string_view>
 #include <vector>
 
 namespace hicx::fasta {
@@ -38,7 +41,7 @@ const std::array<char, 256>& complement_table() {
 // A line source that reads either a plain file or a gzip stream.
 class LineReader {
   public:
-    LineReader(const std::string& path, bool gzipped) : gzipped_(gzipped) {
+    LineReader(const std::string& path, bool gzipped) : gzipped_(gzipped), path_(path) {
         if (gzipped_) {
             gz_ = gzopen(path.c_str(), "rb");
             if (gz_ == nullptr) {
@@ -67,6 +70,15 @@ class LineReader {
         char buffer[65536];
         while (true) {
             if (gzgets(gz_, buffer, sizeof(buffer)) == nullptr) {
+                int status = Z_OK;
+                std::string message = gzerror(gz_, &status);
+                if (status < 0) {
+                    // zlib puts the path in front of a read error's message
+                    if (message.rfind(path_ + ": ", 0) == 0) {
+                        message.erase(0, path_.size() + 2);
+                    }
+                    throw std::runtime_error("'" + path_ + "' is not a valid gzip file: " + message);
+                }
                 return !line->empty();
             }
             const std::size_t length = std::char_traits<char>::length(buffer);
@@ -80,6 +92,7 @@ class LineReader {
 
   private:
     bool gzipped_ = false;
+    std::string path_;
     std::ifstream plain_;
     gzFile gz_ = nullptr;
 };
@@ -147,6 +160,25 @@ void find_all(const std::string& pattern, const std::string& sequence,
     find_regex(pattern, sequence, emit);
 }
 
+// The position of the first byte that cannot occur in a text file: a control
+// character other than tab, line and page feed, carriage return. Bytes from
+// 0x80 on are allowed, so that a UTF-8 header passes.
+std::size_t first_binary_byte(const std::string& line) {
+    for (std::size_t i = 0; i < line.size(); ++i) {
+        const auto c = static_cast<unsigned char>(line[i]);
+        if ((c < 0x20 && c != '\t' && c != '\v' && c != '\f' && c != '\r') || c == 0x7f) {
+            return i;
+        }
+    }
+    return std::string::npos;
+}
+
+std::string hex_byte(char c) {
+    static const char digits[] = "0123456789abcdef";
+    const auto u = static_cast<unsigned char>(c);
+    return std::string{digits[u >> 4], digits[u & 0xf]};
+}
+
 std::string clean_sequence_line(const std::string& line) {
     // SimpleFastaParser rstrips each line and then removes spaces and carriage
     // returns from the joined sequence.
@@ -168,7 +200,12 @@ std::string clean_sequence_line(const std::string& line) {
 }  // namespace
 
 bool looks_gzipped(const std::string& path) {
-    return path.size() >= 3 && path.compare(path.size() - 3, 3, ".gz") == 0;
+    std::ifstream file(path, std::ios::binary);
+    char first[2] = {0, 0};
+    if (!file.read(first, 2)) {
+        return false;
+    }
+    return utilities::gzip_magic(std::string_view(first, 2));
 }
 
 std::string reverse_complement(const std::string& text) {
@@ -188,8 +225,17 @@ void read_fasta(const std::string& path, bool gzipped,
     std::string name;
     std::string sequence;
     bool in_record = false;
+    std::size_t line_number = 0;
 
     while (reader.next(&line)) {
+        ++line_number;
+        if (const std::size_t bad = first_binary_byte(line); bad != std::string::npos) {
+            throw std::runtime_error(
+                "'" + path + "' is not a FASTA file: line " + std::to_string(line_number) +
+                " holds the binary byte 0x" + hex_byte(line[bad]) +
+                ". FASTA is plain text, optionally compressed with gzip; other compressions "
+                "(bzip2, xz, zip) are not supported.");
+        }
         if (!line.empty() && line[0] == '>') {
             if (in_record) {
                 visit(name, sequence);
@@ -211,9 +257,12 @@ void read_fasta(const std::string& path, bool gzipped,
         }
         sequence += clean_sequence_line(line);
     }
-    if (in_record) {
-        visit(name, sequence);
+    if (!in_record) {
+        throw std::runtime_error("'" + path +
+                                 "' is not a FASTA file: no line starts with '>'"
+                                 " (a FASTA record begins with a '>name' header line)");
     }
+    visit(name, sequence);
 }
 
 std::vector<RestrictionSite> find_restriction_sites(const std::vector<std::string>& patterns,

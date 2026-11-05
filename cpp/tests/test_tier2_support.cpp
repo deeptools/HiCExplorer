@@ -253,11 +253,39 @@ TEST_CASE("fasta reader takes the name up to the first space and folds lines") {
     CHECK(records[1].first == "chr2");
     CHECK(records[1].second == "TTTT");
 
-    // The gzip decision is made from the file name alone, never from the
-    // magic bytes, because that is what mimetypes.guess_type does.
-    CHECK(hicx::fasta::looks_gzipped("genome.fa.gz"));
-    CHECK_FALSE(hicx::fasta::looks_gzipped("genome.fa.bz2"));
-    CHECK_FALSE(hicx::fasta::looks_gzipped("genome.fa"));
+}
+
+TEST_CASE("fasta gzip detection reads the magic bytes, not the name") {
+    // A Galaxy dataset is named dataset_<id>.dat whatever it holds.
+    TempFile gzipped(".dat");
+    gzipped.write(std::string("\x1f\x8b\x08\x00", 4));
+    CHECK(hicx::fasta::looks_gzipped(gzipped.path()));
+    TempFile plain(".fa.gz");
+    plain.write(">chr1\nACGT\n");
+    CHECK_FALSE(hicx::fasta::looks_gzipped(plain.path()));
+    CHECK_FALSE(hicx::fasta::looks_gzipped("/nonexistent/genome.fa.gz"));
+}
+
+TEST_CASE("fasta reader rejects input that is not FASTA with a message") {
+    const auto read = [](const std::string& path, bool gzipped) {
+        hicx::fasta::read_fasta(path, gzipped, [](const std::string&, const std::string&) {});
+    };
+    TempFile binary(".fa");
+    binary.write(std::string("BZh91AY&SY\x01\x02", 12));
+    CHECK_THROWS_WITH_AS(read(binary.path(), false),
+                         doctest::Contains("is not a FASTA file: line 1 holds the binary byte"),
+                         std::runtime_error);
+
+    TempFile no_header(".fa");
+    no_header.write("ACGT\nACGT\n");
+    CHECK_THROWS_WITH_AS(read(no_header.path(), false),
+                         doctest::Contains("no line starts with '>'"), std::runtime_error);
+
+    // The gzip header of an empty member, cut short after the header.
+    TempFile truncated(".fa.gz");
+    truncated.write(std::string("\x1f\x8b\x08\x00\x00\x00\x00\x00\x00\x03\x4b\x4c", 12));
+    CHECK_THROWS_WITH_AS(read(truncated.path(), true),
+                         doctest::Contains("is not a valid gzip file"), std::runtime_error);
 }
 
 TEST_CASE("npy header matches numpy's byte for byte") {

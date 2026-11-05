@@ -34,16 +34,23 @@ namespace hicx::fasta {
 
 // Bio.SeqIO.parse(handle, 'fasta'), one record at a time. `visit` receives the
 // record name and its sequence with spaces and carriage returns removed, as
-// SimpleFastaParser produces it. `gzipped` selects the gzip reader; the caller
-// decides, because the Python decides from the file name alone through
-// mimetypes.guess_type and not from the file's magic bytes.
+// SimpleFastaParser produces it. `gzipped` selects the gzip reader.
+//
+// Input the Python reads as an empty genome or fails on with a traceback is
+// an error here, with a message that names the file: a sequence line holding
+// binary bytes (a compressed file the gzip check did not recognise, or no
+// FASTA at all), a gzip stream that is corrupt or cut short, and a file with
+// no '>' header line at all.
 void read_fasta(const std::string& path, bool gzipped,
                 const std::function<void(const std::string& name,
                                          const std::string& sequence)>& visit);
 
-// mimetypes.guess_type(name)[1] == 'gzip', which is true only for a name
-// ending in '.gz'. A '.bz2' name reports 'bzip2', which the Python compares
-// against 'gzip' and then opens as plain text.
+// Whether the file starts with the gzip magic bytes 1f 8b. The Python decides
+// from the name alone (mimetypes.guess_type), so a gzip file without '.gz',
+// such as a Galaxy dataset, or a plain file named '.gz' made it fail with a
+// UnicodeDecodeError; the content decides here, which changes nothing for the
+// files the Python reads correctly. A missing or unreadable file is reported
+// by the reader, so it counts as not gzipped.
 [[nodiscard]] bool looks_gzipped(const std::string& path);
 
 // str(Seq(text).reverse_complement()).

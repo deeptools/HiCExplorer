@@ -94,12 +94,7 @@ def test_fasta_two_patterns():
 
 
 def test_gz_and_plain_agree():
-    """The two readers must produce the same file, not merely a similar one.
-
-    mimetypes.guess_type decides which one runs, off the file name alone
-    (hicFindRestSite.py:108), so this is also the test that a port keeps that
-    decision rule rather than sniffing the magic bytes.
-    """
+    """The two readers must produce the same file, not merely a similar one."""
     from_gz = NamedTemporaryFile(suffix='.bed', delete=False)
     from_gz.close()
     from_plain = NamedTemporaryFile(suffix='.bed', delete=False)
@@ -209,3 +204,34 @@ def test_output_is_sorted_by_chromosome_then_numeric_start():
     assert len(set(keys)) == len(keys)
 
     os.unlink(outfile.name)
+
+
+def test_gzip_is_recognised_by_its_content_not_its_name(tmp_path):
+    """A Galaxy dataset is called dataset_<id>.dat whatever it holds.
+
+    3.7.6 chose the reader from the file name and failed with a
+    UnicodeDecodeError on such a file; the content decides now.
+    """
+    galaxy_dataset = tmp_path / 'dataset_1.dat'
+    with open(ROOT + 'dm3_chrM.fasta.gz', 'rb') as source:
+        galaxy_dataset.write_bytes(source.read())
+    outfile = tmp_path / 'sites.bed'
+    hicFindRestSite.main("-f {} -p AAGCTT -o {}".format(
+        galaxy_dataset, outfile).split())
+    assert_files_identical(ROOT + 'hindIII_chrM.bed', str(outfile))
+
+
+@pytest.mark.parametrize('content, message', [
+    (b'BZh91AY&SY\x01\x02', b'is not a FASTA file: line 1 holds the binary byte'),
+    (b'ACGT\nACGT\n', b"no line starts with '>'"),
+    (b'\x1f\x8b\x08\x00\x00\x00\x00\x00\x00\x03KL', b'is not a valid gzip file'),
+])
+def test_input_that_is_not_fasta_is_an_error(tmp_path, capfd, content, message):
+    """bzip2, a file without a header line and a cut gzip stop with a message."""
+    fasta = tmp_path / 'genome.fa'
+    fasta.write_bytes(content)
+    with pytest.raises(SystemExit) as error:
+        hicFindRestSite.main("-f {} -p AAGCTT -o {}".format(
+            fasta, tmp_path / 'sites.bed').split())
+    assert error.value.code == 1
+    assert message in capfd.readouterr().err.encode()
