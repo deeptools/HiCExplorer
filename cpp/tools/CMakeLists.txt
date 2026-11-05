@@ -1,6 +1,12 @@
 # One executable per HiCExplorer tool. Add new tools to the list below; each
 # name must match a <name>.cpp in this directory and the Python tool it ports.
 
+# Every executable of this directory reports an escaped exception or a crash
+# with a message instead of ending silently (crash_report.cpp). link_libraries
+# applies to the targets created after it, which are all of them.
+add_library(hicx_crash_report OBJECT crash_report.cpp)
+link_libraries(hicx_crash_report)
+
 set(HICX_TOOLS
     hicAggregateContacts
     hicAdjustMatrix
