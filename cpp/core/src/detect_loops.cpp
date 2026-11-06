@@ -543,37 +543,22 @@ CandidateTest test_candidate(const CsrMatrix& obs_exp, const Candidate& candidat
     }
     const double value = element(obs_exp, candidate.row, candidate.col);
 
-    // np.array(np.where(block == value)).flatten() is
-    // [rows..., columns...]; the code then reads element 0 and element 1.
-    std::int64_t first_row = -1;
-    std::int64_t second_entry = -1;
-    std::int64_t first_column = -1;
-    std::int64_t matches = 0;
-    for (std::int64_t r = 0; r < block.rows && matches < 2; ++r) {
-        for (std::int64_t c = 0; c < block.cols; ++c) {
-            if (block.at(r, c) != value) {
-                continue;
-            }
-            if (matches == 0) {
-                first_row = r;
-                first_column = c;
-            } else {
-                second_entry = r;
-            }
-            ++matches;
-            if (matches >= 2) {
-                break;
-            }
-        }
-    }
-    if (matches == 0) {
-        // np.where found no match (a NaN candidate value): peak_region[0]
-        // raises IndexError
+    // The candidate sits at (row - start_x, col - start_y) of its own window.
+    // 3.7.6 searched the window for the value with np.where, flattened the
+    // result to [rows..., columns...] and read its elements 0 and 1 as the
+    // (row, column) of the peak. That is the candidate only when the value
+    // occurs once in the window; with two or more matches element 1 is the
+    // second row index and the window was cut around a position that is not
+    // the candidate. HiCExplorer 4 uses the candidate's own position.
+    const std::int64_t peak_row = candidate.row - start_x;
+    const std::int64_t peak_col = candidate.col - start_y;
+    if (peak_row < 0 || peak_row >= block.rows || peak_col < 0 || peak_col >= block.cols ||
+        block.at(peak_row, peak_col) != value) {
+        // a NaN candidate value matches nothing (np.where was empty and
+        // peak_region[0] raised IndexError)
         result.outcome = CandidateTest::Outcome::NoPeak;
         return result;
     }
-    const std::int64_t peak_row = first_row;
-    const std::int64_t peak_col = matches > 1 ? second_entry : first_column;
     if (peak_window_size > window_size) {
         // :537-540 logs a warning and returns (None, None) from the worker
         result.outcome = CandidateTest::Outcome::PeakWiderThanWindow;

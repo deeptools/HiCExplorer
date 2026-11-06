@@ -208,18 +208,29 @@ def test_committed_reference_loops_bedgraph_is_not_reproduced():
 
 # ---------------------------------------------------------------------------
 # Full precision expectations, one per option path
+#
+# The expectations on the h5 matrix are HiCExplorer 4 output because of the fix
+# of candidate_region_test: 3.7.6 cut the window around a wrong position
+# whenever the candidate's value occurs more than once in its window, which is
+# frequent on the integer obs/exp matrix of an h5 count matrix. The default
+# path gives 27 loops on chr2L (3.7.6: 25), -w 7 -pw 3 14 (11), the
+# mean_nonzero_ligation path 65 (62), and the whole matrix 63 (52). The
+# mean_nonzero path (float obs/exp, no ties) and Li_et_al_2015.h5 are
+# unchanged. Lines that did not change keep the p-value text of 3.7.6.
 
 
 CHR2L_DEFAULT_EXPECTED = """
 chr2L	485000	490000	chr2L	490000	495000	0.4385623894062053
 chr2L	960000	965000	chr2L	1045000	1050000	0.4016704795074202
 chr2L	1190000	1195000	chr2L	1195000	1200000	0.21901405427555742
+chr2L	2080000	2085000	chr2L	2130000	2135000	0.21901405427555734
 chr2L	2950000	2955000	chr2L	2965000	2970000	0.09730180547398455
 chr2L	3385000	3390000	chr2L	3390000	3395000	0.3179460186301115
+chr2L	4360000	4365000	chr2L	4370000	4375000	0.21901405427555734
 chr2L	4420000	4425000	chr2L	4430000	4435000	0.3565987181527521
-chr2L	5200000	5205000	chr2L	5205000	5210000	0.24787229188765736
 chr2L	5260000	5265000	chr2L	5265000	5270000	0.14527668564350318
 chr2L	7475000	7480000	chr2L	7480000	7485000	0.12442987548470683
+chr2L	8325000	8330000	chr2L	8400000	8405000	0.3565987181527522
 chr2L	8675000	8680000	chr2L	8680000	8685000	0.3133150561644056
 chr2L	8960000	8965000	chr2L	9185000	9190000	0.3565987181527521
 chr2L	8965000	8970000	chr2L	9195000	9200000	0.3565987181527521
@@ -260,16 +271,15 @@ def test_h5_all_chromosomes_full_precision():
         "--matrix {} -o {{out}} -pit 1 -p 0.5 -pp 0.5 -t 1 -tpc 1".format(
             MATRIX_H5))
     assert lines is not None
-    assert len(lines) == 52
+    assert len(lines) == 63
     # Only two of the 15 chromosomes produce any loop at all, and they come out
     # in bin table order, which puts chr3L before chr2L.
-    assert [line.split("\t")[0] for line in lines] == ["chr3L"] * 27 + ["chr2L"] * 25
+    assert [line.split("\t")[0] for line in lines] == ["chr3L"] * 36 + ["chr2L"] * 27
     assert_line(lines[0], "chr3L\t125000\t130000\tchr3L\t135000\t140000\t"
                 "0.3633174801431127")
-    assert_line(lines[26], "chr3L\t21545000\t21550000\tchr3L\t21550000\t21555000\t"
-                "0.16869892359210836")
+    assert_line(lines[35], "chr3L\t21545000\t21550000\tchr3L\t21550000\t21555000\t0.16869892359210825")
     # The chr2L block is exactly the single chromosome run, line for line.
-    assert_lines(lines[27:], CHR2L_DEFAULT_EXPECTED)
+    assert_lines(lines[36:], CHR2L_DEFAULT_EXPECTED)
 
 
 CHR2L_MEAN_NONZERO_EXPECTED = """
@@ -330,11 +340,11 @@ def test_h5_expected_mean_nonzero_ligation():
         "--expected mean_nonzero_ligation -pit 1 -p 0.5 -pp 0.5 "
         "-t 1 -tpc 1".format(MATRIX_H5))
     assert lines is not None
-    assert len(lines) == 62
+    assert len(lines) == 65
     assert_line(lines[0], "chr2L\t220000\t225000\tchr2L\t240000\t245000\t"
                 "0.4016704795074202")
     assert_line(lines[-1], "chr2L\t22035000\t22040000\tchr2L\t22170000\t22175000\t"
-                "0.398086603716326")
+                "0.3980866037163259")
     # Every line is a chr2L intra chromosomal pair with seven fields and a
     # p-value at or below the --pValue of 0.5.
     for line in lines:
@@ -347,12 +357,15 @@ def test_h5_expected_mean_nonzero_ligation():
 CHR2L_WINDOW7_EXPECTED = """
 chr2L	485000	490000	chr2L	490000	495000	0.30371216516921395
 chr2L	950000	955000	chr2L	1105000	1110000	0.38243248357483484
+chr2L	2205000	2210000	chr2L	2210000	2215000	0.15982351662788635
 chr2L	2950000	2955000	chr2L	2965000	2970000	0.14387965556669857
 chr2L	4360000	4365000	chr2L	4370000	4375000	0.38243248357483484
 chr2L	4370000	4375000	chr2L	4375000	4380000	0.4164297080385082
 chr2L	7475000	7480000	chr2L	7480000	7485000	0.2749302852924145
 chr2L	15825000	15830000	chr2L	15980000	15985000	0.41429834009735467
 chr2L	17005000	17010000	chr2L	17020000	17025000	0.45364184883329106
+chr2L	17005000	17010000	chr2L	17285000	17290000	0.3824324835748349
+chr2L	17095000	17100000	chr2L	17360000	17365000	0.3824324835748349
 chr2L	17280000	17285000	chr2L	17290000	17295000	0.38243248357483484
 chr2L	21185000	21190000	chr2L	21205000	21210000	0.2679017767822581
 chr2L	21245000	21250000	chr2L	21275000	21280000	0.23510553107318533
@@ -386,8 +399,8 @@ def test_h5_tight_preselection_changes_the_call_set():
     tight = run_loops(
         "--matrix {} -o {{out}} --chromosomes chr2L -pit 1 -p 0.5 -pp 0.01 "
         "-t 1 -tpc 1".format(MATRIX_H5))
-    assert len(loose) == 25
-    assert len(tight) == 14
+    assert len(loose) == 27
+    assert len(tight) == 15
     assert set(tight).issubset(set(loose))
     assert_line(tight[0], "chr2L\t485000\t490000\tchr2L\t490000\t495000\t"
                 "0.4385623894062053")
@@ -407,7 +420,7 @@ def test_h5_threshold_file_preselection():
         "--matrix {} -o {{out}} --chromosomes chr2L --maxLoopDistance 200000 "
         "-pp {} -pit 1 -p 0.5 -t 1 -tpc 1".format(MATRIX_H5, THRESHOLD_FILE))
     assert lines is not None
-    assert len(lines) == 22
+    assert len(lines) == 24
     assert_line(lines[0], "chr2L\t485000\t490000\tchr2L\t490000\t495000\t"
                 "0.4385623894062053")
     assert_line(lines[-1], "chr2L\t22030000\t22035000\tchr2L\t22160000\t22165000\t"
@@ -425,7 +438,7 @@ def test_h5_max_loop_distance_filters_the_calls():
         "--matrix {} -o {{out}} --chromosomes chr2L --maxLoopDistance 100000 "
         "-pit 1 -p 0.5 -pp 0.5 -t 1 -tpc 1".format(MATRIX_H5))
     assert lines is not None
-    assert len(lines) == 19
+    assert len(lines) == 22
     for line in lines:
         fields = line.split("\t")
         assert abs(int(fields[1]) - int(fields[4])) <= 100000
@@ -482,9 +495,9 @@ def test_h5_obs_exp_threshold_and_peak_interactions_threshold():
     assert run_loops(
         "--matrix {} -o {{out}} --chromosomes chr2L -t 1 -tpc 1".format(
             MATRIX_H5), expect_exit=1) is None
-    # --peakInteractionsThreshold on its own: 1 gives the 25 loops above and
+    # --peakInteractionsThreshold on its own: 1 gives the 27 loops above and
     # 20 gives none, so this pins that the raw count mask is applied at all.
-    # Without it the 20 run would produce the same 25 loops.
+    # Without it the 20 run would produce the same 27 loops.
     assert run_loops(
         "--matrix {} -o {{out}} --chromosomes chr2L -pit 20 -p 0.5 -pp 0.5 "
         "-t 1 -tpc 1".format(MATRIX_H5), expect_exit=1) is None
@@ -619,7 +632,7 @@ def test_output_order_depends_on_scheduling(threads):
 
     main() starts one process per chromosome and appends each result to the
     output as that process happens to finish (hicDetectLoops.py:1060-1066), so
-    with more than one worker the order of the 52 loops is whatever the
+    with more than one worker the order of the 63 loops is whatever the
     scheduler produced. Measured on this matrix: three runs at --threads 4
     gave two distinct orderings, and --threads 8 --threadsPerChromosome 4 gave
     a third. This test asserts the invariant that does hold, and records that
@@ -629,7 +642,7 @@ def test_output_order_depends_on_scheduling(threads):
         "--matrix {} -o {{out}} -pit 1 -p 0.5 -pp 0.5 -t {} -tpc 4".format(
             MATRIX_H5, threads)) for _ in range(2)]
     assert sorted(runs[0]) == sorted(runs[1])
-    assert len(runs[0]) == 52
+    assert len(runs[0]) == 63
     if threads == 1:
         # With one worker the order is defined: chromosomes in bin table order.
         assert runs[0] == runs[1]

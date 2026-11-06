@@ -326,12 +326,14 @@ struct RegionTestResult {
 
 // hicDetectLoops.candidate_region_test (:499-752): the donut test.
 //
-// QUIRK (:534). `np.array(np.where(neighborhood == value)).flatten()` produces
-// [row_0, .., row_{k-1}, col_0, .., col_{k-1}] for k matches, and the code then
-// reads peak_region[0] and peak_region[1] as a (row, column) pair. That is only
-// the position of the peak when the value occurs exactly once in the window.
-// With two or more matches peak_region[1] is the *second row* index, so the
-// window is cut around a position that is not the candidate. Reproduced.
+// Fixed in HiCExplorer 4 (3.7.6 :534). `np.array(np.where(neighborhood ==
+// value)).flatten()` produces [row_0, .., row_{k-1}, col_0, .., col_{k-1}] for
+// k matches, and 3.7.6 read peak_region[0] and peak_region[1] as a (row,
+// column) pair. That is the position of the peak only when the value occurs
+// exactly once in the window; with two or more matches peak_region[1] is the
+// second row index and the window was cut around a position that is not the
+// candidate. The window is now cut around the candidate's own position, which
+// is the same position whenever the value occurs once.
 [[nodiscard]] RegionTestResult candidate_region_test(
     const CsrMatrix& obs_exp, const std::vector<Candidate>& candidates,
     std::int64_t window_size, double p_value, std::int64_t peak_window_size,

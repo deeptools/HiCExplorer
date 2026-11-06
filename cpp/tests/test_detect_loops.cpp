@@ -470,3 +470,25 @@ TEST_CASE("the AVX2 reduction agrees with the scalar one on this tool's arrays")
         }
     }
 }
+
+TEST_CASE("candidate_region_test cuts the window around the candidate when its value occurs twice") {
+    // The peak value 40 occurs at (8, 12) and again at (6, 10), both inside
+    // the window of the candidate (8, 12). 3.7.6 read the second row index of
+    // np.where as the column and cut the window around another position;
+    // HiCExplorer 4 cuts it around the candidate. The reference p-value is
+    // scipy.stats.ranksums of the 3 x 3 peak around (8, 12) against the rest
+    // of the 7 x 7 window (0.3870572964062122).
+    std::vector<std::vector<double>> dense(20, std::vector<double>(20, 0.0));
+    for (std::size_t r = 0; r < 20; ++r) {
+        for (std::size_t c = r + 1; c < 20; ++c) {
+            dense[r][c] = 1.0 + static_cast<double>((r * 7 + c * 3) % 5);
+        }
+    }
+    dense[8][12] = 40.0;
+    dense[6][10] = 40.0;
+    const std::vector<hicx::loops::Candidate> candidates{{8, 12}};
+    const hicx::loops::RegionTestResult result =
+        hicx::loops::candidate_region_test(from_dense(dense), candidates, 3, 1.0, 1, 1);
+    REQUIRE(result.candidates.size() == 1);
+    CHECK(result.pvalues[0] == doctest::Approx(0.3870572964062122).epsilon(1e-9));
+}

@@ -18,8 +18,18 @@ cases that take one compare the results, the namespace after the call and
 whether the hiCMatrix still has its matrix (compute_long_range_contacts
 deletes it). The timing of the 3.7.6 queue polling (one second sleeps) is
 not compared.
+
+HiCExplorer 4 cuts the window of the donut test around the candidate itself
+(3.7.6 cut it around a wrong position whenever the candidate's value occurs
+more than once in its window, which is frequent on an integer obs/exp matrix).
+The cases whose accepted candidates change carry a `deviation` (see
+test_api_equivalence.py) in place of the comparison with 3.7.6: with the
+accepted candidates, their p-values and the masks blinded, the record must
+equal 3.7.6's (arguments, namespace, logs, shapes), and every candidate both
+versions accept must carry the same p-value.
 """
 import os
+import re
 
 import numpy as np
 import scipy.sparse as sp
@@ -416,3 +426,81 @@ for _case in CASES:
         _case.rtol = 1e-12
         _case.note = (_case.note + '; ' if _case.note else '') + (
             'Boost.Math special functions round the last bits of the p-values differently from scipy 1.14')
+
+
+# The accepted candidates of the donut test, three shapes: a list of loops
+# (7-tuples), a pair (candidates (n, 2), p-values (n,)) of arrays, and a boolean
+# mask over the candidates followed by the p-values of the accepted ones.
+def _is_loop(node):
+    return (isinstance(node, tuple) and len(node) == 2 and node[0] == 'tuple' and len(node[1]) == 7
+            and isinstance(node[1][0], tuple) and node[1][0][0] == 'npscalar')
+
+
+def _blind(node, found):
+    """node with the accepted candidates replaced by a marker; found collects them."""
+    if isinstance(node, tuple) and len(node) == 2 and node[0] in ('list', 'tuple'):
+        items = node[1]
+        if node[0] == 'list' and items and all(_is_loop(i) for i in items):
+            for loop in items:
+                fields = loop[1]
+                found[tuple(f[2] for f in fields[:6])] = fields[6][2][1]
+            return ('accepted', 'loops')
+        if (node[0] == 'tuple' and len(items) == 2 and isinstance(items[0], tuple) and items[0][0] == 'ndarray'
+                and items[0][2] == '<i4' and len(items[0][3]) == 2 and items[0][3][1] == 2
+                and isinstance(items[1], tuple) and items[1][0] == 'ndarray' and items[1][2] == '<f8'):
+            pairs = list(zip(items[0][4][0::2], items[0][4][1::2]))
+            for pair, value in zip(pairs, items[1][4]):
+                found[pair] = value[1]
+            return ('accepted', 'arrays')
+        if (node[0] == 'list' and len(items) == 2 and isinstance(items[0], tuple) and items[0][0] == 'list'
+                and items[0][1] and all(i[0] == 'const' and i[1] in ('True', 'False') for i in items[0][1])
+                and isinstance(items[1], tuple) and items[1][0] == 'list'):
+            accepted = [k for k, i in enumerate(items[0][1]) if i[1] == 'True']
+            for k, value in zip(accepted, items[1][1]):
+                found[k] = value[2][1]
+            return ('accepted', 'mask')
+        return (node[0], [_blind(i, found) for i in items])
+    if isinstance(node, dict):
+        return {k: _blind(v, found) for k, v in node.items()}
+    return node
+
+
+def window_fix(expected, actual):
+    """Deviation of the cases whose accepted candidates change with the fix."""
+    from apieq import compare
+    if ('raise' in expected) or ('raise' in actual):
+        return 'the case raised: {!r} against {!r}'.format(actual.get('raise'), expected.get('raise'))
+    old, new = {}, {}
+
+    def blind(record, found):
+        out = {k: (_blind(v, found) if k == 'return' else v) for k, v in record.items()}
+        # the log lines that count the accepted loops
+        out['logs'] = [(n, lvl, re.sub(r'(loops.*?): \d+$', r'\1: N', m)) for n, lvl, m in record['logs']]
+        return out
+    blind_old = blind(expected, old)
+    blind_new = blind(actual, new)
+    for key in blind_old:
+        message = compare(blind_old[key], blind_new.get(key), 0.0, 0.0, key)
+        if message:
+            return message
+    if not old or not new:
+        return 'no accepted candidates found in the record'
+    common = set(old) & set(new)
+    if len(common) * 2 < len(old):
+        return 'only {} of the {} candidates of 3.7.6 are accepted again'.format(len(common), len(old))
+    for key in sorted(common, key=str):
+        message = compare(('float', old[key]), ('float', new[key]), 1e-12, 0.0, 'p-value of {}'.format(key))
+        if message:
+            return message
+    return None
+
+
+for _case in CASES:
+    if _case.id in ('candidate_region_test_thread/real', 'candidate_region_test_thread/window_3',
+                    'candidate_region_test/one_thread', 'candidate_region_test/four_threads',
+                    'compute_long_range_contacts/one_thread', 'compute_long_range_contacts/three_threads',
+                    'compute_loops/h5_chr2L', 'compute_loops/h5_chr2L_tight',
+                    'compute_loops/h5_chr2L_threshold_file', 'compute_loops/h5_queue'):
+        _case.deviation = window_fix
+        _case.note = (_case.note + '; ' if _case.note else '') + (
+            'HiCExplorer 4 cuts the donut window around the candidate (see the module docstring)')
