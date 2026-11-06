@@ -77,7 +77,8 @@ MaskState mask_bins(MatrixData& data, const std::vector<std::int64_t>& bin_ids);
 void restore_masked_bins(MatrixData& data, MaskState& state);
 
 // triu(m, 0) - triu(m, limit), then eliminate_zeros: entries at or beyond
-// `limit` cancel, except NaN, which cannot cancel and stays stored.
+// `limit` are dropped. HiCExplorer 4 drops NaN there too; in 3.7.6 a NaN could
+// not cancel (NaN - NaN) and stayed stored.
 void truncate_to_distance(CsrMatrix& matrix, std::int64_t limit);
 
 // --------------------------------------------------------------------------
@@ -163,11 +164,12 @@ struct PeakResult {
                                             const std::string& y_type_name);
 
 // delta_wrt_window (hicFindTADs.py:574-616): for every minimum not within
-// `window_length` of a chromosome range border, the mean of
-// matrix_avg[i - w : i + 3] together with matrix_avg[i + 4 : i + w] minus the
-// score at i. That window includes the minimum itself and the two bins after
-// it and skips i + 3, although the docstring says the minimum is excluded;
-// reproduced. NaN close to a border. The ranges are built from the first
+// `window_length` of a chromosome range border, the mean of the `window_length`
+// scores left and the `window_length` scores right of it (the minimum itself
+// excluded) minus the score at i. HiCExplorer 4 fixes the Python, which
+// averaged matrix_avg[i - w : i + 3] with matrix_avg[i + 4 : i + w]: that
+// window included the minimum and the two bins after it and skipped i + 3.
+// NaN close to a border. The ranges are built from the first
 // index of every chromosome name in sorted name order (np.unique) plus
 // len(chrom) - 1.
 std::map<std::int64_t, double> delta_wrt_window(const std::vector<std::int64_t>& minima,
