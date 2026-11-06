@@ -60,19 +60,20 @@
 //    reference's plot_total_contact_dist. The C++-only option --plotData
 //    writes that data as JSON instead.
 //
-// Reproduced faithfully, including the failures:
+// Three options of the Python never worked; HiCExplorer 4 implements them as
+// their help describes:
 //
-//  * --inflationCutoff without --transCutoff raises UnboundLocalError in the
-//    Python, because pre_row_sum is only assigned inside the --transCutoff
-//    branch (hicCorrectMatrix.py:699 against :770). Exit 1 with the reason.
-//  * --inflationCutoff with --transCutoff then reaches the final
-//    printchrtoremove with bin ids from before the masking, which raises
-//    IndexError as soon as the union it is given differs from the previous
-//    call's argument. Exit 1 with the reason.
-//  * --sequencedCountCutoff asserts that the per bin coverage is a np.float64
-//    (:678). A cool file's cut intervals carry the Python float 1.0, so the
-//    assertion fails and the tool exits non zero on every cool input.
-//  * --transCutoff calls truncTrans, which is a no operation (finding F11).
+//  * --transCutoff clips the inter-chromosomal counts above the (100 -
+//    transCutoff) percentile of all inter-chromosomal counts to that value.
+//    The Python's truncTrans compared where it meant to assign and changed
+//    nothing.
+//  * --inflationCutoff (ICE) masks every bin whose row sum the correction
+//    multiplied by at least the cutoff. The Python read the row sums before
+//    the correction only when --transCutoff was given (UnboundLocalError
+//    otherwise) and then failed with an IndexError on the masked bin ids.
+//  * --sequencedCountCutoff needs the fraction of each bin covered by reads,
+//    which hicBuildMatrix stores in h5 matrices. A cool matrix does not carry
+//    it; the Python failed on an assertion, this port says why.
 
 #include <algorithm>
 #include <cctype>
@@ -97,6 +98,7 @@
 #include "hicx/math/sparse_kernels.hpp"
 #include "hicx/matrix_ops.hpp"
 #include "hicx/numpy_compat.hpp"
+#include "hicx/numpy_stats.hpp"
 #include "hicx/plot_bridge.hpp"
 #include "hicx/resource_usage.hpp"
 #include "hicx/tool_matrix.hpp"
@@ -160,14 +162,16 @@ const char* const kCorrectHelp =
     "                        Number of iterations to compute. Only for ICE!\n"
     "                        (Default: 500).\n"
     "  --inflationCutoff INFLATIONCUTOFF\n"
-    "                        Maximum number of times a bin can be scaled up during the\n"
-    "                        iterative correction. Only for ICE!\n"
+    "                        Masks every bin whose row sum the iterative correction\n"
+    "                        multiplied by this factor or more. Only for ICE!\n"
     "  --transCutoff TRANSCUTOFF, -transcut TRANSCUTOFF\n"
-    "                        Clip high counts in the top -transcut trans regions.\n"
-    "                        Only for ICE!\n"
+    "                        Clips the inter-chromosomal counts above the (100 -\n"
+    "                        TRANSCUTOFF) percentile of all inter-chromosomal counts\n"
+    "                        to that percentile, e.g. 0.05. Only for ICE!\n"
     "  --sequencedCountCutoff SEQUENCEDCOUNTCUTOFF\n"
-    "                        Discard bins covered by fewer reads than this fraction.\n"
-    "                        Only for ICE!\n"
+    "                        Discard bins covered by reads on less than this\n"
+    "                        fraction. Needs the h5 matrix of hicBuildMatrix, which\n"
+    "                        stores the fraction. Only for ICE!\n"
     "  --chromosomes CHROMOSOMES [CHROMOSOMES ...]\n"
     "                        List of chromosomes to be included in the correction.\n"
     "  --skipDiagonal, -s    If set, diagonal counts are not included. Only for ICE!\n"
@@ -336,13 +340,16 @@ Arguments parse_arguments(int argc, char** argv) {
         .help("Number of iterations to compute. Only for ICE!");
     optional.add({"--inflationCutoff"})
         .type("float")
-        .help("Maximum number of times a bin can be scaled up during the iterative correction.");
+        .help("Masks every bin whose row sum the iterative correction multiplied by this factor "
+              "or more. Only for ICE!");
     optional.add({"--transCutoff", "-transcut"})
         .type("float")
-        .help("Clip high counts in the top -transcut trans regions. Only for ICE!");
+        .help("Clips the inter-chromosomal counts above the (100 - TRANSCUTOFF) percentile of all "
+              "inter-chromosomal counts to that percentile, e.g. 0.05. Only for ICE!");
     optional.add({"--sequencedCountCutoff"})
         .type("float")
-        .help("Discard bins covered by reads on less than this fraction. Only for ICE!");
+        .help("Discard bins covered by reads on less than this fraction. Needs the h5 matrix of "
+              "hicBuildMatrix, which stores the fraction. Only for ICE!");
     optional.add({"--chromosomes"})
         .nargs("+")
         .help("List of chromosomes to be included in the iterative correction.");
@@ -454,6 +461,44 @@ void drop_non_finite(hicx::CsrMatrix& matrix) {
 // The mask accumulated over the successive maskBins calls, expressed once in
 // the coordinates of the original matrix. hiCMatrix reaches the same state by
 // restoring the previous mask inside every further maskBins call.
+// --transCutoff: every stored inter-chromosomal count above the (100 -
+// percent) percentile of all stored inter-chromosomal counts (numpy's linear
+// percentile) is set to that percentile. Returns the number of counts changed.
+std::size_t clip_trans_contacts(hicx::MatrixData& data, double percent) {
+    const auto& indptr = data.matrix.indptr();
+    const auto& indices = data.matrix.indices();
+    auto& values = data.matrix.mutable_data();
+    const auto rows = static_cast<std::size_t>(data.matrix.rows());
+    auto is_trans = [&](std::size_t row, std::size_t col) {
+        return data.cut_intervals[row].chrom != data.cut_intervals[col].chrom;
+    };
+    std::vector<double> trans;
+    for (std::size_t row = 0; row < rows; ++row) {
+        for (auto k = static_cast<std::size_t>(indptr[row]);
+             k < static_cast<std::size_t>(indptr[row + 1]); ++k) {
+            if (is_trans(row, static_cast<std::size_t>(indices[k]))) {
+                trans.push_back(values[k]);
+            }
+        }
+    }
+    if (trans.empty()) {
+        return 0;
+    }
+    std::sort(trans.begin(), trans.end());
+    const double limit = hicx::npy::quantile_linear_sorted(trans, (100.0 - percent) / 100.0);
+    std::size_t clipped = 0;
+    for (std::size_t row = 0; row < rows; ++row) {
+        for (auto k = static_cast<std::size_t>(indptr[row]);
+             k < static_cast<std::size_t>(indptr[row + 1]); ++k) {
+            if (values[k] > limit && is_trans(row, static_cast<std::size_t>(indices[k]))) {
+                values[k] = limit;
+                ++clipped;
+            }
+        }
+    }
+    return clipped;
+}
+
 struct MaskChain {
     bool active = false;
     std::vector<std::int64_t> kept;
@@ -738,14 +783,10 @@ int main(int argc, char** argv) {
             if (args.sequenced_count_cutoff.has_value() && *args.sequenced_count_cutoff != 0.0 &&
                 *args.sequenced_count_cutoff > 0.0 && *args.sequenced_count_cutoff < 1.0) {
                 if (!ends_with(args.matrix, ".h5")) {
-                    // hicCorrectMatrix.py:678. A cool file's cut intervals
-                    // carry the Python float 1.0, not a np.float64, so the
-                    // assertion fails before anything is filtered.
-                    std::fputs("hicCorrectMatrix: AssertionError: "
-                               "hicCorrectMatrix.py:678 asserts that the per bin coverage is "
-                               "a numpy.float64. A cool file's cut intervals carry the "
-                               "Python float 1.0, so --sequencedCountCutoff fails on every "
-                               "cool input.\n",
+                    std::fputs("hicCorrectMatrix: error: --sequencedCountCutoff needs the "
+                               "fraction of each bin covered by reads, which hicBuildMatrix "
+                               "stores in h5 matrices only; a cool matrix does not carry it. "
+                               "Use the h5 matrix of hicBuildMatrix or leave the option out.\n",
                                stderr);
                     return 1;
                 }
@@ -770,32 +811,22 @@ int main(int argc, char** argv) {
 
             if (args.trans_cutoff.has_value() && *args.trans_cutoff > 0.0 &&
                 *args.trans_cutoff < 100.0) {
-                // ma.truncTrans is a no operation, finding F11: it unpacks a
-                // 3-tuple into 2 names and then compares where it meant to
-                // assign. Reproduced as the no operation it is.
-                log_info(args.verbose, "truncTrans is a no operation in the reference");
+                const std::size_t clipped = clip_trans_contacts(data, *args.trans_cutoff);
+                log_info(args.verbose, "Inter-chromosomal contacts clipped: " +
+                                           std::to_string(clipped));
             }
         }
 
-        if (args.inflation_cutoff.has_value() && *args.inflation_cutoff > 0.0 &&
-            args.method == Method::Ice) {
-            if (!args.trans_cutoff.has_value() || !(*args.trans_cutoff > 0.0) ||
-                !(*args.trans_cutoff < 100.0)) {
-                std::fputs("hicCorrectMatrix: UnboundLocalError: cannot access local "
-                           "variable 'pre_row_sum' where it is not associated with a value. "
-                           "hicCorrectMatrix.py:699 assigns pre_row_sum only inside the "
-                           "--transCutoff branch, and :770 reads it for --inflationCutoff, "
-                           "so --inflationCutoff without --transCutoff cannot work.\n",
-                           stderr);
-                return 1;
-            }
-            std::fputs("hicCorrectMatrix: IndexError: list index out of range. "
-                       "hicCorrectMatrix.py:776 passes the union of the MAD outliers and the "
-                       "inflated bins to printchrtoremove, whose ids index the matrix as it "
-                       "was before the masking, so the lookup runs past the end of the "
-                       "shortened cut_intervals. --inflationCutoff cannot complete.\n",
-                       stderr);
-            return 1;
+        // --inflationCutoff compares each bin's row sum after ICE with its row
+        // sum before, both over the part of the matrix ICE corrects (the whole
+        // matrix, or each chromosome's block with --perchr).
+        const bool check_inflation = args.inflation_cutoff.has_value() &&
+                                     *args.inflation_cutoff > 0.0 && args.method == Method::Ice;
+        std::vector<double> pre_row_sum;
+        std::vector<double> after_row_sum;
+        if (check_inflation) {
+            pre_row_sum.assign(static_cast<std::size_t>(data.matrix.rows()), 0.0);
+            after_row_sum.assign(static_cast<std::size_t>(data.matrix.rows()), 0.0);
         }
 
         std::vector<double> correction_factors;
@@ -826,7 +857,15 @@ int main(int argc, char** argv) {
                     hicx::ice::Options options;
                     options.max_iterations = args.iter_num;
                     options.threads = threads;
+                    if (check_inflation) {
+                        hicx::kernels::symmetric_marginals(
+                            block, pre_row_sum.data() + entry.second.first, threads);
+                    }
                     const hicx::ice::Result result = hicx::ice::correct(block, options);
+                    if (check_inflation && !result.failed) {
+                        hicx::kernels::symmetric_marginals(
+                            block, after_row_sum.data() + entry.second.first, threads);
+                    }
                     if (result.failed) {
                         std::fprintf(stderr, "ERROR:hicexplorer.iterativeCorrection:%s\n",
                                      result.message.c_str());
@@ -881,7 +920,13 @@ int main(int argc, char** argv) {
                 hicx::ice::Options options;
                 options.max_iterations = args.iter_num;
                 options.threads = threads;
+                if (check_inflation) {
+                    hicx::kernels::symmetric_marginals(block, pre_row_sum.data(), threads);
+                }
                 const hicx::ice::Result result = hicx::ice::correct(block, options);
+                if (check_inflation && !result.failed) {
+                    hicx::kernels::symmetric_marginals(block, after_row_sum.data(), threads);
+                }
                 if (result.failed) {
                     std::fprintf(stderr, "ERROR:hicexplorer.iterativeCorrection:%s\n",
                                  result.message.c_str());
@@ -933,6 +978,35 @@ int main(int argc, char** argv) {
                     data.matrix.mutable_data() = std::move(raw_values);
                 }
                 factors_are_column = true;
+            }
+        }
+
+        if (check_inflation) {
+            std::vector<char> masked(static_cast<std::size_t>(data.matrix.rows()), 0);
+            std::size_t inflated = 0;
+            for (std::size_t bin = 0; bin < masked.size(); ++bin) {
+                if (pre_row_sum[bin] > 0.0 &&
+                    after_row_sum[bin] / pre_row_sum[bin] >= *args.inflation_cutoff) {
+                    masked[bin] = 1;
+                    ++inflated;
+                }
+            }
+            log_info(args.verbose, "inflated >=" + hicx::npy::float_repr(*args.inflation_cutoff) +
+                                       " regions: " + std::to_string(inflated));
+            if (inflated > 0) {
+                std::vector<double> kept_factors;
+                kept_factors.reserve(correction_factors.size() - inflated);
+                for (std::size_t bin = 0; bin < masked.size(); ++bin) {
+                    if (masked[bin] == 0) {
+                        kept_factors.push_back(correction_factors[bin]);
+                    }
+                }
+                correction_factors = std::move(kept_factors);
+                for (const std::int64_t bin : data.nan_bins) {
+                    masked[static_cast<std::size_t>(bin)] = 1;
+                }
+                apply_mask(data, chain, masked);
+                hic.refresh_boundaries();
             }
         }
 

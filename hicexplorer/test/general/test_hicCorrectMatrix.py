@@ -442,82 +442,68 @@ def test_char_ICE_skipDiagonal():
     os.unlink(outfile.name)
 
 
-def test_char_ICE_transCutoff_is_a_no_operation():
-    """--transCutoff calls hiCMatrix.truncTrans, which does nothing.
+def test_ICE_transCutoff_clips_inter_chromosomal_counts():
+    """--transCutoff clips the inter-chromosomal counts above the (100 -
+    transCutoff) percentile to that value.
 
-    HiCMatrix.py:902-919 unpacks a three value return into two names and then
-    compares with == where it meant to assign, so no count is ever clipped. The
-    option is reproduced as the no operation it is, and this test is what says
-    so: the output is identical to a run without it.
+    The Python's hiCMatrix.truncTrans compared with == where it meant to
+    assign and changed nothing; HiCExplorer 4 clips as the help describes, so
+    the corrected matrix differs from a run without the option.
+    """
+    plain = NamedTemporaryFile(suffix='.cool', delete=False)
+    plain.close()
+    clipped = NamedTemporaryFile(suffix='.cool', delete=False)
+    clipped.close()
+    base = ("correct --matrix {} --correctionMethod ICE --filterThreshold -1.5 5.0 "
+            "--outFileName {}")
+    matrix = ROOT + "hicCorrectMatrix/gm12878_raw_values.cool"
+    _run(base.format(matrix, plain.name))
+    _run(base.format(matrix, clipped.name) + " --transCutoff 1")
+    a = _cool_summary(plain.name)
+    b = _cool_summary(clipped.name)
+    assert not np.array_equal(a['weight'], b['weight'], equal_nan=True)
+    os.unlink(plain.name)
+    os.unlink(clipped.name)
+
+
+@pytest.mark.parametrize("trans_cutoff", ["", " --transCutoff 5"])
+def test_ICE_inflationCutoff_masks_inflated_bins(trans_cutoff):
+    """--inflationCutoff masks the bins whose row sum ICE multiplied by the
+    cutoff or more, with or without --transCutoff.
+
+    In the Python the option failed in both cases (UnboundLocalError on
+    pre_row_sum, IndexError with --transCutoff). On chrUextra and chr3LHet a
+    cutoff of 1.2 masks 60 more bins than the run without it.
     """
     plain = NamedTemporaryFile(suffix='.h5', delete=False)
     plain.close()
-    truncated = NamedTemporaryFile(suffix='.h5', delete=False)
-    truncated.close()
+    masked = NamedTemporaryFile(suffix='.h5', delete=False)
+    masked.close()
     base = ("correct --matrix {} --correctionMethod ICE --chromosomes chrUextra "
             "chr3LHet --filterThreshold -1.5 5.0 --outFileName {}")
-    _run(base.format(ROOT + "small_test_matrix.h5", plain.name))
-    _run(base.format(ROOT + "small_test_matrix.h5", truncated.name) + " --transCutoff 5")
+    _run(base.format(ROOT + "small_test_matrix.h5", plain.name) + trans_cutoff)
+    _run(base.format(ROOT + "small_test_matrix.h5", masked.name) + trans_cutoff +
+         " --inflationCutoff 1.2")
     a = _h5_summary(plain.name)
-    b = _h5_summary(truncated.name)
-    nt.assert_equal(a['sum'], b['sum'])
-    nt.assert_equal(a['nnz'], b['nnz'])
-    nt.assert_equal(a['correction_factors'], b['correction_factors'])
+    b = _h5_summary(masked.name)
+    assert len(b['nan_bins']) == len(a['nan_bins']) + 60
     os.unlink(plain.name)
-    os.unlink(truncated.name)
+    os.unlink(masked.name)
 
 
-def test_char_ICE_inflationCutoff_without_transCutoff_raises():
-    """--inflationCutoff cannot work: pre_row_sum is only assigned inside the
-    --transCutoff branch (hicCorrectMatrix.py:699) and read unconditionally at
-    :770."""
-    outfile = NamedTemporaryFile(suffix='.h5', delete=False)
-    outfile.close()
-    args = ("correct --matrix {} --correctionMethod ICE --chromosomes chrUextra "
-            "chr3LHet --filterThreshold -1.5 5.0 --inflationCutoff 3 --outFileName "
-            "{}".format(ROOT + "small_test_matrix.h5", outfile.name)).split()
-    with pytest.raises(Exception) as error:
-        hicCorrectMatrix.main(args)
-    assert 'pre_row_sum' in str(error.value)
-    os.unlink(outfile.name)
-
-
-def test_char_ICE_inflationCutoff_with_transCutoff_raises():
-    """With --transCutoff the run gets past pre_row_sum and dies later instead.
-
-    hicCorrectMatrix.py:776 hands printchrtoremove the union of the MAD outliers
-    and the inflated bins. Those ids index the matrix as it was before the
-    masking, and the union differs from the previous call's argument, so the
-    early return on an unchanged argument does not fire and the lookup runs past
-    the end of the shortened cut_intervals.
+def test_ICE_sequencedCountCutoff_on_a_cool_input_is_an_error(tmp_path, capfd):
+    """--sequencedCountCutoff needs the fraction of each bin covered by reads,
+    which only the h5 matrices of hicBuildMatrix store. A cool input stops with
+    a message instead of the Python's assertion failure.
     """
-    outfile = NamedTemporaryFile(suffix='.h5', delete=False)
-    outfile.close()
-    args = ("correct --matrix {} --correctionMethod ICE --chromosomes chrUextra "
-            "chr3LHet --filterThreshold -1.5 5.0 --transCutoff 5 --inflationCutoff 3 "
-            "--outFileName {}".format(ROOT + "small_test_matrix.h5",
-                                      outfile.name)).split()
-    with pytest.raises(IndexError):
-        hicCorrectMatrix.main(args)
-    os.unlink(outfile.name)
-
-
-def test_char_ICE_sequencedCountCutoff_rejects_a_cool_input():
-    """hicCorrectMatrix.py:678 asserts that the per bin coverage is a np.float64.
-
-    hicmatrix hardcodes the coverage of a cool file's bins to the Python float
-    1.0 (hicmatrix/lib/cool.py:234), so the assertion fails and
-    --sequencedCountCutoff cannot be used with a cool input at all.
-    """
-    outfile = NamedTemporaryFile(suffix='.cool', delete=False)
-    outfile.close()
     args = ("correct --matrix {} --correctionMethod ICE --filterThreshold -1.5 5.0 "
             "--sequencedCountCutoff 0.5 --outFileName {}".format(
                 ROOT + "hicCorrectMatrix/gm12878_raw_values.cool",
-                outfile.name)).split()
-    with pytest.raises(AssertionError):
+                tmp_path / 'out.cool')).split()
+    with pytest.raises(SystemExit) as error:
         hicCorrectMatrix.main(args)
-    os.unlink(outfile.name)
+    assert error.value.code == 1
+    assert '--sequencedCountCutoff needs the fraction' in capfd.readouterr().err
 
 
 def test_char_ICE_perchr_on_a_sparse_selection_exits():

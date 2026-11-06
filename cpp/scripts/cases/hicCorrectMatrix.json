@@ -289,7 +289,7 @@
       }
     ],
     "threads_arg": "--threads",
-    "notes": "--transCutoff calls hiCMatrix.truncTrans, which is a no operation (finding F11), so this must produce the same file as the run without it. Never tested by the Python suite."
+    "notes": "--transCutoff calls hiCMatrix.truncTrans, which is a no operation in the Python (finding F11); HiCExplorer 4 clips the inter-chromosomal counts above the (100 - transCutoff) percentile as the help describes (deliberate fix, project owner 2026-11-06). On chrUextra and chr3LHet nothing is above the 95th percentile, so the output is still that of the run without it."
   },
   {
     "id": "hicCorrectMatrix.ICE.perchr.small_test_matrix.exits_1",
@@ -316,9 +316,10 @@
     "notes": "Every bin of chrUextra survives the MAD filter, the per chromosome correction amplifies the near empty rows without bound and iterativeCorrection.py:80-84 exits 1. The port has to reach the same guard on the same input rather than producing a number."
   },
   {
-    "id": "hicCorrectMatrix.ICE.inflationCutoff.exits_1",
+    "id": "hicCorrectMatrix.ICE.inflationCutoff",
     "tool": "hicCorrectMatrix",
     "tier": 3,
+    "reference": "none",
     "args": [
       "correct",
       "-m",
@@ -336,14 +337,16 @@
       "-o",
       "{out}/ice.h5"
     ],
-    "outputs": [],
-    "expect_exit": 1,
-    "notes": "hicCorrectMatrix.py:699 assigns pre_row_sum only inside the --transCutoff branch and :770 reads it, so --inflationCutoff alone raises UnboundLocalError. Never tested by the Python suite."
+    "outputs": [
+      {"path": "{out}/ice.h5", "format": "h5", "class": "EX"}
+    ],
+    "notes": "Class EX (deliberate deviation, HiCExplorer 4 fix 1, project owner 2026-11-06): --inflationCutoff alone masks the inflated bins and completes. In 3.7.6 hicCorrectMatrix.py:699 assigned pre_row_sum only inside the --transCutoff branch and :770 read it, so the run raised UnboundLocalError and exited 1. Pinned by test_hicCorrectMatrix.py::test_ICE_inflationCutoff_masks_inflated_bins."
   },
   {
-    "id": "hicCorrectMatrix.ICE.inflationCutoff.transCutoff.exits_1",
+    "id": "hicCorrectMatrix.ICE.inflationCutoff.transCutoff",
     "tool": "hicCorrectMatrix",
     "tier": 3,
+    "reference": "none",
     "args": [
       "correct",
       "-m",
@@ -363,9 +366,10 @@
       "-o",
       "{out}/ice.h5"
     ],
-    "outputs": [],
-    "expect_exit": 1,
-    "notes": "With --transCutoff the run gets past pre_row_sum and dies at :776 instead, where printchrtoremove is handed bin ids from before the masking. --inflationCutoff cannot complete in either form."
+    "outputs": [
+      {"path": "{out}/ice.h5", "format": "h5", "class": "EX"}
+    ],
+    "notes": "Class EX (deliberate deviation, HiCExplorer 4 fix 1, project owner 2026-11-06): --inflationCutoff together with --transCutoff completes. In 3.7.6 the run got past pre_row_sum and died at :776, where printchrtoremove was handed bin ids from before the masking. Pinned by test_hicCorrectMatrix.py::test_ICE_inflationCutoff_masks_inflated_bins."
   },
   {
     "id": "hicCorrectMatrix.ICE.sequencedCountCutoff.cool.exits_1",
