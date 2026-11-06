@@ -206,8 +206,8 @@ def _same_apart(expected, actual, ignore):
     warnings is the record of 3.7.6."""
     from apieq import compare
     if 'raise' in actual or 'raise' in expected or _fields(actual) is None or _fields(expected) is None:
-        return 'unexpected record: {!r} against {!r}'.format(actual.get('raise', actual.get('return')),
-                                                           expected.get('raise', expected.get('return')))
+        return 'unexpected record: {!r} against {!r}'.format(
+            actual.get('raise', actual.get('return')), expected.get('raise', expected.get('return')))
     new, old = _fields(actual), _fields(expected)
     if sorted(new) != sorted(old):
         return 'the state has other fields: {} against {}'.format(sorted(new), sorted(old))
