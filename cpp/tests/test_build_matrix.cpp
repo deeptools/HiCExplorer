@@ -497,3 +497,17 @@ TEST_CASE("Q3 and Q4: each mate adds its coverage to its own bin, up to the last
     CHECK(policy.coverage[18] == 1);
     CHECK(policy.coverage[19] == 1);
 }
+
+TEST_CASE("the bin lookup handles bins above 4,294,967,295 bases") {
+    // fixed in HiCExplorer 4: the Python's c_uint intervals wrapped here
+    ChromNames names;
+    const auto bins = sites(names, {{"big", 4000000000LL, 4500000000LL},
+                                    {"big", 4500000000LL, 5000000000LL},
+                                    {"big", 5000000000LL, 5500000000LL}});
+    const BinSearchIndex index(bins, names);
+    const std::uint32_t big = *names.lookup("big");
+    CHECK(index.bin_at(big, 4100000000LL) == 0);
+    CHECK(index.bin_at(big, 4600000000LL) == 1);
+    CHECK(index.bin_at(big, 5200000000LL) == 2);
+    CHECK(!index.bin_at(big, 6000000000LL).has_value());
+}

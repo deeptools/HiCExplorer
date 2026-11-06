@@ -272,7 +272,8 @@ class ProcessDataPolicy {
     hicx::SearchInterval interval(std::int64_t index) {
         if (tree_.fast()) {
             const char* address = tree_.at(index);
-            return {read_uint32(address), read_uint32(address + 4), read_uint32(address + 8)};
+            return {static_cast<std::int64_t>(read_uint32(address)), static_cast<std::int64_t>(read_uint32(address + 4)),
+                    read_uint32(address + 8)};
         }
         const py::object entry = get_index(tree_.object(), index);
         return {static_cast<std::uint32_t>(integer_argument(entry.attr("begin"), "process_data", "a bin begin")),

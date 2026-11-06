@@ -759,9 +759,10 @@ def test_build_matrix_do_test_run_writes_qc_but_no_matrix(tmp_path):
     """--doTestRun and --doTestRunLines, which no test asserted on.
 
     The quick QC mode fills the counters and writes the whole QC folder but
-    never fills the pixel arrays and never saves a matrix. The output file the
-    argument parser created is unlinked and not written back, so nothing is
-    left at that path at all.
+    never fills the pixel arrays and never saves a matrix. The output file named
+    by --outFileName, which exists before the run, is removed, so a test run
+    leaves nothing at that path (HiCExplorer 4 does so for the tool as 3.7.6's
+    argument parser did).
     """
     matrix_file, qc_folder = _small_fixture(
         str(tmp_path), extra="--doTestRun --doTestRunLines 500")

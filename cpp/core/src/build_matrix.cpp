@@ -386,9 +386,7 @@ BinSearchIndex::BinSearchIndex(const std::vector<GenomeInterval>& bins,
                       return a < b;  // the bin id is the tuple's third element
                   });
         for (const std::size_t i : group) {
-            flat_.push_back({static_cast<std::uint32_t>(bins[i].start),
-                             static_cast<std::uint32_t>(bins[i].end),
-                             static_cast<std::uint32_t>(i)});
+            flat_.push_back({bins[i].start, bins[i].end, static_cast<std::uint32_t>(i)});
         }
         end_index = start_index + static_cast<std::int64_t>(group.size()) - 1;
         range_.emplace(chrom, std::make_pair(start_index, end_index));

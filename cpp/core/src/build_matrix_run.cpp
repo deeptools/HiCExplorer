@@ -76,8 +76,8 @@ struct Context {
     std::vector<std::string> pat_forw;
     std::vector<std::string> pat_rev;
     ClassifyOptions options;
-    std::vector<std::uint32_t> coverage_begin;
-    std::vector<std::uint32_t> coverage_end;
+    std::vector<std::int64_t> coverage_begin;
+    std::vector<std::int64_t> coverage_end;
     std::atomic<std::uint32_t>* coverage = nullptr;
     std::size_t coverage_size = 0;
 };
@@ -673,12 +673,12 @@ void run(const Arguments& args, const Hooks& hooks) {
     context.coverage_end.resize(bin_intervals.size());
     std::int64_t coverage_elements = 0;
     for (std::size_t i = 0; i < bin_intervals.size(); ++i) {
-        context.coverage_begin[i] = static_cast<std::uint32_t>(coverage_elements);
+        context.coverage_begin[i] = coverage_elements;
         coverage_elements += (bin_intervals[i].end - bin_intervals[i].start) / 10;
         // Exclusive end (Q4, fixed in HiCExplorer 4: the Python stored the last
         // valid index and then read the cells below it, so the last cell of
         // every bin was neither filled nor read).
-        context.coverage_end[i] = static_cast<std::uint32_t>(coverage_elements);
+        context.coverage_end[i] = coverage_elements;
     }
     std::vector<std::atomic<std::uint32_t>> coverage(
         static_cast<std::size_t>(std::max<std::int64_t>(0, coverage_elements)));
@@ -1005,6 +1005,12 @@ void run(const Arguments& args, const Hooks& hooks) {
     }
 
     if (args.do_test_run) {
+        if (!api) {
+            // A test run writes no matrix, and the empty file the command
+            // line parser created for --outFileName is not left behind.
+            std::error_code ec;
+            std::filesystem::remove(args.out_file_name, ec);
+        }
         return;
     }
 
