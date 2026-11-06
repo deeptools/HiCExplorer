@@ -4,6 +4,9 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
+#include <stdexcept>
+#include <string>
 #include <limits>
 #include <map>
 #include <optional>
@@ -931,6 +934,45 @@ void write_cool(const std::string& uri, MatrixData& data, const CoolSaveOptions&
         matrix.eliminate_zeros();
     } else if (have_factors) {
         write_weight = true;
+    }
+
+    // enforce_integer: np.rint of the counts. 3.7.6 rounded a corrected matrix
+    // (values below 0.5) to all zeros and wrote an empty cool file, exit 0, no
+    // warning. HiCExplorer 4 refuses that, and warns when only some of the
+    // pixels vanish. (A matrix with correction factors was returned to its raw
+    // counts above, so it rounds to the counts it came from.)
+    if (options.enforce_integer) {
+        std::size_t nonzero = 0;
+        std::size_t vanishing = 0;
+        const std::vector<std::int64_t>& ip = matrix.indptr();
+        const std::vector<std::int32_t>& ix = matrix.indices();
+        const std::vector<double>& vals = matrix.data();
+        for (std::int64_t row = 0; row < nbins; ++row) {
+            const auto b = static_cast<std::size_t>(ip[static_cast<std::size_t>(row)]);
+            const auto e = static_cast<std::size_t>(ip[static_cast<std::size_t>(row) + 1]);
+            for (std::size_t k = b; k < e; ++k) {
+                if (options.symmetric && ix[k] < row) {
+                    continue;
+                }
+                if (vals[k] != 0.0) {
+                    ++nonzero;
+                    if (std::nearbyint(vals[k]) == 0.0) {
+                        ++vanishing;
+                    }
+                }
+            }
+        }
+        if (nonzero > 0 && vanishing == nonzero) {
+            throw std::runtime_error(
+                "--enforce_integer would round all " + std::to_string(nonzero) +
+                " pixels to zero: every value is below 0.5, as in a corrected matrix. "
+                "Convert without --enforce_integer, or start from the raw counts.");
+        }
+        if (vanishing > 0) {
+            std::fprintf(stderr,
+                         "WARNING: --enforce_integer rounds %zu of %zu pixels to zero.\n",
+                         vanishing, nonzero);
+        }
     }
 
     // ---- the tables handed to cooler ----

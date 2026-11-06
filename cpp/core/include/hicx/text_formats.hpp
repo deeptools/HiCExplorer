@@ -65,8 +65,9 @@ void write_homer(const std::string& path, const MatrixData& data);
 // --------------------------------------------------------------------------
 // ginteractions
 
-// Writes `path + ".tsv"`, leaving `path` itself alone. That is what the Python
-// does, so --outFileName names a file that is never written.
+// Writes the upper triangle (including the diagonal) to `path`. HiCExplorer
+// 3.7.6 wrote `path + ".tsv"` and left `path` untouched; HiCExplorer 4 writes
+// the file it is given.
 void write_ginteractions(const std::string& path, const MatrixData& data);
 
 // --------------------------------------------------------------------------
@@ -75,9 +76,9 @@ void write_ginteractions(const std::string& path, const MatrixData& data);
 [[nodiscard]] MatrixData read_hicpro(const std::string& matrix_path,
                                      const std::string& bed_path);
 
-// The triplet file and the bed file. Unlike every other writer this one emits
-// all stored entries, not the upper triangle, because Hicpro.save ignores
-// pSymmetric.
+// The triplet file and the bed file. The matrix file holds the upper triangle
+// (bin1 <= bin2, 1-based ids), each contact once, as HiC-Pro matrices do.
+// HiCExplorer 3.7.6 wrote every stored entry, both triangles.
 void write_hicpro(const std::string& matrix_path, const std::string& bed_path,
                   const MatrixData& data);
 

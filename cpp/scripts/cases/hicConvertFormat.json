@@ -29,13 +29,16 @@
   },
   {
     "id": "hicConvertFormat.h5_to_cool.enforce_integer.corrected",
+    "tool": "hicConvertFormat",
     "tier": 1,
+    "reference": "none",
     "args": ["--matrices",
              "{data}/hicDifferentialTAD/GSM2644945_Untreated-R1.100000_chr1.h5",
              "--outFileName", "{out}/matrix.cool",
              "--inputFormat", "h5", "--outputFormat", "cool", "--enforce_integer"],
-    "outputs": [{"path": "{out}/matrix.cool", "format": "cool", "class": "E1"}],
-    "notes": "The data destroying defect, pinned rather than fixed: every value is below 0.5, np.rint sends all 1,252,980 of them to zero, the file is written with sum 0 and the tool exits 0 without a warning. See test_hicConvertFormat.py:435 and the comment in cpp/tools/hicConvertFormat.cpp."
+    "outputs": [{"path": "{out}/matrix.cool", "format": "cool", "class": "EX", "absent": true}],
+    "expect_exit": 1,
+    "notes": "Class EX, deliberate deviation (HiCExplorer 4 fix, 2026-11-06): every value is below 0.5, np.rint would send all 1,252,980 of them to zero. 3.7.6 wrote a cool file with sum 0 and exited 0 without a warning; HiCExplorer 4 exits 1 with a message and writes nothing. Pinned by test_hicConvertFormat.py."
   },
   {
     "id": "hicConvertFormat.cool_to_h5.small_test_matrix",
@@ -98,23 +101,27 @@
   },
   {
     "id": "hicConvertFormat.h5_to_ginteractions.small_test_matrix",
+    "tool": "hicConvertFormat",
     "tier": 1,
+    "reference": "none",
     "args": ["--matrices", "{data}/hicConvertFormat/small_test_matrix.h5",
              "--outFileName", "{out}/matrix.ginteractions",
              "--inputFormat", "h5", "--outputFormat", "ginteractions"],
-    "outputs": [{"path": "{out}/matrix.ginteractions.tsv", "format": "text",
-                 "class": "E0"}],
-    "notes": "35,857 upper triangle entries. The declared output is the '.tsv' sidecar, because --outFileName names a file the tool never writes."
+    "outputs": [{"path": "{out}/matrix.ginteractions", "format": "text",
+                 "class": "EX"}],
+    "notes": "Class EX, deliberate deviation (HiCExplorer 4 fix, 2026-11-06): 3.7.6 wrote '<outFileName>.tsv' and left --outFileName untouched; HiCExplorer 4 writes the named file. Same 35,857 upper triangle entries; the content is pinned by test_hicConvertFormat.py."
   },
   {
     "id": "hicConvertFormat.h5_to_ginteractions.Li_et_al_2015",
+    "tool": "hicConvertFormat",
     "tier": 1,
+    "reference": "none",
     "args": ["--matrices", "{data}/Li_et_al_2015.h5",
              "--outFileName", "{out}/matrix.ginteractions",
              "--inputFormat", "h5", "--outputFormat", "ginteractions"],
-    "outputs": [{"path": "{out}/matrix.ginteractions.tsv", "format": "text",
-                 "class": "E0"}],
-    "notes": "1,661,678 float64 values printed as text, the widest test of the float repr in the tier."
+    "outputs": [{"path": "{out}/matrix.ginteractions", "format": "text",
+                 "class": "EX"}],
+    "notes": "Class EX, deliberate deviation (HiCExplorer 4 fix, 2026-11-06): the file named by --outFileName is written, 3.7.6 wrote '<outFileName>.tsv'. 1,661,678 float64 values printed as text, the widest test of the float repr in the tier."
   },
   {
     "id": "hicConvertFormat.h5_to_hicpro.small_test_matrix",
@@ -162,13 +169,15 @@
   },
   {
     "id": "hicConvertFormat.cool_to_mcool.small_test_matrix_50kb",
+    "tool": "hicConvertFormat",
     "tier": 1,
+    "reference": "none",
     "args": ["--matrices", "{data}/small_test_matrix_50kb_res.cool",
              "--outFileName", "{out}/matrix.mcool",
              "--inputFormat", "cool", "--outputFormat", "mcool",
              "-r", "50000", "100000", "200000"],
-    "outputs": [{"path": "{out}/matrix.mcool", "format": "mcool", "class": "E1"}],
-    "notes": "Three resolutions under /resolutions. 50000 is the source resolution and is copied, the other two go through merge_bins; 200000 loses a chromosome that is too short to merge, so its nchroms is 14 and not 15. Also pins the metadata quirk: hic_metadata is consumed in place, so only the first resolution carries genome-assembly in its metadata attribute, and only the first writes hicmatrix's provenance onto the file root."
+    "outputs": [{"path": "{out}/matrix.mcool", "format": "mcool", "class": "EX"}],
+    "notes": "Three resolutions under /resolutions. 50000 is the source resolution and is copied, the other two go through merge_bins; 200000 loses a chromosome that is too short to merge, so its nchroms is 14 and not 15. Class EX, deliberate deviation (HiCExplorer 4 fix, 2026-11-06): 3.7.6 consumed hic_metadata in place, so only the first resolution carried genome-assembly in its metadata attribute; every resolution carries it now (verified against the 3.7.6 output: the only difference is that attribute of the 100000 and 200000 groups). Only the first still writes hicmatrix's provenance onto the file root. Pinned by test_hicConvertFormat.py."
   },
   {
     "id": "hicConvertFormat.h5_to_mcool.small_test_matrix",
@@ -371,8 +380,9 @@
   },
   {
     "id": "hicConvertFormat.hic_to_ginteractions.SRR1791297_30.250000",
+    "tool": "hicConvertFormat",
     "tier": 1,
-    "py_script": "cpp/scripts/py_hic_reference.py",
+    "reference": "none",
     "args": [
       "--matrices",
       "{data}/hicHyperoptDetectLoopsHiCCUPS/SRR1791297_30.hic",
@@ -387,20 +397,21 @@
     ],
     "outputs": [
       {
-        "path": "{out}/matrix.ginteractions.tsv",
+        "path": "{out}/matrix.ginteractions",
         "format": "text",
-        "class": "E0"
+        "class": "EX"
       }
     ],
     "memory": {
       "budget_mb": 100
     },
-    "notes": "Class EX, the two step route as above into the ginteractions text format."
+    "notes": "Class EX, the two step route as above into the ginteractions text format. Deliberate deviation (HiCExplorer 4 fix, 2026-11-06): --outFileName is written; 3.7.6 wrote '<outFileName>.tsv'."
   },
   {
     "id": "hicConvertFormat.hic_to_hicpro.SRR1791297_30.100000",
+    "tool": "hicConvertFormat",
     "tier": 1,
-    "py_script": "cpp/scripts/py_hic_reference.py",
+    "reference": "none",
     "args": [
       "--matrices",
       "{data}/hicHyperoptDetectLoopsHiCCUPS/SRR1791297_30.hic",
@@ -419,18 +430,18 @@
       {
         "path": "{out}/matrix.hicpro",
         "format": "text",
-        "class": "E0"
+        "class": "EX"
       },
       {
         "path": "{out}/matrix.bed",
         "format": "text",
-        "class": "E0"
+        "class": "EX"
       }
     ],
     "memory": {
       "budget_mb": 100
     },
-    "notes": "Class EX, the two step route as above into the hicpro matrix and bed files."
+    "notes": "Class EX, the two step route as above into the hicpro matrix and bed files. Deliberate deviation (HiCExplorer 4 fix, 2026-11-06): each contact is written once (upper triangle); 3.7.6 wrote both triangles of the symmetric matrix."
   },
   {
     "id": "hicConvertFormat.cool_to_hic.gm12878_raw_values.v8",

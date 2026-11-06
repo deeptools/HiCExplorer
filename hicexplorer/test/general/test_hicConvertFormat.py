@@ -11,6 +11,7 @@ import gzip
 from scipy.sparse import triu
 import numpy.testing as nt
 import numpy as np
+import pytest
 from hicexplorer.test.test_compute_function import compute
 
 REMOVE_OUTPUT = True
@@ -266,20 +267,19 @@ def test_cool_to_h5_is_value_identical_but_changes_dtype_and_nan_bins():
     os.unlink(out)
 
 
-def test_h5_to_ginteractions_writes_the_upper_triangle_to_a_tsv_sidecar():
-    """--outputFormat ginteractions ignores the suffix and appends '.tsv'.
+def test_h5_to_ginteractions_writes_the_upper_triangle_to_the_given_file():
+    """--outputFormat ginteractions writes the file named by --outFileName.
 
-    The file named by --outFileName is left untouched, which is why the
-    previous test could not have asserted on it. The content is one line per
-    stored upper triangle entry, in csr row order.
+    HiCExplorer 3.7.6 wrote '<outFileName>.tsv' and left the named file empty;
+    HiCExplorer 4 writes the named file and nothing else. The content is one
+    line per stored upper triangle entry, in csr row order.
     """
     outfile = NamedTemporaryFile(suffix='.ginteractions', delete=False)
     outfile.close()
     hicConvertFormat.main(("--matrices " + original_matrix_h5 +
                            " --outFileName " + outfile.name +
                            " --inputFormat h5 --outputFormat ginteractions").split())
-    assert os.path.getsize(outfile.name) == 0
-    assert os.path.exists(outfile.name + '.tsv')
+    assert not os.path.exists(outfile.name + '.tsv')
 
     source = hm.hiCMatrix(original_matrix_h5)
     intervals = source.cut_intervals
@@ -290,11 +290,10 @@ def test_h5_to_ginteractions_writes_the_upper_triangle_to_a_tsv_sidecar():
             intervals[col][0], intervals[col][1], intervals[col][2], value)
         for row, col, value in zip(upper.row, upper.col, upper.data))
 
-    with open(outfile.name + '.tsv') as handle:
+    with open(outfile.name) as handle:
         assert handle.read() == expected
     assert len(expected.splitlines()) == 35857
     os.unlink(outfile.name)
-    os.unlink(outfile.name + '.tsv')
 
 
 def test_h5_to_hicpro_writes_one_based_bin_ids():
@@ -328,6 +327,32 @@ def test_h5_to_hicpro_writes_one_based_bin_ids():
         assert handle.read() == expected_bed
     assert len(expected_matrix.splitlines()) == 35857
     assert len(expected_bed.splitlines()) == 33754
+    os.unlink(outfile.name)
+    os.unlink(bedfile.name)
+
+
+def test_hicpro_output_writes_each_contact_once_from_a_symmetric_matrix():
+    """HiC-Pro matrices are upper triangular: bin1 <= bin2, each contact once.
+
+    HiCExplorer 3.7.6 wrote every stored entry of the symmetric matrix, both
+    triangles; HiCExplorer 4 writes the upper triangle.
+    """
+    outfile = NamedTemporaryFile(suffix='.hicpro', delete=False)
+    outfile.close()
+    bedfile = NamedTemporaryFile(suffix='.bed', delete=False)
+    bedfile.close()
+    hicConvertFormat.main(("--matrices " + original_matrix_cool_chr4 +
+                           " --outFileName " + outfile.name +
+                           " --inputFormat cool --outputFormat hicpro"
+                           " --bedFileHicpro " + bedfile.name).split())
+    source = hm.hiCMatrix(original_matrix_cool_chr4)
+    upper = triu_module(source.matrix, k=0, format='csr').tocoo()
+    assert source.matrix.nnz > upper.nnz
+    with open(outfile.name) as handle:
+        rows = [line.split('\t') for line in handle.read().splitlines()]
+    assert len(rows) == upper.nnz
+    assert all(int(a) <= int(b) for a, b, _ in rows)
+    assert len({(a, b) for a, b, _ in rows}) == len(rows)
     os.unlink(outfile.name)
     os.unlink(bedfile.name)
 
@@ -450,27 +475,28 @@ def test_cool_to_mcool_merges_bins_exactly():
     os.unlink(outfile.name)
 
 
-def test_enforce_integer_destroys_a_matrix_of_values_below_one_half():
-    """--enforce_integer rounds to int and empties an already corrected matrix.
+def test_enforce_integer_refuses_a_matrix_of_values_below_one_half(tmp_path):
+    """--enforce_integer on an already corrected matrix stops with a message.
 
     GSM2644945_Untreated-R1.100000_chr1.h5 holds 2,504,071 corrected values
-    between 1.3e-05 and 0.12. With --enforce_integer every one of them rounds
-    to zero and the written cool file has no entries at all, with no warning
-    and exit status 0. Without the flag the same conversion is bit exact.
-    This is a data destroying bug; it is pinned, not fixed.
+    between 1.3e-05 and 0.12. HiCExplorer 3.7.6 rounded every one of them to
+    zero and wrote a cool file without entries, with no warning and exit
+    status 0. HiCExplorer 4 refuses to write a file that rounding would
+    empty. Without the flag the same conversion is bit exact.
     """
     source = hm.hiCMatrix(FLOAT_H5)
     assert source.matrix.dtype == np.float64
     assert source.matrix.nnz == 2504071
     assert source.matrix.data.max() < 0.5
 
-    out = convert("--matrices " + FLOAT_H5 +
-                  " --outFileName {out} --inputFormat h5 --outputFormat cool"
-                  " --enforce_integer", '.cool')
-    enforced = hm.hiCMatrix(out)
-    assert enforced.matrix.nnz == 0
-    assert enforced.matrix.dtype == np.int32
-    os.unlink(out)
+    refused = str(tmp_path / 'refused.cool')
+    with pytest.raises(SystemExit) as raised:
+        hicConvertFormat.main(("--matrices " + FLOAT_H5 +
+                               " --outFileName " + refused +
+                               " --inputFormat h5 --outputFormat cool"
+                               " --enforce_integer").split())
+    assert raised.value.code != 0
+    assert not os.path.exists(refused)
 
     out = convert("--matrices " + FLOAT_H5 +
                   " --outFileName {out} --inputFormat h5 --outputFormat cool",
@@ -481,6 +507,41 @@ def test_enforce_integer_destroys_a_matrix_of_values_below_one_half():
     nt.assert_array_equal(plain.matrix.indices, source.matrix.indices)
     nt.assert_array_equal(plain.matrix.indptr, source.matrix.indptr)
     os.unlink(out)
+
+
+def test_cool_to_mcool_resolutions_all_carry_the_genome_assembly():
+    """Every resolution of an mcool file carries genome-assembly.
+
+    HiCExplorer 3.7.6 popped matrix-generated-by, matrix-generated-by-url and
+    genome-assembly out of one dictionary shared by the resolutions, so only
+    the first resolution had them in its metadata attribute.
+    """
+    import h5py
+    import json
+    source = os.path.join(DATA_ROOT, 'hicDetectLoops',
+                          'GSE63525_GM12878_insitu_primary_2_5mb.cool')
+    outfile = NamedTemporaryFile(suffix='.mcool', delete=False)
+    outfile.close()
+    hicConvertFormat.main(("--matrices " + source + " --outFileName " + outfile.name +
+                           " --inputFormat cool --outputFormat mcool"
+                           " -r 2500000 5000000").split())
+    with h5py.File(outfile.name, 'r') as handle:
+        assert sorted(handle['resolutions'].keys()) == ['2500000', '5000000']
+        for resolution in ('2500000', '5000000'):
+            metadata = json.loads(handle['resolutions'][resolution].attrs['metadata'])
+            assert metadata['genome-assembly'] == 'hg19', resolution
+    os.unlink(outfile.name)
+
+
+def test_mcool_without_resolutions_honours_enforce_integer(tmp_path):
+    """The Python ignored --enforce_integer when no --resolutions were given
+    and wrote the corrected values unchanged; HiCExplorer 4 applies the flag
+    (and so refuses the matrix of values below one half)."""
+    target = str(tmp_path / 'matrix.mcool')
+    with pytest.raises(SystemExit):
+        hicConvertFormat.main(("--matrices " + FLOAT_H5 + " --outFileName " + target +
+                               " --inputFormat h5 --outputFormat mcool"
+                               " --enforce_integer").split())
 
 
 def test_enforce_integer_is_inert_on_an_integer_matrix():
