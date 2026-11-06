@@ -257,8 +257,12 @@ TEST_CASE("the API's expected and obs/exp kernels agree with the tools' on a rea
     CHECK(parts == util::distance_sums(block.rows(), distance, data.data(), data.size(), *lo, *hi + 1));
 }
 
-TEST_CASE("explicit zeros reproduce the Python's misalignment and errors") {
-    // csr [[1, 0*, 2], [3, 0*], ...]: nonzero() drops the stored zeros
+TEST_CASE("explicit zeros: the kernels take the values of the nonzero entries") {
+    // csr [[1, 0*, 2], [3, 0*], ...]: nonzero() drops the stored zeros. 3.7.6
+    // passed the unfiltered data to the kernels, which misaligned the values
+    // and the distances (or made numpy raise); HiCExplorer 4 hands them the
+    // values at nz.position. A kernel given the unfiltered data still sees the
+    // 3.7.6 mismatch, which the checks below pin as the contract of the kernels.
     util::SparseEntries e;
     e.rows = 3;
     e.cols = 3;
@@ -267,6 +271,7 @@ TEST_CASE("explicit zeros reproduce the Python's misalignment and errors") {
     const std::vector<double> data = {1.0, 0.0, 2.0, 3.0, 0.0};
     const util::Nonzero nz = util::nonzero(e, data.data());
     REQUIRE(nz.size() == 3);
+    CHECK(nz.position == std::vector<std::size_t>{0, 2, 3});
     const std::vector<double> mean = util::expected_interactions_non_zero(3, nz.distances(), data.data());
     // distances 0, 2, 0 take data[0], data[1], data[2] = 1, 0, 2
     CHECK(mean[0] == 1.5);
@@ -278,6 +283,24 @@ TEST_CASE("explicit zeros reproduce the Python's misalignment and errors") {
     const std::vector<std::size_t> keep = util::eliminate_zeros(indptr, data.data());
     CHECK(keep == std::vector<std::size_t>{0, 2, 3});
     CHECK(indptr == std::vector<std::int64_t>{0, 2, 3, 3});
+}
+
+TEST_CASE("compute_zscore subtracts the expected value from the observed value") {
+    // two entries at distance 0 (2 and 4) and one at distance 1 (6) of a 3 by 3
+    // matrix. expected = [6 / 3, 6 / 2, 0] = [2, 3, 0]; at distance 0 the
+    // deviations are 0 and 2, the missing diagonal cell adds (0 - 2)^2, so
+    // sigma = sqrt(8 / 3); at distance 1 the deviation is 3, the missing cell
+    // adds 9 and sigma = sqrt(18 / 2) = 3. (3.7.6 subtracted from zero.)
+    const std::vector<std::int64_t> distance = {0, 0, 1};
+    std::vector<double> data = {2.0, 4.0, 6.0};
+    const auto expected = util::expected_interactions(3, distance, data.data(), data.size());
+    REQUIRE(expected.has_value());
+    CHECK((*expected)[0] == 2.0);
+    CHECK((*expected)[1] == 3.0);
+    util::compute_zscore<double>(3, distance, data.data(), data.size(), std::nullopt, false, expected);
+    CHECK(data[0] == doctest::Approx(0.0).epsilon(1e-15));
+    CHECK(data[1] == doctest::Approx(2.0 / std::sqrt(8.0 / 3.0)).epsilon(1e-15));
+    CHECK(data[2] == doctest::Approx(1.0).epsilon(1e-15));
 }
 
 TEST_CASE("text helpers of utilities") {

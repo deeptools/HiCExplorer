@@ -19,18 +19,26 @@
 //    type (np.float32 * 1.5 is float64), array-with-scalar arithmetic by value
 //    (a float32 array divided by a float64 scalar stays float32).
 //
-// Defects of the Python that are reproduced, not fixed:
+// Defects of the Python that HiCExplorer 4 fixes (the kernels below keep the
+// arithmetic of the Python; the API layer of cpp/python/src/api/utilities.cpp
+// hands them the corrected inputs):
 //  * scipy's nonzero() drops explicitly stored zeros, but the Python then
-//    indexes the unfiltered data array with positions in the filtered list.
-//    With explicit zeros the values and the distances are misaligned
+//    indexed the unfiltered data array with positions in the filtered list.
+//    With explicit zeros the values and the distances were misaligned
 //    (expected_interactions_in_distance, expected_interactions_non_zero,
-//    obs_exp_matrix_non_zero) or the lengths disagree and numpy raises
+//    obs_exp_matrix_non_zero) or the lengths disagreed and numpy raised
 //    (expected_interactions, compute_zscore, obs_exp_matrix with pDistance).
-//  * (fixed in HiCExplorer 4: the expected arrays were accumulated at
-//    abs(i - j) and read at ceil(abs(i - j) / 2) by obs_exp_matrix and
-//    obs_exp_matrix_lieberman; they are read at abs(i - j) now.)
-//  * compute_zscore subtracts the expected value from zero, not from the
-//    observed value.
+//    The API layer passes the values of the nonzero entries (Nonzero::position)
+//    and writes the results back to their stored positions; an explicit zero
+//    stays zero. A kernel called with the unfiltered data still sees the
+//    mismatch and raises.
+//  * the expected arrays were accumulated at abs(i - j) and read at
+//    ceil(abs(i - j) / 2) by obs_exp_matrix and obs_exp_matrix_lieberman; they
+//    are read at abs(i - j) now.
+//  * compute_zscore subtracted the expected value from zero, not from the
+//    observed value, and truncated the z-scores of an integer matrix to
+//    integers; it subtracts from the observed value and gives an integer
+//    matrix float64 z-scores.
 
 #ifndef HICX_UTILITIES_HPP
 #define HICX_UTILITIES_HPP
@@ -197,6 +205,8 @@ struct SparseEntries {
 struct Nonzero {
     std::vector<std::int64_t> row;
     std::vector<std::int64_t> col;
+    // the stored position (index into the data array) of each nonzero entry
+    std::vector<std::size_t> position;
     [[nodiscard]] std::vector<std::int64_t> distances() const;
     [[nodiscard]] std::size_t size() const noexcept { return row.size(); }
 };

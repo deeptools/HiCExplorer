@@ -388,6 +388,31 @@ NonzeroData nonzero_of(const Sparse& matrix, const std::vector<T>& data) {
     return out;
 }
 
+// The stored values of the nonzero entries, in the order of nonzero(). 3.7.6
+// indexed the unfiltered data array with the positions of the filtered list,
+// which misaligned the values and the distances as soon as an explicit zero was
+// stored; HiCExplorer 4 uses the values of the nonzero entries.
+template <class T>
+std::vector<T> aligned_values(const std::vector<T>& data, const NonzeroData& nz) {
+    std::vector<T> values;
+    values.reserve(nz.nonzero.position.size());
+    for (const std::size_t position : nz.nonzero.position) {
+        values.push_back(data[position]);
+    }
+    return values;
+}
+
+// The inverse: `values` (one per nonzero entry) in an array of the length of
+// the stored data, explicit zeros staying zero.
+template <class V>
+std::vector<V> scattered_values(const std::vector<V>& values, const NonzeroData& nz, std::size_t stored) {
+    std::vector<V> full(stored, V(0));
+    for (std::size_t i = 0; i < values.size(); ++i) {
+        full[nz.nonzero.position[i]] = values[i];
+    }
+    return full;
+}
+
 // np.int32(value) of a Python number, as expected_interactions_in_distance
 // applies it to the chromosome length and count.
 std::int32_t to_int32(py::handle value) {
@@ -456,8 +481,9 @@ std::string thread_failure(const std::string& type, const std::string& message) 
 py::object expected_interactions_object(py::handle submatrix, py::handle threads) {
     Sparse matrix = sparse(submatrix, "expected_interactions");
     return dispatch_arithmetic(matrix.data, "expected_interactions", [&]<class T>() -> py::object {
-        const std::vector<T> data = to_vector<T>(matrix.data);
-        const NonzeroData nz = nonzero_of(matrix, data);
+        const std::vector<T> stored = to_vector<T>(matrix.data);
+        const NonzeroData nz = nonzero_of(matrix, stored);
+        const std::vector<T> data = aligned_values(stored, nz);
         const std::int64_t n = matrix.rows;
         if (nz.distance.empty()) {
             return py::none();
@@ -847,8 +873,9 @@ void bind_utilities(py::module_& m) {
                                                   py::handle pSubmatrix) {
         Sparse matrix = sparse(pSubmatrix, "expected_interactions_in_distance");
         return dispatch_arithmetic(matrix.data, "expected_interactions_in_distance", [&]<class T>() {
-            const std::vector<T> data = to_vector<T>(matrix.data);
-            const NonzeroData nz = nonzero_of(matrix, data);
+            const std::vector<T> stored = to_vector<T>(matrix.data);
+            const NonzeroData nz = nonzero_of(matrix, stored);
+            const std::vector<T> data = aligned_values(stored, nz);
             // the loop runs before np.int32() converts the two numbers
             check_distances(nz.distance, matrix.rows);
             const std::int32_t count = to_int32(pChromosome_count);
@@ -861,8 +888,9 @@ void bind_utilities(py::module_& m) {
     m.def("expected_interactions_non_zero", [](py::handle pSubmatrix) {
         Sparse matrix = sparse(pSubmatrix, "expected_interactions_non_zero");
         return dispatch_arithmetic(matrix.data, "expected_interactions_non_zero", [&]<class T>() {
-            const std::vector<T> data = to_vector<T>(matrix.data);
-            const NonzeroData nz = nonzero_of(matrix, data);
+            const std::vector<T> stored = to_vector<T>(matrix.data);
+            const NonzeroData nz = nonzero_of(matrix, stored);
+            const std::vector<T> data = aligned_values(stored, nz);
             return from_vector(util::expected_interactions_non_zero(matrix.rows, nz.distance, data.data()));
         });
     }, py::arg("pSubmatrix"));
@@ -909,8 +937,13 @@ void bind_utilities(py::module_& m) {
         const py::object expected_object = expected_interactions_object(pSubmatrix, pThreads);
         Sparse matrix = sparse(pSubmatrix, "compute_zscore");
         dispatch_arithmetic(matrix.data, "compute_zscore", [&]<class T>() {
-            std::vector<T> data = to_vector<T>(matrix.data);
-            const NonzeroData nz = nonzero_of(matrix, data);
+            const std::vector<T> stored = to_vector<T>(matrix.data);
+            const NonzeroData nz = nonzero_of(matrix, stored);
+            // z-scores are floats: an integer matrix gets float64 values (3.7.6
+            // truncated them to integers), a float matrix keeps its dtype
+            using Out = util::ObsExpValue<T>;
+            const std::vector<T> nonzero_values = aligned_values(stored, nz);
+            std::vector<Out> work(nonzero_values.begin(), nonzero_values.end());
             std::optional<std::vector<double>> expected;
             if (is_str(expected_object)) {
                 if (matrix.rows > 0) {
@@ -926,16 +959,28 @@ void bind_utilities(py::module_& m) {
                 depth_is_float = !is_integer(pDepth);
                 depth = depth_is_float ? to_double(pDepth) : static_cast<double>(to_int64(pDepth));
             }
+            std::vector<Out> full(stored.begin(), stored.end());
+            const auto publish = [&]() {
+                for (std::size_t i = 0; i < work.size(); ++i) {
+                    full[nz.nonzero.position[i]] = work[i];
+                }
+            };
             try {
-                util::compute_zscore(matrix.rows, nz.distance, data.data(), data.size(), depth, depth_is_float,
-                                     expected);
+                util::compute_zscore<Out>(matrix.rows, nz.distance, work.data(), work.size(), depth,
+                                          depth_is_float, expected);
             } catch (...) {
+                publish();  // the depth mask was applied before the error
                 py::array target = matrix.data;
-                write_back(target, data);  // the depth mask was applied before the error
+                write_back(target, std::vector<T>(full.begin(), full.end()));
                 throw;
             }
-            py::array target = matrix.data;
-            write_back(target, data);
+            publish();
+            if constexpr (std::is_floating_point_v<T>) {
+                py::array target = matrix.data;
+                write_back(target, full);
+            } else {
+                set_data(matrix, from_vector(full));
+            }
         });
         return py::reinterpret_borrow<py::object>(pSubmatrix);
     }, py::arg("pSubmatrix"), py::arg("pDepth"), py::arg("pThreads"));
@@ -944,16 +989,18 @@ void bind_utilities(py::module_& m) {
                                          py::handle pChromosome_count) {
         Sparse matrix = sparse(pSubmatrix, "obs_exp_matrix_lieberman");
         dispatch_arithmetic(matrix.data, "obs_exp_matrix_lieberman", [&]<class T>() {
-            const std::vector<T> data = to_vector<T>(matrix.data);
-            const NonzeroData nz = nonzero_of(matrix, data);
+            const std::vector<T> stored = to_vector<T>(matrix.data);
+            const NonzeroData nz = nonzero_of(matrix, stored);
+            const std::vector<T> data = aligned_values(stored, nz);
             check_distances(nz.distance, matrix.rows);
             const std::int32_t count = to_int32(pChromosome_count);
             const std::int32_t length = to_int32(pLength_chromosome);
             const std::vector<double> expected =
                 util::expected_interactions_in_distance(matrix.rows, nz.distance, data.data(), length, count);
-            if (!data.empty()) {
-                set_data(matrix, from_vector(util::obs_exp_divide(data.data(), data.size(), expected,
-                                                                  nz.distance, 0.0)));
+            if (!stored.empty()) {
+                set_data(matrix, from_vector(scattered_values(
+                                     util::obs_exp_divide(data.data(), data.size(), expected, nz.distance, 0.0),
+                                     nz, stored.size())));
             }
         });
         return py::reinterpret_borrow<py::object>(pSubmatrix);
@@ -969,8 +1016,9 @@ void bind_utilities(py::module_& m) {
         dispatch_arithmetic(matrix.data, "obs_exp_matrix_non_zero", [&]<class T>() {
             const std::vector<T> data = to_vector<T>(matrix.data);
             const NonzeroData nz = nonzero_of(matrix, data);
+            const std::vector<T> nonzero_values = aligned_values(data, nz);
             const std::vector<double> expected =
-                util::expected_interactions_non_zero(matrix.rows, nz.distance, data.data());
+                util::expected_interactions_non_zero(matrix.rows, nz.distance, nonzero_values.data());
             const std::vector<std::int64_t> indptr = matrix.indptr_vector();
             std::vector<float> values;
             try {
@@ -999,7 +1047,11 @@ void bind_utilities(py::module_& m) {
             dispatch_arithmetic(matrix.data, "obs_exp_matrix", [&]<class T>() {
                 std::vector<T> data = to_vector<T>(matrix.data);
                 const NonzeroData nz = nonzero_of(matrix, data);
-                util::zero_from_distance(nz.distance, data.data(), data.size(), limit);
+                std::vector<T> values = aligned_values(data, nz);
+                util::zero_from_distance(nz.distance, values.data(), values.size(), limit);
+                for (std::size_t i = 0; i < values.size(); ++i) {
+                    data[nz.nonzero.position[i]] = values[i];
+                }
                 write_back(matrix.data, data);
                 std::vector<std::int64_t> indptr = matrix.indptr_vector();
                 const std::vector<std::size_t> keep = util::eliminate_zeros(indptr, data.data());
@@ -1020,13 +1072,15 @@ void bind_utilities(py::module_& m) {
         const py::object target = inplace ? py::reinterpret_borrow<py::object>(pSubmatrix) : deepcopy(pSubmatrix);
         Sparse matrix = sparse(target, "obs_exp_matrix");
         dispatch_arithmetic(source.data, "obs_exp_matrix", [&]<class T>() {
-            const std::vector<T> data = to_vector<T>(source.data);
-            if (data.empty()) {
+            const std::vector<T> stored = to_vector<T>(source.data);
+            if (stored.empty()) {
                 return;
             }
-            const NonzeroData nz = nonzero_of(source, data);
-            set_data(matrix, from_vector(util::obs_exp_divide(data.data(), data.size(), expected, nz.distance,
-                                                              non_finite)));
+            const NonzeroData nz = nonzero_of(source, stored);
+            const std::vector<T> data = aligned_values(stored, nz);
+            set_data(matrix, from_vector(scattered_values(
+                                 util::obs_exp_divide(data.data(), data.size(), expected, nz.distance, non_finite),
+                                 nz, stored.size())));
         });
         return target;
     }, py::arg("pSubmatrix"), py::arg("pInplace") = true, py::arg("pToEpsilon") = false,
