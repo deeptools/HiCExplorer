@@ -231,12 +231,14 @@ TEST_CASE("the API's expected and obs/exp kernels agree with the tools' on a rea
 
     hicx::CsrMatrix tools = block;
     hicx::obs_exp_in_place(tools);
-    // the test matrix is int64, so the quotient is truncated back to integers
+    // the test matrix is int64: HiCExplorer 4 keeps the quotient as float64
+    // (3.7.6 truncated it back to integers)
     REQUIRE(block.dtype() == "int64");
+    CHECK(tools.dtype() == "float64");
     const std::vector<std::int64_t> counts(data.begin(), data.end());
-    const std::vector<std::int64_t> divided =
+    const std::vector<double> divided =
         util::obs_exp_divide(counts.data(), counts.size(), *expected, distance, 0.0);
-    CHECK(std::vector<double>(divided.begin(), divided.end()) == tools.data());
+    CHECK(divided == tools.data());
     const std::vector<double> as_float =
         util::obs_exp_divide(data.data(), data.size(), *expected, distance, 0.0);
     CHECK(std::count_if(as_float.begin(), as_float.end(), [](double v) { return v != std::floor(v); }) > 0);

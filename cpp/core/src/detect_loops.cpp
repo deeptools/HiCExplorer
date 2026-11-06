@@ -226,7 +226,8 @@ CsrMatrix obs_exp_matrix(const CsrMatrix& matrix, const DistanceGroups& groups,
     arrays.indptr = matrix.indptr();
     arrays.indices = matrix.indices();
     arrays.data = matrix.data();
-    arrays.dtype = matrix.dtype();
+    // An integer matrix gives a float64 ratio (3.7.6 truncated it to integers).
+    arrays.dtype = kind == ValueKind::Integer ? "float64" : matrix.dtype();
     arrays.symmetry = Symmetry::Full;
 
     const std::vector<std::int64_t>& indptr = matrix.indptr();

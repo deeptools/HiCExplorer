@@ -158,6 +158,27 @@ TEST_CASE("obs_exp_matrix matches utilities.py:554") {
                  0.5, 0.42857142857142855, 0.5, 0.75});
 }
 
+TEST_CASE("obs_exp and obs_exp_lieberman keep the ratio of an integer matrix as float64") {
+    // 3.7.6 cast the ratios back to the input dtype and truncated them to integers.
+    CsrMatrix integer = sample_matrix("int64");
+    CsrMatrix floating = sample_matrix("float64");
+    hicx::obs_exp_in_place(integer);
+    hicx::obs_exp_in_place(floating);
+    CHECK(integer.dtype() == "float64");
+    CHECK(integer.data() == floating.data());
+    CsrMatrix integer_lieberman = sample_matrix("int64");
+    CsrMatrix floating_lieberman = sample_matrix("float64");
+    hicx::obs_exp_lieberman_in_place(integer_lieberman, 5, 1);
+    hicx::obs_exp_lieberman_in_place(floating_lieberman, 5, 1);
+    CHECK(integer_lieberman.dtype() == "float64");
+    CHECK(integer_lieberman.data() == floating_lieberman.data());
+    CHECK(integer_lieberman.at(0, 2) == doctest::Approx(0.42857142857142855).epsilon(1e-15));
+    // a float32 matrix keeps its dtype
+    CsrMatrix single = sample_matrix("float32");
+    hicx::obs_exp_in_place(single);
+    CHECK(single.dtype() == "float32");
+}
+
 TEST_CASE("covariance_of_symmetric reproduces np.cov of the dense block") {
     CsrMatrix matrix = sample_matrix();
     hicx::obs_exp_lieberman_in_place(matrix, 5, 1);

@@ -147,7 +147,8 @@ def assert_bedgraph_equal(actual_path, expected_rows, pAllowSignFlip=True,
 # pca2_gene_track.bedgraph, pca1_chip_track.bedgraph, pca2_chip_track.bedgraph,
 # obs_exp_intermediate.h5 and pearson_intermediate.h5 are HiCExplorer 4 output:
 # obs_exp_lieberman reads the expected value at the pair's own distance (3.7.6:
-# at ceil(d / 2)), see the notes of hicTransform. The bigwig references
+# at ceil(d / 2)) and keeps the ratio of an integer matrix as float64 (3.7.6
+# truncated it to integers), see the notes of hicTransform. The bigwig references
 # (hicPCA/*.bw) are compared at a precision that the change does not cross and
 # are kept.
 
@@ -429,10 +430,10 @@ def test_pca_bedgraph_values_are_pinned_literals():
         got[name] = block[:3]
 
     expected = {
-        'chr2RHet': [0.288743784850, -0.026814203795, -0.058480507960],
-        'chr3RHet': [-0.087411785669, -0.012903566384, -0.010505929053],
-        'chr2L': [0.001393488103, 0.034869063188, 0.007041766949],
-        'chr3R': [-0.000466250865, -0.021748978570, -0.558620218523],
+        'chr2RHet': [0.288830198459, -0.026865019130, -0.058622092311],
+        'chr3RHet': [-0.087445688570, -0.012959074925, -0.010536404778],
+        'chr2L': [0.001441345467, 0.035251879092, 0.007322777015],
+        'chr3R': [-0.000495081119, -0.022560258273, -0.559019776870],
     }
     for name, wanted in expected.items():
         nt.assert_allclose(got[name], wanted, rtol=1e-9, atol=1e-12,
@@ -701,7 +702,11 @@ def test_pca_ignore_masked_bins_is_a_no_op_with_chromosomes():
     (hicmatrix HiCMatrix.py:616), which puts the masked bins back and restores
     the bin table maskBins saved before the enlargement. The mask and the
     enlargement are both gone before the PCA runs; what is left is the float64
-    dtype the round trip gives the matrix, which changes the lieberman values.
+    dtype the round trip gives the matrix. In 3.7.6 that changed the lieberman
+    values, because the quotients of an integer matrix were truncated to
+    integers and those of the float64 matrix were not; HiCExplorer 4 keeps the
+    quotients of an integer matrix as float64, so the flagged and the plain run
+    give the same values.
 
     chrX of small_test_matrix_50kb_res.h5 has four NaN bins, so a mask that
     survived would remove them and move the boundaries of their neighbours.
@@ -738,15 +743,12 @@ def test_pca_ignore_masked_bins_is_a_no_op_with_chromosomes():
 
     # The mask leaves one trace behind. restoreMaskedBins pads the matrix with
     # an empty float64 block, so the int64 counts of this file come back as
-    # float64, and obs_exp_matrix_lieberman casts its quotients back to the
-    # dtype of the input (utilities.py:506): truncated to integers on the
-    # plain run, kept fractional on the flagged one. The NaN bins of chrX hold
-    # no contacts, so that upcast is the only difference, and the flagged
-    # values are those of the plain pipeline on a float64 matrix.
+    # float64 (3.7.6 then kept the quotients of the flagged run fractional and
+    # truncated those of the plain run, utilities.py:506). The NaN bins of chrX
+    # hold no contacts, so the flagged values are those of the plain pipeline.
     hic = hm.hiCMatrix(matrix)
     hic.keepOnlyTheseChr(['chrX'])
     assert hic.matrix.dtype == np.int64
-    hic.matrix = hic.matrix.astype(np.float64)
     size = hic.matrix.shape[0]
     obs_exp = obs_exp_matrix_lieberman(hic.matrix[0:size, 0:size], size, 1)
     covariance = np.cov(csr_matrix(obs_exp).todense())
@@ -761,10 +763,11 @@ def test_pca_ignore_masked_bins_is_a_no_op_with_chromosomes():
         expected = [bin_ + (float(value),) for bin_, value in
                     zip(original_bins, eigenvectors[:, column].real)]
         assert_bedgraph_equal(flagged, expected)
-        # And far from the plain run, so a port that dropped the upcast fails.
+        # And the plain run agrees with it: the dtype of the round trip does
+        # not matter any more.
         difference = np.abs(np.array([row[3] for row in rows]) -
                             np.array([row[3] for row in _read_bedgraph(plain)]))
-        assert difference.max() > 1e-3
+        assert difference.max() < 1e-9
 
     # Without --chromosomes the mask persists: four bins fewer on chrX, and the
     # neighbours of 100000-150000 meet in the middle of the gap.

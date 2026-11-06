@@ -210,14 +210,16 @@ def test_committed_reference_loops_bedgraph_is_not_reproduced():
 # Full precision expectations, one per option path
 #
 # The expectations on the h5 and cool matrices are HiCExplorer 4 output because
-# of three fixes. (1) candidate_region_test cuts the window around the
+# of four fixes. (1) candidate_region_test cuts the window around the
 # candidate itself; 3.7.6 cut it around a wrong position whenever the
 # candidate's value occurs more than once in its window. (2) The expected value
 # at a distance is divided by the diagonal length n - d (3.7.6: n + 1 - d). (3)
 # The obs/exp value of a pair is divided by the expected value of its own
-# distance (3.7.6 used the value of ceil(d / 2)).
+# distance (3.7.6 used the value of ceil(d / 2)). (4) The obs/exp ratio of an
+# integer matrix is kept as float64 (3.7.6 truncated it to integers); on these
+# matrices that moves p-values by less than 1 percent.
 # Loops against 3.7.6 on small_test_matrix.h5, chr2L, default options: 27 (25);
-# whole matrix 89 (52); -w 7 -pw 3 11 (11); mean_nonzero_ligation 65 (62);
+# whole matrix 90 (52); -w 7 -pw 3 11 (11); mean_nonzero_ligation 65 (62);
 # --pValuePreselection 0.01 15 (14); threshold file 24 (22); --maxLoopDistance
 # 100000 21 (19); Li_et_al_2015.h5 1165 (832); cool chr1 11 (4), chr1 and chr2
 # 21 (9), tight preselection 4 (3). The mean_nonzero paths are unchanged.
@@ -228,7 +230,7 @@ chr2L	960000	965000	chr2L	1045000	1050000	0.4016704795074202
 chr2L	1190000	1195000	chr2L	1195000	1200000	0.21901405427555742
 chr2L	2080000	2085000	chr2L	2130000	2135000	0.21901405427555734
 chr2L	2950000	2955000	chr2L	2965000	2970000	0.09730180547398455
-chr2L	3385000	3390000	chr2L	3390000	3395000	0.31485375200295873
+chr2L	3385000	3390000	chr2L	3390000	3395000	0.3133150561644056
 chr2L	4360000	4365000	chr2L	4370000	4375000	0.21901405427555734
 chr2L	4420000	4425000	chr2L	4430000	4435000	0.3565987181527521
 chr2L	5260000	5265000	chr2L	5265000	5270000	0.14705359313353478
@@ -256,11 +258,13 @@ chr2L	22030000	22035000	chr2L	22160000	22165000	0.3565987181527521
 def test_h5_single_chromosome_full_precision():
     """The default --expected mean on an integer count matrix.
 
-    Note what obs_exp_matrix does to an integer matrix: it records the input
-    dtype before casting the data to float32 and casts the quotient back to it
-    (hicexplorer/utilities.py:582,588), so the observed over expected ratio is
-    truncated to an integer. It only survives that because the expected value
-    per distance here is around 0.05, so the ratios are in the hundreds.
+    The observed over expected ratio of an integer matrix is kept as a float64
+    ratio. 3.7.6 recorded the input dtype before casting the data to float32
+    and cast the quotient back to it (hicexplorer/utilities.py:582,588), so
+    the ratio was truncated to an integer. Here the expected value per
+    distance is around 0.05 and the ratios are in the hundreds, so keeping the
+    fractional part moves the p-values by less than 1 percent and adds one loop
+    to the whole-matrix run.
     """
     lines = run_loops(
         "--matrix {} -o {{out}} --chromosomes chr2L -pit 1 -p 0.5 -pp 0.5 "
@@ -274,16 +278,16 @@ def test_h5_all_chromosomes_full_precision():
         "--matrix {} -o {{out}} -pit 1 -p 0.5 -pp 0.5 -t 1 -tpc 1".format(
             MATRIX_H5))
     assert lines is not None
-    assert len(lines) == 89
+    assert len(lines) == 90
     # Six of the 15 chromosomes produce loops, and they come out in bin table
     # order.
-    expected_order = [('chr4', 3), ('chr3L', 26), ('chr2L', 27), ('chrX', 6), ('chr2R', 9), ('chr3R', 18)]
+    expected_order = [('chr4', 3), ('chr3L', 25), ('chr2L', 27), ('chrX', 6), ('chr2R', 9), ('chr3R', 20)]
     chromosomes = [line.split("\t")[0] for line in lines]
     assert [(c, chromosomes.count(c)) for c in dict.fromkeys(chromosomes)] == expected_order
     assert_line(lines[0], "chr4	565000	570000	chr4	975000	980000	0.3565987181527522")
-    assert_line(lines[28], "chr3L	21645000	21650000	chr3L	21790000	21795000	0.3565987181527522")
+    assert_line(lines[27], "chr3L	21645000	21650000	chr3L	21790000	21795000	0.3565987181527522")
     # The chr2L block is exactly the single chromosome run, line for line.
-    assert_lines(lines[29:56], CHR2L_DEFAULT_EXPECTED)
+    assert_lines(lines[28:55], CHR2L_DEFAULT_EXPECTED)
 
 
 CHR2L_MEAN_NONZERO_EXPECTED = """
@@ -368,7 +372,7 @@ chr2L	17005000	17010000	chr2L	17020000	17025000	0.45364184883329106
 chr2L	17005000	17010000	chr2L	17285000	17290000	0.3824324835748349
 chr2L	17280000	17285000	chr2L	17290000	17295000	0.38243248357483484
 chr2L	17975000	17980000	chr2L	18035000	18040000	0.3319495755090913
-chr2L	21185000	21190000	chr2L	21205000	21210000	0.26152441224812856
+chr2L	21185000	21190000	chr2L	21205000	21210000	0.263108828296223
 chr2L	21245000	21250000	chr2L	21275000	21280000	0.2355950827570762
 """
 
@@ -476,7 +480,7 @@ def test_h5_obs_exp_threshold_and_peak_interactions_threshold():
     """--obsExpThreshold and --peakInteractionsThreshold, both able to empty
     the result.
 
-    --obsExpThreshold gates which pixels get a p-value at all; on this integer
+    --obsExpThreshold gates which pixels get a p-value at all; on this
     obs/exp matrix the ratios run into the thousands, so it takes a value in
     the hundreds to bite. --peakInteractionsThreshold gates the raw counts and
     the default of 10 is already enough to find nothing here, which is why
@@ -649,7 +653,7 @@ def test_output_order_depends_on_scheduling(threads):
 
     main() starts one process per chromosome and appends each result to the
     output as that process happens to finish (hicDetectLoops.py:1060-1066), so
-    with more than one worker the order of the 89 loops is whatever the
+    with more than one worker the order of the 90 loops is whatever the
     scheduler produced. Measured on this matrix: three runs at --threads 4
     gave two distinct orderings, and --threads 8 --threadsPerChromosome 4 gave
     a third. This test asserts the invariant that does hold, and records that
@@ -659,7 +663,7 @@ def test_output_order_depends_on_scheduling(threads):
         "--matrix {} -o {{out}} -pit 1 -p 0.5 -pp 0.5 -t {} -tpc 4".format(
             MATRIX_H5, threads)) for _ in range(2)]
     assert sorted(runs[0]) == sorted(runs[1])
-    assert len(runs[0]) == 89
+    assert len(runs[0]) == 90
     if threads == 1:
         # With one worker the order is defined: chromosomes in bin table order.
         assert runs[0] == runs[1]

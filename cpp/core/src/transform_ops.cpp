@@ -67,14 +67,13 @@ inline double zero_non_finite(double value) {
 
 // The dtype the obs/exp kernels cast back to. numpy takes
 // `type(pSubmatrix.data[0])` before the float32 step, so a float64 matrix
-// stays float64 and an integer matrix is truncated back to an integer.
+// stays float64 and a float32 matrix is rounded to float32. 3.7.6 also
+// truncated the ratio of an integer matrix back to an integer; HiCExplorer 4
+// keeps it as float64 (the callers set the dtype of the matrix).
 double cast_back(double value, DType kind) {
     switch (kind) {
         case DType::Integer:
-            // numpy's float64 -> int32 cast truncates towards zero. A NaN or
-            // an infinity is undefined there; both have already been mapped to
-            // zero by the caller.
-            return std::trunc(value);
+            return value;
         case DType::Float32:
             return to_float32(value);
         case DType::Float64:
@@ -207,7 +206,11 @@ void obs_exp_lieberman_in_place(CsrMatrix& matrix, std::int64_t length_chromosom
         const double divided = to_float32(value) / expected[distance];
         data[k] = cast_back(zero_non_finite(divided), kind);
     });
-    // The dtype does not change: astype(data_type) casts back to what it was.
+    // A float matrix keeps its dtype (astype(data_type)); an integer matrix
+    // becomes float64, where 3.7.6 truncated the ratios to integers.
+    if (kind == DType::Integer) {
+        matrix.set_dtype("float64");
+    }
 }
 
 void obs_exp_non_zero_in_place(CsrMatrix& matrix, bool ligation_factor) {
@@ -272,6 +275,9 @@ void obs_exp_in_place(CsrMatrix& matrix) {
         const double divided = to_float32(value) / expected[distance];
         data[k] = cast_back(zero_non_finite(divided), kind);
     });
+    if (kind == DType::Integer) {
+        matrix.set_dtype("float64");  // 3.7.6 truncated the ratios to integers
+    }
 }
 
 void convert_nans_and_infs_to_zeros(CsrMatrix& matrix) {

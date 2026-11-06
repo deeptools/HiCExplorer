@@ -283,18 +283,30 @@ TEST_CASE("obs_exp_matrix looks the expected value up at the pair's own distance
     CHECK(v[2] == 2.0);
 }
 
-TEST_CASE("obs_exp_matrix truncates to the input dtype") {
+TEST_CASE("obs_exp_matrix keeps the ratio of an integer matrix as float64") {
     const hicx::CsrMatrix matrix = fixture("int64");
     const hicx::loops::DistanceGroups groups =
         hicx::loops::group_by_distance(matrix);
     hicx::CsrMatrix obs_exp = hicx::loops::obs_exp_matrix(matrix, groups, 1);
-    CHECK(obs_exp.data() == std::vector<double>{1, 2, 2, 1, 1, 3, 1, 0});
-    // One of the eight ratios truncates to zero, so eliminate_zeros leaves a
-    // different sparsity pattern from the raw matrix and hicDetectLoops.py:888
-    // abandons the chromosome.
+    // 3.7.6 cast the ratios back to the input dtype and truncated them to
+    // 1, 2, 2, 1, 1, 3, 1, 0. The values are those of the float64 fixture
+    // (numpy, expected value at the pair's own distance, divisor n - d).
+    CHECK(obs_exp.dtype() == "float64");
+    REQUIRE(obs_exp.data().size() == 8);
+    const std::vector<double> want{1.3157894736842106, 2.4, 2.0, 1.842105263157895,
+                                   1.6, 3.0, 1.5789473684210527, 0.2631578947368421};
+    for (std::size_t k = 0; k < want.size(); ++k) {
+        CHECK(obs_exp.data()[k] == doctest::Approx(want[k]).epsilon(1e-15));
+    }
+    // No ratio truncates to zero, so eliminate_zeros keeps the sparsity
+    // pattern of the raw matrix (3.7.6 lost the entries below 1 and
+    // hicDetectLoops.py:888 abandoned the chromosome).
     obs_exp.eliminate_zeros();
-    CHECK(obs_exp.stored_nnz() == 7);
-    CHECK(obs_exp.stored_nnz() != matrix.stored_nnz());
+    CHECK(obs_exp.stored_nnz() == matrix.stored_nnz());
+    // A float32 matrix keeps float32 rounding.
+    const hicx::CsrMatrix single = hicx::loops::obs_exp_matrix(fixture("float32"), groups, 1);
+    CHECK(single.dtype() == "float32");
+    CHECK(single.data()[1] == static_cast<double>(static_cast<float>(2.4)));
 }
 
 TEST_CASE("obs_exp_matrix_non_zero stays in float32 and uses a 1e-9 epsilon") {

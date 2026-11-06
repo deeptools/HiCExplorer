@@ -748,7 +748,7 @@ void compute_zscore(std::int64_t n, const std::vector<std::int64_t>& distance, T
 }
 
 template <class T>
-std::vector<T> obs_exp_divide(const T* data, std::size_t data_size,
+std::vector<ObsExpValue<T>> obs_exp_divide(const T* data, std::size_t data_size,
                               const std::vector<double>& expected,
                               const std::vector<std::int64_t>& distance, double non_finite) {
     const std::size_t L = distance.size();
@@ -771,14 +771,18 @@ std::vector<T> obs_exp_divide(const T* data, std::size_t data_size,
     } else {
         throw PythonError("ValueError", broadcast_message(data_size, L));
     }
-    std::vector<T> out(size);
+    std::vector<ObsExpValue<T>> out(size);
     for (std::size_t i = 0; i < size; ++i) {
         const double observed = static_cast<double>(static_cast<float>(data[data_size == 1 ? 0 : i]));
         double q = observed / gathered[L == 1 ? 0 : i];
         if (!std::isfinite(q)) {
             q = non_finite;
         }
-        out[i] = cast_from_double<T>(q);
+        if constexpr (std::is_floating_point_v<T>) {
+            out[i] = cast_from_double<T>(q);
+        } else {
+            out[i] = q;  // an integer matrix gets float64 ratios
+        }
     }
     return out;
 }
@@ -952,7 +956,7 @@ std::vector<std::size_t> eliminate_zeros(std::vector<std::int64_t>& indptr, cons
     template void compute_zscore<T>(std::int64_t, const std::vector<std::int64_t>&, T*,        \
                                     std::size_t, std::optional<double>, bool,                  \
                                     const std::optional<std::vector<double>>&);                \
-    template std::vector<T> obs_exp_divide<T>(const T*, std::size_t, const std::vector<double>&, \
+    template std::vector<ObsExpValue<T>> obs_exp_divide<T>(const T*, std::size_t, const std::vector<double>&, \
                                               const std::vector<std::int64_t>&, double);       \
     template void zero_from_distance<T>(const std::vector<std::int64_t>&, T*, std::size_t,      \
                                         double);                                               \

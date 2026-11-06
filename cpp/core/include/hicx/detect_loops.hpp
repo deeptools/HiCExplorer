@@ -129,22 +129,20 @@ enum class ValueKind { Integer, Float32, Float64 };
 
 [[nodiscard]] ValueKind value_kind(const std::string& dtype);
 
-// numpy's astype(<the input dtype>).
+// numpy's astype(<the input dtype>) for a float input.
 //
-// QUIRK (hicexplorer/utilities.py:582,588). obs_exp_matrix records
-// `data_type = type(pSubmatrix.data[0])` *before* it casts the data to
-// float32, and casts the quotient back to it at the end. For an integer matrix
+// Fixed in HiCExplorer 4 (hicexplorer/utilities.py:582,588). obs_exp_matrix
+// recorded `data_type = type(pSubmatrix.data[0])` before it cast the data to
+// float32 and cast the quotient back to it at the end. For an integer matrix
 // -- which is what an h5 count matrix and an unrestricted cool load both are --
-// the observed over expected ratio is therefore **truncated to an integer**.
-// It is not a rounding artefact at the edge: on small_test_matrix.h5 the
-// expected value per distance is around 0.05, so the ratios are in the
-// hundreds and truncation merely discards their fractional part, which is why
-// the tool still finds loops instead of dividing everything to zero. Change
-// this and the call set changes.
+// the observed over expected ratio was therefore truncated to an integer, and
+// most ratios of a sparse matrix became 0 or 1. The ratio of an integer matrix
+// is now kept as a float64 matrix; a float32 matrix keeps its float32 rounding
+// and a float64 matrix stays float64.
 [[nodiscard]] inline double cast_to_kind(double value, ValueKind kind) {
     switch (kind) {
         case ValueKind::Integer:
-            return std::trunc(value);
+            return value;  // the ratio of an integer matrix is kept as float64
         case ValueKind::Float32:
             return static_cast<double>(static_cast<float>(value));
         case ValueKind::Float64:

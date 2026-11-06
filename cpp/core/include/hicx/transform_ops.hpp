@@ -13,7 +13,9 @@
 //     (utilities.py:503, :533, :583). obs_exp_matrix_lieberman and
 //     obs_exp_matrix then divide the whole float32 array by a float64 array,
 //     which numpy promotes back to float64, and finally cast to the dtype the
-//     matrix had *before* the float32 step. obs_exp_matrix_non_zero divides
+//     matrix had *before* the float32 step (HiCExplorer 4 keeps the ratio of
+//     an integer matrix as float64; 3.7.6 truncated it to integers).
+//     obs_exp_matrix_non_zero divides
 //     element by element and assigns each result back into the float32 array,
 //     so its output stays float32 rounded. The two are not the same
 //     computation and they are not interchangeable.

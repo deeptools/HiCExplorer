@@ -129,7 +129,7 @@ def read_file(target, *args):
 # driver runs the function and, on a copy of the same input, the oracle (the
 # 3.7.6 code with the corrections, in numpy), and the deviation compares the
 # package's result with the oracle's. A flag is False until its fix is made.
-FIXED = {'diagonal_length': True, 'lookup_distance': True, 'float_result': False}
+FIXED = {'diagonal_length': True, 'lookup_distance': True, 'float_result': True}
 
 
 def _occurrences(n):

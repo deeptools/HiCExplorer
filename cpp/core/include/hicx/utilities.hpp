@@ -35,6 +35,7 @@
 #ifndef HICX_UTILITIES_HPP
 #define HICX_UTILITIES_HPP
 
+#include <type_traits>
 #include <cstddef>
 #include <cstdint>
 #include <optional>
@@ -237,11 +238,17 @@ void compute_zscore(std::int64_t n, const std::vector<std::int64_t>& distance, T
                     std::size_t data_size, std::optional<double> depth, bool depth_is_float,
                     const std::optional<std::vector<double>>& expected);
 
+// The value type of the new data of obs_exp_matrix: T for a float matrix, double
+// for an integer matrix (3.7.6 cast the ratios of an integer matrix back to
+// integers; HiCExplorer 4 keeps them).
+template <class T>
+using ObsExpValue = std::conditional_t<std::is_floating_point_v<T>, T, double>;
+
 // The new data of obs_exp_matrix and obs_exp_matrix_lieberman: the data cast
 // to float32, divided in float64 by expected[distance] (broadcast as
 // numpy does), NaN and infinity replaced by `non_finite` and cast back to T.
 template <class T>
-[[nodiscard]] std::vector<T> obs_exp_divide(const T* data, std::size_t data_size,
+[[nodiscard]] std::vector<ObsExpValue<T>> obs_exp_divide(const T* data, std::size_t data_size,
                                             const std::vector<double>& expected,
                                             const std::vector<std::int64_t>& distance,
                                             double non_finite);
