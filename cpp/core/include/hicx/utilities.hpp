@@ -26,8 +26,9 @@
 //    (expected_interactions_in_distance, expected_interactions_non_zero,
 //    obs_exp_matrix_non_zero) or the lengths disagree and numpy raises
 //    (expected_interactions, compute_zscore, obs_exp_matrix with pDistance).
-//  * the expected arrays are accumulated at abs(i - j) and read at
-//    ceil(abs(i - j) / 2) by obs_exp_matrix and obs_exp_matrix_lieberman.
+//  * (fixed in HiCExplorer 4: the expected arrays were accumulated at
+//    abs(i - j) and read at ceil(abs(i - j) / 2) by obs_exp_matrix and
+//    obs_exp_matrix_lieberman; they are read at abs(i - j) now.)
 //  * compute_zscore subtracts the expected value from zero, not from the
 //    observed value.
 
@@ -237,7 +238,7 @@ void compute_zscore(std::int64_t n, const std::vector<std::int64_t>& distance, T
                     const std::optional<std::vector<double>>& expected);
 
 // The new data of obs_exp_matrix and obs_exp_matrix_lieberman: the data cast
-// to float32, divided in float64 by expected[ceil(distance / 2)] (broadcast as
+// to float32, divided in float64 by expected[distance] (broadcast as
 // numpy does), NaN and infinity replaced by `non_finite` and cast back to T.
 template <class T>
 [[nodiscard]] std::vector<T> obs_exp_divide(const T* data, std::size_t data_size,

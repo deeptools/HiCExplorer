@@ -209,10 +209,11 @@ struct DistanceGroups {
 
 // hicexplorer.utilities.obs_exp_matrix(pInplace=False, pToEpsilon=True).
 //
-// QUIRK (utilities.py:578). The expected value for a pair at distance d is
-// looked up at index ceil(d / 2), not at d. Distances 1 and 2 share the
-// expected value of distance 1, 3 and 4 share that of distance 2, and so on.
-// The docstring says "expected contacts for loci at that genomic distance".
+// Fixed in HiCExplorer 4 (utilities.py:578). The expected value for a pair at
+// distance d is looked up at index d. 3.7.6 looked it up at ceil(d / 2), so
+// distances 1 and 2 shared the expected value of distance 1, 3 and 4 that of
+// distance 2, and so on, although the docstring says "expected contacts for
+// loci at that genomic distance".
 //
 // The value is computed as float64(float32(count)) / expected, NaN and
 // infinity are replaced by 1e-6 (utilities.py:137,144, pToEpsilon), and the

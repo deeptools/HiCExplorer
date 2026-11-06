@@ -238,11 +238,11 @@ CsrMatrix obs_exp_matrix(const CsrMatrix& matrix, const DistanceGroups& groups,
         for (std::size_t k = begin; k < end; ++k) {
             const std::int64_t distance =
                 std::abs(static_cast<std::int64_t>(indices[k]) - row);
-            // np.ceil(distance / 2).astype(np.int32): the halved lookup.
-            const std::int64_t lookup =
-                static_cast<std::int64_t>(std::ceil(static_cast<double>(distance) / 2.0));
+            // The expected value of the pair's own distance. 3.7.6 read it at
+            // np.ceil(distance / 2), so two consecutive distances shared one
+            // value (fixed in HiCExplorer 4).
             const double divisor =
-                lookup < shape ? expected[static_cast<std::size_t>(lookup)] : 0.0;
+                distance < shape ? expected[static_cast<std::size_t>(distance)] : 0.0;
             // data.astype(np.float32) then np.divide against the float64
             // expected value, which promotes the quotient back to float64.
             double value =

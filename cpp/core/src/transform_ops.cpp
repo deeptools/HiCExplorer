@@ -200,10 +200,10 @@ void obs_exp_lieberman_in_place(CsrMatrix& matrix, std::int64_t length_chromosom
     const DType kind = matrix.dtype_kind();
     std::vector<double>& data = matrix.mutable_data();
     for_each_entry(matrix, [&](std::int64_t row, std::int64_t col, double value, std::size_t k) {
-        // distance = ceil(abs(row - col) / 2), which is not the index the
-        // expected array was accumulated at. utilities.py:499, reproduced.
-        const std::size_t distance =
-            static_cast<std::size_t>((std::llabs(row - col) + 1) / 2);
+        // The expected value of the pair's own distance. 3.7.6 read the array
+        // at ceil(abs(row - col) / 2, utilities.py:499), not at the index it
+        // was accumulated at (fixed in HiCExplorer 4).
+        const std::size_t distance = static_cast<std::size_t>(std::llabs(row - col));
         const double divided = to_float32(value) / expected[distance];
         data[k] = cast_back(zero_non_finite(divided), kind);
     });
@@ -266,8 +266,9 @@ void obs_exp_in_place(CsrMatrix& matrix) {
     const DType kind = matrix.dtype_kind();
     std::vector<double>& data = matrix.mutable_data();
     for_each_entry(matrix, [&](std::int64_t row, std::int64_t col, double value, std::size_t k) {
-        const std::size_t distance =
-            static_cast<std::size_t>((std::llabs(row - col) + 1) / 2);
+        // The expected value of the pair's own distance; 3.7.6 read it at
+        // ceil(abs(row - col) / 2) (fixed in HiCExplorer 4).
+        const std::size_t distance = static_cast<std::size_t>(std::llabs(row - col));
         const double divided = to_float32(value) / expected[distance];
         data[k] = cast_back(zero_non_finite(divided), kind);
     });

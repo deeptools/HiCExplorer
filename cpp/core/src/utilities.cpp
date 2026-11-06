@@ -754,8 +754,10 @@ std::vector<T> obs_exp_divide(const T* data, std::size_t data_size,
     const std::size_t L = distance.size();
     std::vector<double> gathered(L);
     for (std::size_t i = 0; i < L; ++i) {
-        // np.ceil(np.absolute(row - col) / 2).astype(np.int32)
-        const std::int64_t index = (distance[i] + 1) / 2;
+        // The expected value of the pair's own distance. 3.7.6 read the array
+        // at np.ceil(np.absolute(row - col) / 2).astype(np.int32) (fixed in
+        // HiCExplorer 4).
+        const std::int64_t index = distance[i];
         if (index >= static_cast<std::int64_t>(expected.size())) {
             raise_index(index, static_cast<std::int64_t>(expected.size()));
         }

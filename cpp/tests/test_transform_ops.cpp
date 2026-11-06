@@ -97,21 +97,21 @@ TEST_CASE("expected_interactions matches utilities.py:356") {
                 {8.0, 10.0, 4.666666666666667, 0.0, 2.0});
 }
 
-TEST_CASE("obs_exp_matrix_lieberman reads the expected array at ceil(d/2)") {
+TEST_CASE("obs_exp_matrix_lieberman reads the expected array at the pair's own distance") {
     CsrMatrix matrix = sample_matrix();
     hicx::obs_exp_lieberman_in_place(matrix, 5, 1);
-    // Entry (0, 2) sits at distance 2 but is divided by expected[1], not by
-    // expected[2], because utilities.py:499 indexes with ceil(|i-j| / 2). The
-    // value is 2 / 10 = 0.2 and not 2 / 4.667 = 0.4286.
-    CHECK(matrix.at(0, 2) == 0.2);
-    // Entry (0, 4), distance 4, is divided by expected[2] = 4.6667.
-    CHECK(matrix.at(0, 4) == doctest::Approx(0.21428571428571427).epsilon(1e-15));
+    // Entry (0, 2) sits at distance 2 and is divided by expected[2]. 3.7.6
+    // indexed with ceil(|i-j| / 2) (utilities.py:499) and divided it by
+    // expected[1]: the value is 2 / 4.667 = 0.4286, not 2 / 10 = 0.2.
+    CHECK(matrix.at(0, 2) == doctest::Approx(0.42857142857142855).epsilon(1e-15));
+    // Entry (0, 4), distance 4, is divided by expected[4] = 2.
+    CHECK(matrix.at(0, 4) == 0.5);
     check_close(matrix.data(),
-                {1.25, 0.5, 0.2, 0.21428571428571427,
-                 0.5, 1.0, 0.4, 0.3,
-                 0.2, 0.4, 1.125, 0.6, 0.2,
-                 0.3, 0.6, 0.875, 0.5,
-                 0.21428571428571427, 0.2, 0.5, 0.75});
+                {1.25, 0.5, 0.42857142857142855, 0.5,
+                 0.5, 1.0, 0.4, 0.6428571428571428,
+                 0.42857142857142855, 0.4, 1.125, 0.6, 0.42857142857142855,
+                 0.6428571428571428, 0.6, 0.875, 0.5,
+                 0.5, 0.42857142857142855, 0.5, 0.75});
     // astype(data_type) casts back to what the matrix was, so a float64
     // matrix stays float64 even though the division ran through float32.
     CHECK(matrix.dtype() == "float64");
@@ -151,11 +151,11 @@ TEST_CASE("obs_exp_matrix matches utilities.py:554") {
     CsrMatrix matrix = sample_matrix();
     hicx::obs_exp_in_place(matrix);
     check_close(matrix.data(),
-                {1.25, 0.5, 0.2, 0.21428571428571427,
-                 0.5, 1.0, 0.4, 0.3,
-                 0.2, 0.4, 1.125, 0.6, 0.2,
-                 0.3, 0.6, 0.875, 0.5,
-                 0.21428571428571427, 0.2, 0.5, 0.75});
+                {1.25, 0.5, 0.42857142857142855, 0.5,
+                 0.5, 1.0, 0.4, 0.6428571428571428,
+                 0.42857142857142855, 0.4, 1.125, 0.6, 0.42857142857142855,
+                 0.6428571428571428, 0.6, 0.875, 0.5,
+                 0.5, 0.42857142857142855, 0.5, 0.75});
 }
 
 TEST_CASE("covariance_of_symmetric reproduces np.cov of the dense block") {
@@ -164,15 +164,15 @@ TEST_CASE("covariance_of_symmetric reproduces np.cov of the dense block") {
     const hicx::DenseSymmetric covariance = hicx::covariance_of_symmetric(matrix, 1);
     // np.cov(csr_matrix(obs_exp).todense()) from the reference environment.
     const std::vector<double> expected{
-        0.24039795918367346,  0.06317857142857143,   -0.09377678571428572,
-        -0.1519017857142857,  -0.06295663265306123,  0.06317857142857143,
-        0.133,                0.004750000000000005,  -0.049625,
-        -0.09878571428571428, -0.09377678571428572,  0.004750000000000005,
-        0.14762499999999998,  0.06778124999999999,   -0.030651785714285715,
-        -0.1519017857142857,  -0.049625,             0.06778124999999999,
-        0.107625,             0.0438125,             -0.06295663265306123,
-        -0.09878571428571428, -0.030651785714285715, 0.0438125,
-        0.08611224489795918};
+        0.20280612244897964, -0.01645408163265305, -0.041358418367346945,
+        -0.14346301020408164, 0.0041454081632653055, -0.01645408163265305,
+        0.13251020408163267, -0.016658163265306114, 0.028497448979591826,
+        -0.09127551020408163, -0.041358418367346945, -0.016658163265306114,
+        0.09358418367346939, 0.02751594387755102, 0.00462372448979591,
+        -0.14346301020408164, 0.028497448979591826, 0.02751594387755102,
+        0.10456377551020409, -0.017748724489795913, 0.0041454081632653055,
+        -0.09127551020408163, 0.00462372448979591, -0.017748724489795913,
+        0.07423469387755102};
     std::vector<double> got(covariance.data(), covariance.data() + 25);
     // The identity (A A^T - n m m^T) / (n - 1) is algebraically np.cov's
     // centred product but not the same arithmetic, so the agreement is at the
@@ -196,29 +196,29 @@ TEST_CASE("pearson_row reproduces np.corrcoef of the dense block") {
     }
     const std::vector<double> expected{
         1.0,
-        0.35332843748576254,
-        -0.4977943915337237,
-        -0.9443672309251671,
-        -0.43756607887516746,
-        0.3533284374857626,
+        -0.10037104721895676,
+        -0.3002079321429604,
+        -0.985164560097616,
+        0.03378495201995662,
+        -0.10037104721895676,
         1.0,
-        0.0338990739077925,
-        -0.41478029587074233,
-        -0.9230726181963105,
-        -0.4977943915337236,
-        0.0338990739077925,
+        -0.1495895392931335,
+        0.24209771773684452,
+        -0.9202930596077243,
+        -0.3002079321429603,
+        -0.1495895392931335,
         1.0,
-        0.5377408584507045,
-        -0.2718587839009439,
-        -0.9443672309251671,
-        -0.4147802958707423,
-        0.5377408584507045,
+        0.2781586428683764,
+        0.055473716031475474,
+        -0.9851645600976161,
+        0.24209771773684452,
+        0.2781586428683763,
         1.0,
-        0.45510226555565353,
-        -0.43756607887516746,
-        -0.9230726181963105,
-        -0.2718587839009439,
-        0.45510226555565353,
+        -0.2014526844724428,
+        0.03378495201995662,
+        -0.9202930596077243,
+        0.05547371603147547,
+        -0.20145268447244277,
         1.0};
     check_close(got, expected, 1e-12);
 }
@@ -231,9 +231,9 @@ TEST_CASE("dsyevr returns the requested eigenvectors in descending order") {
     const hicx::EigenResult result =
         hicx::leading_eigenvectors(covariance, {1, 2, 3}, hicx::EigenSolver::Dsyevr);
     // numpy.linalg.eigh of the same covariance, largest first.
-    CHECK(result.values[0] == doctest::Approx(0.4331053441544388).epsilon(1e-11));
-    CHECK(result.values[1] == doctest::Approx(0.20799007375990344).epsilon(1e-11));
-    CHECK(result.values[2] == doctest::Approx(0.0664921673316918).epsilon(1e-11));
+    CHECK(result.values[0] == doctest::Approx(0.322957245374418).epsilon(1e-11));
+    CHECK(result.values[1] == doctest::Approx(0.19874946418572742).epsilon(1e-11));
+    CHECK(result.values[2] == doctest::Approx(0.07891559532905948).epsilon(1e-11));
     for (const std::vector<double>& vector : result.vectors) {
         REQUIRE(vector.size() == 5);
         // The sign convention: the largest magnitude component is positive.

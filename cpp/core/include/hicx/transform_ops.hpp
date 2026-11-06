@@ -17,11 +17,11 @@
 //     element by element and assigns each result back into the float32 array,
 //     so its output stays float32 rounded. The two are not the same
 //     computation and they are not interchangeable.
-//  2. **The distance index is not the distance.** The expected value arrays
-//     are accumulated at index abs(i - j) but read at index
-//     ceil(abs(i - j) / 2) in obs_exp_matrix_lieberman and obs_exp_matrix
-//     (utilities.py:499, :583). obs_exp_matrix_non_zero reads at abs(i - j).
-//     Reproduced, not fixed.
+//  2. **The distance index.** The expected value arrays are accumulated at
+//     index abs(i - j). 3.7.6 read them at ceil(abs(i - j) / 2) in
+//     obs_exp_matrix_lieberman and obs_exp_matrix (utilities.py:499, :583),
+//     so two neighbouring distances shared an expected value;
+//     HiCExplorer 4 reads at abs(i - j) like obs_exp_matrix_non_zero.
 //  3. **The covariance is computed from the sparse matrix, not from a dense
 //     copy of it.** numpy centres a dense n-by-n block and calls dgemm on it,
 //     which needs two dense blocks live and, on the designated hicPCA input,

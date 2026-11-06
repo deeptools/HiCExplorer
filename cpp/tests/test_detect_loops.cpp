@@ -260,7 +260,7 @@ TEST_CASE("expected_interactions_non_zero divides by the stored count") {
     CHECK(expected[5] == 0.0);
 }
 
-TEST_CASE("obs_exp_matrix looks the expected value up at ceil(d / 2)") {
+TEST_CASE("obs_exp_matrix looks the expected value up at the pair's own distance") {
     const hicx::CsrMatrix matrix = fixture("float64");
     const hicx::loops::DistanceGroups groups =
         hicx::loops::group_by_distance(matrix);
@@ -268,19 +268,19 @@ TEST_CASE("obs_exp_matrix looks the expected value up at ceil(d / 2)") {
         hicx::loops::obs_exp_matrix(matrix, groups, 1);
     const std::vector<double>& v = obs_exp.data();
     REQUIRE(v.size() == 8);
-    // numpy on the same fixture with the diagonal length n - d as divisor.
-    // Note the entries at distance 2 and 4 are divided by the expected value
-    // of distance 1 and 2 respectively.
+    // numpy on the same fixture with the diagonal length n - d as divisor and
+    // the expected value read at the pair's own distance (3.7.6 divided the
+    // entries at distance 2 and 4 by the expected values of distance 1 and 2).
     CHECK(v[0] == doctest::Approx(1.3157894736842106).epsilon(1e-15));
-    CHECK(v[1] == doctest::Approx(0.7894736842105263).epsilon(1e-15));
-    CHECK(v[2] == doctest::Approx(8.0).epsilon(1e-15));
+    CHECK(v[1] == doctest::Approx(2.4).epsilon(1e-15));
+    CHECK(v[2] == doctest::Approx(2.0).epsilon(1e-15));
     CHECK(v[3] == doctest::Approx(1.842105263157895).epsilon(1e-15));
-    CHECK(v[4] == doctest::Approx(0.5263157894736842).epsilon(1e-15));
-    CHECK(v[5] == doctest::Approx(3.2).epsilon(1e-15));
+    CHECK(v[4] == doctest::Approx(1.6).epsilon(1e-15));
+    CHECK(v[5] == doctest::Approx(3.0).epsilon(1e-15));
     CHECK(v[6] == doctest::Approx(1.5789473684210527).epsilon(1e-15));
     CHECK(v[7] == doctest::Approx(0.2631578947368421).epsilon(1e-15));
-    // The distance 4 entry divided by expected[2] = 1.25, not by expected[4].
-    CHECK(v[2] == 8.0);
+    // The distance 4 entry divided by expected[4] = 5, not by expected[2].
+    CHECK(v[2] == 2.0);
 }
 
 TEST_CASE("obs_exp_matrix truncates to the input dtype") {
@@ -288,12 +288,12 @@ TEST_CASE("obs_exp_matrix truncates to the input dtype") {
     const hicx::loops::DistanceGroups groups =
         hicx::loops::group_by_distance(matrix);
     hicx::CsrMatrix obs_exp = hicx::loops::obs_exp_matrix(matrix, groups, 1);
-    CHECK(obs_exp.data() == std::vector<double>{1, 0, 8, 1, 0, 3, 1, 0});
-    // Three of the eight ratios truncate to zero, so eliminate_zeros leaves a
+    CHECK(obs_exp.data() == std::vector<double>{1, 2, 2, 1, 1, 3, 1, 0});
+    // One of the eight ratios truncates to zero, so eliminate_zeros leaves a
     // different sparsity pattern from the raw matrix and hicDetectLoops.py:888
     // abandons the chromosome.
     obs_exp.eliminate_zeros();
-    CHECK(obs_exp.stored_nnz() == 5);
+    CHECK(obs_exp.stored_nnz() == 7);
     CHECK(obs_exp.stored_nnz() != matrix.stored_nnz());
 }
 

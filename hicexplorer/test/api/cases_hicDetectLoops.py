@@ -32,7 +32,10 @@ HiCExplorer 4 also divides the sum of the contacts at a distance by the length
 of the diagonal, n - d, where 3.7.6 divided by n + 1 - d. That moves the
 p-values of a few loops slightly and changes the number of candidates by one
 here and there, so the cases it touches compare the accepted candidates and
-their p-values to a tolerance.
+their p-values to a tolerance. HiCExplorer 4 also reads the expected value at the
+distance of the pair, where 3.7.6 read it at ceil(d / 2), which moves the call
+set of compute_loops on every integer matrix; those cases compare the record
+without the accepted candidates.
 """
 import os
 import re
@@ -550,8 +553,38 @@ def same_calls(rtol):
     return check
 
 
+def moved_calls(expected, actual):
+    """Deviation of the cases whose call set moves with the expected value
+    fixes: the record without the accepted candidates and the log lines that
+    list or count them equals 3.7.6's, and each version accepts candidates.
+    The loops themselves are pinned by test_hicDetectLoops.py and by the unit
+    tests of the obs/exp kernel, which compare with numpy."""
+    if ('raise' in expected) or ('raise' in actual):
+        return 'the case raised: {!r} against {!r}'.format(actual.get('raise'), expected.get('raise'))
+    from apieq import compare
+    old, new = {}, {}
+
+    def blind(record, found):
+        out = {k: (_blind(v, found) if k == 'return' else v) for k, v in record.items()}
+        out['logs'] = [(n, lvl, re.sub(r'((?:loops|initial).*?): \d+$', r'\1: N', m)
+                        if not m.startswith('pCandidates') else 'pCandidates') for n, lvl, m in record['logs']]
+        return out
+    blind_old = blind(expected, old)
+    blind_new = blind(actual, new)
+    for key in blind_old:
+        message = compare(blind_old[key], blind_new.get(key), 0.0, 0.0, key)
+        if message:
+            return message
+    if not old or not new:
+        return 'no accepted candidates found in the record'
+    return None
+
+
 for _case in CASES:
-    if _case.id in ('compute_loops/cool_queue',):
-        _case.deviation = same_calls(0.1)
+    if _case.id in ('compute_loops/cool_queue', 'compute_loops/h5_chr2L', 'compute_loops/h5_chr2L_window_defaults',
+                    'compute_loops/h5_chr2L_tight', 'compute_loops/h5_chr2L_threshold_file', 'compute_loops/li_x',
+                    'compute_loops/h5_queue'):
+        _case.deviation = moved_calls
         _case.note = (_case.note + '; ' if _case.note else '') + (
-            'HiCExplorer 4 divides the expected value by the diagonal length n - d (see the module docstring)')
+            'HiCExplorer 4 corrects the expected value (diagonal length, lookup at the distance), see the module '
+            'docstring')
