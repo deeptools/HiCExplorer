@@ -63,6 +63,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <functional>
 #include <limits>
 #include <optional>
 #include <stdexcept>
@@ -404,34 +405,52 @@ RawCoolMatrix load_raw_cool(const std::string& path, const std::string& method) 
     return out;
 }
 
-int run_scc(const std::vector<std::string>& matrix_paths, const std::vector<std::string>& labels,
-           const std::optional<std::vector<std::string>>& chromosomes,
-           const hicx::scc::Options& scc_options, const cli::Namespace& ns,
-           const std::optional<std::string>& plot_data) {
-    const std::size_t num_files = matrix_paths.size();
-    std::vector<RawCoolMatrix> loaded;
-    loaded.reserve(num_files);
-    std::vector<double> totals(num_files, 0.0);
-    for (std::size_t i = 0; i < num_files; ++i) {
-        loaded.push_back(load_raw_cool(matrix_paths[i], "scc"));
-        totals[i] = total_contacts(loaded.back().matrix);
-    }
+// The reproducibility measures (--method scc, genomedisco, hicspector,
+// quasar) all load the raw matrices, score each chromosome present in both
+// matrices of a pair, report the mean over the chromosomes with a finite
+// score, and draw the heatmap with the same clustering and no scatter plot.
+// They differ only in the per-chromosome score: `score(a, b, ranges)` gets
+// the indices of the two matrices in `loaded` and the chromosome's bin range
+// in each.
+//
+// Each reference tool scores one chromosome per invocation and leaves
+// combining them to the caller (hifive's find_replicate_scores sums across
+// chromosomes into a running total instead); the mean over chromosomes is
+// this port's own choice, documented in each method's header.
+using ChromosomeScore = std::function<double(std::size_t a, std::size_t b,
+                                             const hicx::BinRange& range_a,
+                                             const hicx::BinRange& range_b)>;
 
+std::vector<RawCoolMatrix> load_raw_cools(const std::vector<std::string>& paths,
+                                          const std::string& method) {
+    std::vector<RawCoolMatrix> loaded;
+    loaded.reserve(paths.size());
+    for (const std::string& path : paths) {
+        loaded.push_back(load_raw_cool(path, method));
+    }
+    return loaded;
+}
+
+int run_reproducibility(const std::vector<RawCoolMatrix>& loaded,
+                        const std::vector<std::string>& labels,
+                        const std::optional<std::vector<std::string>>& chromosomes,
+                        const std::string& method, const ChromosomeScore& score,
+                        const cli::Namespace& ns, const std::optional<std::string>& plot_data) {
+    const std::size_t num_files = loaded.size();
     std::vector<double> results(num_files * num_files, 0.0);
     for (std::size_t a = 0; a < num_files; ++a) {
         results[a * num_files + a] = 1.0;
         for (std::size_t b = a + 1; b < num_files; ++b) {
-            const auto& boundaries_a = loaded[a].boundaries;
             const auto& boundaries_b = loaded[b].boundaries;
             double sum = 0.0;
             int count = 0;
-            for (const auto& [chrom, range_a] : boundaries_a) {
+            for (const auto& [chrom, range_a] : loaded[a].boundaries) {
                 if (chromosomes.has_value()) {
                     if (!contains(*chromosomes, chrom)) {
                         continue;
                     }
                 } else if (chrom == "M" || chrom == "MT" || chrom == "chrM") {
-                    continue;  // hicrep's own --excludeChr default
+                    continue;  // hicrep's own --excludeChr default, used for every method
                 }
                 const auto it = std::find_if(boundaries_b.begin(), boundaries_b.end(),
                                              [&](const auto& entry) { return entry.first == chrom; });
@@ -444,17 +463,9 @@ int run_scc(const std::vector<std::string>& matrix_paths, const std::vector<std:
                                       " has a different number of bins between the input "
                                       "matrices");
                 }
-                const hicx::scc::ChromosomeEntries entries_a =
-                    extract_chromosome(loaded[a].matrix, range_a.first, range_a.last);
-                const hicx::scc::ChromosomeEntries entries_b =
-                    extract_chromosome(loaded[b].matrix, range_b.first, range_b.last);
-                const hicx::CutInterval& first_bin =
-                    loaded[a].cut_intervals[static_cast<std::size_t>(range_a.first)];
-                const std::int64_t bin_size = first_bin.end - first_bin.start;
-                const double chrom_scc = hicx::scc::chromosome_scc(
-                    entries_a, entries_b, totals[a], totals[b], bin_size, scc_options);
-                if (std::isfinite(chrom_scc)) {
-                    sum += chrom_scc;
+                const double chrom_score = score(a, b, range_a, range_b);
+                if (std::isfinite(chrom_score)) {
+                    sum += chrom_score;
                     ++count;
                 }
             }
@@ -480,7 +491,7 @@ int run_scc(const std::vector<std::string>& matrix_paths, const std::vector<std:
     data.add("outFileNameHeatmap", plot::json_string(ns.str("outFileNameHeatmap")));
     data.add("outFileNameScatter", plot::json_string(ns.str("outFileNameScatter")));
     data.add("labels", plot::json_strings(labels));
-    data.add("method", plot::json_string("scc"));
+    data.add("method", plot::json_string(method));
     data.add("log1p", plot::json_bool(false));
     const HeatmapData heatmap =
         heatmap_data(results, num_files, ns.opt_real("zMin"), ns.opt_real("zMax"));
@@ -497,292 +508,76 @@ int run_scc(const std::vector<std::string>& matrix_paths, const std::vector<std:
     return plot::draw("hicCorrelate", data.str(), plot_data);
 }
 
-// --method genomedisco: the same shape as run_scc (raw uncorrected cool
-// load, per-chromosome-pair scoring averaged across shared chromosomes, the
-// existing clustering/heatmap), but GenomeDISCO's own subsampling target is
-// the pair's own (per-chromosome) depth, not a genome-wide total the way
-// hicrep's normalization is, so there is no analogue of run_scc's `totals`.
-// GenomeDISCO's own CLI is one chromosome per invocation and leaves
-// combining them to the caller (its Snakemake pipelines average externally);
-// the mean over chromosomes here is this port's own choice, the same
-// deviation hicx::scc documents for itself.
+// --method scc normalizes each matrix by its own genome-wide total (hicrep's
+// n1/n2), not by the chromosome's total.
+int run_scc(const std::vector<std::string>& matrix_paths, const std::vector<std::string>& labels,
+            const std::optional<std::vector<std::string>>& chromosomes,
+            const hicx::scc::Options& options, const cli::Namespace& ns,
+            const std::optional<std::string>& plot_data) {
+    const std::vector<RawCoolMatrix> loaded = load_raw_cools(matrix_paths, "scc");
+    std::vector<double> totals;
+    for (const RawCoolMatrix& matrix : loaded) {
+        totals.push_back(total_contacts(matrix.matrix));
+    }
+    const ChromosomeScore score = [&](std::size_t a, std::size_t b, const hicx::BinRange& range_a,
+                                      const hicx::BinRange& range_b) {
+        const hicx::CutInterval& first_bin =
+            loaded[a].cut_intervals[static_cast<std::size_t>(range_a.first)];
+        return hicx::scc::chromosome_scc(
+            extract_chromosome(loaded[a].matrix, range_a.first, range_a.last),
+            extract_chromosome(loaded[b].matrix, range_b.first, range_b.last), totals[a], totals[b],
+            first_bin.end - first_bin.start, options);
+    };
+    return run_reproducibility(loaded, labels, chromosomes, "scc", score, ns, plot_data);
+}
+
+// --method genomedisco subsamples to the pair's own per-chromosome depth, so
+// it needs no genome-wide totals.
 int run_genomedisco(const std::vector<std::string>& matrix_paths, const std::vector<std::string>& labels,
                     const std::optional<std::vector<std::string>>& chromosomes,
-                    const hicx::genomedisco::Options& gd_options, const cli::Namespace& ns,
+                    const hicx::genomedisco::Options& options, const cli::Namespace& ns,
                     const std::optional<std::string>& plot_data) {
-    const std::size_t num_files = matrix_paths.size();
-    std::vector<RawCoolMatrix> loaded;
-    loaded.reserve(num_files);
-    for (std::size_t i = 0; i < num_files; ++i) {
-        loaded.push_back(load_raw_cool(matrix_paths[i], "genomedisco"));
-    }
-
-    std::vector<double> results(num_files * num_files, 0.0);
-    for (std::size_t a = 0; a < num_files; ++a) {
-        results[a * num_files + a] = 1.0;
-        for (std::size_t b = a + 1; b < num_files; ++b) {
-            const auto& boundaries_a = loaded[a].boundaries;
-            const auto& boundaries_b = loaded[b].boundaries;
-            double sum = 0.0;
-            int count = 0;
-            for (const auto& [chrom, range_a] : boundaries_a) {
-                if (chromosomes.has_value()) {
-                    if (!contains(*chromosomes, chrom)) {
-                        continue;
-                    }
-                } else if (chrom == "M" || chrom == "MT" || chrom == "chrM") {
-                    continue;  // consistent with --method scc's own default
-                }
-                const auto it = std::find_if(boundaries_b.begin(), boundaries_b.end(),
-                                             [&](const auto& entry) { return entry.first == chrom; });
-                if (it == boundaries_b.end()) {
-                    continue;
-                }
-                const hicx::BinRange& range_b = it->second;
-                if (range_a.last - range_a.first != range_b.last - range_b.first) {
-                    throw PythonError("ValueError: chromosome " + chrom +
-                                      " has a different number of bins between the input "
-                                      "matrices");
-                }
-                const hicx::genomedisco::ChromosomeEntries entries_a =
-                    extract_chromosome(loaded[a].matrix, range_a.first, range_a.last);
-                const hicx::genomedisco::ChromosomeEntries entries_b =
-                    extract_chromosome(loaded[b].matrix, range_b.first, range_b.last);
-                const double chrom_score =
-                    hicx::genomedisco::chromosome_score(entries_a, entries_b, gd_options);
-                if (std::isfinite(chrom_score)) {
-                    sum += chrom_score;
-                    ++count;
-                }
-            }
-            results[a * num_files + b] =
-                count > 0 ? sum / count : std::numeric_limits<double>::quiet_NaN();
-        }
-    }
-    std::vector<double> symmetric = results;
-    for (std::size_t a = 0; a < num_files; ++a) {
-        for (std::size_t b = a + 1; b < num_files; ++b) {
-            symmetric[b * num_files + a] = results[a * num_files + b];
-        }
-    }
-    hicx::cluster::Samples observations;
-    observations.samples = static_cast<std::int64_t>(num_files);
-    observations.features = static_cast<std::int64_t>(num_files);
-    observations.values = symmetric;
-    const std::vector<double> linkage = hicx::cluster::detail::complete_linkage(observations);
-    const std::vector<std::int64_t> leaves =
-        hicx::cluster::detail::dendrogram_leaves(linkage, static_cast<std::int64_t>(num_files));
-
-    plot::JsonObject data;
-    data.add("outFileNameHeatmap", plot::json_string(ns.str("outFileNameHeatmap")));
-    data.add("outFileNameScatter", plot::json_string(ns.str("outFileNameScatter")));
-    data.add("labels", plot::json_strings(labels));
-    data.add("method", plot::json_string("genomedisco"));
-    data.add("log1p", plot::json_bool(false));
-    const HeatmapData heatmap =
-        heatmap_data(results, num_files, ns.opt_real("zMin"), ns.opt_real("zMax"));
-    data.add("vMin", heatmap.vmin_json);
-    data.add("vMax", heatmap.vmax_json);
-    data.add("colorMap", plot::json_string(ns.str("colorMap")));
-    data.add("plotNumbers", plot::json_bool(ns.flag("plotNumbers")));
-    data.add("results", heatmap.rows_json);
-    data.add("linkage", plot::json_numbers(linkage));
-    data.add("leaves", plot::json_ints(leaves));
-    data.add("skipScatter", plot::json_bool(true));
-
-    hicx::report_resource_usage("hicCorrelate");
-    return plot::draw("hicCorrelate", data.str(), plot_data);
+    const std::vector<RawCoolMatrix> loaded = load_raw_cools(matrix_paths, "genomedisco");
+    const ChromosomeScore score = [&](std::size_t a, std::size_t b, const hicx::BinRange& range_a,
+                                      const hicx::BinRange& range_b) {
+        return hicx::genomedisco::chromosome_score(
+            extract_chromosome(loaded[a].matrix, range_a.first, range_a.last),
+            extract_chromosome(loaded[b].matrix, range_b.first, range_b.last), options);
+    };
+    return run_reproducibility(loaded, labels, chromosomes, "genomedisco", score, ns, plot_data);
 }
 
-// --method hicspector: the same shape as run_scc/run_genomedisco, but uses
-// extract_chromosome_with_diagonal (hicx::hicspector's own degenerate-bin
-// filter looks at each bin's diagonal value, unlike scc/genomedisco which
-// both discard it). hicspector's own CLI is one chromosome per invocation
-// and leaves combining them to the caller; the mean over chromosomes here
-// is this port's own choice, the same deviation documented for scc and
-// genomedisco.
+// --method hicspector keeps the diagonal: its degenerate-bin filter looks at
+// each bin's own diagonal value.
 int run_hicspector(const std::vector<std::string>& matrix_paths, const std::vector<std::string>& labels,
                    const std::optional<std::vector<std::string>>& chromosomes,
-                   const hicx::hicspector::Options& hs_options, const cli::Namespace& ns,
+                   const hicx::hicspector::Options& options, const cli::Namespace& ns,
                    const std::optional<std::string>& plot_data) {
-    const std::size_t num_files = matrix_paths.size();
-    std::vector<RawCoolMatrix> loaded;
-    loaded.reserve(num_files);
-    for (std::size_t i = 0; i < num_files; ++i) {
-        loaded.push_back(load_raw_cool(matrix_paths[i], "hicspector"));
-    }
-
-    std::vector<double> results(num_files * num_files, 0.0);
-    for (std::size_t a = 0; a < num_files; ++a) {
-        results[a * num_files + a] = 1.0;
-        for (std::size_t b = a + 1; b < num_files; ++b) {
-            const auto& boundaries_a = loaded[a].boundaries;
-            const auto& boundaries_b = loaded[b].boundaries;
-            double sum = 0.0;
-            int count = 0;
-            for (const auto& [chrom, range_a] : boundaries_a) {
-                if (chromosomes.has_value()) {
-                    if (!contains(*chromosomes, chrom)) {
-                        continue;
-                    }
-                } else if (chrom == "M" || chrom == "MT" || chrom == "chrM") {
-                    continue;  // consistent with --method scc/genomedisco's own default
-                }
-                const auto it = std::find_if(boundaries_b.begin(), boundaries_b.end(),
-                                             [&](const auto& entry) { return entry.first == chrom; });
-                if (it == boundaries_b.end()) {
-                    continue;
-                }
-                const hicx::BinRange& range_b = it->second;
-                if (range_a.last - range_a.first != range_b.last - range_b.first) {
-                    throw PythonError("ValueError: chromosome " + chrom +
-                                      " has a different number of bins between the input "
-                                      "matrices");
-                }
-                const hicx::hicspector::ChromosomeEntries entries_a =
-                    extract_chromosome_with_diagonal(loaded[a].matrix, range_a.first, range_a.last);
-                const hicx::hicspector::ChromosomeEntries entries_b =
-                    extract_chromosome_with_diagonal(loaded[b].matrix, range_b.first, range_b.last);
-                const double chrom_score =
-                    hicx::hicspector::chromosome_score(entries_a, entries_b, hs_options);
-                if (std::isfinite(chrom_score)) {
-                    sum += chrom_score;
-                    ++count;
-                }
-            }
-            results[a * num_files + b] =
-                count > 0 ? sum / count : std::numeric_limits<double>::quiet_NaN();
-        }
-    }
-    std::vector<double> symmetric = results;
-    for (std::size_t a = 0; a < num_files; ++a) {
-        for (std::size_t b = a + 1; b < num_files; ++b) {
-            symmetric[b * num_files + a] = results[a * num_files + b];
-        }
-    }
-    hicx::cluster::Samples observations;
-    observations.samples = static_cast<std::int64_t>(num_files);
-    observations.features = static_cast<std::int64_t>(num_files);
-    observations.values = symmetric;
-    const std::vector<double> linkage = hicx::cluster::detail::complete_linkage(observations);
-    const std::vector<std::int64_t> leaves =
-        hicx::cluster::detail::dendrogram_leaves(linkage, static_cast<std::int64_t>(num_files));
-
-    plot::JsonObject data;
-    data.add("outFileNameHeatmap", plot::json_string(ns.str("outFileNameHeatmap")));
-    data.add("outFileNameScatter", plot::json_string(ns.str("outFileNameScatter")));
-    data.add("labels", plot::json_strings(labels));
-    data.add("method", plot::json_string("hicspector"));
-    data.add("log1p", plot::json_bool(false));
-    const HeatmapData heatmap =
-        heatmap_data(results, num_files, ns.opt_real("zMin"), ns.opt_real("zMax"));
-    data.add("vMin", heatmap.vmin_json);
-    data.add("vMax", heatmap.vmax_json);
-    data.add("colorMap", plot::json_string(ns.str("colorMap")));
-    data.add("plotNumbers", plot::json_bool(ns.flag("plotNumbers")));
-    data.add("results", heatmap.rows_json);
-    data.add("linkage", plot::json_numbers(linkage));
-    data.add("leaves", plot::json_ints(leaves));
-    data.add("skipScatter", plot::json_bool(true));
-
-    hicx::report_resource_usage("hicCorrelate");
-    return plot::draw("hicCorrelate", data.str(), plot_data);
+    const std::vector<RawCoolMatrix> loaded = load_raw_cools(matrix_paths, "hicspector");
+    const ChromosomeScore score = [&](std::size_t a, std::size_t b, const hicx::BinRange& range_a,
+                                      const hicx::BinRange& range_b) {
+        return hicx::hicspector::chromosome_score(
+            extract_chromosome_with_diagonal(loaded[a].matrix, range_a.first, range_a.last),
+            extract_chromosome_with_diagonal(loaded[b].matrix, range_b.first, range_b.last),
+            options);
+    };
+    return run_reproducibility(loaded, labels, chromosomes, "hicspector", score, ns, plot_data);
 }
 
-// --method quasar: the same shape as run_scc/run_genomedisco (extract_chromosome,
-// diagonal excluded, since hicx::quasar's own filter_bins/find_bg_dist_norm
-// both skip span == 0 the same way scc/genomedisco do). hifive's own CLI
-// (find_replicate_scores) computes this per chromosome and combines
-// chromosomes into a running "All" total via accumulated sums, not a mean
-// of per-chromosome scores; the mean over chromosomes here is this port's
-// own choice, the same deviation documented for scc, genomedisco and
-// hicspector.
+// --method quasar drops the diagonal like scc and genomedisco: hifive's
+// filter_bins and find_bg_dist_norm both skip span 0.
 int run_quasar(const std::vector<std::string>& matrix_paths, const std::vector<std::string>& labels,
                const std::optional<std::vector<std::string>>& chromosomes,
-               const hicx::quasar::Options& q_options, const cli::Namespace& ns,
+               const hicx::quasar::Options& options, const cli::Namespace& ns,
                const std::optional<std::string>& plot_data) {
-    const std::size_t num_files = matrix_paths.size();
-    std::vector<RawCoolMatrix> loaded;
-    loaded.reserve(num_files);
-    for (std::size_t i = 0; i < num_files; ++i) {
-        loaded.push_back(load_raw_cool(matrix_paths[i], "quasar"));
-    }
-
-    std::vector<double> results(num_files * num_files, 0.0);
-    for (std::size_t a = 0; a < num_files; ++a) {
-        results[a * num_files + a] = 1.0;
-        for (std::size_t b = a + 1; b < num_files; ++b) {
-            const auto& boundaries_a = loaded[a].boundaries;
-            const auto& boundaries_b = loaded[b].boundaries;
-            double sum = 0.0;
-            int count = 0;
-            for (const auto& [chrom, range_a] : boundaries_a) {
-                if (chromosomes.has_value()) {
-                    if (!contains(*chromosomes, chrom)) {
-                        continue;
-                    }
-                } else if (chrom == "M" || chrom == "MT" || chrom == "chrM") {
-                    continue;  // consistent with --method scc/genomedisco/hicspector's own default
-                }
-                const auto it = std::find_if(boundaries_b.begin(), boundaries_b.end(),
-                                             [&](const auto& entry) { return entry.first == chrom; });
-                if (it == boundaries_b.end()) {
-                    continue;
-                }
-                const hicx::BinRange& range_b = it->second;
-                if (range_a.last - range_a.first != range_b.last - range_b.first) {
-                    throw PythonError("ValueError: chromosome " + chrom +
-                                      " has a different number of bins between the input "
-                                      "matrices");
-                }
-                const hicx::quasar::ChromosomeEntries entries_a =
-                    extract_chromosome(loaded[a].matrix, range_a.first, range_a.last);
-                const hicx::quasar::ChromosomeEntries entries_b =
-                    extract_chromosome(loaded[b].matrix, range_b.first, range_b.last);
-                const double chrom_score =
-                    hicx::quasar::chromosome_score(entries_a, entries_b, q_options);
-                if (std::isfinite(chrom_score)) {
-                    sum += chrom_score;
-                    ++count;
-                }
-            }
-            results[a * num_files + b] =
-                count > 0 ? sum / count : std::numeric_limits<double>::quiet_NaN();
-        }
-    }
-    std::vector<double> symmetric = results;
-    for (std::size_t a = 0; a < num_files; ++a) {
-        for (std::size_t b = a + 1; b < num_files; ++b) {
-            symmetric[b * num_files + a] = results[a * num_files + b];
-        }
-    }
-    hicx::cluster::Samples observations;
-    observations.samples = static_cast<std::int64_t>(num_files);
-    observations.features = static_cast<std::int64_t>(num_files);
-    observations.values = symmetric;
-    const std::vector<double> linkage = hicx::cluster::detail::complete_linkage(observations);
-    const std::vector<std::int64_t> leaves =
-        hicx::cluster::detail::dendrogram_leaves(linkage, static_cast<std::int64_t>(num_files));
-
-    plot::JsonObject data;
-    data.add("outFileNameHeatmap", plot::json_string(ns.str("outFileNameHeatmap")));
-    data.add("outFileNameScatter", plot::json_string(ns.str("outFileNameScatter")));
-    data.add("labels", plot::json_strings(labels));
-    data.add("method", plot::json_string("quasar"));
-    data.add("log1p", plot::json_bool(false));
-    const HeatmapData heatmap =
-        heatmap_data(results, num_files, ns.opt_real("zMin"), ns.opt_real("zMax"));
-    data.add("vMin", heatmap.vmin_json);
-    data.add("vMax", heatmap.vmax_json);
-    data.add("colorMap", plot::json_string(ns.str("colorMap")));
-    data.add("plotNumbers", plot::json_bool(ns.flag("plotNumbers")));
-    data.add("results", heatmap.rows_json);
-    data.add("linkage", plot::json_numbers(linkage));
-    data.add("leaves", plot::json_ints(leaves));
-    data.add("skipScatter", plot::json_bool(true));
-
-    hicx::report_resource_usage("hicCorrelate");
-    return plot::draw("hicCorrelate", data.str(), plot_data);
+    const std::vector<RawCoolMatrix> loaded = load_raw_cools(matrix_paths, "quasar");
+    const ChromosomeScore score = [&](std::size_t a, std::size_t b, const hicx::BinRange& range_a,
+                                      const hicx::BinRange& range_b) {
+        return hicx::quasar::chromosome_score(
+            extract_chromosome(loaded[a].matrix, range_a.first, range_a.last),
+            extract_chromosome(loaded[b].matrix, range_b.first, range_b.last), options);
+    };
+    return run_reproducibility(loaded, labels, chromosomes, "quasar", score, ns, plot_data);
 }
 
 SampleEntries load_sample(const std::string& path,
