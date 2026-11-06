@@ -983,3 +983,26 @@ def test_build_matrix_do_test_run_with_an_mcool_name(tmp_path):
     compute(hicBuildMatrix.main, args, 5)
     assert _qc_body(qc_folder)[1:] == EXPECTED_QC_LOG
     shutil.rmtree(qc_folder)
+
+
+def test_build_matrix_pairs_min_mapping_quality_needs_both_mates_at_zero_for_not_unique(tmp_path):
+    """On .pairs input, a pair below --minMappingQuality is "One mate not
+    unique" only when both mates have mapping quality 0, as on the BAM route;
+    a pair with one mate at 0 and one above the threshold is "Low mapping
+    quality". Four pairs: (0, 0), (0, 30), (30, 0) and (30, 30).
+    """
+    pairs = tmp_path / 'mapq.pairs'
+    lines = ["## pairs format v1.0", "#sorted: none", "#chromsize: chr2L 23011544",
+             "#columns: readID chrom1 pos1 chrom2 pos2 strand1 strand2 pair_type mapq1 mapq2"]
+    for i, (mapq1, mapq2) in enumerate([(0, 0), (0, 30), (30, 0), (30, 30)]):
+        lines.append("r{}\tchr2L\t{}\tchr2L\t{}\t+\t-\tUU\t{}\t{}".format(
+            i, 100000 + i * 50000, 400000 + i * 50000, mapq1, mapq2))
+    pairs.write_text("\n".join(lines) + "\n")
+    qc_folder = str(tmp_path / 'qc')
+    args = ("--pairsFile {} --binSize 10000 --minMappingQuality 15 --outFileName {} "
+            "--QCfolder {} --noPlot".format(pairs, tmp_path / 'm.cool', qc_folder)).split()
+    compute(hicBuildMatrix.main, args, 5)
+    body = _qc_body(qc_folder)
+    assert "One mate not unique\t1\t" in body
+    assert "Low mapping quality\t2\t" in body
+    assert "Hi-C contacts\t1\t" in body
