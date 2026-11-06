@@ -384,8 +384,14 @@ std::pair<py::object, py::object> interval_trees(py::handle intervals) {
             }
             set_item(boundaries, previous, py::make_tuple(chrom_start, id));
             chrom_start = id;
-            current = py::list();
-            set_item(trees, chrom, current);
+            // A chromosome that reappears keeps the bins of its earlier runs
+            // (3.7.6 started a new tree and lost them; fixed in HiCExplorer 4).
+            if (contains(trees, chrom)) {
+                current = py::reinterpret_borrow<py::list>(trees[chrom]);
+            } else {
+                current = py::list();
+                set_item(trees, chrom, current);
+            }
             previous = chrom;
         }
         current.append(Interval(start, end, id));

@@ -586,6 +586,7 @@ Nonzero nonzero(const SparseEntries& entries, const T* data) {
         if (data[k] != T(0)) {
             nz.row.push_back(entries.row[k]);
             nz.col.push_back(entries.col[k]);
+            nz.position.push_back(k);
         }
     }
     return nz;
@@ -733,16 +734,22 @@ void compute_zscore(std::int64_t n, const std::vector<std::int64_t>& distance, T
     for (std::int64_t d = 0; d < max_distance; ++d) {
         const std::vector<std::size_t>& mask = positions[static_cast<std::size_t>(d)];
         const double e = (*expected)[static_cast<std::size_t>(d)];
-        const double x = 0.0 - e;  // x_minus_mu starts at zero
-        std::vector<double> squares(mask.size(), x * x);
+        // x_minus_mu is the observed value minus the expected one. 3.7.6
+        // subtracted the expected value from zero (fixed in HiCExplorer 4).
+        std::vector<double> deviation(mask.size());
+        std::vector<double> squares(mask.size());
+        for (std::size_t i = 0; i < mask.size(); ++i) {
+            deviation[i] = static_cast<double>(data[mask[i]]) - e;
+            squares[i] = deviation[i] * deviation[i];
+        }
         double sum_for_sigma = npy::pairwise_sum(squares.data(), squares.size());
         const std::int64_t occurrences = n - d;  // 3.7.6: n + 1 - d
         const double missing =
             (0.0 - e) * static_cast<double>(occurrences - static_cast<std::int64_t>(mask.size()));
         sum_for_sigma += missing * missing;
         const double sigma = std::sqrt(sum_for_sigma / static_cast<double>(occurrences));
-        for (const std::size_t k : mask) {
-            data[k] = cast_from_double<T>(x / sigma);
+        for (std::size_t i = 0; i < mask.size(); ++i) {
+            data[mask[i]] = cast_from_double<T>(deviation[i] / sigma);
         }
     }
 }
@@ -905,7 +912,11 @@ std::vector<float> obs_exp_non_zero_values(const SparseEntries& entries,
                 divisor *= static_cast<double>(static_cast<R>(product / total));
             }
         }
-        values[i] = static_cast<float>(static_cast<double>(values[i]) / divisor);
+        // The i-th nonzero entry is the stored value at its own position; 3.7.6
+        // used i as the index into the data, which is another entry as soon as
+        // an explicit zero is stored (fixed in HiCExplorer 4).
+        const std::size_t k = nonzero.position.empty() ? i : nonzero.position[i];
+        values[k] = static_cast<float>(static_cast<double>(values[k]) / divisor);
     }
     const float epsilon = to_epsilon ? static_cast<float>(0.000000001) : 0.0F;
     for (float& v : values) {
