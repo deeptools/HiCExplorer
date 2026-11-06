@@ -557,6 +557,12 @@ int run_build_matrix_pairs(const Arguments& args) {
                          args.out_file_name.c_str());
             return 1;
         }
+        try {
+            hicx::build_matrix::check_bin_sizes(args.bin_size, args.out_file_name);
+        } catch (const hicx::build_matrix::Exit& exit) {
+            std::fprintf(stderr, "ERROR:hicexplorer.lib.buildMatrixMethods:%s\n", exit.what());
+            return 1;
+        }
         const std::size_t workers =
             static_cast<std::size_t>(std::max<std::int64_t>(1, args.threads));
         hicx::PairsReader reader(args.pairs_file, static_cast<int>(workers));

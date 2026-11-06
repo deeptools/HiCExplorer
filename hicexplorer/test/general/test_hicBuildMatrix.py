@@ -398,6 +398,7 @@ def test_build_matrix_fail(capsys):
 # against the eighty a DpnII run on the 99,983 pair library costs.
 
 import hashlib
+import json
 import numpy as np
 import pysam
 
@@ -814,29 +815,107 @@ def test_build_matrix_region_empties_the_restriction_site_list(tmp_path):
     shutil.rmtree(qc_folder)
 
 
-def test_build_matrix_two_resolutions_write_a_single_cool(tmp_path):
-    """PINNED DEFECT, not a feature.
+def _mcool_run(tmp_path, bin_sizes, suffix='.mcool', extra=''):
+    outfile = NamedTemporaryFile(suffix=suffix, delete=False, dir=str(tmp_path))
+    outfile.close()
+    qc_folder = mkdtemp(prefix="testQC_", dir=str(tmp_path))
+    args = ("-s {} {} --outFileName {} -bs {} --QCfolder {} "
+            "--threads 4 --restrictionSequence AAGCTT --danglingSequence AGCT "
+            "-rs {} {}").format(R1_1000, R2_1000, outfile.name, bin_sizes, qc_folder,
+                                RS_HINDIII, extra)
+    return outfile.name, qc_folder, args.split()
+
+
+def test_build_matrix_two_resolutions_write_an_mcool(tmp_path):
+    """HiCExplorer 4 (fix 3): an .mcool name writes one resolution per bin size.
 
     The mcool branch of buildMatrixMethods.py:1379 is guarded by
-    `len(pBinSize) > 2`, so two resolutions fall through to hiCMatrix.save.
-    That method dispatches on `name.endswith('cool')`, which ".mcool" also
-    satisfies, so the file gets a single cooler at its root at the first
-    resolution and the second resolution is silently ignored.
+    `len(pBinSize) > 2` in 3.7.6, so two bin sizes fell through to
+    hiCMatrix.save, which dispatches on `name.endswith('cool')` and wrote a
+    single cooler at the file root at the first bin size, ignoring the second.
+    Every resolution carries the provenance attributes as plain strings (3.7.6
+    stored the repr "b'HiCExplorer-3.7.6'" and only on the first resolution).
     """
     import h5py
 
-    outfile = NamedTemporaryFile(suffix='.mcool', delete=False, dir=str(tmp_path))
-    outfile.close()
-    qc_folder = mkdtemp(prefix="testQC_", dir=str(tmp_path))
-    args = ("-s {} {} --outFileName {} -bs 100000 200000 --QCfolder {} "
-            "--threads 4 --restrictionSequence AAGCTT --danglingSequence AGCT "
-            "-rs {}").format(R1_1000, R2_1000, outfile.name, qc_folder,
-                             RS_HINDIII).split()
+    outfile, qc_folder, args = _mcool_run(tmp_path, '100000 200000')
     compute(hicBuildMatrix.main, args, 5)
 
-    with h5py.File(outfile.name, 'r') as handle:
-        assert 'resolutions' not in handle
-        assert set(handle.keys()) == {'bins', 'chroms', 'indexes', 'pixels'}
-        assert handle.attrs['bin-size'] == 100000
-        assert int(handle.attrs['nbins']) == 1697
+    with h5py.File(outfile, 'r') as handle:
+        assert list(handle.keys()) == ['resolutions']
+        assert sorted(handle['resolutions'].keys()) == ['100000', '200000']
+        assert handle['resolutions/100000'].attrs['bin-size'] == 100000
+        assert handle['resolutions/200000'].attrs['bin-size'] == 200000
+        assert int(handle['resolutions/100000'].attrs['nbins']) == 1697
+        assert int(handle['resolutions/200000'].attrs['nbins']) < 1697
+        for resolution in ['100000', '200000']:
+            metadata = json.loads(handle['resolutions/' + resolution].attrs['metadata'])
+            assert metadata['matrix-generated-by'] == 'HiCExplorer-4.0.0'
+            assert metadata['matrix-generated-by-url'] == 'https://github.com/deeptools/HiCExplorer'
+    first = hm.hiCMatrix(outfile + '::/resolutions/100000')
+    second = hm.hiCMatrix(outfile + '::/resolutions/200000')
+    # the coarser resolution merges pairs of bins of the first one
+    assert first.matrix.shape[0] // 2 <= second.matrix.shape[0] <= first.matrix.shape[0] // 2 + len(first.chrBinBoundaries)
+    assert second.matrix.sum() > 0
+    shutil.rmtree(qc_folder)
+
+
+def test_build_matrix_one_bin_size_in_an_mcool(tmp_path):
+    """HiCExplorer 4 (fix 3): one bin size is enough for an .mcool."""
+    import h5py
+
+    outfile, qc_folder, args = _mcool_run(tmp_path, '100000')
+    compute(hicBuildMatrix.main, args, 5)
+    with h5py.File(outfile, 'r') as handle:
+        assert list(handle.keys()) == ['resolutions']
+        assert list(handle['resolutions'].keys()) == ['100000']
+        metadata = json.loads(handle['resolutions/100000'].attrs['metadata'])
+        assert metadata['matrix-generated-by'] == 'HiCExplorer-4.0.0'
+    shutil.rmtree(qc_folder)
+
+
+def test_build_matrix_provenance_attributes_are_plain_strings(tmp_path):
+    """HiCExplorer 4 (fix 3): 3.7.6 built the provenance with np.string_ and
+    the cool writer stored its repr, "b'HiCExplorer-3.7.6'"."""
+    import h5py
+
+    outfile, qc_folder = _small_fixture(str(tmp_path), suffix='.cool')
+    with h5py.File(outfile, 'r') as handle:
+        assert handle.attrs['matrix-generated-by'] == 'HiCExplorer-4.0.0'
+        assert handle.attrs['matrix-generated-by-url'] == 'https://github.com/deeptools/HiCExplorer'
+        for value in handle.attrs.values():
+            assert not str(value).startswith("b'")
+    shutil.rmtree(qc_folder)
+
+
+def test_build_matrix_several_bin_sizes_need_an_mcool(tmp_path):
+    """HiCExplorer 4 (fix 3): two bin sizes with an .h5 or .cool name used to
+    write only the first one without a word; now the run stops with status 1
+    before it reads the input."""
+    for suffix in ['.h5', '.cool']:
+        outfile, qc_folder, args = _mcool_run(tmp_path, '100000 200000', suffix=suffix)
+        with pytest.raises(SystemExit) as error:
+            hicBuildMatrix.main(args)
+        assert error.value.code == 1
+        shutil.rmtree(qc_folder)
+
+
+def test_build_matrix_further_bin_sizes_must_be_larger_multiples_of_the_first(tmp_path):
+    """HiCExplorer 4 (fix 3): the coarser resolutions are merged from the first
+    one, so a bin size that is not a larger multiple of it exits with status 1."""
+    for bin_sizes in ['100000 150000', '200000 100000', '100000 100000']:
+        outfile, qc_folder, args = _mcool_run(tmp_path, bin_sizes)
+        with pytest.raises(SystemExit) as error:
+            hicBuildMatrix.main(args)
+        assert error.value.code == 1
+        shutil.rmtree(qc_folder)
+
+
+def test_build_matrix_do_test_run_with_an_mcool_name(tmp_path):
+    """HiCExplorer 4 (fix 3): --doTestRun with an .mcool name and several bin
+    sizes raised the UnboundLocalError of the Python API path in the reproduced
+    createMatrix; now it behaves like the other output names."""
+    outfile, qc_folder, args = _mcool_run(tmp_path, '100000 200000 300000', extra='--doTestRun --doTestRunLines 500')
+    compute(hicBuildMatrix.main, args, 5)
+    assert _qc_body(qc_folder)[1:] == EXPECTED_QC_LOG
     shutil.rmtree(qc_folder)

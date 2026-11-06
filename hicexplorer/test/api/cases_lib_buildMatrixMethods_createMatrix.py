@@ -24,6 +24,22 @@ warnings raised. Two kinds of log records are not compared:
     reduction runs in C++ and writes the same matrices.
 The files hicPrepareQCreport draws (PNG, HTML) are compared by name only.
 
+Fix 3 of HiCExplorer 4 (the project owner's decision of 2026-11-06) changes
+what is written, so the cases it touches carry a `deviation` (see
+test_api_equivalence.py) in place of the comparison with 3.7.6:
+  * the provenance attributes (matrix-generated-by, matrix-generated-by-url,
+    genome-assembly) are plain strings, where 3.7.6 stored the repr
+    "b'HiCExplorer-3.7.6'", and every mcool resolution carries them, where
+    3.7.6 gave them to the first resolution only. They are removed from both
+    records and checked on the new one, as is the "hicexplorer_qc" key the
+    v4 tools add to the metadata of a cool file (3.7.6 writes none); everything
+    else still equals 3.7.6;
+  * an .mcool name writes one resolution per bin size from one bin size on
+    (3.7.6: only for three or more; two bin sizes gave a single cooler at the
+    file root);
+  * --doTestRun with an .mcool name and three or more bin sizes no longer ends
+    in the UnboundLocalError the 3.7.6 code path raised.
+
 Deviations from 3.7.6 (cpp/python/src/api/lib_buildMatrixMethods_run.hpp):
   * the schedule of 3.7.6's worker processes is emulated as every worker
     holding a buffer and results taken in reading order, which decides the
@@ -241,3 +257,133 @@ CASES = [
     Case('createMatrix/exact_multiple_buffers', M + 'createMatrix', args=(File(),),
          kwargs={'buffer_size': 50, 'threads': 2}, driver='create'),
 ]
+
+
+# Fix 3 of HiCExplorer 4, see the module docstring.
+_PROVENANCE = ('matrix-generated-by', 'matrix-generated-by-url', 'genome-assembly')
+# The QC statistics the v4 tools write into the metadata of a cool file (3.7.6 writes none).
+_V4_ONLY = ('hicexplorer_qc',)
+
+
+def _is_provenance(item):
+    return (isinstance(item, tuple) and len(item) == 2 and item[0] == 'tuple' and len(item[1]) == 2
+            and item[1][0][0] == 'str' and item[1][0][1] in _PROVENANCE)
+
+
+def _strip(value):
+    """The canonical value without the provenance attributes and without the
+    provenance keys of the JSON `metadata` attribute."""
+    import json
+    if isinstance(value, tuple) and len(value) == 2 and value[0] in ('list', 'tuple'):
+        items = []
+        for item in value[1]:
+            if _is_provenance(item):
+                continue
+            if (isinstance(item, tuple) and item[0] == 'tuple' and len(item[1]) == 2
+                    and item[1][0] == ('str', 'metadata') and item[1][1][0] == 'str'):
+                metadata = json.loads(item[1][1][1])
+                metadata = {k: v for k, v in metadata.items() if k not in _PROVENANCE + _V4_ONLY}
+                item = ('tuple', [item[1][0], ('str', json.dumps(metadata, sort_keys=True))])
+            items.append(_strip(item))
+        return (value[0], items)
+    if isinstance(value, tuple) and len(value) == 2 and value[0] == 'dict':
+        return ('dict', [(k, _strip(v)) for k, v in value[1]])
+    return value
+
+
+def _provenance(value, found):
+    """Every (key, value) of the provenance in attributes and metadata JSON."""
+    import json
+    if isinstance(value, tuple) and len(value) == 2 and value[0] in ('list', 'tuple'):
+        if _is_provenance(value):
+            found.append(('attribute', value[1][0][1], value[1][1][1]))
+        elif len(value[1]) == 2 and value[1][0] == ('str', 'metadata') and value[1][1][0] == 'str':
+            for key, content in json.loads(value[1][1][1]).items():
+                if key in _PROVENANCE:
+                    found.append(('metadata', key, content))
+        for item in value[1]:
+            _provenance(item, found)
+    elif isinstance(value, tuple) and len(value) == 2 and value[0] == 'dict':
+        for _, item in value[1]:
+            _provenance(item, found)
+    return found
+
+
+def _plain(record, resolutions, assembly=None):
+    found = _provenance(record['return'][1][6], [])
+    versions = [v for kind, key, v in found if key == 'matrix-generated-by']
+    if len(versions) < resolutions or any(v != 'HiCExplorer-4.0.0' for v in versions):
+        return 'matrix-generated-by is not a plain string on every resolution: {}'.format(versions)
+    urls = [v for kind, key, v in found if key == 'matrix-generated-by-url']
+    if any(v != 'https://github.com/deeptools/HiCExplorer' for v in urls):
+        return 'matrix-generated-by-url is not a plain string: {}'.format(urls)
+    if assembly is not None:
+        values = [v for kind, key, v in found if key == 'genome-assembly']
+        if not values or any(v != assembly for v in values):
+            return 'genome-assembly is not the plain string {!r}: {}'.format(assembly, values)
+    return None
+
+
+def provenance(resolutions, assembly=None):
+    def check(expected, actual):
+        import apieq
+        message = _plain(actual, resolutions, assembly)
+        if message:
+            return message
+        exp, act = dict(expected), dict(actual)
+        exp['return'] = ('tuple', [_strip(x) for x in expected['return'][1]])
+        act['return'] = ('tuple', [_strip(x) for x in actual['return'][1]])
+        return apieq.compare_records(exp, act, _NoTolerance)
+    return check
+
+
+class _NoTolerance(object):
+    rtol = 0.0
+    atol = 0.0
+
+
+def two_resolutions(expected, actual):
+    """An .mcool of two bin sizes: both resolutions exist (3.7.6 wrote a
+    single cooler at the file root); the rest of the record equals 3.7.6."""
+    import apieq
+    message = _plain(actual, 2)
+    if message:
+        return message
+    names = [item[1][0][1] for item in actual['return'][1][6][1][0][1][1]
+             if isinstance(item, tuple) and item[0] == 'tuple' and item[1][0][0] == 'str']
+    for resolution in ('resolutions/5000', 'resolutions/10000'):
+        if resolution not in names:
+            return 'no group {} in {}'.format(resolution, names)
+    exp, act = dict(expected), dict(actual)
+    exp['return'] = ('tuple', [x if i != 6 else ('const', 'None') for i, x in enumerate(expected['return'][1])])
+    act['return'] = ('tuple', [x if i != 6 else ('const', 'None') for i, x in enumerate(actual['return'][1])])
+    return apieq.compare_records(exp, act, _NoTolerance)
+
+
+def do_test_run_returns(expected, actual):
+    """--doTestRun with an .mcool name: 3.7.6 ended in an UnboundLocalError
+    ('hic_ma'); now the call returns like the one with any other name."""
+    outcome = actual['return'][1][0]
+    if outcome != ('tuple', [('str', 'returned'), ('const', 'None')]):
+        return 'the call did not return: {}'.format(outcome)
+    if actual['return'][1][2][0] != 'str' or 'Sequenced reads' not in actual['return'][1][2][1]:
+        return 'no QC.log was written'
+    return None
+
+
+for _case in CASES:
+    if _case.id == 'createMatrix/mcool':
+        _case.deviation = provenance(3)
+    elif _case.id == 'createMatrix/cool_assembly':
+        _case.deviation = provenance(1, 'dm3')
+    elif _case.id == 'createMatrix/mcool_two_resolutions':
+        _case.deviation = two_resolutions
+    else:
+        continue
+    _case.note = 'Fix 3 of HiCExplorer 4 (project owner 2026-11-06), see the module docstring'
+
+CASES.append(Case('createMatrix/mcool_do_test_run', M + 'createMatrix', args=(File(),),
+                  kwargs={'out_name': 'matrix.mcool', 'bin_size': (5000, 10000, 20000), 'test_run': True},
+                  driver='create'))
+CASES[-1].deviation = do_test_run_returns
+CASES[-1].note = 'Fix 3 of HiCExplorer 4 (project owner 2026-11-06), see the module docstring'

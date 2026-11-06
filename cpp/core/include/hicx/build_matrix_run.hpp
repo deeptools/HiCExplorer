@@ -135,6 +135,12 @@ class Exit : public std::runtime_error {
     bool logged_;
 };
 
+// Several bin sizes need an .mcool output name, and every further bin size a
+// larger multiple of the first (the coarser resolutions are merged from it).
+// Throws Exit otherwise. run() calls it; the .pairs route of hicBuildMatrix
+// calls it before its own run.
+void check_bin_sizes(const std::vector<std::int64_t>& bin_size, const std::string& out_file_name);
+
 // Runs the whole of createMatrix: reads the BAM pair, classifies, writes
 // QC.log and the matrix. Throws Exit, PythonError (python_api only) and
 // std::runtime_error.

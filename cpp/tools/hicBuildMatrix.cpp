@@ -59,19 +59,21 @@
 //     file demands `region_end <= bed_end`, and region_end defaults to the
 //     chromosome length, so --region chrX leaves the cut site list empty and
 //     every close inward pair is classified as "same fragment". Reproduced.
-//  Q7 buildMatrixMethods.py:1379. The mcool branch is taken only for
+//  Q7 (fixed in HiCExplorer 4) buildMatrixMethods.py:1379. An .mcool name now
+//     writes one resolution per bin size, from one bin size on; several bin
+//     sizes with an .h5 or .cool name are an error. The Python: The mcool branch is taken only for
 //     `len(--binSize) > 2`. Two resolutions therefore write a single cool at
 //     the file root of the .mcool file, because ".mcool".endswith("cool").
-//     Reproduced.
-//  Q10 hicmatrix/lib/cool.py:394-402 against buildMatrixMethods.py:1381.
+//  Q10 (fixed in HiCExplorer 4: every resolution carries the provenance)
+//     hicmatrix/lib/cool.py:394-402 against buildMatrixMethods.py:1381.
 //     The cool writer deletes the provenance keys out of the metadata dict it
 //     is given, and the mcool branch reuses that one dict for every
 //     resolution, so only the first resolution of an mcool carries
-//     matrix-generated-by. Reproduced.
-//  Q9 buildMatrixMethods.py:1371-1376. The matrix provenance strings are
+//     matrix-generated-by.
+//  Q9 (fixed in HiCExplorer 4: plain strings) buildMatrixMethods.py:1371-1376. The matrix provenance strings are
 //     built with np.string_, so they are bytes, and hicmatrix's cool writer
 //     stores str(bytes), which is the repr. The cool attribute really reads
-//     b'HiCExplorer-3.7.6'. Reproduced.
+//     b'HiCExplorer-3.7.6'.
 //  Q8 buildMatrixMethods.py:1116-1170. The master consumes worker queues in
 //     completion order, so the --outBam record order depends on --threads.
 //     Measured: `--threads 8 --inputBufferSize 20000` on

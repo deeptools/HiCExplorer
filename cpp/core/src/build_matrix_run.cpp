@@ -370,19 +370,14 @@ void PixelAccumulator::merge(const std::vector<std::uint64_t>& keys, const std::
 
 std::map<std::string, std::string> matrix_metadata(const std::string& qc_log, const std::string& genome_assembly,
                                                    const std::string& qc_json) {
-    // Q9 buildMatrixMethods.py:1371-1376. The three provenance strings are
-    // wrapped in np.string_, that is numpy bytes, and hicmatrix's cool
-    // writer stores str(value) of them (hicmatrix/lib/cool.py:394, 398,
-    // 401). str() of a bytes object is its repr, so what lands in the
-    // cool file is the seven extra characters of "b'...'" around the
-    // value. Reproduced, not fixed: the attribute is part of the file.
-    const auto as_python_bytes_repr = [](const std::string& value) { return "b'" + value + "'"; };
+    // The Python wrapped these in np.string_, so the cool attributes read
+    // "b'HiCExplorer-3.7.6'"; HiCExplorer 4 stores the plain strings.
     std::map<std::string, std::string> metadata;
     metadata["statistics"] = qc_log;
-    metadata["matrix-generated-by"] = as_python_bytes_repr(std::string("HiCExplorer-") + kVersion);
-    metadata["matrix-generated-by-url"] = as_python_bytes_repr("https://github.com/deeptools/HiCExplorer");
+    metadata["matrix-generated-by"] = std::string("HiCExplorer-") + kVersion;
+    metadata["matrix-generated-by-url"] = "https://github.com/deeptools/HiCExplorer";
     if (!genome_assembly.empty()) {
-        metadata["genome-assembly"] = as_python_bytes_repr(genome_assembly);
+        metadata["genome-assembly"] = genome_assembly;
     }
     if (!qc_json.empty()) {
         // Raw JSON, stored as a nested object under "hicexplorer_qc" in the
@@ -411,8 +406,11 @@ void save_matrix(const std::string& out_file_name, const std::vector<std::int64_
     std::error_code ec;
     std::filesystem::remove(out_file_name, ec);
 
-    if (ends_with(out_file_name, ".mcool") && bin_size.size() > 2) {
-        // Q7: only three or more resolutions take this branch.
+    if (ends_with(out_file_name, ".mcool") && !bin_size.empty()) {
+        // One resolution per bin size, the coarser ones merged from the first
+        // (run() checks that they are multiples of it). The Python took this
+        // branch only for three or more bin sizes and gave only the first
+        // resolution the provenance attributes.
         CoolSaveOptions options;
         options.symmetric = true;
         options.apply_correction = false;
@@ -420,15 +418,6 @@ void save_matrix(const std::string& out_file_name, const std::vector<std::int64_
         options.has_hic_metadata = true;
         take_qc_json(options);
         write_cool(out_file_name + "::/resolutions/" + std::to_string(bin_size[0]), data, options);
-        // Q10 hicmatrix/lib/cool.py:394-402. create_cooler_input deletes
-        // 'matrix-generated-by', 'matrix-generated-by-url' and
-        // 'genome-assembly' out of the metadata dictionary it was handed,
-        // and buildMatrixMethods.py:1381-1404 hands the *same* dictionary
-        // to every resolution. So only the first resolution of an mcool
-        // carries the provenance and the rest carry none. Reproduced.
-        options.hic_metadata.erase("matrix-generated-by");
-        options.hic_metadata.erase("matrix-generated-by-url");
-        options.hic_metadata.erase("genome-assembly");
         for (std::size_t r = 1; r < bin_size.size(); ++r) {
             const std::int64_t factor = bin_size[r] / bin_size[0];
             MatrixData merged = merge_bins(data, factor);
@@ -451,6 +440,26 @@ void save_matrix(const std::string& out_file_name, const std::vector<std::int64_
     // is hiCMatrix.save's behaviour.
 }
 
+void check_bin_sizes(const std::vector<std::int64_t>& bin_size, const std::string& out_file_name) {
+    if (bin_size.size() <= 1) {
+        return;
+    }
+    if (!ends_with(out_file_name, ".mcool")) {
+        throw Exit("Several bin sizes need an .mcool output file, which holds one matrix per "
+                   "bin size; an .h5 or .cool file holds one. Given output " + out_file_name,
+                   true);
+    }
+    for (std::size_t r = 1; r < bin_size.size(); ++r) {
+        if (bin_size[r] % bin_size[0] != 0 || bin_size[r] <= bin_size[0]) {
+            throw Exit("The bin sizes of an .mcool are merged from the first one, so every "
+                       "further bin size has to be a larger multiple of the first; " +
+                           std::to_string(bin_size[r]) + " is not one of " +
+                           std::to_string(bin_size[0]),
+                       true);
+        }
+    }
+}
+
 void run(const Arguments& args, const Hooks& hooks) {
     const bool api = args.python_api;
     const auto log = [&hooks](const char* level, const std::string& message) {
@@ -465,6 +474,7 @@ void run(const Arguments& args, const Hooks& hooks) {
                    "specializations of cool, mcool. Given input " + args.out_file_name,
                    true);
     }
+    check_bin_sizes(args.bin_size, args.out_file_name);
     std::int64_t max_library_insert_size = args.max_library_insert_size;
     if (args.max_distance.has_value()) {
         max_library_insert_size = *args.max_distance;  // backwards compatibility
@@ -985,10 +995,6 @@ void run(const Arguments& args, const Hooks& hooks) {
     }
 
     if (args.do_test_run) {
-        if (api && ends_with(args.out_file_name, ".mcool") && args.bin_size.size() > 2) {
-            throw PythonError("UnboundLocalError",
-                              "cannot access local variable 'hic_ma' where it is not associated with a value");
-        }
         return;
     }
 

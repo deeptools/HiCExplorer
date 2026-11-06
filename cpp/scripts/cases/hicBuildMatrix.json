@@ -80,11 +80,11 @@
              "--restrictionSequence", "GATC", "--danglingSequence", "GATC",
              "-rs", "{data}/DpnII.bed"],
     "outputs": [{"path": "{out}/matrix.cool", "format": "cool", "class": "E1",
-                 "options": {"ignore_metadata_keys": ["hicexplorer_qc"]}}],
+                 "options": {"ignore_attributes": ["matrix-generated-by", "matrix-generated-by-url", "genome-assembly"], "ignore_metadata_keys": ["hicexplorer_qc", "matrix-generated-by", "matrix-generated-by-url", "genome-assembly"]}}],
     "threads_arg": "--threads",
     "memory": {"budget_mb": 321},
     "large": true,
-    "notes": "The cool writer with metadata. The three provenance strings are built with np.string_ and stored by hicmatrix as str(bytes), so the attribute really reads b'HiCExplorer-3.7.6' and the port writes that literally; see Q9 in hicBuildMatrix.cpp. 'statistics', the whole QC log, is put into the metadata dictionary and then dropped by hicmatrix, which never copies it into the info dictionary it writes. The v4 tools also write the QC statistics into the cool metadata under \"hicexplorer_qc\" (the metadata read by hicMatrixQC); 3.7.6 writes none, so this case drops exactly that one key of the metadata JSON (ignore_metadata_keys) and still compares every other key and attribute."
+    "notes": "The cool writer with metadata. The three provenance strings are built with np.string_ and stored by hicmatrix as str(bytes), so the attribute really reads b'HiCExplorer-3.7.6' and the port writes that literally; see Q9 in hicBuildMatrix.cpp. 'statistics', the whole QC log, is put into the metadata dictionary and then dropped by hicmatrix, which never copies it into the info dictionary it writes. The v4 tools also write the QC statistics into the cool metadata under \"hicexplorer_qc\" (the metadata read by hicMatrixQC); 3.7.6 writes none, so this case drops exactly that one key of the metadata JSON (ignore_metadata_keys) and still compares every other key and attribute. HiCExplorer 4 fix 3 (project owner 2026-11-06): the provenance attributes are plain strings, where 3.7.6 stored the repr b'HiCExplorer-3.7.6', and every mcool resolution carries them, where 3.7.6 gave them to the first resolution only. What this note says above about Q7, Q9 and Q10 describes 3.7.6. matrix-generated-by, matrix-generated-by-url and genome-assembly, as attributes and as keys of the metadata JSON, are therefore declared out of scope in this comparison; pixels, bins, chromosomes and every other attribute are still compared, and test_hicBuildMatrix.py pins the provenance values."
   },
   {
     "id": "hicBuildMatrix.mcool.threeResolutions",
@@ -96,11 +96,11 @@
              "--restrictionSequence", "GATC", "--danglingSequence", "GATC",
              "-rs", "{data}/DpnII.bed"],
     "outputs": [{"path": "{out}/matrix.mcool", "format": "mcool", "class": "E1",
-                 "options": {"ignore_metadata_keys": ["hicexplorer_qc"]}}],
+                 "options": {"ignore_attributes": ["matrix-generated-by", "matrix-generated-by-url", "genome-assembly"], "ignore_metadata_keys": ["hicexplorer_qc", "matrix-generated-by", "matrix-generated-by-url", "genome-assembly"]}}],
     "threads_arg": "--threads",
     "memory": {"budget_mb": 321},
     "large": true,
-    "notes": "Three resolutions, so the mcool branch is taken and the two coarser ones come from hicMergeMatrixBins.merge_bins on the 5 kb matrix: 35,857, 34,331 and 31,230 pixels. Only /resolutions/5000 carries the provenance attributes, because hicmatrix's cool writer deletes them out of the metadata dictionary it is handed and the tool reuses the same dictionary for every resolution (Q10). The v4 tools also write the QC statistics into the cool metadata under \"hicexplorer_qc\" (the metadata read by hicMatrixQC); 3.7.6 writes none, so this case drops exactly that one key of the metadata JSON (ignore_metadata_keys) and still compares every other key and attribute."
+    "notes": "Three resolutions, so the mcool branch is taken and the two coarser ones come from hicMergeMatrixBins.merge_bins on the 5 kb matrix: 35,857, 34,331 and 31,230 pixels. Only /resolutions/5000 carries the provenance attributes, because hicmatrix's cool writer deletes them out of the metadata dictionary it is handed and the tool reuses the same dictionary for every resolution (Q10). The v4 tools also write the QC statistics into the cool metadata under \"hicexplorer_qc\" (the metadata read by hicMatrixQC); 3.7.6 writes none, so this case drops exactly that one key of the metadata JSON (ignore_metadata_keys) and still compares every other key and attribute. HiCExplorer 4 fix 3 (project owner 2026-11-06): the provenance attributes are plain strings, where 3.7.6 stored the repr b'HiCExplorer-3.7.6', and every mcool resolution carries them, where 3.7.6 gave them to the first resolution only. What this note says above about Q7, Q9 and Q10 describes 3.7.6. matrix-generated-by, matrix-generated-by-url and genome-assembly, as attributes and as keys of the metadata JSON, are therefore declared out of scope in this comparison; pixels, bins, chromosomes and every other attribute are still compared, and test_hicBuildMatrix.py pins the provenance values."
   },
   {
     "id": "hicBuildMatrix.h5.chromosomeSizes",
@@ -293,6 +293,63 @@
     "notes": "Two enzymes and --keepSelfCircles together, which is the combination that exposes the double counting of Q2: a self circle that neither enzyme finds a site for is added to the counter once per enzyme. discarded_table.txt is included because its column set is built by substring matching on 'dangling end', so the two per enzyme dangling end columns appear there as percentages only."
   },
   {
+    "id": "hicBuildMatrix.mcool.twoResolutions",
+    "tool": "hicBuildMatrix",
+    "tier": 4,
+    "reference": "none",
+    "args": ["-s", "{data}/R1_1000.bam", "{data}/R2_1000.bam",
+             "--outFileName", "{out}/matrix.mcool", "-bs", "100000", "200000",
+             "--QCfolder", "{out}/qc", "--threads", "4",
+             "--restrictionSequence", "AAGCTT", "--danglingSequence", "AGCT",
+             "-rs", "{data}/hicFindRestSite/hindIII.bed"],
+    "outputs": [{"path": "{out}/matrix.mcool", "format": "mcool", "class": "EX"}],
+    "memory": {"budget_mb": 128},
+    "notes": "Class EX (deliberate deviation, HiCExplorer 4 fix 3, project owner 2026-11-06): an .mcool output name writes one resolution per bin size, from one bin size on. 3.7.6 took the mcool branch only for three or more bin sizes and wrote a single cooler at the file root for two. Pinned by test_hicBuildMatrix.py::test_build_matrix_two_resolutions_write_an_mcool."
+  },
+  {
+    "id": "hicBuildMatrix.severalBinSizes.h5.exits_1",
+    "tool": "hicBuildMatrix",
+    "tier": 4,
+    "reference": "none",
+    "args": ["-s", "{data}/R1_1000.bam", "{data}/R2_1000.bam",
+             "--outFileName", "{out}/matrix.h5", "-bs", "100000", "200000",
+             "--QCfolder", "{out}/qc", "--threads", "4",
+             "--restrictionSequence", "AAGCTT", "--danglingSequence", "AGCT",
+             "-rs", "{data}/hicFindRestSite/hindIII.bed"],
+    "outputs": [{"path": "{out}/matrix.h5", "format": "h5", "class": "EX", "absent": true}],
+    "expect_exit": 1,
+    "memory": {"budget_mb": 128},
+    "notes": "HiCExplorer 4 fix 3 (project owner 2026-11-06): several bin sizes need an .mcool output name; an .h5 or .cool name exits 1 with a message before anything is read. 3.7.6 wrote the first resolution and ignored the others without a word. There is no Python counterpart to compare with, so the case checks the status and that nothing is written."
+  },
+  {
+    "id": "hicBuildMatrix.mcool.binSizeNotMultiple.exits_1",
+    "tool": "hicBuildMatrix",
+    "tier": 4,
+    "reference": "none",
+    "args": ["-s", "{data}/R1_1000.bam", "{data}/R2_1000.bam",
+             "--outFileName", "{out}/matrix.mcool", "-bs", "100000", "150000",
+             "--QCfolder", "{out}/qc", "--threads", "4",
+             "--restrictionSequence", "AAGCTT", "--danglingSequence", "AGCT",
+             "-rs", "{data}/hicFindRestSite/hindIII.bed"],
+    "outputs": [{"path": "{out}/matrix.mcool", "format": "mcool", "class": "EX", "absent": true}],
+    "expect_exit": 1,
+    "memory": {"budget_mb": 128},
+    "notes": "HiCExplorer 4 fix 3 (project owner 2026-11-06): the coarser resolutions of an .mcool are merged from the first bin size, so a further bin size that is not a larger multiple of it exits 1 before anything is read."
+  },
+  {
+    "id": "hicBuildMatrix.pairs.severalBinSizes.cool.exits_1",
+    "tool": "hicBuildMatrix",
+    "tier": 9,
+    "reference": "none",
+    "args": ["--pairsFile", "{data}/hicBuildMatrix/pairs/small_test_valid_5kb.pairs.gz",
+             "--outFileName", "{out}/matrix.cool", "-bs", "5000", "10000",
+             "--QCfolder", "{out}/qc", "--threads", "4"],
+    "cpp_args": ["--noPlot"],
+    "outputs": [{"path": "{out}/matrix.cool", "format": "cool", "class": "EX", "absent": true}],
+    "expect_exit": 1,
+    "notes": "HiCExplorer 4 fix 3 (project owner 2026-11-06): the bin size check (several bin sizes need an .mcool name, further bin sizes must be larger multiples of the first) also applies to the --pairsFile route, which skipped it before. No Python counterpart."
+  },
+  {
     "id": "hicBuildMatrix.rejects_an_unsupported_extension",
     "tool": "hicBuildMatrix",
     "tier": 4,
@@ -315,10 +372,10 @@
              "--outFileName", "{out}/matrix.cool", "-bs", "5000",
              "--QCfolder", "{out}/qc", "--threads", "4", "--skipDuplicationCheck"],
     "outputs": [{"path": "{out}/matrix.cool", "format": "cool", "class": "E2",
-                 "options": {"ignore_metadata_keys": ["hicexplorer_qc"]}}],
+                 "options": {"ignore_attributes": ["matrix-generated-by", "matrix-generated-by-url", "genome-assembly"], "ignore_metadata_keys": ["hicexplorer_qc", "matrix-generated-by", "matrix-generated-by-url", "genome-assembly"]}}],
     "threads_arg": "--threads",
     "memory": {"budget_mb": 321},
-    "notes": "PLAN 9.2, class EX: E2 against the BAM route. The .pairs file holds exactly the 37,321 read pairs the Python hicBuildMatrix keeps from small_test_R1/R2_unsorted.bam at 5 kb with DpnII, written by cpp/scripts/make_bam_route_pairs.py --mode valid (sorted, upper triangle, bgzip, pair_type and mapq columns) at each read's middle plus one; 9 read ends sit one base to the left, because the Python's closed interval search put a middle that equals a shared bin end into the left bin. The reference, py_pairs_bam_route_reference.py, runs that BAM route from the arguments recorded in the file's header. --skipDuplicationCheck because the BAM route already removed duplicates by read start: two of the kept pairs share both read middles, and the pairs route's own check would remove them (pixels (2725, 2728) and (4347, 4379), measured); the reference does not pass the flag on. Pixels, bins, chromosomes and attributes are compared. The v4 tools also write the QC statistics into the cool metadata under \"hicexplorer_qc\" (the metadata read by hicMatrixQC); 3.7.6 writes none, so this case drops exactly that one key of the metadata JSON (ignore_metadata_keys) and still compares every other key and attribute."
+    "notes": "PLAN 9.2, class EX: E2 against the BAM route. The .pairs file holds exactly the 37,321 read pairs the Python hicBuildMatrix keeps from small_test_R1/R2_unsorted.bam at 5 kb with DpnII, written by cpp/scripts/make_bam_route_pairs.py --mode valid (sorted, upper triangle, bgzip, pair_type and mapq columns) at each read's middle plus one; 9 read ends sit one base to the left, because the Python's closed interval search put a middle that equals a shared bin end into the left bin. The reference, py_pairs_bam_route_reference.py, runs that BAM route from the arguments recorded in the file's header. --skipDuplicationCheck because the BAM route already removed duplicates by read start: two of the kept pairs share both read middles, and the pairs route's own check would remove them (pixels (2725, 2728) and (4347, 4379), measured); the reference does not pass the flag on. Pixels, bins, chromosomes and attributes are compared. The v4 tools also write the QC statistics into the cool metadata under \"hicexplorer_qc\" (the metadata read by hicMatrixQC); 3.7.6 writes none, so this case drops exactly that one key of the metadata JSON (ignore_metadata_keys) and still compares every other key and attribute. HiCExplorer 4 fix 3 (project owner 2026-11-06): the provenance attributes are plain strings, where 3.7.6 stored the repr b'HiCExplorer-3.7.6', and every mcool resolution carries them, where 3.7.6 gave them to the first resolution only. What this note says above about Q7, Q9 and Q10 describes 3.7.6. matrix-generated-by, matrix-generated-by-url and genome-assembly, as attributes and as keys of the metadata JSON, are therefore declared out of scope in this comparison; pixels, bins, chromosomes and every other attribute are still compared, and test_hicBuildMatrix.py pins the provenance values."
   },
   {
     "id": "hicBuildMatrix.pairs.h5.binSize5000.vs_bam_route",
@@ -343,10 +400,10 @@
              "--outFileName", "{out}/matrix.mcool", "-bs", "5000", "10000", "20000",
              "--QCfolder", "{out}/qc", "--threads", "4", "--skipDuplicationCheck"],
     "outputs": [{"path": "{out}/matrix.mcool", "format": "mcool", "class": "E2",
-                 "options": {"ignore_metadata_keys": ["hicexplorer_qc"]}}],
+                 "options": {"ignore_attributes": ["matrix-generated-by", "matrix-generated-by-url", "genome-assembly"], "ignore_metadata_keys": ["hicexplorer_qc", "matrix-generated-by", "matrix-generated-by-url", "genome-assembly"]}}],
     "threads_arg": "--threads",
     "memory": {"budget_mb": 321},
-    "notes": "The mcool branch of the .pairs route against the BAM route: three resolutions, the coarser two merged from 5 kb, with the provenance only on the first (Q7, Q10), on the file and with the reasoning of the cool case above. The v4 tools also write the QC statistics into the cool metadata under \"hicexplorer_qc\" (the metadata read by hicMatrixQC); 3.7.6 writes none, so this case drops exactly that one key of the metadata JSON (ignore_metadata_keys) and still compares every other key and attribute."
+    "notes": "The mcool branch of the .pairs route against the BAM route: three resolutions, the coarser two merged from 5 kb, with the provenance only on the first (Q7, Q10), on the file and with the reasoning of the cool case above. The v4 tools also write the QC statistics into the cool metadata under \"hicexplorer_qc\" (the metadata read by hicMatrixQC); 3.7.6 writes none, so this case drops exactly that one key of the metadata JSON (ignore_metadata_keys) and still compares every other key and attribute. HiCExplorer 4 fix 3 (project owner 2026-11-06): the provenance attributes are plain strings, where 3.7.6 stored the repr b'HiCExplorer-3.7.6', and every mcool resolution carries them, where 3.7.6 gave them to the first resolution only. What this note says above about Q7, Q9 and Q10 describes 3.7.6. matrix-generated-by, matrix-generated-by-url and genome-assembly, as attributes and as keys of the metadata JSON, are therefore declared out of scope in this comparison; pixels, bins, chromosomes and every other attribute are still compared, and test_hicBuildMatrix.py pins the provenance values."
   },
   {
     "id": "hicBuildMatrix.pairs.cool.restrictionFragments.vs_bam_route",
@@ -358,10 +415,10 @@
              "--minDistance", "150", "--maxLibraryInsertSize", "1500",
              "--QCfolder", "{out}/qc", "--threads", "4", "--skipDuplicationCheck"],
     "outputs": [{"path": "{out}/matrix.cool", "format": "cool", "class": "E2",
-                 "options": {"ignore_metadata_keys": ["hicexplorer_qc"]}}],
+                 "options": {"ignore_attributes": ["matrix-generated-by", "matrix-generated-by-url", "genome-assembly"], "ignore_metadata_keys": ["hicexplorer_qc", "matrix-generated-by", "matrix-generated-by-url", "genome-assembly"]}}],
     "threads_arg": "--threads",
     "memory": {"budget_mb": 321},
-    "notes": "Restriction fragment bins from a .pairs file against the BAM route: 266,464 bins from DpnII.bed with --minDistance 150 and --maxLibraryInsertSize 1500. The file holds the 36,627 pairs the BAM route keeps with those bins, in BAM order (#sorted: none), with only the seven reserved columns and no #columns line, so no mapping quality filter applies. 80 read ends sit one base to the left of their middle, where the closed search put a middle on the shared end of two touching fragment bins into the left one. --skipDuplicationCheck for the reason given in the fixed bin case. The v4 tools also write the QC statistics into the cool metadata under \"hicexplorer_qc\" (the metadata read by hicMatrixQC); 3.7.6 writes none, so this case drops exactly that one key of the metadata JSON (ignore_metadata_keys) and still compares every other key and attribute."
+    "notes": "Restriction fragment bins from a .pairs file against the BAM route: 266,464 bins from DpnII.bed with --minDistance 150 and --maxLibraryInsertSize 1500. The file holds the 36,627 pairs the BAM route keeps with those bins, in BAM order (#sorted: none), with only the seven reserved columns and no #columns line, so no mapping quality filter applies. 80 read ends sit one base to the left of their middle, where the closed search put a middle on the shared end of two touching fragment bins into the left one. --skipDuplicationCheck for the reason given in the fixed bin case. The v4 tools also write the QC statistics into the cool metadata under \"hicexplorer_qc\" (the metadata read by hicMatrixQC); 3.7.6 writes none, so this case drops exactly that one key of the metadata JSON (ignore_metadata_keys) and still compares every other key and attribute. HiCExplorer 4 fix 3 (project owner 2026-11-06): the provenance attributes are plain strings, where 3.7.6 stored the repr b'HiCExplorer-3.7.6', and every mcool resolution carries them, where 3.7.6 gave them to the first resolution only. What this note says above about Q7, Q9 and Q10 describes 3.7.6. matrix-generated-by, matrix-generated-by-url and genome-assembly, as attributes and as keys of the metadata JSON, are therefore declared out of scope in this comparison; pixels, bins, chromosomes and every other attribute are still compared, and test_hicBuildMatrix.py pins the provenance values."
   },
   {
     "id": "hicBuildMatrix.pairs.cool.binSize5000.vs_cooler",
