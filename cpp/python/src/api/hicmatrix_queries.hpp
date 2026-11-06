@@ -15,10 +15,10 @@
 //    returns (start bin, end bin) of the first bin (by start, end, id) that
 //    contains each position, and returns None after logging "Index error"
 //    on the hicmatrix.HiCMatrix logger when a position lies outside every
-//    bin. The bins of a chromosome are cut_intervals[first:last] of its
-//    chrBinBoundaries entry, which is exactly what its interval tree holds:
-//    intervalListToIntervalTree resets a chromosome's tree and overwrites its
-//    boundary entry together when the chromosome reappears;
+//    bin. The interval tree of a chromosome holds the bins of all its runs
+//    (intervalListToIntervalTree of 3.7.6 reset the tree when the chromosome
+//    reappeared and lost the earlier runs; fixed in HiCExplorer 4); its
+//    chrBinBoundaries entry is the range of the latest run;
 //  * getBinSize returns the cached bin_size, or computes it (hicx::BinTable)
 //    and caches it on the object, logging the hicmatrix warning once when
 //    the bins are not homogeneous.

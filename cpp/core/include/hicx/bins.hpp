@@ -7,10 +7,10 @@
 //   * one interval tree per chromosome, mapping a genomic position to a bin id
 //   * chrBinBoundaries, an ordered mapping chromosome -> [first bin, last bin)
 //
-// BinTable holds all three. The quirks of the Python implementation are
-// reproduced on purpose, including the fact that a chromosome that reappears
-// after a different chromosome resets its interval tree and overwrites its
-// boundary entry.
+// BinTable holds all three. A chromosome that reappears after a different
+// chromosome overwrites its boundary entry (the range of its latest run, as an
+// OrderedDict does) and keeps the bins of all its runs in its interval tree;
+// hicmatrix reset the tree and lost the earlier runs (fixed in HiCExplorer 4).
 
 #ifndef HICX_BINS_HPP
 #define HICX_BINS_HPP

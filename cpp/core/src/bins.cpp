@@ -45,9 +45,11 @@ void BinTable::build_index() {
             }
             set_boundary(*previous_chrom, BinRange{chr_start_id, intval_id});
             chr_start_id = intval_id;
-            // A repeated chromosome resets its tree, exactly as the Python
-            // implementation does with cut_int_tree[chrom] = IntervalTree().
-            trees_[interval.chrom].clear();
+            // A chromosome that reappears keeps the bins of its earlier runs
+            // in its tree. hicmatrix reset the tree here
+            // (cut_int_tree[chrom] = IntervalTree()), so the bins of the
+            // earlier runs could not be found any more (fixed in
+            // HiCExplorer 4). Its boundary entry is that of the latest run.
             current_chrom = interval.chrom;
             previous_chrom = &current_chrom;
         }

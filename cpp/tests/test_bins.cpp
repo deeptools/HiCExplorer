@@ -100,3 +100,27 @@ TEST_CASE("region lookup returns the bins overlapping a position") {
     // path that returns None.
     CHECK_FALSE(table.region_bin_range("chr1", 150, 5000).has_value());
 }
+
+TEST_CASE("a chromosome that reappears keeps the bins of its earlier runs") {
+    // chr1 bins 0-2, chr2 bins 3-4, chr1 again bins 5-6. 3.7.6 reset the tree
+    // of chr1 at its second run and lost bins 0-2.
+    std::vector<CutInterval> intervals = fixed_bins("chr1", 3, 10);
+    for (const CutInterval& interval : fixed_bins("chr2", 2, 10)) {
+        intervals.push_back(interval);
+    }
+    for (CutInterval interval : fixed_bins("chr1", 2, 10)) {
+        interval.start += 30;
+        interval.end += 30;
+        intervals.push_back(interval);
+    }
+    const BinTable table(intervals);
+    CHECK(table.bin_at("chr1", 5).value() == 0);
+    CHECK(table.bin_at("chr1", 25).value() == 2);
+    CHECK(table.bin_at("chr1", 35).value() == 5);
+    CHECK(table.bin_at("chr2", 5).value() == 3);
+    // the boundary entry is that of the latest run, at the chromosome's first position
+    REQUIRE(table.chrom_bin_boundaries().size() == 2);
+    CHECK(table.chrom_bin_boundaries()[0].first == "chr1");
+    CHECK(table.chrom_bin_boundaries()[0].second.first == 5);
+    CHECK(table.chrom_bin_boundaries()[0].second.last == 7);
+}
