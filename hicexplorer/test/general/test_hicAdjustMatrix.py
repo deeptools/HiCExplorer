@@ -505,6 +505,44 @@ def test_h5_correction_factors_stay_in_their_dataset(tmp_path):
     np.assert_array_equal(written, numpy_lib.nan_to_num(factors[ids]))
 
 
+def test_tools_that_change_the_values_write_no_correction_factors(tmp_path):
+    """Correction factors stay only where the values are the input's own.
+
+    Fixed in HiCExplorer 4. The tools below write values that are not the
+    counts the factors of Li_et_al_2015.h5 belong to (a sum, a ratio,
+    normalised or transformed counts, merged bins), so the output has neither
+    /correction_factors nor /distance_counts. hicAdjustMatrix only selects
+    bins and keeps the factors (test_h5_correction_factors_stay_in_their_dataset).
+    """
+    import h5py
+    from hicexplorer import (hicSumMatrices, hicNormalize, hicTransform,
+                             hicCompareMatrices, hicMergeMatrixBins)
+    li = ROOT + 'Li_et_al_2015.h5'
+    sizes = ROOT + 'hicBuildMatrix/dm3.chrom.sizes'
+    runs = [
+        ('sum', hicSumMatrices, ['-m', li, li, '-o', 'sum.h5']),
+        ('normalize', hicNormalize, ['-m', li, li, '--normalize', 'smallest',
+                                     '-o', 'n1.h5', 'n2.h5']),
+        ('transform', hicTransform, ['-m', li, '--method', 'obs_exp',
+                                     '-o', 'obs_exp.h5']),
+        ('compare', hicCompareMatrices, ['-m', li, li, '--operation', 'diff',
+                                         '-o', 'diff.h5']),
+        ('merge', hicMergeMatrixBins, ['-m', li, '--numBins', '2',
+                                       '--chromosomeSizes', sizes,
+                                       '-o', 'merged.h5']),
+    ]
+    with h5py.File(li, 'r') as source:
+        assert 'correction_factors' in source
+    for name, module, args in runs:
+        args = [str(tmp_path / a) if a.endswith('.h5') and os.sep not in a
+                else a for a in args]
+        module.main(args)
+        for out in [a for a in args if a.startswith(str(tmp_path))]:
+            with h5py.File(out, 'r') as result:
+                assert 'correction_factors' not in result, (name, out)
+                assert 'distance_counts' not in result, (name, out)
+
+
 def test_no_selection_is_an_error():
     """Without --chromosomes, --regions or --maskBadRegions the tool exits 1.
 

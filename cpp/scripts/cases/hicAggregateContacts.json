@@ -770,7 +770,7 @@
       {
         "path": "{out}/obs_exp.h5",
         "format": "h5",
-        "class": "E2"
+        "class": "E2", "options": {"python_only_nodes": ["/distance_counts"]}
       },
       {
         "path": "{out}/aggregate.png",
@@ -778,7 +778,7 @@
         "class": "E6"
       }
     ],
-    "notes": "obs/exp without the z-score band: only the stored entries are counted. The matrix is written as h5 with the NaN bins masked out, 10,249 bins. The p_*.tab contact pairs are written in np.argsort order of the centre value. numpy 1.26 orders equal keys differently with and without its AVX-512 argsort, and the port uses the order without it on every CPU, so the order of lines with an equal centre value is not compared (option tie_column -1 of the text comparator: each run of consecutive lines with the same last column is sorted before the byte comparison; the lines, their runs and the order of the runs must be identical)."
+    "notes": "The obs/exp matrix is not the counts the correction factors of the input belong to: HiCExplorer 4 writes no /correction_factors or /distance_counts into obs_exp.h5, where 3.7.6 carried the input's factors (as /distance_counts, because of the load time field swap); the h5 comparison ignores that Python-only /distance_counts (python_only_nodes). obs/exp without the z-score band: only the stored entries are counted. The matrix is written as h5 with the NaN bins masked out, 10,249 bins. The p_*.tab contact pairs are written in np.argsort order of the centre value. numpy 1.26 orders equal keys differently with and without its AVX-512 argsort, and the port uses the order without it on every CPU, so the order of lines with an equal centre value is not compared (option tie_column -1 of the text comparator: each run of consecutive lines with the same last column is sorted before the byte comparison; the lines, their runs and the order of the runs must be identical)."
   },
   {
     "id": "hicAggregateContacts.obsexp.cool.hclust3.center",
@@ -878,7 +878,7 @@
       {
         "path": "{out}/obs_exp.h5",
         "format": "h5",
-        "class": "E2"
+        "class": "E2", "options": {"python_only_nodes": ["/distance_counts"]}
       },
       {
         "path": "{out}/aggregate.png",
@@ -886,7 +886,7 @@
         "class": "E6"
       }
     ],
-    "notes": "A range narrow enough that maxdepth truncates the band: 122 diagonals. The p_*.tab contact pairs are written in np.argsort order of the centre value. numpy 1.26 orders equal keys differently with and without its AVX-512 argsort, and the port uses the order without it on every CPU, so the order of lines with an equal centre value is not compared (option tie_column -1 of the text comparator: each run of consecutive lines with the same last column is sorted before the byte comparison; the lines, their runs and the order of the runs must be identical)."
+    "notes": "The obs/exp matrix is not the counts the correction factors of the input belong to: HiCExplorer 4 writes no /correction_factors or /distance_counts into obs_exp.h5, where 3.7.6 carried the input's factors (as /distance_counts, because of the load time field swap); the h5 comparison ignores that Python-only /distance_counts (python_only_nodes). A range narrow enough that maxdepth truncates the band: 122 diagonals. The p_*.tab contact pairs are written in np.argsort order of the centre value. numpy 1.26 orders equal keys differently with and without its AVX-512 argsort, and the port uses the order without it on every CPU, so the order of lines with an equal centre value is not compared (option tie_column -1 of the text comparator: each run of consecutive lines with the same last column is sorted before the byte comparison; the lines, their runs and the order of the runs must be identical)."
   },
   {
     "id": "hicAggregateContacts.total_counts",
@@ -1035,7 +1035,7 @@
       {
         "path": "{out}/obs_exp.h5",
         "format": "h5",
-        "class": "E2"
+        "class": "E2", "options": {"python_only_nodes": ["/distance_counts"]}
       },
       {
         "path": "{out}/aggregate.png",
@@ -1043,7 +1043,7 @@
         "class": "E6"
       }
     ],
-    "notes": "maxdepth=None, the unbounded branch of convert_to_obs_exp_matrix. The p_*.tab contact pairs are written in np.argsort order of the centre value. numpy 1.26 orders equal keys differently with and without its AVX-512 argsort, and the port uses the order without it on every CPU, so the order of lines with an equal centre value is not compared (option tie_column -1 of the text comparator: each run of consecutive lines with the same last column is sorted before the byte comparison; the lines, their runs and the order of the runs must be identical)."
+    "notes": "The obs/exp matrix is not the counts the correction factors of the input belong to: HiCExplorer 4 writes no /correction_factors or /distance_counts into obs_exp.h5, where 3.7.6 carried the input's factors (as /distance_counts, because of the load time field swap); the h5 comparison ignores that Python-only /distance_counts (python_only_nodes). maxdepth=None, the unbounded branch of convert_to_obs_exp_matrix. The p_*.tab contact pairs are written in np.argsort order of the centre value. numpy 1.26 orders equal keys differently with and without its AVX-512 argsort, and the port uses the order without it on every CPU, so the order of lines with an equal centre value is not compared (option tie_column -1 of the text comparator: each run of consecutive lines with the same last column is sorted before the byte comparison; the lines, their runs and the order of the runs must be identical)."
   },
   {
     "id": "hicAggregateContacts.all.obsexp.all_outliers",
@@ -1073,10 +1073,10 @@
       {
         "path": "{out}/obs_exp.h5",
         "format": "h5",
-        "class": "E2"
+        "class": "E2", "options": {"python_only_nodes": ["/distance_counts"]}
       }
     ],
-    "notes": "Every submatrix is an outlier, so the tool exits 1, after it has written the obs/exp matrix.",
+    "notes": "The obs/exp matrix is not the counts the correction factors of the input belong to: HiCExplorer 4 writes no /correction_factors or /distance_counts into obs_exp.h5, where 3.7.6 carried the input's factors (as /distance_counts, because of the load time field swap); the h5 comparison ignores that Python-only /distance_counts (python_only_nodes). Every submatrix is an outlier, so the tool exits 1, after it has written the obs/exp matrix.",
     "expect_exit": 1
   },
   {

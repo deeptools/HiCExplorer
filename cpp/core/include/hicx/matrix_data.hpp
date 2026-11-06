@@ -41,6 +41,18 @@ struct MatrixData {
     bool correction_factors_are_column = false;
 };
 
+// Removes the correction factors and the distance counts. A tool that writes a
+// matrix whose values are not the raw values of its input on the same bins
+// (a sum, a ratio, a transform, merged bins, a z-score matrix) calls this
+// before saving: factors or counts of the input do not belong to such values,
+// and a later tool would apply them. Fixed in HiCExplorer 4; 3.7.6 carried the
+// first input's vectors into the output (under the wrong dataset name).
+inline void drop_correction_vectors(MatrixData& data) {
+    data.correction_factors.reset();
+    data.distance_counts.reset();
+    data.correction_factors_are_column = false;
+}
+
 }  // namespace hicx
 
 #endif  // HICX_MATRIX_DATA_HPP

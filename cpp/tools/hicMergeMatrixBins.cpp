@@ -208,8 +208,7 @@ int main(int argc, char** argv) {
         if (!hic.nan_bins().empty()) {
             const std::vector<std::int64_t> nan_bins = hic.nan_bins();
             hicx::delete_bins(hic.data(), nan_bins);
-            hic.data().correction_factors.reset();
-            hic.data().correction_factors_are_column = false;
+            hicx::drop_correction_vectors(hic.data());
             hic.refresh_boundaries();
             std::fputs("WARNING:hicexplorer.hicMergeMatrixBins:*WARNING*: The matrix "
                        "is probably a corrected matrix that contains NaN bins. This "
@@ -230,6 +229,8 @@ int main(int argc, char** argv) {
                     return 1;
                 }
                 hic.matrix() = hicx::running_window(hic.matrix(), args.num_bins);
+                // the smoothed counts are not the counts the factors belong to
+                hicx::drop_correction_vectors(hic.data());
                 hic.data().nan_bins = hicx::empty_column_bins(hic.matrix());
             }
             // num_bins == 1 returns before the window is applied, so nan_bins

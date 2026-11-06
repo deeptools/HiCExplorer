@@ -907,9 +907,8 @@ void write_obs_exp(const std::string& path, const hicx::MatrixData& data) {
     out.matrix = data.matrix;
     out.cut_intervals = data.cut_intervals;
     out.nan_bins = data.nan_bins;
-    out.correction_factors = data.correction_factors;
-    out.distance_counts = data.distance_counts;
-    out.correction_factors_are_column = data.correction_factors_are_column;
+    // The obs/exp matrix is not the counts the factors of the input belong
+    // to, so none are written (fixed in HiCExplorer 4).
     if (ends_with(path, ".h5")) {
         hicx::H5SaveOptions options;
         options.symmetric = true;

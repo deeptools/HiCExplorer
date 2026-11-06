@@ -658,9 +658,9 @@ void write_intermediate(const std::string& path, const hicx::MatrixData& source,
     out.matrix = std::move(matrix);
     out.cut_intervals = source.cut_intervals;
     out.nan_bins = source.nan_bins;
-    out.correction_factors = source.correction_factors;
-    out.distance_counts = source.distance_counts;
-    out.correction_factors_are_column = source.correction_factors_are_column;
+    // The intermediate matrices (Pearson, obs/exp) are not the counts the
+    // factors of the input belong to, so none are written (fixed in
+    // HiCExplorer 4).
     if (ends_with(path, ".h5")) {
         hicx::H5SaveOptions options;
         options.symmetric = true;

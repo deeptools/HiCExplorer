@@ -61,7 +61,14 @@ def compare(path_a, path_b, cls, opts=None):
                              f"{'py' if _has(handle_a, node) else 'cpp'} only")
         if diffs:
             return Result(False, None, metrics, diffs)
+        # "python_only_nodes": optional datasets that 3.7.6 writes and
+        # HiCExplorer 4 deliberately does not (the case's notes say why), e.g.
+        # /distance_counts, where 3.7.6 carried the input's correction factors
+        # into a matrix of different values.
+        python_only = set(opts.get("python_only_nodes", []))
         for node in OPTIONAL_NODES:
+            if node in python_only and _has(handle_a, node) and not _has(handle_b, node):
+                continue
             if _has(handle_a, node) != _has(handle_b, node):
                 diffs.append(f"{node}: present in "
                              f"{'py' if _has(handle_a, node) else 'cpp'} only")

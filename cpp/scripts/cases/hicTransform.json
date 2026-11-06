@@ -481,7 +481,7 @@
       {
         "path": "{out}/obs_exp.h5",
         "format": "h5",
-        "class": "ED"
+        "class": "EX"
       }
     ],
     "memory": {
@@ -509,7 +509,7 @@
       {
         "path": "{out}/pearson.h5",
         "format": "h5",
-        "class": "ED"
+        "class": "EX"
       }
     ],
     "threads_arg": "--threads",

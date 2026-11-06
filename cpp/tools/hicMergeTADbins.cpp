@@ -212,8 +212,7 @@ int main(int argc, char** argv) {
         }
 
         // hicMergeTADbins.py:87: the factors no longer match the merged bins.
-        hic.data().correction_factors.reset();
-        hic.data().correction_factors_are_column = false;
+        hicx::drop_correction_vectors(hic.data());
 
         // update_matrix(reduce_matrix(matrix, bins_to_merge, diagonal=True),
         //               new_bins)
