@@ -149,3 +149,14 @@ def test_threshold_value_is_written_as_a_python_float():
     assert read_lines(outfile.name)[1:] == ['# Standard threshold 1e-05', '0\t1e-05']
 
     os.unlink(outfile.name)
+
+
+def test_version_and_help_are_accepted(capfd):
+    """HiCExplorer 4: --version prints the tool name and the version and --help
+    the usage, both with status 0. The Python parser was built with
+    add_help=False and had neither, so both were unrecognised arguments (status
+    2)."""
+    assert hicCreateThresholdFile.main(['--version']) in (0, None)
+    assert capfd.readouterr().out.strip() == "hicCreateThresholdFile " + __version__
+    assert hicCreateThresholdFile.main(['--help']) in (0, None)
+    assert 'usage: hicCreateThresholdFile' in capfd.readouterr().out

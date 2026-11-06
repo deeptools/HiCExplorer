@@ -11,12 +11,9 @@
 //     `1.0` and `-tv 0.00001` as `1e-05`, neither of which printf's %g gives.
 //     hicx::npy::float_repr is that function.
 //
-// The parser has no --help and no --version: hicCreateThresholdFile.py builds
-// its ArgumentParser with add_help=False and never adds one back, so `-h` and
-// `--version` are unrecognised arguments and the tool exits 2. Reproduced,
-// including the order in which argparse complains: it validates what it parsed
-// before it mentions the leftovers, so a bare `--version` reports the missing
-// required arguments and not the unknown option.
+// --help and --version: the Python built its ArgumentParser with
+// add_help=False and never added either, so both were unrecognised arguments;
+// HiCExplorer 4 has them like every other tool.
 //
 // No threading, no SIMD: the tool writes at most a few hundred lines.
 
@@ -38,7 +35,7 @@ namespace {
 const char* const kUsage =
     "usage: hicCreateThresholdFile --thresholdValue THRESHOLDVALUE --range RANGE\n"
     "                              RANGE [--resolution RESOLUTION] --outFileName\n"
-    "                              OUTFILENAME\n";
+    "                              OUTFILENAME [--help] [--version]\n";
 
 struct Arguments {
     double threshold_value = 0.0;
@@ -48,9 +45,7 @@ struct Arguments {
     std::string out_file_name;
 };
 
-// hicCreateThresholdFile.py parse_arguments. argparse reports missing required
-// arguments before unrecognised ones, so a bare `--version` prints "the
-// following arguments are required"; the argument layer does the same.
+// hicCreateThresholdFile.py parse_arguments, with --help and --version added.
 Arguments parse_arguments(int argc, char** argv) {
     namespace cli = hicx::cli;
     cli::Parser parser("hicCreateThresholdFile", "");
@@ -74,6 +69,9 @@ Arguments parse_arguments(int argc, char** argv) {
         .required()
         .output({"txt"})
         .help("The name and path of the created threshold file.");
+    cli::ArgumentGroup& optional = parser.group("Optional arguments");
+    optional.add({"--help", "-h"}).action(cli::Action::Help).help("Show this help message and exit.");
+    optional.add({"--version"}).version(std::string("%(prog)s ") + hicx::kVersion);
 
     const cli::Namespace ns = parser.parse(argc, argv);
     Arguments args;

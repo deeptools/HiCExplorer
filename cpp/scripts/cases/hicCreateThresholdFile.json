@@ -42,5 +42,15 @@
              "-o", "{out}/threshold.txt"],
     "outputs": [{"path": "{out}/threshold.txt", "format": "plain", "class": "E0"}],
     "notes": "repr() of a small float switches to exponent notation at 1e-05 and spells it without a trailing zero in the mantissa, which printf's %g does not do. The case exists to pin hicx::npy::float_repr against CPython on this tool's only piece of formatting."
+  },
+  {
+    "id": "hicCreateThresholdFile.version",
+    "tool": "hicCreateThresholdFile",
+    "tier": 2,
+    "reference": "none",
+    "args": ["--version"],
+    "outputs": [],
+    "stderr_contains": [],
+    "notes": "HiCExplorer 4 (project owner 2026-11-06): --version and --help are accepted and exit 0. The Python parser was built with add_help=False and had neither, so both were unrecognised arguments (status 2). No Python counterpart; test_hicCreateThresholdFile.py::test_version_and_help_are_accepted pins the text."
   }
 ]
