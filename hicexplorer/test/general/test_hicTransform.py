@@ -826,9 +826,9 @@ original_matrix_float = ROOT + "Li_cut.h5"
 def _expected_per_distance_written_out(pMatrix):
     """utilities.expected_interactions(pSubmatrix, pThreads=None), written out.
 
-    Note the divisor: np.arange(n + 1, 1, -1), that is n + 1 - d, which is one
-    more than the number of cells diagonal d actually has. Reproduced as it
-    stands, not corrected.
+    The divisor is the number of cells diagonal d has, n - d. 3.7.6 divided by
+    np.arange(n + 1, 1, -1), that is n + 1 - d, one more than that; fixed in
+    HiCExplorer 4.
 
     Note also that `distance` is derived from nonzero(), which skips an
     explicitly stored zero, while the values are taken from .data, which does
@@ -842,7 +842,7 @@ def _expected_per_distance_written_out(pMatrix):
     expected = np.zeros(size)
     for step in range(distance.min(), distance.max() + 1):
         expected[step] = np.sum(pMatrix.data[distance == step])
-    occurrences = np.arange(size + 1, 1, -1)
+    occurrences = np.arange(size, 0, -1)
     expected = expected / occurrences
     expected[~np.isfinite(expected)] = 0.0
     return expected

@@ -27,6 +27,12 @@ test_api_equivalence.py) in place of the comparison with 3.7.6: with the
 accepted candidates, their p-values and the masks blinded, the record must
 equal 3.7.6's (arguments, namespace, logs, shapes), and every candidate both
 versions accept must carry the same p-value.
+
+HiCExplorer 4 also divides the sum of the contacts at a distance by the length
+of the diagonal, n - d, where 3.7.6 divided by n + 1 - d. That moves the
+p-values of a few loops slightly and changes the number of candidates by one
+here and there, so the cases it touches compare the accepted candidates and
+their p-values to a tolerance.
 """
 import os
 import re
@@ -433,7 +439,12 @@ for _case in CASES:
 # mask over the candidates followed by the p-values of the accepted ones.
 def _is_loop(node):
     return (isinstance(node, tuple) and len(node) == 2 and node[0] == 'tuple' and len(node[1]) == 7
-            and isinstance(node[1][0], tuple) and node[1][0][0] == 'npscalar')
+            and isinstance(node[1][0], tuple) and node[1][0][0] in ('npscalar', 'str')
+            and isinstance(node[1][6], tuple) and node[1][6][0] == 'npscalar')
+
+
+def _field(field):
+    return field[2] if field[0] == 'npscalar' else field[1]
 
 
 def _blind(node, found):
@@ -443,7 +454,7 @@ def _blind(node, found):
         if node[0] == 'list' and items and all(_is_loop(i) for i in items):
             for loop in items:
                 fields = loop[1]
-                found[tuple(f[2] for f in fields[:6])] = fields[6][2][1]
+                found[tuple(_field(f) for f in fields[:6])] = fields[6][2][1]
             return ('accepted', 'loops')
         if (node[0] == 'tuple' and len(items) == 2 and isinstance(items[0], tuple) and items[0][0] == 'ndarray'
                 and items[0][2] == '<i4' and len(items[0][3]) == 2 and items[0][3][1] == 2
@@ -474,8 +485,8 @@ def window_fix(expected, actual):
 
     def blind(record, found):
         out = {k: (_blind(v, found) if k == 'return' else v) for k, v in record.items()}
-        # the log lines that count the accepted loops
-        out['logs'] = [(n, lvl, re.sub(r'(loops.*?): \d+$', r'\1: N', m)) for n, lvl, m in record['logs']]
+        # the log lines that list or count the candidates and the accepted loops
+        out['logs'] = [(n, lvl, re.sub(r'((?:loops|initial).*?): \d+$', r'\1: N', m) if not m.startswith('pCandidates') else 'pCandidates') for n, lvl, m in record['logs']]
         return out
     blind_old = blind(expected, old)
     blind_new = blind(actual, new)
@@ -504,3 +515,43 @@ for _case in CASES:
         _case.deviation = window_fix
         _case.note = (_case.note + '; ' if _case.note else '') + (
             'HiCExplorer 4 cuts the donut window around the candidate (see the module docstring)')
+
+
+def same_calls(rtol):
+    """Deviation of the cases whose call set is the one of 3.7.6 but whose
+    p-values move with the expected value fix: the record without the accepted
+    candidates and the counting log lines equals 3.7.6's, the same candidates
+    are accepted, and their p-values agree to `rtol`."""
+    def check(expected, actual):
+        from apieq import compare
+        if ('raise' in expected) or ('raise' in actual):
+            return 'the case raised: {!r} against {!r}'.format(actual.get('raise'), expected.get('raise'))
+        old, new = {}, {}
+
+        def blind(record, found):
+            out = {k: (_blind(v, found) if k == 'return' else v) for k, v in record.items()}
+            out['logs'] = [(n, lvl, re.sub(r'((?:loops|initial).*?): \d+$', r'\1: N', m) if not m.startswith('pCandidates') else 'pCandidates')
+                           for n, lvl, m in record['logs']]
+            return out
+        blind_old = blind(expected, old)
+        blind_new = blind(actual, new)
+        for key in blind_old:
+            message = compare(blind_old[key], blind_new.get(key), 0.0, 0.0, key)
+            if message:
+                return message
+        if set(old) != set(new):
+            return 'the accepted candidates differ: {} only in 3.7.6, {} only now'.format(
+                len(set(old) - set(new)), len(set(new) - set(old)))
+        for key in sorted(old, key=str):
+            message = compare(('float', old[key]), ('float', new[key]), rtol, 0.0, 'p-value of {}'.format(key))
+            if message:
+                return message
+        return None
+    return check
+
+
+for _case in CASES:
+    if _case.id in ('compute_loops/cool_queue',):
+        _case.deviation = same_calls(0.1)
+        _case.note = (_case.note + '; ' if _case.note else '') + (
+            'HiCExplorer 4 divides the expected value by the diagonal length n - d (see the module docstring)')

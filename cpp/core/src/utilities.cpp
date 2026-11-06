@@ -681,7 +681,7 @@ std::optional<std::vector<double>> expected_interactions(std::int64_t n,
     const auto [lo, hi] = std::minmax_element(distance.begin(), distance.end());
     std::vector<double> expected = distance_sums(n, distance, data, data_size, *lo, *hi + 1);
     for (std::int64_t i = 0; i < n; ++i) {
-        const double occurrences = static_cast<double>(n + 1 - i);
+        const double occurrences = static_cast<double>(n - i);  // 3.7.6: n + 1 - i
         expected[static_cast<std::size_t>(i)] =
             zero_non_finite(expected[static_cast<std::size_t>(i)] / occurrences);
     }
@@ -736,7 +736,7 @@ void compute_zscore(std::int64_t n, const std::vector<std::int64_t>& distance, T
         const double x = 0.0 - e;  // x_minus_mu starts at zero
         std::vector<double> squares(mask.size(), x * x);
         double sum_for_sigma = npy::pairwise_sum(squares.data(), squares.size());
-        const std::int64_t occurrences = n + 1 - d;
+        const std::int64_t occurrences = n - d;  // 3.7.6: n + 1 - d
         const double missing =
             (0.0 - e) * static_cast<double>(occurrences - static_cast<std::int64_t>(mask.size()));
         sum_for_sigma += missing * missing;

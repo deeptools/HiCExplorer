@@ -149,6 +149,7 @@
     "id": "hicDetectLoops.cool.GSE63525_2_5mb.chr1",
     "tool": "hicDetectLoops",
     "tier": 5,
+    "reference": "none",
     "args": ["-m", "{data}/hicDetectLoops/GSE63525_GM12878_insitu_primary_2_5mb.cool",
              "--chromosomes", "1",
              "--maxLoopDistance", "50000000",
@@ -156,15 +157,16 @@
              "-t", "1", "-tpc", "1",
              "-o", "{out}/loops.bedgraph"],
     "outputs": [
-      {"path": "{out}/loops.bedgraph", "format": "bedpe", "class": "ED"}
+      {"path": "{out}/loops.bedgraph", "format": "bedpe", "class": "EX"}
     ],
     "threads_arg": "--threads",
-    "notes": "The cool loader, which for a single chromosome with a distance limit stages the pixels through a float32 lil_matrix and keeps bin2 - bin1 strictly below maxLoopDistance // binsize (hicmatrix/lib/cool.py:126-141). --maxLoopDistance is 50000000 rather than the 3000000 the Python test file passes, because these are 2.5 Mb bins: at 3000000 the loader keeps distance 0 only, the diagonal is then removed and nothing is left, and the tool finds no loops at all. See the note on the degenerate case in the report. 4 loops."
+    "notes": "Class EX, not E0 (deliberate deviation, HiCExplorer 4 fixes, project owner 2026-11-06): The expected value at a distance is the sum of the contacts over the diagonal length n - d, where 3.7.6 divided by n + 1 - d; the p-values of some loops differ from 3.7.6 (pinned by test_hicDetectLoops.py). The notes below describe the case as it behaved against 3.7.6. The cool loader, which for a single chromosome with a distance limit stages the pixels through a float32 lil_matrix and keeps bin2 - bin1 strictly below maxLoopDistance // binsize (hicmatrix/lib/cool.py:126-141). --maxLoopDistance is 50000000 rather than the 3000000 the Python test file passes, because these are 2.5 Mb bins: at 3000000 the loader keeps distance 0 only, the diagonal is then removed and nothing is left, and the tool finds no loops at all. See the note on the degenerate case in the report. 4 loops."
   },
   {
     "id": "hicDetectLoops.cool.GSE63525_2_5mb.chr1_chr2",
     "tool": "hicDetectLoops",
     "tier": 5,
+    "reference": "none",
     "args": ["-m", "{data}/hicDetectLoops/GSE63525_GM12878_insitu_primary_2_5mb.cool",
              "--chromosomes", "1", "2",
              "--maxLoopDistance", "50000000",
@@ -172,10 +174,10 @@
              "-t", "1", "-tpc", "1",
              "-o", "{out}/loops.bedgraph"],
     "outputs": [
-      {"path": "{out}/loops.bedgraph", "format": "bedpe", "class": "ED"}
+      {"path": "{out}/loops.bedgraph", "format": "bedpe", "class": "EX"}
     ],
     "threads_arg": "--threads",
-    "notes": "Two chromosomes, so the Python leaves its single core branch and goes through the process pool; at --threads 1 only one worker is in flight at a time and its line order is still the order of --chromosomes, which is also the order this port writes. 9 loops."
+    "notes": "Class EX, not E0 (deliberate deviation, HiCExplorer 4 fixes, project owner 2026-11-06): The expected value at a distance is the sum of the contacts over the diagonal length n - d, where 3.7.6 divided by n + 1 - d; the p-values of some loops differ from 3.7.6 (pinned by test_hicDetectLoops.py). The notes below describe the case as it behaved against 3.7.6. Two chromosomes, so the Python leaves its single core branch and goes through the process pool; at --threads 1 only one worker is in flight at a time and its line order is still the order of --chromosomes, which is also the order this port writes. 9 loops."
   },
   {
     "id": "hicDetectLoops.cool.GSE63525_2_5mb.chr1.mean_nonzero",
@@ -197,6 +199,7 @@
     "id": "hicDetectLoops.cool.GSE63525_2_5mb.chr1.tight_preselection",
     "tool": "hicDetectLoops",
     "tier": 5,
+    "reference": "none",
     "args": ["-m", "{data}/hicDetectLoops/GSE63525_GM12878_insitu_primary_2_5mb.cool",
              "--chromosomes", "1",
              "--maxLoopDistance", "50000000",
@@ -204,9 +207,9 @@
              "-t", "1", "-tpc", "1",
              "-o", "{out}/loops.bedgraph"],
     "outputs": [
-      {"path": "{out}/loops.bedgraph", "format": "bedpe", "class": "ED"}
+      {"path": "{out}/loops.bedgraph", "format": "bedpe", "class": "EX"}
     ],
     "threads_arg": "--threads",
-    "notes": "The preselection made decisive on the cool path, where all 19 distance distributions run the optimiser rather than falling into the factorial overflow. 3 loops."
+    "notes": "Class EX, not E0 (deliberate deviation, HiCExplorer 4 fixes, project owner 2026-11-06): The expected value at a distance is the sum of the contacts over the diagonal length n - d, where 3.7.6 divided by n + 1 - d; the p-values of some loops differ from 3.7.6 (pinned by test_hicDetectLoops.py). The notes below describe the case as it behaved against 3.7.6. The preselection made decisive on the cool path, where all 19 distance distributions run the optimiser rather than falling into the factorial overflow. 3 loops."
   }
 ]

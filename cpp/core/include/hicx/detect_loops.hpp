@@ -187,13 +187,11 @@ struct DistanceGroups {
 // hicexplorer.utilities.expected_interactions: the sum of the values at each
 // genomic distance divided by `occurrences`.
 //
-// QUIRK (utilities.py:362). `occurrences = np.arange(shape[0] + 1, 1, -1)`, so
-// the divisor for distance d is n + 1 - d. The number of positions a diagonal
-// of an n by n matrix actually has is n - d, so every expected value is a
-// factor (n - d) / (n + 1 - d) too small. It is a constant factor per distance
-// and the tool only ever compares ratios within one distance, so it shifts
-// every obs/exp value at a given distance by the same amount, but the value
-// itself is not the mean it is documented to be.
+// Fixed in HiCExplorer 4 (utilities.py:362). 3.7.6 divided by
+// `np.arange(shape[0] + 1, 1, -1)`, that is n + 1 - d for distance d, although
+// the diagonal of an n by n matrix has n - d positions, so every expected value
+// was a factor (n - d) / (n + 1 - d) too small and the value was not the mean
+// it is documented to be. The divisor is n - d.
 //
 // Threaded over distances. Each distance is reduced by exactly one worker with
 // numpy's pairwise order, so the result is independent of `threads`.

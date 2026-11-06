@@ -165,9 +165,11 @@ std::vector<double> expected_interactions(const CsrMatrix& matrix,
             simd::pairwise_sum(gathered.data(), gathered.size());
     });
 
-    // occurrences = np.arange(shape + 1, 1, -1), so occurrences[d] = shape + 1 - d.
+    // The diagonal of distance d of an n by n matrix has n - d positions.
+    // 3.7.6 divided by np.arange(n + 1, 1, -1), that is n + 1 - d (fixed in
+    // HiCExplorer 4).
     for (std::int64_t distance = 0; distance < shape; ++distance) {
-        const double occurrences = static_cast<double>(shape + 1 - distance);
+        const double occurrences = static_cast<double>(shape - distance);
         double value = expected[static_cast<std::size_t>(distance)] / occurrences;
         if (std::isnan(value) || std::isinf(value)) {
             value = 0.0;

@@ -493,7 +493,7 @@ py::object expected_interactions_object(py::handle submatrix, py::handle threads
             }
         }
         for (std::int64_t i = 0; i < n; ++i) {
-            const double v = expected[static_cast<std::size_t>(i)] / static_cast<double>(n + 1 - i);
+            const double v = expected[static_cast<std::size_t>(i)] / static_cast<double>(n - i);
             expected[static_cast<std::size_t>(i)] = std::isfinite(v) ? v : 0.0;
         }
         return from_vector(expected);

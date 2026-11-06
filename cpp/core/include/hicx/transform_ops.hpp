@@ -113,9 +113,9 @@ namespace hicx {
 [[nodiscard]] std::vector<double> expected_interactions_non_zero(const CsrMatrix& matrix);
 
 // utilities.expected_interactions (utilities.py:356) with pThreads=None: the
-// sum at each distance divided by np.arange(n + 1, 1, -1), that is by
+// sum at each distance divided by the number of cells on the diagonal, n - i.
+// Fixed in HiCExplorer 4: 3.7.6 divided by np.arange(n + 1, 1, -1), that is by
 // n + 1 - i, which is one more than the number of cells on diagonal i.
-// Reproduced as it stands.
 [[nodiscard]] std::vector<double> expected_interactions(const CsrMatrix& matrix);
 
 // --------------------------------------------------------------------------

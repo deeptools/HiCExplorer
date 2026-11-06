@@ -91,10 +91,10 @@ TEST_CASE("expected_interactions_non_zero matches utilities.py:317") {
 
 TEST_CASE("expected_interactions matches utilities.py:356") {
     const CsrMatrix matrix = sample_matrix();
-    // The divisor is np.arange(n + 1, 1, -1), that is n + 1 - i, not the
-    // number of cells on the diagonal. Reproduced as it stands.
+    // The divisor is the number of cells on the diagonal, n - i (HiCExplorer 4;
+    // 3.7.6 used n + 1 - i and gave 6.667, 8, 3.5, 0, 1).
     check_close(hicx::expected_interactions(matrix),
-                {6.666666666666667, 8.0, 3.5, 0.0, 1.0});
+                {8.0, 10.0, 4.666666666666667, 0.0, 2.0});
 }
 
 TEST_CASE("obs_exp_matrix_lieberman reads the expected array at ceil(d/2)") {
@@ -151,11 +151,11 @@ TEST_CASE("obs_exp_matrix matches utilities.py:554") {
     CsrMatrix matrix = sample_matrix();
     hicx::obs_exp_in_place(matrix);
     check_close(matrix.data(),
-                {1.5, 0.625, 0.25, 0.2857142857142857,
-                 0.625, 1.2, 0.5, 0.375,
-                 0.25, 0.5, 1.3499999999999999, 0.75, 0.25,
-                 0.375, 0.75, 1.05, 0.625,
-                 0.2857142857142857, 0.25, 0.625, 0.8999999999999999});
+                {1.25, 0.5, 0.2, 0.21428571428571427,
+                 0.5, 1.0, 0.4, 0.3,
+                 0.2, 0.4, 1.125, 0.6, 0.2,
+                 0.3, 0.6, 0.875, 0.5,
+                 0.21428571428571427, 0.2, 0.5, 0.75});
 }
 
 TEST_CASE("covariance_of_symmetric reproduces np.cov of the dense block") {

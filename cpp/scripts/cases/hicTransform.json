@@ -3,6 +3,7 @@
     "id": "hicTransform.obs_exp.cool.small_test_matrix",
     "tool": "hicTransform",
     "tier": 3,
+    "reference": "none",
     "args": [
       "-m",
       "{data}/small_test_matrix.cool",
@@ -15,7 +16,7 @@
       {
         "path": "{out}/obs_exp.cool",
         "format": "cool",
-        "class": "ED"
+        "class": "EX"
       }
     ],
     "threads_arg": "--threads",
@@ -23,12 +24,13 @@
       "alpha": 2.4,
       "beta": 0.0
     },
-    "notes": "The whole-matrix obs/exp branch on a 33,754 bin cooler with fifteen chromosomes. It is also the case that pins the dtype quirk: utilities.obs_exp_matrix casts its float64 quotient back to `type(pSubmatrix.data[0])`, the dtype the matrix had before the float32 step, so an int32 cooler comes back int32 and the fractional part of every obs/exp value is truncated away. The checked-in reference test_data/hicTransform/obs_exp.cool disagrees with this tree by exactly 1 on some entries for that reason, which is why the Python test could only be written at decimal=0; the harness compares against a live Python run instead. Why alpha 2.4 and not the 1.2 of cpp/PLAN.md 4.5: every obs/exp kernel sums over both triangles (the expected value at distance d is the sum over the full symmetric matrix, twice the upper-triangle sum for d > 0 but not for d = 0), so the port takes the both-triangles exemption of rule 2 exactly as the Python's fillLowerTriangle does, and materialize_full's transient is 3 W. beta is 0 because no branch of this tool allocates a dense block."
+    "notes": "Class EX, not E0 (deliberate deviation, HiCExplorer 4 fixes, project owner 2026-11-06): obs_exp divides the sum of the contacts at a distance by the diagonal length n - d, where 3.7.6 divided by n + 1 - d (fix of the expected value divisor); the output differs from 3.7.6, pinned by test_hicTransform.py and test_transform_ops.cpp. The notes below describe the case as it behaved against 3.7.6. The whole-matrix obs/exp branch on a 33,754 bin cooler with fifteen chromosomes. It is also the case that pins the dtype quirk: utilities.obs_exp_matrix casts its float64 quotient back to `type(pSubmatrix.data[0])`, the dtype the matrix had before the float32 step, so an int32 cooler comes back int32 and the fractional part of every obs/exp value is truncated away. The checked-in reference test_data/hicTransform/obs_exp.cool disagrees with this tree by exactly 1 on some entries for that reason, which is why the Python test could only be written at decimal=0; the harness compares against a live Python run instead. Why alpha 2.4 and not the 1.2 of cpp/PLAN.md 4.5: every obs/exp kernel sums over both triangles (the expected value at distance d is the sum over the full symmetric matrix, twice the upper-triangle sum for d > 0 but not for d = 0), so the port takes the both-triangles exemption of rule 2 exactly as the Python's fillLowerTriangle does, and materialize_full's transient is 3 W. beta is 0 because no branch of this tool allocates a dense block."
   },
   {
     "id": "hicTransform.obs_exp.perChromosome.cool.small_test_matrix",
     "tool": "hicTransform",
     "tier": 3,
+    "reference": "none",
     "args": [
       "-m",
       "{data}/small_test_matrix.cool",
@@ -42,14 +44,14 @@
       {
         "path": "{out}/obs_exp.cool",
         "format": "cool",
-        "class": "ED"
+        "class": "EX"
       }
     ],
     "memory": {
       "alpha": 2.4,
       "beta": 0.0
     },
-    "notes": "The per chromosome branch, which is a different computation and not only a different loop: the expected value per distance is taken within the chromosome block, the inter-chromosomal entries are dropped entirely because the accumulator starts empty, and the result is float64 whatever the input dtype was, because lil_matrix(shape) is float64 and assigning an integer block into it does not change that. Two chromosomes of this cooler (chrYHet and chrM) have no stored entry at all, which is the branch where utilities.obs_exp_matrix returns None and hicTransform's `if len(pSubmatrix.data) == 0` guard is what keeps the run alive."
+    "notes": "Class EX, not E0 (deliberate deviation, HiCExplorer 4 fixes, project owner 2026-11-06): obs_exp divides the sum of the contacts at a distance by the diagonal length n - d, where 3.7.6 divided by n + 1 - d (fix of the expected value divisor); the output differs from 3.7.6, pinned by test_hicTransform.py and test_transform_ops.cpp. The notes below describe the case as it behaved against 3.7.6. The per chromosome branch, which is a different computation and not only a different loop: the expected value per distance is taken within the chromosome block, the inter-chromosomal entries are dropped entirely because the accumulator starts empty, and the result is float64 whatever the input dtype was, because lil_matrix(shape) is float64 and assigning an integer block into it does not change that. Two chromosomes of this cooler (chrYHet and chrM) have no stored entry at all, which is the branch where utilities.obs_exp_matrix returns None and hicTransform's `if len(pSubmatrix.data) == 0` guard is what keeps the run alive."
   },
   {
     "id": "hicTransform.obs_exp_non_zero.cool.small_test_matrix",
@@ -366,6 +368,7 @@
     "id": "hicTransform.obs_exp.h5.Li_cut",
     "tool": "hicTransform",
     "tier": 3,
+    "reference": "none",
     "args": [
       "-m",
       "{data}/Li_cut.h5",
@@ -378,14 +381,14 @@
       {
         "path": "{out}/obs_exp.h5",
         "format": "h5",
-        "class": "ED"
+        "class": "EX"
       }
     ],
     "memory": {
       "alpha": 2.4,
       "beta": 0.0
     },
-    "notes": "obs/exp on float64 input, which is the only configuration in which utilities.obs_exp_matrix's cast back to the input dtype is not a truncation to an integer. Every other obs/exp case in this file compares numbers whose fractional part the Python threw away."
+    "notes": "Class EX, not E0 (deliberate deviation, HiCExplorer 4 fixes, project owner 2026-11-06): obs_exp divides the sum of the contacts at a distance by the diagonal length n - d, where 3.7.6 divided by n + 1 - d (fix of the expected value divisor); the output differs from 3.7.6, pinned by test_hicTransform.py and test_transform_ops.cpp. The notes below describe the case as it behaved against 3.7.6. obs/exp on float64 input, which is the only configuration in which utilities.obs_exp_matrix's cast back to the input dtype is not a truncation to an integer. Every other obs/exp case in this file compares numbers whose fractional part the Python threw away."
   },
   {
     "id": "hicTransform.chromosomes.two.h5.small_test_matrix",

@@ -171,12 +171,14 @@ std::vector<double> expected_interactions(const CsrMatrix& matrix) {
         grouped[cursor[distance]++] = value;
     });
 
-    // occurrences = np.arange(n + 1, 1, -1), that is n + 1 - i. Only the
+    // The diagonal of distance i of an n by n matrix has n - i positions.
+    // 3.7.6 divided by np.arange(n + 1, 1, -1), that is n + 1 - i (fixed in
+    // HiCExplorer 4). Only the
     // distances between the smallest and the largest observed one are filled
     // in, exactly as the Python loop does; the rest stay zero and divide to
     // zero.
     for (std::size_t i = 0; i < n; ++i) {
-        const double divisor = static_cast<double>(n + 1 - i);
+        const double divisor = static_cast<double>(n - i);
         const double sum = counts[i] == 0
                                ? 0.0
                                : npy::pairwise_sum(grouped.data() + offsets[i], counts[i]);
