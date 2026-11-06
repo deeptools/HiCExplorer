@@ -23,11 +23,12 @@
     "id": "hicMergeLoops.same_file_twice.r25000",
     "tool": "hicMergeLoops",
     "tier": 2,
+    "reference": "none",
     "args": ["-i", "{data}/hicMergeLoops/gm12878_25kb.bedgraph",
              "{data}/hicMergeLoops/gm12878_25kb.bedgraph",
              "-o", "{out}/merged.bedgraph", "-r", "25000"],
-    "outputs": [{"path": "{out}/merged.bedgraph", "format": "interval", "class": "E0"}],
-    "notes": "drop_duplicates(keep=False) drops every copy of a repeated row, not all but one, so passing the same file twice empties the frame and the tool writes a zero byte file. The degenerate case, and the one that shows the difference between keep=False and the default."
+    "outputs": [{"path": "{out}/merged.bedgraph", "format": "interval", "class": "EX"}],
+    "notes": "Class EX, not E0 (deliberate deviation, HiCExplorer 4 fix, project owner 2026-11-06): drop_duplicates(keep=False) of 3.7.6 drops every copy of a repeated row, so passing the same file twice empties the frame and the Python writes a zero byte file. HiCExplorer 4 keeps the first copy of a repeated row, so the output holds the loops of the file given once. Pinned by test_hicMergeLoops.py::test_duplicated_rows_are_kept_once."
   },
   {
     "id": "hicMergeLoops.three_files.r25000",

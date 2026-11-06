@@ -196,18 +196,53 @@ def test_lowest_resolution_changes_the_result_monotonically():
     assert counts[5000] > counts[10000] > counts[25000] > counts[50000]
 
 
-def test_duplicated_rows_are_dropped_entirely():
-    """drop_duplicates(keep=False) removes every copy, not all but one.
+def test_duplicated_rows_are_kept_once():
+    """A loop called identically twice stays in the merge once.
 
-    A row that appears in two of the input files disappears from the merge
-    completely (hicMergeLoops.py:165). The 5 kb and the 25 kb file share no
-    rows, so the case is built here by passing the same file twice: every one of
-    its rows is then a duplicate, the frame empties, and the tool writes an
-    empty file rather than the file's own content.
+    The 3.7.6 tool used drop_duplicates(keep=False), so a row that appeared in
+    two of the input files disappeared from the merge completely
+    (hicMergeLoops.py:165) and passing one file twice gave an empty output.
+    HiCExplorer 4 keeps the first copy. The 5 kb and the 25 kb file share no
+    rows, so the case is built here by passing the same file twice: the output
+    holds the same loops as the output for the file given once (the order of
+    loops that share a start may differ, because the sort sees twice as many
+    tied rows).
     """
-    outfile = NamedTemporaryFile(suffix='out', delete=True)
-    outfile.close()
-    run(outfile.name, 25000, ROOT + 'gm12878_25kb.bedgraph',
+    once = NamedTemporaryFile(suffix='out', delete=True)
+    once.close()
+    run(once.name, 25000, ROOT + 'gm12878_25kb.bedgraph')
+    twice = NamedTemporaryFile(suffix='out', delete=True)
+    twice.close()
+    run(twice.name, 25000, ROOT + 'gm12878_25kb.bedgraph',
         ROOT + 'gm12878_25kb.bedgraph')
 
-    nt.assert_equal(os.path.getsize(outfile.name), 0)
+    assert len(read_lines(twice.name)) == 4572
+    assert sorted(read_lines(once.name)) == sorted(read_lines(twice.name))
+
+
+def test_inter_chromosomal_loops_are_merged_in_their_y_chromosome():
+    """The y anchor is looked up on the y chromosome.
+
+    3.7.6 indexed the y interval tree by the x chromosome
+    (hicMergeLoops.py:81), so a loop between two chromosomes found the wrong
+    tree or raised KeyError, and paired the x and y trees by position at the
+    end. HiCExplorer 4 merges the narrower of two overlapping chr1-chr2 loops
+    into the wider one and leaves the chr1-chr3 loop and a chr2-chr2 loop
+    alone.
+    """
+    loops = [
+        ('chr1', 10000, 20000, 'chr2', 50000, 60000),
+        ('chr1', 10000, 15000, 'chr2', 50000, 55000),
+        ('chr1', 500000, 510000, 'chr3', 70000, 80000),
+        ('chr2', 50000, 60000, 'chr2', 90000, 100000),
+    ]
+    infile = NamedTemporaryFile(suffix='in', delete=True, mode='w')
+    infile.write(''.join('\t'.join(str(v) for v in loop) + '\n' for loop in loops))
+    infile.flush()
+    outfile = NamedTemporaryFile(suffix='out', delete=True)
+    outfile.close()
+    run(outfile.name, 10000, infile.name)
+
+    merged = [tuple(line.split('\t')) for line in read_lines(outfile.name)]
+    assert merged == [tuple(str(v) for v in loops[i]) for i in (0, 2, 3)]
+    infile.close()

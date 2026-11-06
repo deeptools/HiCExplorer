@@ -5,50 +5,44 @@
 // the lower-resolution call is the one kept.
 //
 // The reference builds two intervaltree dictionaries, one over the x anchors
-// and one over the y anchors, both keyed by the *x* chromosome, and then walks
-// the loops removing the losers from both trees. Four properties of that code
-// are behaviour and are reproduced here rather than repaired. All four are
-// pinned by the characterization tests added to
-// hicexplorer/test/general/test_hicMergeLoops.py.
+// and one over the y anchors, and walks the loops removing the losers from
+// both trees. Three defects of that code are fixed in HiCExplorer 4 (the tests
+// in hicexplorer/test/general/test_hicMergeLoops.py and the API cases pin the
+// corrected behaviour), and one property is kept:
 //
-//  1. **The y tree is indexed by the x chromosome** (hicMergeLoops.py:81:
+//  1. **The y tree was indexed by the x chromosome** (hicMergeLoops.py:81:
 //     `target_regions_intervaltree_y[loop[0]]`, where loop[3] is the y
-//     chromosome). Every loop in the corpus is intra-chromosomal so the two
-//     agree, but on an inter-chromosomal call the lookup either finds the
-//     wrong chromosome's tree or raises KeyError, since the guard on line 80
-//     tests loop[3] while line 81 uses loop[0].
-//  2. **x_interval and y_interval survive across iterations.** They are only
+//     chromosome). On an inter-chromosomal loop the lookup found the wrong
+//     chromosome's tree or raised KeyError. HiCExplorer 4 queries the y tree
+//     of the y chromosome and removes the losers from it. The final zip over
+//     the two dictionaries paired the x and y trees by position, which is
+//     wrong as soon as the chromosomes of the x and y anchors differ; a loop
+//     now survives when it is still present in an x tree and in a y tree.
+//  2. **x_interval and y_interval survived across iterations.** They were only
 //     assigned inside `if loop[0] in ...` (":77-82"), so a loop on a
-//     chromosome that is not in the tree is evaluated against the previous
-//     loop's intervals, and a first loop in that state raises TypeError on
-//     len(None).
+//     chromosome that was not in the tree was evaluated against the previous
+//     loop's intervals, and a first such loop raised TypeError on len(None).
+//     HiCExplorer 4 evaluates every loop against its own intervals and leaves
+//     a loop whose chromosome has no tree alone.
 //  3. **The winner among equally wide overlapping anchors is decided by
-//     CPython's set iteration order**, and the port reproduces that order
-//     exactly. `IntervalTree.overlap` returns a set, the scan at ":98-102"
-//     keeps the first interval whose width is *strictly* greater than the
-//     best so far, so equally wide intervals (every overlap when all inputs
-//     share one resolution) break the tie by the order that set iterates in.
-//     That order is deterministic: Interval hashes as `hash((begin, end))`,
-//     a tuple of ints, and neither int nor tuple-of-int hashes are salted by
-//     PYTHONHASHSEED (3.7.6 gives byte identical output under seeds 0, 1, 7,
-//     12345 and random on ext.hicMergeLoops.gse234292_wt_ko.r25000). The
-//     chromosome names are str, but they are only dict keys, and dicts
-//     iterate in insertion order. The order does depend on the whole history
-//     of the trees: the slot layout of a set depends on the order of its
-//     insertions and deletions, and the order of insertion into the overlap
-//     set depends on the shape of the tree and on the layout of every node's
-//     s_center set, which earlier removals (rotations, promotions, pruning)
-//     changed. So `Tree` (hicx/py_intervaltree.hpp) is our centered AVL
-//     interval tree with the shape and the member sets of intervaltree 3.1.0,
-//     and `OrderedSet` (hicx/py_set_order.hpp) is the slot order of a CPython
-//     set. Both are checked against the real packages on random sequences
-//     (tests/test_cpython_oracles.cpp), and the tool against 3.7.6 on every
-//     case and on 400 random multi-resolution inputs with many ties and
-//     repeated coordinates. An earlier version ordered the hits by
-//     `(hash & mask, id)` and diverged whenever two tied intervals collided.
-//  4. **drop_duplicates(keep=False)** removes every copy of a repeated row, not
-//     all but one (":165"), so a loop called identically at two resolutions
-//     disappears from the merge entirely.
+//     CPython's set iteration order**, which the port reproduces. This is
+//     kept: `IntervalTree.overlap` returns a set, the scan at ":98-102" keeps
+//     the first interval whose width is *strictly* greater than the best so
+//     far, so equally wide intervals (every overlap when all inputs share one
+//     resolution) break the tie by the order that set iterates in. That order
+//     is deterministic (Interval hashes as `hash((begin, end))`, a tuple of
+//     ints, which PYTHONHASHSEED does not salt), the help text does not say
+//     which of equally wide loops is kept, and choosing another rule would be
+//     a design decision that moves rows of the merge. `Tree`
+//     (hicx/py_intervaltree.hpp) is our centered AVL interval tree with the
+//     shape and the member sets of intervaltree 3.1.0, and `OrderedSet`
+//     (hicx/py_set_order.hpp) is the slot order of a CPython set. Both are
+//     checked against the real packages on random sequences
+//     (tests/test_cpython_oracles.cpp).
+//  4. **drop_duplicates(keep=False)** removed every copy of a repeated row
+//     (":165"), so a loop called identically at two resolutions, or in the
+//     same file given twice, disappeared from the merge entirely. HiCExplorer 4
+//     keeps the first copy.
 //
 // Threading and SIMD: none. The tool is 21,524 loops against a few thousand
 // intervals per chromosome and the C++ run costs 0.03 s of CPU against the
@@ -188,51 +182,35 @@ int main(int argc, char** argv) {
             }
             table = table.select_rows(hicx::bedtools::sort_order(chrom, start)).reparse();
         }
-        // drop_duplicates(keep=False): every copy of a repeated row goes.
-        table.drop_duplicates_drop_all();
+        // drop_duplicates(): the first copy of a repeated row stays (3.7.6 used
+        // keep=False and dropped every copy).
+        table.drop_duplicates();
 
-        // intervalListToIntervalTree over the x anchors and over the y anchors.
-        // The dictionary is keyed by chromosome and reset whenever the
-        // chromosome of the input changes, so a chromosome that reappears after
-        // another one loses everything it had; the input is sorted, so that
-        // does not happen here, and the behaviour is reproduced anyway.
+        // intervalListToIntervalTree over the x anchors and over the y anchors,
+        // one tree per chromosome. hiCMatrix.intervalListToIntervalTree reset
+        // the dictionary entry whenever the chromosome of the list changed, so
+        // a chromosome that reappeared after another one lost everything it
+        // had. The x anchors are sorted, but the y chromosomes of
+        // inter-chromosomal loops are not, so HiCExplorer 4 keeps adding to the
+        // tree of the chromosome.
         std::vector<std::string> tree_order_x;
         std::vector<std::string> tree_order_y;
         std::map<std::string, Tree> tree_x;
         std::map<std::string, Tree> tree_y;
-        {
-            std::string previous;
-            for (std::size_t r = 0; r < table.rows(); ++r) {
-                const std::string chrom = table.column(0).text(r, ".");
-                if (r == 0 || chrom != previous) {
-                    if (tree_x.find(chrom) == tree_x.end()) {
-                        tree_order_x.push_back(chrom);
-                    }
-                    tree_x[chrom] = Tree();
-                    previous = chrom;
-                }
-                tree_x[chrom].add(table.column(1).as_int(r), table.column(2).as_int(r), r);
+        for (std::size_t r = 0; r < table.rows(); ++r) {
+            const std::string chrom = table.column(0).text(r, ".");
+            if (tree_x.find(chrom) == tree_x.end()) {
+                tree_order_x.push_back(chrom);
             }
-            previous.clear();
-            for (std::size_t r = 0; r < table.rows(); ++r) {
-                const std::string chrom = table.column(3).text(r, ".");
-                if (r == 0 || chrom != previous) {
-                    if (tree_y.find(chrom) == tree_y.end()) {
-                        tree_order_y.push_back(chrom);
-                    }
-                    tree_y[chrom] = Tree();
-                    previous = chrom;
-                }
-                tree_y[chrom].add(table.column(4).as_int(r), table.column(5).as_int(r), r);
-            }
+            tree_x[chrom].add(table.column(1).as_int(r), table.column(2).as_int(r), r);
         }
-
-        std::vector<std::int32_t> x_interval;
-        std::vector<std::int32_t> y_interval;
-        bool x_valid = false;
-        bool y_valid = false;
-        std::string x_chrom_of_hits;
-        std::string y_chrom_of_hits;
+        for (std::size_t r = 0; r < table.rows(); ++r) {
+            const std::string chrom = table.column(3).text(r, ".");
+            if (tree_y.find(chrom) == tree_y.end()) {
+                tree_order_y.push_back(chrom);
+            }
+            tree_y[chrom].add(table.column(4).as_int(r), table.column(5).as_int(r), r);
+        }
 
         for (std::size_t r = 0; r < table.rows(); ++r) {
             const std::string chrom_x = table.column(0).text(r, ".");
@@ -247,43 +225,24 @@ int main(int argc, char** argv) {
             const std::int64_t factor_y =
                 args.lowest_resolution - std::abs(y_end - y_start);
 
-            if (tree_x.find(chrom_x) != tree_x.end()) {
-                x_interval = tree_x[chrom_x].overlap(x_start - factor_x - 1,
-                                                     x_end + factor_x + 1);
-                x_chrom_of_hits = chrom_x;
-                x_valid = true;
+            // A loop whose chromosome has no tree has nothing to merge with
+            // (3.7.6 reused the previous loop's intervals here).
+            const auto found_x = tree_x.find(chrom_x);
+            const auto found_y = tree_y.find(chrom_y);
+            if (found_x == tree_x.end() || found_y == tree_y.end()) {
+                continue;
             }
-            if (tree_y.find(chrom_y) != tree_y.end()) {
-                // hicMergeLoops.py:81 queries the y tree of the *x* chromosome.
-                const auto found = tree_y.find(chrom_x);
-                if (found == tree_y.end()) {
-                    std::fprintf(stderr,
-                                 "hicMergeLoops: loop %zu has y chromosome '%s' while "
-                                 "hicMergeLoops.py:81 looks the y tree up under the x "
-                                 "chromosome '%s', which does not exist; the reference "
-                                 "raises KeyError here\n",
-                                 r, chrom_y.c_str(), chrom_x.c_str());
-                    return 1;
-                }
-                y_interval = found->second.overlap(y_start - factor_y - 1,
-                                                   y_end + factor_y + 1);
-                y_chrom_of_hits = chrom_x;
-                y_valid = true;
-            }
-            if (!x_valid || !y_valid) {
-                std::fprintf(stderr,
-                             "hicMergeLoops: the first loop is on a chromosome that is "
-                             "not in the interval trees; hicMergeLoops.py:84 then calls "
-                             "len() on None and raises TypeError\n");
-                return 1;
-            }
+            const std::vector<std::int32_t> x_interval =
+                found_x->second.overlap(x_start - factor_x - 1, x_end + factor_x + 1);
+            const std::vector<std::int32_t> y_interval =
+                found_y->second.overlap(y_start - factor_y - 1, y_end + factor_y + 1);
 
             if (x_interval.size() <= 1 || y_interval.size() <= 1) {
                 continue;
             }
 
-            const Tree& tx = tree_x[x_chrom_of_hits];
-            const Tree& ty = tree_y[y_chrom_of_hits];
+            Tree& tx = found_x->second;
+            Tree& ty = found_y->second;
 
             std::unordered_set<std::size_t> interest_x;
             interest_x.reserve(x_interval.size() * 2);
@@ -314,43 +273,33 @@ int main(int argc, char** argv) {
                 if (identifier == max_index || all_ids.find(identifier) == all_ids.end()) {
                     continue;
                 }
-                if (!tree_x[x_chrom_of_hits].remove(key)) {
-                    std::fprintf(stderr, "hicMergeLoops: interval removed twice; the reference "
-                                         "raises ValueError here\n");
-                    return 1;
-                }
+                tx.remove(key);
             }
             for (const std::int32_t key : y_interval) {
                 const std::size_t identifier = ty.id[static_cast<std::size_t>(key)];
                 if (identifier == max_index || all_ids.find(identifier) == all_ids.end()) {
                     continue;
                 }
-                if (!tree_y[y_chrom_of_hits].remove(key)) {
-                    std::fprintf(stderr, "hicMergeLoops: interval removed twice; the reference "
-                                         "raises ValueError here\n");
-                    return 1;
-                }
+                ty.remove(key);
             }
         }
 
-        // zip(tree_x, tree_y) pairs the chromosome keys positionally, in
-        // dictionary insertion order, and takes the ids that survive in both.
+        // A loop survives when it is present in an x tree and in a y tree
+        // (3.7.6 paired the trees of the two dictionaries by position).
         std::vector<std::size_t> result;
-        const std::size_t pairs = std::min(tree_order_x.size(), tree_order_y.size());
-        for (std::size_t k = 0; k < pairs; ++k) {
-            const Tree& tx = tree_x[tree_order_x[k]];
-            const Tree& ty = tree_y[tree_order_y[k]];
-            std::unordered_set<std::size_t> alive_y;
+        std::unordered_set<std::size_t> alive_y;
+        for (const std::string& name : tree_order_y) {
+            const Tree& ty = tree_y[name];
             for (std::size_t slot = 0; slot < ty.id.size(); ++slot) {
                 if (ty.present[slot]) {
                     alive_y.insert(ty.id[slot]);
                 }
             }
+        }
+        for (const std::string& name : tree_order_x) {
+            const Tree& tx = tree_x[name];
             for (std::size_t slot = 0; slot < tx.id.size(); ++slot) {
-                if (!tx.present[slot]) {
-                    continue;
-                }
-                if (alive_y.find(tx.id[slot]) != alive_y.end()) {
+                if (tx.present[slot] && alive_y.find(tx.id[slot]) != alive_y.end()) {
                     result.push_back(tx.id[slot]);
                 }
             }
