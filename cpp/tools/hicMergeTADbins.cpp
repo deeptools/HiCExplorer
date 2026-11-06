@@ -10,10 +10,11 @@
 //
 //  * hicMergeTADbins.py:87 sets correction_factors to None before saving, by
 //    design: the factors belong to the unmerged bins and would no longer match
-//    the size of the matrix. Note that for an h5 input the factors are not in
-//    correction_factors to begin with, because the hicmatrix loader unpacks
-//    correction_factors and distance_counts the wrong way round
-//    (cpp/PLAN.md 2.7 quirk 1); both end up absent from the output.
+//    the size of the matrix. In 3.7.6 an h5 input held its factors in
+//    distance_counts instead (the load time swap, cpp/PLAN.md 2.7 quirk 1), so
+//    the reset missed them and the stale factors of the unmerged bins were
+//    written as /distance_counts. Fixed in HiCExplorer 4: the factors stay in
+//    correction_factors, the reset reaches them, and the output has none.
 //  * the merged matrix does not conserve the total count. reduce_matrix sums
 //    the upper triangle block by block and then rebuilds the symmetric matrix
 //    as R + R.T - diag(R). With pDiagonal=True the subtracted diagonal is the
@@ -211,8 +212,7 @@ int main(int argc, char** argv) {
         }
 
         // hicMergeTADbins.py:87: the factors no longer match the merged bins.
-        hic.data().correction_factors.reset();
-        hic.data().correction_factors_are_column = false;
+        hicx::drop_correction_vectors(hic.data());
 
         // update_matrix(reduce_matrix(matrix, bins_to_merge, diagonal=True),
         //               new_bins)

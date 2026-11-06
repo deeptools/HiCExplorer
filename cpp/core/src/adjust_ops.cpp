@@ -248,8 +248,18 @@ void reorder_bins(MatrixData& data, const std::vector<std::int64_t>& order) {
     }
     data.nan_bins = std::move(nan_bins);
 
-    // reorderBins does not touch the correction factors. cpp/PLAN.md 2.7
-    // quirk 3: reproduced, not fixed.
+    // Fixed in HiCExplorer 4: hiCMatrix.reorderBins of 3.7.6 left the
+    // correction factors in their old order, so after a reordering or a
+    // selection every factor belonged to the wrong bin (cpp/PLAN.md 2.7
+    // quirk 3). The factors now follow their bins.
+    if (data.correction_factors.has_value()) {
+        std::vector<double> factors;
+        factors.reserve(order.size());
+        for (const std::int64_t index : order) {
+            factors.push_back((*data.correction_factors)[static_cast<std::size_t>(index)]);
+        }
+        data.correction_factors = std::move(factors);
+    }
 }
 
 void delete_bins(MatrixData& data, const std::vector<std::int64_t>& bin_ids) {

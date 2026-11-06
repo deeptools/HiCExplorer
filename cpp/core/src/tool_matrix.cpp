@@ -51,9 +51,18 @@ ToolMatrix ToolMatrix::load(const std::string& path,
         result.cool_options_.has_hic_metadata = true;
     }
 
-    // The load time field swap of cpp/PLAN.md 2.7 quirk 1. From here on the
-    // two members mean what hiCMatrix means by them.
-    std::swap(result.data_.correction_factors, result.data_.distance_counts);
+    // The load time field swap of cpp/PLAN.md 2.7 quirk 1. Fixed in
+    // HiCExplorer 4 for the h5 format: hiCMatrix.__init__ of 3.7.6 unpacked
+    // distance_counts and correction_factors the wrong way round, so an h5 to
+    // h5 round trip wrote /correction_factors back as /distance_counts. An h5
+    // matrix now keeps its correction factors and distance counts in the
+    // fields of the same name. The cool weights are applied to the pixels on
+    // loading and a cool matrix is written without a weight column (the
+    // pixels are the corrected counts), so nothing is lost there and the swap
+    // is kept: the factors of a cool or .hic matrix must not be written again.
+    if (!result.input_is_h5_) {
+        std::swap(result.data_.correction_factors, result.data_.distance_counts);
+    }
 
     // fillLowerTriangle. The addition also drops entries stored as an exact
     // zero, so the C++ representation is normalised the same way.

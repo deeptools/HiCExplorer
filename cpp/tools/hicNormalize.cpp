@@ -289,6 +289,9 @@ int main(int argc, char** argv) {
             }
 
             finish(matrix, args.set_to_zero_threshold);
+            // the normalised counts are not the counts the factors belong to
+            // (fixed in HiCExplorer 4; 3.7.6 kept the input's)
+            hicx::drop_correction_vectors(matrices[i].data());
             matrices[i].save(args.out_file_names[i]);
         }
     } catch (const std::exception& error) {

@@ -115,7 +115,7 @@ TEST_CASE("select_bins on a matrix that stores both triangles gathers rows") {
     check_dense(selected, {{6, 5}, {0, 1}});
 }
 
-TEST_CASE("reorder_bins carries the bin table and the nan bins but not the factors") {
+TEST_CASE("reorder_bins carries the bin table, the nan bins and the factors") {
     MatrixData data;
     data.matrix = upper({{1, 2, 3, 4},
                          {2, 5, 6, 7},
@@ -132,10 +132,11 @@ TEST_CASE("reorder_bins carries the bin table and the nan bins but not the facto
     CHECK(data.cut_intervals[0].chrom == "b");
     CHECK(data.cut_intervals[1].start == 10);
     CHECK(data.nan_bins == std::vector<std::int64_t>{0, 1});
-    // HiCMatrix.py:723-746 never touches correction_factors, cpp/PLAN.md 2.7
-    // quirk 3. Reproduced, not fixed: the vector still has four entries.
+    // HiCMatrix.py:723-746 of 3.7.6 left correction_factors untouched
+    // (cpp/PLAN.md 2.7 quirk 3). Fixed in HiCExplorer 4: the factors follow
+    // their bins.
     REQUIRE(data.correction_factors.has_value());
-    CHECK(data.correction_factors->size() == 4);
+    CHECK(*data.correction_factors == std::vector<double>{40.0, 20.0});
 }
 
 TEST_CASE("delete_bins drops the requested bins together with the nan bins") {

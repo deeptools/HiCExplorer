@@ -152,6 +152,9 @@ int main(int argc, char** argv) {
         // performs, as one step. This is where the counts are lost.
         const std::vector<std::int64_t> mask(nan_bins.begin(), nan_bins.end());
         hicx::mask_and_restore_bins(hic.data(), mask);
+        // the sum has no correction factors (fixed in HiCExplorer 4; 3.7.6
+        // kept the first matrix's)
+        hicx::drop_correction_vectors(hic.data());
         hic.save(args.out_file_name);
     } catch (const std::exception& error) {
         std::fprintf(stderr, "hicSumMatrices: %s\n", error.what());

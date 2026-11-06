@@ -355,6 +355,12 @@ int main(int argc, char** argv) {
         // then densifies it.
         hic.matrix().materialize_full();
 
+        // Every method writes values that are not the counts the correction
+        // factors of the input belong to (obs/exp ratios, correlations), so
+        // the output has none (fixed in HiCExplorer 4; 3.7.6 kept the
+        // input's).
+        hicx::drop_correction_vectors(hic.data());
+
         const std::vector<std::pair<std::string, hicx::BinRange>>& boundaries =
             hic.boundaries();
         const std::int64_t nbins = hic.matrix().rows();

@@ -516,9 +516,9 @@ MatrixData merge_bins(const MatrixData& input, std::int64_t num_bins) {
     merged.matrix = reduce_matrix(input.matrix, plan.bins_to_merge, true, true);
     merged.matrix.eliminate_zeros();
     merged.cut_intervals = std::move(plan.intervals);
-    merged.correction_factors = input.correction_factors;
-    merged.distance_counts = input.distance_counts;
-    merged.correction_factors_are_column = input.correction_factors_are_column;
+    // The correction factors and distance counts of the input belong to the
+    // unmerged bins, so the merged matrix has none (fixed in HiCExplorer 4;
+    // 3.7.6 kept the input's vectors, whose length no longer matches).
 
     if (static_cast<std::int64_t>(merged.cut_intervals.size()) !=
         merged.matrix.rows()) {
@@ -650,9 +650,9 @@ MatrixData merge_bins_genome(const MatrixData& input, std::int64_t num_bins,
     merged.matrix = reduce_matrix(input.matrix, plan.bins_to_merge, true, true);
     merged.matrix.eliminate_zeros();
     merged.cut_intervals = std::move(plan.intervals);
-    merged.correction_factors = input.correction_factors;
-    merged.distance_counts = input.distance_counts;
-    merged.correction_factors_are_column = input.correction_factors_are_column;
+    // The correction factors and distance counts of the input belong to the
+    // unmerged bins, so the merged matrix has none (fixed in HiCExplorer 4;
+    // 3.7.6 kept the input's vectors, whose length no longer matches).
 
     if (static_cast<std::int64_t>(merged.cut_intervals.size()) != merged.matrix.rows()) {
         throw std::runtime_error("merged bin table of " +

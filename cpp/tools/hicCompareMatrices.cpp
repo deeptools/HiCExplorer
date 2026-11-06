@@ -185,6 +185,9 @@ int main(int argc, char** argv) {
         }
 
         hic1.matrix() = std::move(result);
+        // the ratio or difference of two matrices has no correction factors
+        // (fixed in HiCExplorer 4; 3.7.6 kept the first matrix's)
+        hicx::drop_correction_vectors(hic1.data());
         const std::vector<std::int64_t> mask(nan_bins.begin(), nan_bins.end());
         hicx::mask_and_restore_bins(hic1.data(), mask);
         hic1.save(args.out_file_name);

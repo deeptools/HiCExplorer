@@ -1303,6 +1303,9 @@ int main(int argc, char** argv) {
             // hiCMatrix.save restores the masked bins first.
             restore_masked_bins(hic.data(), mask);
             hic.refresh_boundaries();
+            // z-scores are not the counts the factors belong to (fixed in
+            // HiCExplorer 4; 3.7.6 kept the input's)
+            hicx::drop_correction_vectors(hic.data());
             hic.save(args.out_prefix + "_zscore_matrix." + suffix);
 
             // save_bedgraph_matrix
