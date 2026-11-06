@@ -19,22 +19,26 @@
 // does not depend on the thread count (cpp/OPTIMIZATION.md 3). The p-values
 // are threaded the same way. Nothing is accumulated into a shared float.
 //
-// Behaviour of the Python that is reproduced deliberately, not fixed:
+// Defects of the Python that HiCExplorer 4 fixes (3.7.6 behaviour in brackets):
 //
-//   * hicFindTADs.py:902-920 assigns chr_end_idx = chr_start_idx and then
-//     mutates it in place, so the chromosome *start* indices are lost and the
-//     end indices are added to the boundary list twice.
-//   * delta_wrt_window (:612-613) averages matrix_avg[i-w : i+3] together with
-//     matrix_avg[i+4 : i+w], which includes the minimum itself and the two
-//     bins after it and skips the bin at i+3, although the docstring says the
-//     minimum is excluded.
-//   * get_incremental_step_size grows as min + int(step * k ** 1.5), which is
-//     not the progression the --step help text describes.
-//   * hiCMatrix caches its bin size at construction time, so the bin size used
-//     after the bins have been enlarged is still the one from the input.
-//   * the z-score matrix keeps NaN entries that lie beyond the truncation
-//     distance, because NaN - NaN is NaN and scipy stores every result that is
-//     not exactly zero.
+//   * The chromosome start and end indices are kept apart. [hicFindTADs.py:
+//     902-920 assigned chr_end_idx = chr_start_idx and mutated it in place, so
+//     the start indices were lost and the end indices entered the boundary
+//     list twice.]
+//   * delta_wrt_window averages the w scores left and the w scores right of the
+//     minimum, the minimum excluded, as its docstring says. [It averaged
+//     matrix_avg[i-w : i+3] with matrix_avg[i+4 : i+w], which included the
+//     minimum and the two bins after it and skipped i+3.]
+//   * The bin size that sets the window lengths in bins and is stored in the
+//     TAD-separation score file is the one of the bins after the gaps have
+//     been closed. [hiCMatrix cached the bin size of the input.] The default
+//     depths and the z-score conversion use the input's bin size, as before.
+//   * The z-score matrix has no NaN entries beyond the truncation distance
+//     (2 * maxDepth). [NaN - NaN stayed stored.]
+//
+// Not changed: get_incremental_step_size grows as min + int(step * k ** 1.5),
+// which is the formula the --step help text gives; only the example numbers in
+// that help text do not follow from it (see the report of this change).
 //
 // One behaviour is deliberately *not* reproduced, and it is a defect rather
 // than a numeric difference. np.array_split hands every worker a contiguous
@@ -1000,8 +1004,9 @@ int main(int argc, char** argv) {
             hic.refresh_boundaries();
         }
 
-        // hiCMatrix caches the bin size at construction, so this value stays in
-        // force even after the bins have been enlarged.
+        // The bin size of the input: default depths and the z-score
+        // conversion. The window lengths are computed with the bin size of the
+        // enlarged bins (below).
         const hicx::BinTable initial_bins(hic.data().cut_intervals);
         const std::int64_t bin_size = initial_bins.bin_size();
 
@@ -1014,7 +1019,7 @@ int main(int argc, char** argv) {
             std::fputs("ERROR:hicexplorer.hicFindTADs:Please check that maxDepth is "
                        "larger than minDepth.\n",
                        stderr);
-            return 0;  // the Python calls exit() with no argument
+            return 1;  // fixed in HiCExplorer 4: the Python's exit() with no argument ended with status 0
         }
         if (!args.max_depth.has_value()) {
             max_depth = bin_size < 1000    ? bin_size * 60
@@ -1211,19 +1216,21 @@ int main(int argc, char** argv) {
             std::fputs(
                 "INFO:hicexplorer.hicFindTADs:Computing TAD-separation scores...\n\n",
                 stderr);
-            const std::int64_t min_depth_in_bins = min_depth / bin_size;
-            const std::int64_t max_depth_in_bins = max_depth / bin_size;
-            if (step / bin_size == 0) {
+            const std::int64_t enlarged_bin_size =
+                hicx::BinTable(hic.data().cut_intervals).bin_size();
+            const std::int64_t min_depth_in_bins = min_depth / enlarged_bin_size;
+            const std::int64_t max_depth_in_bins = max_depth / enlarged_bin_size;
+            if (step / enlarged_bin_size == 0) {
                 std::fprintf(stderr,
                              "ERROR:hicexplorer.hicFindTADs:Please select a step size "
                              "larger than %lld\n",
-                             static_cast<long long>(bin_size));
+                             static_cast<long long>(enlarged_bin_size));
                 return 1;
             }
             if (min_depth_in_bins <= 1 || max_depth_in_bins <= 1) {
                 std::fputs("ERROR:hicexplorer.hicFindTADs:depth length too small\n",
                            stderr);
-                return 0;  // the Python calls exit(0) on both of these
+                return 1;  // fixed in HiCExplorer 4: the Python's exit(0) reported an error as success
             }
             truncate_to_distance(hic.matrix(), 2 * max_depth_in_bins);
 
@@ -1301,7 +1308,7 @@ int main(int argc, char** argv) {
             // save_bedgraph_matrix
             std::ofstream out(tad_score_file);
             out << "#{\"step\":" << step << ",\"minDepth\":" << min_depth
-                << ",\"maxDepth\":" << max_depth << ",\"binsize\":" << bin_size << "}\n";
+                << ",\"maxDepth\":" << max_depth << ",\"binsize\":" << enlarged_bin_size << "}\n";
             for (std::size_t r = 0; r < bedgraph.rows(); ++r) {
                 out << bedgraph.chrom[r] << '\t' << bedgraph.start[r] << '\t'
                     << bedgraph.end[r];
@@ -1461,20 +1468,23 @@ int main(int argc, char** argv) {
         for (std::size_t i = 0; i < rows; ++i) {
             first_index.emplace(bedgraph.chrom[i], static_cast<std::int64_t>(i));
         }
+        std::vector<std::int64_t> chr_start_idx;
         std::vector<std::int64_t> chr_end_idx;
         if (first_index.size() == 1) {
+            chr_start_idx.push_back(0);
             chr_end_idx.push_back(static_cast<std::int64_t>(rows) - 1);
         } else {
             for (const auto& [name, index] : first_index) {
+                chr_start_idx.push_back(index);
                 chr_end_idx.push_back(index == 0 ? static_cast<std::int64_t>(rows) - 1
                                                  : index - 1);
             }
         }
-        // chr_end_idx is the same array object as chr_start_idx in the Python,
-        // so the start indices are lost and the end indices enter the list
-        // twice. Reproduced.
+        // Fixed in HiCExplorer 4: the Python aliased chr_end_idx to
+        // chr_start_idx and changed it in place, which lost the start indices
+        // and listed the end indices twice.
         std::vector<std::int64_t> candidates;
-        candidates.insert(candidates.end(), chr_end_idx.begin(), chr_end_idx.end());
+        candidates.insert(candidates.end(), chr_start_idx.begin(), chr_start_idx.end());
         candidates.insert(candidates.end(), chr_end_idx.begin(), chr_end_idx.end());
         candidates.insert(candidates.end(), minimum_indices.begin(),
                           minimum_indices.end());

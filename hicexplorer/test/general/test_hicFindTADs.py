@@ -213,6 +213,17 @@ def test_find_TADs_none():
 # produces today, verified 2026-09-01, so the exact comparison is a valid
 # characterization of the current behaviour and not a tightening of a target
 # the reference never met.
+#
+# HiCExplorer 4 fixes four defects of 3.7.6 that change the files below: the
+# delta of a minimum excludes the minimum (the delta column of every
+# *_boundaries.gff and, with --correctForMultipleTesting None, the call set of
+# multiNone), the chromosome start indices are kept in the boundary list, the
+# z-score matrix has no NaN entries beyond 2 * maxDepth (every
+# *_zscore_matrix.h5), and the bin size comes from the enlarged bins. The
+# stored z-score matrices, the multiNone call files and the gff files were
+# regenerated with HiCExplorer 4 for these reasons. The TAD-separation score
+# files (*_tad_score.bm), the score bedgraphs and the FDR and Bonferroni
+# calls are the 3.7.6 ones.
 # ---------------------------------------------------------------------------
 
 
@@ -248,7 +259,7 @@ def test_find_TADs_fdr_is_byte_identical_to_the_reference():
 def test_find_TADs_none_is_byte_identical_to_the_reference():
     """The None case at full precision.
 
-    This is the richest call set in the corpus, 1,407 boundaries and 1,402
+    This is the richest call set in the corpus, 1,416 boundaries and 1,411
     domains, and therefore the strongest regression detector for the boundary
     calling step. The original test accepted 10 differing characters per line
     and stopped comparing at the end of the shorter file.
@@ -262,8 +273,8 @@ def test_find_TADs_none_is_byte_identical_to_the_reference():
 
     for suffix in ['_boundaries.bed', '_boundaries.gff', '_domains.bed', '_score.bedgraph']:
         assert_files_identical(ROOT + "find_TADs/None/multiNone" + suffix, folder + "/t" + suffix)
-    assert line_count(folder + "/t_boundaries.bed") == 1407
-    assert line_count(folder + "/t_domains.bed") == 1402
+    assert line_count(folder + "/t_boundaries.bed") == 1416
+    assert line_count(folder + "/t_domains.bed") == 1411
 
     shutil.rmtree(folder)
 
@@ -331,30 +342,32 @@ def test_find_TADs_result_does_not_depend_on_numberOfProcessors():
     shutil.rmtree(folder)
 
 
-def test_find_TADs_high_numberOfProcessors_is_a_defect():
-    """Pinned defect: a large --numberOfProcessors aborts the run.
+def test_find_TADs_high_numberOfProcessors_gives_the_same_result():
+    """A large --numberOfProcessors runs and changes nothing (fixed in HiCExplorer 4).
 
     ``np.array_split`` gives every worker a contiguous range of bins.
     ``compute_matrix`` drops a bin whose TAD-separation score is None or NaN at
     any window size, and when every bin of one worker's range is dropped the
-    unpack at hicFindTADs.py:345 raises
+    unpack at hicFindTADs.py:345 raised
 
         ValueError: not enough values to unpack (expected 3, got 0)
 
-    On small_test_matrix.h5 that happens from --numberOfProcessors 12 upwards,
-    while 1 to 10 all succeed and produce byte-identical output. So the process
-    count decides whether the tool runs at all, which is a defect and not a
-    numeric difference. The C++ port must not reproduce it: an empty partition
-    contributes no rows and the run continues. Reported, not fixed here.
+    in 3.7.6. On small_test_matrix.h5 that happened from --numberOfProcessors
+    12 upwards, while 1 to 10 succeeded and produced identical output, so the
+    process count decided whether the tool ran at all. In HiCExplorer 4 an
+    empty share contributes no rows and the output is the one of the other
+    counts.
     """
     matrix = ROOT + "small_test_matrix.h5"
-    folder = mkdtemp(prefix="test_find_tads_processors_defect")
-    with pytest.raises(ValueError, match="not enough values to unpack"):
-        hicFindTADs.main(
-            "--matrix {} --minDepth 60000 --maxDepth 180000 --numberOfProcessors 12 "
-            "--step 20000 --outPrefix {}/t --minBoundaryDistance 20000 "
-            "--correctForMultipleTesting fdr --thresholdComparisons 0.1".format(
-                matrix, folder).split())
+    folder = mkdtemp(prefix="test_find_tads_processors_high")
+    for processors in (2, 12, 40):
+        run_tool("--matrix {} --minDepth 60000 --maxDepth 180000 --numberOfProcessors {} "
+                 "--step 20000 --outPrefix {}/p{} --minBoundaryDistance 20000 "
+                 "--correctForMultipleTesting fdr --thresholdComparisons 0.1".format(
+                     matrix, processors, folder, processors))
+        for suffix in OUTPUT_SUFFIXES:
+            assert_files_identical(ROOT + "find_TADs/FDR/multiFDR" + suffix,
+                                   "{}/p{}{}".format(folder, processors, suffix))
 
     shutil.rmtree(folder)
 
@@ -363,7 +376,7 @@ def test_find_TADs_on_a_cool_matrix():
     """cool input, which no existing test covers.
 
     The same region as small_test_matrix.h5 but without the masked bins the h5
-    carries, so it produces a much larger call set: 555 boundaries against the
+    carries, so it produces a much larger call set: 554 boundaries against the
     2 of the FDR h5 case.
     """
     matrix = ROOT + "small_test_matrix.cool"
@@ -375,11 +388,11 @@ def test_find_TADs_on_a_cool_matrix():
     # The z-score matrix keeps the suffix of the input, so this is a .cool.
     assert os.path.isfile(folder + "/t_zscore_matrix.cool")
     assert_file_pinned(folder + "/t_boundaries.bed",
-                       "cdc50fb8e6ed6458c49ff154a6da5ee26e24cf3e54fd45adab5fc47d315329da", 555)
+                       "f6ce7d3284d2dffe74949a665a0bc98f900428dbd50c9e817bf0cabe3f013558", 554)
     assert_file_pinned(folder + "/t_boundaries.gff",
-                       "de4542b1a382d5163b4b911e71e83ab4c25286c6dc159df929c37c50c6c320dc", 555)
+                       "dde91b6bec6c1d04def13b93fac3ed555df259a4d7dd0707b5364357392f0709", 554)
     assert_file_pinned(folder + "/t_domains.bed",
-                       "29be12b023a79c2bb5b6ffb5b7670d32a982fce3da91a8dd96b829330d0c610a", 550)
+                       "31dedb31b191130ce918c9c8af59ef0d62c012e840773bdc0e24531de47df545", 549)
     assert_file_pinned(folder + "/t_score.bedgraph",
                        "b525a83e9bf2bdb3a90dfd845b73ce61d6bad175b16db8ea32909a98dbc1b66b", 16750)
     assert_file_pinned(folder + "/t_tad_score.bm",
@@ -410,7 +423,7 @@ def test_find_TADs_default_depth_parameters():
     assert_file_pinned(folder + "/t_boundaries.bed",
                        "2b2d56df6bb5a6be9a7be2763ebdfc4ad26d1dc3fd33e1afde013817ae6e45b7", 8)
     assert_file_pinned(folder + "/t_boundaries.gff",
-                       "c9bf377841ed765b52d8832666ef7d6d7079e33deab725f9b6925f627ed9e6d7", 8)
+                       "df1d80e8675ecaca4a11091f104fd1f6022300c201cb6bef3e525d495491641a", 8)
     assert_file_pinned(folder + "/t_domains.bed",
                        "4a07c5a795c5627bcd1f9b07a1222d57dff3ea0fae552eb1adca9909f452ae08", 3)
     assert_file_pinned(folder + "/t_score.bedgraph",
@@ -429,12 +442,12 @@ def _call_boundaries(folder, extra):
 
 
 @pytest.mark.parametrize("delta,digest,lines,domain_digest,domain_lines", [
-    ("0.0", "b7749f01b624742378ad471bd1054e7dd6a4a3ca6042091285ef5256c9a31ab0", 1523,
-     "266cc3dd822d39f2c616ae8c25befed21d41b6161bcb016e9540240ad3b4f7e1", 1518),
-    ("0.01", "a94fa71154f4c43f0c508fcf83d3bbb51a4dd8391968efe3d541b0b45cf314fb", 1407,
-     "176773444ec9320fc3e03636407d4dbb64620cfeba1bcc25a562b8192867886f", 1402),
-    ("0.06", "f61c73095b9fac7aa00480889bda9d575e9f7a84e35fbb436aa983e3838e7b35", 170,
-     "b1c727efca5b6045ff42303cf0bac0031a3a32eea4f637fa650796fa2e708334", 165),
+    ("0.0", "c15289e85dfddf131e8442df5435e166fe8ded6d5c740b51ae9116ada6add3d3", 1523,
+     "75f3ba278cb40a6d048a250840ec867915989cfc29e4350d5a76067ed03bd4fc", 1518),
+    ("0.01", "c8e303de5f3296c502fdc9605439ad1ede5a93a7b6e063c7d1e27091279f1488", 1416,
+     "35adb392522666c205862ee23c37b0da21d6830997fd3e183e52e8216919fcac", 1411),
+    ("0.06", "e3be33c55cc673213137e0db6f98a290570951ee3ea7556e9a1ec5f12d569a49", 207,
+     "2d63b493f355972c84e6182d67d5081e7c4e382ff275e29cfa896d560bef33c1", 202),
 ])
 def test_find_TADs_delta(delta, digest, lines, domain_digest, domain_lines):
     """--delta was never passed by any test although it filters every call."""
@@ -447,9 +460,9 @@ def test_find_TADs_delta(delta, digest, lines, domain_digest, domain_lines):
 
 
 @pytest.mark.parametrize("method,threshold,digest,lines", [
-    ("None", "1.0", "a94fa71154f4c43f0c508fcf83d3bbb51a4dd8391968efe3d541b0b45cf314fb", 1407),
-    ("None", "0.001", "9f4d941cb82f542d87c9676c0706bc7e74071f8904b204234594f228de2dbeb9", 3),
-    ("fdr", "0.5", "9f4d941cb82f542d87c9676c0706bc7e74071f8904b204234594f228de2dbeb9", 3),
+    ("None", "1.0", "c8e303de5f3296c502fdc9605439ad1ede5a93a7b6e063c7d1e27091279f1488", 1416),
+    ("None", "0.001", "886fa8a625cf5ec88096f57a01c08b5f8cd74f17993d6d700bed4d0477f46533", 2),
+    ("fdr", "0.5", "886fa8a625cf5ec88096f57a01c08b5f8cd74f17993d6d700bed4d0477f46533", 2),
     ("bonferroni", "0.001",
      "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", 0),
 ])
@@ -458,7 +471,7 @@ def test_find_TADs_thresholdComparisons(method, threshold, digest, lines):
 
     The FDR row is the interesting one: at a q-value of 0.5 the
     Benjamini-Hochberg cutoff computed at hicFindTADs.py:1236-1241 lands on the
-    same three boundaries that an uncorrected p-value threshold of 0.001 keeps.
+    same two boundaries that an uncorrected p-value threshold of 0.001 keeps.
     """
     folder = mkdtemp(prefix="test_find_tads_threshold")
     _call_boundaries(folder, "--minBoundaryDistance 20000 --correctForMultipleTesting {} "
@@ -475,7 +488,7 @@ def test_find_TADs_minBoundaryDistance_sets_the_lookahead():
     assert_file_pinned(folder + "/t_boundaries.bed",
                        "f22007e48bd38a1045397a710e6abe77f4d3597a6641e8e62e6193ee0bf46f33", 477)
     assert_file_pinned(folder + "/t_boundaries.gff",
-                       "3aad2cdbe4d6e464f29ab880ed0743cbaa8b3f0fd598114118416735a77c70b5", 477)
+                       "d5c45d2230a392caafa9e6ef592e5024355ed0b69a7cc8a7ce0ed6f741872b3e", 477)
     assert_file_pinned(folder + "/t_domains.bed",
                        "f1cb8590b1f083d5c9fcb47cdb2524f12f366e5824c16ab60d6cbcd9fb1e3266", 472)
     shutil.rmtree(folder)
@@ -520,12 +533,18 @@ def test_find_TADs_TAD_sep_score_prefix_missing_files_exit():
 
 
 def test_find_TADs_maxDepth_must_exceed_minDepth():
+    """An error ends the run with status 1 (fixed in HiCExplorer 4).
+
+    The Python printed the message and called exit() without a code, so the
+    run reported success.
+    """
     folder = mkdtemp(prefix="test_find_tads_depth_order")
-    with pytest.raises(SystemExit):
+    with pytest.raises(SystemExit) as exit_info:
         hicFindTADs.main(
             "--matrix {} --outPrefix {}/t --correctForMultipleTesting fdr "
             "--minDepth 100000 --maxDepth 100000".format(
                 ROOT + "small_test_matrix.h5", folder).split())
+    assert exit_info.value.code == 1
     shutil.rmtree(folder)
 
 
@@ -551,22 +570,22 @@ def test_find_TADs_step_below_bin_size_exits():
     shutil.rmtree(folder)
 
 
-def test_find_TADs_unreadable_matrix_never_reaches_the_suffix_check():
-    """Pinned defect: the "could not determine file ending" branch is dead.
+def test_find_TADs_unreadable_matrix_reaches_the_suffix_check():
+    """A matrix that is neither h5 nor cool is reported and ends the run with status 1.
 
     hicFindTADs.py:1319-1325 checks the suffix of --matrix and exits 1 when it
-    is neither cool nor h5, but the HicFindTads constructor at :1313 has
+    is neither cool nor h5, but the HicFindTads constructor at :1313 had
     already loaded the matrix by then, and hicmatrix treats every non-h5 name
-    as a cooler. A file that is neither raises OSError out of cooler before the
-    check can run, so the intended diagnostic is unreachable. Pinned rather
-    than fixed; the C++ port checks the suffix before it opens anything and
-    exits 1 with the message the Python only intends to print.
+    as a cooler. A file that is neither raised OSError ("is not an HDF5 file")
+    out of cooler before the check could run, so the diagnostic was
+    unreachable. HiCExplorer 4 checks the suffix before it opens anything.
     """
     folder = mkdtemp(prefix="test_find_tads_suffix")
-    with pytest.raises(OSError, match="is not an HDF5 file"):
+    with pytest.raises(SystemExit) as exit_info:
         hicFindTADs.main(
             "--matrix {} --outPrefix {}/t --correctForMultipleTesting fdr".format(
                 ROOT + "small_test_matrix.mtx", folder).split())
+    assert exit_info.value.code == 1
     shutil.rmtree(folder)
 
 
@@ -610,15 +629,15 @@ def test_peakdetect_resets_at_a_chromosome_change():
     assert [list(peak) for peak in _min] == [[4, 0.2]]
 
 
-def test_delta_wrt_window_window_is_asymmetric_and_includes_the_minimum():
-    """Pinned defect: the local window is not what the docstring describes.
+def test_delta_wrt_window_window_is_symmetric_and_excludes_the_minimum():
+    """The local window is the one the docstring describes (fixed in HiCExplorer 4).
 
-    delta_wrt_window says it averages the ``window_len`` scores to the left and
-    to the right "the minimum itself is excluded", but hicFindTADs.py:612-613
-    concatenates ``matrix_avg[i - w : i + 3]`` with ``matrix_avg[i + 4 : i + w]``.
-    That includes the minimum and the two bins after it, drops the bin at
-    ``i + 3``, and reaches only ``w - 1`` bins to the right. Reproduced, not
-    fixed, because every boundary the tool calls is filtered on this number.
+    delta_wrt_window averages the ``window_len`` scores to the left and the
+    ``window_len`` scores to the right, "the minimum itself is excluded". In
+    3.7.6, hicFindTADs.py:612-613 concatenated ``matrix_avg[i - w : i + 3]``
+    with ``matrix_avg[i + 4 : i + w]``, which included the minimum and the two
+    bins after it, dropped the bin at ``i + 3`` and reached only ``w - 1`` bins
+    to the right. For the ramp below that gave -0.684 at index 20.
     """
     import numpy as np
     scores = np.arange(80, dtype=float)
@@ -630,7 +649,12 @@ def test_delta_wrt_window_window_is_asymmetric_and_includes_the_minimum():
     assert np.isnan(result[5])
     assert np.isnan(result[79])
 
-    window = np.concatenate([scores[10:23], scores[24:30]])
-    nt.assert_allclose(result[20], window.mean() - scores[20], rtol=0, atol=0)
-    nt.assert_allclose(result[20], -0.6842105263157912, rtol=0, atol=1e-15)
-    assert not np.isnan(result[60])
+    # A ramp is symmetric around every bin, so the delta is exactly zero.
+    nt.assert_allclose(result[20], 0.0, rtol=0, atol=1e-12)
+    nt.assert_allclose(result[60], 0.0, rtol=0, atol=1e-12)
+
+    # Squares: the mean of the ten bins left and the ten bins right of 20 is
+    # 438.5, the score at 20 is 400.
+    squares = scores ** 2
+    result = hicFindTADs.HicFindTads.delta_wrt_window([20], squares, chrom, window_len=10)
+    nt.assert_allclose(result[20], 38.5, rtol=0, atol=1e-9)

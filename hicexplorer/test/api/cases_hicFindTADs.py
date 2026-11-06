@@ -24,9 +24,9 @@ cpp/python/src/api/hicFindTADs.cpp):
   matrices that are neither integer nor float raise TypeError naming
   HiCExplorer 4.
 * compute_spectra_matrix uses num_processors threads instead of processes.
-  The result does not depend on the count, and a count that leaves a worker
-  without a single usable bin still raises the ValueError of 3.7.6
-  ('not enough values to unpack', pinned by too_many_processors).
+  The result does not depend on the count. (3.7.6 raised ValueError, 'not
+  enough values to unpack', for a count that left a worker without a single
+  usable bin; HiCExplorer 4 fixes that, see too_many_processors.)
 * hiCMatrix matrices are compared with sorted column indices (sorted_matrix);
   the order of the stored entries within a row is not compared.
 * The log records of hicmatrix's own logger (hicmatrix.HiCMatrix) are not
@@ -483,3 +483,224 @@ for _case in CASES:
         _case.rtol = 1e-12
         _case.note = (_case.note + '; ' if _case.note else '') + (
             'Boost.Math special functions round the last bits of the p-values differently from scipy 1.14')
+
+
+# ---------------------------------------------------------------------------
+# Defects of 3.7.6 that HiCExplorer 4 fixes. The cases they touch carry a
+# `deviation` (see test_api_equivalence.py) in place of the comparison with
+# the 3.7.6 record. Each deviation walks the record like the comparison does
+# and leaves out only what the fixes change, so everything else, the
+# TAD-separation scores above all, is still compared with 3.7.6:
+#
+# * delta_wrt_window averages the window_len scores left and the window_len
+#   scores right of a minimum, the minimum excluded (3.7.6 averaged
+#   matrix_avg[i-w:i+3] with matrix_avg[i+4:i+w]). The deltas are therefore
+#   recomputed from the case's inputs; the keys and the NaN entries (a minimum
+#   close to a chromosome border) stay as they were.
+# * save_domains_and_boundaries lists the chromosome start indices and the end
+#   indices once each (3.7.6 aliased both arrays and listed the end indices
+#   twice), so the delta dictionary of the instance gains the start indices
+#   as NaN entries. The files of the calls are compared where the fixed
+#   delta does not enter, that is the TAD-separation score file and the score
+#   bedgraph; the boundaries, domains and gff files follow the delta.
+# * The matrix is truncated to 2 * maxDepth without the NaN entries beyond
+#   that distance (3.7.6 kept them, NaN - NaN being NaN). The 3.7.6 matrix is
+#   reduced by those entries before it is compared.
+# * The bin size is taken from the enlarged bins. None of the cases here has
+#   a gap that changes it, so no case differs by this fix.
+# * An error that ended the run with exit() now ends it with exit(1). The
+#   cases that exit compare the code, so they carry the code 1 of the fix.
+
+_CALL_FILES = ('boundaries.bed', 'domains.bed', 'boundaries.gff')
+
+
+def _number(value):
+    """The Python number inside a canonical int or float."""
+    inner = value[-1]
+    return inner[1] if isinstance(inner, tuple) and len(inner) == 2 else inner
+
+
+def _is_dict(value):
+    return isinstance(value, tuple) and len(value) == 2 and value[0] == 'dict' and isinstance(value[1], list)
+
+
+def _key_name(key):
+    return key[1] if isinstance(key, tuple) and len(key) == 2 and key[0] == 'str' else repr(key)
+
+
+def _without_far_nan(matrix, limit):
+    """A canonical csr matrix without its NaN entries at column - row >= limit."""
+    kind, type_name, fmt, shape, dtype, parts = matrix
+    if kind != 'sparse' or fmt != 'csr':
+        return matrix
+    indptr, indices, data = parts
+    pointers, columns, values = indptr[4], indices[4], data[4]
+    new_pointers, new_columns, new_values = [0], [], []
+    for row in range(len(pointers) - 1):
+        for k in range(pointers[row], pointers[row + 1]):
+            value = values[k]
+            if columns[k] - row >= limit and isinstance(value, tuple) and value[1] != value[1]:
+                continue
+            new_columns.append(columns[k])
+            new_values.append(value)
+        new_pointers.append(len(new_columns))
+    return (kind, type_name, fmt, shape, dtype,
+            (indptr[:3] + ((len(new_pointers),), new_pointers),
+             indices[:3] + ((len(new_columns),), new_columns),
+             data[:3] + ((len(new_values),), new_values)))
+
+
+def _delta_keys_kept(expected, actual):
+    """The delta dictionary of the instance: every key of 3.7.6 is still there and
+    stays NaN where it was NaN; the start indices of the chromosomes are new."""
+    now = {repr(k): v for k, v in actual[1]}
+    for key, value in expected[1]:
+        if repr(key) not in now:
+            return 'delta lost the key {}'.format(key)
+        was = _number(value)
+        if was != was and _number(now[repr(key)]) == _number(now[repr(key)]):
+            return 'delta[{}] is no longer NaN'.format(key)
+    return None
+
+
+def _walk_states(expected, actual, path, rtol):
+    """The comparison of apieq, minus what the fixes change (see above)."""
+    from apieq import compare
+    if _is_dict(expected) and _is_dict(actual):
+        names = [_key_name(k) for k, _ in expected[1]]
+        if names != [_key_name(k) for k, _ in actual[1]]:
+            return '{}: keys {} against the reference {}'.format(
+                '.'.join(path), [_key_name(k) for k, _ in actual[1]], names)
+        entries = {_key_name(k): (v, a) for (k, v), (_, a) in zip(expected[1], actual[1])}
+        for name in names:
+            e, a = entries[name]
+            where = path + (name,)
+            if where == ('return', 'num_processors'):
+                continue
+            if where[-2:] == ('boundaries', 'delta'):
+                message = _delta_keys_kept(e, a)
+                if message:
+                    return message
+                continue
+            if path and path[-1] == 'files' and any(name.endswith(s) for s in _CALL_FILES):
+                continue
+            if name == 'hic_ma' and 'init' not in path and 'max_depth' in entries and 'binsize' in entries:
+                limit = 2 * int(_number(entries['max_depth'][0]) / _number(entries['binsize'][0]))
+                if _is_dict(e):
+                    e = ('dict', [(k, _without_far_nan(v, limit) if _key_name(k) == 'matrix' else v)
+                                  for k, v in e[1]])
+            message = _walk_states(e, a, where, rtol)
+            if message:
+                return message
+        return None
+    return compare(expected, actual, rtol, 0.0, '.'.join(path))
+
+
+def _fixed_state(rtol):
+    def check(expected, actual):
+        from apieq import compare
+        if ('raise' in expected) != ('raise' in actual):
+            return compare(expected.get('raise'), actual.get('raise'), 0, 0, 'raise')
+        for key in ('raise', 'identity', 'args', 'kwargs', 'logs'):
+            if key in expected or key in actual:
+                message = compare(expected.get(key), actual.get(key), rtol, 0.0, key)
+                if message:
+                    return message
+        if 'return' in expected:
+            return _walk_states(expected['return'], actual['return'], ('return',), rtol)
+        return None
+    return check
+
+
+def _expected_delta(scores, chrom, index, window_len):
+    """The fixed delta of one minimum, or NaN close to a chromosome border."""
+    chrom = list(chrom)
+    names = sorted(set(chrom))
+    starts = sorted([chrom.index(name) for name in names] + [len(chrom) - 1])
+    for begin, end in zip(starts[:-1], starts[1:]):
+        if begin < index < end and index - window_len >= begin and index + window_len < end:
+            window = np.concatenate([scores[index - window_len:index], scores[index + 1:index + window_len + 1]])
+            return window.mean() - scores[index]
+    return float('nan')
+
+
+def _deltas_fixed(scores, chrom, window_len):
+    def check(expected, actual):
+        from apieq import compare
+        if 'raise' in expected or 'raise' in actual:
+            return compare(expected, actual, 0, 0, 'record')
+        result = actual['return']
+        if not _is_dict(result):
+            result = result[1][-1]
+            reference = expected['return'][1][-1]
+            message = compare(expected['return'][1][0], actual['return'][1][0], 0, 0, 'minima')
+            if message:
+                return message
+        else:
+            reference = expected['return']
+        if [repr(k) for k, _ in result[1]] != [repr(k) for k, _ in reference[1]]:
+            return 'the keys of the deltas differ from 3.7.6'
+        for (key, now), (_, was) in zip(result[1], reference[1]):
+            index = _number(key)
+            wanted = _expected_delta(scores, chrom, index, window_len)
+            got = _number(now)
+            if wanted != wanted:
+                if got == got or _number(was) == _number(was):
+                    return 'delta[{}] should be NaN'.format(index)
+            elif abs(got - wanted) > 1e-12:
+                return 'delta[{}] is {!r}, wanted {!r}'.format(index, got, wanted)
+            if now[0] != was[0] and wanted == wanted:
+                return 'delta[{}] changed its type: {} against {}'.format(index, now[0], was[0])
+        return None
+    return check
+
+
+def _processors_do_not_matter(expected, actual):
+    """3.7.6 raised ValueError ('not enough values to unpack') when a worker's share of the
+    bins had no usable bin, so the process count decided whether the call ran. HiCExplorer 4
+    gives the state of the run with one process."""
+    import sys
+    import tempfile
+    import apieq
+    if expected.get('raise', (None, ''))[1].split(' (')[0] != 'not enough values to unpack':
+        return 'the reference did not fail with the worker error: {!r}'.format(expected)
+    if 'raise' in actual:
+        return 'raised {!r}'.format(actual['raise'])
+    one = Case('one', T, args=(SMALL_50KB, dict(KW, num_processors=1)), driver='spectra')
+    reference = apieq.run_case(sys.modules[__name__], one, tempfile.mkdtemp())
+    return _walk_states(reference['return'], actual['return'], ('return',), 0.0)
+
+
+def _exit_code_one(expected, actual):
+    """3.7.6 called exit() with no code (status 0) after the error message; HiCExplorer 4 exits with 1."""
+    from apieq import compare
+    if expected['return'] != ('tuple', [('str', 'SystemExit'), ('const', 'None')]):
+        return 'the reference did not end with exit(): {!r}'.format(expected['return'])
+    wanted = ('tuple', [('str', 'SystemExit'), ('int', 1)])
+    if actual['return'] != wanted:
+        return 'ended with {!r}, wanted {!r}'.format(actual['return'], wanted)
+    for key in ('logs', 'args', 'kwargs'):
+        message = compare(expected.get(key), actual.get(key), 0, 0, key)
+        if message:
+            return message
+    return None
+
+
+_FIXED = {
+    'too_many_processors': _processors_do_not_matter,
+    'init_max_not_above_min': _exit_code_one,
+    'delta_wrt_window': _deltas_fixed(score_mean(), chromosomes(), 10),
+    'delta_wrt_window_numpy_keys': _deltas_fixed(score_mean(), chromosomes(), 4),
+    'find_consensus_minima': _deltas_fixed(score_matrix().mean(axis=1), chromosomes(), 10),
+}
+for _case in CASES:
+    if _case.id in _FIXED:
+        _case.deviation = _FIXED[_case.id]
+    elif _case.id.startswith('pipeline_') or _case.id.startswith('save_domains_given_state') \
+            or _case.id == 'bedgraph_roundtrip':
+        _case.deviation = _fixed_state(_case.rtol)
+    else:
+        continue
+    _case.note = (_case.note + '; ' if _case.note else '') + (
+        'HiCExplorer 4 fixes: delta_wrt_window excludes the minimum, chromosome start indices are kept, '
+        'no NaN beyond 2 * maxDepth in the truncated matrix; see the comment above')

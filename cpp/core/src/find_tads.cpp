@@ -218,8 +218,9 @@ void restore_masked_bins(hicx::MatrixData& data, MaskState& state) {
     state.orig_cut_intervals.clear();
 }
 
-// triu(m, 0) - triu(m, limit): entries at or beyond `limit` cancel, except
-// NaN, which cannot cancel and stays stored.
+// triu(m, 0) - triu(m, limit): entries at or beyond `limit` are dropped,
+// NaN included. (In 3.7.6 a NaN beyond the limit survived the subtraction,
+// because NaN - NaN is NaN; HiCExplorer 4 drops it.)
 void truncate_to_distance(hicx::CsrMatrix& matrix, std::int64_t limit) {
     const std::int64_t n = matrix.rows();
     std::vector<std::int64_t> indptr(static_cast<std::size_t>(n) + 1, 0);
@@ -238,7 +239,7 @@ void truncate_to_distance(hicx::CsrMatrix& matrix, std::int64_t limit) {
                 continue;
             }
             const double value = matrix.data()[k];
-            if (column - row >= limit && !std::isnan(value)) {
+            if (column - row >= limit) {
                 continue;
             }
             if (value == 0.0) {
@@ -455,7 +456,11 @@ void peakdetect(const std::vector<double>& y, const std::vector<std::string>& ch
     }
 }
 
-// delta_wrt_window (hicFindTADs.py:574-616).
+// delta_wrt_window (hicFindTADs.py:574-616). Fixed in HiCExplorer 4: the
+// window is the w scores left and the w scores right of the minimum, as the
+// docstring says. 3.7.6 averaged matrix_avg[i - w : i + 3] with
+// matrix_avg[i + 4 : i + w], which contains the minimum and the two bins after
+// it and skips i + 3.
 std::map<std::int64_t, double> delta_wrt_window(const std::vector<std::int64_t>& minima,
                                                 const std::vector<double>& scores,
                                                 const std::vector<std::string>& chrom,
@@ -491,7 +496,8 @@ std::map<std::int64_t, double> delta_wrt_window(const std::vector<std::int64_t>&
             delta[minimum] = kNaN;
             continue;
         }
-        // matrix_avg[i - w : i + 3] concatenated with matrix_avg[i + 4 : i + w].
+        // The w scores to the left and the w scores to the right of the
+        // minimum, the minimum itself excluded.
         std::vector<double> window;
         const std::int64_t n = static_cast<std::int64_t>(scores.size());
         const auto append = [&](std::int64_t from, std::int64_t to) {
@@ -501,8 +507,8 @@ std::map<std::int64_t, double> delta_wrt_window(const std::vector<std::int64_t>&
                 window.push_back(scores[static_cast<std::size_t>(k)]);
             }
         };
-        append(minimum - window_length, minimum + 3);
-        append(minimum + 4, minimum + window_length);
+        append(minimum - window_length, minimum);
+        append(minimum + 1, minimum + window_length + 1);
         const double mean = hicx::npy::pairwise_sum(window.data(), window.size()) /
                             static_cast<double>(window.size());
         delta[minimum] = mean - scores[static_cast<std::size_t>(minimum)];
@@ -551,8 +557,8 @@ std::vector<double> delta_wrt_window_values(const std::vector<std::int64_t>& min
                 window.push_back(scores[static_cast<std::size_t>(k)]);
             }
         };
-        append(minimum - window_length, minimum + 3);
-        append(minimum + 4, minimum + window_length);
+        append(minimum - window_length, minimum);
+        append(minimum + 1, minimum + window_length + 1);
         const double mean = hicx::npy::pairwise_sum(window.data(), window.size()) /
                             static_cast<double>(window.size());
         const std::int64_t at = minimum < 0 ? minimum + n : minimum;

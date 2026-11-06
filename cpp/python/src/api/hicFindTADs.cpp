@@ -29,9 +29,9 @@
 //    float64, and matrices other than int and float raise TypeError naming
 //    HiCExplorer 4; the Python accepted them only by accident.
 //  * compute_spectra_matrix computes the scores with num_processors threads
-//    instead of processes; the result is the same for every count, and the
-//    count still decides, as in 3.7.6, whether a worker gets an empty share
-//    of the bins and the call fails with ValueError.
+//    instead of processes; the result is the same for every count. (3.7.6
+//    failed with ValueError when a worker got a share whose bins all fail;
+//    that is fixed in HiCExplorer 4.)
 //  * The CTCF boundary filter of the hicFindTADs tool (--ctcfFile, a
 //    HiCExplorer 4 extension with the divergent orientation rule: '-' before,
 //    '+' after a boundary) has no 3.7.6 API name; none of the names here
@@ -1306,7 +1306,7 @@ void HicFindTads___init__(py::handle self, py::handle matrix, py::handle num_pro
     self.attr("set_matrix")(matrix, pChromosomes);
     if (!max_depth.is_none() && !min_depth.is_none() && compare(max_depth, min_depth, Py_LE)) {
         log(kLogger, "error", "Please check that maxDepth is larger than minDepth.");
-        hic::python_exit(py::none());
+        hic::python_exit(py::int_(1));
     }
     self.attr("num_processors") = num_processors;
     self.attr("max_depth") = max_depth;
@@ -1720,10 +1720,12 @@ void HicFindTads_save_domains_and_boundaries(py::handle self, py::handle prefix_
         chr_start_idx = {0};
         chr_end_idx = {static_cast<std::int64_t>(n) - 1};
     } else {
+        // Fixed in HiCExplorer 4: the Python aliased chr_end_idx to
+        // chr_start_idx and changed it in place, losing the start indices.
         for (const auto& [name, index] : first) {
+            chr_start_idx.push_back(index);
             chr_end_idx.push_back((index == 0 ? static_cast<std::int64_t>(n) : index) - 1);
         }
-        chr_start_idx = chr_end_idx;  // the same array object in the Python
     }
     std::vector<double> candidates;
     bool integral = true;
@@ -1905,6 +1907,9 @@ void HicFindTads_compute_spectra_matrix(py::handle self, py::handle perchr) {
         hic.attr("orig_bin_ids") = ids;
         hic.attr("nan_bins") = py::list();
     }
+    // Fixed in HiCExplorer 4: the bin size is taken from the enlarged bins.
+    // hiCMatrix cached the one of the input, which 3.7.6 kept using here.
+    hic.attr("bin_size") = py::none();
     const py::object binsize_object = hic::bin_size(hic);
     const Number binsize = Number::of(binsize_object);
     const auto modulo_nonzero = [&](py::handle value) {
@@ -1945,13 +1950,13 @@ void HicFindTads_compute_spectra_matrix(py::handle self, py::handle perchr) {
             "ERROR\nminDepth length too small. Use a value that is at least twice as large as the bin size "
             "which is: " +
                 fmt(binsize_object) + "\n");
-        hic::python_exit(py::int_(0));
+        hic::python_exit(py::int_(1));
     }
     if (max_depth_in_bins <= 1) {
         log(kLogger, "error",
             "ERROR\nmaxDepth length too small. Use a value that is larger than the bin size which is: " +
                 fmt(binsize_object) + "\n");
-        hic::python_exit(py::int_(0));
+        hic::python_exit(py::int_(1));
     }
     {
         hicx::CsrMatrix truncated = hic::matrix(hic);
@@ -1974,30 +1979,13 @@ void HicFindTads_compute_spectra_matrix(py::handle self, py::handle perchr) {
     if (processors > 1) {
         log(kLogger, "info", "Using " + std::to_string(processors) + " processors\n");
     }
-    // np.array_split(bins_to_consider, num_processors)
-    const std::size_t total = bins_to_consider.size();
-    const std::size_t sections = static_cast<std::size_t>(processors);
-    const std::size_t each = total / sections;
-    const std::size_t extras = total % sections;
     const Scores scores(hic);
     const std::vector<std::int64_t> windows = windows_of(steps);
     ScoreRows all = score_rows(hic, scores, bins_to_consider, windows,
                                static_cast<unsigned int>(std::min<std::int64_t>(processors, 64)));
-    // a share whose bins all fail ends the call, as zip(*[]) does in a worker
-    {
-        std::size_t begin = 0;
-        for (std::size_t share = 0; share < sections; ++share) {
-            const std::size_t size = each + (share < extras ? 1 : 0);
-            bool produced = false;
-            for (std::size_t k = begin; k < begin + size; ++k) {
-                produced = produced || all.kept[k] != 0;
-            }
-            if (!produced) {
-                raise_error("ValueError", "not enough values to unpack (expected 3, got 0)");
-            }
-            begin += size;
-        }
-    }
+    // Fixed in HiCExplorer 4: a share whose bins all fail contributes no rows.
+    // In 3.7.6 its worker ended the whole call with ValueError ('not enough
+    // values to unpack'), so the process count decided whether the call ran.
     py::list chrom_list;
     for (const py::handle c : all.chrom) {
         chrom_list.append(to_string(c));

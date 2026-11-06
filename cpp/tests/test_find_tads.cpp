@@ -99,6 +99,44 @@ TEST_CASE("find_tads: delta_wrt_window values agree with the tool's map") {
     }
 }
 
+TEST_CASE("find_tads: delta_wrt_window averages the bins left and right of the minimum, the minimum excluded") {
+    // Fixed in HiCExplorer 4. 3.7.6 averaged scores[i-w : i+3] with
+    // scores[i+4 : i+w], which gave -0.6842105263157912 for the ramp at 20.
+    std::vector<double> ramp;
+    std::vector<double> squares;
+    std::vector<std::string> chrom;
+    for (int i = 0; i < 80; ++i) {
+        ramp.push_back(i);
+        squares.push_back(static_cast<double>(i) * i);
+        chrom.push_back(i < 40 ? "a" : "b");
+    }
+    const std::vector<std::int64_t> minima = {5, 20, 60, 79};
+    const auto ramp_delta = ft::delta_wrt_window(minima, ramp, chrom, 10);
+    CHECK(std::isnan(ramp_delta.at(5)));
+    CHECK(std::isnan(ramp_delta.at(79)));
+    CHECK(ramp_delta.at(20) == doctest::Approx(0.0).epsilon(1e-12));
+    CHECK(ramp_delta.at(60) == doctest::Approx(0.0).epsilon(1e-12));
+    // ten bins left and ten bins right of 20: (2 * 400 * 10 + 2 * 385) / 20 = 438.5
+    const auto squares_delta = ft::delta_wrt_window({20}, squares, chrom, 10);
+    CHECK(squares_delta.at(20) == doctest::Approx(38.5));
+    const auto values = ft::delta_wrt_window_values({20}, squares, chrom, 10);
+    CHECK(values[0] == squares_delta.at(20));
+}
+
+TEST_CASE("find_tads: truncate_to_distance drops every entry at or beyond the limit, NaN included") {
+    // Fixed in HiCExplorer 4: 3.7.6 kept the NaN entries beyond the limit
+    // (triu(m, 0) - triu(m, limit) cannot cancel NaN - NaN).
+    const double nan = std::numeric_limits<double>::quiet_NaN();
+    // row 0: (0,0)=1 (0,1)=NaN (0,2)=5 (0,3)=NaN; row 1: (1,3)=2
+    hicx::CsrMatrix matrix(4, 4, {0, 4, 5, 5, 5}, {0, 1, 2, 3, 3}, {1.0, nan, 5.0, nan, 2.0}, "<f8");
+    ft::truncate_to_distance(matrix, 2);
+    REQUIRE(matrix.stored_nnz() == 2);
+    CHECK(matrix.indices()[0] == 0);
+    CHECK(matrix.data()[0] == 1.0);
+    CHECK(matrix.indices()[1] == 1);
+    CHECK(std::isnan(matrix.data()[1]));
+}
+
 TEST_CASE("find_tads: the FDR cutoff agrees with stats::benjamini_hochberg_cutoff") {
     const std::vector<double> p = {0.001, 0.2, 0.004, 0.03, 0.5, 0.0005, 0.011};
     const std::optional<double> cutoff = ft::fdr_cutoff(p, 0.05);
