@@ -77,6 +77,45 @@ Fixed (these results differ from 3.7.6, where 3.7.6 was wrong):
 - `hicConvertFormat` stops with an error, before writing, when several matrices are given together with
   `--resolutions`; 3.7.6 logged an error and wrote the output repeatedly.
 - `hicCreateThresholdFile` accepts `--help` and `--version`.
+- `hicBuildMatrix`, `hicBuildMatrixMicroC` and `hicQuickQC` count a pair as "One mate not unique" only
+  when both mates have mapping quality 0, on BAM and `.pairs` input; 3.7.6 looked at the first mate only.
+- `hicBuildMatrix --keepSelfCircles` decides about self circles: without it they are removed, and with
+  several restriction sequences a self circle is counted once. 3.7.6 kept them in both cases and counted
+  them once per sequence.
+- The per-bin read coverage that `hicBuildMatrix` stores puts each mate into its own bin and counts the
+  last cell of every bin; 3.7.6 used the second mate's bin for both and skipped the last cell.
+- `hicBuildMatrix --outBam` writes the insert size of each pair (3.7.6: 0), `--region` together with
+  `--restrictionCutFile` keeps the cut sites inside the region (3.7.6: usually none), and `--doTestRun`
+  leaves no empty output file behind. Chromosomes and bins beyond 4.29 Gb no longer wrap around.
+- `hicFindTADs` computes the delta of a boundary candidate as the mean of the scores left and right of
+  it, without the minimum itself; 3.7.6 averaged a window that contained the minimum, so deltas were too
+  small and fewer boundaries passed `--delta`. Window lengths and the bin size in the `_tad_score.bm`
+  header use the bin size of the enlarged bins, the `_zscore_matrix` stores no NaN entries beyond
+  `2 * maxDepth`, chromosome starts and ends are kept apart in the boundary list, and invalid depths exit
+  with status 1.
+- `hicAdjustMatrix --maskBadRegions` masks the regions of its BED file; 3.7.6 never read the file.
+  `hicAdjustMatrix` exits with status 1 when no selection or an unknown chromosome name is given, and
+  `--regions --action remove` removes only the given regions; 3.7.6 also deleted every empty bin.
+- An h5 matrix keeps its correction factors in `/correction_factors` when a tool reads and writes it, and
+  the factors follow their bins when bins are selected or reordered; 3.7.6 wrote them as
+  `/distance_counts`. Tools whose output values are not the counts the factors belong to
+  (`hicCompareMatrices`, `hicNormalize`, `hicSumMatrices`, `hicTransform`, `hicMergeMatrixBins`,
+  `hicMergeTADbins`, and the intermediate matrices of `hicFindTADs`, `hicPCA` and `hicAggregateContacts`)
+  write no correction factors; 3.7.6 carried the input's factors into them.
+- The expected contacts at a distance are the sum divided by the diagonal length n - d (3.7.6: n + 1 - d),
+  each pair is divided by the expected value of its own distance (3.7.6: of ceil(d / 2)), and the obs/exp
+  ratio of an integer matrix stays a floating-point number (3.7.6: truncated). This changes the loops of
+  `hicDetectLoops`, the obs/exp matrices of `hicTransform` and the eigenvectors of `hicPCA --method
+  lieberman`.
+- `hicDetectLoops` cuts the window of the peak test around the candidate itself; 3.7.6 cut it around a
+  wrong position whenever the candidate's value occurred twice in its window.
+- `hicMergeLoops` merges inter-chromosomal loops in the tree of their own y chromosome and keeps one copy
+  of a loop that appears identically in several inputs; 3.7.6 failed or merged against the wrong
+  chromosome, and dropped every copy of a repeated loop.
+- `hicConvertFormat --outputFormat ginteractions` writes the file given in `--outFileName` (3.7.6:
+  `<outFileName>.tsv`), `--outputFormat hicpro` writes each contact once, every resolution of an mcool
+  carries the genome assembly, and `--enforce_integer` stops with an error when rounding would set every
+  pixel of a corrected matrix to zero (3.7.6 wrote an empty matrix).
 
 ### Release 3.7.6
 **27 November 2024**
