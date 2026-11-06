@@ -6,7 +6,7 @@
 // the public Python names buildMatrixMethods.createMatrix and process_data
 // call it too (cpp/python/API_BINDINGS.md); the tools keep their argument
 // parsers, their error printing and the drawing of the QC report. The design
-// notes and the reproduced defects Q1 to Q10, D1 and D2 are in
+// notes and the defects Q1 to Q10, D1 and D2 are in
 // tools/hicBuildMatrix.cpp.
 //
 // Arguments::python_api selects what the Python function does where the
@@ -165,9 +165,10 @@ void run(const Arguments& args, const Hooks& hooks = {});
 
 // readBamFiles' filters of a primary pair, buildMatrixMethods.py:513-540:
 // either mate unmapped (flag 0x4), then a mapping quality below the minimum,
-// which counts as "not unique" when the first mate's quality is 0 (Q1: the
-// Python's `mate1.mapq == 0 & mate2.mapq == 0` is the chained comparison
-// `mate1.mapq == (0 & mate2.mapq) == 0`) and as "low quality" otherwise.
+// which counts as "not unique" when the quality of both mates is 0 and as
+// "low quality" otherwise. Q1, fixed in HiCExplorer 4: the Python wrote
+// `mate1.mapq == 0 & mate2.mapq == 0`, the chained comparison
+// `mate1.mapq == (0 & mate2.mapq) == 0`, which looks at the first mate only.
 enum class PairVerdict { OneMateUnmapped, OneMateNotUnique, LowQuality, Keep };
 [[nodiscard]] inline PairVerdict pair_verdict(std::int64_t flag1, std::int64_t flag2, std::int64_t mapq1,
                                               std::int64_t mapq2, std::int64_t min_mapping_quality) {
@@ -175,7 +176,7 @@ enum class PairVerdict { OneMateUnmapped, OneMateNotUnique, LowQuality, Keep };
         return PairVerdict::OneMateUnmapped;
     }
     if (mapq1 < min_mapping_quality || mapq2 < min_mapping_quality) {
-        return mapq1 == 0 ? PairVerdict::OneMateNotUnique : PairVerdict::LowQuality;
+        return (mapq1 == 0 && mapq2 == 0) ? PairVerdict::OneMateNotUnique : PairVerdict::LowQuality;
     }
     return PairVerdict::Keep;
 }
@@ -196,7 +197,7 @@ struct ClassifyOptions {
 
 // process_data's per pair loop, buildMatrixMethods.py:642-861, over the pairs
 // [first, last) of a buffer, adding to `counters`. Q2 and Q3 of
-// tools/hicBuildMatrix.cpp are reproduced. The policy P reads the pairs and
+// tools/hicBuildMatrix.cpp are fixed in HiCExplorer 4. The policy P reads the pairs and
 // receives the results, so that the tools (htslib records) and the Python
 // function (pysam objects) run the same decisions:
 //
@@ -226,10 +227,11 @@ void classify_pairs(const ClassifyOptions& options, std::size_t first, std::size
     }
     const bool has_restriction = !options.restriction_sequences.empty();
     for (std::size_t i = first; i < last; ++i) {
-        // Bin lookup, both mates. The interval of the second mate's bin
-        // survives the loop and is used for both mates' coverage (Q3).
+        // Bin lookup, both mates. The coverage of each mate goes to the bin
+        // of that mate (Q3, fixed in HiCExplorer 4: the Python kept the
+        // interval of the second mate's bin for both mates).
         std::uint32_t mate_bins[2] = {0, 0};
-        SearchInterval mate_bin;
+        SearchInterval mate_intervals[2];
         bool unassigned = false;
         for (int w = 0; w < 2; ++w) {
             const std::int64_t read_middle = p.pos(i, w) + p.qlen(i, w) / 2;
@@ -238,7 +240,7 @@ void classify_pairs(const ClassifyOptions& options, std::size_t first, std::size
                 unassigned = true;
                 break;
             }
-            mate_bin = *found;
+            mate_intervals[w] = *found;
             mate_bins[w] = found->data;
         }
         if (unassigned) {
@@ -285,11 +287,17 @@ void classify_pairs(const ClassifyOptions& options, std::size_t first, std::size
                         if (p.rf_overlaps(i, frag_start, frag_end)) {
                             has_rf = true;
                         }
-                        if (!has_rf) {
-                            ++counters.self_circle;
-                            if (!options.keep_self_circles) {
-                                continue;  // Q2: the read pair is NOT skipped
-                            }
+                    }
+                    // Q2, fixed in HiCExplorer 4: a self circle is a pair
+                    // with no restriction site for any of the sequences. It
+                    // is counted once and removed unless --keepSelfCircles.
+                    // The Python tested inside the loop over the sequences,
+                    // so the `continue` never left the read loop and the pair
+                    // was kept and could be counted once per sequence.
+                    if (!has_rf) {
+                        ++counters.self_circle;
+                        if (!options.keep_self_circles) {
+                            continue;
                         }
                     }
                 }
@@ -351,10 +359,10 @@ void classify_pairs(const ClassifyOptions& options, std::size_t first, std::size
             case Orientation::DiffChromosome: break;
         }
 
-        // Coverage, with Q3's bin for the first mate.
-        const std::uint32_t bin_id = mate_bin.data;
+        // Coverage, each mate in its own bin.
         for (int w = 0; w < 2; ++w) {
-            const std::int64_t offset = std::max<std::int64_t>(0, p.pos(i, w) - static_cast<std::int64_t>(mate_bin.begin));
+            const std::uint32_t bin_id = mate_intervals[w].data;
+            const std::int64_t offset = std::max<std::int64_t>(0, p.pos(i, w) - static_cast<std::int64_t>(mate_intervals[w].begin));
             const std::int64_t bin_size = options.coverage_bin_size;
             if (bin_size == 0) {
                 throw PythonError("ZeroDivisionError", "division by zero");

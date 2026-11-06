@@ -39,10 +39,9 @@
 //     (pairtools' N null, X corrupt, W walk), counts as "One mate unmapped".
 //  P2 Not unique: a pair_type letter M counts as "One mate not unique".
 //  P3 --minMappingQuality applies when the file has mapq1 and mapq2: a pair
-//     with either below it counts as "One mate not unique" when either is 0
-//     and as "Low mapping quality" otherwise. This deliberately does not copy
-//     Q1 of the BAM route, whose chained comparison looks at the first mate
-//     only. Without the two columns an explicit --minMappingQuality is refused
+//     with either below it counts as "One mate not unique" when both are 0
+//     and as "Low mapping quality" otherwise, as in the BAM route (Q1 of
+//     hicBuildMatrix.cpp). Without the two columns an explicit --minMappingQuality is refused
 //     (exit 1, before any output), and the default is not applied, with a
 //     note on stderr.
 //  P4 Duplicates. pair_type DD (pairtools dedup --mark-dups) counts as
@@ -109,6 +108,7 @@
 #define HICX_TOOLS_BUILD_MATRIX_PAIRS_IMPL_HPP
 
 #include <cstdlib>
+#include <filesystem>
 #include <deque>
 #include <functional>
 #include <string_view>
@@ -712,7 +712,7 @@ int run_build_matrix_pairs(const Arguments& args) {
                 }
                 if (has_mapq && (pair.mapq1 < args.min_mapping_quality ||
                                  pair.mapq2 < args.min_mapping_quality)) {
-                    if (pair.mapq1 == 0 || pair.mapq2 == 0) {
+                    if (pair.mapq1 == 0 && pair.mapq2 == 0) {
                         ++total.one_mate_not_unique;
                     } else {
                         ++total.one_mate_low_quality;
@@ -785,6 +785,8 @@ int run_build_matrix_pairs(const Arguments& args) {
         hicx::write_qc_tables(args.qc_folder, qc_log);
 
         if (args.do_test_run) {
+            std::error_code remove_error;
+            std::filesystem::remove(args.out_file_name, remove_error);
             hicx::report_resource_usage(g_tool);
             return 0;
         }

@@ -3,39 +3,44 @@
     "id": "hicBuildMatrix.h5.binSize5000.small_test",
     "tool": "hicBuildMatrix",
     "tier": 4,
+    "reference": "none",
     "args": ["-s", "{data}/small_test_R1_unsorted.bam", "{data}/small_test_R2_unsorted.bam",
              "--outFileName", "{out}/matrix.h5", "-bs", "5000",
              "-b", "{out}/valid.bam", "--QCfolder", "{out}/qc", "--threads", "4",
              "--restrictionSequence", "GATC", "--danglingSequence", "GATC",
              "-rs", "{data}/DpnII.bed"],
     "outputs": [
-      {"path": "{out}/matrix.h5", "format": "h5", "class": "E2"},
-      {"path": "{out}/valid.bam", "format": "plain", "class": "E0"}
+      {"path": "{out}/matrix.h5", "format": "h5", "class": "EX"},
+      {"path": "{out}/valid.bam", "format": "plain", "class": "EX"}
     ],
     "threads_arg": "--threads",
     "memory": {"budget_mb": 321},
     "large": true,
-    "notes": "The main path of the tool and the case the pre-existing Python test covers, except that the test only compared the BAM by byte size within 80,000. 99,983 read pairs against 599,308 DpnII cut sites, 33,754 bins of 5 kb, 37,321 valid contacts, 35,857 stored pixels. The BAM comes out byte identical, which also fixes the reference for --outBam: it is the record order the Python produces with a single worker. Budget 2*35857*12 + 4*64 MB + 64 MB per cpp/STATUS.md."
+    "notes": "The main path of the tool and the case the pre-existing Python test covers, except that the test only compared the BAM by byte size within 80,000. 99,983 read pairs against 599,308 DpnII cut sites, 33,754 bins of 5 kb, 37,321 valid contacts, 35,857 stored pixels. The BAM comes out byte identical, which also fixes the reference for --outBam: it is the record order the Python produces with a single worker. Budget 2*35857*12 + 4*64 MB + 64 MB per cpp/STATUS.md. Class EX, not E0/E1/E2 (deliberate deviation, HiCExplorer 4 fixes Q1 to Q6 of hicBuildMatrix, project owner 2026-11-06): 3.7.6 kept the self circles whatever --keepSelfCircles said (and counted them once per restriction sequence), charged a pair to 'One mate not unique' on the first mate's quality alone, put the coverage of the first mate into the bin of the second and never counted the last coverage cell of a bin, wrote 0 as the insert size of every --outBam record, and emptied the restriction cut site list with --region. On the 99,983 pair library the Hi-C contacts are 36,670 where 3.7.6 had 37,321 (the 651 self circles are removed), 'One mate not unique' is 23 where 3.7.6 had 3,603 and 'Low mapping quality' 38,457 where 3.7.6 had 34,877. The matrix pixels, the bin coverage column and valid.bam (fewer records, the insert size set) change with it. There is no Python output to compare with. The corrected behaviour is pinned by test_hicBuildMatrix.py (regenerated references, pixels, QC log and tables, --outBam records) and cpp/tests/test_build_matrix.cpp."
   },
   {
     "id": "hicBuildMatrix.h5.restrictionFragments.small_test",
     "tool": "hicBuildMatrix",
     "tier": 4,
+    "reference": "none",
     "args": ["-s", "{data}/small_test_R1_unsorted.bam", "{data}/small_test_R2_unsorted.bam",
              "-rs", "{data}/DpnII.bed", "--outFileName", "{out}/matrix.h5",
              "--QCfolder", "{out}/qc", "--restrictionSequence", "GATC",
              "--danglingSequence", "GATC", "--minDistance", "150",
              "--maxLibraryInsertSize", "1500", "--threads", "4"],
-    "outputs": [{"path": "{out}/matrix.h5", "format": "h5", "class": "E2"}],
+    "outputs": [
+      {"path": "{out}/matrix.h5", "format": "h5", "class": "EX"}
+    ],
     "threads_arg": "--threads",
     "memory": {"budget_mb": 321},
     "large": true,
-    "notes": "No --binSize, so the bins come from get_rf_bins: one bin per DpnII site, sites closer than 150 bp merged, 1500 bp added on each side, 266,464 bins over 15 chromosomes. This is the path where the bin table is larger than the matrix is dense, and where the c_uint truncation of the shared interval array matters."
+    "notes": "No --binSize, so the bins come from get_rf_bins: one bin per DpnII site, sites closer than 150 bp merged, 1500 bp added on each side, 266,464 bins over 15 chromosomes. This is the path where the bin table is larger than the matrix is dense, and where the c_uint truncation of the shared interval array matters. Class EX, not E0/E1/E2 (deliberate deviation, HiCExplorer 4 fixes Q1 to Q6 of hicBuildMatrix, project owner 2026-11-06): 3.7.6 kept the self circles whatever --keepSelfCircles said (and counted them once per restriction sequence), charged a pair to 'One mate not unique' on the first mate's quality alone, put the coverage of the first mate into the bin of the second and never counted the last coverage cell of a bin, wrote 0 as the insert size of every --outBam record, and emptied the restriction cut site list with --region. The matrix pixels and the bin coverage column change (the self circles are removed). There is no Python output to compare with. The corrected behaviour is pinned by test_hicBuildMatrix.py (regenerated references, pixels, QC log and tables, --outBam records) and cpp/tests/test_build_matrix.cpp."
   },
   {
     "id": "hicBuildMatrix.h5.twoEnzymes.small_test",
     "tool": "hicBuildMatrix",
     "tier": 4,
+    "reference": "none",
     "args": ["-s", "{data}/small_test_R1_unsorted.bam", "{data}/small_test_R2_unsorted.bam",
              "--outFileName", "{out}/matrix.h5", "-bs", "5000",
              "-b", "{out}/valid.bam", "--QCfolder", "{out}/qc", "--threads", "4",
@@ -43,18 +48,19 @@
              "--restrictionSequence", "GATC", "AAGCTT",
              "-rs", "{data}/DpnII.bed", "{data}/hicFindRestSite/hindIII.bed"],
     "outputs": [
-      {"path": "{out}/matrix.h5", "format": "h5", "class": "E2"},
-      {"path": "{out}/valid.bam", "format": "plain", "class": "E0"}
+      {"path": "{out}/matrix.h5", "format": "h5", "class": "EX"},
+      {"path": "{out}/valid.bam", "format": "plain", "class": "EX"}
     ],
     "threads_arg": "--threads",
     "memory": {"budget_mb": 321},
     "large": true,
-    "notes": "Two restriction enzymes, two cut site files and two dangling sequences, matched by position. This is the case in which the self circle loop of buildMatrixMethods.py:744-762 can count one pair twice, because has_rf is accumulated across the sequences but the counter is incremented once per sequence that has not found a site yet."
+    "notes": "Two restriction enzymes, two cut site files and two dangling sequences, matched by position. This is the case in which the self circle loop of buildMatrixMethods.py:744-762 can count one pair twice, because has_rf is accumulated across the sequences but the counter is incremented once per sequence that has not found a site yet. Class EX, not E0/E1/E2 (deliberate deviation, HiCExplorer 4 fixes Q1 to Q6 of hicBuildMatrix, project owner 2026-11-06): 3.7.6 kept the self circles whatever --keepSelfCircles said (and counted them once per restriction sequence), charged a pair to 'One mate not unique' on the first mate's quality alone, put the coverage of the first mate into the bin of the second and never counted the last coverage cell of a bin, wrote 0 as the insert size of every --outBam record, and emptied the restriction cut site list with --region. The matrix pixels, the bin coverage column and valid.bam change (a self circle is counted once and removed, not once per enzyme and kept). There is no Python output to compare with. The corrected behaviour is pinned by test_hicBuildMatrix.py (regenerated references, pixels, QC log and tables, --outBam records) and cpp/tests/test_build_matrix.cpp."
   },
   {
     "id": "hicBuildMatrix.h5.region_chr3R",
     "tool": "hicBuildMatrix",
     "tier": 4,
+    "reference": "none",
     "args": ["-s", "{data}/small_test_R1_unsorted.bam", "{data}/small_test_R2_unsorted.bam",
              "--outFileName", "{out}/matrix.h5", "-bs", "5000",
              "-b", "{out}/valid.bam", "--QCfolder", "{out}/qc", "--threads", "4",
@@ -63,102 +69,118 @@
              "-rs", "{data}/DpnII.bed", "{data}/hicFindRestSite/hindIII.bed",
              "--region", "chr3R"],
     "outputs": [
-      {"path": "{out}/matrix.h5", "format": "h5", "class": "E2"},
-      {"path": "{out}/valid.bam", "format": "plain", "class": "E0"}
+      {"path": "{out}/matrix.h5", "format": "h5", "class": "EX"},
+      {"path": "{out}/valid.bam", "format": "plain", "class": "EX"}
     ],
     "threads_arg": "--threads",
     "memory": {"budget_mb": 320},
-    "notes": "--region restricts the bins to chr3R, 5,582 of them, and 7,623 pixels survive. It also empties the restriction site list, because bed2interval_list keeps a site only when region_end <= site_end and region_end is the chromosome length (the QUIRK note in build_matrix.hpp). Every close inward pair therefore becomes 'same fragment' and no self circle is ever counted. Reproduced rather than fixed."
+    "notes": "--region restricts the bins to chr3R, 5,582 of them, and 7,623 pixels survive. It also empties the restriction site list, because bed2interval_list keeps a site only when region_end <= site_end and region_end is the chromosome length (the QUIRK note in build_matrix.hpp). Every close inward pair therefore becomes 'same fragment' and no self circle is ever counted. Reproduced rather than fixed. Class EX, not E0/E1/E2 (deliberate deviation, HiCExplorer 4 fixes Q1 to Q6 of hicBuildMatrix, project owner 2026-11-06): 3.7.6 kept the self circles whatever --keepSelfCircles said (and counted them once per restriction sequence), charged a pair to 'One mate not unique' on the first mate's quality alone, put the coverage of the first mate into the bin of the second and never counted the last coverage cell of a bin, wrote 0 as the insert size of every --outBam record, and emptied the restriction cut site list with --region. With --region chr3R the DpnII and HindIII cut sites of chr3R are kept (3.7.6: none), so pairs move between 'same fragment', 'self ligation' and the self circle count, and valid.bam, the pixels and the bin coverage column change. There is no Python output to compare with. The corrected behaviour is pinned by test_hicBuildMatrix.py (regenerated references, pixels, QC log and tables, --outBam records) and cpp/tests/test_build_matrix.cpp."
   },
   {
     "id": "hicBuildMatrix.cool.genomeAssembly",
     "tool": "hicBuildMatrix",
     "tier": 4,
+    "reference": "none",
     "args": ["-s", "{data}/small_test_R1_unsorted.bam", "{data}/small_test_R2_unsorted.bam",
              "--outFileName", "{out}/matrix.cool", "-bs", "5000",
              "--QCfolder", "{out}/qc", "--threads", "4", "--genomeAssembly", "dm3",
              "--restrictionSequence", "GATC", "--danglingSequence", "GATC",
              "-rs", "{data}/DpnII.bed"],
-    "outputs": [{"path": "{out}/matrix.cool", "format": "cool", "class": "E1",
-                 "options": {"ignore_attributes": ["matrix-generated-by", "matrix-generated-by-url", "genome-assembly"], "ignore_metadata_keys": ["hicexplorer_qc", "matrix-generated-by", "matrix-generated-by-url", "genome-assembly"]}}],
+    "outputs": [
+      {"path": "{out}/matrix.cool", "format": "cool", "class": "EX"}
+    ],
     "threads_arg": "--threads",
     "memory": {"budget_mb": 321},
     "large": true,
-    "notes": "The cool writer with metadata. The three provenance strings are built with np.string_ and stored by hicmatrix as str(bytes), so the attribute really reads b'HiCExplorer-3.7.6' and the port writes that literally; see Q9 in hicBuildMatrix.cpp. 'statistics', the whole QC log, is put into the metadata dictionary and then dropped by hicmatrix, which never copies it into the info dictionary it writes. The v4 tools also write the QC statistics into the cool metadata under \"hicexplorer_qc\" (the metadata read by hicMatrixQC); 3.7.6 writes none, so this case drops exactly that one key of the metadata JSON (ignore_metadata_keys) and still compares every other key and attribute. HiCExplorer 4 fix 3 (project owner 2026-11-06): the provenance attributes are plain strings, where 3.7.6 stored the repr b'HiCExplorer-3.7.6', and every mcool resolution carries them, where 3.7.6 gave them to the first resolution only. What this note says above about Q7, Q9 and Q10 describes 3.7.6. matrix-generated-by, matrix-generated-by-url and genome-assembly, as attributes and as keys of the metadata JSON, are therefore declared out of scope in this comparison; pixels, bins, chromosomes and every other attribute are still compared, and test_hicBuildMatrix.py pins the provenance values."
+    "notes": "The cool writer with metadata. The three provenance strings are built with np.string_ and stored by hicmatrix as str(bytes), so the attribute really reads b'HiCExplorer-3.7.6' and the port writes that literally; see Q9 in hicBuildMatrix.cpp. 'statistics', the whole QC log, is put into the metadata dictionary and then dropped by hicmatrix, which never copies it into the info dictionary it writes. The v4 tools also write the QC statistics into the cool metadata under \"hicexplorer_qc\" (the metadata read by hicMatrixQC); 3.7.6 writes none, so this case drops exactly that one key of the metadata JSON (ignore_metadata_keys) and still compares every other key and attribute. HiCExplorer 4 fix 3 (project owner 2026-11-06): the provenance attributes are plain strings, where 3.7.6 stored the repr b'HiCExplorer-3.7.6', and every mcool resolution carries them, where 3.7.6 gave them to the first resolution only. What this note says above about Q7, Q9 and Q10 describes 3.7.6. matrix-generated-by, matrix-generated-by-url and genome-assembly, as attributes and as keys of the metadata JSON, are therefore declared out of scope in this comparison; pixels, bins, chromosomes and every other attribute are still compared, and test_hicBuildMatrix.py pins the provenance values. Class EX, not E0/E1/E2 (deliberate deviation, HiCExplorer 4 fixes Q1 to Q6 of hicBuildMatrix, project owner 2026-11-06): 3.7.6 kept the self circles whatever --keepSelfCircles said (and counted them once per restriction sequence), charged a pair to 'One mate not unique' on the first mate's quality alone, put the coverage of the first mate into the bin of the second and never counted the last coverage cell of a bin, wrote 0 as the insert size of every --outBam record, and emptied the restriction cut site list with --region. On the 99,983 pair library the Hi-C contacts are 36,670 where 3.7.6 had 37,321 (the 651 self circles are removed), 'One mate not unique' is 23 where 3.7.6 had 3,603 and 'Low mapping quality' 38,457 where 3.7.6 had 34,877. The pixels of the cooler change with it. There is no Python output to compare with. The corrected behaviour is pinned by test_hicBuildMatrix.py (regenerated references, pixels, QC log and tables, --outBam records) and cpp/tests/test_build_matrix.cpp."
   },
   {
     "id": "hicBuildMatrix.mcool.threeResolutions",
     "tool": "hicBuildMatrix",
     "tier": 4,
+    "reference": "none",
     "args": ["-s", "{data}/small_test_R1_unsorted.bam", "{data}/small_test_R2_unsorted.bam",
              "--outFileName", "{out}/matrix.mcool", "-bs", "5000", "10000", "20000",
              "--QCfolder", "{out}/qc", "--threads", "4",
              "--restrictionSequence", "GATC", "--danglingSequence", "GATC",
              "-rs", "{data}/DpnII.bed"],
-    "outputs": [{"path": "{out}/matrix.mcool", "format": "mcool", "class": "E1",
-                 "options": {"ignore_attributes": ["matrix-generated-by", "matrix-generated-by-url", "genome-assembly"], "ignore_metadata_keys": ["hicexplorer_qc", "matrix-generated-by", "matrix-generated-by-url", "genome-assembly"]}}],
+    "outputs": [
+      {"path": "{out}/matrix.mcool", "format": "mcool", "class": "EX"}
+    ],
     "threads_arg": "--threads",
     "memory": {"budget_mb": 321},
     "large": true,
-    "notes": "Three resolutions, so the mcool branch is taken and the two coarser ones come from hicMergeMatrixBins.merge_bins on the 5 kb matrix: 35,857, 34,331 and 31,230 pixels. Only /resolutions/5000 carries the provenance attributes, because hicmatrix's cool writer deletes them out of the metadata dictionary it is handed and the tool reuses the same dictionary for every resolution (Q10). The v4 tools also write the QC statistics into the cool metadata under \"hicexplorer_qc\" (the metadata read by hicMatrixQC); 3.7.6 writes none, so this case drops exactly that one key of the metadata JSON (ignore_metadata_keys) and still compares every other key and attribute. HiCExplorer 4 fix 3 (project owner 2026-11-06): the provenance attributes are plain strings, where 3.7.6 stored the repr b'HiCExplorer-3.7.6', and every mcool resolution carries them, where 3.7.6 gave them to the first resolution only. What this note says above about Q7, Q9 and Q10 describes 3.7.6. matrix-generated-by, matrix-generated-by-url and genome-assembly, as attributes and as keys of the metadata JSON, are therefore declared out of scope in this comparison; pixels, bins, chromosomes and every other attribute are still compared, and test_hicBuildMatrix.py pins the provenance values."
+    "notes": "Three resolutions, so the mcool branch is taken and the two coarser ones come from hicMergeMatrixBins.merge_bins on the 5 kb matrix: 35,857, 34,331 and 31,230 pixels. Only /resolutions/5000 carries the provenance attributes, because hicmatrix's cool writer deletes them out of the metadata dictionary it is handed and the tool reuses the same dictionary for every resolution (Q10). The v4 tools also write the QC statistics into the cool metadata under \"hicexplorer_qc\" (the metadata read by hicMatrixQC); 3.7.6 writes none, so this case drops exactly that one key of the metadata JSON (ignore_metadata_keys) and still compares every other key and attribute. HiCExplorer 4 fix 3 (project owner 2026-11-06): the provenance attributes are plain strings, where 3.7.6 stored the repr b'HiCExplorer-3.7.6', and every mcool resolution carries them, where 3.7.6 gave them to the first resolution only. What this note says above about Q7, Q9 and Q10 describes 3.7.6. matrix-generated-by, matrix-generated-by-url and genome-assembly, as attributes and as keys of the metadata JSON, are therefore declared out of scope in this comparison; pixels, bins, chromosomes and every other attribute are still compared, and test_hicBuildMatrix.py pins the provenance values. Class EX, not E0/E1/E2 (deliberate deviation, HiCExplorer 4 fixes Q1 to Q6 of hicBuildMatrix, project owner 2026-11-06): 3.7.6 kept the self circles whatever --keepSelfCircles said (and counted them once per restriction sequence), charged a pair to 'One mate not unique' on the first mate's quality alone, put the coverage of the first mate into the bin of the second and never counted the last coverage cell of a bin, wrote 0 as the insert size of every --outBam record, and emptied the restriction cut site list with --region. The pixels of all three resolutions change (the self circles are removed). There is no Python output to compare with. The corrected behaviour is pinned by test_hicBuildMatrix.py (regenerated references, pixels, QC log and tables, --outBam records) and cpp/tests/test_build_matrix.cpp."
   },
   {
     "id": "hicBuildMatrix.h5.chromosomeSizes",
     "tool": "hicBuildMatrix",
     "tier": 4,
+    "reference": "none",
     "args": ["-s", "{data}/small_test_R1_unsorted.bam", "{data}/small_test_R2_unsorted.bam",
              "--outFileName", "{out}/matrix.h5", "-bs", "5000",
              "--QCfolder", "{out}/qc", "--threads", "4",
              "--chromosomeSizes", "{data}/hicBuildMatrix/dm3.chrom.sizes",
              "--restrictionSequence", "GATC", "--danglingSequence", "GATC",
              "-rs", "{data}/DpnII.bed"],
-    "outputs": [{"path": "{out}/matrix.h5", "format": "h5", "class": "E2"}],
+    "outputs": [
+      {"path": "{out}/matrix.h5", "format": "h5", "class": "EX"}
+    ],
     "memory": {"budget_mb": 321},
     "large": true,
-    "notes": "The bin table comes from the chrom.sizes file rather than from the BAM header, which changes both the chromosome order and the lengths, so the bin ids and the matrix shape differ from the default path."
+    "notes": "The bin table comes from the chrom.sizes file rather than from the BAM header, which changes both the chromosome order and the lengths, so the bin ids and the matrix shape differ from the default path. Class EX, not E0/E1/E2 (deliberate deviation, HiCExplorer 4 fixes Q1 to Q6 of hicBuildMatrix, project owner 2026-11-06): 3.7.6 kept the self circles whatever --keepSelfCircles said (and counted them once per restriction sequence), charged a pair to 'One mate not unique' on the first mate's quality alone, put the coverage of the first mate into the bin of the second and never counted the last coverage cell of a bin, wrote 0 as the insert size of every --outBam record, and emptied the restriction cut site list with --region. The matrix pixels and the bin coverage column change (the self circles are removed). There is no Python output to compare with. The corrected behaviour is pinned by test_hicBuildMatrix.py (regenerated references, pixels, QC log and tables, --outBam records) and cpp/tests/test_build_matrix.cpp."
   },
   {
     "id": "hicBuildMatrix.h5.R1_1000.minMappingQuality30",
     "tool": "hicBuildMatrix",
     "tier": 4,
+    "reference": "none",
     "args": ["-s", "{data}/R1_1000.bam", "{data}/R2_1000.bam",
              "--outFileName", "{out}/matrix.h5", "-bs", "100000",
              "--QCfolder", "{out}/qc", "--threads", "4",
              "--restrictionSequence", "AAGCTT", "--danglingSequence", "AGCT",
              "-rs", "{data}/hicFindRestSite/hindIII.bed",
              "--minMappingQuality", "30"],
-    "outputs": [{"path": "{out}/matrix.h5", "format": "h5", "class": "E2"}],
+    "outputs": [
+      {"path": "{out}/matrix.h5", "format": "h5", "class": "EX"}
+    ],
     "threads_arg": "--threads",
     "memory": {"budget_mb": 320},
-    "notes": "--minMappingQuality was never exercised by the Python suite with an assertion. At 30 rather than the default 15 the mappable pair count falls from 300 to 229 and the contacts from 215 to 180. This is also the case that pins the chained comparison of buildMatrixMethods.py:523, which charges a pair to 'One mate not unique' on the first mate's quality alone."
+    "notes": "--minMappingQuality was never exercised by the Python suite with an assertion. At 30 rather than the default 15 the mappable pair count falls from 300 to 229 and the contacts from 215 to 180. This is also the case that pins the chained comparison of buildMatrixMethods.py:523, which charges a pair to 'One mate not unique' on the first mate's quality alone. Class EX, not E0/E1/E2 (deliberate deviation, HiCExplorer 4 fixes Q1 to Q6 of hicBuildMatrix, project owner 2026-11-06): 3.7.6 kept the self circles whatever --keepSelfCircles said (and counted them once per restriction sequence), charged a pair to 'One mate not unique' on the first mate's quality alone, put the coverage of the first mate into the bin of the second and never counted the last coverage cell of a bin, wrote 0 as the insert size of every --outBam record, and emptied the restriction cut site list with --region. With --minMappingQuality 30 no pair has two mates at quality 0, so the pairs 3.7.6 called 'One mate not unique' (13) are 'Low mapping quality' (248 instead of 235), and the pixels lose the self circles. There is no Python output to compare with. The corrected behaviour is pinned by test_hicBuildMatrix.py (regenerated references, pixels, QC log and tables, --outBam records) and cpp/tests/test_build_matrix.cpp."
   },
   {
     "id": "hicBuildMatrix.h5.R1_1000.maxDistance",
     "tool": "hicBuildMatrix",
     "tier": 4,
+    "reference": "none",
     "args": ["-s", "{data}/R1_1000.bam", "{data}/R2_1000.bam",
              "--outFileName", "{out}/matrix.h5", "-bs", "100000",
              "--QCfolder", "{out}/qc", "--threads", "4",
              "--restrictionSequence", "AAGCTT", "--danglingSequence", "AGCT",
              "-rs", "{data}/hicFindRestSite/hindIII.bed",
              "--maxDistance", "1500"],
-    "outputs": [{"path": "{out}/matrix.h5", "format": "h5", "class": "E2"}],
+    "outputs": [
+      {"path": "{out}/matrix.h5", "format": "h5", "class": "EX"}
+    ],
     "memory": {"budget_mb": 320},
-    "notes": "--maxDistance, the obsolete spelling, was never exercised by the Python suite. It overwrites --maxLibraryInsertSize outright, so this run is identical to --maxLibraryInsertSize 1500 down to the QC log."
+    "notes": "--maxDistance, the obsolete spelling, was never exercised by the Python suite. It overwrites --maxLibraryInsertSize outright, so this run is identical to --maxLibraryInsertSize 1500 down to the QC log. Class EX, not E0/E1/E2 (deliberate deviation, HiCExplorer 4 fixes Q1 to Q6 of hicBuildMatrix, project owner 2026-11-06): 3.7.6 kept the self circles whatever --keepSelfCircles said (and counted them once per restriction sequence), charged a pair to 'One mate not unique' on the first mate's quality alone, put the coverage of the first mate into the bin of the second and never counted the last coverage cell of a bin, wrote 0 as the insert size of every --outBam record, and emptied the restriction cut site list with --region. On R1_1000/R2_1000 with HindIII the Hi-C contacts are 195 where 3.7.6 had 215 (the 20 self circles are removed) and the 13 pairs 3.7.6 called 'One mate not unique' are 'Low mapping quality'. There is no Python output to compare with. The corrected behaviour is pinned by test_hicBuildMatrix.py (regenerated references, pixels, QC log and tables, --outBam records) and cpp/tests/test_build_matrix.cpp."
   },
   {
     "id": "hicBuildMatrix.h5.R1_1000.keepSelfLigation",
     "tool": "hicBuildMatrix",
     "tier": 4,
+    "reference": "none",
     "args": ["-s", "{data}/R1_1000.bam", "{data}/R2_1000.bam",
              "--outFileName", "{out}/matrix.h5", "-bs", "100000",
              "--QCfolder", "{out}/qc", "--threads", "4",
              "--restrictionSequence", "AAGCTT", "--danglingSequence", "AGCT",
              "-rs", "{data}/hicFindRestSite/hindIII.bed",
              "--keepSelfLigation"],
-    "outputs": [{"path": "{out}/matrix.h5", "format": "h5", "class": "E2"}],
+    "outputs": [
+      {"path": "{out}/matrix.h5", "format": "h5", "class": "EX"}
+    ],
     "memory": {"budget_mb": 320},
-    "notes": "--keepSelfLigation was never exercised by the Python suite. It keeps the 5 self ligated pairs, so the contacts rise from 215 to 220 and the QC label changes from 'self ligation (removed)' to 'self ligation (not removed)'. Unlike --keepSelfCircles it really does change the matrix."
+    "notes": "--keepSelfLigation was never exercised by the Python suite. It keeps the 5 self ligated pairs, so the contacts rise from 215 to 220 and the QC label changes from 'self ligation (removed)' to 'self ligation (not removed)'. Unlike --keepSelfCircles it really does change the matrix. Class EX, not E0/E1/E2 (deliberate deviation, HiCExplorer 4 fixes Q1 to Q6 of hicBuildMatrix, project owner 2026-11-06): 3.7.6 kept the self circles whatever --keepSelfCircles said (and counted them once per restriction sequence), charged a pair to 'One mate not unique' on the first mate's quality alone, put the coverage of the first mate into the bin of the second and never counted the last coverage cell of a bin, wrote 0 as the insert size of every --outBam record, and emptied the restriction cut site list with --region. On R1_1000/R2_1000 with HindIII the Hi-C contacts are 195 where 3.7.6 had 215 (the 20 self circles are removed) and the 13 pairs 3.7.6 called 'One mate not unique' are 'Low mapping quality'. There is no Python output to compare with. The corrected behaviour is pinned by test_hicBuildMatrix.py (regenerated references, pixels, QC log and tables, --outBam records) and cpp/tests/test_build_matrix.cpp."
   },
   {
     "id": "hicBuildMatrix.h5.R1_1000.keepSelfCircles",
@@ -170,82 +192,87 @@
              "--restrictionSequence", "AAGCTT", "--danglingSequence", "AGCT",
              "-rs", "{data}/hicFindRestSite/hindIII.bed",
              "--keepSelfCircles"],
-    "outputs": [{"path": "{out}/matrix.h5", "format": "h5", "class": "E2"}],
+    "outputs": [{"path": "{out}/matrix.h5", "format": "h5", "class": "E2",
+                 "options": {"ignore_nodes": ["/intervals/extra_list"]}}],
     "memory": {"budget_mb": 320},
-    "notes": "--keepSelfCircles is a no-op on the matrix and on every QC counter, because the `continue` that was meant to drop a self circle sits inside the loop over restriction sequences rather than inside the read loop (Q2). The output is identical to the run without the flag, which is the point of the case: it pins a defect, not a feature."
+    "notes": "--keepSelfCircles is a no-op on the matrix and on every QC counter, because the `continue` that was meant to drop a self circle sits inside the loop over restriction sequences rather than inside the read loop (Q2). The output is identical to the run without the flag, which is the point of the case: it pins a defect, not a feature. HiCExplorer 4 fixes Q1 to Q6 (project owner 2026-11-06): with --keepSelfCircles the pixels are the 3.7.6 pixels, so the matrix is still compared with 3.7.6, except for /intervals/extra_list, the per bin maximum of the read coverage, which differs because 3.7.6 put the coverage of the first mate into the bin of the second and never counted the last coverage cell of a bin (Q3, Q4). The node must still exist. What the sentence about the no-op above describes is 3.7.6: HiCExplorer 4 removes the self circles unless --keepSelfCircles is given, and the run without the flag is pinned by test_hicBuildMatrix.py."
   },
   {
     "id": "hicBuildMatrix.h5.R1_1000.skipDuplicationCheck",
     "tool": "hicBuildMatrix",
     "tier": 4,
+    "reference": "none",
     "args": ["-s", "{data}/R1_1000.bam", "{data}/R2_1000.bam",
              "--outFileName", "{out}/matrix.h5", "-bs", "100000",
              "--QCfolder", "{out}/qc", "--threads", "4",
              "--restrictionSequence", "AAGCTT", "--danglingSequence", "AGCT",
              "-rs", "{data}/hicFindRestSite/hindIII.bed",
              "--skipDuplicationCheck"],
-    "outputs": [{"path": "{out}/matrix.h5", "format": "h5", "class": "E2"}],
+    "outputs": [
+      {"path": "{out}/matrix.h5", "format": "h5", "class": "EX"}
+    ],
     "memory": {"budget_mb": 320},
-    "notes": "--skipDuplicationCheck was never exercised with an assertion. R1_1000 holds no duplicate pair, so the counters are unchanged and what the case really pins is that skipping the check does not perturb anything else. The 12 duplicates of the larger library are covered by the QC cases below."
+    "notes": "--skipDuplicationCheck was never exercised with an assertion. R1_1000 holds no duplicate pair, so the counters are unchanged and what the case really pins is that skipping the check does not perturb anything else. The 12 duplicates of the larger library are covered by the QC cases below. Class EX, not E0/E1/E2 (deliberate deviation, HiCExplorer 4 fixes Q1 to Q6 of hicBuildMatrix, project owner 2026-11-06): 3.7.6 kept the self circles whatever --keepSelfCircles said (and counted them once per restriction sequence), charged a pair to 'One mate not unique' on the first mate's quality alone, put the coverage of the first mate into the bin of the second and never counted the last coverage cell of a bin, wrote 0 as the insert size of every --outBam record, and emptied the restriction cut site list with --region. On R1_1000/R2_1000 with HindIII the Hi-C contacts are 195 where 3.7.6 had 215 (the 20 self circles are removed) and the 13 pairs 3.7.6 called 'One mate not unique' are 'Low mapping quality'. There is no Python output to compare with. The corrected behaviour is pinned by test_hicBuildMatrix.py (regenerated references, pixels, QC log and tables, --outBam records) and cpp/tests/test_build_matrix.cpp."
   },
   {
     "id": "hicBuildMatrix.qc.binSize5000.small_test",
     "tool": "hicBuildMatrix",
     "tier": 4,
+    "reference": "none",
     "args": ["-s", "{data}/small_test_R1_unsorted.bam", "{data}/small_test_R2_unsorted.bam",
              "--outFileName", "qc_case_matrix.h5", "-bs", "5000",
              "--QCfolder", "{out}/qc", "--threads", "4",
              "--restrictionSequence", "GATC", "--danglingSequence", "GATC",
              "-rs", "{data}/DpnII.bed"],
     "outputs": [
-      {"path": "{out}/qc/QC.log", "format": "plain", "class": "E0"},
-      {"path": "{out}/qc/QC_table.txt", "format": "plain", "class": "E0"},
-      {"path": "{out}/qc/unmapable_table.txt", "format": "plain", "class": "E0"},
-      {"path": "{out}/qc/discarded_table.txt", "format": "plain", "class": "E0"},
-      {"path": "{out}/qc/distance_table.txt", "format": "plain", "class": "E0"},
-      {"path": "{out}/qc/read_orientation_table.txt", "format": "plain", "class": "E0"},
-      {"path": "{out}/qc/pairs_sequenced.png", "format": "png", "class": "E6"},
-      {"path": "{out}/qc/unmappable_and_non_unique.png", "format": "png", "class": "E6"},
-      {"path": "{out}/qc/pairs_discarded.png", "format": "png", "class": "E6"},
-      {"path": "{out}/qc/distance.png", "format": "png", "class": "E6"},
-      {"path": "{out}/qc/read_orientation.png", "format": "png", "class": "E6"},
-      {"path": "{out}/qc/hicQC.html", "format": "text", "class": "E0",
-       "options": {"normalise": ["pandas_styler_uuid"]}}
+      {"path": "{out}/qc/QC.log", "format": "plain", "class": "EX"},
+      {"path": "{out}/qc/QC_table.txt", "format": "plain", "class": "EX"},
+      {"path": "{out}/qc/unmapable_table.txt", "format": "plain", "class": "EX"},
+      {"path": "{out}/qc/discarded_table.txt", "format": "plain", "class": "EX"},
+      {"path": "{out}/qc/distance_table.txt", "format": "plain", "class": "EX"},
+      {"path": "{out}/qc/read_orientation_table.txt", "format": "plain", "class": "EX"},
+      {"path": "{out}/qc/pairs_sequenced.png", "format": "png", "class": "EX"},
+      {"path": "{out}/qc/unmappable_and_non_unique.png", "format": "png", "class": "EX"},
+      {"path": "{out}/qc/pairs_discarded.png", "format": "png", "class": "EX"},
+      {"path": "{out}/qc/distance.png", "format": "png", "class": "EX"},
+      {"path": "{out}/qc/read_orientation.png", "format": "png", "class": "EX"},
+      {"path": "{out}/qc/hicQC.html", "format": "text", "class": "EX"}
     ],
     "threads_arg": "--threads",
     "memory": {"budget_mb": 321},
     "large": true,
-    "notes": "The QC folder is a downstream contract: hicPrepareQCreport reads QC.log and every one of these tables is what a user looks at. QC.log and the tables embed the --outFileName string, so this case gives it as a name relative to the shared work directory instead of a path under {out}; the matrix that lands there is deliberately not compared, the sibling case above does that. Byte identical, E0, including the float reprs pandas writes with no format string."
+    "notes": "The QC folder is a downstream contract: hicPrepareQCreport reads QC.log and every one of these tables is what a user looks at. QC.log and the tables embed the --outFileName string, so this case gives it as a name relative to the shared work directory instead of a path under {out}; the matrix that lands there is deliberately not compared, the sibling case above does that. Byte identical, E0, including the float reprs pandas writes with no format string. Class EX, not E0/E1/E2 (deliberate deviation, HiCExplorer 4 fixes Q1 to Q6 of hicBuildMatrix, project owner 2026-11-06): 3.7.6 kept the self circles whatever --keepSelfCircles said (and counted them once per restriction sequence), charged a pair to 'One mate not unique' on the first mate's quality alone, put the coverage of the first mate into the bin of the second and never counted the last coverage cell of a bin, wrote 0 as the insert size of every --outBam record, and emptied the restriction cut site list with --region. On the 99,983 pair library the Hi-C contacts are 36,670 where 3.7.6 had 37,321 (the 651 self circles are removed), 'One mate not unique' is 23 where 3.7.6 had 3,603 and 'Low mapping quality' 38,457 where 3.7.6 had 34,877. The QC log, the tables, the figures and hicQC.html show the new counts. There is no Python output to compare with. The corrected behaviour is pinned by test_hicBuildMatrix.py (regenerated references, pixels, QC log and tables, --outBam records) and cpp/tests/test_build_matrix.cpp."
   },
   {
     "id": "hicBuildMatrix.qc.restrictionFragments.small_test",
     "tool": "hicBuildMatrix",
     "tier": 4,
+    "reference": "none",
     "args": ["-s", "{data}/small_test_R1_unsorted.bam", "{data}/small_test_R2_unsorted.bam",
              "-rs", "{data}/DpnII.bed", "--outFileName", "qc_rf_matrix.h5",
              "--QCfolder", "{out}/qc", "--restrictionSequence", "GATC",
              "--danglingSequence", "GATC", "--minDistance", "150",
              "--maxLibraryInsertSize", "1500", "--threads", "4"],
     "outputs": [
-      {"path": "{out}/qc/QC.log", "format": "plain", "class": "E0"},
-      {"path": "{out}/qc/QC_table.txt", "format": "plain", "class": "E0"},
-      {"path": "{out}/qc/discarded_table.txt", "format": "plain", "class": "E0"},
-      {"path": "{out}/qc/pairs_sequenced.png", "format": "png", "class": "E6"},
-      {"path": "{out}/qc/unmappable_and_non_unique.png", "format": "png", "class": "E6"},
-      {"path": "{out}/qc/pairs_discarded.png", "format": "png", "class": "E6"},
-      {"path": "{out}/qc/distance.png", "format": "png", "class": "E6"},
-      {"path": "{out}/qc/read_orientation.png", "format": "png", "class": "E6"},
-      {"path": "{out}/qc/hicQC.html", "format": "text", "class": "E0",
-       "options": {"normalise": ["pandas_styler_uuid"]}}
+      {"path": "{out}/qc/QC.log", "format": "plain", "class": "EX"},
+      {"path": "{out}/qc/QC_table.txt", "format": "plain", "class": "EX"},
+      {"path": "{out}/qc/discarded_table.txt", "format": "plain", "class": "EX"},
+      {"path": "{out}/qc/pairs_sequenced.png", "format": "png", "class": "EX"},
+      {"path": "{out}/qc/unmappable_and_non_unique.png", "format": "png", "class": "EX"},
+      {"path": "{out}/qc/pairs_discarded.png", "format": "png", "class": "EX"},
+      {"path": "{out}/qc/distance.png", "format": "png", "class": "EX"},
+      {"path": "{out}/qc/read_orientation.png", "format": "png", "class": "EX"},
+      {"path": "{out}/qc/hicQC.html", "format": "text", "class": "EX"}
     ],
     "memory": {"budget_mb": 321},
     "large": true,
-    "notes": "The QC log of the restriction fragment path, which reports 'Min rest. site distance 150' and a different self ligation and same fragment split from the fixed bin run."
+    "notes": "The QC log of the restriction fragment path, which reports 'Min rest. site distance 150' and a different self ligation and same fragment split from the fixed bin run. Class EX, not E0/E1/E2 (deliberate deviation, HiCExplorer 4 fixes Q1 to Q6 of hicBuildMatrix, project owner 2026-11-06): 3.7.6 kept the self circles whatever --keepSelfCircles said (and counted them once per restriction sequence), charged a pair to 'One mate not unique' on the first mate's quality alone, put the coverage of the first mate into the bin of the second and never counted the last coverage cell of a bin, wrote 0 as the insert size of every --outBam record, and emptied the restriction cut site list with --region. On the restriction fragment bins the Hi-C contacts are 36,009 where 3.7.6 had 36,627, 'One mate not unique' is 23 where it had 3,603. There is no Python output to compare with. The corrected behaviour is pinned by test_hicBuildMatrix.py (regenerated references, pixels, QC log and tables, --outBam records) and cpp/tests/test_build_matrix.cpp."
   },
   {
     "id": "hicBuildMatrix.qc.doTestRun",
     "tool": "hicBuildMatrix",
     "tier": 4,
+    "reference": "none",
     "args": ["-s", "{data}/R1_1000.bam", "{data}/R2_1000.bam",
              "--outFileName", "qc_testrun_matrix.h5", "-bs", "100000",
              "--QCfolder", "{out}/qc", "--threads", "4",
@@ -253,23 +280,23 @@
              "-rs", "{data}/hicFindRestSite/hindIII.bed",
              "--doTestRun", "--doTestRunLines", "500"],
     "outputs": [
-      {"path": "{out}/qc/QC.log", "format": "plain", "class": "E0"},
-      {"path": "{out}/qc/QC_table.txt", "format": "plain", "class": "E0"},
-      {"path": "{out}/qc/pairs_sequenced.png", "format": "png", "class": "E6"},
-      {"path": "{out}/qc/unmappable_and_non_unique.png", "format": "png", "class": "E6"},
-      {"path": "{out}/qc/pairs_discarded.png", "format": "png", "class": "E6"},
-      {"path": "{out}/qc/distance.png", "format": "png", "class": "E6"},
-      {"path": "{out}/qc/read_orientation.png", "format": "png", "class": "E6"},
-      {"path": "{out}/qc/hicQC.html", "format": "text", "class": "E0",
-       "options": {"normalise": ["pandas_styler_uuid"]}}
+      {"path": "{out}/qc/QC.log", "format": "plain", "class": "EX"},
+      {"path": "{out}/qc/QC_table.txt", "format": "plain", "class": "EX"},
+      {"path": "{out}/qc/pairs_sequenced.png", "format": "png", "class": "EX"},
+      {"path": "{out}/qc/unmappable_and_non_unique.png", "format": "png", "class": "EX"},
+      {"path": "{out}/qc/pairs_discarded.png", "format": "png", "class": "EX"},
+      {"path": "{out}/qc/distance.png", "format": "png", "class": "EX"},
+      {"path": "{out}/qc/read_orientation.png", "format": "png", "class": "EX"},
+      {"path": "{out}/qc/hicQC.html", "format": "text", "class": "EX"}
     ],
     "memory": {"budget_mb": 320},
-    "notes": "--doTestRun and --doTestRunLines were never exercised with an assertion. The whole QC log is produced but no matrix file is written at all, and the pixel arrays are never filled, which is the only thing the quick QC mode saves. With 983 pairs in the file the 500 line limit is reached on the first buffer and the counters cover the whole file anyway."
+    "notes": "--doTestRun and --doTestRunLines were never exercised with an assertion. The whole QC log is produced but no matrix file is written at all, and the pixel arrays are never filled, which is the only thing the quick QC mode saves. With 983 pairs in the file the 500 line limit is reached on the first buffer and the counters cover the whole file anyway. Class EX, not E0/E1/E2 (deliberate deviation, HiCExplorer 4 fixes Q1 to Q6 of hicBuildMatrix, project owner 2026-11-06): 3.7.6 kept the self circles whatever --keepSelfCircles said (and counted them once per restriction sequence), charged a pair to 'One mate not unique' on the first mate's quality alone, put the coverage of the first mate into the bin of the second and never counted the last coverage cell of a bin, wrote 0 as the insert size of every --outBam record, and emptied the restriction cut site list with --region. On R1_1000/R2_1000 with HindIII the Hi-C contacts are 195 where 3.7.6 had 215 (the 20 self circles are removed) and the 13 pairs 3.7.6 called 'One mate not unique' are 'Low mapping quality'. There is no Python output to compare with. The corrected behaviour is pinned by test_hicBuildMatrix.py (regenerated references, pixels, QC log and tables, --outBam records) and cpp/tests/test_build_matrix.cpp."
   },
   {
     "id": "hicBuildMatrix.qc.twoEnzymes.keepSelfCircles",
     "tool": "hicBuildMatrix",
     "tier": 4,
+    "reference": "none",
     "args": ["-s", "{data}/R1_1000.bam", "{data}/R2_1000.bam",
              "--outFileName", "qc_two_enzymes.h5", "-bs", "100000",
              "--QCfolder", "{out}/qc", "--threads", "4",
@@ -278,19 +305,18 @@
              "-rs", "{data}/DpnII.bed", "{data}/hicFindRestSite/hindIII.bed",
              "--keepSelfCircles"],
     "outputs": [
-      {"path": "{out}/qc/QC.log", "format": "plain", "class": "E0"},
-      {"path": "{out}/qc/discarded_table.txt", "format": "plain", "class": "E0"},
-      {"path": "{out}/qc/pairs_sequenced.png", "format": "png", "class": "E6"},
-      {"path": "{out}/qc/unmappable_and_non_unique.png", "format": "png", "class": "E6"},
-      {"path": "{out}/qc/pairs_discarded.png", "format": "png", "class": "E6"},
-      {"path": "{out}/qc/distance.png", "format": "png", "class": "E6"},
-      {"path": "{out}/qc/read_orientation.png", "format": "png", "class": "E6"},
-      {"path": "{out}/qc/hicQC.html", "format": "text", "class": "E0",
-       "options": {"normalise": ["pandas_styler_uuid"]}}
+      {"path": "{out}/qc/QC.log", "format": "plain", "class": "EX"},
+      {"path": "{out}/qc/discarded_table.txt", "format": "plain", "class": "EX"},
+      {"path": "{out}/qc/pairs_sequenced.png", "format": "png", "class": "EX"},
+      {"path": "{out}/qc/unmappable_and_non_unique.png", "format": "png", "class": "EX"},
+      {"path": "{out}/qc/pairs_discarded.png", "format": "png", "class": "EX"},
+      {"path": "{out}/qc/distance.png", "format": "png", "class": "EX"},
+      {"path": "{out}/qc/read_orientation.png", "format": "png", "class": "EX"},
+      {"path": "{out}/qc/hicQC.html", "format": "text", "class": "EX"}
     ],
     "memory": {"budget_mb": 321},
     "large": true,
-    "notes": "Two enzymes and --keepSelfCircles together, which is the combination that exposes the double counting of Q2: a self circle that neither enzyme finds a site for is added to the counter once per enzyme. discarded_table.txt is included because its column set is built by substring matching on 'dangling end', so the two per enzyme dangling end columns appear there as percentages only."
+    "notes": "Two enzymes and --keepSelfCircles together, which is the combination that exposes the double counting of Q2: a self circle that neither enzyme finds a site for is added to the counter once per enzyme. discarded_table.txt is included because its column set is built by substring matching on 'dangling end', so the two per enzyme dangling end columns appear there as percentages only. Class EX, not E0/E1/E2 (deliberate deviation, HiCExplorer 4 fixes Q1 to Q6 of hicBuildMatrix, project owner 2026-11-06): 3.7.6 kept the self circles whatever --keepSelfCircles said (and counted them once per restriction sequence), charged a pair to 'One mate not unique' on the first mate's quality alone, put the coverage of the first mate into the bin of the second and never counted the last coverage cell of a bin, wrote 0 as the insert size of every --outBam record, and emptied the restriction cut site list with --region. With two enzymes and --keepSelfCircles the 2 self circles are counted once each (3.7.6: 4, once per enzyme), and 'One mate not unique' is 0 where 3.7.6 had 13. There is no Python output to compare with. The corrected behaviour is pinned by test_hicBuildMatrix.py (regenerated references, pixels, QC log and tables, --outBam records) and cpp/tests/test_build_matrix.cpp."
   },
   {
     "id": "hicBuildMatrix.mcool.twoResolutions",

@@ -52,7 +52,7 @@ qc_folder = mkdtemp(prefix="testQC_")
 @pytest.mark.parametrize("maxLibraryInsertSize", [1500])
 @pytest.mark.parametrize("restrictionSequence", ['GATC'])
 @pytest.mark.parametrize("danglingSequence", ['GATC'])
-@pytest.mark.parametrize("region", ["ChrX"])  # region does not work!!
+@pytest.mark.parametrize("region", ["chrX"])  # the chromosome names of the header are case sensitive
 @pytest.mark.parametrize("minMappingQuality", [15])
 @pytest.mark.parametrize("threads", [4])
 @pytest.mark.parametrize("inputBufferSize", [400000])
@@ -94,14 +94,14 @@ def test_build_matrix_restrictionCutFile_five(sam1, sam2, outFile, qcFolder, out
 @pytest.mark.parametrize("maxLibraryInsertSize", [1500])
 @pytest.mark.parametrize("restrictionSequence", ['GATC'])
 @pytest.mark.parametrize("danglingSequence", ['GATC'])
-@pytest.mark.parametrize("region", ["ChrX"])  # region does not work!!
+@pytest.mark.parametrize("region", ["chrX"])  # the chromosome names of the header are case sensitive
 @pytest.mark.parametrize("minMappingQuality", [15])
 @pytest.mark.parametrize("threads", [4])
 @pytest.mark.parametrize("inputBufferSize", [400000])
 def test_build_matrix_restrictionCutFile_six(sam1, sam2, outFile, qcFolder, outBam, binSize,
                                              restrictionCutFile, minDistance, maxDistance,
                                              maxLibraryInsertSize, restrictionSequence,
-                                             danglingSequence, region, keepSelfLigation,
+                                             danglingSequence, region,
                                              minMappingQuality, threads, inputBufferSize):
     # added inputBufferSize
     args = "-s {} {} --restrictionCutFile {} --outFileName {} --QCfolder {} " \
@@ -141,7 +141,7 @@ def test_build_matrix_restrictionCutFile_six(sam1, sam2, outFile, qcFolder, outB
 @pytest.mark.parametrize("maxLibraryInsertSize", [1500])
 @pytest.mark.parametrize("restrictionSequence", ['GATC'])
 @pytest.mark.parametrize("danglingSequence", ['GATC'])
-@pytest.mark.parametrize("region", ["ChrX"])  # region does not work!!
+@pytest.mark.parametrize("region", ["chrX"])  # the chromosome names of the header are case sensitive
 @pytest.mark.parametrize("minMappingQuality", [15])
 @pytest.mark.parametrize("threads", [4])
 @pytest.mark.parametrize("inputBufferSize", [400000])
@@ -185,7 +185,7 @@ def test_build_matrix_restrictionCutFile_seven(sam1, sam2, outFile, qcFolder, ou
 @pytest.mark.parametrize("maxLibraryInsertSize", [1500])
 @pytest.mark.parametrize("restrictionSequence", ['GATC'])
 @pytest.mark.parametrize("danglingSequence", ['GATC'])
-@pytest.mark.parametrize("region", ["ChrX"])  # region does not work!!
+@pytest.mark.parametrize("region", ["chrX"])  # the chromosome names of the header are case sensitive
 @pytest.mark.parametrize("minMappingQuality", [15])
 @pytest.mark.parametrize("threads", [4])
 @pytest.mark.parametrize("inputBufferSize", [400000])

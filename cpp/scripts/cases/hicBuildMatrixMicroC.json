@@ -6,33 +6,32 @@
     "args": ["-s", "{data}/small_test_R1_unsorted.bam", "{data}/small_test_R2_unsorted.bam",
              "--outFileName", "{out}/matrix.h5", "-bs", "5000",
              "-b", "{out}/valid.bam", "--QCfolder", "{out}/qc", "--threads", "4"],
-    "outputs": [
-      {"path": "{out}/matrix.h5", "format": "h5", "class": "E2"},
-      {"path": "{out}/valid.bam", "format": "plain", "class": "E0"}
-    ],
+    "outputs": [{"path": "{out}/matrix.h5", "format": "h5", "class": "E2",
+                 "options": {"ignore_nodes": ["/intervals/extra_list"]}}],
     "threads_arg": "--threads",
     "memory": {"budget_mb": 321},
     "large": true,
-    "notes": "The only case the pre-existing Python test covers, and it compared the BAM by byte size alone. With no restriction site information the self circle and self ligation branches are never entered, so the 15,393 close inward pairs all land in 'same fragment' where the Hi-C run splits them into 10,283 same fragment, 5,056 self ligation and 651 self circle. The matrix is nevertheless identical to the Hi-C one, 35,857 pixels, because the removed pairs are exactly the ones the self ligation branch would have dropped and the self circle branch never dropped anything (Q2)."
+    "notes": "The only case the pre-existing Python test covers, and it compared the BAM by byte size alone. With no restriction site information the self circle and self ligation branches are never entered, so the 15,393 close inward pairs all land in 'same fragment' where the Hi-C run splits them into 10,283 same fragment, 5,056 self ligation and 651 self circle. The matrix is nevertheless identical to the Hi-C one, 35,857 pixels, because the removed pairs are exactly the ones the self ligation branch would have dropped and the self circle branch never dropped anything (Q2). HiCExplorer 4 fixes Q3 to Q5 (project owner 2026-11-06): the pixels are the 3.7.6 pixels and are compared, except /intervals/extra_list, the per bin maximum of the read coverage (Q3: the first mate's coverage went into the bin of the second, Q4: the last coverage cell of a bin was never counted). valid.bam is no longer compared byte for byte because its records carry the insert size now (Q5); test_hicBuildMatrix.py checks the records."
   },
   {
     "id": "hicBuildMatrixMicroC.qc.binSize5000.small_test",
     "tool": "hicBuildMatrixMicroC",
     "tier": 4,
+    "reference": "none",
     "args": ["-s", "{data}/small_test_R1_unsorted.bam", "{data}/small_test_R2_unsorted.bam",
              "--outFileName", "microc_qc_matrix.h5", "-bs", "5000",
              "--QCfolder", "{out}/qc", "--threads", "4"],
     "outputs": [
-      {"path": "{out}/qc/QC.log", "format": "plain", "class": "E0"},
-      {"path": "{out}/qc/QC_table.txt", "format": "plain", "class": "E0"},
-      {"path": "{out}/qc/discarded_table.txt", "format": "plain", "class": "E0"},
-      {"path": "{out}/qc/distance_table.txt", "format": "plain", "class": "E0"},
-      {"path": "{out}/qc/read_orientation_table.txt", "format": "plain", "class": "E0"},
-      {"path": "{out}/qc/unmapable_table.txt", "format": "plain", "class": "E0"}
+      {"path": "{out}/qc/QC.log", "format": "plain", "class": "EX"},
+      {"path": "{out}/qc/QC_table.txt", "format": "plain", "class": "EX"},
+      {"path": "{out}/qc/discarded_table.txt", "format": "plain", "class": "EX"},
+      {"path": "{out}/qc/distance_table.txt", "format": "plain", "class": "EX"},
+      {"path": "{out}/qc/read_orientation_table.txt", "format": "plain", "class": "EX"},
+      {"path": "{out}/qc/unmapable_table.txt", "format": "plain", "class": "EX"}
     ],
     "memory": {"budget_mb": 321},
     "large": true,
-    "notes": "The Micro-C QC log is the Hi-C one with four lines gone: 'Min rest. site distance', because pMinDistance is None, and the dangling end, self ligation, 'One mate not close to rest site' and self circle lines, because pRestrictionCutFile is None. discarded_table.txt follows, dropping to two columns and their percentages. As in hicBuildMatrix the --outFileName is given relative to the shared work directory so that the File field is the same string on both sides."
+    "notes": "The Micro-C QC log is the Hi-C one with four lines gone: 'Min rest. site distance', because pMinDistance is None, and the dangling end, self ligation, 'One mate not close to rest site' and self circle lines, because pRestrictionCutFile is None. discarded_table.txt follows, dropping to two columns and their percentages. As in hicBuildMatrix the --outFileName is given relative to the shared work directory so that the File field is the same string on both sides. Class EX, not E0/E1/E2 (deliberate deviation, HiCExplorer 4 fixes Q1 to Q6 of hicBuildMatrix, project owner 2026-11-06): 3.7.6 kept the self circles whatever --keepSelfCircles said (and counted them once per restriction sequence), charged a pair to 'One mate not unique' on the first mate's quality alone, put the coverage of the first mate into the bin of the second and never counted the last coverage cell of a bin, wrote 0 as the insert size of every --outBam record, and emptied the restriction cut site list with --region. hicBuildMatrixMicroC shares the pair classification: 'One mate not unique' is 23 where 3.7.6 had 3,603 and 'Low mapping quality' 38,457 where it had 34,877 (Q1); the other counts are unchanged because there is no restriction site information and no self circle. There is no Python output to compare with. The corrected behaviour is pinned by test_hicBuildMatrix.py (regenerated references, pixels, QC log and tables, --outBam records) and cpp/tests/test_build_matrix.cpp."
   },
   {
     "id": "hicBuildMatrixMicroC.cool.region",
@@ -43,10 +42,11 @@
              "--QCfolder", "{out}/qc", "--threads", "4",
              "--genomeAssembly", "dm3", "--region", "chr3R"],
     "outputs": [{"path": "{out}/matrix.cool", "format": "cool", "class": "E1",
-                 "options": {"ignore_metadata_keys": ["hicexplorer_qc"]}}],
+                 "options": {"ignore_attributes": ["matrix-generated-by", "matrix-generated-by-url", "genome-assembly"],
+                             "ignore_metadata_keys": ["hicexplorer_qc", "matrix-generated-by", "matrix-generated-by-url", "genome-assembly"]}}],
     "threads_arg": "--threads",
     "memory": {"budget_mb": 320},
-    "notes": "--region and --genomeAssembly, two of the ten options the Python test file never exercises, through the cool writer. Without a cut site file the --region defect of hicBuildMatrix cannot bite, so this is the one place where --region behaves as documented. The v4 tools also write the QC statistics into the cool metadata under \"hicexplorer_qc\" (the metadata read by hicMatrixQC); 3.7.6 writes none, so this case drops exactly that one key of the metadata JSON (ignore_metadata_keys) and still compares every other key and attribute."
+    "notes": "--region and --genomeAssembly, two of the ten options the Python test file never exercises, through the cool writer. Without a cut site file the --region defect of hicBuildMatrix cannot bite, so this is the one place where --region behaves as documented. The v4 tools also write the QC statistics into the cool metadata under \"hicexplorer_qc\" (the metadata read by hicMatrixQC); 3.7.6 writes none, so this case drops exactly that one key of the metadata JSON (ignore_metadata_keys) and still compares every other key and attribute. HiCExplorer 4 fix 3 (project owner 2026-11-06): the provenance attributes are plain strings where 3.7.6 stored the repr b'HiCExplorer-3.7.6', so matrix-generated-by, matrix-generated-by-url and genome-assembly, as attributes and as keys of the metadata JSON, are declared out of scope in this comparison; pixels, bins and every other attribute are still compared."
   },
   {
     "id": "hicBuildMatrixMicroC.h5.R1_1000.keepSelfCircles",
@@ -57,8 +57,9 @@
              "--QCfolder", "{out}/qc", "--threads", "4",
              "--keepSelfCircles", "--minMappingQuality", "30",
              "--skipDuplicationCheck"],
-    "outputs": [{"path": "{out}/matrix.h5", "format": "h5", "class": "E2"}],
+    "outputs": [{"path": "{out}/matrix.h5", "format": "h5", "class": "E2",
+                 "options": {"ignore_nodes": ["/intervals/extra_list"]}}],
     "memory": {"budget_mb": 320},
-    "notes": "Three more of the untested options at once. --keepSelfCircles cannot do anything here at all, because the branch that counts self circles is guarded by the restriction site dictionary being truthy and there is none, so it is dead code twice over in Micro-C mode."
+    "notes": "Three more of the untested options at once. --keepSelfCircles cannot do anything here at all, because the branch that counts self circles is guarded by the restriction site dictionary being truthy and there is none, so it is dead code twice over in Micro-C mode. HiCExplorer 4 fixes Q3 and Q4 (project owner 2026-11-06): the pixels are the 3.7.6 pixels and are compared, except /intervals/extra_list, the per bin maximum of the read coverage."
   }
 ]

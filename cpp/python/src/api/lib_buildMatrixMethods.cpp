@@ -40,7 +40,6 @@ namespace {
 
 constexpr const char* kLogger = "hicexplorer.lib.buildMatrixMethods";
 
-static_assert(sizeof(hicx::SearchInterval) == 12, "C_Interval is three c_uint");
 
 // --- Python protocol helpers ---------------------------------------------------
 

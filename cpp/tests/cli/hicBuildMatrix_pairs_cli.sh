@@ -141,7 +141,7 @@ plain=$pairs/R1_1000_all.pairs
 mkdir -p "$work/counts"
 if "$tool" --pairsFile "$plain" -bs 100000 --minMappingQuality 30 -o "$work/counts/matrix.h5" --QCfolder "$work/counts/qc" > /dev/null 2> "$work/counts/stderr"; then
     read -r unmapped not_unique low kept <<< "$(awk -F'\t' '!/^#/ {
-        if ($8 ~ /[^URM]/) u++; else if ($8 ~ /M/) n++; else if ($9 < 30 || $10 < 30) l++; else k++
+        if ($8 ~ /[^URM]/) u++; else if ($8 ~ /M/) n++; else if ($9 < 30 || $10 < 30) { if ($9 == 0 && $10 == 0) n++; else l++ } else k++
     } END { print u + 0, n + 0, l + 0, k + 0 }' "$plain")"
     log=$work/counts/qc/QC.log
     for check in "Sequenced reads	983" "One mate unmapped	$unmapped	" "One mate not unique	$not_unique	" \

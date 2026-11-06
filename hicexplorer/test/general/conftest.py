@@ -38,7 +38,6 @@ EXPECTED_FAILURES = {
     "test_chicExportData.py::test_characterization_options_and_failures": PYTHON_EXCEPTION,
     "test_chicSignificantInteractions.py::test_characterization_threshold_file_fails_when_written": PYTHON_EXCEPTION,
     "test_chicSignificantInteractions.py::test_characterization_thread_counts": PYTHON_EXCEPTION,
-    "test_hicBuildMatrix.py::test_build_matrix_do_test_run_writes_qc_but_no_matrix": PYTHON_DEFECT,
     "test_hicBuildMatrix.py::test_build_matrix_input_buffer_size_crashes_on_an_exact_multiple": PYTHON_EXCEPTION,
     "test_hicCompartmentalization.py::test_quantile_one_fails_and_quantile_zero_writes_an_empty_line": PYTHON_EXCEPTION,
     "test_hicCorrectMatrix.py::test_correct_matrix_ICE": BIT_EXACT,

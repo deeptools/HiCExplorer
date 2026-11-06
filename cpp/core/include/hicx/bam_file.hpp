@@ -96,13 +96,14 @@ class BamRecord {
     // without a CIGAR contributes 0, as an empty Python cigartuples loop does.
     [[nodiscard]] std::int64_t leading_bases_before_match() const;
 
-    // The four patches buildMatrixMethods.createMatrix applies in the master
-    // process before writing a pair to --outBam. The fifth patch, the one to
-    // isize, is applied in the worker process and is therefore lost; see
-    // hicBuildMatrix.cpp.
+    // The patches buildMatrixMethods.createMatrix applies before writing a
+    // pair to --outBam. The Python applied the one to isize in the worker
+    // process, where it was lost; HiCExplorer 4 applies it too (Q5 of
+    // hicBuildMatrix.cpp).
     void set_paired_flag_first();
     void set_paired_flag_second();
     void set_mate(std::int32_t mate_tid, std::int32_t mate_pos);
+    void set_isize(std::int64_t isize);
 
   private:
     bam1_t* record_ = nullptr;

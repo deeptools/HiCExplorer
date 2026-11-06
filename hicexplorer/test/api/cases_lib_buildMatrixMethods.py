@@ -9,6 +9,21 @@ pysam reads are compared by their SAM text (AlignedSegment.to_string()).
 
 createMatrix has its own cases file, cases_lib_buildMatrixMethods_createMatrix.py.
 
+Fixes Q1 to Q3 of hicBuildMatrix (cpp/tools/hicBuildMatrix.cpp) change what
+readBamFiles and process_data return, so the cases they touch carry a
+`deviation` (see test_api_equivalence.py) in place of the comparison with
+3.7.6:
+  * Q1: readBamFiles counts a pair as "One mate not unique" only when both
+    mates have quality 0 (3.7.6: when the first has); the pairs it no longer
+    counts there are "Low mapping quality", the sum is the 3.7.6 one;
+  * Q2: process_data removes a pair without restriction site between the mates
+    unless pKeepSelfCircles, and counts it once however many restriction
+    sequences there are; the counters, the three pixel lists and the insert
+    sizes patched into the reads lose exactly the removed pairs, and every
+    other counter equals 3.7.6;
+  * Q3: the coverage of each mate goes to the bin of that mate, so the
+    coverage list is only checked for its form.
+
 Deviations from 3.7.6 (cpp/python/src/api/lib_buildMatrixMethods.cpp):
   * types 3.7.6 accepted only by accident raise TypeError naming HiCExplorer
     4: coordinates that are neither int nor numpy.int64 (get_bins,
@@ -571,3 +586,106 @@ CASES = [
     Case('Tester/environment_trailing_slash', M + 'Tester', args=('/data/hic/',), driver='tester'),
     Case('Tester/environment_empty', M + 'Tester', args=('',), driver='tester'),
 ]
+
+
+# Fixes Q1 to Q3 of hicBuildMatrix, see the module docstring.
+class _NoTolerance(object):
+    rtol = 0.0
+    atol = 0.0
+
+
+def fixed_read_bam_files(expected, actual):
+    import apieq
+    if 'raise' in expected or 'raise' in actual:
+        return apieq.compare_records(expected, actual, _NoTolerance)
+
+    def masked(record):
+        ret = list(record['return'][1])
+        buffers = []
+        for item in ret[0][1]:
+            fields = list(item[1])
+            fields[5] = fields[6] = ('int', 0)
+            buffers.append((item[0], fields))
+        ret[0] = (ret[0][0], buffers)
+        out = dict(record)
+        out['return'] = ('tuple', ret)
+        return out
+
+    old, new = expected['return'][1][0][1], actual['return'][1][0][1]
+    if len(old) != len(new):
+        return 'readBamFiles returned {} buffers, 3.7.6 {}'.format(len(new), len(old))
+    for index, (was, now) in enumerate(zip(old, new)):
+        # positions 5 and 6 of a buffer: "One mate not unique", "Low mapping quality"
+        if now[1][5][1] > was[1][5][1] or now[1][5][1] + now[1][6][1] != was[1][5][1] + was[1][6][1]:
+            return 'buffer {}: not unique {} and low quality {} against {} and {} of 3.7.6 (Q1)'.format(
+                index, now[1][5][1], now[1][6][1], was[1][5][1], was[1][6][1])
+    return apieq.compare_records(masked(expected), masked(actual), _NoTolerance)
+
+
+def fixed_process_data(expected, actual):
+    import apieq
+    if 'raise' in expected or 'raise' in actual:
+        return apieq.compare_records(expected, actual, _NoTolerance)
+    old, new = expected['return'][1], actual['return'][1]
+    if old[1][0] != 'list':
+        return apieq.compare_records(expected, actual, _NoTolerance)
+    o, n = old[1][1], new[1][1]
+    # the queue entry of process_data: 0 unmapped, 1 low quality, 2 not unique, 3 dangling ends,
+    # 4 self circles, 5 self ligations, 6 same fragment, 7 not close to a site, 8 to 11 inward,
+    # outward, left, right pairs, 12 inter chromosomal, 13 short range, 14 long range,
+    # 15 pairs added, 16 buffer length
+    removed = o[15][1] - n[15][1]
+    if removed < 0 or n[4][1] > o[4][1] or removed > n[4][1]:
+        return 'self circles {} (3.7.6 {}) and pairs removed {} do not agree (Q2)'.format(n[4][1], o[4][1], removed)
+    expect_change = {4, 9, 13, 14, 15}
+    for index in range(len(o)):
+        if index not in expect_change and o[index] != n[index]:
+            return 'counter {} changed: {} against {}'.format(index, n[index], o[index])
+    if n[9][1] != o[9][1] - removed or (o[13][1] + o[14][1]) - (n[13][1] + n[14][1]) != removed:
+        return 'the outward and the short or long range pairs do not lose exactly the removed pairs (Q2)'
+    # row, column and data lists: the pairs that stay, in their order
+    rows_old, cols_old = old[2][1], old[3][1]
+    rows_new, cols_new = new[2][1], new[3][1]
+    if len(rows_new) != n[15][1] or len(cols_new) != n[15][1] or len(new[4][1]) != n[15][1]:
+        return 'the pixel lists do not hold one entry per pair added'
+    position = 0
+    for row, col in zip(rows_new, cols_new):
+        while position < len(rows_old) and (rows_old[position], cols_old[position]) != (row, col):
+            position += 1
+        if position == len(rows_old):
+            return 'a pair of the pixel lists is not one of 3.7.6 (Q2)'
+        position += 1
+    # coverage: ascending cells with a positive count (Q3 puts the counts elsewhere)
+    cells = [cell[1][0][1] for cell in new[5][1]]
+    if cells != sorted(set(cells)) or any(cell[1][1][1] < 1 for cell in new[5][1]):
+        return 'the coverage list is not ascending, positive cells'
+    # insert sizes patched into the reads: only the removed pairs lose theirs
+    if len(old[6][1]) != len(new[6][1]):
+        return 'the mates of the buffer changed their number'
+    changed = sum(1 for was, now in zip(old[6][1], new[6][1]) if was != now)
+    if changed > removed:
+        return '{} insert sizes changed, only {} pairs were removed'.format(changed, removed)
+
+    def masked(record):
+        ret = list(record['return'][1])
+        for index in (1, 2, 3, 4, 5, 6):
+            ret[index] = ('const', 'masked')
+        out = dict(record)
+        out['return'] = ('tuple', ret)
+        return out
+    return apieq.compare_records(masked(expected), masked(actual), _NoTolerance)
+
+
+_READ_FIXES = ('readBamFiles/real_one_buffer', 'readBamFiles/real_buffers', 'readBamFiles/exact_multiple',
+               'readBamFiles/skip_check_true', 'readBamFiles/duplicates', 'readBamFiles/min_quality_high')
+_PROCESS_FIXES = ('process_data/bins', 'process_data/rf_bins', 'process_data/no_restriction',
+                  'process_data/two_enzymes', 'process_data/keep', 'process_data/quick_qc',
+                  'process_data/coverage_bin', 'process_data/small_test')
+for _case in CASES:
+    if _case.id in _READ_FIXES:
+        _case.deviation = fixed_read_bam_files
+    elif _case.id in _PROCESS_FIXES:
+        _case.deviation = fixed_process_data
+    else:
+        continue
+    _case.note = 'Fixes Q1 to Q3 of hicBuildMatrix, see the module docstring'

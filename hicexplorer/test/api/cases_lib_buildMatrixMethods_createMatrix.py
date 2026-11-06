@@ -40,6 +40,28 @@ test_api_equivalence.py) in place of the comparison with 3.7.6:
   * --doTestRun with an .mcool name and three or more bin sizes no longer ends
     in the UnboundLocalError the 3.7.6 code path raised.
 
+Fixes Q1 to Q6 of hicBuildMatrix (cpp/tools/hicBuildMatrix.cpp) change the
+numbers of the QC log and the matrix, so every case that classifies read pairs
+carries the `deviation` `fixed_counts` (see test_api_equivalence.py) in place
+of the comparison with 3.7.6:
+  * Q1: a pair is "One mate not unique" when both mates have quality 0 (3.7.6:
+    when the first has), so "Low mapping quality" gains what "One mate not
+    unique" loses;
+  * Q2: self circles are removed unless --keepSelfCircles and counted once, so
+    "Hi-C contacts", the outward pairs and the short range pairs lose the
+    removed pairs, the matrix loses them too, and --outBam holds their records
+    no more;
+  * Q3 and Q4: the coverage column of the bin table (intervals/extra_list) is
+    not compared;
+  * Q5: the --outBam records carry the insert size of the pair;
+  * Q6: with --region the restriction cut sites of the chromosome are kept, so
+    pairs move between "same fragment", "self ligation" and the dangling end
+    counts (the `region` case compares the sums, not the single counts).
+Everything else still equals 3.7.6: the other QC counts, the shape and names of
+every dataset, the bin table, the pixels' sum (3.7.6 minus the removed pairs),
+the QC folder listing, the log records (apart from the pair counts) and the
+state of the file objects.
+
 Deviations from 3.7.6 (cpp/python/src/api/lib_buildMatrixMethods_run.hpp):
   * the schedule of 3.7.6's worker processes is emulated as every worker
     holding a buffer and results taken in reading order, which decides the
@@ -371,16 +393,262 @@ def do_test_run_returns(expected, actual):
     return None
 
 
+# Fixes Q1 to Q6 of hicBuildMatrix, see the module docstring.
+_QC_COUNT = re.compile(r'^([^\t\n]+)\t(-?[0-9]+)\t', re.M)
+_CHANGING = ('Hi-C contacts', 'One mate not unique', 'Low mapping quality', 'self circle',
+             'Intra short range (< 20kb)', 'Intra long range (>= 20kb)',
+             'Read pair type: outward pairs')
+# the labels the --region fix (Q6) moves pairs between
+_REGION_CHANGING = ('self ligation (removed)', 'self ligation (not removed)', 'same fragment')
+_MASKED_DATA = ('matrix/data', 'matrix/indices', 'pixels/bin1_id', 'pixels/bin2_id', 'pixels/count')
+_LENGTH_ONLY = ('matrix/indptr', 'indexes/bin1_offset', 'intervals/extra_list')
+_MASKED_ATTRIBUTES = ('nnz', 'sum')
+
+
+def _qc_counts(text):
+    return [(label, int(count)) for label, count in _QC_COUNT.findall(text)]
+
+
+def _check_qc(old, new, region):
+    """(None, pairs lost) when the QC.log texts differ only as the fixes
+    demand, else (reason, 0)."""
+    old_counts, new_counts = _qc_counts(old), _qc_counts(new)
+    if [label for label, _ in old_counts] != [label for label, _ in new_counts]:
+        return 'the QC.log rows changed: {} against {}'.format(
+            [label for label, _ in new_counts], [label for label, _ in old_counts]), 0
+    o, n = dict(old_counts), dict(new_counts)
+    for label in o:
+        if label in _CHANGING or (region and (label in _REGION_CHANGING or label.startswith('dangling end'))):
+            continue
+        if o[label] != n[label]:
+            return 'the count of {!r} changed: {} against {}'.format(label, n[label], o[label]), 0
+    if o['One mate not unique'] + o['Low mapping quality'] != n['One mate not unique'] + n['Low mapping quality']:
+        return 'the not unique and low quality pairs do not add up to the 3.7.6 sum', 0
+    if n['One mate not unique'] > o['One mate not unique']:
+        return 'more pairs are not unique than in 3.7.6 (Q1 looks at both mates now)', 0
+    removed = o['Hi-C contacts'] - n['Hi-C contacts']
+    if region:
+        return None, removed
+    if removed < 0:
+        return 'the run kept more pairs than 3.7.6', 0
+    if 'self circle' in n:
+        if n['self circle'] > o['self circle']:
+            return 'self circles are counted more often than in 3.7.6 (Q2)', 0
+        if removed > n['self circle']:
+            return 'pairs lost {} but the self circle count is {} (Q2)'.format(removed, n['self circle']), 0
+    elif removed:
+        return 'pairs were lost without a restriction site (Q2)', 0
+    if n['Read pair type: outward pairs'] != o['Read pair type: outward pairs'] - removed:
+        return 'the outward pairs do not lose exactly the removed pairs', 0
+    lost = (o['Intra short range (< 20kb)'] - n['Intra short range (< 20kb)'] +
+            o['Intra long range (>= 20kb)'] - n['Intra long range (>= 20kb)'])
+    if lost != removed:
+        return 'short and long range pairs do not lose exactly the removed pairs', 0
+    return None, removed
+
+
+def _files(record):
+    """The files dict of a createMatrix record, {name: canonical value}."""
+    value = record['return'][1][6]
+    if isinstance(value, tuple) and value[0] == 'dict':
+        return {key[1]: item for key, item in value[1]}
+    return None
+
+
+def _sums(matrix):
+    """Sum of the pixel counts per resolution (the prefix of the dataset name)."""
+    sums = {}
+    if matrix is None or matrix[0] != 'list':
+        return sums
+    for entry in matrix[1]:
+        if entry[0] == 'tuple' and len(entry[1]) == 4:
+            name = entry[1][0][1]
+            for suffix in ('matrix/data', 'pixels/count'):
+                if name.endswith(suffix):
+                    sums[name[:-len(suffix)]] = sum(v[1] for v in entry[1][2][1])
+    return sums
+
+
+def _masked_attributes(attributes):
+    items = []
+    for item in attributes[1]:
+        if item[0] == 'tuple' and item[1][0][1] in _MASKED_ATTRIBUTES:
+            item = ('tuple', [item[1][0], ('const', 'masked')])
+        items.append(item)
+    return (attributes[0], items)
+
+
+def _masked_matrix(value):
+    """The matrix datasets without the numbers the fixes change (the pixels
+    and the coverage column), their lengths and names kept."""
+    items = []
+    for entry in value[1]:
+        if entry[0] == 'tuple' and len(entry[1]) == 4:
+            name, dtype, data, attributes = entry[1]
+            if any(name[1].endswith(suffix) for suffix in _MASKED_DATA):
+                data = ('const', 'masked')
+            elif any(name[1].endswith(suffix) for suffix in _LENGTH_ONLY):
+                data = ('int', len(data[1]))
+            entry = ('tuple', [name, dtype, data, _masked_attributes(attributes)])
+        elif entry[0] == 'tuple' and len(entry[1]) == 2:
+            entry = ('tuple', [entry[1][0], _masked_attributes(entry[1][1])])
+        items.append(entry)
+    return (value[0], items)
+
+
+def _sam_columns(text):
+    columns = text.split('\t')
+    del columns[8]  # the insert size, Q5
+    return columns
+
+
+def _check_bam(old, new):
+    """The records of --outBam: the new ones are the 3.7.6 ones without the
+    removed pairs and carry the insert size of the pair (Q5)."""
+    if old is None or new is None or old[0] != 'list' or new[0] != 'list':
+        return None if old == new else 'the --outBam records appeared or vanished'
+    position = 0
+    for text in new[1]:
+        want = _sam_columns(text[1])
+        while position < len(old[1]) and _sam_columns(old[1][position][1]) != want:
+            position += 1
+        if position == len(old[1]):
+            return 'a --outBam record is not one of 3.7.6 apart from its insert size'
+        position += 1
+    for first, second in zip(new[1][0::2], new[1][1::2]):
+        a, b = first[1].split('\t'), second[1].split('\t')
+        if a[2] == b[2] and (int(a[8]) != int(b[3]) - int(a[3]) or int(b[8]) != int(a[3]) - int(b[3])):
+            return 'the insert size of {} is not the distance of the mates (Q5)'.format(a[0])
+    return None
+
+
+def _masked(record, matrix_too):
+    ret = list(record['return'][1])
+    ret[2] = ('const', 'masked')
+    if matrix_too and isinstance(ret[6], tuple) and ret[6][0] == 'dict':
+        files = []
+        for key, value in ret[6][1]:
+            if key[1] == 'matrix' and value[0] == 'list':
+                value = _masked_matrix(value)
+            elif key[1] == 'bam':
+                value = ('const', 'masked')
+            files.append((key, value))
+        ret[6] = ('dict', files)
+    elif not matrix_too:
+        ret[6] = ('const', 'masked')
+    out = dict(record)
+    out['return'] = ('tuple', ret)
+    return _masked_logs(out)
+
+
+def _masked_logs(record):
+    out = dict(record)
+    if 'logs' in record:
+        out['logs'] = [(entry[0], entry[1], '<pairs> valid pairs added to matrix')
+                       if entry[2].endswith('valid pairs added to matrix\n') else entry
+                       for entry in record['logs']]
+    return out
+
+
+def _pair_counts_of_logs(old, new):
+    for was, now in zip(old.get('logs', []), new.get('logs', [])):
+        if was[2].endswith('valid pairs added to matrix\n'):
+            if int(now[2].split()[0]) > int(was[2].split()[0]):
+                return 'a progress record counts more pairs than 3.7.6'
+    return None
+
+
+def fixed_counts(region=False, matrix=True, prepare=None):
+    """The deviation of the cases that classify read pairs (Q1 to Q6);
+    `prepare(expected, actual)` returns the records to compare and a message
+    (the provenance cases of Fix 3 strip their attributes first)."""
+    def check(expected, actual):
+        import apieq
+        if prepare is not None:
+            expected, actual, message = prepare(expected, actual)
+            if message:
+                return message
+        if 'raise' in expected or 'raise' in actual:
+            message = _pair_counts_of_logs(expected, actual)
+            if message:
+                return message
+            return apieq.compare_records(_masked_logs(expected), _masked_logs(actual), _NoTolerance)
+        old_ret, new_ret = expected['return'][1], actual['return'][1]
+        removed = 0
+        if old_ret[2][0] == 'str' and new_ret[2][0] == 'str':
+            message, removed = _check_qc(old_ret[2][1], new_ret[2][1], region)
+            if message:
+                return message
+        if matrix:
+            old_files, new_files = _files(expected), _files(actual)
+            if old_files is not None and new_files is not None:
+                old_sums, new_sums = _sums(old_files.get('matrix')), _sums(new_files.get('matrix'))
+                for prefix in old_sums:
+                    lost = old_sums[prefix] - new_sums.get(prefix, 0)
+                    if lost != removed:
+                        return 'the pixels of {!r} lose {} counts, not the {} removed pairs'.format(prefix, lost, removed)
+                message = _check_bam(old_files.get('bam'), new_files.get('bam'))
+                if message:
+                    return message
+        message = _pair_counts_of_logs(expected, actual)
+        if message:
+            return message
+        return apieq.compare_records(_masked(expected, matrix), _masked(actual, matrix), _NoTolerance)
+    return check
+
+
+def _provenance_stripped(resolutions, assembly=None):
+    def prepare(expected, actual):
+        message = _plain(actual, resolutions, assembly)
+        if message:
+            return None, None, message
+        exp, act = dict(expected), dict(actual)
+        exp['return'] = ('tuple', [_strip(x) for x in expected['return'][1]])
+        act['return'] = ('tuple', [_strip(x) for x in actual['return'][1]])
+        return exp, act, None
+    return prepare
+
+
+def _two_resolutions_prepared(expected, actual):
+    """The checks of `two_resolutions` (both groups exist, plain provenance),
+    without its comparison of the rest, which fixed_counts does."""
+    message = _plain(actual, 2)
+    if message:
+        return None, None, message
+    names = [item[1][0][1] for item in actual['return'][1][6][1][0][1][1]
+             if isinstance(item, tuple) and item[0] == 'tuple' and item[1][0][0] == 'str']
+    for resolution in ('resolutions/5000', 'resolutions/10000'):
+        if resolution not in names:
+            return None, None, 'no group {} in {}'.format(resolution, names)
+    exp, act = dict(expected), dict(actual)
+    exp['return'] = ('tuple', [x if i != 6 else ('const', 'None') for i, x in enumerate(expected['return'][1])])
+    act['return'] = ('tuple', [x if i != 6 else ('const', 'None') for i, x in enumerate(actual['return'][1])])
+    return exp, act, None
+
+
+# Cases whose numbers do not change under Fix 3 alone keep that deviation
+# and add the one of Q1 to Q6 on top.
+_FIXES = 'Fixes Q1 to Q6 of hicBuildMatrix (see the module docstring)'
+_AFFECTED = ('createMatrix/h5', 'createMatrix/rf_bins', 'createMatrix/two_enzymes_lowercase',
+             'createMatrix/out_bam_sizes', 'createMatrix/buffers', 'createMatrix/buffers_parallel',
+             'createMatrix/test_run', 'createMatrix/micro_c', 'createMatrix/small_test',
+             'createMatrix/restriction_without_dangling', 'createMatrix/exact_multiple_buffers')
 for _case in CASES:
     if _case.id == 'createMatrix/mcool':
-        _case.deviation = provenance(3)
+        _case.deviation = fixed_counts(prepare=_provenance_stripped(3))
+        _case.note = 'Fix 3 and ' + _FIXES
     elif _case.id == 'createMatrix/cool_assembly':
-        _case.deviation = provenance(1, 'dm3')
+        _case.deviation = fixed_counts(prepare=_provenance_stripped(1, 'dm3'))
+        _case.note = 'Fix 3 and ' + _FIXES
     elif _case.id == 'createMatrix/mcool_two_resolutions':
-        _case.deviation = two_resolutions
-    else:
-        continue
-    _case.note = 'Fix 3 of HiCExplorer 4 (project owner 2026-11-06), see the module docstring'
+        _case.deviation = fixed_counts(matrix=False, prepare=_two_resolutions_prepared)
+        _case.note = 'Fix 3 and ' + _FIXES
+    elif _case.id == 'createMatrix/region':
+        _case.deviation = fixed_counts(region=True)
+        _case.note = _FIXES
+    elif _case.id in _AFFECTED:
+        _case.deviation = fixed_counts()
+        _case.note = _FIXES
 
 CASES.append(Case('createMatrix/mcool_do_test_run', M + 'createMatrix', args=(File(),),
                   kwargs={'out_name': 'matrix.mcool', 'bin_size': (5000, 10000, 20000), 'test_run': True},

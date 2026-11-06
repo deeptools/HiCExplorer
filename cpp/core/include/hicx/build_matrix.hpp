@@ -1,10 +1,10 @@
 // The machinery behind hicBuildMatrix, hicBuildMatrixMicroC and hicQuickQC:
 // hicexplorer/lib/buildMatrixMethods.py.
 //
-// Everything here reproduces the Python literally, including the places where
-// the Python is wrong. Each of those is marked QUIRK with the line it comes
-// from, and the list is repeated in the report. The port never silently
-// improves on the reference.
+// Everything here reproduces the Python, including the places where the Python
+// is odd and no fix has been decided. Each of those is marked QUIRK with the
+// line it comes from. The defects that HiCExplorer 4 fixes are listed in
+// tools/hicBuildMatrix.cpp (Q1 to Q6) and marked "fixed in HiCExplorer 4".
 //
 // Memory (cpp/PLAN.md 2.1). Chromosome names are interned once and every
 // interval carries a 32 bit id instead of a std::string. The DpnII cut site
@@ -67,11 +67,12 @@ struct UserRegion {
 
 // get_bins: even bins of bin_size, one row per chromosome of chrom_sizes.
 //
-// QUIRK (buildMatrixMethods.py:137-140). With --region the loop start offset
-// taken from getUserRegion is applied to *every* chromosome of the returned
-// list, not only to the region's own. getUserRegion returns a single
-// chromosome, so this is invisible today, but the offset is a loop-invariant
-// that the code treats as per chromosome.
+// With --region the loop start offset taken from getUserRegion
+// (buildMatrixMethods.py:137-140) is applied to every chromosome of the list
+// passed on. That is not a defect: getUserRegion returns exactly one
+// chromosome, the region's own, with its size set to the region end, so the
+// offset is the region start of the only chromosome there is and no result
+// differs from a per chromosome offset.
 [[nodiscard]] std::vector<GenomeInterval> get_bins(std::int64_t bin_size,
                                                    const ChromSizes& chrom_sizes,
                                                    const std::string& region,
@@ -84,13 +85,14 @@ struct UserRegion {
 
 // bed2interval_list over one BED file, appending to `out`.
 //
-// QUIRK (buildMatrixMethods.py:180). With --region the filter is
+// Q6, fixed in HiCExplorer 4 (buildMatrixMethods.py:180). With --region the
+// Python kept a cut site when
 //     chrom == region_chrom and region_start <= start and region_end <= end
-// and region_end is the *end of the chromosome* whenever --region names a bare
-// chromosome. The second condition therefore demands that the cut site reach
-// the end of the chromosome, so the restriction site list comes out empty or
-// nearly so. That is why the self circle and same fragment classification
-// changes as soon as --region is given.
+// and region_end is the end of the chromosome whenever --region names a bare
+// chromosome, so the cut site had to reach the end of the chromosome and the
+// restriction site list came out empty or nearly so (every close inward pair
+// was then "same fragment"). A cut site is kept now when it lies inside the
+// region: region_start <= start and end <= region_end.
 void bed2interval_list(const std::string& path, const ChromSizes& chrom_sizes,
                        const std::string& region, ChromNames& names,
                        std::vector<GenomeInterval>& out);
@@ -115,14 +117,16 @@ void enlarge_bins(std::vector<GenomeInterval>& bins, const ChromSizes& chrom_siz
 // The flat array of intervals the Python passes to its workers as a
 // multiprocessing RawArray of C_Interval, plus the per chromosome index range.
 //
-// QUIRK (buildMatrixMethods.py:42-46, 962). C_Interval's fields are c_uint, so
-// a negative bin start, which get_rf_bins can produce for a cut site closer to
-// the chromosome start than --maxLibraryInsertSize, wraps to a value near
-// 2^32 in the *lookup* while the bin table written to the matrix keeps the
-// negative number. Reproduced by storing uint32 here and int64 there.
+// Fixed in HiCExplorer 4 (buildMatrixMethods.py:42-46): C_Interval's fields are
+// c_uint, so a bin above 4,294,967,295 bases wrapped in the lookup, and so
+// would a negative start (get_rf_bins clamps starts at 0, so none occurs). The
+// intervals are 64 bit here; the bin ids stay 32 bit (4.29 billion bins).
 struct SearchInterval {
-    std::uint32_t begin = 0;
-    std::uint32_t end = 0;
+    // 64 bit coordinates (fixed in HiCExplorer 4: the Python's C_Interval had
+    // c_uint fields, which wrap for a bin above 4,294,967,295 bases). The
+    // Python API still exchanges 32 bit C_Interval arrays with its callers.
+    std::int64_t begin = 0;
+    std::int64_t end = 0;
     std::uint32_t data = 0;
 };
 
@@ -133,14 +137,14 @@ struct SearchInterval {
 template <class Probe>
 [[nodiscard]] std::optional<std::int64_t> search_bins(std::int64_t start, std::int64_t end,
                                                       std::uint64_t position, Probe&& probe) {
+    const auto position_signed = static_cast<std::int64_t>(position);
     std::int64_t middle = (start + end) / 2;
     while (!(start > end)) {
         const SearchInterval interval = probe(middle);
-        if (static_cast<std::uint64_t>(interval.begin) <= position &&
-            position <= static_cast<std::uint64_t>(interval.end)) {
+        if (interval.begin <= position_signed && position_signed <= interval.end) {
             return middle;
         }
-        if (static_cast<std::uint64_t>(interval.begin) > position) {
+        if (interval.begin > position_signed) {
             end = middle - 1;
         } else {
             start = middle + 1;

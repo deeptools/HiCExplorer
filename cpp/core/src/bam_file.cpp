@@ -174,6 +174,8 @@ void BamRecord::set_mate(std::int32_t mate_tid, std::int32_t mate_pos) {
     record_->core.mpos = mate_pos;
 }
 
+void BamRecord::set_isize(std::int64_t isize) { record_->core.isize = isize; }
+
 BamReader::BamReader(const std::string& path) : path_(path) {
     file_ = sam_open(path.c_str(), "rb");
     if (file_ == nullptr) {
