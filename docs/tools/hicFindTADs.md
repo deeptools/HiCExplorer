@@ -30,7 +30,7 @@ Uses a measure called TAD-separation score to identify the degree of separation 
 |---|---|
 | `--minDepth INT bp` | Minimum window length (in bp). |
 | `--maxDepth INT bp` | Maximum window length (in bp). |
-| `--step INT bp` | Step size when moving from --minDepth to --maxDepth. |
+| `--step INT bp` | Step size when moving from --minDepth to --maxDepth. The window lengths are minDepth + int(step * k^1.5) for k = 0, 1, 2, ... up to --maxDepth, e.g. 20000, 30000, 48284, 71961 for --minDepth 20000 --step 10000. |
 | `--TAD_sep_score_prefix TAD_SEP_SCORE_PREFIX` | Prefix of an existing TAD-separation score. |
 | `--thresholdComparisons THRESHOLDCOMPARISONS` | P-value threshold for the Bonferroni correction / q-value for FDR (Default: 0.01). |
 | `--delta DELTA` | Minimum threshold of the difference between the TAD-separation score of a putative boundary and the mean of the TAD-sep. score of surrounding bins (Default: 0.01). |

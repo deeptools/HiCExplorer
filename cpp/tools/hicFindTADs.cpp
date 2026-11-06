@@ -37,8 +37,8 @@
 //     (2 * maxDepth). [NaN - NaN stayed stored.]
 //
 // Not changed: get_incremental_step_size grows as min + int(step * k ** 1.5),
-// which is the formula the --step help text gives; only the example numbers in
-// that help text do not follow from it (see the report of this change).
+// the formula the 3.7.6 help text gave; its example numbers (40000, 70000) did
+// not follow from it. The help here states the formula with correct numbers.
 //
 // One behaviour is deliberately *not* reproduced, and it is a defect rather
 // than a numeric difference. np.array_split hands every worker a contiguous
@@ -124,6 +124,9 @@ const char* const kHelp =
     "  --minDepth INT bp     Minimum window length (in bp).\n"
     "  --maxDepth INT bp     Maximum window length (in bp).\n"
     "  --step INT bp         Step size when moving from --minDepth to --maxDepth.\n"
+    "                        The window lengths are minDepth + int(step * k^1.5)\n"
+    "                        for k = 0, 1, 2, ... up to --maxDepth, e.g. 20000,\n"
+    "                        30000, 48284, 71961 for --minDepth 20000 --step 10000.\n"
     "  --TAD_sep_score_prefix TAD_SEP_SCORE_PREFIX\n"
     "                        Prefix of an existing TAD-separation score.\n"
     "  --thresholdComparisons THRESHOLDCOMPARISONS\n"
@@ -242,7 +245,9 @@ Arguments parse_arguments(int argc, char** argv) {
     optional.add({"--step"})
         .type("int")
         .metavar("INT bp")
-        .help("Step size when moving from --minDepth to --maxDepth.");
+        .help("Step size when moving from --minDepth to --maxDepth. The window lengths are "
+              "minDepth + int(step * k^1.5) for k = 0, 1, 2, ... up to --maxDepth, e.g. 20000, "
+              "30000, 48284, 71961 for --minDepth 20000 --step 10000.");
     optional.add({"--TAD_sep_score_prefix"})
         .required(false)
         .input({"bm", "h5", "cool"}, "prefix")
