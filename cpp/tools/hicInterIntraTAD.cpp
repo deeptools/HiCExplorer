@@ -17,13 +17,10 @@
 //    the matrix dtype: int64 for an integer matrix, float32 or float64
 //    otherwise, and a ratio follows numpy's promotion of the two operands.
 //    hicx/tad_contacts.hpp's PyNumber carries that.
-//  * A block with no cells makes the density a ZeroDivisionError. The worker
-//    reports it and the tool exits with status 1 before writing anything. On
-//    an h5 matrix this happens for the last TAD of every chromosome with at
-//    least three TADs (point 3 of hicx/tad_contacts.hpp), so the Python tool
-//    cannot process an h5 matrix at all; pinned by
-//    test_hicInterIntraTAD.py::test_h5_input_raises_zero_division and
-//    reproduced here.
+//  * A block with no cells would make the density a division by zero. With the
+//    geometry of hicx/tad_contacts.hpp no block is empty; the Python divided by
+//    zero for the last TAD of every chromosome of an h5 matrix and could not
+//    process h5 input at all (fixed in HiCExplorer 4).
 //
 // The scatter plot (cpp/PLAN.md tier 7, option (a)): the Python writes it on
 // every run, to ratio.png when --outFileNameRatioPlot is not given

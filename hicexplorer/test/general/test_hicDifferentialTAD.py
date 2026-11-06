@@ -567,7 +567,11 @@ def test_cool_all_one_core_all_multichr_chromosome():
 # --------------------------------------------------------------------------
 # Characterization tests added for the v4 C++ port (2026-09-13). They pin the
 # current Python behaviour, including the defects, on the real matrices and on
-# subsets of the real TAD calls. Nothing here asserts what the tool should do.
+# subsets of the real TAD calls. The stored mode_*, multichromosome and
+# pvalue_* tables are HiCExplorer 4 output (fix 2: corrected TAD geometry, see
+# test_h5_and_cool_cut_the_same_blocks): against 3.7.6 only the right columns of
+# the cool tables (all but the last TAD) and the left columns of the last TAD
+# changed, the intra-TAD columns are those of 3.7.6.
 
 
 def _run(pTarget, pControl, pDomains, pThreads, pMode, pModeReject, pPValue=None):
@@ -634,30 +638,68 @@ def test_h5_left_inter_TAD_one():
     _assert_matches_master(prefix, 'mode_one_left_inter-TAD_h5')
 
 
-def test_h5_last_tad_has_no_left_inter_tad_test():
-    # For the last TAD of a chromosome right_boundary_index is not assigned in
-    # its own iteration, so the value left over from the previous TAD is used.
-    # On the h5 path that is an absolute bin index equal to the last TAD's own
-    # first bin, so the left inter-TAD block has zero columns and ranksums of
-    # two empty samples is NaN.
+def test_h5_last_tad_has_a_left_inter_tad_test():
+    # HiCExplorer 4 (fix 2): the left block of the last TAD is cut from the
+    # previous TAD and the last TAD on both paths. 3.7.6 used the right boundary
+    # left over from the previous TAD, which on h5 is an absolute bin index equal
+    # to the last TAD's own first bin: zero columns, so the test was NaN. The
+    # expected p-value is scipy.stats.ranksums of the two flattened 10 x 15
+    # blocks of the raw counts.
     prefix = _run(H5_TARGET, H5_CONTROL, ROOT + "untreated_R1_domains.bed", 1, 'all', 'all')
     rows = _data_rows(prefix + '_accepted.diff_tad') + _data_rows(prefix + '_rejected.diff_tad')
     last = max(rows, key=lambda row: int(row[1]))
-    assert last[6] == 'nan' and last[9] == 'nan'
+    assert last[1:3] == ['193700000', '195200000']
+    assert last[6] == '0.7282747240054768'
+    assert last[9] == '0.34742144598393476'
     assert last[7] == 'nan' and last[10] == 'nan'
 
 
-def test_cool_last_tad_left_inter_tad_uses_stale_index():
-    # On the cool path the left-over right boundary is relative to the previous
-    # TAD's region, not to the current one, so the left inter-TAD test of the
-    # last TAD runs on a block that is not the one the name suggests. It is not
-    # NaN, which is what distinguishes it from the h5 path above.
+def test_cool_last_tad_has_a_left_inter_tad_test():
+    # HiCExplorer 4 (fix 2): same block as on h5, see the test above. In 3.7.6
+    # the cool path used an index relative to the previous TAD's region and so
+    # tested a block that was not the one the column names (0.9185395091955513).
     prefix = _run(COOL_TARGET, COOL_CONTROL, ROOT + "untreated_R1_domains.bed", 1, 'all', 'all')
     rows = _data_rows(prefix + '_accepted.diff_tad') + _data_rows(prefix + '_rejected.diff_tad')
     last = max(rows, key=lambda row: int(row[1]))
     assert last[1:3] == ['193700000', '195200000']
-    assert last[6] == '0.9185395091955513'
+    assert last[6] == '0.7282747240054768'
+    assert last[9] == '0.34742144598393476'
     assert last[7] == 'nan'
+
+
+def test_h5_and_cool_cut_the_same_blocks():
+    # HiCExplorer 4 (fix 2): one TAD geometry for both formats. In 3.7.6 the
+    # cool right block dropped the last bin of the next TAD, so the two outputs
+    # differed in the right columns of all but the last TAD.
+    domains = ROOT + "untreated_R1_domains.bed"
+    cool = _run(COOL_TARGET, COOL_CONTROL, domains, 1, 'all', 'one')
+    h5 = _run(H5_TARGET, H5_CONTROL, domains, 1, 'all', 'one')
+    for kind in ['accepted', 'rejected']:
+        assert are_files_equal(cool + '_' + kind + '.diff_tad', h5 + '_' + kind + '.diff_tad', delta=0, skip=4)
+
+
+def test_two_tad_chromosome_second_tad_has_a_left_inter_tad_test():
+    # HiCExplorer 4 (fix 2): with two TADs the second one is the last and has
+    # a left block (first TAD x second TAD); 3.7.6 gave it none. The first TAD
+    # has a right block and no left block. The left test of the second TAD and
+    # the right test of the first TAD look at the same cells.
+    outdir = mkdtemp(prefix='differential_tad_')
+    domains = os.path.join(outdir, 'two.bed')
+    with open(ROOT + "untreated_R1_domains.bed") as handle:
+        lines = handle.readlines()[10:12]
+    with open(domains, 'w') as handle:
+        handle.writelines(lines)
+    for target, control in [(COOL_TARGET, COOL_CONTROL), (H5_TARGET, H5_CONTROL)]:
+        prefix = _run(target, control, domains, 1, 'all', 'one')
+        rows = sorted(_data_rows(prefix + '_accepted.diff_tad') + _data_rows(prefix + '_rejected.diff_tad'),
+                      key=lambda row: int(row[1]))
+        assert len(rows) == 2
+        first, second = rows
+        assert first[6] == 'nan' and first[9] == 'nan'
+        assert first[7] != 'nan'
+        assert second[7] == 'nan' and second[10] == 'nan'
+        assert second[6] != 'nan'
+        assert first[7] == second[6] and first[10] == second[9]
 
 
 def _row_count(pPrefix):
@@ -692,10 +734,11 @@ def test_threads_small_chromosome_last_duplicates_rows():
     assert len(set(keys)) == 13
 
 
-def test_threads_one_tad_per_thread_loses_last_left_test():
-    # Defect pinned, not endorsed. With exactly one TAD per process the last
-    # process sees [TAD n-2, TAD n-1] and the last TAD sits at local index 1,
-    # where the `i - 1 > 0` guard fails, so its left inter-TAD test is skipped.
+def test_threads_one_tad_per_thread_keeps_the_last_left_test():
+    # HiCExplorer 4 (fix 2): with exactly one TAD per process the last process
+    # sees [TAD n-2, TAD n-1] and the last TAD sits at local index 1. 3.7.6's
+    # `i - 1 > 0` guard skipped its left inter-TAD test there (NaN); now the
+    # result does not depend on how the TADs are shared among the processes.
     domains = ROOT + "domains_chr1_4.bed"
     single = _run(COOL_TARGET, COOL_CONTROL, domains, 1, 'all', 'one')
     multi = _run(COOL_TARGET, COOL_CONTROL, domains, 4, 'all', 'one')
@@ -704,4 +747,5 @@ def test_threads_one_tad_per_thread_loses_last_left_test():
         rows = _data_rows(pPrefix + '_accepted.diff_tad') + _data_rows(pPrefix + '_rejected.diff_tad')
         return max(rows, key=lambda row: int(row[1]))
     assert last_row(single)[6] == '0.8706579826550646'
-    assert last_row(multi)[6] == 'nan'
+    assert last_row(multi)[6] == '0.8706579826550646'
+    assert last_row(multi) == last_row(single)

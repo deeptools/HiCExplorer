@@ -69,7 +69,10 @@ def test_main():
 
 # --------------------------------------------------------------------------
 # Characterization tests added for the v4 C++ port (2026-09-13). They pin the
-# current Python behaviour, including the defects, on the real matrices.
+# current behaviour on the real matrices. The tables output_test.txt and
+# output_untreated_chr1.txt are HiCExplorer 4 output (fix 2: corrected TAD
+# geometry of the left and right inter-TAD blocks); the intra-TAD columns are
+# those of 3.7.6.
 
 
 def _run(pMatrix, pDomains, pThreads):
@@ -122,35 +125,57 @@ def test_text_output_untreated_chr1():
 
 
 def test_first_and_last_tad_columns():
-    # The first TAD of a chromosome has no left neighbour, so its left columns
-    # are the integer 0 and print without a decimal point. The last TAD's left
-    # block uses the right boundary index left over from the previous TAD.
+    # The first TAD of a chromosome has no left neighbour and the last has no
+    # right neighbour, so those columns are the integer 0 and print without a
+    # decimal point. HiCExplorer 4 cuts the left block of the last TAD from the
+    # previous TAD and the last TAD (fix 2), where 3.7.6 reused the right
+    # boundary left over from the previous TAD: the left block is a real,
+    # non-empty block with a positive sum and density.
     outfile = _run(ROOT + 'hicDifferentialTAD/GSM2644945_Untreated-R1.100000_chr1.cool',
                    ROOT + 'hicDifferentialTAD/untreated_R1_domains.bed', 1)
     rows = _data_rows(outfile)
     first = rows[0]
     assert first[6] == '0' and first[8] == '0' and first[10] == '0' and first[12] == '0'
+    assert first[7] != '0' and int(first[11]) > 0
     last = rows[-1]
     assert last[7] == '0' and last[9] == '0' and last[11] == '0' and last[13] == '0'
-    assert last[6] != '0'
+    assert last[6] != '0' and float(last[6]) > 0
+    assert int(last[10]) > 0 and float(last[8]) > 0 and float(last[18]) > 0
 
 
-def test_h5_input_raises_zero_division():
-    # Defect pinned, not endorsed. On the h5 path the left-over right boundary
-    # of the last TAD is an absolute index equal to that TAD's first bin, so
-    # its left inter-TAD block has zero columns and the density divides by
-    # zero. The worker reports the failure and main exits with status 1 before
-    # anything is written.
+def test_h5_input_matches_cool_input():
+    # HiCExplorer 4 (fix 2): the h5 and the cool path cut identical blocks, and
+    # the last TAD has a left block on h5, so the run succeeds. 3.7.6 divided
+    # by zero on h5 for the last TAD of every chromosome and exited with
+    # status 1 before writing anything.
+    domains = ROOT + 'hicDifferentialTAD/untreated_R1_domains.bed'
+    cool = _data_rows(_run(ROOT + 'hicDifferentialTAD/GSM2644945_Untreated-R1.100000_chr1.cool', domains, 1))
+    h5 = _data_rows(_run(ROOT + 'hicDifferentialTAD/GSM2644945_Untreated-R1.100000_chr1.h5', domains, 1))
+    assert len(h5) == 140
+    assert h5 == cool
+    assert h5[-1][6] != '0' and int(h5[-1][10]) > 0
+
+
+def test_two_tad_chromosome_second_tad_has_a_left_block():
+    # HiCExplorer 4 (fix 2): with two TADs on a chromosome the second TAD is
+    # the last one and has a left block (first TAD x second TAD); in 3.7.6 it
+    # got none. The first TAD has a right block and no left block.
     outdir = mkdtemp(prefix='interintra_tad_')
-    outfile = os.path.join(outdir, 'out.txt')
-    args = "-m {} --tadDomains {} --threads {} --outFileNameRatioPlot {} -o {}".format(
-        ROOT + 'hicDifferentialTAD/GSM2644945_Untreated-R1.100000_chr1.h5',
-        ROOT + 'hicDifferentialTAD/untreated_R1_domains.bed', 1,
-        os.path.join(outdir, 'ratio.png'), outfile).split()
-    with pytest.raises(SystemExit) as error:
-        hicInterIntraTAD.main(args)
-    assert error.value.code == 1
-    assert not os.path.exists(outfile)
+    domains = os.path.join(outdir, 'two.bed')
+    with open(ROOT + 'hicDifferentialTAD/untreated_R1_domains.bed') as handle:
+        lines = handle.readlines()[10:12]
+    with open(domains, 'w') as handle:
+        handle.writelines(lines)
+    for matrix in ['GSM2644945_Untreated-R1.100000_chr1.cool', 'GSM2644945_Untreated-R1.100000_chr1.h5']:
+        rows = _data_rows(_run(ROOT + 'hicDifferentialTAD/' + matrix, domains, 1))
+        assert len(rows) == 2
+        first, second = rows
+        assert first[6] == '0' and first[10] == '0'
+        assert first[7] != '0' and int(first[11]) > 0
+        assert second[7] == '0' and second[11] == '0'
+        assert second[6] != '0' and int(second[10]) > 0
+        # the block between the two TADs is the same seen from either side
+        assert first[7] == second[6]
 
 
 def test_threads_small_chromosome_last_duplicates_rows():

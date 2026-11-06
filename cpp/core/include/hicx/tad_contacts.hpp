@@ -14,36 +14,26 @@
 //   left    rows: the previous TAD, columns: this TAD.
 //   right   rows: this TAD, columns: the next TAD.
 //
-// through two different code paths for cool and for h5, and the two paths do
-// not cut the same blocks. What is reproduced, all of it verified against the
-// reference on the real GSM2644945/GSM2644947 matrices:
+// HiCExplorer 4 cuts all three from the bin range of each TAD (tad_bins in
+// tad_contacts.cpp), the same range for the intra block of a TAD and for the
+// inter blocks it takes part in, so the blocks of neighbouring TADs tile the
+// matrix:
 //
-//  1. **cool loads regions, h5 slices the whole matrix.** The cool path calls
-//     hiCMatrix(pChrnameList=['chr:start-end']) per TAD and per neighbourhood,
-//     which is cooler's region fetch: bins floor(start / binsize) up to
-//     ceil(end / binsize), in coordinates local to that region. The h5 path
-//     slices the whole matrix with getRegionBinRange, whose end index is the
-//     bin *containing* `end`, used as an exclusive bound.
+//  1. **The bin range of a TAD.** For cool the region cooler fetches for it,
+//     bins floor(start / binsize) up to ceil(end / binsize); for h5
+//     getRegionBinRange, whose end index is the bin *containing* `end`, used as
+//     an exclusive bound. For the bin-aligned TADs of hicFindTADs the two agree.
 //
-//  2. **The cool right block drops the last bin of the next TAD.** The outer
-//     right index is the literal -1 (hicDifferentialTAD.py:158-159), so the
-//     column slice is [right:-1] of the region. The h5 path uses the bin that
-//     contains the next TAD's end, which keeps that bin. That is why
-//     mode_all_accepted.diff_tad and mode_all_h5_accepted.diff_tad differ.
-//
-//  3. **The last TAD's left block uses the previous TAD's right index.** The
-//     left block needs `right_boundary_index`, which is only assigned when a
-//     next TAD exists (hicDifferentialTAD.py:162-167). For the last TAD the
-//     variable still holds the value from the previous iteration. On the h5
-//     path that value is absolute and equals the last TAD's own first bin, so
-//     the block has zero columns: hicDifferentialTAD reports NaN and
-//     hicInterIntraTAD divides by zero and exits 1. On the cool path it is
-//     relative to the previous TAD's region, not to the current one, so the
-//     block is real but not the one its name suggests.
-//
-//  4. **`i - 1 > 0`, not `i - 1 >= 0`, guards the last TAD's left block**
-//     (hicDifferentialTAD.py:180), so a chromosome of exactly two TADs gets no
-//     left test for its second one.
+//  2-4. The Python cut the inter blocks wrongly in three ways, fixed in
+//     HiCExplorer 4 (project owner, 2026-11-06): the cool right block dropped
+//     the last bin of the next TAD (the outer index was the literal -1,
+//     hicDifferentialTAD.py:158-159); the last TAD of a chromosome took its
+//     left block from the previous iteration's right index
+//     (hicDifferentialTAD.py:162-167), an empty block on h5 (hicDifferentialTAD
+//     reported NaN, hicInterIntraTAD divided by zero) and the wrong block on
+//     cool; and `i - 1 > 0` (hicDifferentialTAD.py:180) gave the second TAD of a
+//     two-TAD chromosome no left block. Every TAD but the first now has its left
+//     block and every TAD but the last its right block, the same on cool and h5.
 //
 //  5. **The balancing weights are applied per region, not per matrix.**
 //     hicmatrix's cool loader skips the correction for a region holding at

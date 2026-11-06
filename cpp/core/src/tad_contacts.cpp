@@ -125,42 +125,6 @@ Region cool_region(const ContactMatrix& matrix, const std::string& chrom,
     return region;
 }
 
-// getRegionBinRange(chrom, pos, pos)[0] on a region loaded from a cool file:
-// the region's own interval tree, so the index is local to the region.
-std::int64_t local_bin(const ContactMatrix& matrix, const Region& region,
-                       const std::string& chrom, std::int64_t position) {
-    const std::vector<CutInterval>& bins = matrix.bins.intervals();
-    if (region.length <= 0) {
-        throw std::runtime_error("the region holds no bins, so no position can be looked up");
-    }
-    const auto first = bins.begin() + region.origin;
-    const auto last = first + region.length;
-    if (first->chrom != chrom) {
-        throw std::runtime_error("chromosome: " + chrom + " name not found in matrix");
-    }
-    auto it = std::upper_bound(
-        first, last, position,
-        [](std::int64_t value, const CutInterval& bin) { return value < bin.start; });
-    if (it != first) {
-        --it;
-        if (position < it->end) {
-            return static_cast<std::int64_t>(it - first);
-        }
-    }
-    throw std::runtime_error("no bin of " + chrom + " covers position " +
-                             std::to_string(position) + " in the loaded region");
-}
-
-std::int64_t whole_bin(const ContactMatrix& matrix, const std::string& chrom,
-                       std::int64_t position) {
-    const std::optional<std::int64_t> bin = matrix.bins.bin_at(chrom, position);
-    if (!bin.has_value()) {
-        throw std::runtime_error("no bin of " + chrom + " covers position " +
-                                 std::to_string(position));
-    }
-    return *bin;
-}
-
 std::pair<std::int64_t, std::int64_t> whole_range(const ContactMatrix& matrix,
                                                   const std::string& chrom,
                                                   std::int64_t start, std::int64_t end) {
@@ -170,54 +134,6 @@ std::pair<std::int64_t, std::int64_t> whole_range(const ContactMatrix& matrix,
                                  region_text(chrom, start, end));
     }
     return *range;
-}
-
-// The inter-TAD hiCMatrix and the four boundary indices of one iteration of
-// the loop, before any slicing.
-struct Frame {
-    std::int64_t origin = 0;
-    std::int64_t length = 0;
-    bool apply_correction = false;
-    std::int64_t left = 0;
-    std::int64_t outer_left = 0;
-    std::int64_t outer_right = -1;
-    std::optional<std::int64_t> right;
-};
-
-Frame inter_frame(const ContactMatrix& matrix, const std::vector<Domain>& chromosome,
-                  std::size_t index) {
-    const std::size_t n = chromosome.size();
-    const Domain& row = chromosome[index];
-    const Domain& previous = index >= 1 ? chromosome[index - 1] : row;
-    const std::string& chrom = previous.chrom;
-    const std::int64_t start = previous.start;
-    const std::int64_t end = index + 1 < n ? chromosome[index + 1].end : row.end;
-    const bool has_next = index + 1 < n;
-
-    Frame frame;
-    if (matrix.format == Format::Cool) {
-        const Region region = cool_region(matrix, chrom, start, end);
-        frame.origin = region.origin;
-        frame.length = region.length;
-        frame.apply_correction = region.apply_correction;
-        frame.left = local_bin(matrix, region, chrom, row.start);
-        frame.outer_left = 0;
-        frame.outer_right = -1;
-        if (has_next) {
-            frame.right = local_bin(matrix, region, chrom, row.end);
-        }
-    } else {
-        frame.origin = 0;
-        frame.length = matrix.matrix.rows();
-        frame.left = whole_bin(matrix, chrom, row.start);
-        const auto outer = whole_range(matrix, chrom, start, end);
-        frame.outer_left = outer.first;
-        frame.outer_right = outer.second;
-        if (has_next) {
-            frame.right = whole_bin(matrix, chrom, row.end);
-        }
-    }
-    return frame;
 }
 
 }  // namespace
@@ -433,45 +349,50 @@ void mask_bins(ContactMatrix& matrix, const std::vector<std::int64_t>& bins) {
     m.eliminate_zeros();
 }
 
+// The bins of one TAD, absolute: for cool the region cooler fetches for it
+// (floor(start / binsize) up to ceil(end / binsize)), for h5 getRegionBinRange
+// (the bin containing `end` as the exclusive bound). The intra block is this
+// range squared, and the inter blocks use the same ranges, so the three blocks
+// of a TAD and its neighbours tile the matrix without gaps or overlaps.
+std::pair<std::int64_t, std::int64_t> tad_bins(const ContactMatrix& matrix, const Domain& domain) {
+    if (matrix.format == Format::Cool) {
+        const Region region = cool_region(matrix, domain.chrom, domain.start, domain.end);
+        return {region.origin, region.origin + region.length};
+    }
+    const auto range = whole_range(matrix, domain.chrom, domain.start, domain.end);
+    return normalise_slice(range.first, range.second, matrix.matrix.rows());
+}
+
 TadGeometry tad_geometry(const ContactMatrix& matrix, const std::vector<Domain>& chromosome,
                          std::size_t index) {
     const std::size_t n = chromosome.size();
     const Domain& row = chromosome[index];
     TadGeometry geometry;
 
+    const auto [first, last] = tad_bins(matrix, row);
+    bool intra_correction = false;
     if (matrix.format == Format::Cool) {
-        const Region region = cool_region(matrix, row.chrom, row.start, row.end);
-        const std::int64_t end = region.origin + region.length;
-        geometry.intra = Block{region.origin, end, region.origin, end, region.apply_correction};
-    } else {
-        const auto range = whole_range(matrix, row.chrom, row.start, row.end);
-        const auto [first, last] = normalise_slice(range.first, range.second, matrix.matrix.rows());
-        geometry.intra = Block{first, last, first, last, false};
+        intra_correction = cool_region(matrix, row.chrom, row.start, row.end).apply_correction;
     }
+    geometry.intra = Block{first, last, first, last, intra_correction};
 
-    const Frame frame = inter_frame(matrix, chromosome, index);
-    const auto block = [&frame](std::int64_t row_start, std::int64_t row_stop,
-                                std::int64_t col_start, std::int64_t col_stop) {
-        const auto rows = normalise_slice(row_start, row_stop, frame.length);
-        const auto cols = normalise_slice(col_start, col_stop, frame.length);
-        return Block{frame.origin + rows.first, frame.origin + rows.second,
-                     frame.origin + cols.first, frame.origin + cols.second,
-                     frame.apply_correction};
+    // An inter block spans two neighbouring TADs. For cool the weights are
+    // applied when hicmatrix would apply them to the region of both TADs
+    // (hicmatrix/lib/cool.py:209-217, see point 5 above).
+    const auto inter = [&matrix](const Domain& upper, const Domain& lower) {
+        const auto rows = tad_bins(matrix, upper);
+        const auto cols = tad_bins(matrix, lower);
+        bool correction = false;
+        if (matrix.format == Format::Cool) {
+            correction = cool_region(matrix, upper.chrom, upper.start, lower.end).apply_correction;
+        }
+        return Block{rows.first, rows.second, cols.first, cols.second, correction};
     };
-
-    const bool has_previous = index >= 1;
-    const bool has_next = index + 1 < n;
-    if (has_next) {
-        geometry.right = block(frame.left, *frame.right, *frame.right, frame.outer_right);
+    if (index >= 1) {
+        geometry.left = inter(chromosome[index - 1], row);
     }
-    if (has_previous && has_next) {
-        geometry.left = block(frame.outer_left, frame.left, frame.left, *frame.right);
-    } else if (index >= 2 && !has_next) {
-        // `i - 1 > 0 and i + 1 >= len(chromosome_list)`: right_boundary_index
-        // is the value the previous iteration left behind, in that
-        // iteration's coordinates.
-        const Frame previous = inter_frame(matrix, chromosome, index - 1);
-        geometry.left = block(frame.outer_left, frame.left, frame.left, *previous.right);
+    if (index + 1 < n) {
+        geometry.right = inter(row, chromosome[index + 1]);
     }
     return geometry;
 }

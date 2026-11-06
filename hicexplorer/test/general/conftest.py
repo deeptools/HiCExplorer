@@ -46,7 +46,6 @@ EXPECTED_FAILURES = {
     "test_hicCorrectMatrix.py::test_char_ICE_whole_is_reproducible_and_format_independent": BIT_EXACT,
     "test_hicDifferentialTAD.py::test_threads_small_chromosome_first_drops_last_tad": PYTHON_DEFECT,
     "test_hicDifferentialTAD.py::test_threads_small_chromosome_last_duplicates_rows": PYTHON_DEFECT,
-    "test_hicDifferentialTAD.py::test_threads_one_tad_per_thread_loses_last_left_test": PYTHON_DEFECT,
     "test_hicFindTADs.py::test_find_TADs_high_numberOfProcessors_is_a_defect": PYTHON_DEFECT,
     "test_hicFindTADs.py::test_find_TADs_maxDepth_must_exceed_minDepth": PYTHON_EXCEPTION,
     "test_hicFindTADs.py::test_find_TADs_unreadable_matrix_never_reaches_the_suffix_check": PYTHON_EXCEPTION,

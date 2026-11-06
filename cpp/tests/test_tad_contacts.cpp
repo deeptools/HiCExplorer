@@ -119,63 +119,47 @@ TEST_CASE("rank_sum_test matches scipy.stats.ranksums on dense blocks") {
     CHECK(std::isnan(hicx::tads::rank_sum_test(none, none).pvalue));
 }
 
-TEST_CASE("h5 geometry slices the whole matrix and keeps the next TAD's last bin") {
-    const ContactMatrix matrix = fixture(hicx::tads::Format::H5);
-    const std::vector<Domain> tads = three_tads();
+// The three TADs of three_tads() are bins [0, 2), [2, 3) and [3, 5). Every TAD
+// but the first has a left block (previous TAD x this TAD) and every TAD but
+// the last a right block (this TAD x next TAD), the same for h5 and cool.
+TEST_CASE("geometry: neighbouring TADs tile the matrix, the same for h5 and cool") {
+    for (const auto format : {hicx::tads::Format::H5, hicx::tads::Format::Cool}) {
+        CAPTURE(static_cast<int>(format));
+        const ContactMatrix matrix = fixture(format);
+        const std::vector<Domain> tads = three_tads();
 
-    // TAD 0: getRegionBinRange(0, 20) = (0, 2); frame start 0, end 30, left
-    // bin(0) = 0, outer (0, 3), right bin(20) = 2. No left block (i == 0).
-    const auto g0 = hicx::tads::tad_geometry(matrix, tads, 0);
-    CHECK(g0.intra == Block{0, 2, 0, 2, false});
-    CHECK_FALSE(g0.left.has_value());
-    REQUIRE(g0.right.has_value());
-    CHECK(*g0.right == Block{0, 2, 2, 3, false});
+        const auto g0 = hicx::tads::tad_geometry(matrix, tads, 0);
+        CHECK(g0.intra == Block{0, 2, 0, 2, false});
+        CHECK_FALSE(g0.left.has_value());
+        REQUIRE(g0.right.has_value());
+        CHECK(*g0.right == Block{0, 2, 2, 3, false});
 
-    // TAD 1: frame start 0, end 50, left 2, outer (0, 5), right 3.
-    const auto g1 = hicx::tads::tad_geometry(matrix, tads, 1);
-    CHECK(g1.intra == Block{2, 3, 2, 3, false});
-    REQUIRE(g1.left.has_value());
-    CHECK(*g1.left == Block{0, 2, 2, 3, false});
-    REQUIRE(g1.right.has_value());
-    CHECK(*g1.right == Block{2, 3, 3, 5, false});
+        const auto g1 = hicx::tads::tad_geometry(matrix, tads, 1);
+        CHECK(g1.intra == Block{2, 3, 2, 3, false});
+        REQUIRE(g1.left.has_value());
+        CHECK(*g1.left == Block{0, 2, 2, 3, false});
+        REQUIRE(g1.right.has_value());
+        CHECK(*g1.right == Block{2, 3, 3, 5, false});  // keeps the next TAD's last bin
 
-    // TAD 2, the last: right_boundary_index is left over from TAD 1 and is 3,
-    // this TAD's own first bin, so the left block has no columns.
-    const auto g2 = hicx::tads::tad_geometry(matrix, tads, 2);
-    CHECK(g2.intra == Block{3, 5, 3, 5, false});
-    CHECK_FALSE(g2.right.has_value());
-    REQUIRE(g2.left.has_value());
-    CHECK(*g2.left == Block{2, 3, 3, 3, false});
+        // The last TAD: its left block is TAD 1 x TAD 2 (the Python reused the
+        // previous iteration's index: an empty block on h5, a wrong one on cool).
+        const auto g2 = hicx::tads::tad_geometry(matrix, tads, 2);
+        CHECK(g2.intra == Block{3, 5, 3, 5, false});
+        CHECK_FALSE(g2.right.has_value());
+        REQUIRE(g2.left.has_value());
+        CHECK(*g2.left == Block{2, 3, 3, 5, false});
+
+        // A chromosome of two TADs: the second one has its left block (the
+        // Python's `i - 1 > 0` skipped it).
+        const std::vector<Domain> two{domain("chrA", 0, 20), domain("chrA", 20, 50)};
+        const auto t1 = hicx::tads::tad_geometry(matrix, two, 1);
+        REQUIRE(t1.left.has_value());
+        CHECK(*t1.left == Block{0, 2, 2, 5, false});
+    }
 }
 
-TEST_CASE("cool geometry uses region coordinates, the -1 bound and the stale index") {
+TEST_CASE("cool geometry: a region past the chromosome end is rejected") {
     const ContactMatrix matrix = fixture(hicx::tads::Format::Cool);
-    const std::vector<Domain> tads = three_tads();
-
-    // TAD 0: region chrA:0-30 is bins [0, 3); left 0, right 2, so the right
-    // block is rows [0:2], columns [2:-1] = [2:2] of a 3 bin region: empty.
-    const auto g0 = hicx::tads::tad_geometry(matrix, tads, 0);
-    CHECK(g0.intra == Block{0, 2, 0, 2, false});
-    REQUIRE(g0.right.has_value());
-    CHECK(*g0.right == Block{0, 2, 2, 2, false});
-
-    // TAD 1: region chrA:0-50 is bins [0, 5); left 2, right 3; right columns
-    // [3:-1] = [3:4], which drops bin 4, the next TAD's last bin.
-    const auto g1 = hicx::tads::tad_geometry(matrix, tads, 1);
-    REQUIRE(g1.left.has_value());
-    CHECK(*g1.left == Block{0, 2, 2, 3, false});
-    REQUIRE(g1.right.has_value());
-    CHECK(*g1.right == Block{2, 3, 3, 4, false});
-
-    // TAD 2: region chrA:20-50 is bins [2, 5), left is local 1, and the stale
-    // right index is TAD 1's local 3, relative to a region starting at bin 0.
-    // Rows [0:1], columns [1:3] of the region, globally rows [2,3), cols [3,5).
-    const auto g2 = hicx::tads::tad_geometry(matrix, tads, 2);
-    CHECK_FALSE(g2.right.has_value());
-    REQUIRE(g2.left.has_value());
-    CHECK(*g2.left == Block{2, 3, 3, 5, false});
-
-    // A region reaching past the chromosome end is rejected by cooler.
     const std::vector<Domain> beyond{domain("chrA", 0, 20), domain("chrA", 20, 70)};
     CHECK_THROWS((void)hicx::tads::tad_geometry(matrix, beyond, 1));
 }

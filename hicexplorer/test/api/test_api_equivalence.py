@@ -18,5 +18,12 @@ def test_matches_3_7_6(path, case, reference_results, tmp_path):
     expected = reference_results[(os.path.basename(path), case.id)]
     module = apieq.load_cases_module(path)
     actual = apieq.run_case(module, case, str(tmp_path / apieq.safe_name(case.id)))
-    message = apieq.compare_records(expected, actual, case)
+    # A case of a defect HiCExplorer 4 fixes on purpose sets `case.deviation`
+    # (see cases_hicInterIntraTAD.py): callable(expected, actual) -> message or
+    # None, used instead of the comparison with the 3.7.6 record.
+    deviation = getattr(case, 'deviation', None)
+    if deviation is not None:
+        message = deviation(expected, actual)
+    else:
+        message = apieq.compare_records(expected, actual, case)
     assert message is None, message

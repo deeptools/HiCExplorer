@@ -10,6 +10,17 @@ into its queue is compared; for a failure only the 'Fail: <message>' part,
 because the traceback after it is Python's in 3.7.6 and names the C++
 worker here.
 
+HiCExplorer 4 cuts the left and right inter-TAD blocks from one TAD geometry for
+cool and h5 (the project owner's decision of 2026-11-06, the same as in
+hicInterIntraTAD): every TAD but the first has a left block (previous TAD x this
+TAD) and every TAD but the last a right block (this TAD x next TAD). 3.7.6 dropped
+the last bin of the next TAD from the cool right block, gave the last TAD a stale
+left block (NaN on h5) and the second TAD of a two-TAD chromosome none. The worker
+cases of these shapes carry a `deviation` (see test_api_equivalence.py) in place
+of the comparison with 3.7.6: the intra-TAD columns and the TAD rows must still
+equal 3.7.6, and the new blocks must tile (the right test of a TAD is the left test
+of its successor on the same cells, so statistic and p-value agree).
+
 Deviations from 3.7.6, kept on purpose (cpp/python/src/api/hicDifferentialTAD.cpp):
 
 * The traceback text after 'Fail: <message>' of a failed worker.
@@ -137,3 +148,48 @@ for _case in CASES:
         _case.rtol = 1e-12
         _case.note = (_case.note + '; ' if _case.note else '') + (
             'Boost.Math special functions round the last bits of the p-values differently from scipy 1.14')
+
+
+# Fix 2 of HiCExplorer 4 (the TAD geometry). The six lists of what the worker
+# puts into its queue: 0 the statistics and 1 the p-values, one row per TAD
+# with [left, right, intra]; 2, 3, 4 the rejection flags of the left, right
+# and intra test; 5 the TAD rows.
+def _lists(record):
+    data = record['return'][1][1]
+    return data[1] if data[0] == 'list' else None
+
+
+def tads_tile(expected, actual):
+    from apieq import compare
+    new = _lists(actual)
+    if new is None:
+        return 'the worker failed: {!r}'.format(actual['return'])
+    old = _lists(expected)
+    if old is not None:
+        if len(old) != len(new):
+            return 'the worker put {} lists into its queue, 3.7.6 {}'.format(len(new), len(old))
+        for index in (4, 5):
+            message = compare(old[index], new[index], 1e-12, 0.0, 'list {}'.format(index))
+            if message:
+                return message
+        for index in (0, 1):
+            if len(old[index][1]) != len(new[index][1]):
+                return 'list {} has another number of TADs'.format(index)
+            for row, (was, now) in enumerate(zip(old[index][1], new[index][1])):
+                message = compare(was[1][2], now[1][2], 1e-12, 0.0, 'intra of TAD {} in list {}'.format(row, index))
+                if message:
+                    return message
+    for index in (0, 1):
+        rows = new[index][1]
+        for i in range(len(rows) - 1):
+            message = compare(rows[i][1][1], rows[i + 1][1][0], 1e-12, 0.0,
+                              'right test of TAD {} against left test of TAD {} (list {})'.format(i, i + 1, index))
+            if message:
+                return message
+    return None
+
+
+for _case in CASES:
+    if _case.id in _BOOST_LAST_BITS:
+        _case.deviation = tads_tile
+        _case.note = (_case.note + '; ' if _case.note else '') + 'Fix 2 of HiCExplorer 4 (TAD geometry), see the module docstring'
