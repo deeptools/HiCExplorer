@@ -16,6 +16,7 @@
 #include <cstdio>
 #include <filesystem>
 #include <limits>
+#include <stdexcept>
 #include <string>
 #include <unistd.h>
 #include <vector>
@@ -318,6 +319,21 @@ TEST_CASE("enforce_integer rounds half to even into an int32 count column") {
     // The four entries are still stored even though two of them round to zero,
     // because hicmatrix does not eliminate zeros after np.rint.
     CHECK(attribute_int(file, "nnz") == 4);
+}
+
+TEST_CASE("enforce_integer refuses a matrix that would round to nothing") {
+    // HiCExplorer 3.7.6 wrote an empty cool file for a corrected matrix.
+    hicx::MatrixData data = toy_matrix();
+    data.matrix.set_dtype("float64");
+    data.matrix.mutable_data() = {0.1, 0.2, 0.3, 0.4};
+
+    const TempFile output(".cool");
+    hicx::CoolSaveOptions options;
+    options.enforce_integer = true;
+    CHECK_THROWS_WITH_AS(hicx::write_cool(output.path(), data, options),
+                         doctest::Contains("below 0.5"), std::runtime_error);
+    options.enforce_integer = false;
+    CHECK_NOTHROW(hicx::write_cool(output.path(), data, options));
 }
 
 TEST_CASE("the h5 writer produces the HiCExplorer node set") {

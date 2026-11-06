@@ -48,18 +48,24 @@
 // chrom_name, which is hicmatrix's chrnameList path (cool.py:119-161); as in
 // the Python, the other input formats ignore it.
 //
-// Defects reproduced on purpose, each pinned by
+// Defects of hicConvertFormat.py 3.7.6 that HiCExplorer 4 fixes, each pinned by
 // hicexplorer/test/general/test_hicConvertFormat.py:
 //
-//   * --enforce_integer rounds an already corrected matrix to all zeros and
-//     writes a cool file of zero valued pixels, exit status 0, no warning.
-//     See the comment at apply_enforce_integer_note below.
-//   * --outputFormat ginteractions writes <outFileName>.tsv and leaves
-//     <outFileName> untouched.
-//   * hicpro output writes all stored entries, not the upper triangle.
-//   * the hic_metadata dictionary is consumed in place, so of several mcool
-//     resolutions only the first carries genome-assembly in its metadata
-//     attribute.
+//   * --enforce_integer rounded an already corrected matrix (values below 0.5)
+//     to all zeros and wrote a cool file of zero valued pixels, exit status 0,
+//     no warning. HiCExplorer 4 stops with an error when rounding would remove
+//     every pixel of a non-empty matrix (write_cool, cool_adapter.cpp). A cool
+//     or h5 matrix that carries correction factors is first returned to its raw
+//     counts, as without the flag, so it rounds to the counts it came from.
+//   * --outputFormat ginteractions wrote <outFileName>.tsv and left
+//     <outFileName> untouched. HiCExplorer 4 writes <outFileName>.
+//   * hicpro output wrote all stored entries, both triangles. HiC-Pro matrices
+//     are upper triangular; HiCExplorer 4 writes each contact once.
+//   * the hic_metadata dictionary was consumed in place, so of several mcool
+//     resolutions only the first carried genome-assembly in its metadata
+//     attribute. Every resolution carries it now.
+//   * mcool output without --resolutions ignored --enforce_integer. It is
+//     honoured now.
 
 #include <algorithm>
 #include <cctype>
@@ -428,15 +434,6 @@ hicx::CoolSaveOptions cool_options(const Arguments& args, const Loaded& loaded,
     return options;
 }
 
-// create_cooler_input pops these three out of the dictionary it was handed,
-// and the dictionary is shared between the resolutions of one mcool, so the
-// second resolution no longer sees them.
-void consume_metadata(std::map<std::string, std::string>& metadata) {
-    metadata.erase("matrix-generated-by");
-    metadata.erase("matrix-generated-by-url");
-    metadata.erase("genome-assembly");
-}
-
 int run(const Arguments& args);
 
 // Removes a file when it goes out of scope.
@@ -783,6 +780,9 @@ int run(const Arguments& args) {
         if (args.output_format == "hicpro") {
             if (args.matrices.size() == args.out_file_names.size() &&
                 args.out_file_names.size() == args.bed_file_hicpro.size()) {
+                // Each contact once, bin1 <= bin2.
+                loaded.data.matrix =
+                    hicx::upper_triangle_after_maximum(loaded.data.matrix);
                 hicx::write_hicpro(args.out_file_names[i], args.bed_file_hicpro[i],
                                    loaded.data);
             } else {
@@ -807,7 +807,11 @@ int run(const Arguments& args) {
                 base.cut_intervals = loaded.data.cut_intervals;
                 const std::int64_t bin_size =
                     hicx::BinTable(base.cut_intervals).bin_size();
-                std::map<std::string, std::string> metadata = loaded.metadata;
+                // create_cooler_input of 3.7.6 popped matrix-generated-by,
+                // matrix-generated-by-url and genome-assembly out of the one
+                // dictionary shared by the resolutions, so only the first
+                // resolution carried them. Each resolution gets the full set.
+                const std::map<std::string, std::string>& metadata = loaded.metadata;
 
                 for (std::size_t j = 0; j < args.resolutions.size(); ++j) {
                     const std::int64_t resolution = std::stoll(args.resolutions[j]);
@@ -822,16 +826,18 @@ int run(const Arguments& args) {
                     hicx::write_cool(args.out_file_names[0] + "::/resolutions/" +
                                          args.resolutions[j],
                                      merged, options);
-                    consume_metadata(metadata);
                 }
             } else {
                 const std::int64_t bin_size =
                     hicx::BinTable(loaded.data.cut_intervals).bin_size();
                 // This branch builds no output handler metadata at all: it
-                // passes neither pHiCInfo nor pHic2CoolVersion nor
-                // pEnforceInteger (hicConvertFormat.py:338-339).
+                // passes neither pHiCInfo nor pHic2CoolVersion
+                // (hicConvertFormat.py:338-339). The Python passed no
+                // pEnforceInteger either, so the flag was ignored here;
+                // HiCExplorer 4 honours it.
                 hicx::CoolSaveOptions options;
                 options.symmetric = true;
+                options.enforce_integer = args.enforce_integer;
                 options.apply_correction = apply_correction;
                 options.file_was_h5 = format_was_h5;
                 options.append = i > 0;

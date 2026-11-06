@@ -1,0 +1,11 @@
+{
+	"InstallScripts" : 
+	[
+		"/home/mh-hannover.local/wolffjoa/src/HiCExplorer-v4-worktrees/fix-convertformat/cpp/build-fix/cmake_install.cmake",
+		"/home/mh-hannover.local/wolffjoa/src/HiCExplorer-v4-worktrees/fix-convertformat/cpp/build-fix/core/cmake_install.cmake",
+		"/home/mh-hannover.local/wolffjoa/src/HiCExplorer-v4-worktrees/fix-convertformat/cpp/build-fix/tools/cmake_install.cmake",
+		"/home/mh-hannover.local/wolffjoa/src/HiCExplorer-v4-worktrees/fix-convertformat/cpp/build-fix/python/cmake_install.cmake",
+		"/home/mh-hannover.local/wolffjoa/src/HiCExplorer-v4-worktrees/fix-convertformat/cpp/build-fix/tests/cmake_install.cmake"
+	],
+	"Parallel" : false
+}

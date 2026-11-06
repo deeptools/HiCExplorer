@@ -172,12 +172,11 @@ TEST_CASE("a homer bin name with a dash in the chromosome is rejected") {
     CHECK_THROWS(hicx::read_homer(file.path()));
 }
 
-TEST_CASE("ginteractions writes the sidecar and leaves the named file alone") {
+TEST_CASE("ginteractions writes the file it is given") {
+    // HiCExplorer 3.7.6 wrote <path>.tsv and left <path> empty; 4 writes <path>.
     TempFile file(".ginteractions");
-    write_text(file.path(), "");
     hicx::write_ginteractions(file.path(), toy_matrix("int32"));
-    CHECK(read_text(file.path()).empty());
-    CHECK(read_text(file.path() + ".tsv") ==
+    CHECK(read_text(file.path()) ==
           "chr1\t0\t10\tchr1\t0\t10\t5\n"
           "chr1\t0\t10\tchr1\t10\t20\t2\n"
           "chr1\t10\t20\tchr2\t0\t10\t3\n"
@@ -189,11 +188,20 @@ TEST_CASE("ginteractions prints float values with the Python float repr") {
     hicx::MatrixData data = toy_matrix("float64");
     data.matrix.mutable_data()[0] = 1.3e-05;
     hicx::write_ginteractions(file.path(), data);
-    const std::string text = read_text(file.path() + ".tsv");
+    const std::string text = read_text(file.path());
     CHECK(text.rfind("chr1\t0\t10\tchr1\t0\t10\t1.3e-05\n", 0) == 0);
 }
 
-TEST_CASE("hicpro writes one based ids for every stored entry") {
+TEST_CASE("hicpro writes each contact once, with one based ids") {
+    // A symmetric matrix stores both triangles; 3.7.6 wrote both, 4 writes the
+    // upper triangle only.
+    TempFile full_matrix(".hicpro");
+    TempFile full_bed(".bed");
+    hicx::MatrixData symmetric = toy_matrix("int32");
+    symmetric.matrix = hicx::maximum_with_transpose(symmetric.matrix);
+    hicx::write_hicpro(full_matrix.path(), full_bed.path(), symmetric);
+    CHECK(read_text(full_matrix.path()) == "1\t1\t5\n1\t2\t2\n2\t3\t3\n3\t3\t7\n");
+
     TempFile matrix_file(".hicpro");
     TempFile bed_file(".bed");
     hicx::write_hicpro(matrix_file.path(), bed_file.path(), toy_matrix("int32"));

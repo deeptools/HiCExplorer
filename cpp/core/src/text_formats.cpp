@@ -477,7 +477,7 @@ void write_ginteractions(const std::string& path, const MatrixData& data) {
         fail("the bin table has " + std::to_string(data.cut_intervals.size()) +
              " entries but the matrix has " + std::to_string(matrix.rows()) + " rows");
     }
-    TextWriter out(path + ".tsv", false);
+    TextWriter out(path, false);
     const std::vector<std::int64_t>& indptr = matrix.indptr();
     const std::vector<std::int32_t>& indices = matrix.indices();
     const std::vector<double>& values = matrix.data();
@@ -584,8 +584,12 @@ void write_hicpro(const std::string& matrix_path, const std::string& bed_path,
             const std::size_t begin = static_cast<std::size_t>(indptr[static_cast<std::size_t>(row)]);
             const std::size_t end = static_cast<std::size_t>(indptr[static_cast<std::size_t>(row) + 1]);
             for (std::size_t k = begin; k < end; ++k) {
-                // Hicpro.save writes every stored entry, both triangles
-                // included: it ignores pSymmetric.
+                // HiC-Pro matrices are upper triangular: each contact is
+                // written once, with bin1 <= bin2. (Hicpro.save of 3.7.6
+                // wrote every stored entry, both triangles.)
+                if (indices[k] < row) {
+                    continue;
+                }
                 out.write(std::to_string(row + 1));
                 out.write('\t');
                 out.write(std::to_string(indices[k] + 1));
