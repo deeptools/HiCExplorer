@@ -21,10 +21,11 @@
     "id": "hicAdjustMatrix.h5.regions.remove",
     "tool": "hicAdjustMatrix",
     "tier": 1,
+    "reference": "none",
     "args": ["-m", "{data}/small_test_matrix_50kb_res.h5", "-o", "{out}/adjusted.h5",
              "--regions", "{data}/regions.bed", "--action", "remove"],
-    "outputs": [{"path": "{out}/adjusted.h5", "format": "h5", "class": "E2"}],
-    "notes": "hicAdjustMatrix.py:157-159 clears orig_bin_ids, orig_cut_intervals and nan_bins after masking, so restoreMaskedBins has nothing to put back and the bins really disappear, the pre-existing NaN bins with them: 2,794 - 318 = 2,476 bins and no NaN bins in the output."
+    "outputs": [{"path": "{out}/adjusted.h5", "format": "h5", "class": "EX"}],
+    "notes": "Class EX: 3.7.6 cleared orig_bin_ids, orig_cut_intervals and nan_bins after masking (hicAdjustMatrix.py:157-159), so the bins of the regions went and so did the 139 empty (NaN) bins nobody had asked to remove (2,476 bins). HiCExplorer 4 removes exactly the 182 bins of regions.bed and leaves the other bins, the empty ones included: 2,612 bins. The result is pinned by test_regions_remove_h5_is_bit_exact in test_hicAdjustMatrix.py."
   },
   {
     "id": "hicAdjustMatrix.cool.regions.mask",
@@ -67,10 +68,11 @@
     "id": "hicAdjustMatrix.cool.regions.remove.domains",
     "tool": "hicAdjustMatrix",
     "tier": 1,
+    "reference": "none",
     "args": ["-m", "{data}/Li_et_al_2015.cool", "-o", "{out}/adjusted.cool",
              "--regions", "{data}/domains.bed", "--action", "remove"],
-    "outputs": [{"path": "{out}/adjusted.cool", "format": "cool", "class": "E1"}],
-    "notes": "The remove path on a cool file, where the surviving bin table is written back with a rebuilt chromosome offset index."
+    "outputs": [{"path": "{out}/adjusted.cool", "format": "cool", "class": "EX"}],
+    "notes": "Class EX: the remove path on a cool file. HiCExplorer 4 removes exactly the bins of domains.bed; 3.7.6 also dropped every empty (NaN) bin of the matrix (hicAdjustMatrix.py:157-159), so the bin tables differ. See hicAdjustMatrix.h5.regions.remove."
   },
   {
     "id": "hicAdjustMatrix.cool.chromosomes.keep.reordered",
@@ -109,13 +111,16 @@
     "notes": "One chromosome, --action keep and a cool input take the branch at hicAdjustMatrix.py:73-76, which passes pChrnameList to hicmatrix and loads only that chromosome. The branch is observable and not an optimisation: the NaN bin heuristic then runs on the 250 bin block alone and finds 20 empty rows, where a whole file load followed by a selection would find fewer, because an inter-chromosomal contact keeps a row non empty. This is the case the port's CoolLoadOptions::chrom_name exists for."
   },
   {
-    "id": "hicAdjustMatrix.cool.chromosomes.unknown_name_is_ignored",
+    "id": "hicAdjustMatrix.cool.chromosomes.unknown_name_exits_1",
     "tool": "hicAdjustMatrix",
     "tier": 1,
+    "reference": "none",
     "args": ["-m", "{data}/hicAdjustMatrix/gm12878_1_2_3.cool", "-o", "{out}/adjusted.cool",
              "--chromosomes", "1", "not_a_chromosome", "--action", "keep"],
-    "outputs": [{"path": "{out}/adjusted.cool", "format": "cool", "class": "E1"}],
-    "notes": "A name that is not in the matrix is warned about and ignored, and the run continues with what is left. That is what makes the stray BED path of the pre-existing test_remove_inter harmless. Note that two names means the cooler fast path is not taken, so the NaN bins differ from the single chromosome case above even though the values are the same block."
+    "outputs": [],
+    "expect_exit": 1,
+    "stderr_contains": ["not_a_chromosome"],
+    "notes": "Class EX: 3.7.6 warned about a chromosome name that is not in the matrix and went on with the names it knew, so a misspelt name silently changed the selection. HiCExplorer 4 exits 1 before anything is written and names the unknown chromosome and the available ones."
   },
   {
     "id": "hicAdjustMatrix.cool.interIntraHandling.inter",
@@ -162,32 +167,36 @@
     "notes": "The block zeroing on a matrix large enough for it to matter. In the Python this is a csr slice assignment that inserts explicit zeros; both writers call eliminate_zeros before storing, so dropping the entries outright produces the same file."
   },
   {
-    "id": "hicAdjustMatrix.h5.maskBadRegions_is_a_no_op",
+    "id": "hicAdjustMatrix.h5.maskBadRegions_masks",
     "tool": "hicAdjustMatrix",
     "tier": 1,
+    "reference": "none",
     "args": ["-m", "{data}/small_test_matrix_50kb_res.h5", "-o", "{out}/adjusted.h5",
              "--maskBadRegions", "{data}/hicAdjustMatrix/mask.bed"],
-    "outputs": [{"path": "{out}/adjusted.h5", "format": "h5", "class": "E2"}],
-    "notes": "The pinned defect. hicAdjustMatrix.py:161-165 never opens the BED file it is given: :162 evaluates len(pArgs.chromosomes), and --chromosomes is mutually exclusive with --maskBadRegions and therefore always None. For an h5 input check_cooler is false and short circuits the expression, so the matrix is loaded, nothing is masked, and it is written back unchanged at exit 0. Reproduced, not fixed."
+    "outputs": [{"path": "{out}/adjusted.h5", "format": "h5", "class": "EX"}],
+    "notes": "Class EX: --maskBadRegions never opened its BED file in 3.7.6 (hicAdjustMatrix.py:161-165) and wrote the matrix back unchanged. HiCExplorer 4 masks the bins of the regions, like --regions --action mask; the output is pinned by test_maskBadRegions_matches_regions_mask in test_hicAdjustMatrix.py."
   },
   {
-    "id": "hicAdjustMatrix.cool.maskBadRegions_raises_a_type_error",
+    "id": "hicAdjustMatrix.cool.maskBadRegions_masks",
     "tool": "hicAdjustMatrix",
     "tier": 1,
+    "reference": "none",
     "args": ["-m", "{data}/small_test_matrix_50kb_res.cool", "-o", "{out}/adjusted.cool",
              "--maskBadRegions", "{data}/hicAdjustMatrix/mask.bed"],
-    "outputs": [],
-    "expect_exit": 1,
-    "notes": "The same option on a cool input reaches the len(None) that check_cooler short circuits for h5, and the run ends with a TypeError and no output file. Pinned as it stands; the port prints what the expression was rather than a traceback and exits 1."
+    "outputs": [{"path": "{out}/adjusted.cool", "format": "cool", "class": "EX"}],
+    "expect_exit": 0,
+    "notes": "Class EX: on a cool input 3.7.6 raised a TypeError from len(pArgs.chromosomes) (hicAdjustMatrix.py:162). HiCExplorer 4 masks the bins of the BED file's regions, like --regions --action mask."
   },
   {
-    "id": "hicAdjustMatrix.h5.no_selection_writes_no_file",
+    "id": "hicAdjustMatrix.h5.no_selection_exits_1",
     "tool": "hicAdjustMatrix",
     "tier": 1,
+    "reference": "none",
     "args": ["-m", "{data}/small_test_matrix_50kb_res.h5", "-o", "{out}/adjusted.h5"],
     "outputs": [],
-    "expect_exit": 0,
-    "notes": "Without --chromosomes, --regions or --maskBadRegions the tool logs one info line, returns None from adjustMatrix, skips the save and exits 0. A calling pipeline cannot tell that from success. Pinned because it is exactly the kind of silent no-op a port would be tempted to turn into an error."
+    "expect_exit": 1,
+    "stderr_contains": ["--maskBadRegions"],
+    "notes": "Class EX: without --chromosomes, --regions or --maskBadRegions 3.7.6 logged one info line, wrote nothing and exited 0, which a calling pipeline could not tell from success. HiCExplorer 4 exits 1 with an error that names the three options and writes nothing."
   },
   {
     "id": "hicAdjustMatrix.cool.no_valid_chromosome_exits_1",

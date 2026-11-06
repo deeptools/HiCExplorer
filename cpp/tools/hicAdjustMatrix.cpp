@@ -9,28 +9,34 @@
 // (hicx::mask_and_restore_bins), and maskBins with the restore deliberately
 // disabled (hicx::delete_bins).
 //
-// Five behaviours are reproduced rather than fixed, all pinned by
-// hicexplorer/test/general/test_hicAdjustMatrix.py:
+// Five behaviours of the 3.7.6 Python are fixed in HiCExplorer 4:
 //
-//  * --maskBadRegions never opens the file it is given. hicAdjustMatrix.py:
-//    161-165 loads the matrix and does nothing else, because :162 evaluates
-//    len(pArgs.chromosomes) while --chromosomes is mutually exclusive with the
-//    option and therefore always None. For an h5 input check_cooler is false
-//    and short circuits the expression, so the matrix is written back
-//    unchanged and the tool exits 0; for a cool input the len(None) raises a
-//    TypeError. Both are reproduced, the second as an error message and exit
-//    status 1.
-//  * with none of --chromosomes, --regions and --maskBadRegions the tool logs
-//    one line, writes nothing and exits 0. A caller cannot tell that from
-//    success.
-//  * a chromosome name that is not in the matrix is warned about and ignored,
-//    and only an empty result exits 1. That is what makes the stray BED path
-//    of test_remove_inter harmless: --chromosomes takes nargs='+', so the path
-//    is swallowed as a fourth chromosome name.
-//  * --regions --action remove clears orig_bin_ids, orig_cut_intervals and
-//    nan_bins after masking (:157-159), so restoreMaskedBins has nothing to
-//    put back and the bins, including the NaN bins that were folded into the
-//    mask, really disappear.
+//  * --maskBadRegions never opened the file it was given. hicAdjustMatrix.py:
+//    161-165 loaded the matrix and did nothing else (an h5 matrix was written
+//    back unchanged, a cool input died with a TypeError from
+//    len(pArgs.chromosomes), which is always None). HiCExplorer 4 masks the
+//    bins of the regions in the BED file, as --regions does with --action mask.
+//  * with none of --chromosomes, --regions and --maskBadRegions the Python
+//    logged one line, wrote nothing and exited 0. HiCExplorer 4 exits 1 with
+//    an error that names the three options.
+//  * a chromosome name that is not in the matrix was only warned about, so a
+//    misspelt name silently changed the selection (with --action remove the
+//    chromosome stayed in the output). HiCExplorer 4 exits 1 and names every
+//    chromosome that is not in the matrix. Chromosomes in a --regions or
+//    --maskBadRegions BED file that are not in the matrix are still only
+//    warned about, because a BED file may cover more than one assembly part.
+//  * --regions --action remove cleared orig_bin_ids, orig_cut_intervals and
+//    nan_bins after masking (:157-159), so the bins of the regions went, and
+//    so did every empty (NaN) bin of the matrix, which nobody had asked to
+//    remove. HiCExplorer 4 removes exactly the bins of the regions; the empty
+//    bins that remain stay in the matrix, as they do with --chromosomes
+//    --action remove.
+//  * the "entry may generate discounted regions" warning of --action remove
+//    named the chromosome of the last BED line (a leaked loop variable) and
+//    looked up its range, instead of those of the region it reports on.
+//    HiCExplorer 4 uses the chromosome of the region.
+//
+// Reproduced because it is the documented output and not a defect:
 //  * --interIntraHandling inter zeroes only the blocks above the diagonal. The
 //    mirror entries stay in memory and are dropped by the triu(k=0) both
 //    writers apply, so the file is the one the help text promises.
@@ -253,22 +259,22 @@ int main(int argc, char** argv) {
 
             std::vector<std::string> chromosomes_list = boundary_names(*hic);
             std::vector<std::string> to_operate_on;
+            std::vector<std::string> unknown;
             for (const std::string& chromosome : args.chromosomes) {
                 if (std::find(chromosomes_list.begin(), chromosomes_list.end(),
                               chromosome) != chromosomes_list.end()) {
                     to_operate_on.push_back(chromosome);
                 } else {
-                    std::fprintf(stderr,
-                                 "WARNING:hicexplorer.hicAdjustMatrix:Chromosome not "
-                                 "available in matrix: %s %s\n",
-                                 args.matrix.c_str(), chromosome.c_str());
+                    unknown.push_back(chromosome);
                 }
             }
-            if (to_operate_on.empty()) {
+            if (!unknown.empty()) {
+                // Fixed in HiCExplorer 4: 3.7.6 only warned and went on with
+                // the names it knew.
                 std::fprintf(stderr,
-                             "ERROR:hicexplorer.hicAdjustMatrix:No valid chromosome "
-                             "given: %s. Available: %s\n",
-                             chromosome_list_repr(args.chromosomes).c_str(),
+                             "ERROR:hicexplorer.hicAdjustMatrix:Chromosome not "
+                             "available in matrix: %s %s. Available: %s\n",
+                             args.matrix.c_str(), chromosome_list_repr(unknown).c_str(),
                              chromosome_list_repr(chromosomes_list).c_str());
                 return 1;
             }
@@ -311,17 +317,23 @@ int main(int argc, char** argv) {
                 hicx::mask_and_restore_bins(hic->data(), bins_of(to_operate_on));
                 hic->refresh_boundaries();
             }
-        } else if (args.regions.has_value()) {
+        } else if (args.regions.has_value() || args.mask_bad_regions.has_value()) {
+            // --maskBadRegions masks the bins of its BED file (fixed in
+            // HiCExplorer 4, see the top of this file), whatever --action says.
+            const bool bad_regions = args.mask_bad_regions.has_value();
+            const std::string& regions_file = bad_regions ? *args.mask_bad_regions : *args.regions;
+            const Action action = bad_regions ? Action::Mask : args.action;
             hic = hicx::ToolMatrix::load(args.matrix);
             const std::vector<std::string> chromosomes_list = boundary_names(*hic);
             const hicx::BinTable bins(hic->data().cut_intervals);
 
-            std::ifstream bed(*args.regions);
+            std::ifstream bed(regions_file);
             if (!bed) {
                 std::fprintf(stderr,
-                             "hicAdjustMatrix: error: argument --regions/-r: can't "
+                             "hicAdjustMatrix: error: argument %s: can't "
                              "open '%s'\n",
-                             args.regions->c_str());
+                             bad_regions ? "--maskBadRegions/-mbr" : "--regions/-r",
+                             regions_file.c_str());
                 return 2;
             }
             struct Region {
@@ -330,12 +342,6 @@ int main(int argc, char** argv) {
                 std::int64_t end = 0;
             };
             std::vector<Region> genomic_regions;
-            // hicAdjustMatrix.py:124 leaks the loop variable `chrom`, and the
-            // --action remove branch at :144 then looks up whichever
-            // chromosome the *last* readable BED line named, not the one of
-            // the region it is reporting on. It only feeds a warning, so it is
-            // reproduced here as one.
-            std::string last_chrom;
             std::string line;
             while (std::getline(bed, line)) {
                 const std::string stripped = trim_right(line);
@@ -352,7 +358,6 @@ int main(int argc, char** argv) {
                 if (fields.size() < 3) {
                     continue;
                 }
-                last_chrom = fields[0];
                 Region region;
                 region.chrom = fields[0];
                 try {
@@ -392,9 +397,11 @@ int main(int argc, char** argv) {
                 for (std::int64_t bin = range->first; bin <= range->second; ++bin) {
                     indices.push_back(bin);  // the end bin is inclusive
                 }
-                if (args.action == Action::Remove) {
+                if (action == Action::Remove) {
+                    // Fixed in HiCExplorer 4: 3.7.6 looked up the chromosome of
+                    // the last BED line here (a leaked loop variable).
                     const std::optional<hicx::BinRange> chrom_range =
-                        bins.chrom_bin_range(last_chrom);
+                        bins.chrom_bin_range(region.chrom);
                     if (chrom_range.has_value() && range->first > chrom_range->first &&
                         range->second < chrom_range->last - 1) {
                         std::fprintf(stderr,
@@ -402,42 +409,40 @@ int main(int argc, char** argv) {
                                      "entry may generate discounted regions on a "
                                      "chromosome.Please consider using `mask` action "
                                      "to deal with that.\n",
-                                     last_chrom.c_str(),
+                                     region.chrom.c_str(),
                                      static_cast<long long>(range->first),
                                      static_cast<long long>(range->second));
                     }
                 }
             }
 
-            if (args.action == Action::Keep) {
+            if (action == Action::Keep) {
                 hicx::reorder_bins(hic->data(), indices);
-            } else if (args.action == Action::Mask) {
+            } else if (action == Action::Mask) {
                 hicx::mask_and_restore_bins(hic->data(), indices);
             } else {
-                // maskBins, then orig_bin_ids, orig_cut_intervals and nan_bins
-                // are cleared, so the bins are gone for good.
-                hicx::delete_bins(hic->data(), indices);
+                // Fixed in HiCExplorer 4: exactly the bins of the regions are
+                // removed. 3.7.6 also dropped every NaN bin of the matrix.
+                const std::int64_t rows = hic->data().matrix.rows();
+                std::vector<char> drop(static_cast<std::size_t>(rows), 0);
+                for (const std::int64_t bin : indices) {
+                    drop[static_cast<std::size_t>(bin)] = 1;
+                }
+                std::vector<std::int64_t> survivors;
+                for (std::int64_t bin = 0; bin < rows; ++bin) {
+                    if (drop[static_cast<std::size_t>(bin)] == 0) {
+                        survivors.push_back(bin);
+                    }
+                }
+                hicx::reorder_bins(hic->data(), survivors);
             }
             hic->refresh_boundaries();
-        } else if (args.mask_bad_regions.has_value()) {
-            if (hicx::check_cooler(args.matrix)) {
-                // hicAdjustMatrix.py:162 evaluates len(pArgs.chromosomes) with
-                // chromosomes always None, which check_cooler short circuits
-                // only for h5. Same exit status as the Python traceback.
-                std::fputs("hicAdjustMatrix: TypeError: object of type 'NoneType' has "
-                           "no len(). hicAdjustMatrix.py:162 takes len() of "
-                           "--chromosomes, which is mutually exclusive with "
-                           "--maskBadRegions and therefore always None\n",
-                           stderr);
-                return 1;
-            }
-            // The BED file is never opened; the matrix is written back as it
-            // was loaded.
-            hic = hicx::ToolMatrix::load(args.matrix);
         } else {
-            std::fputs("INFO:hicexplorer.hicAdjustMatrix:No data to adjust given. "
-                       "Please specify either --chromosomes or --region parameter.\n",
+            std::fputs("ERROR:hicexplorer.hicAdjustMatrix:No data to adjust given. "
+                       "Please specify one of --chromosomes, --regions or "
+                       "--maskBadRegions.\n",
                        stderr);
+            return 1;
         }
 
         if (args.inter_intra.has_value()) {

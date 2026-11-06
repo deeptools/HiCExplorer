@@ -5,9 +5,9 @@
 // and they are what hicAdjustMatrix and hicMergeMatrixBins are built out of:
 //
 //   * hiCMatrix.reorderBins (HiCMatrix.py:723), matrix[order, :][:, order]
-//     with the bin table and the NaN bins carried along. It deliberately does
-//     not permute the correction factors, which is quirk 3 of cpp/PLAN.md 2.7,
-//     and that is reproduced here rather than fixed.
+//     with the bin table, the NaN bins and the correction factors carried
+//     along. 3.7.6 left the factors in their old order (quirk 3 of
+//     cpp/PLAN.md 2.7); that is fixed in HiCExplorer 4.
 //   * hiCMatrix.maskBins (HiCMatrix.py:761) *without* the restoreMaskedBins
 //     that hiCMatrix.save would perform. Two callers clear orig_bin_ids right
 //     after masking, so for them the bins really disappear:
@@ -42,9 +42,9 @@ namespace hicx {
 [[nodiscard]] CsrMatrix select_bins(const CsrMatrix& matrix,
                                     const std::vector<std::int64_t>& order);
 
-// hiCMatrix.reorderBins. The matrix, the bin table and the NaN bins follow the
-// new order; the correction factors are left exactly as they were, which is
-// the Python behaviour and not an oversight of the port.
+// hiCMatrix.reorderBins. The matrix, the bin table, the NaN bins and the
+// correction factors follow the new order. (3.7.6 did not permute the
+// factors; fixed in HiCExplorer 4.)
 void reorder_bins(MatrixData& data, const std::vector<std::int64_t>& order);
 
 // hiCMatrix.maskBins with no restore afterwards, so the bins are gone for

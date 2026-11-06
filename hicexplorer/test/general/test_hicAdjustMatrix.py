@@ -141,6 +141,9 @@ def test_remove():
         "remove").split()
 
     compute(hicAdjustMatrix.main, args, 5)
+    # HiCExplorer 4 output because of the fix: --action remove deletes only the
+    # bins of the regions. The reference of 3.7.6 had lost the empty (NaN) bins
+    # as well, so it was regenerated with the fixed tool.
     test = hm.hiCMatrix(
         ROOT + "hicAdjustMatrix/small_test_matrix_50kb_res_remove.h5")
     new = hm.hiCMatrix(outfile.name)
@@ -154,10 +157,9 @@ def test_remove_inter():
     outfile = NamedTemporaryFile(
         suffix='.cool', prefix='test_matrix', delete=True)
     outfile.close()
-    args = "--matrix {} --outFileName {} --chromosomes 1 2 3 {} --action {} --interIntraHandling {} ".format(
+    args = "--matrix {} --outFileName {} --chromosomes 1 2 3 --action {} --interIntraHandling {} ".format(
         ROOT + 'hicAdjustMatrix/gm12878_1_2_3.cool',
         outfile.name,
-        ROOT + 'hicAdjustMatrix/remove.bed',
         "keep", "inter").split()
 
     compute(hicAdjustMatrix.main, args, 5)
@@ -174,10 +176,9 @@ def test_remove_intra():
     outfile = NamedTemporaryFile(
         suffix='.cool', prefix='test_matrix', delete=True)
     outfile.close()
-    args = "--matrix {} --outFileName {} --chromosomes 1 2 3 {} --action {} --interIntraHandling {} ".format(
+    args = "--matrix {} --outFileName {} --chromosomes 1 2 3 --action {} --interIntraHandling {} ".format(
         ROOT + 'hicAdjustMatrix/gm12878_1_2_3.cool',
         outfile.name,
-        ROOT + 'hicAdjustMatrix/remove.bed',
         "keep", "intra").split()
 
     compute(hicAdjustMatrix.main, args, 5)
@@ -306,24 +307,28 @@ def test_regions_mask_h5_is_bit_exact():
 
 
 def test_regions_remove_h5_is_bit_exact():
-    """--action remove deletes the bins instead of blanking them.
+    """--action remove deletes exactly the bins of the regions.
 
-    hicAdjustMatrix.py:157-159 clears orig_bin_ids, orig_cut_intervals and
-    nan_bins after masking, so restoreMaskedBins has nothing to put back and
-    the bins really disappear. The pre-existing nan bins go with them, so the
-    result is 2,794 - 318 = 2,476 bins, and the output carries no nan bins.
+    Fixed in HiCExplorer 4. hicAdjustMatrix.py:157-159 of 3.7.6 cleared
+    orig_bin_ids, orig_cut_intervals and nan_bins after masking, so every
+    empty (NaN) bin of the matrix went with the regions (2,794 - 318 = 2,476
+    bins). Now only the 182 bins of the regions are removed (2,612 bins); the
+    empty bins that remain stay in the matrix and keep their place in nan_bins,
+    as they do for --chromosomes --action remove.
     """
     dense, original = dense_of(SMALL_50KB_H5)
-    union = set(region_bin_ids(SMALL_50KB_H5, REGIONS_BED)) | set(original.nan_bins)
-    survivors = [i for i in range(dense.shape[0]) if i not in union]
+    removed = set(region_bin_ids(SMALL_50KB_H5, REGIONS_BED))
+    survivors = [i for i in range(dense.shape[0]) if i not in removed]
+    position = {old: new for new, old in enumerate(survivors)}
+    expected_nan = sorted(position[i] for i in original.nan_bins if i in position)
 
     new = run_adjust(SMALL_50KB_H5, ['--regions', REGIONS_BED,
                                      '--action', 'remove'], '.h5')
-    assert new.matrix.shape == (2476, 2476)
-    assert new.matrix.nnz == 43083
-    assert len(new.nan_bins) == 0
+    assert new.matrix.shape == (2794 - len(removed), 2794 - len(removed))
+    assert len(removed) == 182
     np.assert_array_equal(new.matrix.toarray().astype(float),
                           dense[numpy_lib.ix_(survivors, survivors)])
+    np.assert_array_equal(sorted(new.nan_bins), expected_nan)
     np.assert_equal(new.cut_intervals,
                     [original.cut_intervals[i] for i in survivors])
 
@@ -439,50 +444,55 @@ def test_single_chromosome_keep_on_cool_takes_the_cooler_fast_path():
                           dense[numpy_lib.ix_(selected, selected)])
 
 
-def test_maskBadRegions_is_a_no_op_on_h5():
-    """--maskBadRegions never masks anything.
+def test_maskBadRegions_matches_regions_mask():
+    """--maskBadRegions masks the bins of its BED file.
 
-    hicAdjustMatrix.py:161-165 loads the matrix and does nothing else with the
-    file it was given, so the matrix is written back unchanged. This is a bug,
-    pinned so the port reproduces it rather than inventing a masking rule.
+    Fixed in HiCExplorer 4. hicAdjustMatrix.py:161-165 of 3.7.6 never opened
+    the file: an h5 matrix was written back unchanged and a cool matrix raised
+    a TypeError. The option now does what its help says, on both formats, and
+    gives the matrix --regions --action mask gives for the same BED file.
     """
-    original = hm.hiCMatrix(SMALL_50KB_H5)
-    new = run_adjust(SMALL_50KB_H5, ['--maskBadRegions', MASK_BED], '.h5')
-    np.assert_array_equal(new.matrix.data, original.matrix.data)
-    np.assert_array_equal(new.matrix.indices, original.matrix.indices)
-    np.assert_array_equal(new.matrix.indptr, original.matrix.indptr)
-    np.assert_equal(new.cut_intervals, original.cut_intervals)
-    np.assert_array_equal(sorted(new.nan_bins), sorted(original.nan_bins))
+    for source, suffix in [(SMALL_50KB_H5, '.h5'), (SMALL_50KB_COOL, '.cool')]:
+        dense, original = dense_of(source)
+        masked = (set(region_bin_ids(source, MASK_BED))
+                  | set(original.nan_bins))
+        expected = dense.copy()
+        for i in masked:
+            expected[i, :] = 0
+            expected[:, i] = 0
+        assert len(masked) > len(original.nan_bins)
+
+        new = run_adjust(source, ['--maskBadRegions', MASK_BED], suffix)
+        reference = run_adjust(source, ['--regions', MASK_BED,
+                                        '--action', 'mask'], suffix)
+        np.assert_array_equal(new.matrix.toarray().astype(float), expected)
+        np.assert_array_equal(new.matrix.toarray(), reference.matrix.toarray())
+        np.assert_equal(new.cut_intervals, original.cut_intervals)
+        np.assert_array_equal(sorted(new.nan_bins), sorted(reference.nan_bins))
+        assert set(new.nan_bins) >= masked
 
 
-def test_maskBadRegions_raises_a_type_error_on_cool():
-    """The same option crashes when the input is a cool file.
-
-    hicAdjustMatrix.py:162 evaluates len(pArgs.chromosomes) while
-    --maskBadRegions is mutually exclusive with --chromosomes, so chromosomes
-    is None. check_cooler short circuits the expression for h5, which is why
-    only cool input hits it. Pinned as it stands.
-    """
-    out = NamedTemporaryFile(suffix='.cool', prefix='test_matrix', delete=False)
-    out.close()
-    os.unlink(out.name)
-    with pytest.raises(TypeError):
-        hicAdjustMatrix.main(['--matrix', SMALL_50KB_COOL,
-                              '--outFileName', out.name,
-                              '--maskBadRegions', MASK_BED])
-    assert not os.path.exists(out.name)
+def test_maskBadRegions_ignores_action():
+    """The bins are masked whatever --action says (it describes --regions)."""
+    plain = run_adjust(SMALL_50KB_H5, ['--maskBadRegions', MASK_BED], '.h5')
+    removed = run_adjust(SMALL_50KB_H5, ['--maskBadRegions', MASK_BED,
+                                         '--action', 'remove'], '.h5')
+    np.assert_array_equal(plain.matrix.toarray(), removed.matrix.toarray())
 
 
-def test_no_selection_writes_no_file():
-    """Without --chromosomes, --regions or --maskBadRegions nothing happens.
+def test_no_selection_is_an_error():
+    """Without --chromosomes, --regions or --maskBadRegions the tool exits 1.
 
-    adjustMatrix returns None and main skips the save, so the tool exits 0 and
-    leaves no output. Pinned because a pipeline cannot tell this from success.
+    Fixed in HiCExplorer 4. 3.7.6 logged one line, wrote nothing and exited 0,
+    which a pipeline could not tell from success.
     """
     out = NamedTemporaryFile(suffix='.h5', prefix='test_matrix', delete=False)
     out.close()
     os.unlink(out.name)
-    hicAdjustMatrix.main(['--matrix', SMALL_50KB_H5, '--outFileName', out.name])
+    with pytest.raises(SystemExit) as excinfo:
+        hicAdjustMatrix.main(['--matrix', SMALL_50KB_H5,
+                              '--outFileName', out.name])
+    assert excinfo.value.code == 1
     assert not os.path.exists(out.name)
 
 
@@ -511,25 +521,51 @@ def test_interIntraHandling_without_the_stray_bed_argument():
         np.assert_equal(new.cut_intervals, expected.cut_intervals)
 
 
-def test_unknown_chromosome_only_exits_when_nothing_is_left():
-    """A name that is not in the matrix is warned about and ignored.
+def test_unknown_chromosome_is_an_error():
+    """A chromosome name that is not in the matrix exits 1 and writes nothing.
 
-    That is what makes the positional BED path of test_remove_inter harmless.
-    Only when no valid chromosome remains does the tool exit 1.
+    Fixed in HiCExplorer 4. 3.7.6 warned about the name and went on with the
+    others, so a misspelt chromosome silently changed the selection (with
+    --action remove it stayed in the output).
     """
-    dense, _ = dense_of(GM_COOL)
-    selected = chromosome_bin_ids(GM_COOL, ['1'])
-    new = run_adjust(GM_COOL, ['--chromosomes', '1', 'not_a_chromosome',
-                               '--action', 'keep'], '.cool')
-    np.assert_array_equal(new.matrix.toarray().astype(float),
-                          dense[numpy_lib.ix_(selected, selected)])
+    for names, action in [(['1', 'not_a_chromosome'], 'keep'),
+                          (['not_a_chromosome'], 'remove'),
+                          (['1', 'not_a_chromosome'], 'remove'),
+                          (['2', 'also_missing', 'not_a_chromosome'], 'mask')]:
+        out = NamedTemporaryFile(suffix='.cool', prefix='test_matrix',
+                                 delete=False)
+        out.close()
+        os.unlink(out.name)
+        with pytest.raises(SystemExit) as excinfo:
+            hicAdjustMatrix.main(['--matrix', GM_COOL, '--outFileName', out.name,
+                                  '--chromosomes'] + names + ['--action', action])
+        assert excinfo.value.code == 1
+        assert not os.path.exists(out.name)
 
-    out = NamedTemporaryFile(suffix='.cool', prefix='test_matrix', delete=False)
-    out.close()
-    os.unlink(out.name)
-    with pytest.raises(SystemExit) as excinfo:
-        hicAdjustMatrix.main(['--matrix', GM_COOL, '--outFileName', out.name,
-                              '--chromosomes', 'not_a_chromosome',
-                              '--action', 'remove'])
-    assert excinfo.value.code == 1
-    assert not os.path.exists(out.name)
+
+def test_unknown_chromosome_in_a_bed_file_is_still_only_a_warning(tmp_path):
+    """Regions of other chromosomes in a BED file are skipped, not rejected."""
+    bed = tmp_path / 'regions.bed'
+    bed.write_text('chrX\t10000000\t15000000\nchrNotThere\t0\t1000\n')
+    new = run_adjust(SMALL_50KB_H5, ['--regions', str(bed),
+                                     '--action', 'keep'], '.h5')
+    selected = region_bin_ids(SMALL_50KB_H5, str(bed))
+    assert new.matrix.shape == (len(selected), len(selected))
+
+
+def test_remove_warning_names_the_chromosome_of_the_region(tmp_path, capfd):
+    """The 'discounted regions' warning reports the region it is about.
+
+    Fixed in HiCExplorer 4: 3.7.6 used the chromosome of the last BED line.
+    """
+    hic = hm.hiCMatrix(SMALL_50KB_H5)
+    start, end = hic.chrBinBoundaries['chrX']
+    middle = hic.cut_intervals[(start + end) // 2]
+    bed = tmp_path / 'regions.bed'
+    bed.write_text('chrX\t{}\t{}\nchr2L\t0\t100000\n'.format(
+        middle[1], middle[2]))
+    run_adjust(SMALL_50KB_H5, ['--regions', str(bed), '--action', 'remove'],
+               '.h5')
+    captured = capfd.readouterr().err
+    assert 'chrX:' in captured and 'discounted regions' in captured
+    assert 'chr2L:' not in captured
