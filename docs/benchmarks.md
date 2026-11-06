@@ -60,7 +60,9 @@ gives CPU time. The GM12878 matrix for the format conversion has 899 million non
 
 Faster tools are only useful if they give the same results. Every tool of version 4 is checked
 against HiCExplorer 3.7.6 on real and synthetic data by the equivalence suite of the repository
-(`cpp/scripts/equiv.py`). The new methods are checked against their reference software:
+(`cpp/scripts/equiv.py`). Where 3.7.6 was wrong, version 4 corrects it and the suite checks the
+corrected result instead; these differences are listed in the [news](news.md). The new methods are
+checked against their reference software:
 
 - The CHiCAGO tools call the same 1,169 significant interactions as R CHiCAGO on the human data of the
   PCHiCdata package.

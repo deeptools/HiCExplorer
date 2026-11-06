@@ -61,6 +61,23 @@ New options and features:
 - `hicCompartmentalization --noPlot` writes the numeric results without drawing the figure.
 - `hicBuildMatrix` and the CHiCAGO tools produce the same output for every number of threads.
 
+Fixed (these results differ from 3.7.6, where 3.7.6 was wrong):
+
+- `hicDifferentialTAD` and `hicInterIntraTAD` cut the inter-TAD blocks of every TAD from the bins of the
+  neighbouring TADs. In 3.7.6 the right block of a cool matrix lacked the last bin of the next TAD, the last
+  TAD of a chromosome was compared with a wrong or empty block, and the second of two TADs on a
+  chromosome had no left block. h5 and cool matrices now give the same result, and `hicInterIntraTAD`
+  reads h5 matrices, which ended with a division by zero in 3.7.6.
+- `hicCorrectMatrix --transCutoff` clips the inter-chromosomal counts above the given percentile and
+  `--inflationCutoff` removes the bins that the correction inflated; both had no effect or failed in
+  3.7.6.
+- `hicBuildMatrix` writes an mcool for two or more bin sizes (3.7.6: three or more), refuses several bin
+  sizes with an h5 or cool output name, and stores the plain version string in the metadata of every
+  resolution.
+- `hicConvertFormat` stops with an error, before writing, when several matrices are given together with
+  `--resolutions`; 3.7.6 logged an error and wrote the output repeatedly.
+- `hicCreateThresholdFile` accepts `--help` and `--version`.
+
 ### Release 3.7.6
 **27 November 2024**
 

@@ -21,8 +21,8 @@ Micro-C and capture Hi-C (cHi-C) data. This is version 4.
     threads and the data.
 
 - **The same results.** Every tool is checked against the output of HiCExplorer 3.7.6 on real and
-  synthetic data. Command lines, file formats and outputs stay compatible, and known differences are
-  listed on the page of the tool.
+  synthetic data. Command lines, file formats and outputs stay compatible. Where 3.7.6 was wrong,
+  version 4 corrects it; these differences are listed in the [news](news.md).
 - **CHiCAGO scoring.** The `chicChicago*` tools score capture Hi-C interactions with the CHiCAGO
   method from cool, h5 or `.hic` matrices, and plot them as viewpoints, arcs and genome tracks. See the
   [CHiCAGO tutorial](example-usage/chicago-tutorial.md).
