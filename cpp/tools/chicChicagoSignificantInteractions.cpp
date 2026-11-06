@@ -122,7 +122,10 @@ std::vector<ScoreRow> read_scores(const std::string& path, int threads) {
     in.close();
 
     const std::size_t total = content.size();
-    const int worker_count = std::max(1, threads);
+    // A file under 1 MiB is parsed by one thread. The chunk bounds below are
+    // computed for the worker count actually used, so that one chunk spans
+    // the whole file.
+    const int worker_count = (threads <= 1 || total < (1u << 20)) ? 1 : threads;
     std::vector<std::size_t> bounds(static_cast<std::size_t>(worker_count) + 1);
     bounds[0] = 0;
     bounds[static_cast<std::size_t>(worker_count)] = total;
@@ -154,7 +157,7 @@ std::vector<ScoreRow> read_scores(const std::string& path, int threads) {
         return local;
     };
 
-    if (worker_count == 1 || total < (1u << 20)) {
+    if (worker_count == 1) {
         return parse_range(0);
     }
     std::vector<std::thread> workers;

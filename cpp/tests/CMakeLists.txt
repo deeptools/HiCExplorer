@@ -241,6 +241,13 @@ add_test(NAME chicChicagoPlotViewpoint_cli
                  $<TARGET_FILE:chicChicagoPlotViewpoint> $<TARGET_FILE:chicChicagoBackgroundModel>
                  $<TARGET_FILE:chicChicagoScores> "${HICX_TEST_DATA}")
 
+# The three chicChicago computation tools give the same output for every
+# --threads value on an input under 1 MiB (the chunked readers once read only
+# the first chunk of a small file when --threads was above 1).
+add_test(NAME chicChicago_threads_cli
+         COMMAND ${HICX_BASH} "${CMAKE_CURRENT_SOURCE_DIR}/cli/chicChicago_threads_cli.sh"
+                 $<TARGET_FILE_DIR:chicChicagoScores> "${HICX_TEST_DATA}")
+
 # The `hicexplorer` command: the help without arguments, --version, and a
 # tool list that names every executable of the tools directory.
 add_test(NAME hicexplorer_cli
