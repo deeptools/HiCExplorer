@@ -70,11 +70,13 @@ def test_main():
 #     NamedTemporaryFile that hicQuickQC.py:100 passes to hicBuildMatrix as
 #     --outFileName. The name is random, and buildMatrixMethods.py:1366
 #     unlinks the file after the report, so the name points at nothing.
-#  2. The checked-in QC_table.txt and discarded_table.txt were written by an
-#     older release, whose dangling end label was 'dangling end GATC'. The
-#     current QC.log, and so the current tables, say
-#     'dangling end GATC (restriction sequence GATC)'. The counts are
-#     unchanged, and the other three tables and QC.log match the reference.
+#  2. The checked-in QC.log and the five tables are HiCExplorer 4 output
+#     (regenerated with the fixes Q1 to Q6 of hicBuildMatrix, whose pair
+#     classification hicQuickQC shares): the 19 self circles
+#     are removed (Hi-C contacts 678 instead of 697 of the 3.7.6 reference)
+#     and "One mate not unique" counts the pairs with quality 0 on both mates.
+#     They also say 'dangling end GATC (restriction sequence GATC)', where the
+#     files written by the older release said 'dangling end GATC'.
 
 import re
 
@@ -129,12 +131,7 @@ def test_qc_tables_carry_the_counts_of_the_reference():
         assert len(actual) == len(expected) == 3, table  # header, row, ''
         assert actual[2] == ""
 
-        header_expected = expected[0]
-        if table in ("QC_table.txt", "discarded_table.txt"):
-            # property 2: the reference predates the longer label
-            header_expected = header_expected.replace(
-                "dangling end GATC", "dangling end GATC (restriction sequence GATC)")
-        assert actual[0] == header_expected, table
+        assert actual[0] == expected[0], table
 
         row_actual = actual[1].split("\t")
         row_expected = expected[1].split("\t")

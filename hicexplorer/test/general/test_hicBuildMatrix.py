@@ -14,7 +14,31 @@ ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
 sam_R1 = ROOT + "small_test_R1_unsorted.bam"
 sam_R2 = ROOT + "small_test_R2_unsorted.bam"
 dpnii_file = ROOT + "DpnII.bed"
-delta = 80000
+# QC.log references written by the fixed HiCExplorer 4 tools (Q1 to Q6 in
+# cpp/tools/hicBuildMatrix.cpp). The QC folders in test_data/QC* hold the
+# 3.7.6 numbers and serve the QC report tools as input, so they stay as they
+# are; only the file names of their content are compared below.
+QC_V4 = ROOT + "hicBuildMatrix/hicx4_qc/"
+
+
+def assert_out_bam_matches_the_contacts(bam_path, qc_log):
+    """The records of --outBam are two per Hi-C contact, in the order of the
+    input, and carry the insert size of the pair (Q5, fixed in HiCExplorer 4:
+    3.7.6 wrote 0 in every record)."""
+    import pysam
+    contacts = None
+    with open(qc_log) as handle:
+        for line in handle:
+            if line.startswith('Hi-C contacts'):
+                contacts = int(line.split('\t')[1])
+    with pysam.Samfile(bam_path, 'rb') as handle:
+        records = list(handle)
+    assert len(records) == 2 * contacts
+    for first, second in zip(records[0::2], records[1::2]):
+        assert first.qname == second.qname
+        if first.reference_id == second.reference_id:
+            assert first.isize == second.pos - first.pos
+            assert second.isize == first.pos - second.pos
 
 
 def are_files_equal(file1, file2, delta=1):
@@ -55,11 +79,10 @@ def test_build_matrix(capsys):
     nt.assert_equal(test.cut_intervals, new.cut_intervals)
     # print("MATRIX NAME:", outfile.name)
     print(set(os.listdir(ROOT + "QC/")))
-    assert are_files_equal(ROOT + "QC/QC.log", qc_folder + "/QC.log", delta=2)
+    assert are_files_equal(QC_V4 + "QC_one.log", qc_folder + "/QC.log", delta=0)
     assert set(os.listdir(ROOT + "QC/")) == set(os.listdir(qc_folder))
 
-    # accept delta of 80 kb, file size is around 4.5 MB
-    assert abs(os.path.getsize(ROOT + "small_test_matrix_result.bam") - os.path.getsize(outfile_bam.name)) < delta
+    assert_out_bam_matches_the_contacts(outfile_bam.name, qc_folder + "/QC.log")
 
     os.unlink(outfile.name)
     shutil.rmtree(qc_folder)
@@ -84,11 +107,10 @@ def test_build_matrix_restriction_enzyme(capsys):
     nt.assert_equal(test.cut_intervals, new.cut_intervals)
     # print("MATRIX NAME:", outfile.name)
     print(set(os.listdir(ROOT + "QC_multi_restriction/")))
-    assert are_files_equal(ROOT + "QC_multi_restriction/QC.log", qc_folder + "/QC.log")
+    assert are_files_equal(QC_V4 + "QC_multi_restriction.log", qc_folder + "/QC.log", delta=0)
     assert set(os.listdir(ROOT + "QC_multi_restriction/")) == set(os.listdir(qc_folder))
 
-    # accept delta of 80 kb, file size is around 4.5 MB
-    assert abs(os.path.getsize(ROOT + "small_test_matrix_result.bam") - os.path.getsize(outfile_bam.name)) < delta
+    assert_out_bam_matches_the_contacts(outfile_bam.name, qc_folder + "/QC.log")
 
     os.unlink(outfile.name)
     shutil.rmtree(qc_folder)
@@ -117,11 +139,10 @@ def test_build_matrix_restriction_enzyme_region(capsys):
 
     # print("MATRIX NAME:", outfile.name)
     print(set(os.listdir(ROOT + "QC_region/")))
-    assert are_files_equal(ROOT + "QC_region/QC.log", qc_folder + "/QC.log")
+    assert are_files_equal(QC_V4 + "QC_region.log", qc_folder + "/QC.log", delta=0)
     assert set(os.listdir(ROOT + "QC_region/")) == set(os.listdir(qc_folder))
 
-    # accept delta of 80 kb, file size is around 4.5 MB
-    assert abs(os.path.getsize(ROOT + "build_region.bam") - os.path.getsize(outfile_bam.name)) < delta
+    assert_out_bam_matches_the_contacts(outfile_bam.name, qc_folder + "/QC.log")
 
     os.unlink(outfile.name)
     shutil.rmtree(qc_folder)
@@ -146,11 +167,10 @@ def test_build_matrix_chromosome_sizes(capsys):
     nt.assert_equal(test.cut_intervals, new.cut_intervals)
     # print("MATRIX NAME:", outfile.name)
     print(set(os.listdir(ROOT + "QC/")))
-    assert are_files_equal(ROOT + "QC/QC.log", qc_folder + "/QC.log")
+    assert are_files_equal(QC_V4 + "QC_one.log", qc_folder + "/QC.log", delta=0)
     assert set(os.listdir(ROOT + "QC/")) == set(os.listdir(qc_folder))
 
-    # accept delta of 80 kb, file size is around 4.5 MB
-    assert abs(os.path.getsize(ROOT + "hicBuildMatrix/chromosome_sizes/test.bam") - os.path.getsize(outfile_bam.name)) < delta
+    assert_out_bam_matches_the_contacts(outfile_bam.name, qc_folder + "/QC.log")
 
     os.unlink(outfile.name)
     shutil.rmtree(qc_folder)
@@ -185,7 +205,7 @@ def test_build_matrix_cooler():
 
     nt.assert_equal(cut_interval_new_, cut_interval_test_)
     # print(set(os.listdir(ROOT + "QC/")))
-    assert are_files_equal(ROOT + "QC/QC.log", qc_folder + "/QC.log")
+    assert are_files_equal(QC_V4 + "QC_one.log", qc_folder + "/QC.log", delta=0)
     assert set(os.listdir(ROOT + "QC/")) == set(os.listdir(qc_folder))
 
     os.unlink(outfile.name)
@@ -220,7 +240,7 @@ def test_build_matrix_cooler_metadata():
 
     nt.assert_equal(cut_interval_new_, cut_interval_test_)
     # print(set(os.listdir(ROOT + "QC/")))
-    assert are_files_equal(ROOT + "QC/QC.log", qc_folder + "/QC.log")
+    assert are_files_equal(QC_V4 + "QC_one.log", qc_folder + "/QC.log", delta=0)
     assert set(os.listdir(ROOT + "QC/")) == set(os.listdir(qc_folder))
 
     outfile_metadata = NamedTemporaryFile(suffix='.txt', delete=False)
@@ -246,9 +266,9 @@ def test_build_matrix_cooler_multiple():
     # hicBuildMatrix.main(args)
     compute(hicBuildMatrix.main, args, 5)
 
-    test_5000 = hm.hiCMatrix(ROOT + "hicBuildMatrix/multi_small_test_matrix.mcool::/resolutions/5000")
-    test_10000 = hm.hiCMatrix(ROOT + "hicBuildMatrix/multi_small_test_matrix.mcool::/resolutions/10000")
-    test_20000 = hm.hiCMatrix(ROOT + "hicBuildMatrix/multi_small_test_matrix.mcool::/resolutions/20000")
+    test_5000 = hm.hiCMatrix(ROOT + "hicBuildMatrix/multi_small_test_matrix_hicx4.mcool::/resolutions/5000")
+    test_10000 = hm.hiCMatrix(ROOT + "hicBuildMatrix/multi_small_test_matrix_hicx4.mcool::/resolutions/10000")
+    test_20000 = hm.hiCMatrix(ROOT + "hicBuildMatrix/multi_small_test_matrix_hicx4.mcool::/resolutions/20000")
 
     new_5000 = hm.hiCMatrix(outfile.name + '::/resolutions/5000')
     new_10000 = hm.hiCMatrix(outfile.name + '::/resolutions/10000')
@@ -290,7 +310,7 @@ def test_build_matrix_cooler_multiple():
 
     nt.assert_equal(cut_interval_new_, cut_interval_test_)
     # print(set(os.listdir(ROOT + "QC/")))
-    assert are_files_equal(ROOT + "QC/QC.log", qc_folder + "/QC.log")
+    assert are_files_equal(QC_V4 + "QC_one.log", qc_folder + "/QC.log", delta=0)
     assert set(os.listdir(ROOT + "QC/")) == set(os.listdir(qc_folder))
 
     os.unlink(outfile.name)
@@ -318,7 +338,7 @@ def test_build_matrix_rf():
     nt.assert_equal(test.cut_intervals, new.cut_intervals)
 
     print(set(os.listdir(ROOT + "QC_rc/")))
-    assert are_files_equal(ROOT + "QC_rc/QC.log", qc_folder + "/QC.log")
+    assert are_files_equal(QC_V4 + "QC_rc.log", qc_folder + "/QC.log", delta=0)
     assert set(os.listdir(ROOT + "QC_rc/")) == set(os.listdir(qc_folder))
 
     os.unlink(outfile.name)
@@ -347,7 +367,7 @@ def test_build_matrix_rf_multi():
     nt.assert_equal(test.cut_intervals, new.cut_intervals)
 
     print(set(os.listdir(ROOT + "QC_rc_multiple/")))
-    assert are_files_equal(ROOT + "QC_rc_multiple/QC.log", qc_folder + "/QC.log")
+    assert are_files_equal(QC_V4 + "QC_rc_multiple.log", qc_folder + "/QC.log", delta=0)
     assert set(os.listdir(ROOT + "QC_rc_multiple/")) == set(os.listdir(qc_folder))
 
     os.unlink(outfile.name)
@@ -465,6 +485,12 @@ def _table_body(qc_folder, name):
     return "\n".join(rows) + "\n"
 
 
+# HiCExplorer 4 output. Against 3.7.6 the fixes of Q1 and Q2 change it: the 13
+# pairs with both mates at quality 0 are not unique only since Q1 (3.7.6
+# charged the pairs whose first mate had quality 0, which here are 13 pairs
+# whose second mate is mappable, and moved them to "Low mapping quality" now),
+# and the 20 self circles are removed (Q2), so 195 instead of 215 contacts, 20
+# fewer outward pairs and 20 fewer short range pairs.
 EXPECTED_QC_LOG = """\
 Sequenced reads\t983\t\t
 Min rest. site distance\t300\t\t
@@ -472,10 +498,10 @@ Max library insert size\t1000\t\t
 
 #\tcount\t(percentage w.r.t. total sequenced reads)
 Pairs mappable, unique and high quality\t300\t(30.52)
-Hi-C contacts\t215\t(21.87)
+Hi-C contacts\t195\t(19.84)
 One mate unmapped\t506\t(51.48)
-One mate not unique\t13\t(1.32)
-Low mapping quality\t164\t(16.68)
+One mate not unique\t0\t(0.00)
+Low mapping quality\t177\t(18.01)
 
 #\tcount\t(percentage w.r.t. mappable, unique and high quality pairs)
 dangling end AGCT (restriction sequence AAGCTT)\t1\t(0.33)
@@ -486,13 +512,13 @@ self circle\t20\t(6.67)
 duplicated pairs\t0\t(0.00)
 
 #\tcount\t(percentage w.r.t. total valid pairs used)
-inter chromosomal\t24\t(11.16)
-Intra short range (< 20kb)\t61\t(28.37)
-Intra long range (>= 20kb)\t130\t(60.47)
-Read pair type: inward pairs\t42\t(19.53)
-Read pair type: outward pairs\t66\t(30.70)
-Read pair type: left pairs\t48\t(22.33)
-Read pair type: right pairs\t35\t(16.28)
+inter chromosomal\t24\t(12.31)
+Intra short range (< 20kb)\t41\t(21.03)
+Intra long range (>= 20kb)\t130\t(66.67)
+Read pair type: inward pairs\t42\t(21.54)
+Read pair type: outward pairs\t46\t(23.59)
+Read pair type: left pairs\t48\t(24.62)
+Read pair type: right pairs\t35\t(17.95)
 """
 
 
@@ -503,23 +529,26 @@ def test_build_matrix_pins_the_whole_matrix_and_bin_table(tmp_path):
 
     assert fingerprint["shape"] == (1697, 1697)
     assert fingerprint["bins"] == 1697
-    assert fingerprint["nnz"] == 345
-    assert fingerprint["sum"] == 353
+    assert fingerprint["nnz"] == 325
+    assert fingerprint["sum"] == 332
     assert fingerprint["dtype"] == "int64"
     # The whole CSR, indices and row offsets included.
     assert fingerprint["sha256"] == (
-        "da5aed0d813d1d472ef041794f4065ec545f29b69ada3ccb43762f2dc20baaf1")
+        "0b0b0f3486c085fb66ff24182a9c5e41a9508d7ffc96a141f42926dc52ae0f9d")
     # The fourth element of every cut interval is the per bin maximum of the
-    # coverage vector, or NaN where the bin saw no read. 1,501 of the 1,697
-    # bins are empty and the ones that are not sum to 198 with a maximum of 2.
-    assert fingerprint["nan_bins"] == 1501
-    assert fingerprint["coverage_sum"] == 198.0
+    # coverage vector, or NaN where the bin saw no read. 1,414 of the 1,697
+    # bins are empty and the ones that are not sum to 284 with a maximum of 2.
+    # (Q3 and Q4, fixed in HiCExplorer 4: each mate is counted in its own bin
+    # and the last cell of a bin is counted.)
+    assert fingerprint["nan_bins"] == 1414
+    assert fingerprint["coverage_sum"] == 284.0
     assert fingerprint["coverage_max"] == 2.0
     assert fingerprint["boundaries"][:3] == [
         ('chr2L', (0, 231)), ('chr2LHet', (231, 235)), ('chr2R', (235, 447))]
 
     matrix = hm.hiCMatrix(matrix_file)
-    assert matrix.cut_intervals[0] == ('chr2L', 0, 100000, 1.0)
+    assert matrix.cut_intervals[0][:3] == ('chr2L', 0, 100000)
+    assert np.isnan(matrix.cut_intervals[0][3])
     assert matrix.cut_intervals[-1][:3] == ('chrYHet', 300000, 347038)
     shutil.rmtree(qc_folder)
 
@@ -555,15 +584,15 @@ def test_build_matrix_pins_the_qc_tables(tmp_path):
         "Intra short range (< 20kb)\tIntra long range (>= 20kb)\t"
         "Read pair type: inward pairs\tRead pair type: outward pairs\t"
         "Read pair type: left pairs\tRead pair type: right pairs\n"
-        "983\t300\t1000\t300\t215\t506\t13\t164\t1\t5\t0\t79\t20\t0\t24\t61\t"
-        "130\t42\t66\t48\t35\n")
+        "983\t300\t1000\t300\t195\t506\t0\t177\t1\t5\t0\t79\t20\t0\t24\t41\t"
+        "130\t42\t46\t48\t35\n")
 
     assert _table_body(qc_folder, "unmapable_table.txt") == (
         "Hi-C contacts\tHi-C contacts_%\tLow mapping quality\t"
         "Low mapping quality_%\tOne mate not unique\tOne mate not unique_%\t"
         "One mate unmapped\tOne mate unmapped_%\n"
-        "215\t0.21871820956256358\t164\t0.16683621566632756\t13\t"
-        "0.013224821973550356\t506\t0.5147507629704985\n")
+        "195\t0.19837232960325535\t177\t0.18006103763987794\t0\t"
+        "0.0\t506\t0.5147507629704985\n")
 
     # 'dangling end' is not a column name, only a prefix of one, so
     # make_figure_pairs_discarded emits the percentage for it and no count.
@@ -580,8 +609,8 @@ def test_build_matrix_pins_the_qc_tables(tmp_path):
         "inter chromosomal\tinter chromosomal %\tIntra short range (< 20kb)\t"
         "Intra short range (< 20kb) %\tIntra long range (>= 20kb)\t"
         "Intra long range (>= 20kb) %\n"
-        "24\t0.11162790697674418\t61\t0.2837209302325581\t130\t"
-        "0.6046511627906976\n")
+        "24\t0.12307692307692308\t41\t0.21025641025641026\t130\t"
+        "0.6666666666666666\n")
 
     # These percentages are relative to the sum of the four orientations, not
     # to the contact count, so they add up to one.
@@ -590,52 +619,82 @@ def test_build_matrix_pins_the_qc_tables(tmp_path):
         "Read pair type: outward pairs\tRead pair type: outward pairs %\t"
         "Read pair type: left pairs\tRead pair type: left pairs %\t"
         "Read pair type: right pairs\tRead pair type: right pairs %\n"
-        "42\t0.2198952879581152\t66\t0.34554973821989526\t48\t"
-        "0.2513089005235602\t35\t0.18324607329842932\n")
+        "42\t0.24561403508771928\t46\t0.26900584795321636\t48\t"
+        "0.2807017543859649\t35\t0.2046783625730994\n")
     shutil.rmtree(qc_folder)
 
 
-def test_build_matrix_keep_self_circles_changes_nothing(tmp_path):
-    """PINNED DEFECT, not a feature.
+def test_build_matrix_keep_self_circles(tmp_path):
+    """HiCExplorer 4 (Q2): --keepSelfCircles decides about the self circles.
 
     buildMatrixMethods.py:759-762 counts a self circle and then, when
     --keepSelfCircles is off, executes `continue`. That `continue` belongs to
     the enclosing `for restrictionSequence` loop, not to the loop over read
-    pairs, so the pair is never dropped. The flag therefore has no effect on
-    anything: same matrix, same QC log, byte for byte.
+    pairs, so 3.7.6 never dropped the pair and the flag changed nothing. Now
+    the 20 self circles of the fixture are removed, and kept with the flag: the
+    matrix with the flag is the matrix 3.7.6 wrote in either case.
     """
     without_file, without_qc = _small_fixture(str(tmp_path))
     with_file, with_qc = _small_fixture(str(tmp_path), extra="--keepSelfCircles")
 
-    assert _matrix_fingerprint(without_file) == _matrix_fingerprint(with_file)
-    assert _qc_body(without_qc) == _qc_body(with_qc)
-    # And the self circles really are there to be kept or dropped.
-    assert "self circle\t20\t" in _qc_body(without_qc)
+    without = _matrix_fingerprint(without_file)
+    with_flag = _matrix_fingerprint(with_file)
+    assert without["sum"] == 332
+    assert with_flag["sum"] == 353
+    # the pixels of the 3.7.6 matrix (its coverage column differs, Q3 and Q4)
+    assert with_flag["sha256"] == (
+        "da5aed0d813d1d472ef041794f4065ec545f29b69ada3ccb43762f2dc20baaf1")
+    assert "self circle\t20\t(6.67)\n" in _qc_body(without_qc)
+    assert "self circle\t20\t(6.67)\n" in _qc_body(with_qc)
+    assert "Hi-C contacts\t195\t(19.84)\n" in _qc_body(without_qc)
+    assert "Hi-C contacts\t215\t(21.87)\n" in _qc_body(with_qc)
     shutil.rmtree(without_qc)
     shutil.rmtree(with_qc)
+
+
+def test_build_matrix_two_restriction_sequences_count_a_self_circle_once(tmp_path):
+    """HiCExplorer 4 (Q2): with two restriction sequences 3.7.6 counted the
+    same self circle once per sequence and kept the pair."""
+    def run(extra):
+        outfile = NamedTemporaryFile(suffix='.h5', delete=False, dir=str(tmp_path))
+        outfile.close()
+        qc_folder = mkdtemp(prefix="testQC_", dir=str(tmp_path))
+        args = ("-s {} {} --outFileName {} -bs 100000 --QCfolder {} --threads 4 "
+                "--restrictionSequence AAGCTT GATC --danglingSequence AGCT GATC "
+                "-rs {} {} {}").format(R1_1000, R2_1000, outfile.name, qc_folder,
+                                       RS_HINDIII, dpnii_file, extra)
+        compute(hicBuildMatrix.main, args.split(), 5)
+        return _qc_body(qc_folder)
+
+    removed = run("")
+    kept = run("--keepSelfCircles")
+    assert "self circle\t2\t(0.67)\n" in removed
+    assert "self circle\t2\t(0.67)\n" in kept
+    assert "Hi-C contacts\t213\t(21.67)\n" in removed
+    assert "Hi-C contacts\t215\t(21.87)\n" in kept
 
 
 def test_build_matrix_keep_self_ligation_adds_the_self_ligated_pairs(tmp_path):
     """--keepSelfLigation, which no test exercised, does work.
 
     Five pairs are self ligations here, and keeping them raises the contacts
-    from 215 to 220 and moves all five into the short range and inward
+    from 195 to 200 and moves all five into the short range and inward
     buckets. The QC label changes with it.
     """
     matrix_file, qc_folder = _small_fixture(str(tmp_path), extra="--keepSelfLigation")
     fingerprint = _matrix_fingerprint(matrix_file)
-    assert fingerprint["nnz"] == 349
-    assert fingerprint["sum"] == 358
+    assert fingerprint["nnz"] == 329
+    assert fingerprint["sum"] == 337
     assert fingerprint["sha256"] == (
-        "4d204f61fb84556adf7aa4686bba4fc3b025861109722f90e83c3576c6a67907")
-    assert fingerprint["nan_bins"] == 1499
-    assert fingerprint["coverage_sum"] == 200.0
+        "4320b9791a7de2fb9eea0190a3a474826c3caef34f594c6c32fb1c77d7cd4505")
+    assert fingerprint["nan_bins"] == 1412
+    assert fingerprint["coverage_sum"] == 286.0
 
     body = _qc_body(qc_folder)
     assert "self ligation (not removed)\t5\t(1.67)\n" in body
-    assert "Hi-C contacts\t220\t(22.38)\n" in body
-    assert "Intra short range (< 20kb)\t66\t(30.00)\n" in body
-    assert "Read pair type: inward pairs\t47\t(21.36)\n" in body
+    assert "Hi-C contacts\t200\t(20.35)\n" in body
+    assert "Intra short range (< 20kb)\t46\t(23.00)\n" in body
+    assert "Read pair type: inward pairs\t47\t(23.50)\n" in body
     shutil.rmtree(qc_folder)
 
 
@@ -656,25 +715,26 @@ def test_build_matrix_min_mapping_quality(tmp_path):
     """--minMappingQuality, which no test asserted on.
 
     Raising it from the default 15 to 30 moves 71 pairs out of the mappable
-    set. The split between "One mate not unique" and "Low mapping quality" is
-    the one buildMatrixMethods.py:523 produces: `mate1.mapq == 0 & mate2.mapq
-    == 0` is a chained comparison equal to `mate1.mapq == 0`, so the second
-    mate's quality never enters the decision and the not-unique count stays at
-    13 while the low quality count absorbs all 71.
+    set. HiCExplorer 4 (Q1) counts a pair as "One mate not unique" when the
+    quality of both mates is 0 (buildMatrixMethods.py:523 wrote `mate1.mapq ==
+    0 & mate2.mapq == 0`, a chained comparison equal to `mate1.mapq == 0`, and
+    3.7.6 charged 13 pairs to it here). No pair of the fixture has two mates at
+    quality 0, so the 13 pairs are "Low mapping quality" now and the count is
+    248 instead of 235.
     """
     matrix_file, qc_folder = _small_fixture(str(tmp_path),
                                             extra="--minMappingQuality 30")
     fingerprint = _matrix_fingerprint(matrix_file)
-    assert fingerprint["nnz"] == 290
-    assert fingerprint["sum"] == 296
+    assert fingerprint["nnz"] == 274
+    assert fingerprint["sum"] == 279
     assert fingerprint["sha256"] == (
-        "14c86d5ece846cee6773d96658e34a70ef826550f898837a57bd847d381925b5")
+        "135bd57eef7d12d9292d24d9993dd67fd52d9cfe3d6807f0e627b1ee2682d4c2")
 
     body = _qc_body(qc_folder)
     assert "Pairs mappable, unique and high quality\t229\t(23.30)\n" in body
-    assert "Hi-C contacts\t180\t(18.31)\n" in body
-    assert "One mate not unique\t13\t(1.32)\n" in body
-    assert "Low mapping quality\t235\t(23.91)\n" in body
+    assert "Hi-C contacts\t164\t(16.68)\n" in body
+    assert "One mate not unique\t0\t(0.00)\n" in body
+    assert "Low mapping quality\t248\t(25.23)\n" in body
     shutil.rmtree(qc_folder)
 
 
@@ -747,9 +807,10 @@ def test_build_matrix_out_bam_contents(tmp_path):
     and first/second-in-pair flag bits, the mate reference and the mate
     position.
 
-    The fifth patch, to the insert size, is applied in the worker process at
-    buildMatrixMethods.py:814 and the record is then written from the master's
-    own copy, so it never reaches the file. Every record's isize is 0.
+    The fifth patch, to the insert size, is applied since HiCExplorer 4 (Q5):
+    buildMatrixMethods.py:814 patched it in the worker process and wrote the
+    master's own copy, so every record of 3.7.6 has isize 0. Now a pair on one
+    chromosome carries mate2.pos - mate1.pos and the opposite sign.
     """
     out_bam = str(tmp_path / "valid.bam")
     _, qc_folder = _small_fixture(str(tmp_path), out_bam=out_bam)
@@ -760,7 +821,7 @@ def test_build_matrix_out_bam_contents(tmp_path):
     with pysam.Samfile(R1_1000, "rb") as source:
         assert header == str(source.header)
 
-    assert len(records) == 2 * 215  # two per Hi-C contact
+    assert len(records) == 2 * 195  # two per Hi-C contact
     for first, second in zip(records[0::2], records[1::2]):
         assert first.qname == second.qname
         assert first.flag & 0x1 and second.flag & 0x1
@@ -770,9 +831,10 @@ def test_build_matrix_out_bam_contents(tmp_path):
         assert second.mrnm == first.rname
         assert first.mpos == second.pos
         assert second.mpos == first.pos
-        # PINNED DEFECT: the insert size patch is lost with the worker process.
-        assert first.isize == 0
-        assert second.isize == 0
+        if first.reference_id == second.reference_id:
+            assert first.isize == second.pos - first.pos
+            assert second.isize == first.pos - second.pos
+    assert any(record.isize != 0 for record in records)
 
     # The record order is the order the pairs appear in the input files, which
     # is what a single worker produces. It is NOT stable against --threads:
@@ -787,15 +849,16 @@ def test_build_matrix_out_bam_contents(tmp_path):
     shutil.rmtree(qc_folder)
 
 
-def test_build_matrix_region_empties_the_restriction_site_list(tmp_path):
-    """PINNED DEFECT, not a feature.
+def test_build_matrix_region_keeps_the_restriction_sites_inside_it(tmp_path):
+    """HiCExplorer 4 (Q6): a bare --region keeps the cut sites on the chromosome.
 
-    bed2interval_list keeps a cut site only when
+    bed2interval_list kept a cut site only when
     `chrom == region_chrom and region_start <= site_start and region_end <=
     site_end`, and region_end defaults to the length of the chromosome, so a
-    bare --region chrX demands that the site reach the chromosome end and the
-    list comes out empty. rf_positions is then falsy, no self circle is ever
-    counted, and every close inward pair falls through to "same fragment".
+    bare --region chrX demanded that the site reach the chromosome end and the
+    list came out empty in 3.7.6. rf_positions was then falsy, no self circle
+    was ever counted, and every close inward pair fell through to "same
+    fragment". Now a site is kept when it lies inside the region.
     """
     outfile = NamedTemporaryFile(suffix='.h5', delete=False, dir=str(tmp_path))
     outfile.close()
@@ -807,8 +870,8 @@ def test_build_matrix_region_empties_the_restriction_site_list(tmp_path):
     compute(hicBuildMatrix.main, args, 5)
 
     body = _qc_body(qc_folder)
-    assert "self circle\t0\t(0.00)\n" in body
-    assert "self ligation (removed)\t0\t(0.00)\n" in body
+    assert "self circle\t3\t(1.00)\n" in body
+    assert "same fragment\t20\t(6.67)\n" in body
     # The matrix covers chr3R alone.
     matrix = hm.hiCMatrix(outfile.name)
     assert list(matrix.chrBinBoundaries) == ['chr3R']

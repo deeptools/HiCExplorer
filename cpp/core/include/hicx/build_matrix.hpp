@@ -1,10 +1,10 @@
 // The machinery behind hicBuildMatrix, hicBuildMatrixMicroC and hicQuickQC:
 // hicexplorer/lib/buildMatrixMethods.py.
 //
-// Everything here reproduces the Python literally, including the places where
-// the Python is wrong. Each of those is marked QUIRK with the line it comes
-// from, and the list is repeated in the report. The port never silently
-// improves on the reference.
+// Everything here reproduces the Python, including the places where the Python
+// is odd and no fix has been decided. Each of those is marked QUIRK with the
+// line it comes from. The defects that HiCExplorer 4 fixes are listed in
+// tools/hicBuildMatrix.cpp (Q1 to Q6) and marked "fixed in HiCExplorer 4".
 //
 // Memory (cpp/PLAN.md 2.1). Chromosome names are interned once and every
 // interval carries a 32 bit id instead of a std::string. The DpnII cut site
@@ -84,13 +84,14 @@ struct UserRegion {
 
 // bed2interval_list over one BED file, appending to `out`.
 //
-// QUIRK (buildMatrixMethods.py:180). With --region the filter is
+// Q6, fixed in HiCExplorer 4 (buildMatrixMethods.py:180). With --region the
+// Python kept a cut site when
 //     chrom == region_chrom and region_start <= start and region_end <= end
-// and region_end is the *end of the chromosome* whenever --region names a bare
-// chromosome. The second condition therefore demands that the cut site reach
-// the end of the chromosome, so the restriction site list comes out empty or
-// nearly so. That is why the self circle and same fragment classification
-// changes as soon as --region is given.
+// and region_end is the end of the chromosome whenever --region names a bare
+// chromosome, so the cut site had to reach the end of the chromosome and the
+// restriction site list came out empty or nearly so (every close inward pair
+// was then "same fragment"). A cut site is kept now when it lies inside the
+// region: region_start <= start and end <= region_end.
 void bed2interval_list(const std::string& path, const ChromSizes& chrom_sizes,
                        const std::string& region, ChromNames& names,
                        std::vector<GenomeInterval>& out);

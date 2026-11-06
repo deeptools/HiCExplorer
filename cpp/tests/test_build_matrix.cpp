@@ -7,12 +7,15 @@
 #include <doctest/doctest.h>
 
 #include <cmath>
+#include <cstdio>
+#include <fstream>
 #include <optional>
 #include <string>
 #include <vector>
 
 #include "hicx/bam_file.hpp"
 #include "hicx/build_matrix.hpp"
+#include "hicx/build_matrix_run.hpp"
 
 using hicx::BinSearchIndex;
 using hicx::ChromNames;
@@ -374,4 +377,123 @@ TEST_CASE("the QC metadata JSON carries the log counts and the distance tables")
     }
     CHECK(total == 2);
     CHECK(distance.find("orientation")->find("outward")->as_array().size() == bins);
+}
+
+// --- defects of the Python that HiCExplorer 4 fixes (Q1 to Q6 of hicBuildMatrix.cpp)
+
+TEST_CASE("Q1: a pair is not unique only when both mates have quality 0") {
+    using hicx::build_matrix::PairVerdict;
+    using hicx::build_matrix::pair_verdict;
+    CHECK(pair_verdict(0, 0, 0, 0, 15) == PairVerdict::OneMateNotUnique);
+    // the first mate alone decided in 3.7.6
+    CHECK(pair_verdict(0, 0, 0, 30, 15) == PairVerdict::LowQuality);
+    CHECK(pair_verdict(0, 0, 30, 0, 15) == PairVerdict::LowQuality);
+    CHECK(pair_verdict(0, 0, 5, 5, 15) == PairVerdict::LowQuality);
+    CHECK(pair_verdict(0, 0, 30, 30, 15) == PairVerdict::Keep);
+    CHECK(pair_verdict(4, 0, 0, 0, 15) == PairVerdict::OneMateUnmapped);
+}
+
+TEST_CASE("Q6: --region keeps the restriction sites inside the region") {
+    const std::string path = "build_matrix_q6_cut_sites.bed";
+    {
+        std::ofstream file(path);
+        file << "chr1\t100\t104\nchr1\t500\t504\nchr1\t900\t904\nchr2\t100\t104\n";
+    }
+    const ChromSizes chrom_sizes{{"chr1", 1000}, {"chr2", 1000}};
+    ChromNames names;
+    std::vector<GenomeInterval> kept;
+    // a bare chromosome: its end is the chromosome length, 3.7.6 kept nothing
+    hicx::bed2interval_list(path, chrom_sizes, "chr1", names, kept);
+    CHECK(as_text(kept, names) == std::vector<std::string>{"chr1:100-104", "chr1:500-504",
+                                                           "chr1:900-904"});
+    kept.clear();
+    hicx::bed2interval_list(path, chrom_sizes, "chr1:200:600", names, kept);
+    CHECK(as_text(kept, names) == std::vector<std::string>{"chr1:500-504"});
+    std::remove(path.c_str());
+}
+
+namespace {
+
+// Two bins of 100 bases on one chromosome, a coverage cell every 10 bases.
+struct ClassifyPolicy {
+    std::vector<std::int64_t> position1, position2;
+    std::vector<bool> reverse1, reverse2;
+    bool site_between = false;  // a restriction site lies between the mates
+    std::vector<int> coverage = std::vector<int>(20, 0);
+    int added = 0;
+
+    std::int64_t tid(std::size_t, int) const { return 0; }
+    std::int64_t pos(std::size_t i, int w) const { return w == 0 ? position1[i] : position2[i]; }
+    std::int64_t qlen(std::size_t, int) const { return 20; }
+    std::int64_t seq_len(std::size_t, int) const { return 20; }
+    bool is_reverse(std::size_t i, int w) const { return w == 0 ? reverse1[i] : reverse2[i]; }
+    std::optional<hicx::SearchInterval> bin(std::size_t, int, std::int64_t middle) const {
+        const std::uint32_t id = middle < 100 ? 0 : 1;
+        return hicx::SearchInterval{id * 100, id * 100 + 99, id};
+    }
+    bool rf_enabled() const { return true; }
+    bool rf_overlaps(std::size_t, std::int64_t, std::int64_t) const { return site_between; }
+    bool dangling(std::size_t, int, std::size_t) const { return false; }
+    std::pair<std::int64_t, std::int64_t> coverage_range(std::uint32_t bin_id) const {
+        return {bin_id * 10, bin_id * 10 + 10};  // exclusive end, Q4
+    }
+    void coverage_add(std::int64_t cell) { ++coverage[static_cast<std::size_t>(cell)]; }
+    void set_isize(std::size_t) {}
+    void add_pair(std::size_t, std::uint32_t, std::uint32_t) { ++added; }
+};
+
+hicx::build_matrix::ClassifyOptions classify_options(bool keep_self_circles) {
+    hicx::build_matrix::ClassifyOptions options;
+    options.restriction_sequences = {"GATC", "AAGCTT"};
+    options.keep_self_circles = keep_self_circles;
+    return options;
+}
+
+}  // namespace
+
+TEST_CASE("Q2: a self circle is counted once and removed unless it is kept") {
+    // outward pair (first mate reverse, second forward), no restriction site
+    // between the mates, two restriction sequences
+    ClassifyPolicy removed;
+    removed.position1 = {20};
+    removed.position2 = {120};
+    removed.reverse1 = {true};
+    removed.reverse2 = {false};
+    hicx::QcCounters counters;
+    hicx::build_matrix::classify_pairs(classify_options(false), 0, 1, removed, counters);
+    CHECK(counters.self_circle == 1);  // 3.7.6 counted it once per sequence
+    CHECK(removed.added == 0);         // 3.7.6 kept it
+
+    ClassifyPolicy kept = removed;
+    hicx::QcCounters kept_counters;
+    hicx::build_matrix::classify_pairs(classify_options(true), 0, 1, kept, kept_counters);
+    CHECK(kept_counters.self_circle == 1);
+    CHECK(kept.added == 1);
+
+    // with a restriction site between the mates it is no self circle at all
+    ClassifyPolicy with_site = removed;
+    with_site.site_between = true;
+    hicx::QcCounters site_counters;
+    hicx::build_matrix::classify_pairs(classify_options(false), 0, 1, with_site, site_counters);
+    CHECK(site_counters.self_circle == 0);
+    CHECK(with_site.added == 1);
+}
+
+TEST_CASE("Q3 and Q4: each mate adds its coverage to its own bin, up to the last cell") {
+    ClassifyPolicy policy;
+    // mate 1 in bin 0 at its end, mate 2 in bin 1 at its end; 20 bases
+    // cover two cells of ten bases, the last two cells of each bin
+    policy.position1 = {80};
+    policy.position2 = {180};
+    policy.reverse1 = {true};
+    policy.reverse2 = {true};  // both reverse: no inward or outward filter applies
+    hicx::QcCounters counters;
+    hicx::build_matrix::classify_pairs(classify_options(false), 0, 1, policy, counters);
+    REQUIRE(policy.added == 1);
+    // cells 8 and 9 of bin 0 (3.7.6 put mate 1 into bin 1 and lost cell 9)
+    CHECK(policy.coverage[8] == 1);
+    CHECK(policy.coverage[9] == 1);
+    // cells 8 and 9 of bin 1 are indices 18 and 19
+    CHECK(policy.coverage[18] == 1);
+    CHECK(policy.coverage[19] == 1);
 }

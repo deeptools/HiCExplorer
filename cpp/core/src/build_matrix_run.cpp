@@ -161,8 +161,11 @@ class RecordPolicy {
             context_.coverage[cell].fetch_add(1, std::memory_order_relaxed);
         }
     }
-    // Q5: the isize patch of buildMatrixMethods.py:814 happens in the worker's
-    // copy and never reaches the written record, so it is not applied.
+    // Q5, fixed in HiCExplorer 4: the Python patched the insert size in the
+    // worker's copy of the records and wrote the master's copy, so --outBam
+    // never carried it. Here the patch is applied to the record that is
+    // written, in the --outBam loop of the master, for every pair on one
+    // chromosome (the only pairs the Python patched).
     void set_isize(std::size_t) const {}
     void add_pair(std::size_t i, std::uint32_t bin1, std::uint32_t bin2) {
         if (!context_.options.quick_qc_mode) {
@@ -672,7 +675,10 @@ void run(const Arguments& args, const Hooks& hooks) {
     for (std::size_t i = 0; i < bin_intervals.size(); ++i) {
         context.coverage_begin[i] = static_cast<std::uint32_t>(coverage_elements);
         coverage_elements += (bin_intervals[i].end - bin_intervals[i].start) / 10;
-        context.coverage_end[i] = static_cast<std::uint32_t>(coverage_elements - 1);
+        // Exclusive end (Q4, fixed in HiCExplorer 4: the Python stored the last
+        // valid index and then read the cells below it, so the last cell of
+        // every bin was neither filled nor read).
+        context.coverage_end[i] = static_cast<std::uint32_t>(coverage_elements);
     }
     std::vector<std::atomic<std::uint32_t>> coverage(
         static_cast<std::size_t>(std::max<std::int64_t>(0, coverage_elements)));
@@ -827,6 +833,10 @@ void run(const Arguments& args, const Hooks& hooks) {
                     mate2.set_paired_flag_second();
                     mate1.set_mate(mate2.tid(), mate2.pos());
                     mate2.set_mate(mate1.tid(), mate1.pos());
+                    if (mate1.tid() == mate2.tid()) {
+                        mate1.set_isize(static_cast<std::int64_t>(mate2.pos()) - mate1.pos());
+                        mate2.set_isize(static_cast<std::int64_t>(mate1.pos()) - mate2.pos());
+                    }
                     out_bam->write(mate1);
                     out_bam->write(mate2);
                 }
@@ -1007,7 +1017,7 @@ void run(const Arguments& args, const Hooks& hooks) {
     for (std::size_t i = 0; i < enlarged.size(); ++i) {
         std::uint32_t max_element = 0;
         const std::int64_t from = context.coverage_begin[i];
-        const std::int64_t to = context.coverage_end[i];  // Q4: exclusive end
+        const std::int64_t to = context.coverage_end[i];
         for (std::int64_t k = from; k < to && k < static_cast<std::int64_t>(coverage.size()); ++k) {
             const std::uint32_t value = coverage[static_cast<std::size_t>(k)].load(std::memory_order_relaxed);
             if (value > max_element) {

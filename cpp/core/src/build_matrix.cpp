@@ -180,6 +180,10 @@ void bed2interval_list(const std::string& path, const ChromSizes& chrom_sizes,
                        std::vector<GenomeInterval>& out) {
     std::string region_chrom;
     std::int64_t region_start = 0;
+    // Q6, fixed in HiCExplorer 4: a cut site is kept when it lies inside the
+    // region (start >= region start and end <= region end). The Python kept
+    // the sites with `region_end <= end`, and region_end defaults to the
+    // chromosome length, so --region chrX emptied the list.
     std::int64_t region_end = 0;
     const bool filtered = !region.empty();
     if (filtered) {
@@ -217,7 +221,7 @@ void bed2interval_list(const std::string& path, const ChromSizes& chrom_sizes,
         const std::int64_t start = std::stoll(start_text);
         const std::int64_t end = std::stoll(end_text);
         if (filtered) {
-            if (chrom == region_chrom && region_start <= start && region_end <= end) {
+            if (chrom == region_chrom && region_start <= start && end <= region_end) {
                 out.push_back({names.intern(chrom), start, end});
             }
         } else {
@@ -234,8 +238,7 @@ std::vector<GenomeInterval> get_rf_bins(const std::vector<GenomeInterval>& cut_s
         // zip(*[]) raises "not enough values to unpack"; the port reports it.
         throw std::runtime_error(
             "no restriction cut sites left to build bins from. With --region "
-            "this is the empty list bed2interval_list produces; see the QUIRK "
-            "note on the region filter");
+            "no cut site of the restriction cut file lies inside the region");
     }
     const std::size_t n = cut_sites.size();
     const std::int64_t rest_site_len = cut_sites[0].end - cut_sites[0].start;

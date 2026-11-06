@@ -40,9 +40,9 @@
 //  P2 Not unique: a pair_type letter M counts as "One mate not unique".
 //  P3 --minMappingQuality applies when the file has mapq1 and mapq2: a pair
 //     with either below it counts as "One mate not unique" when either is 0
-//     and as "Low mapping quality" otherwise. This deliberately does not copy
-//     Q1 of the BAM route, whose chained comparison looks at the first mate
-//     only. Without the two columns an explicit --minMappingQuality is refused
+//     and as "Low mapping quality" otherwise. (The BAM route charges
+//     "One mate not unique" when both mates have quality 0, Q1 of
+//     hicBuildMatrix.cpp.) Without the two columns an explicit --minMappingQuality is refused
 //     (exit 1, before any output), and the default is not applied, with a
 //     note on stderr.
 //  P4 Duplicates. pair_type DD (pairtools dedup --mark-dups) counts as

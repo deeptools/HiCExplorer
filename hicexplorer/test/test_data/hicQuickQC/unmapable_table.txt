@@ -1,2 +1,2 @@
 File	Hi-C contacts	Hi-C contacts_%	Low mapping quality	Low mapping quality_%	One mate not unique	One mate not unique_%	One mate unmapped	One mate unmapped_%
-/tmp/tmpriojfa68.h5	697	0.1994848311390956	634	0.18145392100744132	68	0.019461934745277618	1792	0.5128792215226102
+/tmp/tmpg4kl_qcl.h5	678	0.19404693760732686	701	0.2006296508299943	1	0.00028620492272467084	1792	0.5128792215226102

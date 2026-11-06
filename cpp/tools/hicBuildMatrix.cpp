@@ -30,35 +30,39 @@
 // non atomic read-modify-write from several processes, is not.
 //
 // ---------------------------------------------------------------------------
-// Reproduced defects (never silently fixed)
+// Defects of the Python, fixed in HiCExplorer 4
 // ---------------------------------------------------------------------------
-//  Q1 buildMatrixMethods.py:523. `if mate1.mapq == 0 & mate2.mapq == 0` parses
-//     as `mate1.mapq == (0 & mate2.mapq) == 0`, a chained comparison that is
-//     simply `mate1.mapq == 0`. So a pair is charged to "One mate not unique"
-//     on the first mate's quality alone and the second mate is never looked
-//     at. Reproduced.
-//  Q2 buildMatrixMethods.py:759-762. The self circle test's `continue` sits
-//     inside the `for restrictionSequence` loop, not inside the read loop, so
-//     a self circle is *counted* and then kept regardless of
-//     --keepSelfCircles. The option changes the QC log and nothing else.
-//     With two restriction sequences the same pair can be counted twice.
-//     Reproduced.
-//  Q3 buildMatrixMethods.py:841-851. The coverage vector is filled using
-//     `mate_bin`, which after the bin lookup loop holds the *second* mate's
-//     bin for both mates. So the first mate's offset is measured against the
-//     wrong bin start and its coverage lands in the second mate's bin.
-//     Reproduced.
-//  Q4 buildMatrixMethods.py:1231. The per bin maximum is taken over
-//     range(begin, end) with end already the last valid index, so the last
-//     coverage cell of every bin is never read. Reproduced.
-//  Q5 buildMatrixMethods.py:814-815 against :1149-1170. The insert size is
-//     patched in the worker process and the record is written from the
-//     master's own copy, so --outBam never carries the patched isize.
-//     Reproduced: the port does not patch it either.
-//  Q6 buildMatrixMethods.py:180. The --region filter on the restriction cut
-//     file demands `region_end <= bed_end`, and region_end defaults to the
-//     chromosome length, so --region chrX leaves the cut site list empty and
-//     every close inward pair is classified as "same fragment". Reproduced.
+//  Q1 (fixed) buildMatrixMethods.py:523. `if mate1.mapq == 0 & mate2.mapq == 0`
+//     parses as `mate1.mapq == (0 & mate2.mapq) == 0`, a chained comparison
+//     that is simply `mate1.mapq == 0`, so a pair was charged to "One mate not
+//     unique" on the first mate's quality alone. HiCExplorer 4 charges it when
+//     the mapping quality of both mates is 0; any other pair below
+//     --minMappingQuality is "Low mapping quality".
+//  Q2 (fixed) buildMatrixMethods.py:759-762. The self circle test's `continue`
+//     sat inside the `for restrictionSequence` loop, not inside the read loop,
+//     so a self circle was counted and kept regardless of --keepSelfCircles,
+//     and with two restriction sequences the same pair was counted twice.
+//     HiCExplorer 4 looks for a restriction site with every sequence, counts
+//     a pair without one once and removes it unless --keepSelfCircles.
+//  Q3 (fixed) buildMatrixMethods.py:841-851. The coverage vector was filled
+//     using `mate_bin`, which after the bin lookup loop held the second mate's
+//     bin for both mates, so the first mate's coverage landed in the second
+//     mate's bin. Each mate now contributes to the bin it belongs to.
+//  Q4 (fixed) buildMatrixMethods.py:993 and :1231. The coverage index of a bin
+//     ended at its last valid cell and both the filling and the per bin
+//     maximum stopped before that end, so the last coverage cell of every bin
+//     was never filled nor read. The end is now exclusive and the whole bin
+//     counts.
+//  Q5 (fixed) buildMatrixMethods.py:814-815 against :1149-1170. The insert
+//     size was patched in the worker process and the record was written from
+//     the master's own copy, so --outBam never carried it. The records of
+//     pairs on one chromosome are written with isize = mate2.pos - mate1.pos
+//     and the opposite sign for the second mate.
+//  Q6 (fixed) buildMatrixMethods.py:180. The --region filter on the
+//     restriction cut file demanded `region_end <= bed_end`, and region_end
+//     defaults to the chromosome length, so --region chrX left the cut site
+//     list empty and every close inward pair was classified as "same
+//     fragment". A cut site is kept when it lies inside the region.
 //  Q7 (fixed in HiCExplorer 4) buildMatrixMethods.py:1379. An .mcool name now
 //     writes one resolution per bin size, from one bin size on; several bin
 //     sizes with an .h5 or .cool name are an error. The Python: The mcool branch is taken only for
