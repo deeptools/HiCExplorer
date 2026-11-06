@@ -1156,6 +1156,7 @@ double median_of(std::vector<double> v) {
 double quantile_type7(std::vector<double> v, double p) {
     std::sort(v.begin(), v.end());
     const long n = static_cast<long>(v.size());
+    if (n == 0) return std::numeric_limits<double>::quiet_NaN();  // R's quantile of an empty vector is NA
     if (n == 1) return v[0];
     const double h = (static_cast<double>(n) - 1.0) * p;
     const long lo = static_cast<long>(std::floor(h));
@@ -1904,6 +1905,15 @@ BackgroundModel fit_chicago_background(std::vector<ChinputRecord> raw,
     // read_sample itself frees raw internally, right after its own first
     // (and only) stage that reads it, so nothing further is needed here.
     const std::vector<ChiInteraction> x = read_sample(std::move(raw), baitmap, fs, threads);
+    if (x.empty()) {
+        throw std::runtime_error(
+            "no interaction is left to fit the background model to: after the fragment length "
+            "filter (--minFragLen " + std::to_string(fs.min_frag_len) + ", --maxFragLen " +
+            std::to_string(fs.max_frag_len) + "), the removal of self-ligations and baits with "
+            "fewer than --minNPerBait " + std::to_string(fs.min_n_per_bait) +
+            " reads, nothing remains. The input has too few reads per bait; a lower "
+            "--minNPerBait may help.");
+    }
     model.tlb = add_tlb(x, fs, tlb_filter_top_percent, tlb_min_prox_oe_per_bin, tlb_min_prox_b2b_per_bin,
                          threads);
     model.bait_factors = normalise_baits(x, rmap, baitmap, npb_path, fs, threads);
