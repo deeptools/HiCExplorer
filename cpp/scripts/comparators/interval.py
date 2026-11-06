@@ -65,8 +65,12 @@ def compare(path_a, path_b, cls, opts=None):
                 break
         if len(lines_a) != len(lines_b):
             diffs.insert(0, f"line count differs: {len(lines_a)} vs {len(lines_b)}")
-        return fail("files differ", *diffs, lines_py=len(lines_a),
-                    lines_cpp=len(lines_b))
+        # fail() takes one message and metrics; the line diffs go into the
+        # Result's diff list so that a failing byte comparison reports them
+        # instead of raising a TypeError.
+        return Result(False, None,
+                      {"lines_py": len(lines_a), "lines_cpp": len(lines_b)},
+                      ["files differ"] + diffs)
 
     set_a = set(lines_a)
     set_b = set(lines_b)
