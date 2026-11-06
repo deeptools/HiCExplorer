@@ -78,6 +78,7 @@
 #include "hicx/npz_file.hpp"
 #include "hicx/numpy_compat.hpp"
 #include "hicx/plot_bridge.hpp"
+#include "hicx/ent3c.hpp"
 #include "hicx/genomedisco.hpp"
 #include "hicx/hicspector.hpp"
 #include "hicx/quasar.hpp"
@@ -104,7 +105,7 @@ const char* const kDescription =
 const char* const kUsage =
     "usage: hicCorrelate --matrices MATRICES [MATRICES ...] [--zMin ZMIN]\n"
     "                    [--zMax ZMAX] [--colorMap] [--plotNumbers]\n"
-    "                    [--method {pearson,spearman,scc,genomedisco,hicspector,quasar}]\n"
+    "                    [--method {pearson,spearman,scc,genomedisco,hicspector,quasar,ent3c}]\n"
     "                    [--log1p]\n"
     "                    [--labels sample1 sample2 [sample1 sample2 ...]]\n"
     "                    [--range RANGE] --outFileNameHeatmap OUTFILENAMEHEATMAP\n"
@@ -147,7 +148,7 @@ const char* const kHelp =
     "                        of the heatmap. (default: False)\n"
     "\n"
     "Optional arguments:\n"
-    "  --method {pearson,spearman,scc,genomedisco,hicspector,quasar}\n"
+    "  --method {pearson,spearman,scc,genomedisco,hicspector,quasar,ent3c}\n"
     "                        Correlation method to use. 'scc' is HiCRep's stratum-\n"
     "                        adjusted correlation coefficient (cpp_only, no\n"
     "                        HiCExplorer Python counterpart); see\n"
@@ -160,7 +161,11 @@ const char* const kHelp =
     "                        cpp_only); see --hicspectorNumEvec,\n"
     "                        --hicspectorIprCut. 'quasar' is QuASAR-Rep's\n"
     "                        replicate score (also cpp_only); see\n"
-    "                        --quasarWidth (Default: pearson).\n"
+    "                        --quasarWidth. 'ent3c' is ENT3C's entropy-based\n"
+    "                        similarity (also cpp_only); see\n"
+    "                        --ent3cSubmatrixSize, --ent3cChromosomeSplit,\n"
+    "                        --ent3cWindowShift, --ent3cMaxWindows\n"
+    "                        (Default: pearson).\n"
     "  --log1p               If set, then the log1p of the matrix values is used.\n"
     "                        This parameter has no effect for Spearman correlations\n"
     "                        but changes the output of Pearson correlation and, for\n"
@@ -249,7 +254,22 @@ const char* const kHelp =
     "scc/genomedisco/hicspector, it only accepts cool/mcool input, reports the\n"
     "mean over shared chromosomes (excluding \"M\"/\"MT\"/\"chrM\" unless --chromosomes\n"
     "restricts the set), ignores --log1p and --range, reuses the same\n"
-    "clustering/heatmap, and has no scatter plot.\n";
+    "clustering/heatmap, and has no scatter plot.\n"
+    "\n"
+    "--method ent3c (cpp_only): ENT3C's entropy-based similarity (Lainscsek and\n"
+    "Taher, NAR Genom Bioinform 2024). Per chromosome, bins empty in any input\n"
+    "matrix are removed from all of them; submatrices of --ent3cSubmatrixSize bins\n"
+    "(or the chromosome's bin count divided by --ent3cChromosomeSplit) are taken\n"
+    "along the diagonal every --ent3cWindowShift bins, at most --ent3cMaxWindows\n"
+    "of them. Each submatrix is log-transformed, its zeros set to its smallest\n"
+    "value, and the von Neumann entropy of its Pearson correlation matrix is one\n"
+    "value of the matrix's entropy signal. The score of a pair is the Pearson\n"
+    "correlation of the two signals, averaged over the chromosomes. As in ENT3C\n"
+    "2.2.2, a shift raised for one chromosome stays raised for the following ones\n"
+    "(in the matrix's chromosome order), and because the empty bins are removed\n"
+    "across all inputs, a pair's score can change with the other matrices given. It only accepts cool/mcool input, uses the raw counts,\n"
+    "ignores --log1p and --range, reuses the same clustering/heatmap, and has no\n"
+    "scatter plot. --threads computes submatrices concurrently.\n";
 
 class PythonError : public std::runtime_error {
   public:
@@ -431,6 +451,23 @@ std::vector<RawCoolMatrix> load_raw_cools(const std::vector<std::string>& paths,
     return loaded;
 }
 
+// Whether the chromosome takes part in a reproducibility measure: the ones of
+// --chromosomes, or else every one but the mitochondrial (hicrep's own
+// --excludeChr default, used for every method).
+bool scored_chromosome(const std::string& chrom,
+                       const std::optional<std::vector<std::string>>& chromosomes) {
+    if (chromosomes.has_value()) {
+        return contains(*chromosomes, chrom);
+    }
+    return !(chrom == "M" || chrom == "MT" || chrom == "chrM");
+}
+
+// The heatmap of a reproducibility measure: `results` holds the score of
+// every pair a < b at a * n + b and 1 on the diagonal.
+int draw_reproducibility(const std::vector<double>& results, const std::vector<std::string>& labels,
+                         const std::string& method, const cli::Namespace& ns,
+                         const std::optional<std::string>& plot_data);
+
 int run_reproducibility(const std::vector<RawCoolMatrix>& loaded,
                         const std::vector<std::string>& labels,
                         const std::optional<std::vector<std::string>>& chromosomes,
@@ -445,12 +482,8 @@ int run_reproducibility(const std::vector<RawCoolMatrix>& loaded,
             double sum = 0.0;
             int count = 0;
             for (const auto& [chrom, range_a] : loaded[a].boundaries) {
-                if (chromosomes.has_value()) {
-                    if (!contains(*chromosomes, chrom)) {
-                        continue;
-                    }
-                } else if (chrom == "M" || chrom == "MT" || chrom == "chrM") {
-                    continue;  // hicrep's own --excludeChr default, used for every method
+                if (!scored_chromosome(chrom, chromosomes)) {
+                    continue;
                 }
                 const auto it = std::find_if(boundaries_b.begin(), boundaries_b.end(),
                                              [&](const auto& entry) { return entry.first == chrom; });
@@ -471,6 +504,23 @@ int run_reproducibility(const std::vector<RawCoolMatrix>& loaded,
             }
             results[a * num_files + b] =
                 count > 0 ? sum / count : std::numeric_limits<double>::quiet_NaN();
+        }
+    }
+    return draw_reproducibility(results, labels, method, ns, plot_data);
+}
+
+int draw_reproducibility(const std::vector<double>& results, const std::vector<std::string>& labels,
+                         const std::string& method, const cli::Namespace& ns,
+                         const std::optional<std::string>& plot_data) {
+    const std::size_t num_files = labels.size();
+    for (std::size_t a = 0; a < num_files; ++a) {
+        for (std::size_t b = a + 1; b < num_files; ++b) {
+            if (std::isnan(results[a * num_files + b])) {
+                throw PythonError("ValueError: --method " + method + " gave no finite score for " +
+                                  labels[a] + " and " + labels[b] +
+                                  " on any chromosome; the chromosomes are too small or too sparse "
+                                  "for it (see --chromosomes)");
+            }
         }
     }
     std::vector<double> symmetric = results;
@@ -578,6 +628,91 @@ int run_quasar(const std::vector<std::string>& matrix_paths, const std::vector<s
             extract_chromosome(loaded[b].matrix, range_b.first, range_b.last), options);
     };
     return run_reproducibility(loaded, labels, chromosomes, "quasar", score, ns, plot_data);
+}
+
+// --method ent3c computes each matrix's entropy signal once per chromosome,
+// over the bins that are non-empty in every input matrix (ENT3C's own
+// exclusion across all compared files), and scores each pair by the Pearson
+// correlation of the two signals. So unlike the other measures a pair's score
+// depends on the other input matrices when they have empty bins of their
+// own. A chromosome missing from any matrix is skipped.
+int run_ent3c(const std::vector<std::string>& matrix_paths, const std::vector<std::string>& labels,
+              const std::optional<std::vector<std::string>>& chromosomes,
+              const hicx::ent3c::Options& options, const cli::Namespace& ns,
+              const std::optional<std::string>& plot_data) {
+    const std::vector<RawCoolMatrix> loaded = load_raw_cools(matrix_paths, "ent3c");
+    const std::size_t num_files = loaded.size();
+    std::vector<double> sums(num_files * num_files, 0.0);
+    std::vector<int> counts(num_files * num_files, 0);
+    // ENT3C (2.2.2) keeps the window shift it raised for one chromosome for
+    // the next ones, so a chromosome's windows depend on the chromosomes
+    // before it; the shift here carries over the same way, in the order of
+    // the chromosomes in the first matrix.
+    std::int64_t shift = options.window_shift;
+    for (const auto& [chrom, range_first] : loaded[0].boundaries) {
+        if (!scored_chromosome(chrom, chromosomes)) {
+            continue;
+        }
+        std::vector<hicx::ent3c::ChromosomeEntries> entries;
+        for (const RawCoolMatrix& matrix : loaded) {
+            const auto it = std::find_if(matrix.boundaries.begin(), matrix.boundaries.end(),
+                                         [&](const auto& entry) { return entry.first == chrom; });
+            if (it == matrix.boundaries.end()) {
+                break;
+            }
+            if (it->second.last - it->second.first != range_first.last - range_first.first) {
+                throw PythonError("ValueError: chromosome " + chrom +
+                                  " has a different number of bins between the input matrices");
+            }
+            entries.push_back(
+                extract_chromosome_with_diagonal(matrix.matrix, it->second.first, it->second.last));
+        }
+        if (entries.size() != num_files) {
+            continue;
+        }
+        std::vector<bool> empty(static_cast<std::size_t>(entries[0].nbins), false);
+        for (const auto& matrix_entries : entries) {
+            const std::vector<bool> own = hicx::ent3c::empty_bins(matrix_entries);
+            for (std::size_t i = 0; i < empty.size(); ++i) {
+                empty[i] = empty[i] || own[i];
+            }
+        }
+        std::vector<std::int64_t> keep;
+        for (std::size_t i = 0; i < empty.size(); ++i) {
+            if (!empty[i]) {
+                keep.push_back(static_cast<std::int64_t>(i));
+            }
+        }
+        hicx::ent3c::Options chromosome_options = options;
+        chromosome_options.window_shift = shift;
+        const hicx::ent3c::Windows windows =
+            hicx::ent3c::windows(static_cast<std::int64_t>(keep.size()), chromosome_options);
+        shift = windows.shift;
+        std::vector<std::vector<double>> signals;
+        for (const auto& matrix_entries : entries) {
+            signals.push_back(
+                hicx::ent3c::entropy_signal(matrix_entries, keep, windows, options.threads));
+        }
+        for (std::size_t a = 0; a < num_files; ++a) {
+            for (std::size_t b = a + 1; b < num_files; ++b) {
+                const double q = hicx::ent3c::similarity(signals[a], signals[b]);
+                if (std::isfinite(q)) {
+                    sums[a * num_files + b] += q;
+                    ++counts[a * num_files + b];
+                }
+            }
+        }
+    }
+    std::vector<double> results(num_files * num_files, 0.0);
+    for (std::size_t a = 0; a < num_files; ++a) {
+        results[a * num_files + a] = 1.0;
+        for (std::size_t b = a + 1; b < num_files; ++b) {
+            const std::size_t at = a * num_files + b;
+            results[at] = counts[at] > 0 ? sums[at] / counts[at]
+                                         : std::numeric_limits<double>::quiet_NaN();
+        }
+    }
+    return draw_reproducibility(results, labels, "ent3c", ns, plot_data);
 }
 
 SampleEntries load_sample(const std::string& path,
@@ -1022,7 +1157,7 @@ int main(int argc, char** argv) {
         .help("If set, then the correlation number is plotted on top of the heatmap.");
     cli::ArgumentGroup& optional = parser.group("Optional arguments");
     optional.add({"--method"})
-        .choices({"pearson", "spearman", "scc", "genomedisco", "hicspector", "quasar"})
+        .choices({"pearson", "spearman", "scc", "genomedisco", "hicspector", "quasar", "ent3c"})
         .default_value("pearson")
         .help("Correlation method to use. 'scc' is HiCRep's stratum-adjusted correlation "
               "coefficient (cpp_only, no HiCExplorer Python counterpart); see "
@@ -1031,7 +1166,9 @@ int main(int argc, char** argv) {
               "--genomediscoTmin, --genomediscoTmax, --genomediscoNoSubsample. 'hicspector' is "
               "HiC-Spector's spectral reproducibility score (also cpp_only); see "
               "--hicspectorNumEvec, --hicspectorIprCut. 'quasar' is QuASAR-Rep's replicate "
-              "score (also cpp_only); see --quasarWidth (Default: %(default)s).");
+              "score (also cpp_only); see --quasarWidth. 'ent3c' is ENT3C's entropy-based "
+              "similarity (also cpp_only); see --ent3cSubmatrixSize, --ent3cChromosomeSplit, "
+              "--ent3cWindowShift, --ent3cMaxWindows (Default: %(default)s).");
     optional.add({"--log1p"})
         .action(cli::Action::StoreTrue)
         .help("If set, then the log1p of the matrix values is used.");
@@ -1134,6 +1271,41 @@ int main(int argc, char** argv) {
                   "each side a bin's background-corrected contact profile covers, and the "
                   "largest genomic distance (in bins) two positions can be compared at.")
         .help("Half-window size, in bins, for --method quasar (Default: %(default)s).");
+    optional.add({"--ent3cSubmatrixSize"})
+        .type("int")
+        .default_value(std::int64_t{0})
+        .cpp_only("ENT3C's SUB_M_SIZE_FIX, only for --method ent3c: the dimension n of the "
+                  "submatrices along the diagonal. 0 (the default) derives it from "
+                  "--ent3cChromosomeSplit.")
+        .help("Submatrix dimension in bins for --method ent3c; 0 derives it from "
+              "--ent3cChromosomeSplit (Default: %(default)s).");
+    optional.add({"--ent3cChromosomeSplit"})
+        .type("int")
+        .default_value(std::int64_t{7})
+        .cpp_only("ENT3C's CHRSPLIT, only for --method ent3c: n = floor(N / split + 0.5) for a "
+                  "chromosome of N non-empty bins. 7 is the default of the ENT3C publication.")
+        .help("Into how many parts a chromosome is split to derive the --method ent3c "
+              "submatrix dimension (Default: %(default)s).");
+    optional.add({"--ent3cWindowShift"})
+        .type("int")
+        .default_value(std::int64_t{1})
+        .cpp_only("ENT3C's phi, only for --method ent3c: the shift in bins between consecutive "
+                  "submatrices, raised until there are at most --ent3cMaxWindows of them.")
+        .help("Shift in bins between consecutive --method ent3c submatrices (Default: "
+              "%(default)s).");
+    optional.add({"--ent3cMaxWindows"})
+        .type("int")
+        .default_value(std::int64_t{1000})
+        .cpp_only("ENT3C's PHI_MAX, only for --method ent3c: the largest number of submatrices, "
+                  "and so of values in the entropy signal, per chromosome. 0 sets no limit.")
+        .help("Maximum number of --method ent3c submatrices per chromosome; 0 sets no limit "
+              "(Default: %(default)s).");
+    optional.add({"--threads", "-t"})
+        .type("int")
+        .default_value(std::int64_t{4})
+        .cpp_only("Only --method ent3c is parallel: its submatrices are computed concurrently. "
+                  "The result does not depend on the number of threads.")
+        .help("Number of threads for --method ent3c (Default: %(default)s).");
 
     const cli::Namespace ns = parser.parse(argc, argv);
     if (const int refused = hicx::plot::preflight("hicCorrelate", !ns.given("plotData")); refused != 0) {
@@ -1192,6 +1364,20 @@ int main(int argc, char** argv) {
             hs_options.num_evec = static_cast<int>(ns.integer("hicspectorNumEvec"));
             hs_options.ipr_cut = ns.real("hicspectorIprCut");
             return run_hicspector(matrices, labels, chromosomes, hs_options, ns, plot_data);
+        } catch (const std::exception& error) {
+            std::fprintf(stderr, "hicCorrelate: %s\n", error.what());
+            return 1;
+        }
+    }
+    if (method == "ent3c") {
+        try {
+            hicx::ent3c::Options e_options;
+            e_options.submatrix_size = ns.integer("ent3cSubmatrixSize");
+            e_options.chromosome_split = ns.integer("ent3cChromosomeSplit");
+            e_options.window_shift = ns.integer("ent3cWindowShift");
+            e_options.max_windows = ns.integer("ent3cMaxWindows");
+            e_options.threads = static_cast<int>(std::max<std::int64_t>(ns.integer("threads"), 1));
+            return run_ent3c(matrices, labels, chromosomes, e_options, ns, plot_data);
         } catch (const std::exception& error) {
             std::fprintf(stderr, "hicCorrelate: %s\n", error.what());
             return 1;

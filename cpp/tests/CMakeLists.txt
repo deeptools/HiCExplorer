@@ -58,6 +58,7 @@ add_executable(hicx_tests
     test_genomedisco.cpp
     test_hicspector.cpp
     test_quasar.cpp
+    test_ent3c.cpp
     test_arrowhead.cpp
     test_python_api_core.cpp
     test_api_aggregate.cpp
@@ -216,6 +217,13 @@ add_test(NAME hicCorrelate_hicspector_cli
 # fixture; see the script's header.
 add_test(NAME hicCorrelate_quasar_cli
          COMMAND ${HICX_BASH} "${CMAKE_CURRENT_SOURCE_DIR}/cli/hicCorrelate_quasar_cli.sh"
+                 $<TARGET_FILE:hicCorrelate> "${HICX_TEST_DATA}")
+
+# hicCorrelate --method ent3c: ENT3C's entropy-based similarity, checked
+# against the values ENT3C 2.2.2 gives on the 2.5 Mb GM12878 test matrices
+# (see the script's header).
+add_test(NAME hicCorrelate_ent3c_cli
+         COMMAND ${HICX_BASH} "${CMAKE_CURRENT_SOURCE_DIR}/cli/hicCorrelate_ent3c_cli.sh"
                  $<TARGET_FILE:hicCorrelate> "${HICX_TEST_DATA}")
 
 # hicArrowhead (cpp/PLAN.md tier 9): Juicer/Juicebox's own Arrowhead

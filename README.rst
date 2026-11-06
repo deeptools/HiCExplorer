@@ -65,7 +65,7 @@ New in version 4:
 - **Differential analysis**: ``hicDifferentialAnalysis`` tests domains, loops and compartments between conditions
   with replicates.
 - **Quality control**: ``hicMatrixQC`` reports on finished cool and mcool matrices, and ``hicCorrelate`` computes
-  the reproducibility measures SCC, GenomeDISCO, HiC-Spector and QuASAR-Rep.
+  the reproducibility measures SCC, GenomeDISCO, HiC-Spector, QuASAR-Rep and ENT3C.
 - **Formats**: ``hicConvertFormat`` reads .hic files of versions 6 to 9 and writes versions 8 and 9, and
   ``hicBuildMatrix`` reads the 4DN .pairs format.
 

@@ -128,6 +128,7 @@ add_library(hicx4core
     src/py_text.cpp
     src/read_bed.cpp
     src/genomedisco.cpp
+    src/ent3c.cpp
     src/hicspector.cpp
     src/quasar.cpp
     src/reduce_matrix.cpp

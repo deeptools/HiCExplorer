@@ -5,7 +5,8 @@ Computes and visualizes the correlation of Hi-C matrices.
 ```text
 usage: hicCorrelate --matrices MATRICES [MATRICES ...] [--zMin ZMIN]
                     [--zMax ZMAX] [--colorMap] [--plotNumbers]
-                    [--method {pearson,spearman}] [--log1p]
+                    [--method {pearson,spearman,scc,genomedisco,hicspector,quasar,ent3c}]
+                    [--log1p]
                     [--labels sample1 sample2 [sample1 sample2 ...]]
                     [--range RANGE] --outFileNameHeatmap OUTFILENAMEHEATMAP
                     --outFileNameScatter OUTFILENAMESCATTER
@@ -36,15 +37,38 @@ Options for generating the correlation heatmap
 
 | Flag | Meaning |
 |---|---|
-| `--method {pearson,spearman}` | Correlation method to use (Default: pearson). |
+| `--method {pearson,spearman,scc,genomedisco,hicspector,quasar,ent3c}` | Correlation method to use. `scc`, `genomedisco`, `hicspector`, `quasar` and `ent3c` are the reproducibility measures described below (Default: pearson). |
 | `--log1p` | If set, then the log1p of the matrix values is used. This parameter has no effect for Spearman correlations but changes the output of Pearson correlation and, for the scatter plot, if set, the visualization of the values is easier. (default: False) |
 | `--labels sample1 sample2 [sample1 sample2 ...], -l sample1 sample2 [sample1 sample2 ...]` | User defined labels instead of default labels from file names. Multiple labels have to be separated by space, e.g. --labels sample1 sample2 sample3 (default: None) |
 | `--range RANGE` | In bp with the format low_range:high_range, for example 1000000:2000000. If --range is given only counts within this range are considered. The range should be adjusted to the size of interacting domains in the genome you are working with. (default: None) |
 | `--outFileNameHeatmap OUTFILENAMEHEATMAP, -oh OUTFILENAMEHEATMAP` | File name to save the resulting heatmap plot. Supported file formats are given by matplotlib, usually these are: png, pdf, ps, eps and svg. (default: heatmap.png) |
 | `--outFileNameScatter OUTFILENAMESCATTER, -os OUTFILENAMESCATTER` | File name to save the resulting scatter plot. Supported file formats are given by matplotlib, usually these are: png, pdf, ps, eps and svg. (default: scatter.png) |
 | `--chromosomes CHROMOSOMES [CHROMOSOMES ...]` | List of chromosomes to be included in the correlation. (default: None) |
+| `--plotData FILE` | Write the data the figures are drawn from as JSON to this file and do not draw them. |
+| `--threads, -t` | Number of threads for `--method ent3c`; the result does not depend on it (Default: 4). |
 | `--help, -h` | show this help message and exit |
 | `--version` | show program's version number and exit |
+
+## Reproducibility measures
+
+Five measures of the similarity of Hi-C matrices are available as `--method`, each with the default
+parameters of its reference implementation. They read cool or mcool files, use the raw counts,
+score every chromosome present in all matrices (all except chrM unless `--chromosomes` is given),
+and report the mean over the chromosomes. `--log1p` and `--range` do not apply to them, and no
+scatter plot is drawn.
+
+| Method | Measure | Options |
+|---|---|---|
+| `scc` | Stratum-adjusted correlation coefficient of HiCRep (Yang et al., Genome Res 2017). | `--sccSmoothWindow` (Default: 0), `--sccMaxDistance` (Default: -1, the whole chromosome), `--sccDownsample` |
+| `genomedisco` | Random-walk similarity of GenomeDISCO (Ursu et al., Bioinformatics 2018). | `--genomediscoTmin` (Default: 3), `--genomediscoTmax` (Default: 3), `--genomediscoNoSubsample` |
+| `hicspector` | Spectral reproducibility score of HiC-Spector (Yan et al., Bioinformatics 2017). | `--hicspectorNumEvec` (Default: 20), `--hicspectorIprCut` (Default: 5.0) |
+| `quasar` | Replicate score of QuASAR-Rep (Sauria and Taylor, Genome Biol 2017). | `--quasarWidth` (Default: 100) |
+| `ent3c` | Entropy-based similarity of ENT3C (Lainscsek and Taher, NAR Genom Bioinform 2024). | `--ent3cSubmatrixSize` (Default: 0, derived from the split), `--ent3cChromosomeSplit` (Default: 7), `--ent3cWindowShift` (Default: 1), `--ent3cMaxWindows` (Default: 1000, 0 for no limit) |
+
+`ent3c` removes the bins that are empty in any of the given matrices before it compares them, as
+ENT3C does, so the score of a pair can change with the other matrices given. Chromosomes whose
+submatrices have only two bins (11 to 17 non-empty bins with the default split) give no
+meaningful score.
 
 ## Additional notes
 

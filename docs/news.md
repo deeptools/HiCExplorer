@@ -52,8 +52,8 @@ New options and features:
 - `hicFindTADs` calls nested domains within the domains of its first pass (`--nestedMinDepth`,
   `--nestedMaxDepth`, `--nestedStep`) and keeps boundaries with divergent CTCF motifs, a reverse site
   before and a forward site after the boundary (`--ctcfFile`).
-- `hicCorrelate --method` computes the reproducibility measures SCC (HiCRep), GenomeDISCO, HiC-Spector
-  and QuASAR-Rep, with the default parameters of their reference implementations.
+- `hicCorrelate --method` computes the reproducibility measures SCC (HiCRep), GenomeDISCO, HiC-Spector,
+  QuASAR-Rep and ENT3C, with the default parameters of their reference implementations.
 - `hicPlotMatrix --matrix2` draws two matrices as the upper and lower triangle of one heatmap.
 - `hicPCA --eigenSolver lanczos` computes the eigenvectors of large matrices with less time and memory.
 - `hicDifferentialTAD` and `chicSignificantInteractions` accept `--correctForMultipleTesting` and

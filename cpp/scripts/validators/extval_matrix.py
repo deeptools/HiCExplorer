@@ -2,7 +2,7 @@
 
 plotdata_ranking
     hicCorrelate --plotData JSON of a C++-only method (scc, genomedisco,
-    hicspector, quasar). There is no 3.7.6 reference; the check is that the
+    hicspector, quasar, ent3c). There is no 3.7.6 reference; the check is that the
     biological replicate pair scores higher than every pair across cell types.
     options: {"higher": [[i, j], ...], "lower": [[i, j], ...]} (indices into
     the --matrices list).

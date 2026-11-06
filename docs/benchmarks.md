@@ -66,8 +66,10 @@ against HiCExplorer 3.7.6 on real and synthetic data by the equivalence suite of
   PCHiCdata package.
 - `hicDetectStripes` generates the same 38,535 stripe candidates as Stripenn, with identical p-values,
   and calls the same 887 stripes on the 22 GM12878 autosomes.
-- The SCC, GenomeDISCO, HiC-Spector and QuASAR-Rep scores of `hicCorrelate` agree with their
-  reference implementations within 10<sup>-14</sup>.
+- The SCC, GenomeDISCO, HiC-Spector, QuASAR-Rep and ENT3C scores of `hicCorrelate` agree with their
+  reference implementations within 10<sup>-14</sup>. For ENT3C this holds on every chromosome
+  whose submatrices have at least three bins; with two bins every entropy is zero up to rounding
+  and neither implementation gives a meaningful score.
 - `.hic` files of versions 6 to 8 convert to the same cool files as with hic2cool, and a matrix
   converted to `.hic` and back returns every pixel unchanged.
 

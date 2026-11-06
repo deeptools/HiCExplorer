@@ -29,8 +29,8 @@ Micro-C and capture Hi-C (cHi-C) data. This is version 4.
 - **New analysis tools.** `hicDifferentialAnalysis` (differential TADs, loops and compartments
   between conditions with replicates), `hicDetectStripes` (architectural stripes with the method of
   Stripenn), `hicArrowhead` (contact domains with the Arrowhead algorithm), nested domains and a CTCF
-  motif filter in `hicFindTADs`, and the four reproducibility measures SCC, GenomeDISCO, HiC-Spector
-  and QuASAR-Rep in `hicCorrelate`.
+  motif filter in `hicFindTADs`, and the five reproducibility measures SCC, GenomeDISCO, HiC-Spector,
+  QuASAR-Rep and ENT3C in `hicCorrelate`.
 - **One package.** `conda install hicexplorer` installs the tools together with the Python API. Existing
   scripts that call the commands or import `hicexplorer` keep working.
 
