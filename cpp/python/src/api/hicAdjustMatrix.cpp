@@ -11,6 +11,15 @@
 // explicit zeros before the old entries of their row, the rows sorted again
 // when they were sorted (_set_many, _insert_many).
 //
+// Fixed in HiCExplorer 4, as in the command line tool (cpp/tools/
+// hicAdjustMatrix.cpp): --maskBadRegions masks the bins of its BED file; a
+// chromosome name that is not in the matrix, and a call with none of
+// chromosomes, regions and maskBadRegions, exit(1) with an error; the
+// regions action remove removes exactly the bins of the regions (3.7.6 also
+// dropped the NaN bins); the "discounted regions" warning names the
+// chromosome of its region; the correction factors follow their bins when
+// the bins are reordered (hiCMatrix.reorderBins of 3.7.6 left them).
+//
 // Deviations: see hic_object.hpp for the loaded matrix (cool metadata as
 // strings); a .hic input, which the hiCMatrix constructor could not read,
 // loads through the C++ layer.
@@ -81,6 +90,34 @@ void zero_block(py::handle matrix_object, std::int64_t row_first, std::int64_t r
     });
 }
 
+// hiCMatrix.reorderBins of 3.7.6 left the correction factors in their old
+// order. Fixed in HiCExplorer 4: after the reordering the factors, taken from
+// before it, follow their bins. `order` lists the old bin of every new bin.
+void carry_factors(py::handle hic_matrix, py::handle factors_before, const std::vector<std::int64_t>& order) {
+    if (factors_before.is_none()) {
+        return;
+    }
+    py::list indices;
+    for (const std::int64_t bin : order) {
+        indices.append(py::int_(bin));
+    }
+    const py::object index = py::module_::import("numpy").attr("array")(indices, py::arg("dtype") = "int64");
+    hic_matrix.attr("correction_factors") = factors_before.attr("__getitem__")(index);
+}
+
+std::vector<std::int64_t> bins_of_chromosomes(py::handle hic_matrix, py::handle names) {
+    std::vector<std::int64_t> order;
+    for (const py::handle name : names) {
+        const py::object range = hic_matrix.attr("getChrBinRange")(name);
+        const std::int64_t first = to_int64(lc::item(range, 0));
+        const std::int64_t last = to_int64(lc::item(range, 1));
+        for (std::int64_t bin = first; bin < last; ++bin) {
+            order.push_back(bin);
+        }
+    }
+    return order;
+}
+
 py::object adjust_matrix(py::handle pArgs) {
     const py::object chromosomes = pArgs.attr("chromosomes");
     const py::object regions = pArgs.attr("regions");
@@ -113,14 +150,21 @@ py::object adjust_matrix(py::handle pArgs) {
         }
         py::list chromosomes_list = py::list(hic_matrix.attr("chrBinBoundaries"));
         py::list to_operate;
+        py::list unknown;
         log(kLogger, "debug", "pArgs.chromosomes " + str_of(chromosomes));
         for (const py::handle chromosome : chromosomes) {
             if (contains(chromosomes_list, chromosome)) {
                 to_operate.append(chromosome);
             } else {
-                log(kLogger, "warning",
-                    "Chromosome not available in matrix: " + str_of(matrix_path) + " " + str_of(chromosome));
+                unknown.append(chromosome);
             }
+        }
+        if (!unknown.empty()) {
+            // Fixed in HiCExplorer 4: 3.7.6 only warned and went on.
+            log(kLogger, "error",
+                "Chromosome not available in matrix: " + str_of(matrix_path) + " " + str_of(unknown) +
+                    ". Available: " + str_of(chromosomes_list));
+            lc::python_exit(1);
         }
         log(kLogger, "debug", "85: chromosomes_list_to_operate_on " + str_of(to_operate));
         if (to_operate.empty()) {
@@ -128,8 +172,11 @@ py::object adjust_matrix(py::handle pArgs) {
                 "No valid chromosome given: " + str_of(chromosomes) + ". Available: " + str_of(chromosomes_list));
             lc::python_exit(1);
         }
+        const py::object factors_before = hic_matrix.attr("correction_factors");
         if (action_is("keep")) {
+            const std::vector<std::int64_t> order = bins_of_chromosomes(hic_matrix, to_operate);
             hic_matrix.attr("reorderChromosomes")(to_operate);
+            carry_factors(hic_matrix, factors_before, order);
         } else if (action_is("remove")) {
             log(kLogger, "debug", "chromosomes_list " + str_of(chromosomes_list));
             for (const py::handle chromosome : to_operate) {
@@ -139,17 +186,26 @@ py::object adjust_matrix(py::handle pArgs) {
                 }
             }
             log(kLogger, "debug", "chromosomes_list " + str_of(chromosomes_list));
+            const std::vector<std::int64_t> order = bins_of_chromosomes(hic_matrix, chromosomes_list);
             hic_matrix.attr("reorderChromosomes")(chromosomes_list);
+            carry_factors(hic_matrix, factors_before, order);
         } else if (action_is("mask")) {
             hic_matrix.attr("maskChromosomes")(to_operate);
         }
-    } else if (lc::truthy(regions)) {
+    } else if (lc::truthy(regions) || lc::truthy(pArgs.attr("maskBadRegions"))) {
+        // --maskBadRegions masks the bins of its BED file whatever the action
+        // says (fixed in HiCExplorer 4; 3.7.6 never read the file).
+        const bool bad_regions = !lc::truthy(regions);
+        const py::object bed_file = bad_regions ? pArgs.attr("maskBadRegions") : regions;
+        const bool mask_action = bad_regions;
+        auto region_action_is = [&](const char* name) {
+            return mask_action ? std::string(name) == "mask" : action_is(name);
+        };
         hic_matrix = load_matrix(matrix_path, py::none());
         const py::list chromosomes_list = py::list(hic_matrix.attr("chrBinBoundaries"));
         py::list genomic_regions;
         py::object chrom = py::none();
-        bool chrom_bound = false;
-        for (const std::string& text : read_text_lines(regions)) {
+        for (const std::string& text : read_text_lines(bed_file)) {
             const py::str line = to_str(text);
             const py::list fields = line.attr("strip")().attr("split")("\t");
             log(kLogger, "debug", "_line " + str_of(fields));
@@ -159,7 +215,6 @@ py::object adjust_matrix(py::handle pArgs) {
             }
             if (fields.size() >= 3) {
                 chrom = fields[0];
-                chrom_bound = true;
                 const py::object start = parse_int(fields[1]);
                 const py::object end = parse_int(fields[2]);
                 log(kLogger, "debug", "chrom " + str_of(chrom));
@@ -187,42 +242,57 @@ py::object adjust_matrix(py::handle pArgs) {
                 for (std::int64_t i = start; i < end + 1; ++i) {
                     matrix_indices_regions.append(py::int_(i));
                 }
-                if (action_is("remove")) {
-                    if (!chrom_bound) {
-                        raise_error("UnboundLocalError",
-                                    "cannot access local variable 'chrom' where it is not associated with a value");
-                    }
-                    const py::object chr_range = hic_matrix.attr("getChrBinRange")(chrom);
+                if (region_action_is("remove")) {
+                    // Fixed in HiCExplorer 4: the chromosome of the region,
+                    // not the leaked loop variable of the last BED line.
+                    const py::object region_chrom = lc::item(region, 0);
+                    const py::object chr_range = hic_matrix.attr("getChrBinRange")(region_chrom);
                     const std::int64_t chr_start = to_int64(lc::item(chr_range, 0));
                     const std::int64_t chr_end = to_int64(lc::item(chr_range, 1));
                     if (start > chr_start && end < chr_end - 1) {
                         log(kLogger, "warning",
-                            str_of(chrom) + ":" + std::to_string(start) + "-" + std::to_string(end) +
+                            str_of(region_chrom) + ":" + std::to_string(start) + "-" + std::to_string(end) +
                                 " entry may generate discounted regions on a chromosome.Please consider using "
                                 "`mask` action to deal with that.");
                     }
                 }
             }
         }
-        if (action_is("keep")) {
+        if (region_action_is("keep")) {
+            std::vector<std::int64_t> order;
+            for (const py::handle bin : matrix_indices_regions) {
+                order.push_back(to_int64(bin));
+            }
+            const py::object factors_before = hic_matrix.attr("correction_factors");
             hic_matrix.attr("reorderBins")(matrix_indices_regions);
-        } else if (action_is("mask")) {
+            carry_factors(hic_matrix, factors_before, order);
+        } else if (region_action_is("mask")) {
             hic_matrix.attr("maskBins")(matrix_indices_regions);
-        } else if (action_is("remove")) {
-            hic_matrix.attr("maskBins")(matrix_indices_regions);
-            hic_matrix.attr("orig_bin_ids") = py::list();
-            hic_matrix.attr("orig_cut_intervals") = py::list();
-            hic_matrix.attr("nan_bins") = py::list();
-        }
-    } else if (lc::truthy(pArgs.attr("maskBadRegions"))) {
-        if (lc::truthy(module.attr("check_cooler")(matrix_path)) && lc::length(chromosomes) == 1 &&
-            action_is("keep")) {
-            hic_matrix = load_matrix(matrix_path, chromosomes);
-        } else {
-            hic_matrix = load_matrix(matrix_path, py::none());
+        } else if (region_action_is("remove")) {
+            // Fixed in HiCExplorer 4: exactly the bins of the regions are
+            // removed; 3.7.6 masked them and cleared orig_bin_ids,
+            // orig_cut_intervals and nan_bins, which dropped the NaN bins too.
+            const std::int64_t rows = to_int64(lc::item(hic_matrix.attr("matrix").attr("shape"), 0));
+            std::vector<char> drop(static_cast<std::size_t>(rows), 0);
+            for (const py::handle bin : matrix_indices_regions) {
+                drop[static_cast<std::size_t>(to_int64(bin))] = 1;
+            }
+            std::vector<std::int64_t> survivors;
+            py::list survivor_list;
+            for (std::int64_t bin = 0; bin < rows; ++bin) {
+                if (drop[static_cast<std::size_t>(bin)] == 0) {
+                    survivors.push_back(bin);
+                    survivor_list.append(py::int_(bin));
+                }
+            }
+            const py::object factors_before = hic_matrix.attr("correction_factors");
+            hic_matrix.attr("reorderBins")(survivor_list);
+            carry_factors(hic_matrix, factors_before, survivors);
         }
     } else {
-        log(kLogger, "info", "No data to adjust given. Please specify either --chromosomes or --region parameter.");
+        log(kLogger, "error",
+            "No data to adjust given. Please specify one of --chromosomes, --regions or --maskBadRegions.");
+        lc::python_exit(1);
     }
     const py::object handling = pArgs.attr("interIntraHandling");
     if (!handling.is_none()) {

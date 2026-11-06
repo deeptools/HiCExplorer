@@ -6,7 +6,7 @@
 // after fillLowerTriangle, cut_intervals with the field types of the format
 // (numpy.str_, numpy.int64, numpy.int64, numpy.float64 for h5; str, int, int,
 // float for cool), nan_bins (float64 when empty, as np.array([]) is),
-// correction_factors and distance_counts with the load time swap, the
+// correction_factors and distance_counts (swapped on loading for cool only, see load), the
 // interval trees and chrBinBoundaries (built by the object's own
 // intervalListToIntervalTree), and a MatrixFileHandler of the input's format
 // carrying the Cool state a load leaves (correction operator, versions,
@@ -52,7 +52,15 @@ inline Loaded load(const std::string& path, const std::optional<std::string>& ch
         out.cool_state = hicx::read_cool(path, options);
         out.data = std::move(out.cool_state.data);
     }
-    std::swap(out.data.correction_factors, out.data.distance_counts);
+    // The load time field swap of 3.7.6 (cpp/PLAN.md 2.7 quirk 1) is fixed
+    // for h5 in HiCExplorer 4, as in hicx::ToolMatrix::load: an h5 matrix
+    // keeps its correction factors in correction_factors, so that save()
+    // writes them back as /correction_factors. A cool matrix keeps the swap
+    // (its weights are applied to the pixels on loading and are not written
+    // again).
+    if (!out.h5) {
+        std::swap(out.data.correction_factors, out.data.distance_counts);
+    }
     // fillLowerTriangle: when nothing is stored below the diagonal, M + triu(M, 1).T
     if (out.data.matrix.lower_triangle_is_zero()) {
         out.data.matrix.materialize_full();
