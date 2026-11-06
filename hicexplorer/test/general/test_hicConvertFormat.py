@@ -376,6 +376,24 @@ def test_h5_to_homer_symmetrises_with_maximum_not_with_a_sum():
     assert_csr_identical(symmetric, source.matrix)
 
 
+def test_mcool_with_resolutions_and_several_matrices_exits_before_writing(tmp_path, capfd):
+    """HiCExplorer 4 (fix 4): --resolutions describes how to resample one
+    matrix, so several input matrices with it are an error. 3.7.6 only logged
+    the message, exited with status 0 and let every input matrix rewrite the
+    output file; now the run stops with status 1 and writes nothing.
+    """
+    import pytest
+    outfile = str(tmp_path / 'matrix.mcool')
+    args = ("--matrices {} {} --outFileName {} --inputFormat cool "
+            "--outputFormat mcool --resolutions 10000 100000").format(
+                original_matrix_cool_chr4, original_matrix_cool, outfile).split()
+    with pytest.raises(SystemExit) as error:
+        hicConvertFormat.main(args)
+    assert error.value.code == 1
+    assert not os.path.exists(outfile)
+    assert 'Please define one matrix and many resolutions' in capfd.readouterr().err
+
+
 def test_cool_to_mcool_merges_bins_exactly():
     """--outputFormat mcool with -r drives hicMergeMatrixBins.merge_bins.
 

@@ -739,6 +739,13 @@ int run(const Arguments& args) {
         return run_hic_output(args);
     }
 
+    // The Python logged this and carried on, every input matrix rewriting the
+    // same output file; HiCExplorer 4 stops before writing anything.
+    if (args.output_format == "mcool" && !args.resolutions.empty() && args.matrices.size() > 1) {
+        return reject("Please define one matrix and many resolutions which should be created "
+                      "or multiple matrices.");
+    }
+
     for (std::size_t i = 0; i < args.matrices.size(); ++i) {
         Loaded loaded = load_input(args, i);
 
@@ -789,12 +796,6 @@ int run(const Arguments& args) {
                               std::to_string(args.bed_file_hicpro.size()));
             }
         } else if (args.output_format == "mcool") {
-            if (!args.resolutions.empty() && args.matrices.size() > 1) {
-                // Logged and not acted on, as in the Python: the run continues
-                // and every input matrix rewrites the same output file.
-                report("ERROR", "Please define one matrix and many resolutions which "
-                                "should be created or multiple matrices.");
-            }
             if (!args.resolutions.empty()) {
                 report("INFO", "Correction factors are removed. They are not valid "
                                "for any new created resolution.");

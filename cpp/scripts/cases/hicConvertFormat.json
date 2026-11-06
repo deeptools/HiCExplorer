@@ -181,6 +181,20 @@
     "notes": "The same path from an h5 source, where none of the three resolutions equals the 5 kb source bin size so merge_bins runs three times. fileWasH5 is set, so the nan bins merge_bins recomputes are also the ones the cool writer masks with."
   },
   {
+    "id": "hicConvertFormat.cool_to_mcool.two_matrices_resolutions.exits_1",
+    "tool": "hicConvertFormat",
+    "tier": 1,
+    "reference": "none",
+    "args": ["--matrices", "{data}/hicConvertFormat/small_test_matrix_chr4.cool",
+             "{data}/hicConvertFormat/small_test_matrix.cool",
+             "--outFileName", "{out}/matrix.mcool",
+             "--inputFormat", "cool", "--outputFormat", "mcool",
+             "--resolutions", "10000", "100000"],
+    "outputs": [{"path": "{out}/matrix.mcool", "format": "mcool", "class": "EX", "absent": true}],
+    "expect_exit": 1,
+    "notes": "HiCExplorer 4 fix 4 (project owner 2026-11-06): --outputFormat mcool with --resolutions and several input matrices exits 1 before anything is written. 3.7.6 logged the ERROR 'Please define one matrix and many resolutions which should be created or multiple matrices.', exited 0 and let every input matrix rewrite the output file. Pinned by test_hicConvertFormat.py. There is no Python counterpart to compare with."
+  },
+  {
     "id": "hicConvertFormat.cool_to_mcool.two_matrices_no_resolutions",
     "tier": 1,
     "args": ["--matrices", "{data}/hicConvertFormat/small_test_matrix_chr4.cool",
