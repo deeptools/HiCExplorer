@@ -112,6 +112,10 @@ Fixed (these results differ from 3.7.6, where 3.7.6 was wrong):
 - `hicMergeLoops` merges inter-chromosomal loops in the tree of their own y chromosome and keeps one copy
   of a loop that appears identically in several inputs; 3.7.6 failed or merged against the wrong
   chromosome, and dropped every copy of a repeated loop.
+- `utilities.compute_zscore` subtracts the expected value from the observed value (3.7.6: from zero, so
+  the z-scores did not depend on the data), and the `utilities` functions for expected values and obs/exp
+  matrices handle explicitly stored zeros (3.7.6 misaligned values and distances). An interval tree built
+  from a bin list keeps every run of a chromosome that appears more than once.
 - `hicConvertFormat --outputFormat ginteractions` writes the file given in `--outFileName` (3.7.6:
   `<outFileName>.tsv`), `--outputFormat hicpro` writes each contact once, every resolution of an mcool
   carries the genome assembly, and `--enforce_integer` stops with an error when rounding would set every
