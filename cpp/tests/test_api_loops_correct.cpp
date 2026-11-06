@@ -266,7 +266,6 @@ TEST_CASE("merge_loops: the constructed frame of cases_hicMergeLoops.py") {
     for (std::size_t r = 0; r < chrom.size(); ++r) {
         hicx::merge_loops::Loop loop;
         loop.x_tree = loop.y_tree = chrom[r];
-        loop.y_guard = true;
         const std::int64_t fx = 10000 - (xe[r] - xb[r]);
         const std::int64_t fy = 10000 - (ye[r] - yb[r]);
         loop.x_begin = xb[r] - fx - 1;
@@ -276,10 +275,48 @@ TEST_CASE("merge_loops: the constructed frame of cases_hicMergeLoops.py") {
         loops.push_back(loop);
     }
     const hicx::merge_loops::Result result = hicx::merge_loops::merge(x, y, loops);
-    CHECK(result.error == hicx::merge_loops::Error::None);
     CHECK(result.ids == std::vector<std::int64_t>{0, 3});
+    // HiCExplorer 4: a loop whose chromosome has no tree is skipped (3.7.6
+    // raised UnboundLocalError for a first such loop and reused the previous
+    // loop's intervals for a later one), so the result is that of the others.
     loops[0].x_tree = -1;
-    CHECK(hicx::merge_loops::merge(x, y, loops).error == hicx::merge_loops::Error::UnboundX);
+    CHECK(hicx::merge_loops::merge(x, y, loops).ids == std::vector<std::int64_t>{0, 3});
+    loops[0].x_tree = 0;
+    loops[1].y_tree = -1;
+    CHECK(hicx::merge_loops::merge(x, y, loops).ids == std::vector<std::int64_t>{0, 3});
+}
+
+TEST_CASE("merge_loops: an inter-chromosomal loop is merged in its own y tree") {
+    // Three loops with x anchors on tree 0 and y anchors on tree 1 (the y
+    // dictionary lists tree 1 first). 3.7.6 queried the y tree of loop[0] and
+    // raised KeyError or merged against the wrong chromosome.
+    hicx::merge_loops::Intervals x;
+    hicx::merge_loops::Intervals y;
+    x.tree = {0, 0, 0};
+    x.begin = {10000, 10000, 12000};
+    x.end = {20000, 15000, 17000};
+    x.tree_count = 1;
+    x.dictionary = {0};
+    y.tree = {1, 1, 1};
+    y.begin = {50000, 50000, 52000};
+    y.end = {60000, 55000, 57000};
+    y.tree_count = 2;
+    y.dictionary = {1, 0};
+    std::vector<hicx::merge_loops::Loop> loops;
+    for (std::size_t r = 0; r < 3; ++r) {
+        hicx::merge_loops::Loop loop;
+        loop.x_tree = 0;
+        loop.y_tree = 1;
+        const std::int64_t fx = 10000 - (x.end[r] - x.begin[r]);
+        const std::int64_t fy = 10000 - (y.end[r] - y.begin[r]);
+        loop.x_begin = x.begin[r] - fx - 1;
+        loop.x_end = x.end[r] + fx + 1;
+        loop.y_begin = y.begin[r] - fy - 1;
+        loop.y_end = y.end[r] + fy + 1;
+        loops.push_back(loop);
+    }
+    // the widest loop (0) wins, the two narrower ones are merged into it
+    CHECK(hicx::merge_loops::merge(x, y, loops).ids == std::vector<std::int64_t>{0});
 }
 
 TEST_CASE("correct_api: MAD agrees with the tool's MAD") {

@@ -67,14 +67,13 @@ inline double zero_non_finite(double value) {
 
 // The dtype the obs/exp kernels cast back to. numpy takes
 // `type(pSubmatrix.data[0])` before the float32 step, so a float64 matrix
-// stays float64 and an integer matrix is truncated back to an integer.
+// stays float64 and a float32 matrix is rounded to float32. 3.7.6 also
+// truncated the ratio of an integer matrix back to an integer; HiCExplorer 4
+// keeps it as float64 (the callers set the dtype of the matrix).
 double cast_back(double value, DType kind) {
     switch (kind) {
         case DType::Integer:
-            // numpy's float64 -> int32 cast truncates towards zero. A NaN or
-            // an infinity is undefined there; both have already been mapped to
-            // zero by the caller.
-            return std::trunc(value);
+            return value;
         case DType::Float32:
             return to_float32(value);
         case DType::Float64:
@@ -171,12 +170,14 @@ std::vector<double> expected_interactions(const CsrMatrix& matrix) {
         grouped[cursor[distance]++] = value;
     });
 
-    // occurrences = np.arange(n + 1, 1, -1), that is n + 1 - i. Only the
+    // The diagonal of distance i of an n by n matrix has n - i positions.
+    // 3.7.6 divided by np.arange(n + 1, 1, -1), that is n + 1 - i (fixed in
+    // HiCExplorer 4). Only the
     // distances between the smallest and the largest observed one are filled
     // in, exactly as the Python loop does; the rest stay zero and divide to
     // zero.
     for (std::size_t i = 0; i < n; ++i) {
-        const double divisor = static_cast<double>(n + 1 - i);
+        const double divisor = static_cast<double>(n - i);
         const double sum = counts[i] == 0
                                ? 0.0
                                : npy::pairwise_sum(grouped.data() + offsets[i], counts[i]);
@@ -198,14 +199,18 @@ void obs_exp_lieberman_in_place(CsrMatrix& matrix, std::int64_t length_chromosom
     const DType kind = matrix.dtype_kind();
     std::vector<double>& data = matrix.mutable_data();
     for_each_entry(matrix, [&](std::int64_t row, std::int64_t col, double value, std::size_t k) {
-        // distance = ceil(abs(row - col) / 2), which is not the index the
-        // expected array was accumulated at. utilities.py:499, reproduced.
-        const std::size_t distance =
-            static_cast<std::size_t>((std::llabs(row - col) + 1) / 2);
+        // The expected value of the pair's own distance. 3.7.6 read the array
+        // at ceil(abs(row - col) / 2, utilities.py:499), not at the index it
+        // was accumulated at (fixed in HiCExplorer 4).
+        const std::size_t distance = static_cast<std::size_t>(std::llabs(row - col));
         const double divided = to_float32(value) / expected[distance];
         data[k] = cast_back(zero_non_finite(divided), kind);
     });
-    // The dtype does not change: astype(data_type) casts back to what it was.
+    // A float matrix keeps its dtype (astype(data_type)); an integer matrix
+    // becomes float64, where 3.7.6 truncated the ratios to integers.
+    if (kind == DType::Integer) {
+        matrix.set_dtype("float64");
+    }
 }
 
 void obs_exp_non_zero_in_place(CsrMatrix& matrix, bool ligation_factor) {
@@ -264,11 +269,15 @@ void obs_exp_in_place(CsrMatrix& matrix) {
     const DType kind = matrix.dtype_kind();
     std::vector<double>& data = matrix.mutable_data();
     for_each_entry(matrix, [&](std::int64_t row, std::int64_t col, double value, std::size_t k) {
-        const std::size_t distance =
-            static_cast<std::size_t>((std::llabs(row - col) + 1) / 2);
+        // The expected value of the pair's own distance; 3.7.6 read it at
+        // ceil(abs(row - col) / 2) (fixed in HiCExplorer 4).
+        const std::size_t distance = static_cast<std::size_t>(std::llabs(row - col));
         const double divided = to_float32(value) / expected[distance];
         data[k] = cast_back(zero_non_finite(divided), kind);
     });
+    if (kind == DType::Integer) {
+        matrix.set_dtype("float64");  // 3.7.6 truncated the ratios to integers
+    }
 }
 
 void convert_nans_and_infs_to_zeros(CsrMatrix& matrix) {

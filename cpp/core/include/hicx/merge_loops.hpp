@@ -11,10 +11,11 @@
 // key equality): it hands over, per tuple, the tree it goes into, and per
 // loop, which trees loop[0] and loop[3] select.
 //
-// Reproduced from the Python, as the tool does (cpp/tools/hicMergeLoops.cpp):
-// the y tree is looked up under loop[0]; x_interval and y_interval survive
-// across loops; the losers are removed from the trees of loop[0], which for a
-// stale interval set is not the tree it came from.
+// Fixed in HiCExplorer 4, as in the tool (cpp/tools/hicMergeLoops.cpp): the y
+// anchor is looked up in the y tree of loop[3] (3.7.6 used loop[0]), a loop
+// whose chromosome has no tree is skipped (3.7.6 reused the intervals of the
+// previous loop, or raised for the first), and the result lists the loops alive
+// in an x and in a y tree (3.7.6 paired the trees positionally).
 
 #ifndef HICX_MERGE_LOOPS_HPP
 #define HICX_MERGE_LOOPS_HPP
@@ -37,28 +38,14 @@ struct Intervals {
 
 struct Loop {
     std::int64_t x_tree = -1;  // X[loop[0]], -1 when loop[0] is not a key of X
-    bool y_guard = false;      // loop[3] in Y
-    std::int64_t y_tree = -1;  // Y[loop[0]], -1 when loop[0] is not a key of Y
+    std::int64_t y_tree = -1;  // Y[loop[3]], -1 when loop[3] is not a key of Y
     std::int64_t x_begin = 0;  // the overlap queries
     std::int64_t x_end = 0;
     std::int64_t y_begin = 0;
     std::int64_t y_end = 0;
 };
 
-enum class Error {
-    None,
-    UnboundX,         // len(x_interval) before any assignment
-    UnboundY,         // len(y_interval) before any assignment
-    MissingYTree,     // Y[loop[0]] for the overlap: KeyError(loop[0])
-    MissingXRemove,   // X[loop[0]].remove: KeyError(loop[0])
-    MissingYRemove,   // Y[loop[0]].remove: KeyError(loop[0])
-    NotInXTree,       // IntervalTree.remove of an interval it does not hold: ValueError
-    NotInYTree,
-};
-
 struct Result {
-    Error error = Error::None;
-    std::size_t loop = 0;  // the loop at which the error happened
     std::vector<std::int64_t> ids;
 };
 

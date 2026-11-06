@@ -18,8 +18,27 @@ cases that take one compare the results, the namespace after the call and
 whether the hiCMatrix still has its matrix (compute_long_range_contacts
 deletes it). The timing of the 3.7.6 queue polling (one second sleeps) is
 not compared.
+
+HiCExplorer 4 cuts the window of the donut test around the candidate itself
+(3.7.6 cut it around a wrong position whenever the candidate's value occurs
+more than once in its window, which is frequent on an integer obs/exp matrix).
+The cases whose accepted candidates change carry a `deviation` (see
+test_api_equivalence.py) in place of the comparison with 3.7.6: with the
+accepted candidates, their p-values and the masks blinded, the record must
+equal 3.7.6's (arguments, namespace, logs, shapes), and every candidate both
+versions accept must carry the same p-value.
+
+HiCExplorer 4 also divides the sum of the contacts at a distance by the length
+of the diagonal, n - d, where 3.7.6 divided by n + 1 - d. That moves the
+p-values of a few loops slightly and changes the number of candidates by one
+here and there, so the cases it touches compare the accepted candidates and
+their p-values to a tolerance. HiCExplorer 4 also reads the expected value at the
+distance of the pair, where 3.7.6 read it at ceil(d / 2), which moves the call
+set of compute_loops on every integer matrix; those cases compare the record
+without the accepted candidates.
 """
 import os
+import re
 
 import numpy as np
 import scipy.sparse as sp
@@ -416,3 +435,156 @@ for _case in CASES:
         _case.rtol = 1e-12
         _case.note = (_case.note + '; ' if _case.note else '') + (
             'Boost.Math special functions round the last bits of the p-values differently from scipy 1.14')
+
+
+# The accepted candidates of the donut test, three shapes: a list of loops
+# (7-tuples), a pair (candidates (n, 2), p-values (n,)) of arrays, and a boolean
+# mask over the candidates followed by the p-values of the accepted ones.
+def _is_loop(node):
+    return (isinstance(node, tuple) and len(node) == 2 and node[0] == 'tuple' and len(node[1]) == 7
+            and isinstance(node[1][0], tuple) and node[1][0][0] in ('npscalar', 'str')
+            and isinstance(node[1][6], tuple) and node[1][6][0] == 'npscalar')
+
+
+def _field(field):
+    return field[2] if field[0] == 'npscalar' else field[1]
+
+
+def _blind(node, found):
+    """node with the accepted candidates replaced by a marker; found collects them."""
+    if isinstance(node, tuple) and len(node) == 2 and node[0] in ('list', 'tuple'):
+        items = node[1]
+        if node[0] == 'list' and items and all(_is_loop(i) for i in items):
+            for loop in items:
+                fields = loop[1]
+                found[tuple(_field(f) for f in fields[:6])] = fields[6][2][1]
+            return ('accepted', 'loops')
+        if (node[0] == 'tuple' and len(items) == 2 and isinstance(items[0], tuple) and items[0][0] == 'ndarray'
+                and items[0][2] == '<i4' and len(items[0][3]) == 2 and items[0][3][1] == 2
+                and isinstance(items[1], tuple) and items[1][0] == 'ndarray' and items[1][2] == '<f8'):
+            pairs = list(zip(items[0][4][0::2], items[0][4][1::2]))
+            for pair, value in zip(pairs, items[1][4]):
+                found[pair] = value[1]
+            return ('accepted', 'arrays')
+        if (node[0] == 'list' and len(items) == 2 and isinstance(items[0], tuple) and items[0][0] == 'list'
+                and items[0][1] and all(i[0] == 'const' and i[1] in ('True', 'False') for i in items[0][1])
+                and isinstance(items[1], tuple) and items[1][0] == 'list'):
+            accepted = [k for k, i in enumerate(items[0][1]) if i[1] == 'True']
+            for k, value in zip(accepted, items[1][1]):
+                found[k] = value[2][1]
+            return ('accepted', 'mask')
+        return (node[0], [_blind(i, found) for i in items])
+    if isinstance(node, dict):
+        return {k: _blind(v, found) for k, v in node.items()}
+    return node
+
+
+def window_fix(expected, actual):
+    """Deviation of the cases whose accepted candidates change with the fix."""
+    from apieq import compare
+    if ('raise' in expected) or ('raise' in actual):
+        return 'the case raised: {!r} against {!r}'.format(actual.get('raise'), expected.get('raise'))
+    old, new = {}, {}
+
+    def blind(record, found):
+        out = {k: (_blind(v, found) if k == 'return' else v) for k, v in record.items()}
+        # the log lines that list or count the candidates and the accepted loops
+        out['logs'] = [(n, lvl, re.sub(r'((?:loops|initial).*?): \d+$', r'\1: N', m) if not m.startswith('pCandidates') else 'pCandidates') for n, lvl, m in record['logs']]
+        return out
+    blind_old = blind(expected, old)
+    blind_new = blind(actual, new)
+    for key in blind_old:
+        message = compare(blind_old[key], blind_new.get(key), 0.0, 0.0, key)
+        if message:
+            return message
+    if not old or not new:
+        return 'no accepted candidates found in the record'
+    common = set(old) & set(new)
+    if len(common) * 2 < len(old):
+        return 'only {} of the {} candidates of 3.7.6 are accepted again'.format(len(common), len(old))
+    for key in sorted(common, key=str):
+        message = compare(('float', old[key]), ('float', new[key]), 1e-12, 0.0, 'p-value of {}'.format(key))
+        if message:
+            return message
+    return None
+
+
+for _case in CASES:
+    if _case.id in ('candidate_region_test_thread/real', 'candidate_region_test_thread/window_3',
+                    'candidate_region_test/one_thread', 'candidate_region_test/four_threads',
+                    'compute_long_range_contacts/one_thread', 'compute_long_range_contacts/three_threads',
+                    'compute_loops/h5_chr2L', 'compute_loops/h5_chr2L_tight',
+                    'compute_loops/h5_chr2L_threshold_file', 'compute_loops/h5_queue'):
+        _case.deviation = window_fix
+        _case.note = (_case.note + '; ' if _case.note else '') + (
+            'HiCExplorer 4 cuts the donut window around the candidate (see the module docstring)')
+
+
+def same_calls(rtol):
+    """Deviation of the cases whose call set is the one of 3.7.6 but whose
+    p-values move with the expected value fix: the record without the accepted
+    candidates and the counting log lines equals 3.7.6's, the same candidates
+    are accepted, and their p-values agree to `rtol`."""
+    def check(expected, actual):
+        from apieq import compare
+        if ('raise' in expected) or ('raise' in actual):
+            return 'the case raised: {!r} against {!r}'.format(actual.get('raise'), expected.get('raise'))
+        old, new = {}, {}
+
+        def blind(record, found):
+            out = {k: (_blind(v, found) if k == 'return' else v) for k, v in record.items()}
+            out['logs'] = [(n, lvl, re.sub(r'((?:loops|initial).*?): \d+$', r'\1: N', m) if not m.startswith('pCandidates') else 'pCandidates')
+                           for n, lvl, m in record['logs']]
+            return out
+        blind_old = blind(expected, old)
+        blind_new = blind(actual, new)
+        for key in blind_old:
+            message = compare(blind_old[key], blind_new.get(key), 0.0, 0.0, key)
+            if message:
+                return message
+        if set(old) != set(new):
+            return 'the accepted candidates differ: {} only in 3.7.6, {} only now'.format(
+                len(set(old) - set(new)), len(set(new) - set(old)))
+        for key in sorted(old, key=str):
+            message = compare(('float', old[key]), ('float', new[key]), rtol, 0.0, 'p-value of {}'.format(key))
+            if message:
+                return message
+        return None
+    return check
+
+
+def moved_calls(expected, actual):
+    """Deviation of the cases whose call set moves with the expected value
+    fixes: the record without the accepted candidates and the log lines that
+    list or count them equals 3.7.6's, and each version accepts candidates.
+    The loops themselves are pinned by test_hicDetectLoops.py and by the unit
+    tests of the obs/exp kernel, which compare with numpy."""
+    if ('raise' in expected) or ('raise' in actual):
+        return 'the case raised: {!r} against {!r}'.format(actual.get('raise'), expected.get('raise'))
+    from apieq import compare
+    old, new = {}, {}
+
+    def blind(record, found):
+        out = {k: (_blind(v, found) if k == 'return' else v) for k, v in record.items()}
+        out['logs'] = [(n, lvl, re.sub(r'((?:loops|initial).*?): \d+$', r'\1: N', m)
+                        if not m.startswith('pCandidates') else 'pCandidates') for n, lvl, m in record['logs']]
+        return out
+    blind_old = blind(expected, old)
+    blind_new = blind(actual, new)
+    for key in blind_old:
+        message = compare(blind_old[key], blind_new.get(key), 0.0, 0.0, key)
+        if message:
+            return message
+    if not old or not new:
+        return 'no accepted candidates found in the record'
+    return None
+
+
+for _case in CASES:
+    if _case.id in ('compute_loops/cool_queue', 'compute_loops/h5_chr2L', 'compute_loops/h5_chr2L_window_defaults',
+                    'compute_loops/h5_chr2L_tight', 'compute_loops/h5_chr2L_threshold_file', 'compute_loops/li_x',
+                    'compute_loops/h5_queue'):
+        _case.deviation = moved_calls
+        _case.note = (_case.note + '; ' if _case.note else '') + (
+            'HiCExplorer 4 corrects the expected value (diagonal length, lookup at the distance), see the module '
+            'docstring')

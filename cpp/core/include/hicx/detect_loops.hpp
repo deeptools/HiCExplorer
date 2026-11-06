@@ -129,22 +129,20 @@ enum class ValueKind { Integer, Float32, Float64 };
 
 [[nodiscard]] ValueKind value_kind(const std::string& dtype);
 
-// numpy's astype(<the input dtype>).
+// numpy's astype(<the input dtype>) for a float input.
 //
-// QUIRK (hicexplorer/utilities.py:582,588). obs_exp_matrix records
-// `data_type = type(pSubmatrix.data[0])` *before* it casts the data to
-// float32, and casts the quotient back to it at the end. For an integer matrix
+// Fixed in HiCExplorer 4 (hicexplorer/utilities.py:582,588). obs_exp_matrix
+// recorded `data_type = type(pSubmatrix.data[0])` before it cast the data to
+// float32 and cast the quotient back to it at the end. For an integer matrix
 // -- which is what an h5 count matrix and an unrestricted cool load both are --
-// the observed over expected ratio is therefore **truncated to an integer**.
-// It is not a rounding artefact at the edge: on small_test_matrix.h5 the
-// expected value per distance is around 0.05, so the ratios are in the
-// hundreds and truncation merely discards their fractional part, which is why
-// the tool still finds loops instead of dividing everything to zero. Change
-// this and the call set changes.
+// the observed over expected ratio was therefore truncated to an integer, and
+// most ratios of a sparse matrix became 0 or 1. The ratio of an integer matrix
+// is now kept as a float64 matrix; a float32 matrix keeps its float32 rounding
+// and a float64 matrix stays float64.
 [[nodiscard]] inline double cast_to_kind(double value, ValueKind kind) {
     switch (kind) {
         case ValueKind::Integer:
-            return std::trunc(value);
+            return value;  // the ratio of an integer matrix is kept as float64
         case ValueKind::Float32:
             return static_cast<double>(static_cast<float>(value));
         case ValueKind::Float64:
@@ -187,13 +185,11 @@ struct DistanceGroups {
 // hicexplorer.utilities.expected_interactions: the sum of the values at each
 // genomic distance divided by `occurrences`.
 //
-// QUIRK (utilities.py:362). `occurrences = np.arange(shape[0] + 1, 1, -1)`, so
-// the divisor for distance d is n + 1 - d. The number of positions a diagonal
-// of an n by n matrix actually has is n - d, so every expected value is a
-// factor (n - d) / (n + 1 - d) too small. It is a constant factor per distance
-// and the tool only ever compares ratios within one distance, so it shifts
-// every obs/exp value at a given distance by the same amount, but the value
-// itself is not the mean it is documented to be.
+// Fixed in HiCExplorer 4 (utilities.py:362). 3.7.6 divided by
+// `np.arange(shape[0] + 1, 1, -1)`, that is n + 1 - d for distance d, although
+// the diagonal of an n by n matrix has n - d positions, so every expected value
+// was a factor (n - d) / (n + 1 - d) too small and the value was not the mean
+// it is documented to be. The divisor is n - d.
 //
 // Threaded over distances. Each distance is reduced by exactly one worker with
 // numpy's pairwise order, so the result is independent of `threads`.
@@ -211,10 +207,11 @@ struct DistanceGroups {
 
 // hicexplorer.utilities.obs_exp_matrix(pInplace=False, pToEpsilon=True).
 //
-// QUIRK (utilities.py:578). The expected value for a pair at distance d is
-// looked up at index ceil(d / 2), not at d. Distances 1 and 2 share the
-// expected value of distance 1, 3 and 4 share that of distance 2, and so on.
-// The docstring says "expected contacts for loci at that genomic distance".
+// Fixed in HiCExplorer 4 (utilities.py:578). The expected value for a pair at
+// distance d is looked up at index d. 3.7.6 looked it up at ceil(d / 2), so
+// distances 1 and 2 shared the expected value of distance 1, 3 and 4 that of
+// distance 2, and so on, although the docstring says "expected contacts for
+// loci at that genomic distance".
 //
 // The value is computed as float64(float32(count)) / expected, NaN and
 // infinity are replaced by 1e-6 (utilities.py:137,144, pToEpsilon), and the
@@ -326,12 +323,14 @@ struct RegionTestResult {
 
 // hicDetectLoops.candidate_region_test (:499-752): the donut test.
 //
-// QUIRK (:534). `np.array(np.where(neighborhood == value)).flatten()` produces
-// [row_0, .., row_{k-1}, col_0, .., col_{k-1}] for k matches, and the code then
-// reads peak_region[0] and peak_region[1] as a (row, column) pair. That is only
-// the position of the peak when the value occurs exactly once in the window.
-// With two or more matches peak_region[1] is the *second row* index, so the
-// window is cut around a position that is not the candidate. Reproduced.
+// Fixed in HiCExplorer 4 (3.7.6 :534). `np.array(np.where(neighborhood ==
+// value)).flatten()` produces [row_0, .., row_{k-1}, col_0, .., col_{k-1}] for
+// k matches, and 3.7.6 read peak_region[0] and peak_region[1] as a (row,
+// column) pair. That is the position of the peak only when the value occurs
+// exactly once in the window; with two or more matches peak_region[1] is the
+// second row index and the window was cut around a position that is not the
+// candidate. The window is now cut around the candidate's own position, which
+// is the same position whenever the value occurs once.
 [[nodiscard]] RegionTestResult candidate_region_test(
     const CsrMatrix& obs_exp, const std::vector<Candidate>& candidates,
     std::int64_t window_size, double p_value, std::int64_t peak_window_size,

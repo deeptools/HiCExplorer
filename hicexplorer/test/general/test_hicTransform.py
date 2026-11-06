@@ -14,6 +14,14 @@ ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
 original_matrix = ROOT + "small_test_matrix_50kb_res.h5"
 original_matrix_cool = ROOT + "small_test_matrix.cool"
 
+# hicTransform/obs_exp.cool, obs_exp_per_chromosome.cool and obs_exp_lieberman.h5
+# are HiCExplorer 4 output: obs_exp and obs_exp_lieberman read the expected
+# value at the pair's own distance (3.7.6: at ceil(d / 2)), both keep the ratio
+# of an integer matrix as float64 (3.7.6 truncated it to integers), and obs_exp
+# divides the contact sum of a distance by the diagonal length n - d (3.7.6:
+# n + 1 - d).
+# The other reference files of this directory are unchanged.
+
 DELTA_DECIMAL = 0
 
 
@@ -542,10 +550,11 @@ def test_covariance_of_a_real_chromosome_is_the_centred_second_moment():
 def test_obs_exp_matches_the_utilities_kernel_at_full_precision():
     """The whole-matrix branch on the cool input, hicTransform.py:174.
 
-    Also pins the dtype: utilities.obs_exp_matrix casts its float64 quotient
-    back to `type(pSubmatrix.data[0])`, the dtype the matrix had before the
-    float32 step, so an integer input matrix comes back integer and the
-    fractional part of every obs/exp value is discarded by truncation.
+    Also pins the dtype: the obs/exp ratio of an integer input matrix comes
+    back as float64 (3.7.6 cast the float64 quotient back to
+    `type(pSubmatrix.data[0])`, the dtype the matrix had before the float32
+    step, and so discarded the fractional part of every obs/exp value by
+    truncation; fixed in HiCExplorer 4).
     """
     outfile = NamedTemporaryFile(suffix='.cool', delete=False)
     outfile.close()
@@ -557,8 +566,8 @@ def test_obs_exp_matches_the_utilities_kernel_at_full_precision():
     expected = _saved_and_reloaded(_clean(obs_exp_matrix(reference.matrix)))
 
     actual = hm.hiCMatrix(outfile.name).matrix
-    assert actual.dtype == np.int32, \
-        'the obs/exp result is cast back to the input dtype'
+    assert actual.dtype == np.float64, \
+        'the obs/exp ratio of an integer matrix is float64'
     assert_matrix_identical(actual, expected)
     os.unlink(outfile.name)
 
@@ -811,9 +820,9 @@ def test_unknown_output_suffix_exits_one():
 # and the LIL accumulation, but not the kernel's own arithmetic: a mutation
 # inside utilities.obs_exp_matrix moves both sides equally. The two tests
 # below close that by writing the expected value per genomic distance out in
-# the test. Measured: a floor() where utilities has ceil() in the distance
-# index is caught by them and by the decimal=0 reference comparison, and by
-# nothing else in this file.
+# the test. Measured on the 3.7.6 kernel: a floor() where utilities had ceil()
+# in the distance index was caught by them and by the decimal=0 reference
+# comparison, and by nothing else in this file.
 #
 # Li_cut.h5 is the input rather than the 50 kb matrix because its values are
 # float64. utilities.obs_exp_matrix casts its result back to the input dtype,
@@ -826,9 +835,9 @@ original_matrix_float = ROOT + "Li_cut.h5"
 def _expected_per_distance_written_out(pMatrix):
     """utilities.expected_interactions(pSubmatrix, pThreads=None), written out.
 
-    Note the divisor: np.arange(n + 1, 1, -1), that is n + 1 - d, which is one
-    more than the number of cells diagonal d actually has. Reproduced as it
-    stands, not corrected.
+    The divisor is the number of cells diagonal d has, n - d. 3.7.6 divided by
+    np.arange(n + 1, 1, -1), that is n + 1 - d, one more than that; fixed in
+    HiCExplorer 4.
 
     Note also that `distance` is derived from nonzero(), which skips an
     explicitly stored zero, while the values are taken from .data, which does
@@ -842,7 +851,7 @@ def _expected_per_distance_written_out(pMatrix):
     expected = np.zeros(size)
     for step in range(distance.min(), distance.max() + 1):
         expected[step] = np.sum(pMatrix.data[distance == step])
-    occurrences = np.arange(size + 1, 1, -1)
+    occurrences = np.arange(size, 0, -1)
     expected = expected / occurrences
     expected[~np.isfinite(expected)] = 0.0
     return expected
@@ -853,8 +862,9 @@ def test_obs_exp_expected_value_per_distance_written_out():
 
     Two properties of utilities.obs_exp_matrix are pinned here and nowhere
     else: the values are rounded through float32 before the division, and the
-    expected value is read at index ceil(d / 2) although it was accumulated at
-    index d, so consecutive distances share an expected value.
+    expected value is read at index d, where it was accumulated. 3.7.6 read it
+    at ceil(d / 2), so that consecutive distances shared an expected value;
+    fixed in HiCExplorer 4.
     """
     outfile = NamedTemporaryFile(suffix='.h5', delete=False)
     outfile.close()
@@ -865,7 +875,7 @@ def test_obs_exp_expected_value_per_distance_written_out():
     assert reference.matrix.dtype == np.float64
     per_distance = _expected_per_distance_written_out(reference.matrix)
     row, col = reference.matrix.nonzero()
-    index = np.ceil(np.absolute(row - col) / 2).astype(np.int32)
+    index = np.absolute(row - col).astype(np.int32)
     values = np.divide(reference.matrix.data.astype(np.float32),
                        per_distance[index])
     values[~np.isfinite(values)] = 0.0
@@ -883,7 +893,7 @@ def test_obs_exp_non_zero_expected_value_per_distance_written_out():
     The other difference from obs_exp is where the rounding lands: this kernel
     assigns each quotient back into a float32 array one element at a time, so
     every value is rounded to float32 *after* the division, and it reads the
-    expected value at index d rather than at ceil(d / 2).
+    expected value at index d like obs_exp does since HiCExplorer 4.
     """
     outfile = NamedTemporaryFile(suffix='.h5', delete=False)
     outfile.close()

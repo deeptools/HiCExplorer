@@ -142,6 +142,17 @@ def assert_bedgraph_equal(actual_path, expected_rows, pAllowSignFlip=True,
                            err_msg='chromosome {}'.format(name))
 
 
+# The reference files hicPCA/pca1.bedgraph, pca2.bedgraph, pca1_ignoredMaskedBins
+# .bedgraph, pca2_ignoredMaskedBins.bedgraph, pca1_gene_track.bedgraph,
+# pca2_gene_track.bedgraph, pca1_chip_track.bedgraph, pca2_chip_track.bedgraph,
+# obs_exp_intermediate.h5 and pearson_intermediate.h5 are HiCExplorer 4 output:
+# obs_exp_lieberman reads the expected value at the pair's own distance (3.7.6:
+# at ceil(d / 2)) and keeps the ratio of an integer matrix as float64 (3.7.6
+# truncated it to integers), see the notes of hicTransform. The bigwig references
+# (hicPCA/*.bw) are compared at a precision that the change does not cross and
+# are kept.
+
+
 def _covariance_per_chromosome(pMatrixFile, pChromosomes, pMethod,
                                pLigationFactor=False, pIgnoreMaskedBins=False):
     """hicPCA.main's per-chromosome pipeline up to the covariance matrix.
@@ -335,20 +346,23 @@ def test_pca_eigenvector_order_is_not_sorted_by_eigenvalue():
     well separated spectrum dgeev happens to emerge in descending order, so
     the defect is invisible; for a near degenerate pair it does not.
 
-    Measured on small_test_matrix.h5 chrX with --method lieberman: the two
-    leading eigenvalues are 2795.01342998 and 2792.60820894, a relative gap of
-    8.6e-04, and dgeev returns them swapped. hicPCA's first eigenvector is
-    therefore the eigenvector of the second largest eigenvalue and its second
-    eigenvector is the eigenvector of the largest, and the two are orthogonal,
-    so no numeric tolerance can absorb the difference.
+    Measured on small_test_matrix.h5 chr3LHet with --method lieberman: the two
+    leading eigenvalues are 423.9104 and 419.4536, a relative gap of 1.0e-02,
+    and dgeev returns the largest one in column 4 and the second largest in
+    column 0. hicPCA's first eigenvector is therefore the eigenvector of the
+    second largest eigenvalue, and it is orthogonal to the eigenvector of the
+    largest, so no numeric tolerance can absorb the difference.
 
     This is the property a reimplementation has to match. A port that sorts by
     descending eigenvalue, which is what a symmetric solver returns naturally,
     produces a different vector here, not a slightly different one.
+
+    (On chrX, the chromosome used before the expected value fixes of
+    HiCExplorer 4, the leading pair is no longer swapped.)
     """
     blocks = list(_covariance_per_chromosome(ROOT + "small_test_matrix.h5",
-                                             ['chrX', 'chrXHet'], 'lieberman'))
-    covariance = dict((name, cov) for name, _iv, _oe, _pe, cov in blocks)['chrX']
+                                             ['chr3LHet'], 'lieberman'))
+    covariance = dict((name, cov) for name, _iv, _oe, _pe, cov in blocks)['chr3LHet']
 
     eigenvalues, eigenvectors = linalg.eig(covariance)
     eigenvalues = eigenvalues.real
@@ -358,13 +372,13 @@ def test_pca_eigenvector_order_is_not_sorted_by_eigenvalue():
     # the ordering unstable.
     gap = abs(eigenvalues[descending[0]] - eigenvalues[descending[1]]) \
         / abs(eigenvalues[descending[0]])
-    assert gap < 1e-3, 'expected a near degenerate leading pair, gap {}'.format(gap)
+    assert gap < 2e-2, 'expected a near degenerate leading pair, gap {}'.format(gap)
 
-    # dgeev's column 0 is the second largest eigenvalue and column 1 is the
+    # dgeev's column 0 is the second largest eigenvalue and column 4 is the
     # largest. If a future scipy or LAPACK changes that, this assertion is the
     # place it must be reconsidered, not silently absorbed by a tolerance.
-    assert descending[0] == 1, \
-        'expected the largest eigenvalue in dgeev column 1, found column {}' \
+    assert descending[0] == 4, \
+        'expected the largest eigenvalue in dgeev column 4, found column {}' \
         .format(descending[0])
     assert descending[1] == 0, \
         'expected the second largest eigenvalue in dgeev column 0, found column {}' \
@@ -373,7 +387,7 @@ def test_pca_eigenvector_order_is_not_sorted_by_eigenvalue():
     # The two columns span different one dimensional subspaces: this is a
     # selection difference, not a rounding difference.
     first = eigenvectors[:, 0].real
-    second = eigenvectors[:, 1].real
+    second = eigenvectors[:, 4].real
     cosine = abs(float(first @ second)) / (np.linalg.norm(first) *
                                            np.linalg.norm(second))
     assert cosine < 1e-8, 'the two leading columns are not orthogonal: {}'.format(cosine)
@@ -381,7 +395,7 @@ def test_pca_eigenvector_order_is_not_sorted_by_eigenvalue():
     # And the symmetric solver, which sorts ascending, agrees on the values
     # while disagreeing on which column they sit in.
     symmetric_values, symmetric_vectors = linalg.eigh(covariance)
-    nt.assert_allclose(symmetric_values[-1], eigenvalues[1], rtol=1e-10)
+    nt.assert_allclose(symmetric_values[-1], eigenvalues[4], rtol=1e-10)
     nt.assert_allclose(symmetric_values[-2], eigenvalues[0], rtol=1e-10)
     largest = symmetric_vectors[:, -1]
     overlap = abs(float(largest @ second)) / (np.linalg.norm(largest) *
@@ -416,10 +430,10 @@ def test_pca_bedgraph_values_are_pinned_literals():
         got[name] = block[:3]
 
     expected = {
-        'chr2RHet': [0.491006273550, 0.001908229902, -0.013181219741],
-        'chr3RHet': [-0.064516879370, -0.039350633223, -0.015256798888],
-        'chr2L': [0.001937021304, -0.039947959528, 0.041819909727],
-        'chr3R': [-0.018165184479, -0.005371327000, -0.005847547014],
+        'chr2RHet': [0.288830198459, -0.026865019130, -0.058622092311],
+        'chr3RHet': [-0.087445688570, -0.012959074925, -0.010536404778],
+        'chr2L': [0.001441345467, 0.035251879092, 0.007322777015],
+        'chr3R': [-0.000495081119, -0.022560258273, -0.559019776870],
     }
     for name, wanted in expected.items():
         nt.assert_allclose(got[name], wanted, rtol=1e-9, atol=1e-12,
@@ -507,26 +521,25 @@ def test_pca_extratrack_gene_density_is_reproducible():
         os.unlink(path)
 
 
-def test_pca_histone_mark_track_active_and_inactive_are_both_no_ops_here():
-    """--histonMarkType inactive, which no test reaches, plus why it is inert.
+def test_pca_histone_mark_track_active_and_inactive_flip_opposite_ways():
+    """--histonMarkType active and inactive, which flip in opposite ways.
 
     The active branch flips a chromosome when the positive compartment's mean
     bigwig coverage is below the negative one's, the inactive branch flips on
     the opposite comparison, and both are guarded by
     `(neg_mean != 0) and (pos_mean != 0)` (hicPCA.py:226-236).
 
-    Measured on the only bigwig in the corpus, bigwig_chrx_2e6_5e6.bw against
-    chrX of small_test_matrix.h5: the first eigenvector has 10 positive and
-    2,032 negative bins and the second 14 and 2,028, and in both cases every
-    positive bin falls outside the track's 2 to 5 Mb coverage, so pos_mean is
-    exactly 0 and the guard blocks the flip in *both* modes. The corpus cannot
-    tell the two branches apart.
-
-    The test therefore pins that fact rather than pretending otherwise: the two
-    modes agree with each other and with the unflipped eigenvectors, value for
-    value, and pos_mean is asserted to be zero so that a future change to the
-    track or to the guard makes this test's premise fail loudly instead of
-    silently passing for the wrong reason.
+    On the only bigwig in the corpus, bigwig_chrx_2e6_5e6.bw against chrX of
+    small_test_matrix.h5 the guard used to block both branches, because every
+    positive bin of the first eigenvectors fell outside the track's 2 to 5 Mb
+    coverage (pos_mean was exactly 0), so the corpus could not tell the
+    branches apart. Since the expected value fixes of HiCExplorer 4 it can: the
+    first eigenvector has 55 positive and 2,145 negative bins with mean coverage
+    0.2158 and 0.1677, so the active mode keeps it and the inactive mode flips
+    it; the second has 2,158 positive and 42 negative bins with mean coverage
+    0.1667 and 0.2810, so the active mode flips it and the inactive mode keeps
+    it. The raw eigenvectors are those of the covariance matrix, written out in
+    this test.
     """
     matrix = ROOT + "small_test_matrix.h5"
     extra_track = ROOT + 'bigwig_chrx_2e6_5e6.bw'
@@ -542,41 +555,41 @@ def test_pca_histone_mark_track_active_and_inactive_are_both_no_ops_here():
         _run_pca(args)
 
     expected = _reference_eigenvectors(matrix, ['chrX'], 'lieberman', ['1', '2'])
-    for path in active + inactive:
-        rows = _read_bedgraph(path)
-        assert len(rows) == len(expected[0])
-    for outputs in (active, inactive):
-        for path, rows in zip(outputs, expected):
-            # No sign freedom: the flip is the only thing --extraTrack could
-            # have changed and it did not fire, so the values must be the raw
-            # eigenvector components.
-            actual = _read_bedgraph(path)
-            got = np.array([row[3] for row in actual])
-            want = np.array([row[3] for row in rows])
-            nt.assert_allclose(got, want, rtol=RELATIVE_TOLERANCE,
-                               atol=ABSOLUTE_TOLERANCE)
+    raw = [np.array([row[3] for row in rows]) for rows in expected]
+    # eigenvector 1: active keeps, inactive flips; eigenvector 2: the reverse
+    signs = {'active': (1.0, -1.0), 'inactive': (-1.0, 1.0)}
+    for mark_type, outputs in (('active', active), ('inactive', inactive)):
+        for output_index, path in enumerate(outputs):
+            got = np.array([row[3] for row in _read_bedgraph(path)])
+            nt.assert_allclose(got, signs[mark_type][output_index] * raw[output_index],
+                               rtol=RELATIVE_TOLERANCE, atol=ABSOLUTE_TOLERANCE,
+                               err_msg='{} eigenvector {}'.format(mark_type, output_index + 1))
 
-    # And the reason the flip did not fire.
+    # And the coverage that decides it.
     track = pyBigWig.open(extra_track)
     try:
-        rows = _read_bedgraph(active[0])
+        rows = expected[0]
+        means = []
         for output_index in (0, 1):
-            values = np.array([row[3] for row in _read_bedgraph(active[output_index])])
+            values = raw[output_index]
+
+            def mean_coverage(indices):
+                total = 0.0
+                for index in indices:
+                    statistic = track.stats(rows[index][0], rows[index][1],
+                                            rows[index][2])[0]
+                    total += statistic or 0.0
+                return total / len(indices)
             positive = np.flatnonzero(values > 0)
             negative = np.flatnonzero(values < 0)
-            assert positive.size > 0 and negative.size > 0
-            positive_sum = 0.0
-            for index in positive:
-                statistic = track.stats(rows[index][0], rows[index][1],
-                                        rows[index][2])[0]
-                if statistic:
-                    positive_sum += statistic
-            assert positive_sum == 0.0, \
-                'eigenvector {} now has coverage in its positive bins, so the ' \
-                'guard no longer blocks the flip and this test needs ' \
-                'rewriting'.format(output_index + 1)
+            means.append((len(positive), len(negative), mean_coverage(positive),
+                          mean_coverage(negative)))
     finally:
         track.close()
+    assert means[0][:2] == (55, 2145)
+    assert means[1][:2] == (2158, 42)
+    assert means[0][2] > means[0][3] > 0.0
+    assert 0.0 < means[1][2] < means[1][3]
     for path in active + inactive:
         os.unlink(path)
 
@@ -689,7 +702,11 @@ def test_pca_ignore_masked_bins_is_a_no_op_with_chromosomes():
     (hicmatrix HiCMatrix.py:616), which puts the masked bins back and restores
     the bin table maskBins saved before the enlargement. The mask and the
     enlargement are both gone before the PCA runs; what is left is the float64
-    dtype the round trip gives the matrix, which changes the lieberman values.
+    dtype the round trip gives the matrix. In 3.7.6 that changed the lieberman
+    values, because the quotients of an integer matrix were truncated to
+    integers and those of the float64 matrix were not; HiCExplorer 4 keeps the
+    quotients of an integer matrix as float64, so the flagged and the plain run
+    give the same values.
 
     chrX of small_test_matrix_50kb_res.h5 has four NaN bins, so a mask that
     survived would remove them and move the boundaries of their neighbours.
@@ -726,15 +743,12 @@ def test_pca_ignore_masked_bins_is_a_no_op_with_chromosomes():
 
     # The mask leaves one trace behind. restoreMaskedBins pads the matrix with
     # an empty float64 block, so the int64 counts of this file come back as
-    # float64, and obs_exp_matrix_lieberman casts its quotients back to the
-    # dtype of the input (utilities.py:506): truncated to integers on the
-    # plain run, kept fractional on the flagged one. The NaN bins of chrX hold
-    # no contacts, so that upcast is the only difference, and the flagged
-    # values are those of the plain pipeline on a float64 matrix.
+    # float64 (3.7.6 then kept the quotients of the flagged run fractional and
+    # truncated those of the plain run, utilities.py:506). The NaN bins of chrX
+    # hold no contacts, so the flagged values are those of the plain pipeline.
     hic = hm.hiCMatrix(matrix)
     hic.keepOnlyTheseChr(['chrX'])
     assert hic.matrix.dtype == np.int64
-    hic.matrix = hic.matrix.astype(np.float64)
     size = hic.matrix.shape[0]
     obs_exp = obs_exp_matrix_lieberman(hic.matrix[0:size, 0:size], size, 1)
     covariance = np.cov(csr_matrix(obs_exp).todense())
@@ -749,10 +763,11 @@ def test_pca_ignore_masked_bins_is_a_no_op_with_chromosomes():
         expected = [bin_ + (float(value),) for bin_, value in
                     zip(original_bins, eigenvectors[:, column].real)]
         assert_bedgraph_equal(flagged, expected)
-        # And far from the plain run, so a port that dropped the upcast fails.
+        # And the plain run agrees with it: the dtype of the round trip does
+        # not matter any more.
         difference = np.abs(np.array([row[3] for row in rows]) -
                             np.array([row[3] for row in _read_bedgraph(plain)]))
-        assert difference.max() > 1e-3
+        assert difference.max() < 1e-9
 
     # Without --chromosomes the mask persists: four bins fewer on chrX, and the
     # neighbours of 100000-150000 meet in the middle of the gap.

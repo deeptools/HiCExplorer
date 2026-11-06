@@ -681,7 +681,7 @@ std::optional<std::vector<double>> expected_interactions(std::int64_t n,
     const auto [lo, hi] = std::minmax_element(distance.begin(), distance.end());
     std::vector<double> expected = distance_sums(n, distance, data, data_size, *lo, *hi + 1);
     for (std::int64_t i = 0; i < n; ++i) {
-        const double occurrences = static_cast<double>(n + 1 - i);
+        const double occurrences = static_cast<double>(n - i);  // 3.7.6: n + 1 - i
         expected[static_cast<std::size_t>(i)] =
             zero_non_finite(expected[static_cast<std::size_t>(i)] / occurrences);
     }
@@ -736,7 +736,7 @@ void compute_zscore(std::int64_t n, const std::vector<std::int64_t>& distance, T
         const double x = 0.0 - e;  // x_minus_mu starts at zero
         std::vector<double> squares(mask.size(), x * x);
         double sum_for_sigma = npy::pairwise_sum(squares.data(), squares.size());
-        const std::int64_t occurrences = n + 1 - d;
+        const std::int64_t occurrences = n - d;  // 3.7.6: n + 1 - d
         const double missing =
             (0.0 - e) * static_cast<double>(occurrences - static_cast<std::int64_t>(mask.size()));
         sum_for_sigma += missing * missing;
@@ -748,14 +748,16 @@ void compute_zscore(std::int64_t n, const std::vector<std::int64_t>& distance, T
 }
 
 template <class T>
-std::vector<T> obs_exp_divide(const T* data, std::size_t data_size,
+std::vector<ObsExpValue<T>> obs_exp_divide(const T* data, std::size_t data_size,
                               const std::vector<double>& expected,
                               const std::vector<std::int64_t>& distance, double non_finite) {
     const std::size_t L = distance.size();
     std::vector<double> gathered(L);
     for (std::size_t i = 0; i < L; ++i) {
-        // np.ceil(np.absolute(row - col) / 2).astype(np.int32)
-        const std::int64_t index = (distance[i] + 1) / 2;
+        // The expected value of the pair's own distance. 3.7.6 read the array
+        // at np.ceil(np.absolute(row - col) / 2).astype(np.int32) (fixed in
+        // HiCExplorer 4).
+        const std::int64_t index = distance[i];
         if (index >= static_cast<std::int64_t>(expected.size())) {
             raise_index(index, static_cast<std::int64_t>(expected.size()));
         }
@@ -769,14 +771,18 @@ std::vector<T> obs_exp_divide(const T* data, std::size_t data_size,
     } else {
         throw PythonError("ValueError", broadcast_message(data_size, L));
     }
-    std::vector<T> out(size);
+    std::vector<ObsExpValue<T>> out(size);
     for (std::size_t i = 0; i < size; ++i) {
         const double observed = static_cast<double>(static_cast<float>(data[data_size == 1 ? 0 : i]));
         double q = observed / gathered[L == 1 ? 0 : i];
         if (!std::isfinite(q)) {
             q = non_finite;
         }
-        out[i] = cast_from_double<T>(q);
+        if constexpr (std::is_floating_point_v<T>) {
+            out[i] = cast_from_double<T>(q);
+        } else {
+            out[i] = q;  // an integer matrix gets float64 ratios
+        }
     }
     return out;
 }
@@ -950,7 +956,7 @@ std::vector<std::size_t> eliminate_zeros(std::vector<std::int64_t>& indptr, cons
     template void compute_zscore<T>(std::int64_t, const std::vector<std::int64_t>&, T*,        \
                                     std::size_t, std::optional<double>, bool,                  \
                                     const std::optional<std::vector<double>>&);                \
-    template std::vector<T> obs_exp_divide<T>(const T*, std::size_t, const std::vector<double>&, \
+    template std::vector<ObsExpValue<T>> obs_exp_divide<T>(const T*, std::size_t, const std::vector<double>&, \
                                               const std::vector<std::int64_t>&, double);       \
     template void zero_from_distance<T>(const std::vector<std::int64_t>&, T*, std::size_t,      \
                                         double);                                               \

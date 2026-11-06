@@ -118,6 +118,123 @@ def read_file(target, *args):
         handle.close()
 
 
+# ---------------------------------------------------------------------------
+# The corrected expected value helpers (HiCExplorer 4)
+#
+# HiCExplorer 4 corrects three defects of 3.7.6's expected_interactions,
+# compute_zscore, obs_exp_matrix and obs_exp_matrix_lieberman: the divisor n + 1 - d instead of the
+# diagonal length n - d, the lookup at ceil(d / 2) instead of d, and the
+# truncation of an integer matrix to integers. The cases they change compare
+# the package with the oracle below instead of with the 3.7.6 record: the
+# driver runs the function and, on a copy of the same input, the oracle (the
+# 3.7.6 code with the corrections, in numpy), and the deviation compares the
+# package's result with the oracle's. A flag is False until its fix is made.
+FIXED = {'diagonal_length': True, 'lookup_distance': True, 'float_result': True}
+
+
+def _occurrences(n):
+    return np.arange(n, 0, -1) if FIXED['diagonal_length'] else np.arange(n + 1, 1, -1)
+
+
+def _oracle_expected_interactions(matrix, threads=None):
+    expected = np.zeros(matrix.shape[0])
+    row, col = matrix.nonzero()
+    distance = np.absolute(row - col)
+    if len(distance) == 0:
+        return None
+    for i in range(distance.min(), distance.max() + 1):
+        expected[i] = np.sum(matrix.data[distance == i])
+    expected = np.divide(expected, _occurrences(matrix.shape[0]))
+    expected[~np.isfinite(expected)] = 0
+    return expected
+
+
+def _oracle_compute_zscore(matrix, depth, threads):
+    expected = _oracle_expected_interactions(matrix, threads)
+    occurrences = _occurrences(matrix.shape[0])
+    row, col = matrix.nonzero()
+    distance = np.absolute(row - col)
+    if depth is not None:
+        max_distance = min(matrix.shape[0], depth)
+        matrix.data[distance > depth] = 0
+    else:
+        max_distance = matrix.shape[0]
+    x_minus_mu = np.zeros(len(matrix.data))
+    for index in range(max_distance):
+        mask = distance == index
+        x_minus_mu[mask] -= expected[index]
+        total = np.sum(np.square(x_minus_mu[mask]))
+        total += np.square((0 - expected[index]) * (occurrences[index] - np.sum(mask)))
+        matrix.data[mask] = x_minus_mu[mask] / np.sqrt(total / occurrences[index])
+    return matrix
+
+
+def _oracle_obs_exp_matrix(matrix, inplace=True, to_epsilon=False, threads=None, distance_limit=None):
+    from copy import deepcopy
+    if distance_limit is not None:
+        row, col = matrix.nonzero()
+        matrix.data[np.absolute(row - col) >= distance_limit] = 0
+        matrix.eliminate_zeros()
+    expected = _oracle_expected_interactions(matrix, threads)
+    if expected is None:
+        return None
+    row, col = matrix.nonzero()
+    distance = np.absolute(row - col)
+    if not FIXED['lookup_distance']:
+        distance = np.ceil(distance / 2).astype(np.int32)
+    target = matrix if inplace else deepcopy(matrix)
+    if len(matrix.data) > 0:
+        data_type = type(matrix.data[0])
+        values = np.divide(target.data.astype(np.float32), expected[distance])
+        values[~np.isfinite(values)] = 0.000001 if to_epsilon else 0.0
+        if FIXED['float_result'] and not np.issubdtype(data_type, np.floating):
+            data_type = np.float64
+        target.data = values.astype(data_type)
+    return target
+
+
+def _oracle_obs_exp_matrix_lieberman(matrix, length_chromosome, chromosome_count):
+    from hicexplorer.utilities import expected_interactions_in_distance
+    expected = expected_interactions_in_distance(length_chromosome, chromosome_count, matrix)
+    row, col = matrix.nonzero()
+    distance = np.absolute(row - col)
+    if not FIXED['lookup_distance']:
+        distance = np.ceil(distance / 2).astype(np.int32)
+    if len(matrix.data) > 0:
+        data_type = type(matrix.data[0])
+        values = np.divide(matrix.data.astype(np.float32), expected[distance])
+        values[~np.isfinite(values)] = 0.0
+        if FIXED['float_result'] and not np.issubdtype(data_type, np.floating):
+            data_type = np.float64
+        matrix.data = values.astype(data_type)
+    return matrix
+
+
+def with_oracle(oracle):
+    """Driver: the function's result and the oracle's on a copy of the input."""
+    def driver(target, *args):
+        from copy import deepcopy
+        reference = deepcopy(args)
+        return target(*args), oracle(*reference)
+    return driver
+
+
+def fixed_expected_interactions(target, *args):
+    return with_oracle(_oracle_expected_interactions)(target, *args)
+
+
+def fixed_compute_zscore(target, *args):
+    return with_oracle(_oracle_compute_zscore)(target, *args)
+
+
+def fixed_obs_exp_matrix_lieberman(target, *args):
+    return with_oracle(_oracle_obs_exp_matrix_lieberman)(target, *args)
+
+
+def fixed_obs_exp_matrix(target, *args):
+    return with_oracle(_oracle_obs_exp_matrix)(target, *args)
+
+
 def call_and_list_state(target, *args):
     """For functions that change a list in place and return it."""
     result = target(*args)
@@ -437,3 +554,50 @@ CASES = [
     0, 12.345, 1500, 1500.0001, 1501, 23456.5, 1.5e6, 1500000.0001, 2.5e7, -3e6, '2000', float('nan'),
     float('inf'), -float('inf'), np.float32(1234567.0), 2 ** 70, 999.995])
 ]
+
+
+def matches_oracle(expected, actual):
+    """Deviation: the package's result equals the corrected oracle, which the
+    3.7.6 interpreter computed on the same input (see FIXED above)."""
+    from apieq import compare
+    for record in (expected, actual):
+        if 'raise' in record:
+            return 'raised {}: {}'.format(*record['raise'])
+    want = expected['return'][1][1]
+    message = compare(want, actual['return'][1][1], 1e-12, 0.0, 'oracle')
+    if message:
+        return 'the oracle differs between the interpreters: ' + message
+    return compare(want, actual['return'][1][0], 1e-12, 0.0, 'result')
+
+
+_ORACLE_CASES = {
+    'expected_interactions/real': 'fixed_expected_interactions',
+    'expected_interactions/real_float32': 'fixed_expected_interactions',
+    'expected_interactions/int64': 'fixed_expected_interactions',
+    'expected_interactions/int32': 'fixed_expected_interactions',
+    'expected_interactions/threads': 'fixed_expected_interactions',
+    'compute_zscore/real': 'fixed_compute_zscore',
+    'compute_zscore/real_depth': 'fixed_compute_zscore',
+    'compute_zscore/real_depth_large': 'fixed_compute_zscore',
+    'compute_zscore/float32': 'fixed_compute_zscore',
+    'compute_zscore/int': 'fixed_compute_zscore',
+    'compute_zscore/threads': 'fixed_compute_zscore',
+    'obs_exp_matrix_lieberman/real': 'fixed_obs_exp_matrix_lieberman',
+    'obs_exp_matrix_lieberman/float32': 'fixed_obs_exp_matrix_lieberman',
+    'obs_exp_matrix_lieberman/int32': 'fixed_obs_exp_matrix_lieberman',
+    'obs_exp_matrix/real': 'fixed_obs_exp_matrix',
+    'obs_exp_matrix/copy_epsilon': 'fixed_obs_exp_matrix',
+    'obs_exp_matrix/float32': 'fixed_obs_exp_matrix',
+    'obs_exp_matrix/int32': 'fixed_obs_exp_matrix',
+    'obs_exp_matrix/distance': 'fixed_obs_exp_matrix',
+    'obs_exp_matrix/distance_copy': 'fixed_obs_exp_matrix',
+    'obs_exp_matrix/threads': 'fixed_obs_exp_matrix',
+    'obs_exp_matrix/coo': 'fixed_obs_exp_matrix',
+}
+for _case in CASES:
+    if _case.id in _ORACLE_CASES:
+        _case.driver = _ORACLE_CASES[_case.id]
+        _case.deviation = matches_oracle
+        _case.compare_args = False
+        _case.note = (_case.note + '; ' if _case.note else '') + (
+            'defect of 3.7.6 fixed in HiCExplorer 4: compared with the corrected oracle, see FIXED')

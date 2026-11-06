@@ -13,15 +13,17 @@
 //     (utilities.py:503, :533, :583). obs_exp_matrix_lieberman and
 //     obs_exp_matrix then divide the whole float32 array by a float64 array,
 //     which numpy promotes back to float64, and finally cast to the dtype the
-//     matrix had *before* the float32 step. obs_exp_matrix_non_zero divides
+//     matrix had *before* the float32 step (HiCExplorer 4 keeps the ratio of
+//     an integer matrix as float64; 3.7.6 truncated it to integers).
+//     obs_exp_matrix_non_zero divides
 //     element by element and assigns each result back into the float32 array,
 //     so its output stays float32 rounded. The two are not the same
 //     computation and they are not interchangeable.
-//  2. **The distance index is not the distance.** The expected value arrays
-//     are accumulated at index abs(i - j) but read at index
-//     ceil(abs(i - j) / 2) in obs_exp_matrix_lieberman and obs_exp_matrix
-//     (utilities.py:499, :583). obs_exp_matrix_non_zero reads at abs(i - j).
-//     Reproduced, not fixed.
+//  2. **The distance index.** The expected value arrays are accumulated at
+//     index abs(i - j). 3.7.6 read them at ceil(abs(i - j) / 2) in
+//     obs_exp_matrix_lieberman and obs_exp_matrix (utilities.py:499, :583),
+//     so two neighbouring distances shared an expected value;
+//     HiCExplorer 4 reads at abs(i - j) like obs_exp_matrix_non_zero.
 //  3. **The covariance is computed from the sparse matrix, not from a dense
 //     copy of it.** numpy centres a dense n-by-n block and calls dgemm on it,
 //     which needs two dense blocks live and, on the designated hicPCA input,
@@ -113,9 +115,9 @@ namespace hicx {
 [[nodiscard]] std::vector<double> expected_interactions_non_zero(const CsrMatrix& matrix);
 
 // utilities.expected_interactions (utilities.py:356) with pThreads=None: the
-// sum at each distance divided by np.arange(n + 1, 1, -1), that is by
+// sum at each distance divided by the number of cells on the diagonal, n - i.
+// Fixed in HiCExplorer 4: 3.7.6 divided by np.arange(n + 1, 1, -1), that is by
 // n + 1 - i, which is one more than the number of cells on diagonal i.
-// Reproduced as it stands.
 [[nodiscard]] std::vector<double> expected_interactions(const CsrMatrix& matrix);
 
 // --------------------------------------------------------------------------

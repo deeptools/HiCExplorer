@@ -8,6 +8,16 @@ the x and y anchors as tuples. Constructed frames cover a chromosome that
 reappears in the tuples, a first loop on an unknown chromosome, the y tree
 looked up under the x chromosome, and stale overlap sets. readFile is
 compared as the DataFrame's columns, dtypes and values (driver 'frame').
+
+HiCExplorer 4 fixes three defects of 3.7.6's mergeLoops: the y interval tree is
+looked up under the y chromosome loop[3] (3.7.6: loop[0], KeyError or the wrong
+tree), a loop whose chromosome has no tree is skipped (3.7.6: the intervals of
+the previous loop, UnboundLocalError for the first), and the chromosome trees
+are not reset when a chromosome reappears in the tuples; the result lists the
+loops alive in an x and in a y tree (3.7.6 zipped the two dictionaries). The
+cases that exercised the defects carry a `deviation` (see
+test_api_equivalence.py) in place of the comparison with 3.7.6: the corrected
+ids are asserted, and the logs must still equal 3.7.6's.
 """
 import os
 
@@ -115,3 +125,36 @@ CASES = [
     Case('read/empty', M + 'readFile', args=(File('a.tsv'),), files={'a.tsv': b''}, driver='frame'),
     Case('read/missing', M + 'readFile', args=(File('missing.tsv'),), driver='frame'),
 ]
+
+
+def _fixed(ids):
+    """Deviation: the corrected ids, nothing raised, the logs as in 3.7.6."""
+    want = ('list', [('int', i) for i in ids])
+
+    def check(expected, actual):
+        if 'raise' in actual:
+            return 'raised {}: {}'.format(*actual['raise'])
+        if actual['return'] != want:
+            return 'returned {!r}, HiCExplorer 4 returns {!r}'.format(actual['return'], want)
+        if actual['logs'] != expected['logs']:
+            return 'logs differ: {!r} against {!r}'.format(actual['logs'], expected['logs'])
+        return None
+    return check
+
+
+_FIXED = {
+    # the tree of the second '1' loop is kept: three loops merge into the widest
+    'merge/reappearing_chromosome': [0, 3],
+    # the y anchors of the chromosome-'3' loop are on chromosome '1'; its x tree holds one interval
+    'merge/inter_chromosomal_key_error': [0, 2],
+    # the loop with y chromosome 'Q' is alone in its y tree and is not merged
+    'merge/stale_y_set': [2, 0],
+    # loops on chromosomes without a tree are skipped; the tuples hold one interval each
+    'merge/first_loop_unknown_chromosome': [0],
+    'merge/y_unknown': [0],
+    'merge/empty_tuples': [],
+}
+for _case in CASES:
+    if _case.id in _FIXED:
+        _case.deviation = _fixed(_FIXED[_case.id])
+        _case.note = (_case.note + '; ' if _case.note else '') + 'defect of 3.7.6 fixed in HiCExplorer 4, see the module docstring'

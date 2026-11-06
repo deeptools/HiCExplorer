@@ -208,33 +208,49 @@ def test_committed_reference_loops_bedgraph_is_not_reproduced():
 
 # ---------------------------------------------------------------------------
 # Full precision expectations, one per option path
-
-
+#
+# The expectations on the h5 and cool matrices are HiCExplorer 4 output because
+# of four fixes. (1) candidate_region_test cuts the window around the
+# candidate itself; 3.7.6 cut it around a wrong position whenever the
+# candidate's value occurs more than once in its window. (2) The expected value
+# at a distance is divided by the diagonal length n - d (3.7.6: n + 1 - d). (3)
+# The obs/exp value of a pair is divided by the expected value of its own
+# distance (3.7.6 used the value of ceil(d / 2)). (4) The obs/exp ratio of an
+# integer matrix is kept as float64 (3.7.6 truncated it to integers); on these
+# matrices that moves p-values by less than 1 percent.
+# Loops against 3.7.6 on small_test_matrix.h5, chr2L, default options: 27 (25);
+# whole matrix 90 (52); -w 7 -pw 3 11 (11); mean_nonzero_ligation 65 (62);
+# --pValuePreselection 0.01 15 (14); threshold file 24 (22); --maxLoopDistance
+# 100000 21 (19); Li_et_al_2015.h5 1165 (832); cool chr1 11 (4), chr1 and chr2
+# 21 (9), tight preselection 4 (3). The mean_nonzero paths are unchanged.
+# Lines that did not change keep the p-value text of 3.7.6.
 CHR2L_DEFAULT_EXPECTED = """
-chr2L	485000	490000	chr2L	490000	495000	0.4385623894062053
+chr2L	485000	490000	chr2L	490000	495000	0.4347878101422182
 chr2L	960000	965000	chr2L	1045000	1050000	0.4016704795074202
 chr2L	1190000	1195000	chr2L	1195000	1200000	0.21901405427555742
+chr2L	2080000	2085000	chr2L	2130000	2135000	0.21901405427555734
 chr2L	2950000	2955000	chr2L	2965000	2970000	0.09730180547398455
-chr2L	3385000	3390000	chr2L	3390000	3395000	0.3179460186301115
+chr2L	3385000	3390000	chr2L	3390000	3395000	0.3133150561644056
+chr2L	4360000	4365000	chr2L	4370000	4375000	0.21901405427555734
 chr2L	4420000	4425000	chr2L	4430000	4435000	0.3565987181527521
-chr2L	5200000	5205000	chr2L	5205000	5210000	0.24787229188765736
-chr2L	5260000	5265000	chr2L	5265000	5270000	0.14527668564350318
+chr2L	5260000	5265000	chr2L	5265000	5270000	0.14705359313353478
 chr2L	7475000	7480000	chr2L	7480000	7485000	0.12442987548470683
-chr2L	8675000	8680000	chr2L	8680000	8685000	0.3133150561644056
 chr2L	8960000	8965000	chr2L	9185000	9190000	0.3565987181527521
-chr2L	8965000	8970000	chr2L	9195000	9200000	0.3565987181527521
 chr2L	8970000	8975000	chr2L	9195000	9200000	0.3565987181527521
-chr2L	9805000	9810000	chr2L	9820000	9825000	0.44616777885985415
-chr2L	13800000	13805000	chr2L	13910000	13915000	0.3565987181527521
+chr2L	9805000	9810000	chr2L	9820000	9825000	0.44808079459400096
+chr2L	13940000	13945000	chr2L	14030000	14035000	0.3565987181527522
+chr2L	13945000	13950000	chr2L	14035000	14040000	0.3565987181527522
 chr2L	14755000	14760000	chr2L	14855000	14860000	0.3565987181527521
+chr2L	15500000	15505000	chr2L	15560000	15565000	0.3565987181527522
 chr2L	16340000	16345000	chr2L	16345000	16350000	0.3565987181527521
 chr2L	17005000	17010000	chr2L	17020000	17025000	0.44616777885985415
-chr2L	17045000	17050000	chr2L	17120000	17125000	0.3565987181527521
-chr2L	18670000	18675000	chr2L	18675000	18680000	0.23000508888575644
-chr2L	18940000	18945000	chr2L	19030000	19035000	0.3565987181527521
+chr2L	17860000	17865000	chr2L	17985000	17990000	0.3565987181527522
+chr2L	17860000	17865000	chr2L	18175000	18180000	0.3565987181527522
 chr2L	19585000	19590000	chr2L	19670000	19675000	0.3565987181527521
-chr2L	19755000	19760000	chr2L	19875000	19880000	0.3565987181527521
-chr2L	20795000	20800000	chr2L	20810000	20815000	0.35827102425110247
+chr2L	19745000	19750000	chr2L	19870000	19875000	0.4034696550150483
+chr2L	20255000	20260000	chr2L	20265000	20270000	0.14794825611385778
+chr2L	20500000	20505000	chr2L	20560000	20565000	0.4016704795074202
+chr2L	20795000	20800000	chr2L	20810000	20815000	0.3483111472771003
 chr2L	22030000	22035000	chr2L	22160000	22165000	0.3565987181527521
 """
 
@@ -242,11 +258,13 @@ chr2L	22030000	22035000	chr2L	22160000	22165000	0.3565987181527521
 def test_h5_single_chromosome_full_precision():
     """The default --expected mean on an integer count matrix.
 
-    Note what obs_exp_matrix does to an integer matrix: it records the input
-    dtype before casting the data to float32 and casts the quotient back to it
-    (hicexplorer/utilities.py:582,588), so the observed over expected ratio is
-    truncated to an integer. It only survives that because the expected value
-    per distance here is around 0.05, so the ratios are in the hundreds.
+    The observed over expected ratio of an integer matrix is kept as a float64
+    ratio. 3.7.6 recorded the input dtype before casting the data to float32
+    and cast the quotient back to it (hicexplorer/utilities.py:582,588), so
+    the ratio was truncated to an integer. Here the expected value per
+    distance is around 0.05 and the ratios are in the hundreds, so keeping the
+    fractional part moves the p-values by less than 1 percent and adds one loop
+    to the whole-matrix run.
     """
     lines = run_loops(
         "--matrix {} -o {{out}} --chromosomes chr2L -pit 1 -p 0.5 -pp 0.5 "
@@ -260,16 +278,16 @@ def test_h5_all_chromosomes_full_precision():
         "--matrix {} -o {{out}} -pit 1 -p 0.5 -pp 0.5 -t 1 -tpc 1".format(
             MATRIX_H5))
     assert lines is not None
-    assert len(lines) == 52
-    # Only two of the 15 chromosomes produce any loop at all, and they come out
-    # in bin table order, which puts chr3L before chr2L.
-    assert [line.split("\t")[0] for line in lines] == ["chr3L"] * 27 + ["chr2L"] * 25
-    assert_line(lines[0], "chr3L\t125000\t130000\tchr3L\t135000\t140000\t"
-                "0.3633174801431127")
-    assert_line(lines[26], "chr3L\t21545000\t21550000\tchr3L\t21550000\t21555000\t"
-                "0.16869892359210836")
+    assert len(lines) == 90
+    # Six of the 15 chromosomes produce loops, and they come out in bin table
+    # order.
+    expected_order = [('chr4', 3), ('chr3L', 25), ('chr2L', 27), ('chrX', 6), ('chr2R', 9), ('chr3R', 20)]
+    chromosomes = [line.split("\t")[0] for line in lines]
+    assert [(c, chromosomes.count(c)) for c in dict.fromkeys(chromosomes)] == expected_order
+    assert_line(lines[0], "chr4	565000	570000	chr4	975000	980000	0.3565987181527522")
+    assert_line(lines[27], "chr3L	21645000	21650000	chr3L	21790000	21795000	0.3565987181527522")
     # The chr2L block is exactly the single chromosome run, line for line.
-    assert_lines(lines[27:], CHR2L_DEFAULT_EXPECTED)
+    assert_lines(lines[28:55], CHR2L_DEFAULT_EXPECTED)
 
 
 CHR2L_MEAN_NONZERO_EXPECTED = """
@@ -330,11 +348,11 @@ def test_h5_expected_mean_nonzero_ligation():
         "--expected mean_nonzero_ligation -pit 1 -p 0.5 -pp 0.5 "
         "-t 1 -tpc 1".format(MATRIX_H5))
     assert lines is not None
-    assert len(lines) == 62
+    assert len(lines) == 65
     assert_line(lines[0], "chr2L\t220000\t225000\tchr2L\t240000\t245000\t"
                 "0.4016704795074202")
     assert_line(lines[-1], "chr2L\t22035000\t22040000\tchr2L\t22170000\t22175000\t"
-                "0.398086603716326")
+                "0.3980866037163259")
     # Every line is a chr2L intra chromosomal pair with seven fields and a
     # p-value at or below the --pValue of 0.5.
     for line in lines:
@@ -345,17 +363,17 @@ def test_h5_expected_mean_nonzero_ligation():
 
 
 CHR2L_WINDOW7_EXPECTED = """
-chr2L	485000	490000	chr2L	490000	495000	0.30371216516921395
-chr2L	950000	955000	chr2L	1105000	1110000	0.38243248357483484
+chr2L	485000	490000	chr2L	490000	495000	0.3042958329054798
 chr2L	2950000	2955000	chr2L	2965000	2970000	0.14387965556669857
 chr2L	4360000	4365000	chr2L	4370000	4375000	0.38243248357483484
-chr2L	4370000	4375000	chr2L	4375000	4380000	0.4164297080385082
 chr2L	7475000	7480000	chr2L	7480000	7485000	0.2749302852924145
-chr2L	15825000	15830000	chr2L	15980000	15985000	0.41429834009735467
+chr2L	15825000	15830000	chr2L	15980000	15985000	0.4178542074364948
 chr2L	17005000	17010000	chr2L	17020000	17025000	0.45364184883329106
+chr2L	17005000	17010000	chr2L	17285000	17290000	0.3824324835748349
 chr2L	17280000	17285000	chr2L	17290000	17295000	0.38243248357483484
-chr2L	21185000	21190000	chr2L	21205000	21210000	0.2679017767822581
-chr2L	21245000	21250000	chr2L	21275000	21280000	0.23510553107318533
+chr2L	17975000	17980000	chr2L	18035000	18040000	0.3319495755090913
+chr2L	21185000	21190000	chr2L	21205000	21210000	0.263108828296223
+chr2L	21245000	21250000	chr2L	21275000	21280000	0.2355950827570762
 """
 
 
@@ -386,11 +404,11 @@ def test_h5_tight_preselection_changes_the_call_set():
     tight = run_loops(
         "--matrix {} -o {{out}} --chromosomes chr2L -pit 1 -p 0.5 -pp 0.01 "
         "-t 1 -tpc 1".format(MATRIX_H5))
-    assert len(loose) == 25
-    assert len(tight) == 14
+    assert len(loose) == 27
+    assert len(tight) == 15
     assert set(tight).issubset(set(loose))
     assert_line(tight[0], "chr2L\t485000\t490000\tchr2L\t490000\t495000\t"
-                "0.4385623894062053")
+                "0.4347878101422182")
     assert_line(tight[-1], "chr2L\t22030000\t22035000\tchr2L\t22160000\t22165000\t"
                 "0.3565987181527521")
 
@@ -407,9 +425,9 @@ def test_h5_threshold_file_preselection():
         "--matrix {} -o {{out}} --chromosomes chr2L --maxLoopDistance 200000 "
         "-pp {} -pit 1 -p 0.5 -t 1 -tpc 1".format(MATRIX_H5, THRESHOLD_FILE))
     assert lines is not None
-    assert len(lines) == 22
+    assert len(lines) == 24
     assert_line(lines[0], "chr2L\t485000\t490000\tchr2L\t490000\t495000\t"
-                "0.4385623894062053")
+                "0.4347878101422182")
     assert_line(lines[-1], "chr2L\t22030000\t22035000\tchr2L\t22160000\t22165000\t"
                 "0.3565987181527521")
 
@@ -425,7 +443,7 @@ def test_h5_max_loop_distance_filters_the_calls():
         "--matrix {} -o {{out}} --chromosomes chr2L --maxLoopDistance 100000 "
         "-pit 1 -p 0.5 -pp 0.5 -t 1 -tpc 1".format(MATRIX_H5))
     assert lines is not None
-    assert len(lines) == 19
+    assert len(lines) == 21
     for line in lines:
         fields = line.split("\t")
         assert abs(int(fields[1]) - int(fields[4])) <= 100000
@@ -443,11 +461,11 @@ def test_h5_variable_bin_sizes():
         "--matrix {} -o {{out}} --maxLoopDistance 100000 -pit 1 -p 0.5 -pp 0.5 "
         "-t 1 -tpc 1".format(ROOT + "Li_et_al_2015.h5"))
     assert lines is not None
-    assert len(lines) == 832
-    assert_line(lines[0], "X\t43223\t44570\tX\t69085\t70854\t2.286311894128384e-08")
-    assert_line(lines[1], "X\t77008\t78499\tX\t78499\t79559\t0.18090119770452806")
+    assert len(lines) == 1165
+    assert_line(lines[0], "X\t19537\t20701\tX\t22321\t24083\t0.11092278609992479")
+    assert_line(lines[1], "X\t19537\t20701\tX\t51345\t53646\t0.023830504205335775")
     assert_line(lines[-1], "X\t22384424\t22386244\tX\t22409588\t22411768\t"
-                "3.591168242233997e-12")
+                "3.4317252084688694e-12")
     # Every call is inside --maxLoopDistance measured on the genomic starts,
     # which is what cluster_to_genome_position_mapping enforces. On a fixed
     # width matrix that filter is redundant because the bin distance cut is
@@ -462,7 +480,7 @@ def test_h5_obs_exp_threshold_and_peak_interactions_threshold():
     """--obsExpThreshold and --peakInteractionsThreshold, both able to empty
     the result.
 
-    --obsExpThreshold gates which pixels get a p-value at all; on this integer
+    --obsExpThreshold gates which pixels get a p-value at all; on this
     obs/exp matrix the ratios run into the thousands, so it takes a value in
     the hundreds to bite. --peakInteractionsThreshold gates the raw counts and
     the default of 10 is already enough to find nothing here, which is why
@@ -482,9 +500,9 @@ def test_h5_obs_exp_threshold_and_peak_interactions_threshold():
     assert run_loops(
         "--matrix {} -o {{out}} --chromosomes chr2L -t 1 -tpc 1".format(
             MATRIX_H5), expect_exit=1) is None
-    # --peakInteractionsThreshold on its own: 1 gives the 25 loops above and
+    # --peakInteractionsThreshold on its own: 1 gives the 27 loops above and
     # 20 gives none, so this pins that the raw count mask is applied at all.
-    # Without it the 20 run would produce the same 25 loops.
+    # Without it the 20 run would produce the same 27 loops.
     assert run_loops(
         "--matrix {} -o {{out}} --chromosomes chr2L -pit 20 -p 0.5 -pp 0.5 "
         "-t 1 -tpc 1".format(MATRIX_H5), expect_exit=1) is None
@@ -519,19 +537,34 @@ def test_window_size_must_exceed_peak_width():
 # The cool loader
 
 
+# HiCExplorer 4 output because of the fix of the expected value divisor (the
+# diagonal length n - d, where 3.7.6 used n + 1 - d): the p-value of the first
+# loop was 0.004067531885338184 in 3.7.6. The call set is unchanged.
 COOL_CHR1_EXPECTED = """
-1	5000000	7500000	1	17500000	20000000	0.004067531885338184
-1	120000000	122500000	1	145000000	147500000	0.0788656354876193
-1	207500000	210000000	1	230000000	232500000	8.805294560913203e-07
-1	212500000	215000000	1	245000000	247500000	0.031624120627730484
+1	5000000	7500000	1	17500000	20000000	0.0011450507997251976
+1	45000000	47500000	1	52500000	55000000	0.11020774596501984
+1	52500000	55000000	1	92500000	95000000	3.413285839349733e-07
+1	62500000	65000000	1	107500000	110000000	0.061575742328860116
+1	92500000	95000000	1	107500000	110000000	0.17676300606047782
+1	120000000	122500000	1	145000000	147500000	0.13001668247395196
+1	120000000	122500000	1	162500000	165000000	0.02136547915198356
+1	145000000	147500000	1	182500000	185000000	0.07305029748636323
+1	150000000	152500000	1	155000000	157500000	5.210792839121636e-05
+1	182500000	185000000	1	225000000	227500000	2.0996152948682467e-05
+1	200000000	202500000	1	205000000	207500000	0.03408959118042026
 """
 
 COOL_CHR1_CHR2_EXPECTED = COOL_CHR1_EXPECTED.strip() + """
-2	10000000	12500000	2	27500000	30000000	0.1351009131589282
-2	25000000	27500000	2	27500000	30000000	0.48530165636498557
-2	27500000	30000000	2	45000000	47500000	0.1324698253645566
-2	72500000	75000000	2	85000000	87500000	0.008350491904646425
-2	120000000	122500000	2	127500000	130000000	0.01622154620376431
+2	25000000	27500000	2	45000000	47500000	0.08739681019078194
+2	42500000	45000000	2	85000000	87500000	0.14975005086508075
+2	72500000	75000000	2	85000000	87500000	0.00557133017501049
+2	100000000	102500000	2	120000000	122500000	0.026757454806728663
+2	120000000	122500000	2	127500000	130000000	0.0030678847922732647
+2	142500000	145000000	2	145000000	147500000	0.21189940453027525
+2	170000000	172500000	2	202500000	205000000	0.00019464023261289945
+2	172500000	175000000	2	217500000	220000000	0.004568003010705302
+2	202500000	205000000	2	230000000	232500000	3.1658162173978796e-05
+2	232500000	235000000	2	240000000	242500000	0.02329299476297052
 """
 
 
@@ -585,11 +618,12 @@ def test_cool_tight_preselection():
         "--matrix {} -o {{out}} --chromosomes 1 --maxLoopDistance 50000000 "
         "-pit 1 -w 5 -pw 2 -p 0.5 -pp 0.1 -t 1 -tpc 1".format(MATRIX_COOL))
     assert lines is not None
-    assert len(lines) == 3
+    assert len(lines) == 4
     assert_lines(lines, """
-1	5000000	7500000	1	17500000	20000000	0.004067531885338184
-1	120000000	122500000	1	145000000	147500000	0.0788656354876193
-1	212500000	215000000	1	245000000	247500000	0.031624120627730484
+1	5000000	7500000	1	17500000	20000000	0.0011450507997251976
+1	52500000	55000000	1	92500000	95000000	3.413285839349733e-07
+1	120000000	122500000	1	145000000	147500000	0.13001668247395196
+1	182500000	185000000	1	225000000	227500000	2.0996152948682467e-05
 """)
 
 
@@ -619,7 +653,7 @@ def test_output_order_depends_on_scheduling(threads):
 
     main() starts one process per chromosome and appends each result to the
     output as that process happens to finish (hicDetectLoops.py:1060-1066), so
-    with more than one worker the order of the 52 loops is whatever the
+    with more than one worker the order of the 90 loops is whatever the
     scheduler produced. Measured on this matrix: three runs at --threads 4
     gave two distinct orderings, and --threads 8 --threadsPerChromosome 4 gave
     a third. This test asserts the invariant that does hold, and records that
@@ -629,7 +663,7 @@ def test_output_order_depends_on_scheduling(threads):
         "--matrix {} -o {{out}} -pit 1 -p 0.5 -pp 0.5 -t {} -tpc 4".format(
             MATRIX_H5, threads)) for _ in range(2)]
     assert sorted(runs[0]) == sorted(runs[1])
-    assert len(runs[0]) == 52
+    assert len(runs[0]) == 90
     if threads == 1:
         # With one worker the order is defined: chromosomes in bin table order.
         assert runs[0] == runs[1]
