@@ -82,5 +82,5 @@ is what the original environment held.
 ## Build environment of the C++ tree
 
 The C++ tree is built against a separate environment, `hicx-build`, not against
-this reference environment. Its package list (the host and run requirements for
-a bioconda recipe) is in `cpp/BUILDING.md`.
+this reference environment. Its package list (the build-time and runtime requirements)
+is in `cpp/BUILDING.md`.

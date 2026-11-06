@@ -9,8 +9,8 @@ comes from the dependency prefix given with `-DCMAKE_PREFIX_PATH`.
 
 The prefix is a conda environment used as a plain prefix (never activated).
 The packages and version ranges below are the ones the output of the tools was
-verified with; they can be copied into the `host` and `run` sections of a
-bioconda recipe.
+verified with, as build-time (host) and runtime (run) requirements of a
+package.
 
 host (build time):
 
