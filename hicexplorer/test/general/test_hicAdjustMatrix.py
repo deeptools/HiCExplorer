@@ -480,6 +480,31 @@ def test_maskBadRegions_ignores_action():
     np.assert_array_equal(plain.matrix.toarray(), removed.matrix.toarray())
 
 
+def test_h5_correction_factors_stay_in_their_dataset(tmp_path):
+    """An h5 round trip writes /correction_factors, not /distance_counts.
+
+    Fixed in HiCExplorer 4. hiCMatrix.__init__ of 3.7.6 unpacked the loader
+    tuple the wrong way round, so the factors of an h5 matrix were written
+    back as /distance_counts (cpp/PLAN.md 2.7 quirk 1). The factors also
+    follow their bins (reorderBins fix).
+    """
+    import h5py
+    li = ROOT + 'Li_et_al_2015.h5'
+    bed = tmp_path / 'part.bed'
+    bed.write_text('X\t1000000\t3000000\n')
+    ids = region_bin_ids(li, str(bed))
+    assert 0 < len(ids) < 11104
+    out = str(tmp_path / 'adjusted.h5')
+    hicAdjustMatrix.main(['--matrix', li, '--outFileName', out,
+                          '--regions', str(bed), '--action', 'keep'])
+    with h5py.File(li, 'r') as source, h5py.File(out, 'r') as result:
+        assert 'distance_counts' not in result
+        factors = numpy_lib.asarray(source['correction_factors']).ravel()
+        written = numpy_lib.asarray(result['correction_factors']).ravel()
+    # the h5 writer stores a NaN factor (an empty bin) as 0
+    np.assert_array_equal(written, numpy_lib.nan_to_num(factors[ids]))
+
+
 def test_no_selection_is_an_error():
     """Without --chromosomes, --regions or --maskBadRegions the tool exits 1.
 

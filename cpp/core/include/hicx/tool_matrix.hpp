@@ -8,12 +8,12 @@
 //
 //  1. The load time field swap (cpp/PLAN.md 2.7 quirk 1). Every loader returns
 //     (matrix, cut_intervals, nan_bins, distance_counts, correction_factors)
-//     but hiCMatrix.__init__ unpacks the last two the other way round, and
-//     hiCMatrix.save hands its members straight to set_matrix_variables. The
-//     net effect is that an h5 to h5 round trip moves /correction_factors into
-//     /distance_counts and a cool to cool round trip drops the weight column.
-//     `data` holds the fields with hiCMatrix's meaning, which is also the
-//     meaning the writers consume, so the swap happens once, at load.
+//     but hiCMatrix.__init__ of 3.7.6 unpacked the last two the other way
+//     round, so an h5 to h5 round trip moved /correction_factors into
+//     /distance_counts. Fixed in HiCExplorer 4 for h5: the fields keep their
+//     names. A cool or .hic matrix still gets the swap, which makes the
+//     weight column (already applied to the pixels on loading) disappear from
+//     the output rather than be applied a second time on the next load.
 //  2. hiCMatrix.save reuses the file handler built during the load, so the
 //     output format is the format of the *input*, whatever the output file
 //     name says. `hicSumMatrices -m a.h5 -o out.cool` writes an h5 file, named

@@ -251,13 +251,14 @@ TEST_CASE("the mask step loses the 5,142 counts the Python test pins") {
     CHECK(a.matrix().nnz() == 3152621);
 }
 
-TEST_CASE("loading through ToolMatrix swaps the two optional vectors") {
-    // cpp/PLAN.md 2.7 quirk 1: hiCMatrix.__init__ unpacks the loader tuple with
-    // correction_factors and distance_counts the wrong way round.
-    // Li_et_al_2015.h5 carries /correction_factors and no /distance_counts, so
-    // after the swap the factors sit in distance_counts.
+TEST_CASE("loading an h5 through ToolMatrix keeps the correction factors in correction_factors") {
+    // cpp/PLAN.md 2.7 quirk 1: hiCMatrix.__init__ of 3.7.6 unpacked the loader
+    // tuple with correction_factors and distance_counts the wrong way round, so
+    // the factors of an h5 file ended up in distance_counts and were written
+    // back as /distance_counts. Fixed in HiCExplorer 4 for h5.
+    // Li_et_al_2015.h5 carries /correction_factors and no /distance_counts.
     const hicx::ToolMatrix matrix = hicx::ToolMatrix::load(data_path("Li_et_al_2015.h5"));
-    CHECK_FALSE(matrix.data().correction_factors.has_value());
-    REQUIRE(matrix.data().distance_counts.has_value());
-    CHECK(matrix.data().distance_counts->size() == 11104);
+    REQUIRE(matrix.data().correction_factors.has_value());
+    CHECK(matrix.data().correction_factors->size() == 11104);
+    CHECK_FALSE(matrix.data().distance_counts.has_value());
 }

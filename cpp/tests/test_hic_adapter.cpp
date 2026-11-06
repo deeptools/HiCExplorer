@@ -181,8 +181,9 @@ TEST_CASE("ToolMatrix::load and HiCMatrix::load both read a .hic selector") {
 
     const hicx::HiCMatrix plain = hicx::HiCMatrix::load(path);
     CHECK(plain.matrix().rows() == tool.matrix().rows());
-    // ToolMatrix::load symmetrizes and swaps correction_factors/distance_counts
-    // (cpp/PLAN.md 2.7 quirk 1); HiCMatrix::load only symmetrizes. Both must
+    // ToolMatrix::load symmetrizes (and, for a non-h5 input, swaps
+    // correction_factors/distance_counts, cpp/PLAN.md 2.7 quirk 1);
+    // HiCMatrix::load only symmetrizes. Both must
     // still see the same finest-resolution, raw-count fixture underneath.
     CHECK(plain.bin_size() == 1000000);
 }

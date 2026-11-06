@@ -99,15 +99,17 @@
     "id": "hicNormalize.h5.smallest.Li_pair",
     "tool": "hicNormalize",
     "tier": 2,
+    "reference": "none",
     "args": ["--matrices", "{data}/Li_et_al_2015.h5", "{data}/Li_et_al_2015_twice.h5",
              "--normalize", "smallest",
              "-o", "{out}/li_one.h5", "{out}/li_two.h5"],
     "outputs": [
-      {"path": "{out}/li_one.h5", "format": "h5", "class": "E2"},
-      {"path": "{out}/li_two.h5", "format": "h5", "class": "E2"}
+      {"path": "{out}/li_one.h5", "format": "h5", "class": "EX"},
+      {"path": "{out}/li_two.h5", "format": "h5", "class": "EX"}
     ],
     "memory": {"alpha": 2.6, "beta": 0.0},
     "large": true,
-    "notes": "The designated large input, on real float64 data spanning 0.170 to 1914.015 rather than small integers, and the only case where both matrices are of a size worth measuring. alpha is 2.6 rather than the 1.3 of PLAN.md 4.5 because hicNormalize.py:68-72 loads every matrix before it normalizes any of them, so two matrices are live at once; 1.3 per live matrix is the same rule, applied twice. The h5 values are float64 and the cast to float32 is a real rounding here, unlike on the small integer matrices."
+    "expect_exit": 0,
+    "notes": "The designated large input, on real float64 data spanning 0.170 to 1914.015 rather than small integers, and the only case where both matrices are of a size worth measuring. alpha is 2.6 rather than the 1.3 of PLAN.md 4.5 because hicNormalize.py:68-72 loads every matrix before it normalizes any of them, so two matrices are live at once; 1.3 per live matrix is the same rule, applied twice. The h5 values are float64 and the cast to float32 is a real rounding here, unlike on the small integer matrices. Class EX (deliberate deviation, HiCExplorer 4 fix of the load time field swap, project owner 2026-11-06): Li_et_al_2015.h5 carries /correction_factors. 3.7.6 unpacked the loader tuple the wrong way round, so the factors were written back as /distance_counts (and, for a tool that resets the factors, survived the reset as stale /distance_counts). HiCExplorer 4 keeps them in /correction_factors, or drops them where the tool resets them; the matrix, the bin table and every other dataset are unchanged. Pinned by test_h5_correction_factors_stay_in_their_dataset (test_hicAdjustMatrix.py), test_merge_tad_bins_clears_correction_factors and cpp/tests/test_matrix_ops.cpp."
   }
 ]

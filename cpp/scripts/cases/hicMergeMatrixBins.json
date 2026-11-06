@@ -58,11 +58,13 @@
     "id": "hicMergeMatrixBins.h5.numBins10.Li_et_al_2015",
     "tool": "hicMergeMatrixBins",
     "tier": 1,
+    "reference": "none",
     "args": ["-m", "{data}/Li_et_al_2015.h5", "-o", "{out}/merged.h5",
              "--numBins", "10"],
     "cpp_args": ["--chromosomeSizes", "{data}/hicBuildMatrix/dm3.chrom.sizes"],
-    "outputs": [{"path": "{out}/merged.h5", "format": "h5", "class": "E2"}],
-    "notes": "Still class E2, unlike every other numBins case here: this matrix is a restriction-fragment one (11,104 fragment bins over chrX, no fixed bin width), so BinTable::bin_size_homogeneous() is false and the C++ tool falls back to the pre-fix, input-derived plan_bin_merge exactly as before. --chromosomeSizes is still required at the CLI level (uniform requirement, hicMergeMatrixBins.cpp top-of-file comment) but its content plays no role for this matrix: a chromosome-lengths file cannot reconstruct restriction fragment boundaries. float64 counts over 11,104 restriction fragment bins, so the block sums are genuine floating point reductions rather than integer ones, and they are still value exact: np.bincount accumulates one cell at a time in the order the entries appear, which the port reproduces."
+    "outputs": [{"path": "{out}/merged.h5", "format": "h5", "class": "EX"}],
+    "expect_exit": 0,
+    "notes": "Still class E2, unlike every other numBins case here: this matrix is a restriction-fragment one (11,104 fragment bins over chrX, no fixed bin width), so BinTable::bin_size_homogeneous() is false and the C++ tool falls back to the pre-fix, input-derived plan_bin_merge exactly as before. --chromosomeSizes is still required at the CLI level (uniform requirement, hicMergeMatrixBins.cpp top-of-file comment) but its content plays no role for this matrix: a chromosome-lengths file cannot reconstruct restriction fragment boundaries. float64 counts over 11,104 restriction fragment bins, so the block sums are genuine floating point reductions rather than integer ones, and they are still value exact: np.bincount accumulates one cell at a time in the order the entries appear, which the port reproduces. Class EX (deliberate deviation, HiCExplorer 4 fix of the load time field swap, project owner 2026-11-06): Li_et_al_2015.h5 carries /correction_factors. 3.7.6 unpacked the loader tuple the wrong way round, so the factors were written back as /distance_counts (and, for a tool that resets the factors, survived the reset as stale /distance_counts). HiCExplorer 4 keeps them in /correction_factors, or drops them where the tool resets them; the matrix, the bin table and every other dataset are unchanged. Pinned by test_h5_correction_factors_stay_in_their_dataset (test_hicAdjustMatrix.py), test_merge_tad_bins_clears_correction_factors and cpp/tests/test_matrix_ops.cpp."
   },
   {
     "id": "hicMergeMatrixBins.cool.numBins10.GSM_chr1_chr2",
@@ -122,12 +124,14 @@
     "id": "hicMergeMatrixBins.h5.runningWindow3.Li_et_al_2015",
     "tool": "hicMergeMatrixBins",
     "tier": 1,
+    "reference": "none",
     "args": ["-m", "{data}/Li_et_al_2015.h5", "-o", "{out}/merged.h5",
              "--numBins", "3", "--runningWindow"],
     "cpp_args": ["--chromosomeSizes", "{data}/hicBuildMatrix/dm3.chrom.sizes"],
-    "outputs": [{"path": "{out}/merged.h5", "format": "h5", "class": "ED"}],
+    "outputs": [{"path": "{out}/merged.h5", "format": "h5", "class": "EX"}],
     "large": true,
-    "notes": "ED rather than E2, and this is the only case of the three tools that is not value exact. The sparsity pattern is identical, 2,517,975 stored values, and 818,579 of them differ in the last bit: the largest relative difference measured is 1.8e-19 and the largest absolute one 5e-13 on values around 2.8e3. The cause is the order in which the duplicate contributions to one cell are summed. The Python builds a coo of every shifted entry, converts it to csr, and scipy's csr_sort_indices sorts each row with a plain std::sort whose comparator looks only at the column, so the order inside a group of duplicates is whatever libstdc++'s introsort leaves. That is an implementation detail of the scipy build, not a defined order, and reproducing it would mean reimplementing a specific std::sort. The port sums in generation order, which is deterministic. Far inside the ED gate of PLAN.md 5.0; the integer running window cases above are value exact because integer addition is associative. --chromosomeSizes required by the CLI but unused by --runningWindow, so unaffected by the fix."
+    "expect_exit": 0,
+    "notes": "ED rather than E2, and this is the only case of the three tools that is not value exact. The sparsity pattern is identical, 2,517,975 stored values, and 818,579 of them differ in the last bit: the largest relative difference measured is 1.8e-19 and the largest absolute one 5e-13 on values around 2.8e3. The cause is the order in which the duplicate contributions to one cell are summed. The Python builds a coo of every shifted entry, converts it to csr, and scipy's csr_sort_indices sorts each row with a plain std::sort whose comparator looks only at the column, so the order inside a group of duplicates is whatever libstdc++'s introsort leaves. That is an implementation detail of the scipy build, not a defined order, and reproducing it would mean reimplementing a specific std::sort. The port sums in generation order, which is deterministic. Far inside the ED gate of PLAN.md 5.0; the integer running window cases above are value exact because integer addition is associative. --chromosomeSizes required by the CLI but unused by --runningWindow, so unaffected by the fix. Class EX (deliberate deviation, HiCExplorer 4 fix of the load time field swap, project owner 2026-11-06): Li_et_al_2015.h5 carries /correction_factors. 3.7.6 unpacked the loader tuple the wrong way round, so the factors were written back as /distance_counts (and, for a tool that resets the factors, survived the reset as stale /distance_counts). HiCExplorer 4 keeps them in /correction_factors, or drops them where the tool resets them; the matrix, the bin table and every other dataset are unchanged. Pinned by test_h5_correction_factors_stay_in_their_dataset (test_hicAdjustMatrix.py), test_merge_tad_bins_clears_correction_factors and cpp/tests/test_matrix_ops.cpp."
   },
   {
     "id": "hicMergeMatrixBins.runningWindow_rejects_an_even_numBins",

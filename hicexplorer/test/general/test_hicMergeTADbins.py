@@ -112,10 +112,12 @@ def test_merge_tad_bins_h5_cut_intervals():
 def test_merge_tad_bins_clears_correction_factors():
     """hicMergeTADbins.py:87 sets correction_factors to None on purpose.
 
-    Note that Li_et_al_2015.h5 carries its stored correction factors in
-    distance_counts, not in correction_factors, because the hicmatrix loader
-    unpacks the two in the wrong order (finding F10). Both are None on the
-    output, which is what the port has to reproduce.
+    Li_et_al_2015.h5 carries its stored correction factors (11,104 bins). The
+    hicmatrix loader of 3.7.6 unpacks the two vectors in the wrong order
+    (finding F10), so the factors are in distance_counts when read with it.
+    3.7.6 therefore missed them in the reset and wrote the stale factors of
+    the unmerged bins as /distance_counts. Fixed in HiCExplorer 4: the factors
+    are reset and the output has neither dataset.
     """
     original = hm.hiCMatrix(LI_H5)
     assert original.correction_factors is None
@@ -123,6 +125,7 @@ def test_merge_tad_bins_clears_correction_factors():
 
     result = run_merge(LI_H5, '.h5')
     assert result.correction_factors is None
+    assert result.distance_counts is None
 
 
 def test_merge_tad_bins_cool_values_are_bit_exact():

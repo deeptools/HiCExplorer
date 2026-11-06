@@ -86,21 +86,23 @@
     "id": "hicFindTADs.h5.Li_et_al_2015.default_depths",
     "tool": "hicFindTADs",
     "tier": 5,
+    "reference": "none",
     "args": ["-m", "{data}/Li_et_al_2015.h5",
              "--correctForMultipleTesting", "fdr",
              "--outPrefix", "{out}/t"],
     "outputs": [
-      {"path": "{out}/t_tad_score.bm", "format": "text", "class": "E0"},
-      {"path": "{out}/t_score.bedgraph", "format": "text", "class": "E0"},
-      {"path": "{out}/t_boundaries.bed", "format": "text", "class": "E0"},
-      {"path": "{out}/t_boundaries.gff", "format": "text", "class": "E0"},
-      {"path": "{out}/t_domains.bed", "format": "text", "class": "E0"},
-      {"path": "{out}/t_zscore_matrix.h5", "format": "h5", "class": "E2"}
+      {"path": "{out}/t_tad_score.bm", "format": "text", "class": "EX"},
+      {"path": "{out}/t_score.bedgraph", "format": "text", "class": "EX"},
+      {"path": "{out}/t_boundaries.bed", "format": "text", "class": "EX"},
+      {"path": "{out}/t_boundaries.gff", "format": "text", "class": "EX"},
+      {"path": "{out}/t_domains.bed", "format": "text", "class": "EX"},
+      {"path": "{out}/t_zscore_matrix.h5", "format": "h5", "class": "EX"}
     ],
     "threads_arg": "--numberOfProcessors",
     "memory": {"budget_mb": 108},
     "large": true,
-    "notes": "The designated validation input: 11,104 restriction fragment bins of chromosome X with float64 values from 0.170 to 1914.015, so the bins are inhomogeneous and fit_cut_intervals snaps every start to a multiple of the 1,843 bp median. It also calls 378 boundaries, the largest set in the corpus for this tool. It is the case that found the one real numeric difference in the port: hicmatrix materialises the z-score band by adding a sparse band of ones and subtracting one again, so every float64 value is round tripped through v + 1 - 1 and loses its lowest bits. Computing from v directly left the z-scores 5.4e-11 relative away from the reference, which passes ED but is not E2; reproducing the round trip makes them bit identical."
+    "expect_exit": 0,
+    "notes": "The designated validation input: 11,104 restriction fragment bins of chromosome X with float64 values from 0.170 to 1914.015, so the bins are inhomogeneous and fit_cut_intervals snaps every start to a multiple of the 1,843 bp median. It also calls 378 boundaries, the largest set in the corpus for this tool. It is the case that found the one real numeric difference in the port: hicmatrix materialises the z-score band by adding a sparse band of ones and subtracting one again, so every float64 value is round tripped through v + 1 - 1 and loses its lowest bits. Computing from v directly left the z-scores 5.4e-11 relative away from the reference, which passes ED but is not E2; reproducing the round trip makes them bit identical. Class EX (deliberate deviation, HiCExplorer 4 fix of the load time field swap, project owner 2026-11-06): Li_et_al_2015.h5 carries /correction_factors. 3.7.6 unpacked the loader tuple the wrong way round, so the factors were written back as /distance_counts (and, for a tool that resets the factors, survived the reset as stale /distance_counts). HiCExplorer 4 keeps them in /correction_factors, or drops them where the tool resets them; the matrix, the bin table and every other dataset are unchanged. Pinned by test_h5_correction_factors_stay_in_their_dataset (test_hicAdjustMatrix.py), test_merge_tad_bins_clears_correction_factors and cpp/tests/test_matrix_ops.cpp."
   },
   {
     "id": "hicFindTADs.score_prefix.none",

@@ -190,11 +190,13 @@
     "id": "hicCompareMatrices.h5.Li_et_al_2015_pair",
     "tool": "hicCompareMatrices",
     "tier": 1,
+    "reference": "none",
     "args": ["-m", "{data}/Li_et_al_2015.h5", "{data}/Li_et_al_2015_twice.h5",
              "--operation", "ratio", "-o", "{out}/result.h5"],
-    "outputs": [{"path": "{out}/result.h5", "format": "h5", "class": "E2"}],
+    "outputs": [{"path": "{out}/result.h5", "format": "h5", "class": "EX"}],
     "memory": {"nnz_stored": 1661678, "nbins": 11104, "alpha": 3.0, "beta": 0.0},
-    "notes": "Carries a correction factor vector through the load time field swap and the mask step, which turns the masked positions into NaN and the h5 writer then stores them as zero."
+    "expect_exit": 0,
+    "notes": "Carries a correction factor vector through the load time field swap and the mask step, which turns the masked positions into NaN and the h5 writer then stores them as zero. Class EX (deliberate deviation, HiCExplorer 4 fix of the load time field swap, project owner 2026-11-06): Li_et_al_2015.h5 carries /correction_factors. 3.7.6 unpacked the loader tuple the wrong way round, so the factors were written back as /distance_counts (and, for a tool that resets the factors, survived the reset as stale /distance_counts). HiCExplorer 4 keeps them in /correction_factors, or drops them where the tool resets them; the matrix, the bin table and every other dataset are unchanged. Pinned by test_h5_correction_factors_stay_in_their_dataset (test_hicAdjustMatrix.py), test_merge_tad_bins_clears_correction_factors and cpp/tests/test_matrix_ops.cpp."
   },
   {
     "id": "hicCompareMatrices.shape_mismatch",

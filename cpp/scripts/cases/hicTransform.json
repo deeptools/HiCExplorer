@@ -468,6 +468,7 @@
     "id": "hicTransform.obs_exp.h5.Li_et_al_2015",
     "tool": "hicTransform",
     "tier": 3,
+    "reference": "none",
     "args": [
       "-m",
       "{data}/Li_et_al_2015.h5",
@@ -488,12 +489,14 @@
       "beta": 0.0
     },
     "large": true,
-    "notes": "The obs/exp row of the memory table in cpp/PLAN.md 4.5: 11,104 bins, 1,661,678 stored nonzeros, W = 20.0 MB, on which the Python peaks at 305 MB. Float64 data, so no truncation."
+    "expect_exit": 0,
+    "notes": "The obs/exp row of the memory table in cpp/PLAN.md 4.5: 11,104 bins, 1,661,678 stored nonzeros, W = 20.0 MB, on which the Python peaks at 305 MB. Float64 data, so no truncation. Class EX (deliberate deviation, HiCExplorer 4 fix of the load time field swap, project owner 2026-11-06): Li_et_al_2015.h5 carries /correction_factors. 3.7.6 unpacked the loader tuple the wrong way round, so the factors were written back as /distance_counts (and, for a tool that resets the factors, survived the reset as stale /distance_counts). HiCExplorer 4 keeps them in /correction_factors, or drops them where the tool resets them; the matrix, the bin table and every other dataset are unchanged. Pinned by test_h5_correction_factors_stay_in_their_dataset (test_hicAdjustMatrix.py), test_merge_tad_bins_clears_correction_factors and cpp/tests/test_matrix_ops.cpp."
   },
   {
     "id": "hicTransform.pearson.h5.Li_et_al_2015",
     "tool": "hicTransform",
     "tier": 3,
+    "reference": "none",
     "args": [
       "-m",
       "{data}/Li_et_al_2015.h5",
@@ -515,7 +518,8 @@
       "beta": 0.0
     },
     "large": true,
-    "notes": "The designated memory benchmark of cpp/PLAN.md 4.2 and the second worst memory-to-data ratio in the corpus: 11,104 bins whose stored form is 19.9 MB, on which the Python peaks at 5,150 MB, a factor of 259. The result is 52,526,125 stored entries, 373 MB on disk, so it is also the case that proves the streamed output is not a convenience: as a CsrMatrix it would be 630 MB of values and indices on top of everything else. Measured on this tree: the port peaks at 97 MB against the Python's 5,534 MB and spends 4.0 s of CPU against 66.3 s, and every one of the 52.5 M values agrees at ED. The budget declared here is 2.4 W + 64 MB = 112 MB, not the 1.1 W + 1.15 D + 64 MB = 1,221 MB of cpp/PLAN.md 4.5, because beta exists to pay for a dense chromosome block and this port allocates none."
+    "expect_exit": 0,
+    "notes": "The designated memory benchmark of cpp/PLAN.md 4.2 and the second worst memory-to-data ratio in the corpus: 11,104 bins whose stored form is 19.9 MB, on which the Python peaks at 5,150 MB, a factor of 259. The result is 52,526,125 stored entries, 373 MB on disk, so it is also the case that proves the streamed output is not a convenience: as a CsrMatrix it would be 630 MB of values and indices on top of everything else. Measured on this tree: the port peaks at 97 MB against the Python's 5,534 MB and spends 4.0 s of CPU against 66.3 s, and every one of the 52.5 M values agrees at ED. The budget declared here is 2.4 W + 64 MB = 112 MB, not the 1.1 W + 1.15 D + 64 MB = 1,221 MB of cpp/PLAN.md 4.5, because beta exists to pay for a dense chromosome block and this port allocates none. Class EX (deliberate deviation, HiCExplorer 4 fix of the load time field swap, project owner 2026-11-06): Li_et_al_2015.h5 carries /correction_factors. 3.7.6 unpacked the loader tuple the wrong way round, so the factors were written back as /distance_counts (and, for a tool that resets the factors, survived the reset as stale /distance_counts). HiCExplorer 4 keeps them in /correction_factors, or drops them where the tool resets them; the matrix, the bin table and every other dataset are unchanged. Pinned by test_h5_correction_factors_stay_in_their_dataset (test_hicAdjustMatrix.py), test_merge_tad_bins_clears_correction_factors and cpp/tests/test_matrix_ops.cpp."
   },
   {
     "id": "hicTransform.unknownOutputSuffix",
