@@ -9,6 +9,7 @@
 *.egg-info
 dist
 build
+cpp/build*/
 eggs
 parts
 bin
