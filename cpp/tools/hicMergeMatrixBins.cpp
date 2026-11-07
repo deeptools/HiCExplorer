@@ -44,7 +44,8 @@
 // That makes the outputs not directly comparable for a reason that has
 // nothing to do with the genome being represented.
 //
-// v4 fixes this by requiring --chromosomeSizes / -cs and using it, together
+// v4 fixes this by taking the chromosome lengths from --chromosomeSizes / -cs,
+// or from the input matrix itself when the option is not given, and using them, together
 // with the matrix's own bin size, to build the merge groups from the true,
 // fixed genome layout (hicx::plan_bin_merge_genome / merge_bins_genome in
 // reduce_matrix.hpp) instead of from whichever bins the input happens to
@@ -61,8 +62,7 @@
 // without the restriction cut positions, which a chromosome sizes file does
 // not carry, so for one of those (BinTable::bin_size_homogeneous() false)
 // this tool falls back to the Python's own input-derived plan_bin_merge,
-// numBins/2 drop and all: --chromosomeSizes is still required (uniformly,
-// for every matrix this tool merges) but its content plays no role for that
+// numBins/2 drop and all: --chromosomeSizes plays no role for that
 // matrix. A user comparing this tool's output to hicMergeMatrixBins.py on the
 // exact reproduced-bug input (fixed resolution, some bins missing) will see
 // a different, genome-length-consistent shape here; on a restriction-fragment
@@ -90,7 +90,7 @@ namespace {
 
 const char* const kUsage =
     "usage: hicMergeMatrixBins --matrix matrix.h5 --outFileName OUTFILENAME\n"
-    "                          --numBins int --chromosomeSizes txt file\n"
+    "                          --numBins int [--chromosomeSizes txt file]\n"
     "                          [--runningWindow] [-h] [--version]\n";
 
 const char* const kHelp =
@@ -113,22 +113,19 @@ const char* const kHelp =
     "                        None)\n"
     "  --numBins int, -nb int\n"
     "                        Number of bins to merge. (default: None)\n"
-    "  --chromosomeSizes txt file, -cs txt file\n"
-    "                        File with the chromosome sizes for your genome, a\n"
-    "                        plain name<TAB>length text file. C++ port only,\n"
-    "                        required: unlike hicMergeMatrixBins.py, this tool\n"
-    "                        builds the merged bin layout from the true\n"
-    "                        chromosome lengths, not from the bins the input\n"
-    "                        matrix happens to have, so that two inputs of the\n"
-    "                        same genome and resolution always merge into the\n"
-    "                        same output shape however much data either of them\n"
-    "                        is missing. Not used for a matrix with irregular\n"
-    "                        (for example restriction-fragment) bin widths,\n"
-    "                        which falls back to the Python's own layout, but\n"
-    "                        still required for every matrix this tool merges.\n"
-    "                        (default: None)\n"
     "\n"
     "Optional arguments:\n"
+    "  --chromosomeSizes txt file, -cs txt file\n"
+    "                        File with the chromosome sizes for your genome, a\n"
+    "                        plain name<TAB>length text file. The merged bin\n"
+    "                        layout is built from these lengths, so that two\n"
+    "                        inputs of the same genome and resolution always\n"
+    "                        merge into the same output shape however much data\n"
+    "                        either of them is missing. Without it, the\n"
+    "                        chromosome lengths are taken from the input matrix\n"
+    "                        (the end of the last bin of each chromosome). Not\n"
+    "                        used for a matrix with irregular (for example\n"
+    "                        restriction-fragment) bin widths. (default: None)\n"
     "  --runningWindow       Set to merge for using a running window of length\n"
     "                        --numBins. (default: False)\n"
     "  -h, --help            Show this help message and exit.\n"
@@ -164,22 +161,16 @@ Arguments parse_arguments(int argc, char** argv) {
         .type("int")
         .required()
         .help("Number of bins to merge.");
-    required.add({"--chromosomeSizes", "-cs"})
+    cli::ArgumentGroup& optional = parser.group("Optional arguments");
+    optional.add({"--chromosomeSizes", "-cs"})
         .file_type("r")
         .metavar("txt file")
         .input({"txt"})
-        .required()
-        .cpp_only(
-            "The C++ port builds the merged bin layout from the true chromosome lengths, "
-            "not from the bins the input matrix happens to have, so that two inputs of the "
-            "same genome and resolution always merge into the same output shape however "
-            "much data either of them is missing (project owner, 2026-09-22). Required for "
-            "every run, including --runningWindow, which does not need it, and a "
-            "restriction-fragment matrix, which cannot use it (see the top-of-file "
-            "comment) and falls back to the Python's own layout.")
-        .help("File with the chromosome sizes for your genome, a plain "
-              "name<TAB>length text file.");
-    cli::ArgumentGroup& optional = parser.group("Optional arguments");
+        .help("File with the chromosome sizes for your genome, a plain name<TAB>length text "
+              "file. The merged bin layout is built from these lengths, so that two inputs of "
+              "the same genome and resolution always merge into the same output shape however "
+              "much data either of them is missing. Without it, the chromosome lengths are "
+              "taken from the input matrix (the end of the last bin of each chromosome).");
     optional.add({"--runningWindow"})
         .action(cli::Action::StoreTrue)
         .help("Set to merge for using a running window of length --numBins.");
@@ -191,7 +182,9 @@ Arguments parse_arguments(int argc, char** argv) {
     args.matrix = ns.str("matrix");
     args.out_file_name = ns.str("outFileName");
     args.num_bins = ns.integer("numBins");
-    args.chromosome_sizes = ns.str("chromosomeSizes");
+    if (ns.given("chromosomeSizes")) {
+        args.chromosome_sizes = ns.str("chromosomeSizes");
+    }
     args.running_window = ns.flag("runningWindow");
     return args;
 }
@@ -202,6 +195,15 @@ int main(int argc, char** argv) {
     const Arguments args = parse_arguments(argc, argv);
     try {
         hicx::ToolMatrix hic = hicx::ToolMatrix::load(args.matrix);
+
+        // Without --chromosomeSizes the lengths come from the input matrix, read
+        // before the NaN bins are removed: the end of the last bin of each
+        // chromosome (for a cool file this is chroms/length).
+        std::vector<std::pair<std::string, std::int64_t>> input_chromosome_sizes;
+        if (args.chromosome_sizes.empty()) {
+            input_chromosome_sizes =
+                hicx::BinTable(hic.data().cut_intervals).chromosome_sizes();
+        }
 
         // remove_nans_if_needed: the NaN bins are deleted, not masked, and the
         // correction factors go with them because they no longer line up.
@@ -236,16 +238,17 @@ int main(int argc, char** argv) {
             // num_bins == 1 returns before the window is applied, so nan_bins
             // stays whatever remove_nans_if_needed left, which is empty.
         } else {
-            // --chromosomeSizes is required by the CLI for every run (see the
-            // top-of-file comment), but it only replaces the layout for a
-            // matrix with a single, fixed bin size. A restriction-fragment
-            // matrix has no bin-from-position rule a chromosome-lengths file
-            // could supply, so it keeps the Python's own input-derived
-            // grouping.
+            // The chromosome lengths (--chromosomeSizes, or the input matrix's
+            // own) only replace the layout for a matrix with a single, fixed
+            // bin size. A restriction-fragment matrix has no bin-from-position
+            // rule a chromosome-lengths file could supply, so it keeps the
+            // input-derived grouping.
             const hicx::BinTable bin_table(hic.data().cut_intervals);
             if (bin_table.bin_size_homogeneous()) {
                 const std::vector<std::pair<std::string, std::int64_t>> chromosome_sizes =
-                    hicx::read_chromosome_sizes(args.chromosome_sizes);
+                    args.chromosome_sizes.empty()
+                        ? input_chromosome_sizes
+                        : hicx::read_chromosome_sizes(args.chromosome_sizes);
                 hicx::MatrixData merged = hicx::merge_bins_genome(
                     hic.data(), args.num_bins, chromosome_sizes, bin_table.bin_size());
                 hic.data() = std::move(merged);

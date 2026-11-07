@@ -4,7 +4,8 @@ Merges consecutive bins on a Hi-C matrix to reduce resolution.
 
 ```text
 usage: hicMergeMatrixBins --matrix matrix.h5 --outFileName OUTFILENAME
-                          --numBins int [--runningWindow] [-h] [--version]
+                          --numBins int [--chromosomeSizes txt file]
+                          [--runningWindow] [-h] [--version]
 ```
 
 Merges bins from a Hi-C matrix. For example, using a matrix containing 5kb bins, a matrix of 50kb bins can be derived using --numBins 10. From one type of downstream analysis to another, different bin sizes are used. For example to call TADs, unmerged matrices are recommended while to display Hi-C matrices, bins of approximately 2000bp usually yield the best representations with `hicPlotMatrix` for small regions, and even larger bins (50kb) are recommended for whole chromosome representations or for `hicPlotDistVsCounts`.
@@ -21,6 +22,7 @@ Merges bins from a Hi-C matrix. For example, using a matrix containing 5kb bins,
 
 | Flag | Meaning |
 |---|---|
+| `--chromosomeSizes txt file, -cs txt file` | File with the chromosome sizes for your genome, a plain name<TAB>length text file. The merged bin layout is built from these lengths, so that two inputs of the same genome and resolution always merge into the same output shape however much data either of them is missing. Without it, the chromosome lengths are taken from the input matrix (the end of the last bin of each chromosome). Not used for a matrix with irregular (for example restriction-fragment) bin widths. (default: None) |
 | `--runningWindow` | Set to merge for using a running window of length --numBins. (default: False) |
 | `-h, --help` | Show this help message and exit. |
 | `--version` | show program's version number and exit |

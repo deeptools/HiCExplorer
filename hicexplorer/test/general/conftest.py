@@ -22,10 +22,13 @@ PYTHON_DEFECT = (
 BIT_EXACT = (
     "requires the bit-identical floating-point result of the Python implementation; the C++ "
     "result differs in the last bits and meets its equivalence class (cpp/STATUS.md)")
-CHROMOSOME_SIZES = (
-    "hicMergeMatrixBins requires --chromosomeSizes and derives the merged layout from the "
-    "chromosome lengths (deliberate deviation of 2026-09-22, cpp/STATUS.md); these tests pin the "
-    "Python layout derived from the bins the input holds")
+MERGE_LAYOUT = (
+    "pins the merged bin layout that version 3.7.6 derives from the bins the input holds, including "
+    "the removal of groups with fewer than numBins/2 bins; hicMergeMatrixBins builds the layout from "
+    "the chromosome lengths (--chromosomeSizes, or the lengths of the input matrix)")
+EVEN_WINDOW = (
+    "pins an AssertionError of the Python implementation inside the calling process; the C++ tool "
+    "reports the error on stderr and exits with status 1 instead")
 
 IN_PROCESS_CAPTURE = (
     "records the DOT sources by patching the graphviz Python module inside the calling process; "
@@ -49,18 +52,12 @@ EXPECTED_FAILURES = {
     "test_hicMergeDomains.py::test_relation_tree_sources_are_pinned[two_files]": IN_PROCESS_CAPTURE,
     "test_hicMergeDomains.py::test_relation_tree_sources_are_pinned[three_files_protein]": IN_PROCESS_CAPTURE,
     "test_hicMergeDomains.py::test_relation_tree_sources_are_pinned[reversed_order]": IN_PROCESS_CAPTURE,
-    "test_hicMergeMatrixBins.py::test_correct_matrix": CHROMOSOME_SIZES,
-    "test_hicMergeMatrixBins.py::test_running_window_3_is_bit_exact": CHROMOSOME_SIZES,
-    "test_hicMergeMatrixBins.py::test_running_window_5_is_bit_exact": CHROMOSOME_SIZES,
-    "test_hicMergeMatrixBins.py::test_running_window_keeps_the_resolution_and_the_intervals": CHROMOSOME_SIZES,
-    "test_hicMergeMatrixBins.py::test_running_window_of_one_bin_only_drops_the_nan_bins": CHROMOSOME_SIZES,
-    "test_hicMergeMatrixBins.py::test_running_window_rejects_an_even_number_of_bins": CHROMOSOME_SIZES,
-    "test_hicMergeMatrixBins.py::test_running_window_cool_output_is_bit_exact": CHROMOSOME_SIZES,
-    "test_hicMergeMatrixBins.py::test_merge_bins_4_is_bit_exact": CHROMOSOME_SIZES,
-    "test_hicMergeMatrixBins.py::test_merge_bins_drops_chromosomes_with_too_few_bins": CHROMOSOME_SIZES,
-    "test_hicMergeMatrixBins.py::test_merge_bins_cut_intervals_span_the_removed_nan_bins": CHROMOSOME_SIZES,
-    "test_hicMergeMatrixBins.py::test_merge_bins_cool_output_is_bit_exact": CHROMOSOME_SIZES,
-    "test_hicMergeMatrixBins.py::test_merge_bins_5_reproduces_the_stored_reference_exactly": CHROMOSOME_SIZES,
+    "test_hicMergeMatrixBins.py::test_correct_matrix": MERGE_LAYOUT,
+    "test_hicMergeMatrixBins.py::test_running_window_rejects_an_even_number_of_bins": EVEN_WINDOW,
+    "test_hicMergeMatrixBins.py::test_merge_bins_4_is_bit_exact": MERGE_LAYOUT,
+    "test_hicMergeMatrixBins.py::test_merge_bins_drops_chromosomes_with_too_few_bins": MERGE_LAYOUT,
+    "test_hicMergeMatrixBins.py::test_merge_bins_cut_intervals_span_the_removed_nan_bins": MERGE_LAYOUT,
+    "test_hicMergeMatrixBins.py::test_merge_bins_5_reproduces_the_stored_reference_exactly": MERGE_LAYOUT,
     "test_hicMergeTADbins.py::test_domains_outside_the_matrix_raise_a_type_error": PYTHON_EXCEPTION,
     "test_hicTransform.py::test_pearson_matches_numpy_corrcoef_at_full_precision": BIT_EXACT,
     "test_hicTransform.py::test_pearson_perChromosome_matches_numpy_corrcoef_at_full_precision": BIT_EXACT,
