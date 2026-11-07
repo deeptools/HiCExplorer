@@ -580,7 +580,7 @@ std::vector<double> incremental_step_size_real(double min_window, double max_win
                               hicx::npy::float_repr(min_window) + ", max_win_size " +
                               hicx::npy::float_repr(max_window) + " and start_step_len " +
                               hicx::npy::float_repr(start_step) +
-                              " (HiCExplorer 3.7.6 loops forever; HiCExplorer 4 refuses)");
+                              " (this would never finish)");
     }
     std::vector<double> steps;
     std::int64_t step = -1;

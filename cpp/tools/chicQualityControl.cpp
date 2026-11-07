@@ -115,11 +115,10 @@ const char* const kHelp =
     "  --help, -h            show this help message and exit\n"
     "  --version             show program's version number and exit\n"
     "\n"
-    "C++ port: the sparsity and the reference point files are computed in C++, and\n"
-    "the two figures are drawn by the hicexplorer_plot drawing layer with the\n"
-    "matplotlib calls of the Python tool (HICX_PLOT_PYTHON names the interpreter).\n"
-    "The C++-only option --plotData FILE writes the data of the figures as JSON to\n"
-    "FILE instead of drawing them.\n";
+    "The two figures are drawn with matplotlib, which needs a Python interpreter\n"
+    "with matplotlib (HICX_PLOT_PYTHON selects it). The option --plotData FILE (new\n"
+    "in HiCExplorer 4) writes the data of the figures as JSON to FILE instead of\n"
+    "drawing them.\n";
 
 std::string basename(const std::string& path) {
     const std::size_t slash = path.find_last_of('/');
@@ -183,7 +182,7 @@ int main(int argc, char** argv) {
     optional.add({"--plotData"})
         .metavar("FILE")
         .output({"json"})
-        .cpp_only("The data of the figures as JSON, without drawing them (cpp/PLAN.md tier 7).")
+        .cpp_only("The data of the figures as JSON, without drawing them.")
         .help("Write the data the two figures are drawn from as JSON to this file and do not "
               "draw them.");
     const cli::Namespace args = parser.parse(argc, argv);

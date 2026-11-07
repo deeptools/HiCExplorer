@@ -289,8 +289,7 @@ int main(int argc, char** argv) {
             } else if (!have_viewpoint) {
                 std::fprintf(stderr,
                              "hicAverageRegions: line %d has one field and no region "
-                             "has been read yet; hicAverageRegions.py:155 then reads an "
-                             "unbound `viewpoint` and raises UnboundLocalError\n",
+                             "has been read yet\n",
                              line_number);
                 return 1;
             }
@@ -299,7 +298,7 @@ int main(int argc, char** argv) {
             if (!chrom_range.has_value()) {
                 std::fprintf(stderr,
                              "hicAverageRegions: chromosome '%s' of line %d is not in "
-                             "the matrix; the Python raises KeyError here\n",
+                             "the matrix\n",
                              chrom.c_str(), line_number);
                 return 1;
             }
@@ -333,8 +332,7 @@ int main(int argc, char** argv) {
                 if (!range.has_value()) {
                     std::fprintf(stderr,
                                  "hicAverageRegions: region %s:%lld-%lld of line %d is "
-                                 "not inside the matrix; hicAverageRegions.py:157 "
-                                 "unpacks None here and raises TypeError\n",
+                                 "not inside the matrix\n",
                                  chrom.c_str(), static_cast<long long>(region_start),
                                  static_cast<long long>(region_end), line_number);
                     return 1;
@@ -350,7 +348,7 @@ int main(int argc, char** argv) {
                     if (!range.has_value()) {
                         std::fprintf(stderr,
                                      "hicAverageRegions: region of line %d is not inside "
-                                     "the matrix; the Python raises TypeError here\n",
+                                     "the matrix\n",
                                      line_number);
                         return 1;
                     }
@@ -361,7 +359,7 @@ int main(int argc, char** argv) {
                     if (!range.has_value()) {
                         std::fprintf(stderr,
                                      "hicAverageRegions: region of line %d is not inside "
-                                     "the matrix; the Python raises TypeError here\n",
+                                     "the matrix\n",
                                      line_number);
                         return 1;
                     }
@@ -372,7 +370,7 @@ int main(int argc, char** argv) {
                     if (!range.has_value()) {
                         std::fprintf(stderr,
                                      "hicAverageRegions: centre of line %d is not inside "
-                                     "the matrix; the Python raises TypeError here\n",
+                                     "the matrix\n",
                                      line_number);
                         return 1;
                     }

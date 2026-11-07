@@ -104,8 +104,7 @@ const char* const kHelp =
     "\n"
     "Optional arguments:\n"
     "  --threads THREADS, -t THREADS\n"
-    "                        Number of threads (uses the python multiprocessing\n"
-    "                        module) (Default: 4).\n"
+    "                        Number of threads (Default: 4).\n"
     "  --averageContactBin AVERAGECONTACTBIN\n"
     "                        Average the contacts of n bins via a sliding window\n"
     "                        approach to smooth the values and be less sensitive\n"
@@ -409,10 +408,7 @@ int main(int argc, char** argv) {
                 if (writer.exists(group)) {
                     throw std::runtime_error(
                         "the gene name '" + data.gene + "' occurs twice in " + chromosome_group +
-                        ". The Python reference does not terminate on this input "
-                        "(Viewpoint.createUniqueHDFGroup never changes the name it retries); "
-                        "the C++ port stops instead. Make the gene names in the reference "
-                        "point file unique.");
+                        ". Make the gene names in the reference point file unique.");
                 }
                 writer.create_group(group);
                 hicx::chic::write_interaction_datasets(

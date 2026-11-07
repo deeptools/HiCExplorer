@@ -171,8 +171,7 @@ const char* const kHelp =
     "                        ...]single: Combines as follows: [matrix1_gene1,\n"
     "                        matrix1_gene2, matrix2_gene1, ...], (Default: dual).\n"
     "  --threads THREADS, -t THREADS\n"
-    "                        Number of threads (uses the python multiprocessing\n"
-    "                        module) (Default: 4).\n"
+    "                        Number of threads (Default: 4).\n"
     "  --truncateZeroPvalues, -tzpv\n"
     "                        Sets all p-values which are equal to zero to one. This\n"
     "                        has the effect that the associated positions are not\n"
@@ -188,8 +187,8 @@ const char* const kHelp =
     "                        Adjust the tested p-values across all viewpoints of\n"
     "                        all samples, Benjamini-Hochberg (fdr) or Bonferroni,\n"
     "                        and apply --pValue to the adjusted values; the\n"
-    "                        significant file gains pvalue_adjusted. Not in the\n"
-    "                        Python tool; none gives its output (Default: none).\n"
+    "                        significant file gains pvalue_adjusted. New in\n"
+    "                        HiCExplorer 4; none gives the previous output (Default: none).\n"
     "  --help, -h            show this help message and exit\n"
     "  --version             show program's version number and exit\n";
 
@@ -637,9 +636,7 @@ void create_unique_group(chic::Hdf5Writer& writer, const std::string& path) {
     if (writer.exists(path)) {
         throw std::runtime_error(
             "the group " + path +
-            " exists already. The Python reference does not terminate on this input "
-            "(Viewpoint.createUniqueHDFGroup never changes the name it retries); the C++ port "
-            "stops instead.");
+            " exists already.");
     }
     writer.create_group(path);
 }
@@ -715,7 +712,7 @@ int main(int argc, char** argv) {
         .choices({"none", "fdr", "bonferroni"})
         .default_value("none")
         .cpp_only("Multiple testing correction of the tested p-values across all viewpoints "
-                  "(PLAN.md 9.7); none gives the Python output.")
+                  "; none gives the output of HiCExplorer 3.")
         .help("Adjust the tested p-values across all viewpoints of all samples, "
               "Benjamini-Hochberg (fdr) or Bonferroni, and apply --pValue to the adjusted "
               "values.");

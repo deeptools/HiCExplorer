@@ -138,7 +138,7 @@ const char* const kHelp =
     "                        (Default: 0.01).\n"
     "  --minBoundaryDistance MINBOUNDARYDISTANCE\n"
     "                        Minimum distance between boundaries (in bp).\n"
-    "  --ctcfFile CTCFFILE   C++-only. A BED file (chrom, start, end, name, score,\n"
+    "  --ctcfFile CTCFFILE   New in HiCExplorer 4. A BED file (chrom, start, end, name, score,\n"
     "                        strand) of CTCF binding site motif orientations. When\n"
     "                        given, a TAD-separation score minimum is accepted as a\n"
     "                        boundary only when a CTCF site within --ctcfWindow is\n"
@@ -147,14 +147,14 @@ const char* const kHelp =
     "                        or after it on the '+' strand, the divergent\n"
     "                        orientation found at domain boundaries.\n"
     "  --ctcfWindow CTCFWINDOW\n"
-    "                        C++-only. Maximum distance in bp between a boundary\n"
+    "                        New in HiCExplorer 4. Maximum distance in bp between a boundary\n"
     "                        and a supporting CTCF site (Default: 10000).\n"
     "  --ctcfBoundarySlack CTCFBOUNDARYSLACK\n"
-    "                        C++-only. Evaluate the +/- orientation test against any\n"
+    "                        New in HiCExplorer 4. Evaluate the +/- orientation test against any\n"
     "                        point within this many bp of the boundary instead of only\n"
     "                        the exact reported minimum (Default: 0).\n"
     "  --nestedMinDepth INT bp\n"
-    "                        C++-only. Together with --nestedMaxDepth and\n"
+    "                        New in HiCExplorer 4. Together with --nestedMaxDepth and\n"
     "                        --nestedStep, enables sub-TAD detection: within each\n"
     "                        top-level domain, looks for boundaries at this finer\n"
     "                        depth range, writing <outPrefix>_nested_boundaries.bed,\n"
@@ -178,13 +178,13 @@ const char* const kHelp =
     "                        --minDepth, otherwise that reported p-value has too few\n"
     "                        values per side to mean anything.\n"
     "  --nestedMaxDepth INT bp\n"
-    "                        C++-only. See --nestedMinDepth.\n"
-    "  --nestedStep INT bp   C++-only. See --nestedMinDepth.\n"
+    "                        New in HiCExplorer 4. See --nestedMinDepth.\n"
+    "  --nestedStep INT bp   New in HiCExplorer 4. See --nestedMinDepth.\n"
     "  --nestedMinBoundaryDistance BP\n"
-    "                        C++-only. Minimum distance between sub-TAD boundaries\n"
+    "                        New in HiCExplorer 4. Minimum distance between sub-TAD boundaries\n"
     "                        (Default: 4 times the average nested bin size).\n"
     "  --nestedMinDomainSize BP\n"
-    "                        C++-only. A top-level domain shorter than this is not\n"
+    "                        New in HiCExplorer 4. A top-level domain shorter than this is not\n"
     "                        searched for sub-TADs (Default: 4 * --nestedMaxDepth).\n"
     "  --chromosomes CHROMOSOMES [CHROMOSOMES ...]\n"
     "                        Chromosomes and order in which the chromosomes should\n"
@@ -267,7 +267,7 @@ Arguments parse_arguments(int argc, char** argv) {
     optional.add({"--ctcfFile"})
         .cpp_only("Boundary selection by CTCF motif orientation, new in version 4.")
         .input({"bed", "narrowPeak", "txt"})
-        .help("C++-only. A BED file (chrom, start, end, name, score, strand) of CTCF "
+        .help("New in HiCExplorer 4. A BED file (chrom, start, end, name, score, strand) of CTCF "
               "binding site motif orientations. When given, a TAD-separation score "
               "minimum is accepted as a boundary only when a CTCF site within "
               "--ctcfWindow is oriented into the adjacent domain: a site at or before "
@@ -278,43 +278,43 @@ Arguments parse_arguments(int argc, char** argv) {
         .type("int")
         .default_value(std::int64_t{10000})
         .metavar("BP")
-        .help("C++-only. Maximum distance between a boundary and a supporting CTCF "
+        .help("Maximum distance between a boundary and a supporting CTCF "
               "site.");
     optional.add({"--ctcfBoundarySlack"})
         .cpp_only("Used with --ctcfFile, new in version 4.")
         .type("int")
         .default_value(std::int64_t{0})
         .metavar("BP")
-        .help("C++-only. Evaluate the +/- orientation test against any point within "
+        .help("New in HiCExplorer 4. Evaluate the +/- orientation test against any point within "
               "this many bp of the boundary instead of only the exact reported "
               "minimum.");
     optional.add({"--nestedMinDepth"})
         .cpp_only("Nested domain calling, new in version 4.")
         .type("int")
         .metavar("INT bp")
-        .help("C++-only. Together with --nestedMaxDepth and --nestedStep, enables "
+        .help("New in HiCExplorer 4. Together with --nestedMaxDepth and --nestedStep, enables "
               "sub-TAD detection within each top-level domain.");
     optional.add({"--nestedMaxDepth"})
         .cpp_only("Nested domain calling, new in version 4.")
         .type("int")
         .metavar("INT bp")
-        .help("C++-only. See --nestedMinDepth.");
+        .help("New in HiCExplorer 4. See --nestedMinDepth.");
     optional.add({"--nestedStep"})
         .cpp_only("Nested domain calling, new in version 4.")
         .type("int")
         .metavar("INT bp")
-        .help("C++-only. See --nestedMinDepth.");
+        .help("New in HiCExplorer 4. See --nestedMinDepth.");
     optional.add({"--nestedMinBoundaryDistance"})
         .cpp_only("Nested domain calling, new in version 4.")
         .type("int")
         .metavar("BP")
-        .help("C++-only. Minimum distance between sub-TAD boundaries (Default: 4 "
+        .help("New in HiCExplorer 4. Minimum distance between sub-TAD boundaries (Default: 4 "
               "times the average nested bin size).");
     optional.add({"--nestedMinDomainSize"})
         .cpp_only("Nested domain calling, new in version 4.")
         .type("int")
         .metavar("BP")
-        .help("C++-only. A top-level domain shorter than this is not searched for "
+        .help("New in HiCExplorer 4. A top-level domain shorter than this is not searched for "
               "sub-TADs (Default: 4 * --nestedMaxDepth).");
     optional.add({"--chromosomes"})
         .nargs("+")
@@ -1402,9 +1402,7 @@ int main(int argc, char** argv) {
                         // The Python unpacks None here and dies with a TypeError.
                         throw std::runtime_error(
                             "bin " + std::to_string(matrix_index) +
-                            " has no window at the minimum depth; the Python "
-                            "reference raises a bare TypeError here "
-                            "(hicFindTADs.py:1201)");
+                            " has no window at the minimum depth");
                     }
                     DenseBlock left_block;
                     DenseBlock right_block;

@@ -45,7 +45,7 @@ Two TADs are considered as one if they don't overlap at x bins given by `--value
 
 ## Additional notes
 
-C++ port: the relation tree is rendered by running graphviz's `dot`, which must be on PATH whenever more than one domain file is given.
+The relation tree is rendered by running graphviz's `dot`, which must be on PATH whenever more than one domain file is given.
 
 ## Notes
 

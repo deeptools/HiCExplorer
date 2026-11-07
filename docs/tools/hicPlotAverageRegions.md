@@ -32,7 +32,7 @@ hicPlotAverage regions plots the data computed by hicAverageRegions. It shows th
 
 ## Additional notes
 
-C++ port: the figure is drawn by the hicexplorer_plot drawing layer with the calls of the Python tool (HICX_PLOT_PYTHON names the interpreter). The C++-only option --plotData FILE writes the data of the figure as JSON to FILE instead of drawing it.
+The figure is drawn with matplotlib, which needs a Python interpreter with matplotlib (`HICX_PLOT_PYTHON` selects it). The option `--plotData FILE` (new in HiCExplorer 4) writes the data of the figure as JSON to FILE instead of drawing it.
 
 ## Notes
 

@@ -14,7 +14,7 @@ usage: hicDetectStripes --matrix MATRIX --outFileName OUTFILENAME
                         [--threads THREADS] [--help] [--version]
 ```
 
-Detects architectural stripes on the given contact matrix with the method of Stripenn (Yoon et al., Stripenn detects architectural stripes from chromatin conformation data using computer vision, Nature Communications 2022; Stripenn 1.1.65.22). HiCExplorer 3.7 has no stripe caller. The tool is Stripenn's algorithm in C++, with its defaults, and gives the same stripes, p-values and stripiness scores as Stripenn on the same matrix.
+Detects architectural stripes on the given contact matrix with the method of Stripenn (Yoon et al., Stripenn detects architectural stripes from chromatin conformation data using computer vision, Nature Communications 2022; Stripenn 1.1.65.22). The tool is new in HiCExplorer 4. It uses Stripenn's algorithm with its defaults and gives the same stripes, p-values and stripiness scores as Stripenn on the same matrix.
 
 ## Method
 
@@ -58,7 +58,7 @@ One line per called stripe, in the order of Stripenn's `result_filtered.tsv` (de
 | `--pValue PVALUE` | P-value cutoff for a called stripe (Stripenn's pvalue). No multiple-testing correction is applied, as in Stripenn. (Default: 0.1). |
 | `--mask MASK` | Column coordinates to be masked in the stripiness score, e.g. chr9:12345678-12345789 (Stripenn's mask). (Default: 0, none). |
 | `--blurFilter BLURFILTER` | Mean filter size, an odd number (Stripenn's bfilter). (Default: 3). |
-| `--seed SEED` | Seed of the pseudo random number generator that samples the background (Stripenn's seed, Python's random module). (Default: 123456789). |
+| `--seed SEED` | Seed of the pseudo random number generator that samples the background (Stripenn's seed). (Default: 123456789). |
 | `--sequentialRandom` | Draw the background samples of all chromosomes from one generator in sequence. Stripenn does so when it runs on a single core; with several cores (and here by default) every chromosome starts from the seeded initial state. |
 | `--fdr FDR` | Benjamini-Hochberg q-value threshold, applied instead of --pValue when given. Off by default (Stripenn applies none). |
 | `--unfilteredFileName UNFILTEREDFILENAME` | Also write all candidate stripes with Stripenn's result_unfiltered.tsv columns. |

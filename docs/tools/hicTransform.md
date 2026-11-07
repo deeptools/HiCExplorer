@@ -28,7 +28,7 @@ Converts the (interaction) matrix to different types of obs/exp, pearson or cova
 | `--ligation_factor` | Multiply a scaling factor to each entry of the expected matrix, as the Homer software does. Only effective with obs_exp_non_zero. |
 | `--chromosomes CHROMOSOMES [CHROMOSOMES ...]` | List of chromosomes to be included in the computation. |
 | `--perChromosome, -pc` | Each chromosome is processed individually, inter-chromosomal interactions are ignored. Option not valid for obs_exp_lieberman. |
-| `--threads THREADS` | Workers the dense pearson and covariance rows are split over. The output is byte-identical for any value. Not a Python option; see cpp/OPTIMIZATION.md. (Default: 4). |
+| `--threads THREADS` | Workers the dense pearson and covariance rows are split over. The output is byte-identical for any value. New in HiCExplorer 4 (Default: 4). |
 | `--help, -h` | show this help message and exit |
 | `--version` | show program's version number and exit |
 

@@ -102,15 +102,14 @@ const char* const kHelp =
     "                        Type of test used: fisher's exact test or chi2\n"
     "                        contingency (Default: fisher).\n"
     "  --threads THREADS, -t THREADS\n"
-    "                        Number of threads (uses the python multiprocessing\n"
-    "                        module) (Default: 4).\n"
+    "                        Number of threads (Default: 4).\n"
     "  --correctForMultipleTesting {none,fdr,bonferroni}\n"
     "                        Adjust the p-values of all tested locations of all\n"
     "                        reference points, Benjamini-Hochberg (fdr) or\n"
     "                        Bonferroni, and reject where the adjusted value is at\n"
     "                        most --alpha; the result groups gain\n"
-    "                        pvalue_adjusted_list. Not in the Python tool; none\n"
-    "                        gives its output (Default: none).\n"
+    "                        pvalue_adjusted_list. New in HiCExplorer 4; none\n"
+    "                        gives the previous output (Default: none).\n"
     "  --help, -h            show this help message and exit\n"
     "  --version             show program's version number and exit\n";
 
@@ -265,7 +264,7 @@ int main(int argc, char** argv) {
         .choices({"none", "fdr", "bonferroni"})
         .default_value("none")
         .cpp_only("Multiple testing correction of the p-values across all reference points "
-                  "(PLAN.md 9.7); none gives the Python output.")
+                  "; none gives the output of HiCExplorer 3.")
         .help("Adjust the p-values of all tested locations, Benjamini-Hochberg (fdr) or "
               "Bonferroni, and reject where the adjusted value is at most --alpha.");
     optional.add({"--help", "-h"}).action(cli::Action::Help).help("show this help message and exit");

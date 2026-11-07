@@ -111,14 +111,14 @@ const char* const kHelp =
     "  --sharedMask          Before any test, mask in both matrices every bin that\n"
     "                        is invalid in either of them: the NaN bins after\n"
     "                        loading, for a cool file the bins whose row is all\n"
-    "                        zero. Not in the Python HiCExplorer; without it the\n"
-    "                        output is the Python output.\n"
+    "                        zero. New in HiCExplorer 4; without it the\n"
+    "                        output is that of HiCExplorer 3.\n"
     "  --correctForMultipleTesting {none,fdr,bonferroni}\n"
     "                        Adjust the p-values of each test across all TADs,\n"
     "                        Benjamini-Hochberg (fdr) or Bonferroni, and apply\n"
     "                        --pValue to the adjusted values; the output files\n"
-    "                        gain the adjusted p-values. Not in the Python\n"
-    "                        HiCExplorer (Default: none).\n"
+    "                        gain the adjusted p-values. New in\n"
+    "                        HiCExplorer 4 (Default: none).\n"
     "  --help, -h            show this help message and exit\n"
     "  --version             show program's version number and exit\n";
 
@@ -180,15 +180,15 @@ Arguments parse_arguments(int argc, char** argv) {
         .help("Number of threads to use, the parallelization is implemented per chromosome.");
     optional.add({"--sharedMask"})
         .action(cli::Action::StoreTrue)
-        .cpp_only("Masks in both matrices every bin invalid in either (PLAN.md 9.7); without it "
-                  "the output is the Python output.")
+        .cpp_only("Masks in both matrices every bin invalid in either; without it "
+                  "the output is that of HiCExplorer 3.")
         .help("Before any test, mask in both matrices every bin that is invalid in either of "
               "them.");
     optional.add({"--correctForMultipleTesting"})
         .choices({"none", "fdr", "bonferroni"})
         .default_value("none")
-        .cpp_only("Multiple testing correction of the p-values across all TADs (PLAN.md 9.7); "
-                  "none gives the Python output.")
+        .cpp_only("Multiple testing correction of the p-values across all TADs; "
+                  "none gives the output of HiCExplorer 3.")
         .help("Adjust the p-values of each test across all TADs, Benjamini-Hochberg (fdr) or "
               "Bonferroni, and apply --pValue to the adjusted values.");
     optional.add({"--help", "-h"}).action(cli::Action::Help).help("show this help message and exit");

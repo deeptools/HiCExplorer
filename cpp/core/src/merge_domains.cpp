@@ -375,8 +375,7 @@ MergedProtein merge_protein(const ProteinList& proteins, std::int64_t bin_size,
                         "the protein peaks are binned with a bin size of " +
                         std::to_string(bin_size) +
                         ", derived from a start coordinate made only of zeros in the "
-                        "first 20 lines of a domain file; hicMergeDomains.py:359 loops "
-                        "forever on this input");
+                        "first 20 lines of a domain file, which is not supported");
                 }
                 while (position > left) {
                     left += bin_size;

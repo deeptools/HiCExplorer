@@ -129,16 +129,15 @@ const char* const kHelp =
     "  --offset OFFSET [OFFSET ...]\n"
     "                        set nan for the distances mentioned as offset from main\n"
     "                        diagonal, only positive values are accepted!\n"
-    "  --noPlot              C++ port only: write the numeric outputs\n"
+    "  --noPlot              New in HiCExplorer 4: write the numeric outputs\n"
     "                        (OUTPUTFILENAME_dat and --outputMatrix) without the plot.\n"
-    "  --plotData FILE       C++ port only: write the data of the plot as JSON to FILE\n"
+    "  --plotData FILE       New in HiCExplorer 4: write the data of the plot as JSON to FILE\n"
     "                        instead of drawing it.\n"
     "  -h                    show the help message and exit.\n"
     "  --version             show program's version number and exit\n"
     "\n"
-    "C++ port: the ratios and matrices are computed in C++, and the plot is drawn by\n"
-    "the hicexplorer_plot drawing layer with the matplotlib calls of the Python tool\n"
-    "(HICX_PLOT_PYTHON names the interpreter).\n";
+    "The plot is drawn with matplotlib, which needs a Python interpreter with\n"
+    "matplotlib (HICX_PLOT_PYTHON selects it).\n";
 
 struct Arguments {
     std::vector<std::string> matrices;
@@ -193,7 +192,7 @@ Arguments parse_arguments(int argc, char** argv) {
     optional.add({"--plotData"})
         .metavar("FILE")
         .output({"json"})
-        .cpp_only("The data of the figure as JSON, without drawing it (cpp/PLAN.md tier 7).")
+        .cpp_only("The data of the figure as JSON, without drawing it.")
         .help("Write the data the plot is drawn from as JSON to this file and do not draw "
               "the plot.");
     optional.add({"-h"}).action(cli::Action::Help).help("show the help message and exit.");

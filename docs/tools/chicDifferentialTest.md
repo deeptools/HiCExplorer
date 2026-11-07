@@ -26,7 +26,7 @@ chicDifferentialTest tests if two locations under consideration of the reference
 |---|---|
 | `--outFileName OUTFILENAME, -o OUTFILENAME` | Output file for the differential results (Default: differentialResults.hdf5). |
 | `--statisticTest {fisher,chi2}` | Type of test used: fisher's exact test or chi2 contingency (Default: fisher). |
-| `--threads THREADS, -t THREADS` | Number of threads (uses the python multiprocessing module) (Default: 4). |
-| `--correctForMultipleTesting {none,fdr,bonferroni}` | Adjust the p-values of all tested locations of all reference points, Benjamini-Hochberg (fdr) or Bonferroni, and reject where the adjusted value is at most --alpha; the result groups gain pvalue_adjusted_list. Not in the Python tool; none gives its output (Default: none). |
+| `--threads THREADS, -t THREADS` | Number of threads (Default: 4). |
+| `--correctForMultipleTesting {none,fdr,bonferroni}` | Adjust the p-values of all tested locations of all reference points, Benjamini-Hochberg (fdr) or Bonferroni, and reject where the adjusted value is at most --alpha; the result groups gain pvalue_adjusted_list. New in HiCExplorer 4; none gives the previous output (Default: none). |
 | `--help, -h` | show this help message and exit |
 | `--version` | show program's version number and exit |

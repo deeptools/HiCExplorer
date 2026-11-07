@@ -781,9 +781,7 @@ DenseCorrelationRows::DenseCorrelationRows(const CsrMatrix& matrix,
             // latent defect of the reference, reported rather than imitated:
             // the port fails with a message instead of a traceback.
             throw std::runtime_error(
-                "a chromosome with a single bin has no covariance; the Python "
-                "reference aborts here with a TypeError from len() on a zero "
-                "dimensional np.cov result (hicTransform.py:243)");
+                "a chromosome with a single bin has no covariance");
         }
         for (std::int64_t bin = range.first; bin < range.last; ++bin) {
             block_of_bin_[static_cast<std::size_t>(bin)] = static_cast<std::int32_t>(b);

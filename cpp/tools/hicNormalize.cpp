@@ -224,8 +224,7 @@ int main(int argc, char** argv) {
             // is a behaviour difference, not a bug fix on the numbers.
             std::fprintf(stderr,
                          "hicNormalize: error: %zu matrices were given but only %zu "
-                         "output names; hicNormalize.py:100 indexes "
-                         "args.outFileName[i] and raises IndexError here\n",
+                         "output names\n",
                          args.matrices.size(), args.out_file_names.size());
             return 1;
         }

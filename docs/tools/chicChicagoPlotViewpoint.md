@@ -65,7 +65,7 @@ usage: chicChicagoPlotViewpoint --scores SCORES (--baitID BAITID |
 | `--outputFormat OUTPUTFORMAT, -format OUTPUTFORMAT` | Output format of the plot (Default: png). |
 | `--dpi DPI` | Resolution for raster output (Default: 300). |
 | `--linksFile FILE` | Write the kept interactions as a pyGenomeTracks links file. |
-| `--plotData FILE` | C++-only. Write the data the figure is drawn from as JSON and do not draw it. |
+| `--plotData FILE` | New in HiCExplorer 4. Write the data the figure is drawn from as JSON and do not draw it. |
 | `--help, -h` | show this help message and exit |
 | `--version` | show program's version number and exit |
 

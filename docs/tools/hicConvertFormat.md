@@ -26,7 +26,7 @@ Conversion of Hi-C matrices of different file formats. We support the conversion
 |---|---|
 | `--matrices MATRICES [MATRICES ...], -m MATRICES [MATRICES ...]` | input file(s). Could be one or many files. |
 | `--outFileName OUTFILENAME [OUTFILENAME ...], -o OUTFILENAME [OUTFILENAME ...]` | File name to save the exported matrix. |
-| `--inputFormat {h5,cool,hic,homer,hicpro,2D-text,chinput}` | File format of the input matrix file. `chinput` is C++ only and needs `--rmap`. |
+| `--inputFormat {h5,cool,hic,homer,hicpro,2D-text,chinput}` | File format of the input matrix file. `chinput` is new in HiCExplorer 4 and needs `--rmap`. |
 | `--outputFormat {cool,h5,homer,ginteractions,mcool,hicpro,hic}` | Output format. (Default: cool). |
 
 ## Optional arguments
@@ -46,7 +46,7 @@ Conversion of Hi-C matrices of different file formats. We support the conversion
 | `--bedFileHicpro BEDFILEHICPRO [BEDFILEHICPRO ...], -bf BEDFILEHICPRO [BEDFILEHICPRO ...]` | Bed file(s) of hicpro file format. |
 | `--hicVersion {8,9}` | Version of a .hic output file. (Default: 8). |
 | `--hicNormalizations {auto,VC,VC_SQRT,KR,SCALE,none} [{auto,VC,VC_SQRT,KR,SCALE,none} ...]` | Normalizations a .hic output file stores. `auto`: the normalization vectors a cool or mcool input stores in its bins table (VC, KR, SCALE and the other Juicer names, or every column of a file written by hic2cool; never cooler's `weight`), or VC, VC_SQRT, KR and SCALE computed as Juicer tools addNorm does when it stores none. `VC`, `VC_SQRT`, `KR`, `SCALE`: compute these. `none`: no normalization. (Default: auto). |
-| `--rmap RMAP [RMAP ...]` | C++-only. CHiCAGO `.rmap` file(s) that define the bins of a `chinput` input, one per input. |
+| `--rmap RMAP [RMAP ...]` | New in HiCExplorer 4. CHiCAGO `.rmap` file(s) that define the bins of a `chinput` input, one per input. |
 | `--threads THREADS` | Threads for writing a .hic output file; the file does not depend on the number. (Default: 1). |
 
 ## Notes
@@ -58,7 +58,7 @@ However, most Hi-C softwares are only supporting their own data format which mak
 interaction matrices, both for import and for export. 
 
 Import:
-    - chinput (C++ only, needs `--rmap`; bins are the restriction fragments and a bait-to-bait pair, listed once per bait with the same N, is stored once; if the two rows differ, the larger N)
+    - chinput (new in HiCExplorer 4, needs `--rmap`; bins are the restriction fragments and a bait-to-bait pair, listed once per bait with the same N, is stored once; if the two rows differ, the larger N)
     - hic
     - cool
     - h5

@@ -314,9 +314,7 @@ int main(int argc, char** argv) {
                 // mask of a different length, which pandas rejects.
                 std::fprintf(stderr,
                              "hicValidateLocations: binning collapsed %zu TAD rows into "
-                             "%zu, and hicValidateLocations.py:264 indexes the unbinned "
-                             "frame with the binned mask, which raises "
-                             "pandas.errors.IndexingError: Unalignable boolean Series\n",
+                             "%zu, which is not supported\n",
                              tads.rows(), counts.size());
                 return 1;
             }

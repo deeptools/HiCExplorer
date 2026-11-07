@@ -37,6 +37,6 @@ chicExportData exports the data stored in the intermediate hdf5 files to text fi
 | `--oneTargetFile, -otf` | Compile all target files to one. Applies only if --fileType is target |
 | `--range RANGE RANGE` | Defines the region upstream and downstream of a reference point which should be included. Format is --range upstream downstream, e.g.: --range 500000 500000 plots 500kb up- and 500kb downstream. This value should not exceed the range used in the other chic-tools. Applies only for interaction files in the combination with bigwig and a background model file! |
 | `--outputValueBigwig {relative-interactions,p-value,x-fold,raw}, -ovb {relative-interactions,p-value,x-fold,raw}` | Select which value the bigwig file should contain: 'relative-interactions', 'p-value', 'x-fold', 'raw' (Default: relative-interactions). |
-| `--threads THREADS, -t THREADS` | Number of threads (uses the python multiprocessing module) (Default: 4). |
+| `--threads THREADS, -t THREADS` | Number of threads (Default: 4). |
 | `--help, -h` | show this help message and exit |
 | `--version` | show program's version number and exit |

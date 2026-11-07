@@ -45,10 +45,10 @@ chicSignificantInteractions supports two modes to detect significant interaction
 | `--outFileNameSignificant OUTFILENAMESIGNIFICANT, -os OUTFILENAMESIGNIFICANT` | File name suffix to save the results; prefix is the input file name (Default: significantInteractions.hdf5). |
 | `--outFileNameTarget OUTFILENAMETARGET, -ot OUTFILENAMETARGET` | The file to store the target data (Default: targetFile.hdf5). |
 | `--combinationMode {dual,single}, -cm {dual,single}` | This option defines how the interaction data should be computed and combined: dual: Combines as follows: [[matrix1_gene1, matrix2_gene1], [matrix2_gene1, matrix3_gene1],[matrix1_gene2, matrix2_gene2], ...]single: Combines as follows: [matrix1_gene1, matrix1_gene2, matrix2_gene1, ...], (Default: dual). |
-| `--threads THREADS, -t THREADS` | Number of threads (uses the python multiprocessing module) (Default: 4). |
+| `--threads THREADS, -t THREADS` | Number of threads (Default: 4). |
 | `--truncateZeroPvalues, -tzpv` | Sets all p-values which are equal to zero to one. This has the effect that the associated positions are not part of the significance decision. |
 | `--fixateRange FIXATERANGE, -fs FIXATERANGE` | Fixate range of backgroundmodel starting at distance x. E.g. all values greater than 500kb are set to the value of the 500kb bin (Default: 500000). |
 | `--peakInteractionsThreshold PEAKINTERACTIONSTHRESHOLD, -pit PEAKINTERACTIONSTHRESHOLD` | The minimum number of interactions a detected peak needs to have to be considered (Default: 5). |
-| `--correctForMultipleTesting {none,fdr,bonferroni}` | Adjust the tested p-values across all viewpoints of all samples, Benjamini-Hochberg (fdr) or Bonferroni, and apply --pValue to the adjusted values; the significant file gains pvalue_adjusted. Not in the Python tool; none gives its output (Default: none). |
+| `--correctForMultipleTesting {none,fdr,bonferroni}` | Adjust the tested p-values across all viewpoints of all samples, Benjamini-Hochberg (fdr) or Bonferroni, and apply --pValue to the adjusted values; the significant file gains pvalue_adjusted. New in HiCExplorer 4; none gives the previous output (Default: none). |
 | `--help, -h` | show this help message and exit |
 | `--version` | show program's version number and exit |

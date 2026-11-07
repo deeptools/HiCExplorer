@@ -53,7 +53,7 @@ usage: hicCorrectMatrix correct --matrix MATRIX --outFileName OUTFILENAME
 | `--filteredBed FILTEREDBED` | Print bins filtered out by `--filterThreshold` to this file. |
 | `--verbose` | Print processing status. |
 | `--compatMode {v3,v4}` | `v4` (default) balances in float64. `v3` reproduces krbalancing's float32 input rounding and float32 rescaling accumulators. Only for KR; not a Python option. |
-| `--threads INT` | Worker threads. The result does not depend on this (default: 4). Not a Python option. |
+| `--threads INT` | Worker threads. The result does not depend on this (default: 4). New in HiCExplorer 4. |
 | `--help, -h` | show this help message and exit |
 | `--version` | show program's version number and exit |
 
@@ -83,17 +83,9 @@ usage: hicCorrectMatrix diagnostic_plot --matrix hic_matrix.h5 -o file.png
 | `--verbose` | Print processing status. |
 | `--help, -h` | show this help message and exit |
 
-C++ port: the coverage per bin and its MAD are computed in C++, and the histogram is drawn by the
-`hicexplorer_plot` drawing layer with the matplotlib calls of the Python tool (`HICX_PLOT_PYTHON` names
-the interpreter). The C++-only option `--plotData FILE` writes the data of the figure as JSON to FILE
-instead of drawing it.
-
-!!! note "diagnostic_plot is implemented, not stubbed out"
-    The top-level `hicCorrectMatrix --help` synopsis line for this subcommand still reads "Not
-    implemented in the C++ port, see cpp/PLAN.md tier 7"; that description text is stale relative to the
-    built binary. `diagnostic_plot`'s own `--help` (reproduced above) shows it is implemented end to end,
-    including the C++-only `--plotData` output, delegating only the actual figure drawing to the Python
-    plotting layer like the other plotting tools. This page describes the real, current binary.
+The histogram is drawn with matplotlib, which needs a Python interpreter with matplotlib
+(`HICX_PLOT_PYTHON` selects it). The option `--plotData FILE` (new in HiCExplorer 4) writes the data of
+the figure as JSON to FILE instead of drawing it.
 
 ## Notes
 

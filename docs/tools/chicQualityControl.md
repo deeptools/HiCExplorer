@@ -43,4 +43,4 @@ $ chicQualityControl -m matrix1.cool matrix2.cool -rp referencePointsFile.bed --
 
 ## Additional notes
 
-C++ port: the sparsity and the reference point files are computed in C++, and the two figures are drawn by the hicexplorer_plot drawing layer with the matplotlib calls of the Python tool (HICX_PLOT_PYTHON names the interpreter). The C++-only option --plotData FILE writes the data of the figures as JSON to FILE instead of drawing them.
+The figures are drawn with matplotlib, which needs a Python interpreter with matplotlib (`HICX_PLOT_PYTHON` selects it). The option `--plotData FILE` (new in HiCExplorer 4) writes the data of the figures as JSON to FILE instead of drawing them.

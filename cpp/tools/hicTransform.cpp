@@ -142,8 +142,8 @@ const char* const kHelp =
     "                        not valid for obs_exp_lieberman.\n"
     "  --threads THREADS     Workers the dense pearson and covariance rows are\n"
     "                        split over. The output is byte-identical for any\n"
-    "                        value. Not a Python option; see\n"
-    "                        cpp/OPTIMIZATION.md. (Default: 4).\n"
+    "                        value. New in HiCExplorer 4\n"
+    "                        (Default: 4).\n"
     "  --help, -h            show this help message and exit\n"
     "  --version             show program's version number and exit\n";
 

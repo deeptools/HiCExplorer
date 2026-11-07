@@ -115,13 +115,11 @@ const char* const kHelp =
     "\n"
     "Creates a heatmap of a Hi-C matrix.\n"
     "\n"
-    "The C++ port computes the matrices, positions and extents of the figure and\n"
-    "draws it through the hicexplorer_plot drawing layer with the calls of the\n"
-    "Python tool (HICX_PLOT_PYTHON names the interpreter); see the Python tool's\n"
-    "help for every option. The C++-only option --plotData FILE writes the data of\n"
-    "the figure as JSON to FILE (and its matrices as FILE.<n>.npy) instead of\n"
-    "drawing it. The C++-only option --matrix2 MATRIX2 has no equivalent in the\n"
-    "Python original (cpp/PLAN.md tier 9): it draws a single heatmap whose upper\n"
+    "The figure is drawn with matplotlib, which needs a Python interpreter with\n"
+    "matplotlib (HICX_PLOT_PYTHON selects it). The option --plotData FILE (new in\n"
+    "HiCExplorer 4) writes the data of the figure as JSON to FILE (and its matrices\n"
+    "as FILE.<n>.npy) instead of drawing it. The option --matrix2 MATRIX2 (new in\n"
+    "HiCExplorer 4) draws a single heatmap whose upper\n"
     "triangle (column index greater than row index) comes from --matrix and whose\n"
     "lower triangle (column index less than row index) comes from --matrix2, the\n"
     "side-by-side comparison of two matrices used throughout the Hi-C literature.\n"
@@ -132,7 +130,7 @@ const char* const kHelp =
     "A matrix with more bins along an axis than the figure has pixels there is drawn\n"
     "as blocks of ceil(bins / pixels) bins (the sum of the counts, or the mean of the\n"
     "other values; blocks stop at chromosome ends; --log and --log1p apply to the\n"
-    "blocks). The C++-only option --noDownsample draws single bins instead.\n";
+    "blocks). The option --noDownsample (new in HiCExplorer 4) draws single bins instead.\n";
 
 class ExitError : public std::runtime_error {
   public:
@@ -1618,7 +1616,7 @@ int main(int argc, char** argv) {
         .cpp_only("Draws one heatmap whose upper triangle (column index greater than row "
                   "index) is --matrix and whose lower triangle (column index less than row "
                   "index) is --matrix2, the two-matrix comparison heatmap common in the Hi-C "
-                  "literature; has no equivalent in the Python original (cpp/PLAN.md tier 9). "
+                  "literature; new in HiCExplorer 4. "
                   "Both matrices are read for the same requested region and must resolve to "
                   "the same shape there. The diagonal is always taken from --matrix. "
                   "Incompatible with --perChromosome.")
@@ -1726,7 +1724,7 @@ int main(int argc, char** argv) {
         .metavar("FILE")
         .output({"json"})
         .cpp_only("The data of the figure as JSON (and its matrices as FILE.<n>.npy), without "
-                  "drawing it (cpp/PLAN.md tier 7).")
+                  "drawing it.")
         .help("Write the data the figure is drawn from as JSON to this file and do not draw it.");
 
     const cli::Namespace ns = parser.parse(argc, argv);

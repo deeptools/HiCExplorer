@@ -51,10 +51,10 @@ chicPlotViewpoint plots one or many viewpoints with the average background model
 | `--xFold XFOLD, -xf XFOLD` | Plot x-fold region for the mean background. |
 | `--truncateZeroPvalues, -tzpv` | Sets all p-values which are equal to zero to one. |
 | `--colorList COLORLIST [COLORLIST ...], -cl COLORLIST [COLORLIST ...]` | Colorlist for the viewpoint lines (Default g b c m y k). |
-| `--threads THREADS, -t THREADS` | Number of threads (uses the python multiprocessing module) (Default: 4). |
+| `--threads THREADS, -t THREADS` | Number of threads (Default: 4). |
 | `--help, -h` | show this help message and exit |
 | `--version` | show program's version number and exit |
 
 ## Additional notes
 
-C++ port: the plot data is read and computed in C++, and the figures and the archive are written by the hicexplorer_plot drawing layer with the calls of the Python tool (HICX_PLOT_PYTHON names the interpreter). The C++-only option --plotData FILE writes the data of the figures as JSON to FILE instead of drawing them.
+The figures are drawn with matplotlib, which needs a Python interpreter with matplotlib (`HICX_PLOT_PYTHON` selects it). The option `--plotData FILE` (new in HiCExplorer 4) writes the data of the figures as JSON to FILE instead of drawing them.

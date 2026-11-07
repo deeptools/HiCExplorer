@@ -11,7 +11,7 @@ hicPlotMatrix -m myHiCmatrix.cool -o myHiCmatrix.pdf \
 
 Every tool prints its full option list with `--help` (a few tools with only required arguments, such as
 `hicCompartmentalization` or `hicCreateThresholdFile`, need those required arguments present before they
-will honor `--help`; this is inherited from the Python argparse behaviour they reproduce). Each tool's
+will honor `--help`). Each tool's
 own page under [Tools](tools/index.md) lists the real, current flag set of the built C++ binary.
 
 - The output format of a plot is set by the file name's extension, for example `myPlot.pdf` for a PDF

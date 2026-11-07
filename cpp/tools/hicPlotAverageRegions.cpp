@@ -73,10 +73,10 @@ const char* const kHelp =
     "  --help, -h            show this help message and exit\n"
     "  --version             show program's version number and exit\n"
     "\n"
-    "C++ port: the figure is drawn by the hicexplorer_plot drawing layer with the\n"
-    "calls of the Python tool (HICX_PLOT_PYTHON names the interpreter). The C++-only\n"
-    "option --plotData FILE writes the data of the figure as JSON to FILE instead\n"
-    "of drawing it.\n";
+    "The figure is drawn with matplotlib, which needs a Python interpreter with\n"
+    "matplotlib (HICX_PLOT_PYTHON selects it). The option --plotData FILE (new in\n"
+    "HiCExplorer 4) writes the data of the figure as JSON to FILE instead of\n"
+    "drawing it.\n";
 
 
 // ---------------------------------------------------------------------------
@@ -311,7 +311,7 @@ DenseMatrix load_npz_upper_triangle(const std::string& path) {
         dense.bytes = dense_upper<Bool>(data, dense.rows, dense.cols, row_of, col_of, element_of);
     } else {
         throw std::runtime_error("TypeError: the matrix values have the dtype " + t +
-                                 ", which this port does not read (real or integer values only)");
+                                 ", which is not supported (real or integer values only)");
     }
     return dense;
 }
@@ -352,7 +352,7 @@ int main(int argc, char** argv) {
     optional.add({"--plotData"})
         .metavar("FILE")
         .output({"json"})
-        .cpp_only("The data of the figure as JSON, without drawing it (cpp/PLAN.md tier 7).")
+        .cpp_only("The data of the figure as JSON, without drawing it.")
         .help("Write the data the figure is drawn from as JSON to this file and do not draw "
               "the figure.");
 

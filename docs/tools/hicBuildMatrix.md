@@ -27,7 +27,7 @@ Using an alignment from a program that supports local alignment (eg. Bowtie2) wh
 | Flag | Meaning |
 |---|---|
 | `--samFiles two sam files two sam files, -s two sam files two sam files` | The two PE alignment sam files to process |
-| `--pairsFile pairs file` | C++ only, instead of --samFiles: a 4DN or pairtools .pairs file, plain, gzip or bgzip compressed. See "Pairs input" below. |
+| `--pairsFile pairs file` | New in HiCExplorer 4, instead of --samFiles: a 4DN or pairtools .pairs file, plain, gzip or bgzip compressed. See "Pairs input" below. |
 | `--outFileName FILENAME, -o FILENAME` | Output file name for the Hi-C matrix. |
 | `--QCfolder FOLDER` | Path of folder to save the quality control data for the matrix. |
 | `--restrictionCutFile BED file [BED file ...], -rs BED file [BED file ...]` | BED file(s) with all restriction cut sites. Required with --samFiles. |
@@ -54,11 +54,11 @@ Using an alignment from a program that supports local alignment (eg. Bowtie2) wh
 | `--doTestRunLines DOTESTRUNLINES` | Number of lines for the qc test run. (default: 1000000) |
 | `--skipDuplicationCheck` | Skip the identification of duplicated read pairs. |
 | `--chromosomeSizes txt file, -cs txt file` | File with the chromosome sizes for your genome. |
-| `--noPlot` | C++ only: write QC.log and the QC tables without the QC figures and hicQC.html. |
+| `--noPlot` | New in HiCExplorer 4: write QC.log and the QC tables without the QC figures and hicQC.html. |
 | `--help, -h` | show this help message and exit |
 | `--version` | show program's version number and exit |
 
-## Pairs input (--pairsFile, C++ only)
+## Pairs input (--pairsFile)
 
 Positions are the one-based 5' ends of the reads; a pair is binned at position - 1 into the half-open bin [start, end), as cooler cload pairs bins it. Chromosome sizes come from --chromosomeSizes or the #chromsize header lines. Bins come from --binSize, or without it from
 
