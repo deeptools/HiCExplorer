@@ -55,7 +55,7 @@ const char* const kHelp =
     "output) to one .chinput file, writing CHiCAGO's own log p-value\n"
     "and weighted score per (bait, other-end) interaction.\n"
     "\n"
-    "This tool has no Python HiCExplorer counterpart; it is C++ only (cpp/PLAN.md 9.15).\n"
+    "New in HiCExplorer 4.\n"
     "\n"
     "Required arguments:\n"
     "  --backgroundModel BACKGROUNDMODEL\n"

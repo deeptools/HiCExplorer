@@ -191,8 +191,7 @@ int main(int argc, char** argv) {
                 // TypeError. Same exit status, with the domain named.
                 std::fprintf(stderr,
                              "hicMergeTADbins: domain %s:%lld-%lld of line %d is not "
-                             "inside the matrix; the Python reference raises a bare "
-                             "TypeError here (hicMergeTADbins.py:129)\n",
+                             "inside the matrix\n",
                              fields[0].c_str(), static_cast<long long>(start),
                              static_cast<long long>(end), line_number);
                 return 1;

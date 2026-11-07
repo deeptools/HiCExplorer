@@ -43,13 +43,13 @@ hicCompartmentalization --obsexp_matrices obsExpMatrix.h5 --pca pc1.bedgraph -o 
 | `--outliers OUTLIERS` | Percentage of outliers to remove (default: 0). |
 | `--outputMatrix OUTPUTMATRIX` | Output `.npz` file including all the generated matrices. |
 | `--offset OFFSET [OFFSET ...]` | Set NaN for the distances mentioned as offset from the main diagonal; only positive values are accepted. |
-| `--noPlot` | C++ port only: write the numeric outputs (`OUTPUTFILENAME_dat` and `--outputMatrix`) without the plot. |
-| `--plotData FILE` | C++ port only: write the data of the plot as JSON to FILE instead of drawing it. |
+| `--noPlot` | New in HiCExplorer 4: write the numeric outputs (`OUTPUTFILENAME_dat` and `--outputMatrix`) without the plot. |
+| `--plotData FILE` | New in HiCExplorer 4: write the data of the plot as JSON to FILE instead of drawing it. |
 | `-h` | show the help message and exit. |
 | `--version` | show program's version number and exit |
 
-C++ port: the ratios and matrices are computed in C++, and the plot is drawn by the `hicexplorer_plot`
-drawing layer with the matplotlib calls of the Python tool (`HICX_PLOT_PYTHON` names the interpreter).
+The plot is drawn with matplotlib, which needs a Python interpreter with matplotlib
+(`HICX_PLOT_PYTHON` selects it).
 
 ## Notes
 

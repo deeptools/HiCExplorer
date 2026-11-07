@@ -31,7 +31,7 @@ The background distributions are fixed at `--fixateRange`, i.e. all distances lo
 | `--averageContactBin AVERAGECONTACTBIN` | Average the contacts of n bins via a sliding window approach (Default: 5). |
 | `--truncateZeros, -tz` | Truncates the zeros before the distributions are fitted. Use it in case you observe an over dispersion. |
 | `--outFileName OUTFILENAME, -o OUTFILENAME` | The name of the background model file (Default: background_model.txt). |
-| `--threads THREADS, -t THREADS` | Number of threads (uses the python multiprocessing module) (Default: 4). |
+| `--threads THREADS, -t THREADS` | Number of threads (Default: 4). |
 | `--fixateRange FIXATERANGE, -fs FIXATERANGE` | Fixate score of backgroundmodel starting at distance x. E.g. all values greater 500kb are set to the value of the 500kb bin (Default: 500000). |
 | `--help, -h` | show this help message and exit |
 | `--version` | show program's version number and exit |

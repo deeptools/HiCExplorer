@@ -135,8 +135,7 @@ const char* const kHelp =
     "                        'relative-interactions', 'p-value', 'x-fold', 'raw'\n"
     "                        (Default: relative-interactions).\n"
     "  --threads THREADS, -t THREADS\n"
-    "                        Number of threads (uses the python multiprocessing\n"
-    "                        module) (Default: 4).\n"
+    "                        Number of threads (Default: 4).\n"
     "  --help, -h            show this help message and exit\n"
     "  --version             show program's version number and exit\n";
 

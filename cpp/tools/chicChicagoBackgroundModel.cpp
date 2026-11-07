@@ -66,7 +66,7 @@ const char* const kHelp =
     "scaling factors, the negative-binomial dispersion and the Poisson\n"
     "technical-noise table per (bait, other-end) pool. The output feeds chicChicagoScores.\n"
     "\n"
-    "This tool has no Python HiCExplorer counterpart; it is C++ only (cpp/PLAN.md 9.15).\n"
+    "New in HiCExplorer 4.\n"
     "\n"
     "An example usage is:\n"
     "\n"
@@ -235,7 +235,7 @@ int main(int argc, char** argv) {
         }
         out.precision(15);
         out << "# chicChicagoBackgroundModel output (hicexplorer v4, CHiCAGO background model, "
-               "PLAN.md 9.15)\n";
+               "CHiCAGO)\n";
         out << "[Settings]\n";
         out << "minFragLen\t" << fs.min_frag_len << "\n";
         out << "maxFragLen\t" << fs.max_frag_len << "\n";

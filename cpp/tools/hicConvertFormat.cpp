@@ -125,7 +125,7 @@ const char* const kHelp =
     "format type and all output files too. For input and output of cooler files\n"
     "special options are available, for all other formats they will be ignored.\n"
     "HiCPro file format needs an additional bed file as input.\n"
-    "chinput input (C++ only) needs an additional .rmap file, and writes the real\n"
+    "chinput input (new in HiCExplorer 4) needs an additional .rmap file, and writes the real\n"
     "Hi-C matrix a CHiCAGO .chinput file's rows represent, one bin per restriction\n"
     "fragment, the reverse of chicChicagoBackgroundModel/chicChicagoScores'\n"
     "--matrices option.\n"
@@ -252,7 +252,7 @@ Arguments parse_arguments(int argc, char** argv) {
     required.add({"--inputFormat"})
         .choices({"h5", "cool", "hic", "homer", "hicpro", "2D-text", "chinput"})
         .required()
-        .note("The choice 'chinput' exists only in the C++ port: a CHiCAGO .chinput file "
+        .note("The choice 'chinput' is new in HiCExplorer 4: a CHiCAGO .chinput file "
               "written out as a real Hi-C matrix, the reverse of chicChicagoBackgroundModel/"
               "chicChicagoScores' own --matrices option.")
         .help("File format of the input matrix file.");
@@ -260,7 +260,7 @@ Arguments parse_arguments(int argc, char** argv) {
         .default_value("cool")
         .choices({"cool", "h5", "homer", "ginteractions", "mcool", "hicpro", "hic"})
         .required()
-        .note("The choice 'hic' exists only in the C++ port, which writes Juicer .hic files.")
+        .note("The choice 'hic' is new in HiCExplorer 4 and writes Juicer .hic files.")
         .help("Output format.");
 
     cli::ArgumentGroup& optional = parser.group("Optional arguments");
@@ -300,7 +300,7 @@ Arguments parse_arguments(int argc, char** argv) {
     optional.add({"--rmap"})
         .nargs("+")
         .input({"rmap", "txt"})
-        .cpp_only("For the C++-only input format `chinput`.")
+        .cpp_only("For the input format `chinput`.")
         .help("CHiCAGO .rmap restriction fragment file(s), one per --matrices "
               ".chinput file. Required for --inputFormat chinput.");
     optional.add({"--hicVersion"})
@@ -318,13 +318,13 @@ Arguments parse_arguments(int argc, char** argv) {
             }
             return std::nullopt;
         })
-        .cpp_only("The Python cannot write .hic files.")
+        .cpp_only("Writing .hic files is new in HiCExplorer 4.")
         .help("Version of a .hic output file.");
     optional.add({"--hicNormalizations"})
         .nargs("+")
         .choices({"auto", "VC", "VC_SQRT", "KR", "SCALE", "none"})
         .default_value(json::Value::array({json::Value::string("auto")}))
-        .cpp_only("The Python cannot write .hic files.")
+        .cpp_only("Writing .hic files is new in HiCExplorer 4.")
         .help("Normalizations a .hic output file stores. auto: the normalization vectors a cool "
               "or mcool input stores in its bins table (VC, KR, SCALE and the other Juicer "
               "names, or every column of a hic2cool file; never cooler's weight), and VC, "
@@ -333,7 +333,7 @@ Arguments parse_arguments(int argc, char** argv) {
     optional.add({"--threads"})
         .type("int")
         .default_value(1)
-        .cpp_only("Threads for writing a .hic output file, which the Python cannot write.")
+        .cpp_only("Threads for writing a .hic output file, new in HiCExplorer 4.")
         .help("Threads for writing a .hic output file; the file does not depend on the number.");
 
     const cli::Namespace ns = parser.parse(argc, argv);

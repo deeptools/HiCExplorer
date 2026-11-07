@@ -33,7 +33,7 @@ Extracts and computes different inter and intra TAD values and ratios.
 
 ## Additional notes
 
-C++ port: the table and the ratios are computed in C++, and the ratio plot is drawn by the hicexplorer_plot drawing layer with the matplotlib calls of the Python tool (HICX_PLOT_PYTHON names the interpreter). The C++-only option --plotData FILE writes the data of the plot as JSON to FILE instead of drawing it.
+The plot is drawn with matplotlib, which needs a Python interpreter with matplotlib (`HICX_PLOT_PYTHON` selects it). The option `--plotData FILE` (new in HiCExplorer 4) writes the data of the plot as JSON to FILE instead of drawing it.
 
 ## Notes
 

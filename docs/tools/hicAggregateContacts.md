@@ -26,14 +26,10 @@ usage: hicAggregateContacts --matrix MATRIX --outFileName OUTFILENAME --BED BED
 
 Takes a list of positions in the Hi-C matrix and makes a pooled image.
 
-The options are those of the Python `hicAggregateContacts`; see the Python tool's own documentation for
-the full option-by-option reference (`--matrix`, `--outFileName`, `--BED`/`--BED2`, `--mode`, `--range`,
-`--transform`, `--operationType`, clustering with `--kmeans`/`--hclust`/`--spectral`, and the plot styling
-options). The tables of aggregated contacts are computed in C++; the figure is drawn by the
-`hicexplorer_plot` drawing layer using the same matplotlib calls as the Python tool
-(`HICX_PLOT_PYTHON` names the interpreter to use for drawing).
+The figure is drawn with matplotlib, which needs a Python interpreter with matplotlib
+(`HICX_PLOT_PYTHON` selects it).
 
-## C++ port only
+## New in HiCExplorer 4
 
 | Flag | Meaning |
 |---|---|

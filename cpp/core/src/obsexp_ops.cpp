@@ -340,8 +340,8 @@ void convert_to_obs_exp_matrix(MatrixData& data, std::int64_t bin_size,
     for (const Block& block : blocks) {
         if (block.first < written_rows) {
             throw std::runtime_error(
-                "chromosome blocks are not in genome order; the port cannot "
-                "stream the transformed matrix");
+                "chromosome blocks are not in genome order; the transformed matrix "
+                "cannot be streamed");
         }
         for (std::int64_t row = written_rows; row < block.first; ++row) {
             out_indptr[static_cast<std::size_t>(row) + 1] =

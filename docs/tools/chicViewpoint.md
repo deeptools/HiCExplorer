@@ -27,7 +27,7 @@ Computes per input matrix all viewpoints which are defined in the reference poin
 
 | Flag | Meaning |
 |---|---|
-| `--threads THREADS, -t THREADS` | Number of threads (uses the python multiprocessing module) (Default: 4). |
+| `--threads THREADS, -t THREADS` | Number of threads (Default: 4). |
 | `--averageContactBin AVERAGECONTACTBIN` | Average the contacts of n bins via a sliding window approach to smooth the values and be less sensitive for outliers (Default: 5). |
 | `--fixateRange FIXATERANGE, -fs FIXATERANGE` | Fixate range of background model starting at distance x. E.g. all values greater 500kb are set to the value of the 500kb bin (Default: 500000). |
 | `--help, -h` | show this help message and exit |

@@ -170,7 +170,7 @@ const char* const kHelp =
     "  --samFiles two sam files two sam files, -s two sam files two sam files\n"
     "                        The two PE alignment sam files to process\n"
     "  --pairsFile pairs file\n"
-    "                        C++ only, instead of --samFiles: a 4DN or pairtools\n"
+    "                        Instead of --samFiles: a 4DN or pairtools\n"
     "                        .pairs file, plain, gzip or bgzip compressed. See\n"
     "                        \"Pairs input\" below.\n"
     "  --outFileName FILENAME, -o FILENAME\n"
@@ -218,12 +218,12 @@ const char* const kHelp =
     "                        Skip the identification of duplicated read pairs.\n"
     "  --chromosomeSizes txt file, -cs txt file\n"
     "                        File with the chromosome sizes for your genome.\n"
-    "  --noPlot              C++ only: write QC.log and the QC tables without the\n"
+    "  --noPlot              Write QC.log and the QC tables without the\n"
     "                        QC figures and hicQC.html.\n"
     "  --help, -h            show this help message and exit\n"
     "  --version             show program's version number and exit\n"
     "\n"
-    "Pairs input (--pairsFile, C++ only):\n"
+    "Pairs input (--pairsFile, new in HiCExplorer 4):\n"
     "  Positions are the one-based 5' ends of the reads; a pair is binned at\n"
     "  position - 1 into the half-open bin [start, end), as cooler cload pairs\n"
     "  bins it. Chromosome sizes come from --chromosomeSizes or the #chromsize\n"
@@ -314,7 +314,7 @@ Arguments parse_arguments(int argc, char** argv) {
         .metavar("pairs file")
         .file_type("r")
         .input({"pairs", "pairs.gz"})
-        .cpp_only("cpp/PLAN.md tier 9, item 9.2: .pairs input instead of --samFiles")
+        .cpp_only(".pairs input instead of --samFiles")
         .help("A 4DN or pairtools .pairs file, plain, gzip or bgzip compressed, instead of "
               "--samFiles.");
     required.add({"--outFileName", "-o"})

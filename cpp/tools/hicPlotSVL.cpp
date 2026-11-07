@@ -121,8 +121,7 @@ const char* const kHelp =
     "                        Chromosomes to include in the analysis. If not set,\n"
     "                        all chromosomes are included.\n"
     "  --threads THREADS, -t THREADS\n"
-    "                        Number of threads. Using the python multiprocessing\n"
-    "                        module (Default: 4).\n"
+    "                        Number of threads (Default: 4).\n"
     "  --dpi DPI             Optional parameter: Resolution for the image in case\n"
     "                        theoutput is a raster graphics image (e.g png, jpg)\n"
     "                        (Default: 300).\n"
@@ -131,10 +130,9 @@ const char* const kHelp =
     "  --help, -h            show this help message and exit\n"
     "  --version             show program's version number and exit\n"
     "\n"
-    "C++ port: the ratios and p-values are computed in C++, and the box plot is\n"
-    "drawn by the hicexplorer_plot drawing layer with the matplotlib calls of the\n"
-    "Python tool (HICX_PLOT_PYTHON names the interpreter). The C++-only option\n"
-    "--plotData FILE writes the data of the plot as JSON to FILE instead of drawing\n"
+    "The box plot is drawn with matplotlib, which needs a Python interpreter with\n"
+    "matplotlib (HICX_PLOT_PYTHON selects it). The option --plotData FILE (new in\n"
+    "HiCExplorer 4) writes the data of the plot as JSON to FILE instead of drawing\n"
     "it.\n";
 
 struct Arguments {
@@ -205,7 +203,7 @@ Arguments parse_arguments(int argc, char** argv) {
     optional.add({"--plotData"})
         .metavar("FILE")
         .output({"json"})
-        .cpp_only("The data of the box plot as JSON, without drawing it (cpp/PLAN.md tier 7).")
+        .cpp_only("The data of the box plot as JSON, without drawing it.")
         .help("Write the data the box plot is drawn from as JSON to this file and do not draw "
               "the plot.");
 
@@ -253,8 +251,7 @@ ChromosomeSvl svl_for_block(const hicx::CsrMatrix& matrix, std::int64_t first,
     } catch (const hicx::svl::ExplicitZeros&) {
         throw WorkerFailure(
             "chromosome '" + chromosome + "' of " + path +
-            " stores explicit zeros, which make hicPlotSVL.py:118 index the "
-            "matrix data with a mask of a different length");
+            " stores explicit zeros, which are not supported");
     }
     ChromosomeSvl result;
     if (!sums.kept) {
@@ -282,7 +279,7 @@ double max_distance_for(std::int64_t distance, std::int64_t bin_size,
                         const std::string& chromosome, const std::string& path) {
     if (bin_size == 0) {
         throw WorkerFailure("the bin size of " + path + " at chromosome '" + chromosome +
-                            "' is 0, so hicPlotSVL.py:105/112 divides by zero");
+                            "' is 0");
     }
     return static_cast<double>(distance) / static_cast<double>(bin_size);
 }
@@ -330,8 +327,7 @@ int main(int argc, char** argv) {
             }
             if (args.threads == 0) {
                 throw std::runtime_error(
-                    "ZeroDivisionError: integer division or modulo by zero "
-                    "(hicPlotSVL.py:159 divides the number of chromosomes by --threads)");
+                    "--threads must not be 0");
             }
 
             std::vector<ChromosomeSvl> kept;
@@ -379,10 +375,7 @@ int main(int argc, char** argv) {
         }
     } catch (const WorkerFailure& failure) {
         std::fprintf(stderr,
-                     "hicPlotSVL: %s. The Python reference raises inside a worker process "
-                     "at this point and then waits for that worker forever "
-                     "(hicPlotSVL.py:183-196); the C++ port exits instead. Nothing was "
-                     "written.\n",
+                     "hicPlotSVL: %s. Nothing was written.\n",
                      failure.what());
         return 1;
     } catch (const std::exception& error) {

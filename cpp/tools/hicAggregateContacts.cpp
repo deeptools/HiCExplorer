@@ -130,10 +130,8 @@ const char* const kHelp =
     "\n"
     "Takes a list of positions in the Hi-C matrix and makes a pooled image.\n"
     "\n"
-    "The options are those of the Python hicAggregateContacts. The tables are\n"
-    "computed in C++, and the figures are drawn by the hicexplorer_plot drawing\n"
-    "layer with the matplotlib calls of the Python tool (HICX_PLOT_PYTHON names the\n"
-    "interpreter). C++ port only:\n"
+    "The figures are drawn with matplotlib, which needs a Python interpreter with\n"
+    "matplotlib (HICX_PLOT_PYTHON selects it). New in HiCExplorer 4:\n"
     "  --noPlot              write the numeric outputs (--outFilePrefixMatrix,\n"
     "                        --outFileContactPairs, --outFileObsExp) without any\n"
     "                        figure.\n"
@@ -341,7 +339,7 @@ Arguments parse_arguments(int argc, char** argv) {
     plotting.add({"--plotData"})
         .metavar("FILE")
         .output({"json"})
-        .cpp_only("The data of the figures as JSON, without drawing them (cpp/PLAN.md tier 7).")
+        .cpp_only("The data of the figures as JSON, without drawing them.")
         .help("Write the data the figures are drawn from as JSON to this file and do not draw "
               "them.");
     optional.add({"--dpi"})

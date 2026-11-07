@@ -43,8 +43,8 @@ $ hicPCA --matrix hic_matrix.h5 -o pca1.bedgraph pca2.bedgraph
 | `--pearsonMatrix PEARSONMATRIX, -pm PEARSONMATRIX` | Write the intermediate Pearson matrix to this file. |
 | `--obsexpMatrix OBSEXPMATRIX, -oem OBSEXPMATRIX` | Write the intermediate observed/expected matrix here. |
 | `--ignoreMaskedBins` | Remove the masked bins before the PCA is computed. |
-| `--compatMode {v3,v4}` | v3 reproduces scipy.linalg.eig, the general solver, in LAPACK's own column order and sign, which is what the Python does. v4 uses the symmetric solver dsyevr for the requested eigenvectors only, sorted by descending eigenvalue with a deterministic sign. Not a Python option; see cpp/PLAN.md 5.8. (Default: v3). |
-| `--eigenSolver {dense,lanczos}` | dense forms each chromosome's covariance and solves it as --compatMode says. lanczos computes the requested eigenvectors of the same covariance from the sparse obs/exp matrix without forming it, ordered by eigenvalue, which is not always the Python's order. Not a Python option; see cpp/PLAN.md tier 11. (Default: dense). |
+| `--compatMode {v3,v4}` | v3 reproduces scipy.linalg.eig, the general solver, in LAPACK's own column order and sign, which is what earlier versions do. v4 uses the symmetric solver dsyevr for the requested eigenvectors only, sorted by descending eigenvalue with a deterministic sign. New in HiCExplorer 4. (Default: v3). |
+| `--eigenSolver {dense,lanczos}` | dense forms each chromosome's covariance and solves it as --compatMode says. lanczos computes the requested eigenvectors of the same covariance from the sparse obs/exp matrix without forming it, ordered by eigenvalue, which is not always the order of dense. New in HiCExplorer 4. (Default: dense). |
 | `--threads THREADS` | Workers for chromosomes, covariance rows and sparse products. The output is byte-identical for any value. (Default: 4). |
 | `--help, -h` | show this help message and exit |
 | `--version` | show program's version number and exit |

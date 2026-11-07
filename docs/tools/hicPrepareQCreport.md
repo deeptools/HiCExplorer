@@ -21,19 +21,19 @@ Tabulates and plots QC measures from hicBuildMatrix log files within an HTML out
 | Flag | Meaning |
 |---|---|
 | `--dpi DPI` | Image resolution. By default high resolution png images with a 200 dpi are created. |
-| `--plotData FILE` | C++ only: write the tables and the data of the figures as JSON to FILE instead of drawing them. |
-| `--prettyReport` | C++ only: also write OUTPUTFOLDER/hicQC_report.html, a card-based report that judges five metrics per sample as PASS, WARN or FAIL. See "PASS, WARN and FAIL" below. |
-| `--minValidPairsPercent PCT` | C++ only, read with --prettyReport. Valid pairs as a percentage of sequenced reads: PASS at or above PCT, WARN below PCT down to 0.8 * PCT, FAIL below 0.8 * PCT. Default 25.0. |
-| `--maxInterChromosomalPercent PCT` | C++ only, read with --prettyReport. Inter-chromosomal contacts as a percentage of valid pairs: PASS at or below PCT, WARN above PCT up to 1.2 * PCT, FAIL above 1.2 * PCT. Default 10.0. |
-| `--maxDuplicatedPairsPercent PCT` | C++ only, read with --prettyReport. Duplicated pairs as a percentage of mappable pairs, judged as for --maxInterChromosomalPercent. Default 20.0. |
-| `--maxDanglingEndPercent PCT` | C++ only, read with --prettyReport. Dangling ends as a percentage of mappable pairs, judged as for --maxInterChromosomalPercent. Default 10.0. |
-| `--maxSelfLigationPercent PCT` | C++ only, read with --prettyReport. Self-ligated pairs as a percentage of mappable pairs, judged as for --maxInterChromosomalPercent. Default 10.0. |
+| `--plotData FILE` | New in HiCExplorer 4: write the tables and the data of the figures as JSON to FILE instead of drawing them. |
+| `--prettyReport` | New in HiCExplorer 4: also write OUTPUTFOLDER/hicQC_report.html, a card-based report that judges five metrics per sample as PASS, WARN or FAIL. See "PASS, WARN and FAIL" below. |
+| `--minValidPairsPercent PCT` | New in HiCExplorer 4, read with --prettyReport. Valid pairs as a percentage of sequenced reads: PASS at or above PCT, WARN below PCT down to 0.8 * PCT, FAIL below 0.8 * PCT. Default 25.0. |
+| `--maxInterChromosomalPercent PCT` | New in HiCExplorer 4, read with --prettyReport. Inter-chromosomal contacts as a percentage of valid pairs: PASS at or below PCT, WARN above PCT up to 1.2 * PCT, FAIL above 1.2 * PCT. Default 10.0. |
+| `--maxDuplicatedPairsPercent PCT` | New in HiCExplorer 4, read with --prettyReport. Duplicated pairs as a percentage of mappable pairs, judged as for --maxInterChromosomalPercent. Default 20.0. |
+| `--maxDanglingEndPercent PCT` | New in HiCExplorer 4, read with --prettyReport. Dangling ends as a percentage of mappable pairs, judged as for --maxInterChromosomalPercent. Default 10.0. |
+| `--maxSelfLigationPercent PCT` | New in HiCExplorer 4, read with --prettyReport. Self-ligated pairs as a percentage of mappable pairs, judged as for --maxInterChromosomalPercent. Default 10.0. |
 | `--help, -h` | show this help message and exit |
 | `--version` | show program's version number and exit |
 
 ## Additional notes
 
-C++ port: the tables and hicQC.html are written in C++, and the figures are drawn by the hicexplorer_plot drawing layer with the calls of the Python tool (HICX_PLOT_PYTHON names the interpreter). The C++-only option --plotData FILE writes the tables, hicQC.html and the data of the figures to FILE instead of drawing them.
+The figures are drawn with matplotlib, which needs a Python interpreter with matplotlib (`HICX_PLOT_PYTHON` selects it). The option `--plotData FILE` (new in HiCExplorer 4) writes the tables, hicQC.html and the data of the figures to FILE instead of drawing them.
 
 ## PASS, WARN and FAIL (--prettyReport)
 

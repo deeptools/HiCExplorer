@@ -75,7 +75,7 @@ const char* const kHelp =
     "dispersion is estimated from the replicates with quasi-likelihood empirical Bayes\n"
     "moderation, offsets take library size and distance decay, bins filtered in any\n"
     "sample are masked in all, a minimum fold change is tested (TREAT) and the\n"
-    "p-values are adjusted with Benjamini-Hochberg. Not in the Python HiCExplorer.\n"
+    "p-values are adjusted with Benjamini-Hochberg. New in HiCExplorer 4.\n"
     "\n"
     "positional arguments:\n"
     "  {tads,loops,compartments}\n"
@@ -339,7 +339,7 @@ void add_common(hicx::cli::Parser& sub, hicx::cli::ArgumentGroup& required,
 Arguments parse_arguments(int argc, char** argv) {
     namespace cli = hicx::cli;
     cli::Parser parser(kProg, "Replicate-aware, count-based differential analysis of Hi-C "
-                              "contact matrices (not in the Python HiCExplorer).");
+                              "contact matrices (new in HiCExplorer 4).");
     parser.set_usage(kUsage).set_help(kHelp).set_version_string(hicx::kVersion);
     cli::ArgumentGroup& options = parser.group("options");
     options.add({"-h", "--help"}).action(cli::Action::Help).help("show this help message and exit");
@@ -553,7 +553,7 @@ void validate(const Arguments& args) {
             " in condition A and " + std::to_string(b) +
             " in condition B. Without replicates a difference cannot be told apart from "
             "replicate variation, which is where the false positives of a one against one "
-            "comparison come from (cpp/PLAN.md 9.7). Give --exploratory to run anyway: the "
+            "comparison come from. Give --exploratory to run anyway: the "
             "dispersion is then estimated from all samples ignoring the conditions and the "
             "output is labelled exploratory");
     }

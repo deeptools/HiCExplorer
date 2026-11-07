@@ -542,8 +542,7 @@ BackgroundModel read_background_model(const std::string& path, std::int64_t rang
         if (increment == 0) {
             // The Python loops forever here: i never grows.
             throw ValueError("the background model's first two positions have the same "
-                             "distance, so it cannot be extended to --range; the Python "
-                             "reference does not terminate on this input");
+                             "distance, so it cannot be extended to --range");
         }
         const std::vector<double> value = model.at(max_key);
         std::int64_t i = max_key;
@@ -555,8 +554,7 @@ BackgroundModel read_background_model(const std::string& path, std::int64_t rang
     if (min_key > -range_upstream) {
         if (increment == 0) {
             throw ValueError("the background model's first two positions have the same "
-                             "distance, so it cannot be extended to --range; the Python "
-                             "reference does not terminate on this input");
+                             "distance, so it cannot be extended to --range");
         }
         const std::vector<double> value = model.at(min_key);
         std::int64_t i = min_key;

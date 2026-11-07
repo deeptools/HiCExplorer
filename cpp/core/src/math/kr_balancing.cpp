@@ -82,9 +82,7 @@ bool Balancer::compute() {
             // no output file. Deliberate deviation, cpp/STATUS.md.
             message_ = "Knight-Ruiz balancing did not converge in " +
                        std::to_string(options_.max_outer_iterations) +
-                       " outer iterations. The upstream krbalancing library exits with "
-                       "status 0 and writes nothing at this point; this port reports the "
-                       "failure instead.";
+                       " outer iterations.";
             return false;
         }
         std::int64_t k = 0;

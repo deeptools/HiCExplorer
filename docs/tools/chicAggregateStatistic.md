@@ -23,6 +23,6 @@ chicAggregateStatistic is a preprocessing tool for chicDifferentialTest. It take
 | Flag | Meaning |
 |---|---|
 | `--outFileName OUTFILENAME, -o OUTFILENAME` | File name to save the result (Default: aggregate_target.hdf). |
-| `--threads THREADS, -t THREADS` | Number of threads (uses the python multiprocessing module)ist (Default: 4). |
+| `--threads THREADS, -t THREADS` | Number of threads (Default: 4). |
 | `--help, -h` | show this help message and exit |
 | `--version` | show program's version number and exit |

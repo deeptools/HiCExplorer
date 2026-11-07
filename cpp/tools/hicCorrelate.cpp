@@ -150,19 +150,19 @@ const char* const kHelp =
     "Optional arguments:\n"
     "  --method {pearson,spearman,scc,genomedisco,hicspector,quasar,ent3c}\n"
     "                        Correlation method to use. 'scc' is HiCRep's stratum-\n"
-    "                        adjusted correlation coefficient (cpp_only, no\n"
-    "                        HiCExplorer Python counterpart); see\n"
+    "                        adjusted correlation coefficient (new in\n"
+    "                        HiCExplorer 4); see\n"
     "                        --sccSmoothWindow, --sccMaxDistance, --sccDownsample.\n"
     "                        'genomedisco' is GenomeDISCO's random-walk\n"
-    "                        reproducibility score (also cpp_only); see\n"
+    "                        reproducibility score (also new in HiCExplorer 4); see\n"
     "                        --genomediscoTmin, --genomediscoTmax,\n"
     "                        --genomediscoNoSubsample. 'hicspector' is HiC-\n"
     "                        Spector's spectral reproducibility score (also\n"
-    "                        cpp_only); see --hicspectorNumEvec,\n"
+    "                        new in HiCExplorer 4); see --hicspectorNumEvec,\n"
     "                        --hicspectorIprCut. 'quasar' is QuASAR-Rep's\n"
-    "                        replicate score (also cpp_only); see\n"
+    "                        replicate score (also new in HiCExplorer 4); see\n"
     "                        --quasarWidth. 'ent3c' is ENT3C's entropy-based\n"
-    "                        similarity (also cpp_only); see\n"
+    "                        similarity (also new in HiCExplorer 4); see\n"
     "                        --ent3cSubmatrixSize, --ent3cChromosomeSplit,\n"
     "                        --ent3cWindowShift, --ent3cMaxWindows\n"
     "                        (Default: pearson).\n"
@@ -197,13 +197,12 @@ const char* const kHelp =
     "  --help, -h            show this help message and exit\n"
     "  --version             show program's version number and exit\n"
     "\n"
-    "C++ port: the vectors, correlations and clustering are computed in C++, and the\n"
-    "figures are drawn by the hicexplorer_plot drawing layer with the calls of the\n"
-    "Python tool (HICX_PLOT_PYTHON names the interpreter). The C++-only option\n"
-    "--plotData FILE writes the data of the figures as JSON to FILE (and the vectors\n"
+    "The figures are drawn with matplotlib, which needs a Python interpreter with\n"
+    "matplotlib (HICX_PLOT_PYTHON selects it). The option --plotData FILE (new in\n"
+    "HiCExplorer 4) writes the data of the figures as JSON to FILE (and the vectors\n"
     "to FILE.npy) instead of drawing them.\n"
     "\n"
-    "--method scc (cpp_only): HiCRep's stratum-adjusted correlation coefficient,\n"
+    "--method scc (new in HiCExplorer 4): HiCRep's stratum-adjusted correlation coefficient,\n"
     "reimplemented from the hicrep 0.2.6 Python package, not from the paper alone.\n"
     "Per chromosome pair, it trims to the diagonals below --sccMaxDistance,\n"
     "normalizes by each matrix's genome-wide total contacts (or downsamples with\n"
@@ -215,7 +214,7 @@ const char* const kHelp =
     "scatter plot (no per-bin vectors survive the per-diagonal reduction), so\n"
     "--outFileNameScatter is still required but left untouched.\n"
     "\n"
-    "--method genomedisco (cpp_only): GenomeDISCO's random-walk reproducibility\n"
+    "--method genomedisco (new in HiCExplorer 4): GenomeDISCO's random-walk reproducibility\n"
     "score, reimplemented from the real kundajelab/genomedisco source (there is no\n"
     "pip-installable package; the real tool is Python 2 only), using its own\n"
     "recommended \"standard config\": sqrtvc normalization, downsampling the\n"
@@ -227,10 +226,10 @@ const char* const kHelp =
     "the set), ignores --log1p and --range, reuses the same clustering/heatmap, and\n"
     "has no scatter plot.\n"
     "\n"
-    "--method hicspector (cpp_only): HiC-Spector's spectral reproducibility score,\n"
-    "reimplemented from the real gersteinlab/HiC-spector Python reference\n"
-    "(run_reproducibility_v2.py), run as this port's own validation oracle on real\n"
-    "data. Per chromosome pair, bins whose only signal is their own self-contact\n"
+    "--method hicspector (new in HiCExplorer 4): HiC-Spector's spectral reproducibility score,\n"
+    "reimplemented from the gersteinlab/HiC-spector reference code. Per\n"
+    "chromosome pair, bins whose only signal is\n"
+    "their own self-contact\n"
     "in either matrix are dropped, both matrices become normalized graph\n"
     "Laplacians, --hicspectorNumEvec of their smallest eigenpairs are compared\n"
     "(keeping only eigenvectors above --hicspectorIprCut, a delocalization\n"
@@ -240,10 +239,9 @@ const char* const kHelp =
     "restricts the set), ignores --log1p and --range, reuses the same\n"
     "clustering/heatmap, and has no scatter plot.\n"
     "\n"
-    "--method quasar (cpp_only): QuASAR-Rep's replicate reproducibility score,\n"
+    "--method quasar (new in HiCExplorer 4): QuASAR-Rep's replicate reproducibility score,\n"
     "reimplemented from the real hifive 1.5.7 package's compiled core\n"
-    "(hifive.libraries._quasar), called directly under Python 2 as this port's own\n"
-    "validation oracle on real data (hifive itself is Python 2 only). Per\n"
+    "(hifive.libraries._quasar). Per\n"
     "chromosome pair, bins are dropped unless they keep at least one stored\n"
     "contact within --quasarWidth bins of another surviving bin after iterating to\n"
     "a fixed point; surviving bins get a genomic-distance-background-corrected\n"
@@ -256,7 +254,7 @@ const char* const kHelp =
     "restricts the set), ignores --log1p and --range, reuses the same\n"
     "clustering/heatmap, and has no scatter plot.\n"
     "\n"
-    "--method ent3c (cpp_only): ENT3C's entropy-based similarity (Lainscsek and\n"
+    "--method ent3c (new in HiCExplorer 4): ENT3C's entropy-based similarity (Lainscsek and\n"
     "Taher, NAR Genom Bioinform 2024). Per chromosome, bins empty in any input\n"
     "matrix are removed from all of them; submatrices of --ent3cSubmatrixSize bins\n"
     "(or the chromosome's bin count divided by --ent3cChromosomeSplit) are taken\n"
@@ -780,9 +778,7 @@ SampleEntries load_sample(const std::string& path,
         }
         if (max_dist < bin_size) {
             std::fprintf(stderr,
-                         "Please specify a max range that is larger than bin size (%lld). The "
-                         "reference exits 0 here without writing anything; the C++ port exits 1 "
-                         "(cpp/AGENTS_CONTRACT.md rule 7).\n",
+                         "Please specify a max range that is larger than bin size (%lld).\n",
                          static_cast<long long>(bin_size));
             std::exit(1);
         }
@@ -1160,14 +1156,14 @@ int main(int argc, char** argv) {
         .choices({"pearson", "spearman", "scc", "genomedisco", "hicspector", "quasar", "ent3c"})
         .default_value("pearson")
         .help("Correlation method to use. 'scc' is HiCRep's stratum-adjusted correlation "
-              "coefficient (cpp_only, no HiCExplorer Python counterpart); see "
+              "coefficient (new in HiCExplorer 4); see "
               "--sccSmoothWindow, --sccMaxDistance, --sccDownsample. 'genomedisco' is "
-              "GenomeDISCO's random-walk reproducibility score (also cpp_only); see "
+              "GenomeDISCO's random-walk reproducibility score (also new in HiCExplorer 4); see "
               "--genomediscoTmin, --genomediscoTmax, --genomediscoNoSubsample. 'hicspector' is "
-              "HiC-Spector's spectral reproducibility score (also cpp_only); see "
+              "HiC-Spector's spectral reproducibility score (also new in HiCExplorer 4); see "
               "--hicspectorNumEvec, --hicspectorIprCut. 'quasar' is QuASAR-Rep's replicate "
-              "score (also cpp_only); see --quasarWidth. 'ent3c' is ENT3C's entropy-based "
-              "similarity (also cpp_only); see --ent3cSubmatrixSize, --ent3cChromosomeSplit, "
+              "score (also new in HiCExplorer 4); see --quasarWidth. 'ent3c' is ENT3C's entropy-based "
+              "similarity (also new in HiCExplorer 4); see --ent3cSubmatrixSize, --ent3cChromosomeSplit, "
               "--ent3cWindowShift, --ent3cMaxWindows (Default: %(default)s).");
     optional.add({"--log1p"})
         .action(cli::Action::StoreTrue)
@@ -1197,7 +1193,7 @@ int main(int argc, char** argv) {
         .metavar("FILE")
         .output({"json"})
         .cpp_only("The data of the figures as JSON (and the vectors as FILE.npy), without "
-                  "drawing them (cpp/PLAN.md tier 7).")
+                  "drawing them.")
         .help("Write the data the figures are drawn from as JSON to this file and do not draw "
               "them.");
     optional.add({"--sccSmoothWindow"})
@@ -1316,9 +1312,7 @@ int main(int argc, char** argv) {
     if (ns.given("labels")) {
         labels = ns.strs("labels");
         if (labels.size() != matrices.size()) {
-            std::fputs("The number of labels does not match the number of matrices. The "
-                       "reference exits 0 here without writing anything; the C++ port exits 1 "
-                       "(cpp/AGENTS_CONTRACT.md rule 7).\n",
+            std::fputs("The number of labels does not match the number of matrices.\n",
                        stderr);
             return 1;
         }
@@ -1474,9 +1468,7 @@ int main(int argc, char** argv) {
         }
         for (const double value : big) {
             if (!std::isfinite(value)) {
-                throw PythonError("a vector holds a non-finite value, which the reference masks "
-                                  "with np.ma.masked_invalid; the port does not reproduce masked "
-                                  "reductions and refuses such input");
+                throw PythonError("a vector holds a non-finite value, which is not supported");
             }
         }
 

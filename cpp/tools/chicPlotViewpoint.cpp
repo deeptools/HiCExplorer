@@ -179,15 +179,13 @@ const char* const kHelp =
     "                        Colorlist for the viewpoint lines (Default g b c m y\n"
     "                        k).\n"
     "  --threads THREADS, -t THREADS\n"
-    "                        Number of threads (uses the python multiprocessing\n"
-    "                        module) (Default: 4).\n"
+    "                        Number of threads (Default: 4).\n"
     "  --help, -h            show this help message and exit\n"
     "  --version             show program's version number and exit\n"
     "\n"
-    "C++ port: the plot data is read and computed in C++, and the figures and the\n"
-    "archive are written by the hicexplorer_plot drawing layer with the calls of the\n"
-    "Python tool (HICX_PLOT_PYTHON names the interpreter). The C++-only option\n"
-    "--plotData FILE writes the data of the figures as JSON to FILE instead of\n"
+    "The figures are drawn with matplotlib, which needs a Python interpreter with\n"
+    "matplotlib (HICX_PLOT_PYTHON selects it). The option --plotData FILE (new in\n"
+    "HiCExplorer 4) writes the data of the figures as JSON to FILE instead of\n"
     "drawing them.\n";
 
 // A Python exception that ends the reference with exit status 1.
@@ -792,14 +790,14 @@ int main(int argc, char** argv) {
         .required(false)
         .default_value(std::int64_t{4})
         .type("int")
-        .help("Number of threads (uses the python multiprocessing module) (Default: "
+        .help("Number of threads (Default: "
               "%(default)s).");
     optional.add({"--help", "-h"}).action(cli::Action::Help).help("show this help message and exit");
     optional.add({"--version"}).version(std::string("%(prog)s ") + hicx::kVersion);
     optional.add({"--plotData"})
         .metavar("FILE")
         .output({"json"})
-        .cpp_only("The data of the figures as JSON, without drawing them (cpp/PLAN.md tier 7).")
+        .cpp_only("The data of the figures as JSON, without drawing them.")
         .help("Write the data the figures are drawn from as JSON to this file and do not draw "
               "them.");
 

@@ -44,7 +44,7 @@ mkdir "$work/missing" && cd "$work/missing" || exit 1
 status=$?
 expect "a chromosome missing from an h5 matrix exits non-zero" [ "$status" -ne 0 ]
 expect "the message names the chromosome" grep -q "chrNotThere" err.txt
-expect "the message names the reference behaviour" grep -q "waits for that worker forever" err.txt
+expect "the message says that nothing was written" grep -q "Nothing was written" err.txt
 expect "a missing chromosome writes nothing" only_logs_in "$work/missing"
 
 "$tool" --plotData "$work/plot.json" -m "$data/small_test_matrix_50kb_res.cool" --chromosomes chrNotThere \

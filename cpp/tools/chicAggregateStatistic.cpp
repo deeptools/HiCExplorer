@@ -97,8 +97,7 @@ const char* const kHelp =
     "                        File name to save the result (Default:\n"
     "                        aggregate_target.hdf).\n"
     "  --threads THREADS, -t THREADS\n"
-    "                        Number of threads (uses the python multiprocessing\n"
-    "                        module)ist (Default: 4).\n"
+    "                        Number of threads (Default: 4).\n"
     "  --help, -h            show this help message and exit\n"
     "  --version             show program's version number and exit\n";
 

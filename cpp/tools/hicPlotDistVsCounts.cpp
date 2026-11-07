@@ -125,11 +125,10 @@ const char* const kHelp =
     "  --help, -h            show this help message and exit\n"
     "  --version             show program's version number and exit\n"
     "\n"
-    "C++ port: the distance means, the scale factors and --outFileData are computed\n"
-    "in C++, and the figure is drawn by the hicexplorer_plot drawing layer with the\n"
-    "matplotlib calls of the Python tool (HICX_PLOT_PYTHON names the interpreter).\n"
-    "The C++-only option --plotData FILE writes the data of the figure as JSON to\n"
-    "FILE instead of drawing it.\n";
+    "The figure is drawn with matplotlib, which needs a Python interpreter with\n"
+    "matplotlib (HICX_PLOT_PYTHON selects it). The option --plotData FILE (new in\n"
+    "HiCExplorer 4) writes the data of the figure as JSON to FILE instead of\n"
+    "drawing it.\n";
 
 struct Arguments {
     std::vector<std::string> matrices;
@@ -225,7 +224,7 @@ Arguments parse_arguments(int argc, char** argv) {
     optional.add({"--plotData"})
         .metavar("FILE")
         .output({"json"})
-        .cpp_only("The data of the figure as JSON, without drawing it (cpp/PLAN.md tier 7).")
+        .cpp_only("The data of the figure as JSON, without drawing it.")
         .help("Write the data the figure is drawn from as JSON to this file and do not draw "
               "the figure.");
 

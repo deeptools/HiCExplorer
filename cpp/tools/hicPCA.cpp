@@ -406,17 +406,17 @@ const char* const kHelp =
     "  --ignoreMaskedBins    Remove the masked bins before the PCA is computed.\n"
     "  --compatMode {v3,v4}  v3 reproduces scipy.linalg.eig, the general solver, in\n"
     "                        LAPACK's own column order and sign, which is what the\n"
-    "                        Python does. v4 uses the symmetric solver dsyevr for\n"
+    "                        earlier versions do. v4 uses the symmetric solver dsyevr for\n"
     "                        the requested eigenvectors only, sorted by descending\n"
-    "                        eigenvalue with a deterministic sign. Not a Python\n"
-    "                        option; see cpp/PLAN.md 5.8. (Default: v3).\n"
+    "                        eigenvalue with a deterministic sign. New in\n"
+    "                        HiCExplorer 4 (Default: v3).\n"
     "  --eigenSolver {dense,lanczos}\n"
     "                        dense forms each chromosome's covariance and solves it\n"
     "                        as --compatMode says. lanczos computes the requested\n"
     "                        eigenvectors of the same covariance from the sparse\n"
     "                        obs/exp matrix without forming it, ordered by\n"
-    "                        eigenvalue, which is not always the Python's order.\n"
-    "                        Not a Python option; see cpp/PLAN.md tier 11.\n"
+    "                        eigenvalue, which is not always the order of dense.\n"
+    "                        New in HiCExplorer 4.\n"
     "                        (Default: dense).\n"
     "  --threads THREADS     Workers for chromosomes, covariance rows and sparse\n"
     "                        products. The output is byte-identical for any value.\n"
@@ -513,19 +513,18 @@ Arguments parse_arguments(int argc, char** argv) {
         .choices({"v3", "v4"})
         .default_value("v3")
         .cpp_only("v4 replaces the general eigensolver by the symmetric one for the requested "
-                  "eigenvectors only (cpp/PLAN.md 5.8).")
+                  "eigenvectors only.")
         .help("v3 reproduces scipy.linalg.eig; v4 uses the symmetric solver dsyevr.");
     optional.add({"--eigenSolver"})
         .choices({"dense", "lanczos"})
         .default_value("dense")
         .cpp_only("lanczos computes the requested eigenvectors without forming the dense "
-                  "covariance (cpp/PLAN.md tier 11).")
+                  "covariance.")
         .help("dense forms the covariance; lanczos uses a Krylov solver on the sparse matrix.");
     optional.add({"--threads", "-t"})
         .type("int")
         .default_value(4)
-        .cpp_only("The Python computes the covariance single-threaded; the output is "
-                  "byte-identical for any value.")
+        .cpp_only("Threads for the covariance; the output is byte-identical for any value.")
         .help("Workers for chromosomes, covariance rows and sparse products.");
     optional.add({"--help", "-h"}).action(cli::Action::Help).help("show the help message and exit");
     optional.add({"--version"}).version(std::string("%(prog)s ") + hicx::kVersion);

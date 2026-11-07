@@ -89,10 +89,10 @@ const char* const kHelp =
     "  --version             show program's version number and exit\n"
     "  --help, -h            show this help message and exit\n"
     "\n"
-    "C++ port: the interactions are summed in C++ and the figure is drawn by the\n"
-    "hicexplorer_plot drawing layer with the matplotlib calls of the Python tool\n"
-    "(HICX_PLOT_PYTHON names the interpreter). The C++-only option --plotData FILE\n"
-    "writes the data of the figure as JSON to FILE instead of drawing it.\n";
+    "The figure is drawn with matplotlib, which needs a Python interpreter with\n"
+    "matplotlib (HICX_PLOT_PYTHON selects it). The option --plotData FILE (new in\n"
+    "HiCExplorer 4) writes the data of the figure as JSON to FILE instead of\n"
+    "drawing it.\n";
 
 struct Arguments {
     std::vector<std::string> matrices;
@@ -145,7 +145,7 @@ Arguments parse_arguments(int argc, char** argv) {
     optional.add({"--plotData"})
         .metavar("FILE")
         .output({"json"})
-        .cpp_only("The data of the figure as JSON, without drawing it (cpp/PLAN.md tier 7).")
+        .cpp_only("The data of the figure as JSON, without drawing it.")
         .help("Write the data the figure is drawn from as JSON to this file and do not draw "
               "the figure.");
 
@@ -226,7 +226,7 @@ View keep_chromosomes(const hicx::ToolMatrix& matrix, const std::optional<std::s
     for (const char c : *chromosome) {
         if (!known(std::string(1, c))) {
             throw PythonError("ValueError: Chromosome name not in matrix. '" + std::string(1, c) +
-                              "' (--chromosome is iterated by character, hicPlotViewpoint.py:77)");
+                              "' (--chromosome is iterated by character)");
         }
     }
     std::vector<char> selected(all.size(), 0);
@@ -375,9 +375,7 @@ int main(int argc, char** argv) {
         const std::vector<std::string> region = split_colon(region_text);
         if (region.size() != 3) {
             std::fprintf(stderr,
-                         "Region format is invalid %s. The reference exits 0 here without "
-                         "writing anything; the C++ port exits 1 (cpp/AGENTS_CONTRACT.md rule "
-                         "7).\n",
+                         "Region format is invalid %s.\n",
                          region_text.c_str());
             return 1;
         }

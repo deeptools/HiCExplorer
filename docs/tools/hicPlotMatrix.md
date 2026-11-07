@@ -43,7 +43,7 @@ hundred blocks. A block is the sum of its counts for a count matrix and the mean
 balanced or other non-integer values. Blocks stop at chromosome ends (the last block of a chromosome is
 shorter), the axes, ticks and labels stay those of the bins, and `--log`/`--log1p` apply to the blocks, so
 the figure is the plot of the matrix at the coarser bin size that the figure can show. The message
-`N x N bins are drawn as M x M blocks` on standard error says when this happened. `--noDownsample` (C++ only)
+`N x N bins are drawn as M x M blocks` on standard error says when this happened. `--noDownsample` (new in HiCExplorer 4)
 draws single bins; the matrix is then handed to the drawing process in tiles of at most 4096 x 4096 bins
 (`--tileBins`), but matplotlib keeps what it has drawn until the figure is saved, about 55 bytes per cell.
 

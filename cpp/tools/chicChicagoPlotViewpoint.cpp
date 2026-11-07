@@ -111,7 +111,7 @@ const char* const kHelp =
     "signed distance) or every bait in a region (--region, absolute genomic coordinates), "
     "either as that scatter or as an arc between each interacting pair (--style).\n"
     "\n"
-    "This tool has no Python HiCExplorer counterpart; it is C++ only (cpp/PLAN.md 9.15).\n"
+    "New in HiCExplorer 4.\n"
     "\n"
     "Required arguments:\n"
     "  --scores SCORES       chicChicagoScores' own output file.\n"
@@ -356,7 +356,7 @@ int main(int argc, char** argv) {
     optional.add({"--plotData"})
         .metavar("FILE")
         .output({"json"})
-        .cpp_only("The data of the figure as JSON, without drawing it (cpp/PLAN.md tier 7).")
+        .cpp_only("The data of the figure as JSON, without drawing it.")
         .help("Write the data the figure is drawn from as JSON to this file and do not draw it.");
 
     const cli::Namespace args = parser.parse(argc, argv);

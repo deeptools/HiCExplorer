@@ -10,8 +10,8 @@
 | [hicDetectStripes](hicDetectStripes.md) | Detects architectural stripes with the method of Stripenn (Yoon et al. 2022). New in v4. |
 | [hicValidateLocations](hicValidateLocations.md) | Compares called loops with known protein peak positions. |
 | [hicMergeLoops](hicMergeLoops.md) | Merges loop calls made at different resolutions. |
-| [hicHyperoptDetectLoops](hicHyperoptDetectLoops.md) | Searches for the best hicDetectLoops parameter setting for a given dataset. Not yet ported to C++. |
-| [hicHyperoptDetectLoopsHiCCUPS](hicHyperoptDetectLoopsHiCCUPS.md) | Searches for the best Juicer HiCCUPS parameter setting for a given dataset. Not yet ported to C++. |
+| [hicHyperoptDetectLoops](hicHyperoptDetectLoops.md) | Searches for the best hicDetectLoops parameter setting for a given dataset. Not yet available in HiCExplorer 4. |
+| [hicHyperoptDetectLoopsHiCCUPS](hicHyperoptDetectLoopsHiCCUPS.md) | Searches for the best Juicer HiCCUPS parameter setting for a given dataset. Not yet available in HiCExplorer 4. |
 | [hicCompartmentalization](hicCompartmentalization.md) | Computes the global compartmentalization (polarization) signal from PCA eigenvectors. |
 | [hicPlotSVL](hicPlotSVL.md) | Computes and plots short-range versus long-range contacts. |
-| [hicDifferentialAnalysis](hicDifferentialAnalysis.md) | Replicate-aware, count-based differential analysis of TADs/boundaries, loops or compartments. New in v4, not in the Python HiCExplorer. |
+| [hicDifferentialAnalysis](hicDifferentialAnalysis.md) | Replicate-aware, count-based differential analysis of TADs/boundaries, loops or compartments. New in HiCExplorer 4. |

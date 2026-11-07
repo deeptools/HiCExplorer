@@ -126,7 +126,7 @@ const char* const kHelp =
     "  --help, -h            show this help message and exit\n"
     "  --version             show program's version number and exit\n"
     "\n"
-    "C++ port: the relation tree is rendered by running graphviz's `dot`, which\n"
+    "The relation tree is rendered by running graphviz's `dot`, which\n"
     "must be on PATH whenever more than one domain file is given.\n";
 
 struct Arguments {
@@ -187,7 +187,7 @@ Arguments parse_arguments(int argc, char** argv) {
     optional.add({"--outputTreePlotPrefix", "-ot"})
         .default_value("relationship_tree_")
         .output({"pdf", "png", "svg"}, "prefix")
-        .note("The C++ port renders the tree with graphviz's dot, which must be on PATH when "
+        .note("The tree is rendered with graphviz's dot, which must be on PATH when "
               "more than one domain file is given.")
         .help("File name prefix for the relationship tree of the TADs");
     optional.add({"--outputTreePlotFormat", "-of"})

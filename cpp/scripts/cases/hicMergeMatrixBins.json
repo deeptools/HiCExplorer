@@ -145,15 +145,13 @@
     "notes": "running_window_merge asserts num_bins % 2 == 1 at hicMergeMatrixBins.py:139. The AssertionError ends the run with status 1 and no output file, and the port reproduces the status with a message rather than a traceback. --chromosomeSizes required by the CLI but unused by --runningWindow."
   },
   {
-    "id": "hicMergeMatrixBins.missing_chromosomeSizes_is_a_cli_error",
+    "id": "hicMergeMatrixBins.h5.numBins4.without_chromosomeSizes",
     "tool": "hicMergeMatrixBins",
     "tier": 1,
     "reference": "none",
     "args": ["-m", "{data}/small_test_matrix_50kb_res.h5", "-o", "{out}/merged.h5",
              "--numBins", "4"],
-    "outputs": [],
-    "expect_exit": 2,
-    "stderr_contains": ["--chromosomeSizes"],
-    "notes": "Class EX: --chromosomeSizes/-cs is required by the C++ port for every run (project owner, 2026-09-22), including one that never reaches hicx::merge_bins_genome, so the CLI rejects a run that omits it before touching the matrix. No Python counterpart to compare against, since hicMergeMatrixBins.py has no such argument at all."
+    "outputs": [{"path": "{out}/merged.h5", "format": "h5", "class": "EX"}],
+    "notes": "Class EX: --chromosomeSizes is optional. Without it the chromosome lengths are taken from the input matrix (the end of the last bin of each chromosome), so a command line of version 3.7.6 runs unchanged."
   }
 ]

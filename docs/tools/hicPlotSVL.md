@@ -28,7 +28,7 @@ Plots the relation between short and long range interactions as boxplots and if 
 | `--outFileNameData OUTFILENAMEDATA, -od OUTFILENAMEDATA` | File the computed ratios are written to (Default: data.txt). |
 | `--distance DISTANCE, -d DISTANCE` | Distance (in bp) which should be considered as short range. Default 2MB (2000000). |
 | `--chromosomes CHROMOSOMES [CHROMOSOMES ...]` | Chromosomes to include in the analysis. If not set, all chromosomes are included. |
-| `--threads THREADS, -t THREADS` | Number of threads. Using the python multiprocessing module (Default: 4). |
+| `--threads THREADS, -t THREADS` | Number of threads. (Default: 4). |
 | `--dpi DPI` | Optional parameter: Resolution for the image in case theoutput is a raster graphics image (e.g png, jpg) (Default: 300). |
 | `--colorList COLORLIST [COLORLIST ...], -cl COLORLIST [COLORLIST ...]` | Colorlist for the boxplots (Default: g b c m y k). |
 | `--help, -h` | show this help message and exit |
@@ -42,7 +42,7 @@ $ hicPlotSVL -m hmec_10kb.cool nhek_10kb.cool
 
 The datapoints per sample are the ratios per chromosome.
 
-C++ port: the ratios and p-values are computed in C++, and the box plot is drawn by the hicexplorer_plot drawing layer with the matplotlib calls of the Python tool (HICX_PLOT_PYTHON names the interpreter). The C++-only option --plotData FILE writes the data of the plot as JSON to FILE instead of drawing it.
+The plot is drawn with matplotlib, which needs a Python interpreter with matplotlib (`HICX_PLOT_PYTHON` selects it). The option `--plotData FILE` (new in HiCExplorer 4) writes the data of the plot as JSON to FILE instead of drawing it.
 
 ## Notes
 

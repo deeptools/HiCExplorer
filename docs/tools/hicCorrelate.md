@@ -72,7 +72,7 @@ meaningful score.
 
 ## Additional notes
 
-C++ port: the vectors, correlations and clustering are computed in C++, and the figures are drawn by the hicexplorer_plot drawing layer with the calls of the Python tool (HICX_PLOT_PYTHON names the interpreter). The C++-only option --plotData FILE writes the data of the figures as JSON to FILE (and the vectors to FILE.npy) instead of drawing them.
+The figures are drawn with matplotlib, which needs a Python interpreter with matplotlib (`HICX_PLOT_PYTHON` selects it). The option `--plotData FILE` (new in HiCExplorer 4) writes the data of the figures as JSON to FILE (and the vectors to FILE.npy) instead of drawing them.
 
 ## Notes
 

@@ -52,11 +52,9 @@ const char* const kUsage =
 const char* const kHelp =
     "\n"
     "Calls contact domains on the given contact matrix with Juicer/Juicebox's\n"
-    "Arrowhead algorithm (Rao et al. 2014). New in HiCExplorer v4 (PLAN.md tier\n"
-    "9): a faithful reimplementation of the real tool's own method, not an\n"
-    "invented stand-in -- see the source file header for the full algorithm\n"
-    "notes and its documented deviations (normalization, connected components,\n"
-    "the feature/control list scoring option, the output format).\n"
+    "Arrowhead algorithm (Rao et al. 2014). New in HiCExplorer 4. It differs\n"
+    "from the original in the normalization, the connected components, the\n"
+    "feature/control list scoring option and the output format.\n"
     "\n"
     "Required arguments:\n"
     "  --matrix MATRIX, -m MATRIX\n"
@@ -94,7 +92,7 @@ const char* const kHelp =
     "  --help, -h            show this help message and exit\n"
     "  --version             show program's version number and exit\n"
     "\n"
-    "C++ only, no Python counterpart (PLAN.md tier 9).\n";
+    "New in HiCExplorer 4.\n";
 
 class PythonError : public std::runtime_error {
   public:

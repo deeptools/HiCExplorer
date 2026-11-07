@@ -82,10 +82,9 @@ const char* const kHelp =
     "  --help, -h            show this help message and exit\n"
     "  --version             show program's version number and exit\n"
     "\n"
-    "C++ port: the table and the ratios are computed in C++, and the ratio plot is\n"
-    "drawn by the hicexplorer_plot drawing layer with the matplotlib calls of the\n"
-    "Python tool (HICX_PLOT_PYTHON names the interpreter). The C++-only option\n"
-    "--plotData FILE writes the data of the plot as JSON to FILE instead of drawing\n"
+    "The ratio plot is drawn with matplotlib, which needs a Python interpreter with\n"
+    "matplotlib (HICX_PLOT_PYTHON selects it). The option --plotData FILE (new in\n"
+    "HiCExplorer 4) writes the data of the plot as JSON to FILE instead of drawing\n"
     "it.\n";
 
 struct Arguments {
@@ -138,7 +137,7 @@ Arguments parse_arguments(int argc, char** argv) {
     optional.add({"--plotData"})
         .metavar("FILE")
         .output({"json"})
-        .cpp_only("The data of the figure as JSON, without drawing it (cpp/PLAN.md tier 7).")
+        .cpp_only("The data of the figure as JSON, without drawing it.")
         .help("Write the data the ratio plot is drawn from as JSON to this file and do not "
               "draw the plot.");
 

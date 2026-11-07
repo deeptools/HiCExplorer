@@ -119,8 +119,7 @@ CoolPeaks correlate_cool(const std::string& path, const TextTable& loops) {
     }
     if (bin_size <= 0) {
         throw std::runtime_error(
-            "the validation cooler has no fixed bin size; cooler's variable bin "
-            "path of region_to_extent is not ported");
+            "the validation cooler has no fixed bin size, which is not supported");
     }
 
     std::map<std::string, std::int64_t> chrom_length;

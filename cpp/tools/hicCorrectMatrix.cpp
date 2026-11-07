@@ -181,9 +181,9 @@ const char* const kCorrectHelp =
     "  --verbose             Print processing status.\n"
     "  --compatMode {v3,v4}  v4 (default) balances in float64. v3 reproduces\n"
     "                        krbalancing's float32 input rounding and float32\n"
-    "                        rescaling accumulators. Only for KR. Not a Python option.\n"
+    "                        rescaling accumulators. Only for KR. New in HiCExplorer 4.\n"
     "  --threads INT         Worker threads. The result does not depend on this.\n"
-    "                        Not a Python option (Default: 4).\n"
+    "                        New in HiCExplorer 4 (Default: 4).\n"
     "  --help, -h            show this help message and exit\n"
     "  --version             show program's version number and exit\n";
 
@@ -242,10 +242,9 @@ const char* const kDiagnosticHelp =
     "                        `filterThreshold`. (default: False)\n"
     "  --verbose             Print processing status. (default: False)\n"
     "\n"
-    "C++ port: the coverage per bin and its MAD are computed in C++, and the\n"
-    "histogram is drawn by the hicexplorer_plot drawing layer with the matplotlib\n"
-    "calls of the Python tool (HICX_PLOT_PYTHON names the interpreter). The C++-only\n"
-    "option --plotData FILE writes the data of the figure as JSON to FILE instead of\n"
+    "The histogram is drawn with matplotlib, which needs a Python interpreter with\n"
+    "matplotlib (HICX_PLOT_PYTHON selects it). The option --plotData FILE (new in\n"
+    "HiCExplorer 4) writes the data of the figure as JSON to FILE instead of\n"
     "drawing it.\n";
 
 [[noreturn]] void fail(const std::string& message) {
@@ -301,7 +300,7 @@ Arguments parse_arguments(int argc, char** argv) {
     plot_optional.add({"--plotData"})
         .metavar("FILE")
         .output({"json"})
-        .cpp_only("The data of the figure as JSON, without drawing it (cpp/PLAN.md tier 7).")
+        .cpp_only("The data of the figure as JSON, without drawing it.")
         .help("Write the data the diagnostic plot is drawn from as JSON to this file and do "
               "not draw the plot.");
 
@@ -377,7 +376,7 @@ Arguments parse_arguments(int argc, char** argv) {
         .type("int")
         .metavar("INT")
         .default_value(4)
-        .cpp_only("Worker threads of the C++ port; the result does not depend on the number.")
+        .cpp_only("Worker threads; the result does not depend on the number.")
         .help("Worker threads. The result does not depend on this.");
 
     const cli::Namespace ns = parser.parse(argc, argv);
@@ -386,9 +385,7 @@ Arguments parse_arguments(int argc, char** argv) {
     if (args.command.empty()) {
         // Without a subcommand argparse sets no option at all, and main reads
         // args.verbose first.
-        std::fputs("hicCorrectMatrix: AttributeError: 'Namespace' object has no attribute "
-                   "'verbose'. Without a subcommand no option is set, and "
-                   "hicCorrectMatrix.py:599 reads args.verbose.\n",
+        std::fputs("hicCorrectMatrix: a subcommand (correct or diagnostic_plot) is required.\n",
                    stderr);
         std::exit(1);
     }

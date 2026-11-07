@@ -34,8 +34,8 @@ Computes differential TADs by comparing the precomputed TAD regions of the targe
 | `--mode {intra-TAD,left-inter-TAD,right-inter-TAD,all}, -m {intra-TAD,left-inter-TAD,right-inter-TAD,all}` | Consider only intra-TAD interactions, or additional left inter-TAD, right inter-TAD or all (Default: all). |
 | `--modeReject {all,one}, -mr {all,one}` | All test of a mode must be rejected (all) or reject region (and accept it is differential) as soon as at least one region is having a p-value <= --pValue (Default: one). |
 | `--threads THREADS, -t THREADS` | Number of threads to use, the parallelization is implemented per chromosome (Default: 4). |
-| `--sharedMask` | Before any test, mask in both matrices every bin that is invalid in either of them: the NaN bins after loading, for a cool file the bins whose row is all zero. Not in the Python HiCExplorer; without it the output is the Python output. |
-| `--correctForMultipleTesting {none,fdr,bonferroni}` | Adjust the p-values of each test across all TADs, Benjamini-Hochberg (fdr) or Bonferroni, and apply --pValue to the adjusted values; the output files gain the adjusted p-values. Not in the Python HiCExplorer (Default: none). |
+| `--sharedMask` | Before any test, mask in both matrices every bin that is invalid in either of them: the NaN bins after loading, for a cool file the bins whose row is all zero. New in HiCExplorer 4; without it the output is that of HiCExplorer 3. |
+| `--correctForMultipleTesting {none,fdr,bonferroni}` | Adjust the p-values of each test across all TADs, Benjamini-Hochberg (fdr) or Bonferroni, and apply --pValue to the adjusted values; the output files gain the adjusted p-values. New in HiCExplorer 4 (Default: none). |
 | `--help, -h` | show this help message and exit |
 | `--version` | show program's version number and exit |
 

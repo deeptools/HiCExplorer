@@ -951,8 +951,7 @@ QcFrame build_qc_frame(const std::vector<std::string>& log_texts,
         if (labels->size() != rows) {
             throw std::runtime_error(
                 "*ERROR* Some log files may not be valid. Please check that the log files "
-                "contain at the end the summary information. The reference exits 0 here "
-                "without writing anything; the C++ port exits 1 (cpp/AGENTS_CONTRACT.md rule 7).");
+                "contain at the end the summary information.");
         }
         frame.index_name = "Labels";
         frame.index = *labels;

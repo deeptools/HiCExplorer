@@ -33,4 +33,4 @@ Plots the number of interactions around a given reference point in a region.
 
 ## Additional notes
 
-C++ port: the interactions are summed in C++ and the figure is drawn by the hicexplorer_plot drawing layer with the matplotlib calls of the Python tool (HICX_PLOT_PYTHON names the interpreter). The C++-only option --plotData FILE writes the data of the figure as JSON to FILE instead of drawing it.
+The figure is drawn with matplotlib, which needs a Python interpreter with matplotlib (`HICX_PLOT_PYTHON` selects it). The option `--plotData FILE` (new in HiCExplorer 4) writes the data of the figure as JSON to FILE instead of drawing it.

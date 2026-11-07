@@ -39,7 +39,7 @@ const char* const kHelp =
     "threshold (Default: 5, Cairns et al. 2016's own default), writing\n"
     "the accepted calls with their fragment coordinates.\n"
     "\n"
-    "This tool has no Python HiCExplorer counterpart; it is C++ only (cpp/PLAN.md 9.15).\n"
+    "New in HiCExplorer 4.\n"
     "\n"
     "Required arguments:\n"
     "  --scores SCORES       chicChicagoScores' output file.\n"
