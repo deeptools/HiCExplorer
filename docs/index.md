@@ -5,20 +5,19 @@ Micro-C and capture Hi-C (cHi-C) data. This is version 4.
 
 ## What is new in version 4
 
-- **Faster, with less memory.** On real data, version 4 computes the results of HiCExplorer 3.7.6
-  two to ten times faster with two to four times less peak memory, and most tools run
-  multithreaded:
+- **Faster, with less memory.** On real data, version 4 runs the analysis tools of HiCExplorer
+  3.7.6 three to eight times faster with two to four times less peak memory, `hicBuildMatrix`
+  needs about a twelfth of the CPU time, and most tools run multithreaded:
 
     | Task | 3.7.6 | 4.0 | Speedup |
     |---|---|---|---|
-    | `hicBuildMatrix`, 92.7M reads, 10 kb | 42 min 18 s | 16 min 22 s | 2.6x |
-    | `hicDetectLoops`, GM12878 chr1, 10 kb | 20.6 s | 2.1 s | 10.0x |
-    | `hicFindTADs`, GM12878 chr1, 10 kb | 33.0 s | 6.3 s | 5.2x |
-    | `hicPCA`, GM12878 chr1, 100 kb | 24.2 s | 3.8 s | 6.4x |
+    | `hicBuildMatrix`, 92.7M read pairs, 10 kb, CPU time | 2,245 s | 197 s | 11.4x |
+    | `hicDetectLoops`, GM12878 chr1, 10 kb | 20.0 s | 6.3 s | 3.2x |
+    | `hicFindTADs`, GM12878 chr1, 10 kb | 32.3 s | 4.0 s | 8.2x |
+    | `hicPCA`, GM12878 chr1, 100 kb | 11.1 s | 4.0 s | 2.8x |
 
-    CHiCAGO scoring of 22,076 baits takes 48.5 s instead of 437.5 s in R CHiCAGO, and stripe
-    calling 210 s instead of 3,015 s in Stripenn. See [Benchmarks](benchmarks.md) for memory,
-    threads and the data.
+    Stripe calling on 22 GM12878 autosomes takes 210 s instead of 3,015 s in Stripenn. See
+    [Benchmarks](benchmarks.md) for memory, threads and the data.
 
 - **The same results.** Every tool is checked against the output of HiCExplorer 3.7.6 on real and
   synthetic data. Command lines, file formats and outputs stay compatible. Where 3.7.6 was wrong,

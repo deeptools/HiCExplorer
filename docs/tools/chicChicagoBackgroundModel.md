@@ -83,4 +83,4 @@ chicChicagoBackgroundModel --rmap design.rmap --baitmap design.baitmap \
 
 ## Performance
 
-On a real full-genome design (837,161 HindIII fragments, 22,076 baits, 119.8M `.chinput` rows) with `--threads 16`, the model takes 120.7 s at 20.7 GB peak memory from the `.chinput` file and 29.4 s at 3.9 GB from the equivalent matrix. R Chicago needs 160.1 s for the model stage (40.4 GB peak for the whole R run). See [Benchmarks](../benchmarks.md#chicago).
+On a real full-genome design (837,161 HindIII fragments, 22,076 baits, 119.8M `.chinput` rows) with `--threads 16`, the model takes 118 s at 21.2 GB peak memory from the `.chinput` file and 22.0 s at 3.5 GB from the equivalent matrix. See [Benchmarks](../benchmarks.md#the-new-methods).

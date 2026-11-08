@@ -32,27 +32,21 @@ HiCExplorer 4.0
 ---------------
 
 HiCExplorer 4.0 (November 2026) keeps the names, command lines, file formats and outputs of every tool of 3.7.6 and
-the Python API, and runs them on a new compiled core. On real data it computes the results of 3.7.6 two to ten times
-faster with two to four times less memory, and most tools run multithreaded (``--threads``):
+the Python API, and runs them on a new compiled core. On real data its analysis tools run three to eight times
+faster than in 3.7.6 with two to four times less memory, ``hicBuildMatrix`` needs about a twelfth of the CPU time,
+and most tools run multithreaded (``--threads``):
 
-==========================================  ============  ============  =======  =================
-Task                                        3.7.6         4.0           Speedup  Peak memory
-==========================================  ============  ============  =======  =================
-hicBuildMatrix, 92.7M reads, 10 kb          42 min 18 s   16 min 22 s   2.6x     14.9 GB to 6.1 GB
-hicDetectLoops, GM12878 chr1, 10 kb         20.6 s        2.1 s         10.0x    624 MB to 230 MB
-hicFindTADs, GM12878 chr1, 10 kb            33.0 s        6.3 s         5.2x     6.0 GB to 1.5 GB
-hicPCA, GM12878 chr1, 100 kb                24.2 s        3.8 s         6.4x     493 MB to 147 MB
-==========================================  ============  ============  =======  =================
+=============================================  ============  ============  =======  =================
+Task                                           3.7.6         4.0           Speedup  Peak memory
+=============================================  ============  ============  =======  =================
+hicBuildMatrix, 92.7M read pairs, CPU time     2,245 s       197 s         11.4x    15.3 GB to 6.3 GB
+hicDetectLoops, GM12878 chr1, 10 kb            20.0 s        6.3 s         3.2x     636 MB to 263 MB
+hicFindTADs, GM12878 chr1, 10 kb               32.3 s        4.0 s         8.2x     6.25 GB to 1.52 GB
+hicPCA, GM12878 chr1, 100 kb                   11.1 s        4.0 s         2.8x     554 MB to 166 MB
+=============================================  ============  ============  =======  =================
 
-Version 4 adds new methods, each giving the results of its reference software, also faster than that software:
-
-===============================================  ==========================  ===================  ==================
-Task                                             Reference software          Reference            HiCExplorer 4.0
-===============================================  ==========================  ===================  ==================
-CHiCAGO scores, 22,076 baits                     R CHiCAGO 1.38.0            437.5 s, 40.4 GB     48.5 s, 3.9 GB
-Stripes, 22 GM12878 autosomes, 10 kb             Stripenn 1.1.65.22          3,015 s, 7.2 GB      210 s, 2.2 GB
-.hic to cool, GM12878 at 25 kb                   hic2cool 1.0.1              1,951 s, 5.3 GB      162 s, 0.5 GB
-===============================================  ==========================  ===================  ==================
+Stripe calling with ``hicDetectStripes`` gives the stripes of Stripenn on 22 GM12878 autosomes at 10 kb in 210 s
+instead of 3,015 s. The benchmarks page of the documentation gives the data, the threads and the CHiCAGO runs.
 
 New in version 4:
 

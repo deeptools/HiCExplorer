@@ -62,4 +62,4 @@ baitID  otherEndID  N  distSign  Bmean             Tmean               log_p    
 
 ## Performance
 
-On the real full-genome design of [chicChicagoBackgroundModel](chicChicagoBackgroundModel.md#performance) with `--threads 16`, scoring takes 90.4 s at 20.7 GB peak memory from the `.chinput` file and 19.1 s at 3.9 GB from the equivalent matrix. R Chicago needs 229.3 s for the scoring stage. See [Benchmarks](../benchmarks.md#chicago).
+On the real full-genome design of [chicChicagoBackgroundModel](chicChicagoBackgroundModel.md#performance) with `--threads 16`, scoring takes 160 s at 21.2 GB peak memory from the `.chinput` file and 25.5 s at 3.4 GB from the equivalent matrix. See [Benchmarks](../benchmarks.md#the-new-methods).

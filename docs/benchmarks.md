@@ -1,60 +1,67 @@
 # Benchmarks
 
-HiCExplorer 4.0 computes the results of HiCExplorer 3.7.6 two to ten times faster and with two to
-four times less memory. The new methods of version 4 also run faster than the reference software they
-reproduce. All measurements below are on real data. Wall-clock time and peak resident memory were
-recorded with `/usr/bin/time -v`.
+On real data, HiCExplorer 4.0 runs the analysis tools of HiCExplorer 3.7.6 three to eight times
+faster with two to four times less peak memory, and `hicBuildMatrix` needs about a twelfth of the
+CPU time. Wall-clock time, CPU time and peak resident memory were recorded with `/usr/bin/time -v`;
+memory is given in decimal units (1 GB = 10<sup>9</sup> bytes). The script that produced the
+numbers is `cpp/scripts/bench/remeasure.sh`, and every run kept its log. Both versions ran one
+after the other on the same workstation (32 cores, 125 GB memory), each run starting at a load
+average below 4, with the same options.
 
 ## HiCExplorer 4.0 against 3.7.6
 
 | Task | 3.7.6 | 4.0 | Speedup | Peak memory 3.7.6 | Peak memory 4.0 |
 |---|---|---|---|---|---|
-| `hicBuildMatrix`, 1 thread | 42 min 18 s | 16 min 22 s | 2.6x | 14.9 GB | 6.1 GB |
-| `hicBuildMatrix`, 8 threads | 21 min 03 s | 9 min 22 s | 2.2x | 16.4 GB | 6.1 GB |
-| `hicDetectLoops` | 20.6 s | 2.1 s | 10.0x | 624 MB | 230 MB |
-| `hicFindTADs` | 33.0 s | 6.3 s | 5.2x | 6.0 GB | 1.5 GB |
-| `hicPCA` | 24.2 s | 3.8 s | 6.4x | 493 MB | 147 MB |
+| `hicDetectLoops` | 20.0 s | 6.3 s | 3.2x | 636 MB | 263 MB |
+| `hicFindTADs` | 32.3 s | 4.0 s | 8.2x | 6.25 GB | 1.52 GB |
+| `hicPCA` | 11.1 s | 4.0 s | 2.8x | 554 MB | 166 MB |
 
-`hicBuildMatrix` built a 10 kb matrix from 92.7 million sequenced reads (DpnII). Both versions report
-the same 73,506,771 usable pairs and 57,566,986 Hi-C contacts. `hicDetectLoops` and `hicFindTADs` ran
-on chromosome 1 of GM12878 at 10 kb (24,926 bins, 61.8 million non-zero pixels), single-threaded;
-`hicFindTADs` called the same 644 domains in both versions. `hicPCA` ran on the same chromosome at
-100 kb, the resolution at which compartments are analysed, with the default dense eigensolver. For
-large matrices, `hicPCA --eigenSolver lanczos` is faster still.
+`hicDetectLoops` and `hicFindTADs` ran on chromosome 1 of GM12878 at 10 kb (24,926 bins, 61.8
+million non-zero pixels, corrected with `hicCorrectMatrix`), `hicPCA` on the same chromosome merged
+to 100 kb, the resolution at which compartments are analysed. Each tool ran three times; the table
+gives the median. `hicDetectLoops` ran with `--threads 1` and its default of four threads per
+chromosome, `hicFindTADs` with `--numberOfProcessors 1`. `hicPCA` gives the same eigenvector in
+both versions. `hicFindTADs` calls 744 domains (3.7.6: 743) and `hicDetectLoops` 1,221 loops
+(3.7.6: 859); both differences come from corrected computations of 3.7.6, the expected values of
+the observed/expected matrix for the loops and the boundary search for the domains, which the
+[news](news.md) describe.
 
-### hicBuildMatrix and threads
+### hicBuildMatrix
 
-| Threads | 3.7.6 | 4.0 | Speedup | Peak memory 3.7.6 | Peak memory 4.0 |
-|---|---|---|---|---|---|
-| 1 | 42 min 18 s | 16 min 22 s | 2.6x | 14.9 GB | 6.1 GB |
-| 4 | 23 min 14 s | 10 min 38 s | 2.2x | 15.7 GB | 6.1 GB |
-| 8 | 21 min 03 s | 9 min 22 s | 2.2x | 16.4 GB | 6.1 GB |
+| Threads | Wall clock 3.7.6 | Wall clock 4.0 | CPU time 3.7.6 | CPU time 4.0 | Peak memory 3.7.6 | Peak memory 4.0 |
+|---|---|---|---|---|---|---|
+| 1 | 65 min 42 s | 46 min 57 s | 2,245 s | 197 s | 15.3 GB | 6.3 GB |
+| 4 | 25 min 19 s | 14 min 53 s | 2,264 s | 177 s | 16.0 GB | 6.3 GB |
+| 8 | 25 min 23 s | 11 min 20 s | 2,536 s | 177 s | 17.1 GB | 6.3 GB |
 
-The memory of version 4 does not grow with the number of threads.
+`hicBuildMatrix` built a 10 kb matrix from 92.7 million sequenced read pairs (SRR927086, DpnII),
+given as two SAM files of 58 GB in total on network storage. Version 4 needs 11 to 14 times less CPU
+time. Its wall clock is set by reading the input: the process used 7 to 25 percent of one core
+while it waited for data, so the wall clock reflects the throughput of the storage more than the
+tool. The memory of version 4 does not grow with the number of threads.
 
-## The new methods against their reference software
+Both versions report 73,506,771 usable pairs. Version 4 counts 55,243,683 Hi-C contacts against
+57,566,986 in 3.7.6. The difference is the 2,323,303 self circles, which 3.7.6 counted but kept in
+the matrix; version 4 removes them unless `--keepSelfCircles` is set. Version 4 classifies a pair as
+"one mate not unique" only when both mates have mapping quality 0 (866,537 pairs; 3.7.6 tested the
+first mate only and counted 3,941,063).
+
+## The new methods
 
 | Task | Software | Time | Peak memory |
 |---|---|---|---|
-| CHiCAGO, 22,076 baits | R CHiCAGO 1.38.0 | 437.5 s | 40.4 GB |
-| | HiCExplorer 4, from `.chinput` | 236.6 s | 20.7 GB |
-| | HiCExplorer 4, from a cool matrix | 48.5 s | 3.9 GB |
-| Stripes, 22 GM12878 autosomes at 10 kb | Stripenn 1.1.65.22 | 3,015 s | 7.2 GB |
-| | HiCExplorer 4 (`hicDetectStripes`) | 210 s | 2.2 GB |
-| `.pairs` to matrix, 136 million pairs | cooler | 148.0 s | 3.7 GB |
-| | HiCExplorer 4 (`hicBuildMatrix`) | 29.5 s | 2.6 GB |
-| `.hic` to cool, GM12878 at 25 kb | hic2cool 1.0.1 | 1,951 s | 5.3 GB |
-| | hictk 2.2.0, 32 threads | 166 s | 0.8 GB |
-| | HiCExplorer 4, 1 thread | 162 s | 0.5 GB |
-| | HiCExplorer 4, 32 threads | 34 s | 1.4 GB |
-| cool to `.hic`, GM12878 at 25 kb | hictk 2.2.0, 32 threads | 997 s | 9.8 GB |
-| | HiCExplorer 4, 32 threads | 56 s | 3.2 GB |
+| CHiCAGO, 22,076 baits, from `.chinput` | HiCExplorer 4 | 278 s | 21.2 GB |
+| CHiCAGO, 22,076 baits, from a cool matrix | HiCExplorer 4 | 47.5 s | 3.5 GB |
+| Stripes, 22 GM12878 autosomes at 10 kb | Stripenn 1.1.65.22 | 3,015 s | 7.5 GB |
+| | HiCExplorer 4 (`hicDetectStripes`) | 210 s | 2.3 GB |
 
-The CHiCAGO tools ran with 16 threads on a genome-wide capture Hi-C design (837,161 HindIII
-fragments, 22,076 baits, 119.8 million `.chinput` rows); R CHiCAGO runs as a single process. The
-matrix row starts from the cool file that `hicConvertFormat --inputFormat chinput` writes from the
-same `.chinput` file in 51 s. Stripes were called with eight threads by both tools. The `.pairs` row
-gives CPU time. The GM12878 matrix for the format conversion has 899 million non-zero pixels.
+The CHiCAGO runs scored a genome-wide capture Hi-C design (837,161 HindIII fragments, 22,076
+baits, 119.8 million `.chinput` rows) with 16 threads; the time is the sum of
+`chicChicagoBackgroundModel` and `chicChicagoScores`. The matrix row starts from the cool file
+that `hicConvertFormat --inputFormat chinput` writes from the same `.chinput` file in 48 s.
+Stripes were called with eight threads by both tools; the table gives the first of two runs each
+(second runs: 3,053 s and 209 s). Stripenn runs worker processes, and `/usr/bin/time` counts only
+the main process, so its memory is a lower bound.
 
 ## The same results
 

@@ -5,18 +5,19 @@
 
 HiCExplorer 4.0 is a new major version. Every tool of release 3.7.6 keeps its name, command line, file
 formats and outputs, checked tool by tool against 3.7.6, and the Python modules keep their API. The tools
-now run on a new compiled core. On real data they compute the results of 3.7.6 two to ten times faster with
-two to four times less memory, and most of them run multithreaded (`--threads`):
+now run on a new compiled core. On real data the analysis tools run three to eight times faster than in 3.7.6
+with two to four times less memory, `hicBuildMatrix` needs about a twelfth of the CPU time, and most
+tools run multithreaded (`--threads`):
 
 | Task | 3.7.6 | 4.0 | Speedup |
 |---|---|---|---|
-| `hicBuildMatrix`, 92.7M reads, 10 kb | 42 min 18 s | 16 min 22 s | 2.6x |
-| `hicDetectLoops`, GM12878 chr1, 10 kb | 20.6 s | 2.1 s | 10.0x |
-| `hicFindTADs`, GM12878 chr1, 10 kb | 33.0 s | 6.3 s | 5.2x |
-| `hicPCA`, GM12878 chr1, 100 kb | 24.2 s | 3.8 s | 6.4x |
+| `hicBuildMatrix`, 92.7M read pairs, 10 kb, CPU time | 2,245 s | 197 s | 11.4x |
+| `hicDetectLoops`, GM12878 chr1, 10 kb | 20.0 s | 6.3 s | 3.2x |
+| `hicFindTADs`, GM12878 chr1, 10 kb | 32.3 s | 4.0 s | 8.2x |
+| `hicPCA`, GM12878 chr1, 100 kb | 11.1 s | 4.0 s | 2.8x |
 
-See [Benchmarks](benchmarks.md) for memory, threads and the comparison with R CHiCAGO, Stripenn,
-cooler, hic2cool and hictk.
+See [Benchmarks](benchmarks.md) for memory, threads, the CHiCAGO tools and the comparison with
+Stripenn.
 
 New tools:
 

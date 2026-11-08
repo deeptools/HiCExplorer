@@ -152,4 +152,4 @@ Two points about the reference data of this figure. The design is hg19, so the h
 
 ## Performance
 
-On a full-genome design with 22,076 baits and 119.8M rows the whole pipeline takes 236.6 s from a `.chinput` file and 48.5 s from the converted matrix with 16 threads, against 437.5 s for R Chicago. See [Benchmarks](../benchmarks.md#chicago).
+On a full-genome design with 22,076 baits and 119.8M rows the background model and the scores take 278 s from a `.chinput` file and 47.5 s from the converted matrix with 16 threads. See [Benchmarks](../benchmarks.md#the-new-methods).
