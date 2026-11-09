@@ -31,13 +31,14 @@ jobs:
       run:
         shell: bash -el {0}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: conda-incubator/setup-miniconda@v3
+      - uses: conda-incubator/setup-miniconda@v4
         with:
           miniforge-version: latest
           python-version: ${{ matrix.python }}
           channels: conda-forge,bioconda
+          conda-remove-defaults: "true"
           activate-environment: hicexplorer
 
       - name: Install dependencies

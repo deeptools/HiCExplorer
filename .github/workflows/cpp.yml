@@ -28,14 +28,15 @@ jobs:
       run:
         shell: bash -el {0}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: conda-incubator/setup-miniconda@v3
+      - uses: conda-incubator/setup-miniconda@v4
         with:
           miniforge-version: latest
-          auto-activate-base: false
+          auto-activate: false
           activate-environment: hicx
           channels: conda-forge,bioconda
+          conda-remove-defaults: "true"
 
       - name: Install native dependencies
         run: |
