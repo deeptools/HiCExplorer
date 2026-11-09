@@ -82,8 +82,27 @@ def test_no_curve_to_draw_exits_1_with_a_message(tmp_path, capfd):
     assert not plot.exists() or plot.stat().st_size == 0
 
 
-def test_plot_layer_without_series_does_not_fail(tmp_path):
+def _plot_package_directory():
+    """The directory holding hicexplorer_plot, where the tools look for it.
+
+    The tools put <bin>/../plot (source and build tree) or
+    <bin>/../share/hicexplorer/plot (installed package) on PYTHONPATH; the
+    test looks in the source tree of this checkout and in the installed
+    share directory of the running Python.
+    """
+    import sys
+    here = os.path.dirname(os.path.abspath(__file__))
+    candidates = [os.path.join(here, "..", "..", "..", "plot"),
+                  os.path.join(sys.prefix, "share", "hicexplorer", "plot")]
+    for candidate in candidates:
+        if os.path.exists(os.path.join(candidate, "hicexplorer_plot", "__main__.py")):
+            return os.path.abspath(candidate)
+    pytest.skip("hicexplorer_plot is neither in the checkout nor installed")
+
+
+def test_plot_layer_without_series_does_not_fail(tmp_path, monkeypatch):
     """The plot code survives a data file without any series (lgd = None)."""
+    monkeypatch.syspath_prepend(_plot_package_directory())
     from hicexplorer_plot import hicPlotDistVsCounts as plot_layer
     plot = tmp_path / 'empty.png'
     plot_layer.draw({'plotFile': str(plot), 'perchr': False, 'num_chroms': 0, 'maxdepth': 5000,
