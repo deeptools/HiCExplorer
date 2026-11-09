@@ -104,11 +104,12 @@ target_include_directories(hicx_zlib SYSTEM INTERFACE "${HICX_ZLIB_INCLUDE_DIR}"
 target_link_libraries(hicx_zlib INTERFACE "${HICX_ZLIB_LIBRARY}")
 add_library(hicx::zlib ALIAS hicx_zlib)
 
-# BLAS and LAPACK (dgeev, dsyevr from LAPACK; dsyrk from BLAS). There is no
-# header: the Fortran symbols are declared in core/include/hicx/lapack_shim.hpp.
+# BLAS and LAPACK (dgeev, dsyevr from LAPACK; dsyrk from BLAS; cblas_dsyrk from
+# CBLAS). There is no header: the symbols are declared in
+# core/include/hicx/lapack_shim.hpp and next to their callers.
 # In a conda environment libblas.so and liblapack.so usually both point to
 # OpenBLAS, but conda-forge and bioconda build against the reference (netlib)
-# libraries, where BLAS and LAPACK are two separate libraries; both are linked,
+# libraries, where LAPACK, BLAS and CBLAS are separate libraries; all are linked,
 # so either layout works. openblas_set_num_threads is a weak symbol and is only
 # called when OpenBLAS provides it.
 find_library(HICX_LAPACK_LIBRARY
@@ -119,15 +120,21 @@ find_library(HICX_BLAS_LIBRARY
     NAMES openblas blas
     HINTS "${HICX_DEPS_ROOT}/lib"
     NO_DEFAULT_PATH)
-if(NOT HICX_LAPACK_LIBRARY OR NOT HICX_BLAS_LIBRARY)
+find_library(HICX_CBLAS_LIBRARY
+    NAMES openblas cblas
+    HINTS "${HICX_DEPS_ROOT}/lib"
+    NO_DEFAULT_PATH)
+if(NOT HICX_LAPACK_LIBRARY OR NOT HICX_BLAS_LIBRARY OR NOT HICX_CBLAS_LIBRARY)
     message(FATAL_ERROR "No BLAS/LAPACK found under ${HICX_DEPS_ROOT}/lib")
 endif()
 
 add_library(hicx_lapack INTERFACE)
 target_link_libraries(hicx_lapack INTERFACE "${HICX_LAPACK_LIBRARY}")
-if(NOT HICX_BLAS_LIBRARY STREQUAL HICX_LAPACK_LIBRARY)
-    target_link_libraries(hicx_lapack INTERFACE "${HICX_BLAS_LIBRARY}")
-endif()
+foreach(_hicx_blas_part IN ITEMS "${HICX_CBLAS_LIBRARY}" "${HICX_BLAS_LIBRARY}")
+    if(NOT _hicx_blas_part STREQUAL HICX_LAPACK_LIBRARY)
+        target_link_libraries(hicx_lapack INTERFACE "${_hicx_blas_part}")
+    endif()
+endforeach()
 add_library(hicx::lapack ALIAS hicx_lapack)
 
 add_library(hicx_hts INTERFACE)
