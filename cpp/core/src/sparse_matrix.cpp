@@ -2,7 +2,9 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <stdexcept>
+#include <string>
 
 #include "hicx/numpy_compat.hpp"
 
@@ -36,6 +38,39 @@ DType dtype_from_name(const std::string& name) {
     return DType::Float64;
 }
 
+void CsrMatrix::check_structure(std::int64_t rows, std::int64_t cols,
+                                const std::vector<std::int64_t>& indptr,
+                                const std::vector<std::int32_t>& indices,
+                                std::size_t stored) {
+    constexpr std::int64_t kMaxDimension = std::numeric_limits<std::int32_t>::max();
+    if (rows < 0 || cols < 0 || rows > kMaxDimension || cols > kMaxDimension) {
+        throw std::invalid_argument("invalid matrix shape " + std::to_string(rows) + " x " +
+                                    std::to_string(cols));
+    }
+    if (static_cast<std::int64_t>(indptr.size()) != rows + 1) {
+        throw std::invalid_argument("the row offsets do not match the row count");
+    }
+    if (indices.size() != stored) {
+        throw std::invalid_argument("the column indices and the values have different lengths");
+    }
+    if (indptr.front() != 0 || indptr.back() != static_cast<std::int64_t>(stored)) {
+        throw std::invalid_argument("the row offsets do not span the stored entries");
+    }
+    for (std::size_t i = 1; i < indptr.size(); ++i) {
+        if (indptr[i] < indptr[i - 1]) {
+            throw std::invalid_argument("the row offsets decrease at row " +
+                                        std::to_string(i - 1));
+        }
+    }
+    for (const std::int32_t column : indices) {
+        if (column < 0 || column >= cols) {
+            throw std::invalid_argument("column index " + std::to_string(column) +
+                                        " outside a matrix of " + std::to_string(cols) +
+                                        " columns");
+        }
+    }
+}
+
 CsrMatrix CsrMatrix::from_coo(std::int64_t rows, std::int64_t cols,
                               const std::vector<std::int32_t>& row,
                               const std::vector<std::int32_t>& col,
@@ -43,7 +78,18 @@ CsrMatrix CsrMatrix::from_coo(std::int64_t rows, std::int64_t cols,
     if (row.size() != col.size() || row.size() != data.size()) {
         throw std::invalid_argument("coordinate arrays have different lengths");
     }
+    if (rows < 0 || cols < 0) {
+        throw std::invalid_argument("invalid matrix shape");
+    }
     const std::size_t n = row.size();
+    for (std::size_t k = 0; k < n; ++k) {
+        if (row[k] < 0 || row[k] >= rows || col[k] < 0 || col[k] >= cols) {
+            throw std::invalid_argument("coordinate (" + std::to_string(row[k]) + ", " +
+                                        std::to_string(col[k]) + ") outside a " +
+                                        std::to_string(rows) + " x " + std::to_string(cols) +
+                                        " matrix");
+        }
+    }
 
     std::vector<std::int64_t> indptr(static_cast<std::size_t>(rows) + 1, 0);
     for (std::size_t k = 0; k < n; ++k) {

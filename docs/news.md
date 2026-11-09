@@ -61,6 +61,9 @@ New options and features:
   `hicDifferentialTAD` accepts `--sharedMask`.
 - `hicCompartmentalization --noPlot` writes the numeric results without drawing the figure.
 - `hicBuildMatrix` and the CHiCAGO tools produce the same output for every number of threads.
+- A cool or h5 matrix file whose sparse structure points outside the matrix (row offsets that do not
+  span the stored entries, column or bin indices beyond the matrix) is rejected with an error before any
+  tool uses it.
 
 Fixed (these results differ from 3.7.6, where 3.7.6 was wrong):
 

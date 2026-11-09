@@ -90,6 +90,17 @@ class CsrMatrix {
                               const std::vector<std::int32_t>& col,
                               std::vector<double> data, std::string dtype);
 
+    // Checks the CSR structure of arrays read from a file before any
+    // operation indexes with them: the shape is non-negative and fits the
+    // 32 bit column indices, indptr has rows + 1 entries, starts at 0, never
+    // decreases and ends at the number of stored entries, and every column
+    // index lies in [0, cols). A matrix file that fails is rejected with
+    // std::invalid_argument instead of being read past its arrays.
+    static void check_structure(std::int64_t rows, std::int64_t cols,
+                                const std::vector<std::int64_t>& indptr,
+                                const std::vector<std::int32_t>& indices,
+                                std::size_t stored);
+
     [[nodiscard]] std::int64_t rows() const noexcept { return rows_; }
     [[nodiscard]] std::int64_t cols() const noexcept { return cols_; }
 

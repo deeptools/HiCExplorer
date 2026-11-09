@@ -126,6 +126,10 @@ add_test(NAME hicMergeMatrixBins_cli
          COMMAND ${HICX_BASH} "${CMAKE_CURRENT_SOURCE_DIR}/cli/hicMergeMatrixBins_cli.sh"
                  $<TARGET_FILE:hicMergeMatrixBins> "${HICX_TEST_DATA}"
                  $<TARGET_FILE:hicInfo> $<TARGET_FILE:hicConvertFormat>)
+add_test(NAME malformed_matrix_cli
+         COMMAND ${HICX_BASH} "${CMAKE_CURRENT_SOURCE_DIR}/cli/malformed_matrix_cli.sh"
+                 $<TARGET_FILE:hicTransform> $<TARGET_FILE:hicInfo> "${HICX_TEST_DATA}"
+                 "${HICX_DEPS_ROOT}/bin/python")
 add_test(NAME hicMergeDomains_cli
          COMMAND ${HICX_BASH} "${CMAKE_CURRENT_SOURCE_DIR}/cli/hicMergeDomains_cli.sh"
                  $<TARGET_FILE:hicMergeDomains> "${HICX_TEST_DATA}" "${HICX_DEPS_ROOT}")

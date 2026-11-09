@@ -56,6 +56,11 @@ H5MatrixData read_hicexplorer_h5(const std::string& path) {
     std::vector<std::int32_t> indices = file.read_int32("/matrix/indices");
     std::vector<std::int64_t> indptr = file.read_int64("/matrix/indptr");
 
+    try {
+        CsrMatrix::check_structure(shape[0], shape[1], indptr, indices, data.size());
+    } catch (const std::invalid_argument& error) {
+        throw h5::Error(path + ": not a valid HiCExplorer matrix: " + error.what());
+    }
     H5MatrixData result;
     result.matrix = CsrMatrix(shape[0], shape[1], std::move(indptr), std::move(indices),
                               std::move(data), dtype);

@@ -336,6 +336,12 @@ std::optional<CsrMatrix> CoolFile::read_from_index(std::int64_t first, std::int6
                 count.read_into(lo, hi, std::span<double>(arrays.data.data() + at, n));
             }
             arrays.indptr = std::move(index);
+            try {
+                CsrMatrix::check_structure(arrays.rows, arrays.cols, arrays.indptr,
+                                           arrays.indices, arrays.data.size());
+            } catch (const std::invalid_argument& error) {
+                throw std::runtime_error(filename_ + ": not a valid cooler: " + error.what());
+            }
             sort_and_sum_row_columns(arrays);
             return CsrMatrix::adopt(std::move(arrays));
         }
@@ -401,6 +407,13 @@ CsrMatrix CoolFile::read_matrix() const {
     arrays.data.reserve(expected);
     for_each_pixel_chunk(0, bins, 0, bins, [&](const PixelChunk& chunk) {
         for (std::size_t k = 0; k < chunk.bin1.size(); ++k) {
+            if (chunk.bin1[k] < 0 || chunk.bin1[k] >= bins || chunk.bin2[k] < 0 ||
+                chunk.bin2[k] >= bins) {
+                throw std::runtime_error(filename_ + ": not a valid cooler: pixel (" +
+                                         std::to_string(chunk.bin1[k]) + ", " +
+                                         std::to_string(chunk.bin2[k]) + ") outside " +
+                                         std::to_string(bins) + " bins");
+            }
             ++arrays.indptr[static_cast<std::size_t>(chunk.bin1[k]) + 1];
             arrays.indices.push_back(static_cast<std::int32_t>(chunk.bin2[k]));
             arrays.data.push_back(chunk.count[k]);

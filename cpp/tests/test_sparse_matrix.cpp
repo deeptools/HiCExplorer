@@ -1,5 +1,6 @@
 #include <doctest/doctest.h>
 
+#include <stdexcept>
 #include <vector>
 
 #include "hicx/numpy_compat.hpp"
@@ -152,4 +153,42 @@ TEST_CASE("eliminate_zeros removes stored zeros") {
     CHECK(matrix.nnz() == 1);
     CHECK(matrix.at(0, 1) == 4.0);
     CHECK(matrix.indptr() == std::vector<std::int64_t>{0, 1, 1});
+}
+
+TEST_CASE("check_structure accepts a well-formed CSR layout") {
+    const std::vector<std::int64_t> indptr{0, 2, 3, 3};
+    const std::vector<std::int32_t> indices{0, 2, 1};
+    CHECK_NOTHROW(CsrMatrix::check_structure(3, 3, indptr, indices, 3));
+}
+
+TEST_CASE("check_structure rejects layouts that would index past the arrays") {
+    const std::vector<std::int32_t> indices{0, 2, 1};
+    // A column index outside the matrix.
+    CHECK_THROWS_AS(CsrMatrix::check_structure(3, 3, {0, 2, 3, 3}, {0, 3, 1}, 3),
+                    std::invalid_argument);
+    CHECK_THROWS_AS(CsrMatrix::check_structure(3, 3, {0, 2, 3, 3}, {0, -1, 1}, 3),
+                    std::invalid_argument);
+    // Row offsets that end past the stored entries, decrease or do not start at 0.
+    CHECK_THROWS_AS(CsrMatrix::check_structure(3, 3, {0, 2, 3, 9}, indices, 3),
+                    std::invalid_argument);
+    CHECK_THROWS_AS(CsrMatrix::check_structure(3, 3, {0, 3, 2, 3}, indices, 3),
+                    std::invalid_argument);
+    CHECK_THROWS_AS(CsrMatrix::check_structure(3, 3, {1, 2, 3, 3}, indices, 3),
+                    std::invalid_argument);
+    // Wrong lengths and shapes.
+    CHECK_THROWS_AS(CsrMatrix::check_structure(3, 3, {0, 2, 3}, indices, 3),
+                    std::invalid_argument);
+    CHECK_THROWS_AS(CsrMatrix::check_structure(3, 3, {0, 2, 3, 3}, indices, 4),
+                    std::invalid_argument);
+    CHECK_THROWS_AS(CsrMatrix::check_structure(-1, 3, {}, {}, 0), std::invalid_argument);
+}
+
+TEST_CASE("from_coo rejects coordinates outside the shape") {
+    std::vector<double> data{1.0};
+    CHECK_THROWS_AS(CsrMatrix::from_coo(2, 2, {0}, {2}, data, "float64"),
+                    std::invalid_argument);
+    CHECK_THROWS_AS(CsrMatrix::from_coo(2, 2, {2}, {0}, data, "float64"),
+                    std::invalid_argument);
+    CHECK_THROWS_AS(CsrMatrix::from_coo(2, 2, {-1}, {0}, data, "float64"),
+                    std::invalid_argument);
 }
