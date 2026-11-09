@@ -456,9 +456,12 @@ def test_h5_to_homer_symmetrises_with_maximum_not_with_a_sum():
 
 
 def _matrix_with_negative_values(tmp_path):
-    """The stored matrix of small_test_matrix.h5 with every second off diagonal
-    entry of the upper triangle negated, as a symmetric h5 file."""
+    """The stored chr4 matrix of small_test_matrix.h5 with every second off
+    diagonal entry of the upper triangle negated, as a symmetric h5 file.
+    Only chr4 (271 bins) is kept: the homer output is a dense text matrix, and
+    the whole matrix (about 33,750 bins) would make it several gigabytes."""
     source = hm.hiCMatrix(original_matrix_h5)
+    source.keepOnlyTheseChr(['chr4'])
     upper = triu_module(source.matrix, k=0, format='csr').astype(float)
     coo = upper.tocoo()
     data = coo.data.copy()
