@@ -18,6 +18,8 @@ usage: hicDetectLoops --matrix MATRIX --outFileName OUTFILENAME
 
 Computes enriched regions (peaks) or long range contacts on the given contact matrix.
 
+The pre-selection fits a negative binomial distribution per distance, and candidates at the pre-selection limit can differ between operating systems because the fit depends on the last bit of the system's mathematical functions.
+
 ## Required arguments
 
 | Flag | Meaning |

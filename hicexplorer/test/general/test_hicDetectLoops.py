@@ -61,6 +61,39 @@ THRESHOLD_FILE = ROOT + "hicCreateThresholdFile/thresholdFile_loose_pValue.txt"
 # sense next to it.
 COOL_BIN_SIZE = 2500000
 
+# Platform dependent borderline candidates. The negative binomial fit of the
+# pre-selection (stats::fit_nbinom) depends on the last bit of the platform's
+# log and lgamma, so a candidate that sits at the pre-selection limit can be
+# kept on Linux (glibc) and dropped on macOS (Apple libm). Every loop that both
+# platforms report has a bit-identical p-value; only the call set differs by
+# these loops. The expectations below are the Linux ones, and a test that is
+# affected removes the loops listed here when it runs on macOS. Invariants
+# between two runs on the same platform are not affected.
+ON_MACOS = sys.platform == "darwin"
+
+# small_test_matrix.h5, chr2L, default options: missing on macOS.
+LOOP_CHR2L_2080000 = "chr2L\t2080000\t2085000\tchr2L\t2130000\t2135000"
+# small_test_matrix.h5, chr3R, default options: missing on macOS.
+LOOP_CHR3R_9020000 = "chr3R\t9020000\t9025000\tchr3R\t9160000\t9165000"
+
+
+def drop_on_macos(expected_text, *loops):
+    """The expected text as it holds on this platform.
+
+    `loops` are the first six fields (tab separated) of the lines that macOS
+    does not report. On every other platform the text is returned unchanged.
+    """
+    if not ON_MACOS:
+        return expected_text
+    return "\n".join(
+        line for line in expected_text.split("\n")
+        if "\t".join(line.split("\t")[:6]) not in loops)
+
+
+def on_macos(linux_value, macos_value):
+    """A count that differs between platforms for the reason stated above."""
+    return macos_value if ON_MACOS else linux_value
+
 
 def are_files_equal(file1, file2, delta=None):
     """Kept for the two tests that pin its behaviour. Do not use it to assert.
@@ -254,6 +287,10 @@ chr2L	20795000	20800000	chr2L	20810000	20815000	0.3483111472771003
 chr2L	22030000	22035000	chr2L	22160000	22165000	0.3565987181527521
 """
 
+# The same call set as it holds on this platform (see the comment at the top).
+CHR2L_DEFAULT_ON_PLATFORM = drop_on_macos(
+    CHR2L_DEFAULT_EXPECTED, LOOP_CHR2L_2080000)
+
 
 def test_h5_single_chromosome_full_precision():
     """The default --expected mean on an integer count matrix.
@@ -269,7 +306,8 @@ def test_h5_single_chromosome_full_precision():
     lines = run_loops(
         "--matrix {} -o {{out}} --chromosomes chr2L -pit 1 -p 0.5 -pp 0.5 "
         "-t 1 -tpc 1".format(MATRIX_H5))
-    assert_lines(lines, CHR2L_DEFAULT_EXPECTED)
+    # macOS does not pre-select LOOP_CHR2L_2080000 (platform note at the top).
+    assert_lines(lines, CHR2L_DEFAULT_ON_PLATFORM)
 
 
 def test_h5_all_chromosomes_full_precision():
@@ -278,16 +316,21 @@ def test_h5_all_chromosomes_full_precision():
         "--matrix {} -o {{out}} -pit 1 -p 0.5 -pp 0.5 -t 1 -tpc 1".format(
             MATRIX_H5))
     assert lines is not None
-    assert len(lines) == 90
+    # macOS reports 88 loops: one fewer on chr2L and one fewer on chr3R
+    # (platform note at the top).
+    assert len(lines) == on_macos(90, 88)
     # Six of the 15 chromosomes produce loops, and they come out in bin table
     # order.
-    expected_order = [('chr4', 3), ('chr3L', 25), ('chr2L', 27), ('chrX', 6), ('chr2R', 9), ('chr3R', 20)]
+    expected_order = [('chr4', 3), ('chr3L', 25), ('chr2L', on_macos(27, 26)),
+                      ('chrX', 6), ('chr2R', 9), ('chr3R', on_macos(20, 19))]
     chromosomes = [line.split("\t")[0] for line in lines]
     assert [(c, chromosomes.count(c)) for c in dict.fromkeys(chromosomes)] == expected_order
     assert_line(lines[0], "chr4	565000	570000	chr4	975000	980000	0.3565987181527522")
     assert_line(lines[27], "chr3L	21645000	21650000	chr3L	21790000	21795000	0.3565987181527522")
     # The chr2L block is exactly the single chromosome run, line for line.
-    assert_lines(lines[28:55], CHR2L_DEFAULT_EXPECTED)
+    assert_lines(lines[28:28 + on_macos(27, 26)], CHR2L_DEFAULT_ON_PLATFORM)
+    found = [line for line in lines if line.startswith(LOOP_CHR3R_9020000)]
+    assert len(found) == on_macos(1, 0)
 
 
 CHR2L_MEAN_NONZERO_EXPECTED = """
@@ -404,7 +447,9 @@ def test_h5_tight_preselection_changes_the_call_set():
     tight = run_loops(
         "--matrix {} -o {{out}} --chromosomes chr2L -pit 1 -p 0.5 -pp 0.01 "
         "-t 1 -tpc 1".format(MATRIX_H5))
-    assert len(loose) == 27
+    # The tight call set is the same on both platforms; the loose one is one
+    # loop shorter on macOS (platform note at the top).
+    assert len(loose) == on_macos(27, 26)
     assert len(tight) == 15
     assert set(tight).issubset(set(loose))
     assert_line(tight[0], "chr2L\t485000\t490000\tchr2L\t490000\t495000\t"
@@ -425,7 +470,8 @@ def test_h5_threshold_file_preselection():
         "--matrix {} -o {{out}} --chromosomes chr2L --maxLoopDistance 200000 "
         "-pp {} -pit 1 -p 0.5 -t 1 -tpc 1".format(MATRIX_H5, THRESHOLD_FILE))
     assert lines is not None
-    assert len(lines) == 24
+    # One loop fewer on macOS (platform note at the top).
+    assert len(lines) == on_macos(24, 23)
     assert_line(lines[0], "chr2L\t485000\t490000\tchr2L\t490000\t495000\t"
                 "0.4347878101422182")
     assert_line(lines[-1], "chr2L\t22030000\t22035000\tchr2L\t22160000\t22165000\t"
@@ -443,7 +489,8 @@ def test_h5_max_loop_distance_filters_the_calls():
         "--matrix {} -o {{out}} --chromosomes chr2L --maxLoopDistance 100000 "
         "-pit 1 -p 0.5 -pp 0.5 -t 1 -tpc 1".format(MATRIX_H5))
     assert lines is not None
-    assert len(lines) == 21
+    # One loop fewer on macOS (platform note at the top).
+    assert len(lines) == on_macos(21, 20)
     for line in lines:
         fields = line.split("\t")
         assert abs(int(fields[1]) - int(fields[4])) <= 100000
@@ -490,7 +537,8 @@ def test_h5_obs_exp_threshold_and_peak_interactions_threshold():
     unchanged = run_loops(
         "--matrix {} -o {{out}} --chromosomes chr2L -pit 1 -p 0.5 -pp 0.5 "
         "-oet 5 -t 1 -tpc 1".format(MATRIX_H5))
-    assert_lines(unchanged, CHR2L_DEFAULT_EXPECTED)
+    # macOS does not pre-select LOOP_CHR2L_2080000 (platform note at the top).
+    assert_lines(unchanged, CHR2L_DEFAULT_ON_PLATFORM)
     # 500 removes every candidate, and with a single chromosome the tool then
     # exits 1 rather than writing an empty file.
     assert run_loops(
@@ -644,7 +692,8 @@ def test_threadsPerChromosome_does_not_change_the_result():
             "--matrix {} -o {{out}} --chromosomes chr2L -pit 1 -p 0.5 -pp 0.5 "
             "-t 1 -tpc {}".format(MATRIX_H5, tpc)))
     assert outputs[0] == outputs[1]
-    assert_lines(outputs[0], CHR2L_DEFAULT_EXPECTED)
+    # macOS does not pre-select LOOP_CHR2L_2080000 (platform note at the top).
+    assert_lines(outputs[0], CHR2L_DEFAULT_ON_PLATFORM)
 
 
 @pytest.mark.parametrize("threads", [1, 4])
@@ -663,7 +712,8 @@ def test_output_order_depends_on_scheduling(threads):
         "--matrix {} -o {{out}} -pit 1 -p 0.5 -pp 0.5 -t {} -tpc 4".format(
             MATRIX_H5, threads)) for _ in range(2)]
     assert sorted(runs[0]) == sorted(runs[1])
-    assert len(runs[0]) == 90
+    # 88 on macOS (platform note at the top).
+    assert len(runs[0]) == on_macos(90, 88)
     if threads == 1:
         # With one worker the order is defined: chromosomes in bin table order.
         assert runs[0] == runs[1]
