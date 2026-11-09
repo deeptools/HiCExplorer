@@ -637,6 +637,7 @@ int main(int argc, char** argv) {
 
     std::string table;
     std::vector<std::string> matrices_json;
+    std::size_t drawable_series = 0;
     for (const std::string& path : args.matrices) {
         const MatrixMeans& result = means[path];
         const double scale = min_sum / result.sum.as_double();
@@ -687,6 +688,18 @@ int main(int argc, char** argv) {
         matrix.add("label", label == labels.end() ? "null" : plot::json_string(label->second));
         matrix.add("series", plot::json_list(series_json));
         matrices_json.push_back(matrix.str());
+        drawable_series += series_json.size();
+    }
+
+    // 3.7.6 ended with an UnboundLocalError on 'lgd' when no curve had more
+    // than one point, for example with --maxdepth close to the bin size (#836).
+    if (drawable_series == 0) {
+        std::fprintf(stderr,
+                     "hicPlotDistVsCounts: no curve with more than one point can be drawn "
+                     "with --maxdepth %lld, which covers too few bins from the diagonal. "
+                     "Please specify a larger --maxdepth. No plot was drawn.\n",
+                     static_cast<long long>(args.maxdepth));
+        return 1;
     }
 
     if (args.out_file_data.has_value()) {

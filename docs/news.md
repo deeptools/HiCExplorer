@@ -136,6 +136,9 @@ Fixed (these results differ from 3.7.6, where 3.7.6 was wrong):
   `<outFileName>.tsv`), `--outputFormat hicpro` writes each contact once, every resolution of an mcool
   carries the genome assembly, and `--enforce_integer` stops with an error when rounding would set every
   pixel of a corrected matrix to zero (3.7.6 wrote an empty matrix).
+- `hicPlotDistVsCounts` stops with a message and exit code 1 when no curve with more than one point can be
+  drawn, for example with `--maxdepth` close to the bin size; 3.7.6 ended with `UnboundLocalError` for `lgd`
+  (#836).
 - `chicViewpoint` names the sample group of an mcool URI after the file (`A.mcool::resolutions/10000` gives
   `A`); 3.7.6 took the text before the first dot of the whole URI, so two mcool files collided on the group
   `10000` and the run stopped with `Unable to create group (name already exists)` (#828). Names of cool and
