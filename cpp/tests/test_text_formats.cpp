@@ -252,16 +252,17 @@ TEST_CASE("2D text assigns, does not accumulate, and keeps the last value") {
     CHECK(data.matrix.stored_nnz() == 1);
 }
 
-TEST_CASE("2D text sets two cells when an interval straddles a bin boundary") {
+TEST_CASE("2D text gives one pixel per line at the bins of the start positions") {
     TempFile file(".txt");
-    // The first interval ends at 10, which is the first position of bin 1, so
-    // getRegionBinRange returns (0, 1) and the pair indexes two cells.
+    // The first interval ends at 10, the first position of bin 1. The end is
+    // exclusive and does not count: 3.7.6 also assigned the bin of the end and
+    // wrote two pixels for this line (#808).
     write_text(file.path(), "chr1\t0\t10\tchr1\t20\t25\t2.0\n");
     const hicx::MatrixData data =
         hicx::read_two_dimensional_text(file.path(), {{"chr1", 30}}, 10);
     CHECK(data.matrix.at(0, 2) == 2.0);
-    CHECK(data.matrix.at(1, 2) == 2.0);
-    CHECK(data.matrix.stored_nnz() == 2);
+    CHECK(data.matrix.at(1, 2) == 0.0);
+    CHECK(data.matrix.stored_nnz() == 1);
 }
 
 TEST_CASE("2D text drops a line whose position is past the chromosome end") {

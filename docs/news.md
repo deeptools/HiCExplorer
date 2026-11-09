@@ -136,6 +136,9 @@ Fixed (these results differ from 3.7.6, where 3.7.6 was wrong):
   `<outFileName>.tsv`), `--outputFormat hicpro` writes each contact once, every resolution of an mcool
   carries the genome assembly, and `--enforce_integer` stops with an error when rounding would set every
   pixel of a corrected matrix to zero (3.7.6 wrote an empty matrix).
+- `hicConvertFormat --inputFormat 2D-text` writes one pixel per line, at the bins that contain the start
+  coordinates of the two anchors (#808). 3.7.6 also looked up the bins of the exclusive end coordinates and
+  assigned both, so every line whose end lies in the next bin made two pixels.
 
 ### Release 3.7.6
 **27 November 2024**

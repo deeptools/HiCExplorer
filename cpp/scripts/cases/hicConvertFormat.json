@@ -158,14 +158,15 @@
   {
     "id": "hicConvertFormat.2D_text_to_cool.GSM1436265",
     "tier": 1,
+    "reference": "none",
     "args": ["--matrices",
              "{data}/hicConvertFormat/GSM1436265_RAD21_ENCFF002EMQ.txt",
              "--outFileName", "{out}/matrix.cool",
              "--inputFormat", "2D-text", "--outputFormat", "cool",
              "-r", "10000",
              "--chromosomeSizes", "{data}/hicConvertFormat/hg19.chrom.sizes"],
-    "outputs": [{"path": "{out}/matrix.cool", "format": "cool", "class": "E1"}],
-    "notes": "313,762 bins over 93 hg19 contigs from 8,688 input lines, of which 7,987 cells survive. Exercises the two quirks of the 2D-text path: an interval that straddles a bin boundary sets two cells, and a repeated pair keeps the last value rather than the sum."
+    "outputs": [{"path": "{out}/matrix.cool", "format": "cool", "class": "EX"}],
+    "notes": "313,762 bins over 93 hg19 contigs from 8,688 input lines, of which 7,987 cells survive. Exercises the two quirks of the 2D-text path: an interval that straddles a bin boundary sets two cells, and a repeated pair keeps the last value rather than the sum. Class EX, deliberate deviation (HiCExplorer 4 fix of #808): 3.7.6 also looked up the bins of the exclusive end coordinates and assigned both bin pairs, so a line whose end lies in the next bin gave two cells; the 8,688 lines gave 7,987 upper triangle cells. HiCExplorer 4 gives one pixel per line, at the bins that contain start1 and start2: 7,451 upper triangle pixels. There is no Python output to compare with. Pinned by test_hicConvertFormat.py, which derives the expected pixels from the text file."
   },
   {
     "id": "hicConvertFormat.cool_to_mcool.small_test_matrix_50kb",
