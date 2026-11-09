@@ -27,10 +27,14 @@
 //   the arithmetic, because the rescaling is an in place side effect on the
 //   normalisation vector.
 //
-//   ICE has its own asymmetry: the whole matrix path calls setMatrixValues
-//   unconditionally (:740), so a whole matrix ICE run writes corrected values
-//   whatever the output name says, while --perchr assembles its result into a
-//   lil_matrix that is only read back for an '.h5' name.
+//   ICE: 3.7.6 calls setMatrixValues unconditionally in the whole matrix path
+//   (:740), so a whole matrix ICE run wrote corrected values whatever the
+//   output name said, and with a cool name the weight column was applied to
+//   them a second time by cooler (#586). HiCExplorer 4 writes the raw counts
+//   plus the weights (the reciprocals of the ICE factors, because cooler
+//   multiplies by the weight) for a cool name, as it does for KR; --perchr already
+//   assembled its result into a lil_matrix that is only read back for an '.h5'
+//   name.
 //
 // Two further consequences of --perchr that the port has to reproduce: the
 // lil_matrix is only ever written inside the diagonal chromosome blocks
@@ -633,6 +637,12 @@ int main(int argc, char** argv) {
             }
         }
         hicx::ToolMatrix& hic = *loaded;
+        // The weight column only exists in a cooler. A cool input is written
+        // as a cooler whatever the output name is, an h5 input as h5 (the
+        // handler of the load is reused), and a '.h5' name keeps the corrected
+        // values.
+        const bool ice_weights =
+            args.method == Method::Ice && !output_is_h5 && !hic.input_is_h5();
         hicx::MatrixData& data = hic.data();
 
         MaskChain chain;
@@ -913,6 +923,13 @@ int main(int argc, char** argv) {
             }
         } else {
             if (args.method == Method::Ice) {
+                // A cool file carries the factors as weights, so the counts
+                // must stay raw (#586); the correction is applied in place and
+                // undone for the values below.
+                std::vector<double> raw_values;
+                if (ice_weights) {
+                    raw_values = data.matrix.data();
+                }
                 hicx::kernels::DiagonalBlock block(data.matrix);
                 hicx::ice::Options options;
                 options.max_iterations = args.iter_num;
@@ -943,6 +960,9 @@ int main(int argc, char** argv) {
                 log_info(args.verbose,
                          "[iterative correction] passes " + std::to_string(result.iterations));
                 correction_factors = result.correction_factors;
+                if (!raw_values.empty()) {
+                    data.matrix.mutable_data() = std::move(raw_values);
+                }
             } else {
                 std::vector<double> raw_values;
                 if (args.compat_v3 && !output_is_h5) {
@@ -1007,6 +1027,18 @@ int main(int argc, char** argv) {
             }
         }
 
+        if (ice_weights) {
+            // ICE divides the counts by the factors (corrected = raw / (f_i f_j)),
+            // whereas cooler multiplies by the weight column, so the column
+            // holds the reciprocals. The same convention as the cool writer's
+            // h5 to cool conversion; a bin without a factor gets weight 0.
+            for (double& factor : correction_factors) {
+                factor = 1.0 / factor;
+                if (!std::isfinite(factor)) {
+                    factor = 0.0;
+                }
+            }
+        }
         data.correction_factors = std::move(correction_factors);
         data.correction_factors_are_column = factors_are_column;
         restore_mask(data, chain);

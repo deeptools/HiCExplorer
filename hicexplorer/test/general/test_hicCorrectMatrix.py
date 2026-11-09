@@ -526,40 +526,56 @@ def test_char_ICE_perchr_on_a_sparse_selection_exits():
     os.unlink(outfile.name)
 
 
+def _check_ice_cool_matches_h5(extra, intra_only):
+    """A cool ICE output is the raw counts plus weights (#586).
+
+    3.7.6 wrote the already corrected counts and the weight column as well, so
+    cooler's balanced values applied the correction twice. The raw counts of
+    every written pixel must equal the input's, and cooler's balanced matrix
+    must equal the corrected matrix of the '.h5' output."""
+    import cooler
+    source = ROOT + "hicCorrectMatrix/gm12878_raw_values.cool"
+    cool_out = NamedTemporaryFile(suffix='.cool', delete=False)
+    cool_out.close()
+    h5_out = NamedTemporaryFile(suffix='.h5', delete=False)
+    h5_out.close()
+    for name in (cool_out.name, h5_out.name):
+        _run("correct --matrix {} --correctionMethod ICE --filterThreshold -1.5 5.0 {}"
+             "--outFileName {}".format(source, extra, name))
+    raw = cooler.Cooler(source).pixels()[:]
+    written = cooler.Cooler(cool_out.name)
+    pixels = written.pixels()[:]
+    merged = pixels.merge(raw, on=['bin1_id', 'bin2_id'], how='left', suffixes=('', '_raw'))
+    assert len(pixels) > 0
+    assert (merged['count'] == merged['count_raw']).all(), 'the counts are the raw counts'
+
+    balanced = written.matrix(balance=True, as_pixels=True)[:].dropna(subset=['balanced'])
+    chromosome = written.bins()[:]['chrom'].astype(str).values
+    if intra_only:
+        balanced = balanced[chromosome[balanced['bin1_id']] == chromosome[balanced['bin2_id']]]
+    expected = cooler.Cooler(h5_out.name).pixels()[:].rename(columns={'count': 'corrected'})
+    both = balanced.merge(expected, on=['bin1_id', 'bin2_id'], how='outer').fillna(0.0)
+    assert len(both) == len(expected)
+    difference = (both['balanced'] - both['corrected']).abs()
+    assert (difference <= ICE_EXACT * both['corrected'].abs()).all()
+    os.unlink(cool_out.name)
+    os.unlink(h5_out.name)
+    return pixels
+
+
 def test_char_ICE_whole_cool_round_trip():
     """ICE on a real cool input, which is the only path that writes a weight
     column and the only one that exercises the cool reader and writer."""
-    outfile = NamedTemporaryFile(suffix='.cool', delete=False)
-    outfile.close()
-    _run("correct --matrix {} --correctionMethod ICE --filterThreshold -1.5 5.0 "
-         "--outFileName {}".format(ROOT + "hicCorrectMatrix/gm12878_raw_values.cool",
-                                   outfile.name))
-    summary = _cool_summary(outfile.name)
-    assert summary['nnz'] == 634501
-    assert summary['count_dtype'] == 'float64'
-    _within(summary['sum'], 4730641430.955317, ICE_EXACT)
-    # cool stores 1 / total_bias and ICE normalises the mean bias to one, so
-    # the weights sum to the bin count.
-    _within(summary['weight_sum'], 1254.0000000000002, ICE_EXACT)
-    _within(float(summary['weight'][0]), 0.8781232311865848, ICE_EXACT)
-    os.unlink(outfile.name)
+    pixels = _check_ice_cool_matches_h5("", False)
+    assert len(pixels) == 634501
 
 
 def test_char_ICE_perchr_cool_round_trip():
-    outfile = NamedTemporaryFile(suffix='.cool', delete=False)
-    outfile.close()
-    _run("correct --matrix {} --correctionMethod ICE --filterThreshold -1.5 5.0 "
-         "--perchr --outFileName {}".format(
-             ROOT + "hicCorrectMatrix/gm12878_raw_values.cool", outfile.name))
-    summary = _cool_summary(outfile.name)
-    # --perchr with a name that is not '.h5' writes the raw matrix, so only the
-    # weight column carries the correction. 634501 entries survive the masking
-    # and none of them is dropped.
-    assert summary['nnz'] == 536114
-    _within(summary['sum'], 4403549817.0, ICE_EXACT)
-    _within(summary['weight_sum'], 1254.0, ICE_EXACT)
-    assert summary['weight'][0] == 1.0
-    os.unlink(outfile.name)
+    """--perchr with a name that is not '.h5' writes the raw matrix and the
+    weights. The '.h5' output keeps the diagonal blocks only, so the
+    comparison covers the intra chromosomal pixels."""
+    pixels = _check_ice_cool_matches_h5("--perchr ", True)
+    assert len(pixels) == 536114
 
 
 def test_char_KR_perchr_cool_round_trip():

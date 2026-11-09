@@ -153,6 +153,18 @@ Fixed (these results differ from 3.7.6, where 3.7.6 was wrong):
   size. 3.7.6 merged in command line order and stopped with `IndexError: list index out of range` in the
   relation tree for 100, 50, 10 kb (#790, #803, #839). The trees now contain the relation that opens each
   chromosome after the first and the TADs left over on the last chromosome, which 3.7.6 left out.
+- `hicConvertFormat --inputFormat 2D-text` writes one pixel per line, at the bins that contain the start
+  coordinates of the two anchors (#808). 3.7.6 also looked up the bins of the exclusive end coordinates and
+  assigned both, so every line whose end lies in the next bin made two pixels.
+- `hicConvertFormat --outputFormat ginteractions`, `homer` and `hicpro` write the negative values of a matrix,
+  for example after `hicTransform --method pearson` (#584). 3.7.6 took the maximum of the upper triangle and
+  its transpose, which set every negative off-diagonal value to 0.
+- `hicCorrectMatrix --correctionMethod ICE` with a cool matrix writes the raw counts and the weights, as KR
+  does (#586). 3.7.6 wrote the already corrected counts together with the weights, so cooler's balanced
+  values applied the correction twice. An output name ending in `.h5` keeps the corrected values.
+- `hicSumMatrices` writes every pixel of every input, so the sum of the result equals the sum of the inputs
+  (#814). 3.7.6 masked the bins that are empty in either input after the addition and discarded the counts in
+  them (5,142 pixels for GSM2644945 plus GSM2644947), and wrote an integer matrix as float64.
 
 ### Release 3.7.6
 **27 November 2024**

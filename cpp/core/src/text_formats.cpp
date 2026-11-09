@@ -288,11 +288,12 @@ CsrMatrix maximum_with_transpose(const CsrMatrix& matrix) {
                 out_values.push_back(value);
                 continue;
             }
-            // The mirror cell of the triangle is a structural zero, so the
-            // elementwise maximum of the two is max(value, 0).
-            const double mirrored = std::max(value, 0.0);
+            // The stored upper triangle is written as it is, negative values
+            // included (3.7.6 took the maximum with the structural zero of the
+            // mirror cell, which turned every negative value into 0, #584).
+            const double mirrored = value;
             if (mirrored == 0.0) {
-                continue;  // scipy prunes the result of maximum
+                continue;  // an explicit zero is not a contact
             }
             out_rows.push_back(static_cast<std::int32_t>(row));
             out_cols.push_back(static_cast<std::int32_t>(col));
@@ -324,7 +325,7 @@ CsrMatrix upper_triangle_after_maximum(const CsrMatrix& matrix) {
             if (col < row) {
                 continue;
             }
-            const double value = col == row ? values[k] : std::max(values[k], 0.0);
+            const double value = values[k];
             if (col != row && value == 0.0) {
                 continue;
             }
@@ -719,26 +720,20 @@ MatrixData read_two_dimensional_text(
         }
         const std::string where = path + ": line " + std::to_string(line_number);
         const std::int64_t start1 = parse_int(fields[1], where);
-        const std::int64_t end1 = parse_int(fields[2], where);
         const std::int64_t start2 = parse_int(fields[4], where);
-        const std::int64_t end2 = parse_int(fields[5], where);
         const double value = parse_double(fields[6], where);
 
-        // getRegionBinRange returns the pair (bin of startpos, bin of endpos).
-        const std::optional<std::int64_t> row_start = bin_at(fields[0], start1);
-        const std::optional<std::int64_t> row_end = bin_at(fields[0], end1);
-        const std::optional<std::int64_t> col_start = bin_at(fields[3], start2);
-        const std::optional<std::int64_t> col_end = bin_at(fields[3], end2);
-        if (!row_start.has_value() || !row_end.has_value() ||
-            !col_start.has_value() || !col_end.has_value()) {
-            // getRegionBinRange returned None, the assignment raised and the
-            // Python swallowed the exception (hicConvertFormat.py:212-215).
+        // One line is one contact: the pixel sits at the bins that contain
+        // the start positions. 3.7.6 also looked up the bins of the end
+        // coordinates, which are exclusive, and assigned both bin pairs, so a
+        // line whose end lies in the next bin made two pixels (#808).
+        const std::optional<std::int64_t> row_bin = bin_at(fields[0], start1);
+        const std::optional<std::int64_t> col_bin = bin_at(fields[3], start2);
+        if (!row_bin.has_value() || !col_bin.has_value()) {
+            // The start lies outside the chromosome, the line has no bin.
             continue;
         }
-        // matrix[(a, b), (c, d)] = value assigns to (a, c) and (b, d): two
-        // cells whenever the interval straddles a bin boundary.
-        assignments.emplace_back((*row_start << 32) | *col_start, value);
-        assignments.emplace_back((*row_end << 32) | *col_end, value);
+        assignments.emplace_back((*row_bin << 32) | *col_bin, value);
     }
 
     std::vector<std::size_t> order(assignments.size());

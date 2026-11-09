@@ -95,9 +95,8 @@ TEST_CASE("maximum_with_transpose mirrors without doubling the diagonal") {
     CHECK(symmetric.stored_nnz() == 6);
 }
 
-TEST_CASE("maximum_with_transpose clamps a negative off diagonal value") {
-    // scipy's maximum against the structural zero of the mirror cell keeps the
-    // larger of the two, which for a negative value is the zero.
+TEST_CASE("maximum_with_transpose keeps a negative off diagonal value") {
+    // 3.7.6 clamped it to zero (#584); the stored value is mirrored.
     const std::vector<std::int32_t> row{0, 0, 1};
     const std::vector<std::int32_t> col{0, 1, 1};
     std::vector<double> values{-4.0, -3.0, 2.0};
@@ -105,9 +104,9 @@ TEST_CASE("maximum_with_transpose clamps a negative off diagonal value") {
         hicx::CsrMatrix::from_coo(2, 2, row, col, std::move(values), "float64");
     const hicx::CsrMatrix symmetric = hicx::maximum_with_transpose(matrix);
     CHECK(symmetric.at(0, 0) == -4.0);  // the diagonal keeps its sign
-    CHECK(symmetric.at(0, 1) == 0.0);
-    CHECK(symmetric.at(1, 0) == 0.0);
-    CHECK(symmetric.stored_nnz() == 2);
+    CHECK(symmetric.at(0, 1) == -3.0);
+    CHECK(symmetric.at(1, 0) == -3.0);
+    CHECK(symmetric.stored_nnz() == 4);
 }
 
 TEST_CASE("upper_triangle_after_maximum equals the triangle of the mirror") {
@@ -252,16 +251,17 @@ TEST_CASE("2D text assigns, does not accumulate, and keeps the last value") {
     CHECK(data.matrix.stored_nnz() == 1);
 }
 
-TEST_CASE("2D text sets two cells when an interval straddles a bin boundary") {
+TEST_CASE("2D text gives one pixel per line at the bins of the start positions") {
     TempFile file(".txt");
-    // The first interval ends at 10, which is the first position of bin 1, so
-    // getRegionBinRange returns (0, 1) and the pair indexes two cells.
+    // The first interval ends at 10, the first position of bin 1. The end is
+    // exclusive and does not count: 3.7.6 also assigned the bin of the end and
+    // wrote two pixels for this line (#808).
     write_text(file.path(), "chr1\t0\t10\tchr1\t20\t25\t2.0\n");
     const hicx::MatrixData data =
         hicx::read_two_dimensional_text(file.path(), {{"chr1", 30}}, 10);
     CHECK(data.matrix.at(0, 2) == 2.0);
-    CHECK(data.matrix.at(1, 2) == 2.0);
-    CHECK(data.matrix.stored_nnz() == 2);
+    CHECK(data.matrix.at(1, 2) == 0.0);
+    CHECK(data.matrix.stored_nnz() == 1);
 }
 
 TEST_CASE("2D text drops a line whose position is past the chromosome end") {

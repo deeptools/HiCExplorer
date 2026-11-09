@@ -511,6 +511,7 @@
     "id": "hicCorrectMatrix.ICE.gm12878_chr1.cool",
     "tool": "hicCorrectMatrix",
     "tier": 3,
+    "reference": "none",
     "args": [
       "correct",
       "-m",
@@ -527,10 +528,10 @@
     "threads_arg": "--threads",
     "large": true,
     "memory": {
-      "alpha": 1.2,
+      "alpha": 1.9,
       "beta": 0.0
     },
-    "notes": "The slowest run in the corpus: 711 s and 9,064 MB in the Python. Numeric comparison blocked by the comparators/cool.py gap and performed by cpp/scripts/hicCorrectMatrix_validate.py."
+    "notes": "The slowest run in the corpus: 711 s and 9,064 MB in the Python. Numeric comparison blocked by the comparators/cool.py gap and performed by cpp/scripts/hicCorrectMatrix_validate.py. HiCExplorer 4 fix of #586: a cool output holds the raw counts plus the weights, so the whole matrix ICE path keeps a copy of the 61.8 M raw values (494 MB) while the correction runs in place; alpha is raised from 1.2 to 1.9 for that copy."
   },
   {
     "id": "hicCorrectMatrix.diagnostic_plot.small_test_matrix.chromosomes",

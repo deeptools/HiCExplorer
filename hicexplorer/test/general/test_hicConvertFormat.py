@@ -138,6 +138,44 @@ def test_hicConvertFormat_hicpro_to_cool():
     nt.assert_array_almost_equal(new.matrix.data, _matrix.data, decimal=0)
 
 
+def _expected_2d_text_pixels(text_file, sizes_file, resolution):
+    """The upper triangle a 2D-text file means: one pixel per line.
+
+    The pixel sits at the bins that contain start1 and start2. A later line
+    for the same pixel replaces the earlier one, a value of zero removes it,
+    and a line whose start lies outside its chromosome is skipped. 3.7.6 also
+    assigned the bins of the exclusive end coordinates, which doubled the
+    pixels of every line that ends in the next bin (#808).
+    """
+    offsets = {}
+    first = 0
+    with open(sizes_file) as handle:
+        for line in handle:
+            fields = line.split()
+            if len(fields) < 2:
+                break
+            offsets[fields[0]] = (first, int(fields[1]))
+            first += -(-int(fields[1]) // resolution)
+    cells = {}
+    with open(text_file) as handle:
+        for line in handle:
+            fields = line.rstrip('\n').split('\t')
+            start1, start2 = int(fields[1]), int(fields[4])
+            if not (0 <= start1 < offsets[fields[0]][1] and 0 <= start2 < offsets[fields[3]][1]):
+                continue
+            cells[(offsets[fields[0]][0] + start1 // resolution,
+                   offsets[fields[3]][0] + start2 // resolution)] = float(fields[6])
+    return {key: value for key, value in cells.items()
+            if value != 0.0 and key[0] <= key[1]}
+
+
+def _pixels_of(path):
+    import cooler
+    pixels = cooler.Cooler(path).pixels()[:]
+    return {(int(a), int(b)): float(v)
+            for a, b, v in zip(pixels['bin1_id'], pixels['bin2_id'], pixels['count'])}
+
+
 def test_hicConvertFormat_2D_text_to_cool():
 
     outfile = NamedTemporaryFile(suffix='.cool', delete=False)
@@ -146,15 +184,31 @@ def test_hicConvertFormat_2D_text_to_cool():
     args = "--matrices {} --outFileName {} --inputFormat 2D-text --outputFormat cool -r 10000 --chromosomeSizes {}".format(text_2d, outfile.name, ROOT + '/hg19.chrom.sizes').split()
     compute(hicConvertFormat.main, args, 5)
 
-    new = hm.hiCMatrix(outfile.name)
+    assert _pixels_of(outfile.name) == _expected_2d_text_pixels(
+        text_2d, ROOT + '/hg19.chrom.sizes', 10000)
+    os.unlink(outfile.name)
 
-    matrixFileHandlerInput = MatrixFileHandler(pFileType='cool', pMatrixFile=ROOT + '/2dtexttocool.cool')
 
-    _matrix, cut_intervals, nan_bins, \
-        distance_counts, correction_factors = matrixFileHandlerInput.load()
-
-    new.matrix = triu(new.matrix)
-    nt.assert_array_almost_equal(new.matrix.data, _matrix.data, decimal=0)
+def test_2D_text_gives_one_pixel_per_line():
+    """Four lines are four pixels (#808); 3.7.6 wrote eight."""
+    import tempfile
+    directory = tempfile.mkdtemp()
+    text = os.path.join(directory, 'in.txt')
+    sizes = os.path.join(directory, 'sz.txt')
+    out = os.path.join(directory, 'o.cool')
+    lines = [('chr1', 710000, 720000, 'chr1', 750000, 760000, 17),
+             ('chr1', 10000, 20000, 'chr1', 30000, 40000, 3),
+             ('chr1', 100000, 110000, 'chr1', 100000, 110000, 5),
+             ('chr1', 5000, 15000, 'chr1', 205000, 215000, 2)]
+    with open(text, 'w') as handle:
+        for line in lines:
+            handle.write('\t'.join(str(x) for x in line) + '\n')
+    with open(sizes, 'w') as handle:
+        handle.write('chr1\t1000000\n')
+    hicConvertFormat.main(['--matrices', text, '--outFileName', out, '--resolutions', '10000',
+                           '--chromosomeSizes', sizes, '--inputFormat', '2D-text',
+                           '--outputFormat', 'cool'])
+    assert _pixels_of(out) == {(71, 75): 17.0, (1, 3): 3.0, (10, 10): 5.0, (0, 20): 2.0}
 
 
 # ---------------------------------------------------------------------------
@@ -401,6 +455,56 @@ def test_h5_to_homer_symmetrises_with_maximum_not_with_a_sum():
     assert_csr_identical(symmetric, source.matrix)
 
 
+def _matrix_with_negative_values(tmp_path):
+    """The stored matrix of small_test_matrix.h5 with every second off diagonal
+    entry of the upper triangle negated, as a symmetric h5 file."""
+    source = hm.hiCMatrix(original_matrix_h5)
+    upper = triu_module(source.matrix, k=0, format='csr').astype(float)
+    coo = upper.tocoo()
+    data = coo.data.copy()
+    off_diagonal = np.flatnonzero(coo.row != coo.col)
+    data[off_diagonal[::2]] *= -1
+    from scipy.sparse import coo_matrix
+    upper = coo_matrix((data, (coo.row, coo.col)), shape=coo.shape).tocsr()
+    symmetric = upper + triu_module(upper, k=1).T
+    source.setMatrix(symmetric.tocsr(), source.cut_intervals)
+    path = str(tmp_path / 'negative.h5')
+    source.save(path)
+    return path, upper
+
+
+def test_ginteractions_writes_negative_values(tmp_path):
+    """The upper triangle is written as it is stored, negative values included.
+    3.7.6 took the maximum with the transpose, which turned every negative
+    value into 0 (#584)."""
+    path, upper = _matrix_with_negative_values(tmp_path)
+    out = str(tmp_path / 'gi.tsv')
+    hicConvertFormat.main(['--matrices', path, '--outFileName', out,
+                           '--inputFormat', 'h5', '--outputFormat', 'ginteractions'])
+    with open(out) as handle:
+        values = [float(line.split('\t')[6]) for line in handle]
+    coo = upper.tocoo()
+    assert sorted(values) == sorted(coo.data.tolist())
+    assert sum(1 for value in values if value < 0) == sum(1 for value in coo.data if value < 0) > 0
+
+
+def test_homer_writes_negative_values(tmp_path):
+    """The homer matrix is the stored upper triangle mirrored, negative values
+    included (#584)."""
+    path, upper = _matrix_with_negative_values(tmp_path)
+    out = str(tmp_path / 'matrix.homer')
+    hicConvertFormat.main(['--matrices', path, '--outFileName', out,
+                           '--inputFormat', 'h5', '--outputFormat', 'homer'])
+    opener = gzip.open if open(out, 'rb').read(2) == b'\x1f\x8b' else open
+    with opener(out, 'rt') as handle:
+        lines = handle.read().splitlines()
+    table = np.array([[float(x) for x in line.split('\t')[2:]] for line in lines[1:]])
+    expected = upper.toarray()
+    expected = expected + np.triu(expected, k=1).T
+    nt.assert_array_equal(table, expected)
+    assert (table < 0).sum() > 0
+
+
 def test_mcool_with_resolutions_and_several_matrices_exits_before_writing(tmp_path, capfd):
     """HiCExplorer 4 (fix 4): --resolutions describes how to resample one
     matrix, so several input matrices with it are an error. 3.7.6 only logged
@@ -576,25 +680,33 @@ def test_hicpro_to_cool_is_bit_exact():
 
 
 def test_2D_text_to_cool_is_bit_exact():
-    """Re-assert the 2D-text import at full precision against the reference."""
+    """Re-assert the 2D-text import at full precision.
+
+    The expected pixels are derived from the text file itself: one pixel per
+    line at the bins of start1 and start2 (#808). The stored 2dtexttocool.cool
+    is the 3.7.6 output, which holds 7,987 upper triangle entries because the
+    bins of the end coordinates were assigned as well.
+    """
     text_2d = ROOT + '/GSM1436265_RAD21_ENCFF002EMQ.txt'
     out = convert("--matrices " + text_2d +
                   " --outFileName {out} --inputFormat 2D-text"
                   " --outputFormat cool -r 10000 --chromosomeSizes " +
                   ROOT + '/hg19.chrom.sizes', '.cool')
 
-    handler = MatrixFileHandler(pFileType='cool',
-                                pMatrixFile=ROOT + '/2dtexttocool.cool')
-    expected, expected_intervals, _, _, _ = handler.load()
+    expected = _expected_2d_text_pixels(text_2d, ROOT + '/hg19.chrom.sizes', 10000)
+    assert len(expected) == 7451
+    assert _pixels_of(out) == expected
+
+    old_handler = MatrixFileHandler(pFileType='cool',
+                                    pMatrixFile=ROOT + '/2dtexttocool.cool')
+    old_matrix, old_intervals, _, _, _ = old_handler.load()
+    assert old_matrix.nnz == 7987
 
     new = hm.hiCMatrix(out)
     assert new.matrix.shape == (313762, 313762)
-    # The reference is stored as the upper triangle only (7,987 entries), while
-    # hicmatrix returns the symmetric matrix (15,974).
-    assert new.matrix.nnz == 15974
-    assert expected.nnz == 7987
-    assert_csr_identical(triu(new.matrix), expected)
-    nt.assert_equal(new.cut_intervals, expected_intervals)
+    # hicmatrix returns the symmetric matrix: every off diagonal pixel twice.
+    assert new.matrix.nnz == 2 * len(expected) - sum(1 for key in expected if key[0] == key[1])
+    assert list(map(tuple, new.cut_intervals)) == list(map(tuple, old_intervals))
     os.unlink(out)
 
 
