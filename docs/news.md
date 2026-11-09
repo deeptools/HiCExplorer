@@ -142,6 +142,9 @@ Fixed (these results differ from 3.7.6, where 3.7.6 was wrong):
 - `hicConvertFormat --outputFormat ginteractions`, `homer` and `hicpro` write the negative values of a matrix,
   for example after `hicTransform --method pearson` (#584). 3.7.6 took the maximum of the upper triangle and
   its transpose, which set every negative off-diagonal value to 0.
+- `hicCorrectMatrix --correctionMethod ICE` with a cool matrix writes the raw counts and the weights, as KR
+  does (#586). 3.7.6 wrote the already corrected counts together with the weights, so cooler's balanced
+  values applied the correction twice. An output name ending in `.h5` keeps the corrected values.
 
 ### Release 3.7.6
 **27 November 2024**
