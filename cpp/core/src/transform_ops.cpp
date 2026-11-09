@@ -9,6 +9,8 @@
 #include <thread>
 #include <vector>
 
+#include <dlfcn.h>
+
 #include "hicx/adjust_ops.hpp"
 #include "hicx/lapack_shim.hpp"
 #include "hicx/matrix_ops.hpp"
@@ -1067,8 +1069,12 @@ void DenseCorrelationRows::fill_row(std::int64_t i, double* out) const {
 }
 
 void pin_blas_to_one_thread() {
-    if (openblas_set_num_threads != nullptr) {
-        openblas_set_num_threads(1);
+    // The BLAS loaded at run time is OpenBLAS in a usual conda environment;
+    // with any other implementation there is nothing to pin.
+    static const auto set_threads = reinterpret_cast<void (*)(int)>(
+        dlsym(RTLD_DEFAULT, "openblas_set_num_threads"));
+    if (set_threads != nullptr) {
+        set_threads(1);
     }
 }
 

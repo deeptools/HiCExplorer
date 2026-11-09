@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "hicx/lapack_shim.hpp"
+#include "hicx/transform_ops.hpp"
 
 namespace hicx::ent3c {
 
@@ -264,9 +265,7 @@ std::vector<double> entropy_signal(const ChromosomeEntries& entries,
         signal[static_cast<std::size_t>(w)] = window_entropy(counts, n);
     };
 
-    if (openblas_set_num_threads != nullptr) {
-        openblas_set_num_threads(1);
-    }
+    hicx::pin_blas_to_one_thread();
     const int workers =
         static_cast<int>(std::min<std::int64_t>(std::max(threads, 1), windows.count));
     if (workers <= 1) {

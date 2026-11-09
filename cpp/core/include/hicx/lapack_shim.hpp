@@ -73,7 +73,10 @@ double dlamch_(const char* cmach);
 // rows. It is also cheaper: the same run costs 0.31 s of CPU at one BLAS
 // thread and 75.7 s at sixteen, because OpenBLAS spins after every parallel
 // region and the per chromosome blocks are small.
-__attribute__((weak)) void openblas_set_num_threads(int num_threads);
+// The pinning itself is hicx::pin_blas_to_one_thread (transform_ops.hpp). It
+// looks openblas_set_num_threads up at run time, because the BLAS a conda
+// package links against is the reference BLAS, which lacks the function, and
+// the macOS linker refuses an undefined weak symbol.
 
 }  // extern "C"
 
