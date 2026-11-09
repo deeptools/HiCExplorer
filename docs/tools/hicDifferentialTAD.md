@@ -21,9 +21,9 @@ Computes differential TADs by comparing the precomputed TAD regions of the targe
 
 | Flag | Meaning |
 |---|---|
-| `--targetMatrix TARGETMATRIX, -tm TARGETMATRIX` | The matrix which was used to compute the TADs |
+| `--targetMatrix TARGETMATRIX, -tm TARGETMATRIX` | The target matrix: the first of the two compared matrices. The TAD domains should be computed from it, or from the control matrix. |
 | `--controlMatrix CONTROLMATRIX, -cm CONTROLMATRIX` | The control matrix to test the TADs for a differential interaction pattern. |
-| `--tadDomains TADDOMAINS, -td TADDOMAINS` | The TADs domain file computed by hicFindTADs. |
+| `--tadDomains TADDOMAINS, -td TADDOMAINS` | The TADs domain file computed by hicFindTADs. Its domains define the regions that are compared between the two matrices; they are not tested for being TADs. Compute them with hicFindTADs from the target matrix, or from the matrix of the condition whose domains should be tested in the other (usually the control). |
 | `--outFileNamePrefix OUTFILENAMEPREFIX, -o OUTFILENAMEPREFIX` | Outfile name prefix to store the accepted / rejected H0 TADs. |
 
 ## Optional arguments
@@ -41,8 +41,8 @@ Computes differential TADs by comparing the precomputed TAD regions of the targe
 
 ## Notes
 
-hicDifferentialTAD computes with a treatment Hi-C file, a control Hi-C file and a precomputed TAD domains file if the detected TADs are differential between the treatment and the control sample.
-The TADs need to be precomputed on the treatment file with _hicFindTADs.
+hicDifferentialTAD takes a target Hi-C matrix, a control Hi-C matrix and a precomputed TAD domains file, and tests for every domain whether the contacts differ between the two matrices.
+The domains must be computed with hicFindTADs; they define the coordinates of the regions that are compared, the same coordinates are read from both matrices. Compute them from the matrix in which the domain structure is the reference of interest. This is the target matrix, or the control matrix when the question is whether the domains of the control are changed in the target. Domains computed from a third matrix, for example a merged one, are also valid. Both matrices must be on the same bins.
 
 hicDifferentialTAD extract per TAD three regions: the intra-TAD, the left and right inter-TAD region. In the following image, the upper visualization shows a region with the
 detected TADs which are indicated by the black lines. The bottom shows as an example which regions are used for the differential test: the intra-TAD region is highlighted in red,
@@ -57,10 +57,12 @@ user given to reject H0 or if it is enough that at least one region is rejecting
 ```bash
 $ hicDifferentialTAD -tm GSM2644945_Untreated-R1.100000_chr1.cool -cm GSM2644947_Auxin2days-R1.100000_chr1.cool -td untreated_R1_domains.bed -o differential -p 0.01 -t 4 -mr all
 ```
+In this example the untreated matrix is the target (`-tm`) and the domains were computed with hicFindTADs from the same untreated matrix, so the domains of the untreated cells are tested for a change in the auxin-treated matrix (`-cm`). With the roles exchanged, the domains would be computed from the auxin-treated matrix. The roles of the two matrices also determine the sign of the statistic described below.
+
 In this example data from Nora et al. "Targeted Degradation of CTCF Decouples Local Insulation of Chromosome Domains from Genomic Compartmentalization", Cell 169.5 (2017): 930-944 is used [GEO: https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE98671]
 
 ![](../images/hicDifferentialTAD.png)
-The output are two BED-similar files: the '_accepted.diff_tad' and '_rejected.diff_tad' file. The difference to a real BED file is a) the usage of a header starting with '#', the first six columns are BED6 standard, however, there are three additional columns with the p-values of each intra-TAD, left-inter-TAD and right-inter-TAD test.
+The output are two BED-similar files: the '_accepted.diff_tad' and '_rejected.diff_tad' file. The difference to a real BED file is a) the usage of a header starting with '#', the first six columns are BED6 standard, however, there are additional columns with the p-values and statistics of each intra-TAD, left-inter-TAD and right-inter-TAD test.
 The score value and name is copied from the domains.bed file which is a output of hicFindTADs.
 
 ```bash
