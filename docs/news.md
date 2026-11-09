@@ -136,6 +136,10 @@ Fixed (these results differ from 3.7.6, where 3.7.6 was wrong):
   `<outFileName>.tsv`), `--outputFormat hicpro` writes each contact once, every resolution of an mcool
   carries the genome assembly, and `--enforce_integer` stops with an error when rounding would set every
   pixel of a corrected matrix to zero (3.7.6 wrote an empty matrix).
+- `hicBuildMatrix` and `hicBuildMatrixMicroC` count the entries of the SA tag one by one. 3.7.6 counted the
+  `;` characters, so a reference name that contains `;` (for example `Sc1;HRSCAF=2`) inflated the number of
+  supplementary alignments, consumed the following reads and ended with "Be sure that the sam files have the
+  same read order" (#387).
 - `hicPlotDistVsCounts` stops with a message and exit code 1 when no curve with more than one point can be
   drawn, for example with `--maxdepth` close to the bin size; 3.7.6 ended with `UnboundLocalError` for `lgd`
   (#836).

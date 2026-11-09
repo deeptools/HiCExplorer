@@ -175,7 +175,7 @@ void resolve_supplementary(BamReader& reader, BamRecord& primary) {
         return;
     }
     const std::string tag = primary.tag_string("SA");
-    const std::size_t entries = static_cast<std::size_t>(std::count(tag.begin(), tag.end(), ';'));
+    const std::size_t entries = build_matrix_api::supplementary_count(tag);
     std::int64_t best = primary.leading_bases_before_match();
     BamRecord best_record = primary;
     BamRecord candidate;

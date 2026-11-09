@@ -71,7 +71,8 @@ struct TesterPaths {
 
 // --- get_supplementary_alignment ---------------------------------------------------
 
-// len(tag.split(";")[0:-1]): the number of ';' in the SA tag.
+// The number of entries of the SA tag. 3.7.6 counted the ';' characters, which
+// overcounts when a reference name contains ';'.
 [[nodiscard]] std::size_t supplementary_count(const std::string& sa_tag);
 
 // --- get_correct_map ----------------------------------------------------------------

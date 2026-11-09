@@ -145,7 +145,24 @@ bool ends_with(const std::string& text, const std::string& suffix) {
 }
 
 std::size_t supplementary_count(const std::string& sa_tag) {
-    return static_cast<std::size_t>(std::count(sa_tag.begin(), sa_tag.end(), ';'));
+    // Every entry is "rname,pos,strand,CIGAR,mapQ,NM;". A reference name may
+    // contain ';' but never ','. Splitting on ';' therefore cuts such a name
+    // into pieces; only the piece that carries the five trailing fields (six
+    // comma separated fields in all) closes an entry.
+    std::size_t count = 0;
+    std::size_t begin = 0;
+    for (std::size_t pos = 0; pos < sa_tag.size(); ++pos) {
+        if (sa_tag[pos] != ';') {
+            continue;
+        }
+        const auto commas = std::count(sa_tag.begin() + static_cast<std::ptrdiff_t>(begin),
+                                       sa_tag.begin() + static_cast<std::ptrdiff_t>(pos), ',');
+        if (commas == 5) {
+            ++count;
+        }
+        begin = pos + 1;
+    }
+    return count;
 }
 
 std::int64_t bases_before_match(const std::vector<CigarOperation>& cigar) {
