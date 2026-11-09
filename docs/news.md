@@ -67,6 +67,9 @@ New options and features:
 
 Fixed (these results differ from 3.7.6, where 3.7.6 was wrong):
 
+- `hicConvertFormat --outputFormat mcool` and `hicBuildMatrix` with several bin sizes write the root of the mcool
+  with `format = HDF5::MCOOL` and `format-version = 2`, as cooler's zoomify does. The root was marked as a
+  cooler, so cooler listed `/` as a cooler and warned that it is corrupt (#952).
 - `hicAdjustMatrix --regions` includes the last bin of a chromosome when the region end equals the chromosome length
   (3.7.6 wrote an empty matrix with exit code 0), and `--action keep`, `remove` and `mask` stop with an error
   when the selection matches no bin (#934).

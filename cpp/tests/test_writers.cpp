@@ -290,16 +290,16 @@ TEST_CASE("a cooler group URI writes into that group and leaves the root alone")
     CHECK(file.exists("/resolutions/20000/pixels/count"));
     CHECK(file.children("/") == std::vector<std::string>{"resolutions"});
 
-    // cooler's own provenance stays on the group; hicmatrix overwrites the
-    // root, and only in mode 'w'.
+    // cooler's own provenance stays on the group. The root is an mcool root,
+    // as cooler's zoomify writes it, and not a cooler (issue 952).
     const auto group_attrs = file.attributes("/resolutions/10000");
     CHECK(std::get<std::string>(group_attrs.at("generated-by")) == "cooler-0.10.2");
     CHECK(std::get<std::string>(group_attrs.at("format-url")) ==
           "https://github.com/open2c/cooler");
     const auto root_attrs = file.attributes("/");
-    CHECK(std::get<std::string>(root_attrs.at("generated-by")) == "HiCMatrix-17.2");
-    CHECK(std::get<std::string>(root_attrs.at("format-url")) ==
-          "https://github.com/mirnylab/cooler");
+    CHECK(std::get<std::string>(root_attrs.at("format")) == "HDF5::MCOOL");
+    CHECK(std::get<std::int64_t>(root_attrs.at("format-version")) == 2);
+    CHECK(root_attrs.count("generated-by") == 0);
     CHECK(root_attrs.count("nbins") == 0);
 }
 

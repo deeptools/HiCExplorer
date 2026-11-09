@@ -1198,7 +1198,7 @@ void write_cool(const std::string& uri, MatrixData& data, const CoolSaveOptions&
     // Cool.save then overwrites the provenance on the *file root*, and only in
     // mode 'w' (cool.py:422-426). For a plain .cool the root is the cooler
     // group; for an mcool it is a different object, so the resolution groups
-    // keep cooler's own provenance.
+    // keep cooler's own provenance and the root becomes an mcool root.
     const auto [path, group] = coolercpp::parse_cooler_uri(uri);
     if (float_total.has_value() || !options.append) {
         h5::FileWriter file(path, h5::WriteMode::Append);
@@ -1206,8 +1206,16 @@ void write_cool(const std::string& uri, MatrixData& data, const CoolSaveOptions&
             file.set_attribute(group, "sum", *float_total);
         }
         if (!options.append) {
-            for (const auto& [key, value] : info) {
-                file.set_attribute("/", key, value);
+            if (group.rfind("/resolutions/", 0) == 0) {
+                // The root of an mcool is not a cooler (issue 952): it carries
+                // the identity cooler's own zoomify writes, which makes
+                // list_coolers skip "/" and list the resolution groups only.
+                file.set_attribute("/", "format", std::string("HDF5::MCOOL"));
+                file.set_attribute("/", "format-version", std::int64_t{2});
+            } else {
+                for (const auto& [key, value] : info) {
+                    file.set_attribute("/", key, value);
+                }
             }
         }
     }
