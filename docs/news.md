@@ -136,6 +136,10 @@ Fixed (these results differ from 3.7.6, where 3.7.6 was wrong):
   `<outFileName>.tsv`), `--outputFormat hicpro` writes each contact once, every resolution of an mcool
   carries the genome assembly, and `--enforce_integer` stops with an error when rounding would set every
   pixel of a corrected matrix to zero (3.7.6 wrote an empty matrix).
+- `hicMergeDomains` accepts the domain files in any order and merges them from the finest to the coarsest bin
+  size. 3.7.6 merged in command line order and stopped with `IndexError: list index out of range` in the
+  relation tree for 100, 50, 10 kb (#790, #803, #839). The trees now contain the relation that opens each
+  chromosome after the first and the TADs left over on the last chromosome, which 3.7.6 left out.
 
 ### Release 3.7.6
 **27 November 2024**

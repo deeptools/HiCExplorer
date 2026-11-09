@@ -6,15 +6,17 @@
 // the Python tool on the real domain files, with graphviz.Digraph.render
 // replaced by a recorder that appends '### <filename>' and self.source for
 // every render call (no Python source file was modified; the recorder patched
-// the class at run time). The recorded invocations, run in an empty directory:
+// the class at run time). two_files.txt and three_files_protein.txt were
+// recorded again from the C++ tool when it repaired the lone nodes of the last
+// chromosome and the relation that opens a chromosome (#790, #803, #839), both
+// of which 3.7.6 dropped from the trees; the lists are unchanged. The recorded
+// invocations, run in an empty directory:
 //
 //   two_files.txt            -d 10kbtad_domains.bed 50kbtad_domains.bed
 //                            -om m1 -or r1 -ot tree
 //   three_files_protein.txt  -d 10kbtad_domains.bed 50kbtad_domains.bed
 //                            100kbtad_domains.bed -p ctcf_sorted_nochr.bed
 //                            -om m2 -or r2 -ot tree
-//   reversed_order.txt       -d 50kbtad_domains.bed 10kbtad_domains.bed
-//                            -om m3 -or r3 -ot tree
 //
 // hicexplorer/test/general/test_hicMergeDomains.py checks the same files
 // against the Python, so a change in either implementation fails a test.
@@ -136,29 +138,27 @@ TEST_CASE("relation tree DOT sources are byte identical to graphviz, three files
                             kData + "tree_sources/three_files_protein.txt");
 }
 
-TEST_CASE("relation tree DOT sources are byte identical to graphviz, reversed file order") {
-    check_against_recording(
-        trees_for({kData + "50kbtad_domains.bed", kData + "10kbtad_domains.bed"}, ""),
-        kData + "tree_sources/reversed_order.txt");
-}
-
-TEST_CASE("merge_list can put one row object into the merged list twice") {
-    // With the 50 kb file first, the last TAD on X is appended by :139-142
-    // and again by :171-173. add_id then numbers the same row twice, so both
-    // slots print the later ID, which is what the Python writes.
-    md::MergedDomains domains = md::merge_domain_files(
-        {kData + "50kbtad_domains.bed", kData + "10kbtad_domains.bed"}, nullptr, 1, 5000);
-    REQUIRE(domains.merged.size() == 13330);
-    std::size_t aliased = 0;
-    for (std::size_t i = 0; i < domains.merged.size(); ++i) {
-        for (std::size_t j = i + 1; j < domains.merged.size() && j < i + 10; ++j) {
-            if (domains.merged[i] == domains.merged[j]) {
-                ++aliased;
-                CHECK(domains.pool.rows[domains.merged[i]][3] == "ID_13237");
-            }
+TEST_CASE("the domain files are merged from the finest to the coarsest bin size") {
+    // 3.7.6 merged in command line order and failed with an IndexError in
+    // create_tree for 100, 50, 10 kb (#790, #803, #839).
+    const std::string ten = kData + "10kbtad_domains.bed";
+    const std::string fifty = kData + "50kbtad_domains.bed";
+    const std::string hundred = kData + "100kbtad_domains.bed";
+    check_against_recording(trees_for({fifty, ten}, ""), kData + "tree_sources/two_files.txt");
+    const md::MergedDomains sorted = md::merge_domain_files({ten, fifty, hundred}, nullptr, 1, 5000);
+    for (const auto& order : std::vector<std::vector<std::string>>{
+             {hundred, fifty, ten}, {fifty, hundred, ten}, {ten, hundred, fifty}}) {
+        const md::MergedDomains other = md::merge_domain_files(order, nullptr, 1, 5000);
+        REQUIRE(other.merged.size() == sorted.merged.size());
+        for (std::size_t i = 0; i < sorted.merged.size(); ++i) {
+            CHECK(other.pool.rows[other.merged[i]] == sorted.pool.rows[sorted.merged[i]]);
         }
+        const auto relations = md::create_relationship_list(other.pool, other.merged, 0.5);
+        std::size_t graphs = 0;
+        md::create_tree(relations, other.pool, other.merged, "tree",
+                        [&graphs](const md::TreeGraph&) { ++graphs; });
+        CHECK(graphs == 23);
     }
-    CHECK(aliased == 1);
 }
 
 TEST_CASE("the protein filter only acts when the chromosome names match") {
