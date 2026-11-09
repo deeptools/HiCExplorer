@@ -151,7 +151,9 @@ const char* const kHelp =
     "                        Store the applied correction and do not set\n"
     "                        correction factors.\n"
     "  --chromosome CHROMOSOME\n"
-    "                        Load only one chromosome.\n"
+    "                        Load only one chromosome (a single name, not a list).\n"
+    "                        To select several chromosomes use hicAdjustMatrix\n"
+    "                        --chromosomes --action keep.\n"
     "  --enforce_integer     Enforce datatype of counts to integer.\n"
     "  --load_raw_values     Load only 'count' data and do not apply a correction.\n"
     "  --resolutions RESOLUTIONS [RESOLUTIONS ...], -r RESOLUTIONS [RESOLUTIONS ...]\n"
@@ -274,7 +276,8 @@ Arguments parse_arguments(int argc, char** argv) {
     optional.add({"--store_applied_correction"})
         .action(cli::Action::StoreTrue)
         .help("Store the applied correction and do not set correction factors.");
-    optional.add({"--chromosome"}).help("Load only one chromosome. Option only for cool input files.");
+    optional.add({"--chromosome"}).help("Load only one chromosome (a single name, not a list). Option only for cool input files. "
+              "To select several chromosomes use hicAdjustMatrix --chromosomes --action keep.");
     optional.add({"--enforce_integer"})
         .action(cli::Action::StoreTrue)
         .help("Enforce datatype of counts to integer. Option only for cool input files.");

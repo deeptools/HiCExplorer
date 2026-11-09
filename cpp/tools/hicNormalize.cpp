@@ -92,12 +92,18 @@ const char* const kHelp =
     "                        Value to multiply if --normalize is set to\n"
     "                        multiplicative. (Default: 1).\n"
     "  --setToZeroThreshold SETTOZEROTHRESHOLD, -sz SETTOZEROTHRESHOLD\n"
-    "                        A threshold to set all values after normalization to 0\n"
-    "                        if smaller this threshold. Default value is 0 i.e.\n"
-    "                        there is no effect.It is recommended to set it for the\n"
-    "                        normalize mode \"smallest\" to 1.0. This parameter will\n"
-    "                        influence the sparsity of the matrix by removing many\n"
-    "                        values close to 0 in smallest normalization mode.\n"
+    "                        A threshold: after normalization every value smaller\n"
+    "                        than the threshold is set to 0. The default is 0,\n"
+    "                        which has no effect. In the mode \"smallest\" the counts\n"
+    "                        of the larger matrices are scaled down, so many small\n"
+    "                        values fall below a threshold such as 1.0 and are\n"
+    "                        removed. This increases the sparsity of the matrix. A\n"
+    "                        matrix with sparse inter-chromosomal contacts, which\n"
+    "                        mostly consist of single counts, then loses most of\n"
+    "                        these contacts, except in the smallest matrix, which\n"
+    "                        is not scaled. Set a threshold only when this is\n"
+    "                        intended, and compare the number of inter-chromosomal\n"
+    "                        contacts of the matrices afterwards.\n"
     "  --help, -h            show this help message and exit\n"
     "  --version             show program's version number and exit\n";
 
@@ -143,8 +149,8 @@ Arguments parse_arguments(int argc, char** argv) {
     optional.add({"--setToZeroThreshold", "-sz"})
         .default_value(0.0)
         .type("float")
-        .help("A threshold to set all values after normalization to 0 if smaller this "
-              "threshold.");
+        .help("A threshold to set all values after normalization to 0 if smaller than this "
+              "threshold. Default: 0, no effect.");
     optional.add({"--help", "-h"}).action(cli::Action::Help).help("show this help message and exit");
     optional.add({"--version"}).version(std::string("%(prog)s ") + hicx::kVersion);
 

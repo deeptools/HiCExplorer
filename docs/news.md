@@ -109,6 +109,8 @@ Fixed (these results differ from 3.7.6, where 3.7.6 was wrong):
   header use the bin size of the enlarged bins, the `_zscore_matrix` stores no NaN entries beyond
   `2 * maxDepth`, chromosome starts and ends are kept apart in the boundary list, and invalid depths exit
   with status 1.
+- `hicMergeMatrixBins` keeps the full length of every chromosome and all counts when bins are merged; 3.7.6
+  shortened the chromosomes and lost counts of the last bins (#787, #906).
 - `hicAdjustMatrix --maskBadRegions` masks the regions of its BED file; 3.7.6 never read the file.
   `hicAdjustMatrix` exits with status 1 when no selection or an unknown chromosome name is given, and
   `--regions --action remove` removes only the given regions; 3.7.6 also deleted every empty bin.

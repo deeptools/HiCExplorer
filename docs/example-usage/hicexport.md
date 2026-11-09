@@ -19,8 +19,8 @@ is an example.
 
 ```bash
 ## Assuming HiCExplorer is installed in ~/programs
-hicConvertFormat --matrix ~/programs/HiCExplorer/test/test_data/Li_et_al_2015.h5 \ --inputFormat h5
--o GInteration_example --outputFormat GInteractions
+hicConvertFormat --matrix ~/programs/HiCExplorer/test/test_data/Li_et_al_2015.h5 \
+    --inputFormat h5 -o GInteractions_example --outputFormat ginteractions
 ```
 The output file is in tsv format. It looks like this :
 
@@ -46,7 +46,7 @@ shown below :
 library(GenomicRanges)
 library(InteractionSet)
 
-hic <- read.delim("GInteraction_example.tsv", header = FALSE)
+hic <- read.delim("GInteractions_example.tsv", header = FALSE)
 
 # Converting data.frame to GInteraction
 convertToGI <- function(df){
@@ -56,7 +56,6 @@ convertToGI <- function(df){
             gi$norm.freq <- df$V7 # Interaction frequencies
             return(gi)
 }
-                        }
 hic.gi <- convertToGI(hic)
 ```
 Multiple files can be loaded, and converted to an **InteractionSet**
@@ -67,8 +66,10 @@ match, we can merge the GInteraction objects based on matching bins, as
 follows.
 
 ```r
-# assuming hic.gi is a list of two GInteration objects hic.gi1 and hic.gi2
-# hic.gi <- list(hic.gi1, hic.gi2)
+# Load two matrices (each exported with hicConvertFormat --outputFormat ginteractions)
+# and convert them to a named list of two GInteractions objects
+hic.gi <- list(hic.gi1 = convertToGI(read.delim("GInteractions_example1.tsv", header = FALSE)),
+               hic.gi2 = convertToGI(read.delim("GInteractions_example2.tsv", header = FALSE)))
 
 # Get common regions between the two objects
 combined <- unique(c(hic.gi$hic.gi1, hic.gi$hic.gi2))

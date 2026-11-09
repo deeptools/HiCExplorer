@@ -80,12 +80,19 @@ const char* const kHelp =
     "\n"
     "Required arguments:\n"
     "  --targetMatrix TARGETMATRIX, -tm TARGETMATRIX\n"
-    "                        The matrix which was used to compute the TADs\n"
+    "                        The target matrix: the first of the two compared\n"
+    "                        matrices. The TAD domains should be computed from it,\n"
+    "                        or from the control matrix.\n"
     "  --controlMatrix CONTROLMATRIX, -cm CONTROLMATRIX\n"
     "                        The control matrix to test the TADs for a differential\n"
     "                        interaction pattern.\n"
     "  --tadDomains TADDOMAINS, -td TADDOMAINS\n"
-    "                        The TADs domain file computed by hicFindTADs.\n"
+    "                        The TADs domain file computed by hicFindTADs. Its\n"
+    "                        domains define the regions that are compared between\n"
+    "                        the two matrices; they are not tested for being TADs.\n"
+    "                        Compute them with hicFindTADs from the target matrix,\n"
+    "                        or from the matrix of the condition whose domains\n"
+    "                        should be tested in the other (usually the control).\n"
     "  --outFileNamePrefix OUTFILENAMEPREFIX, -o OUTFILENAMEPREFIX\n"
     "                        Outfile name prefix to store the accepted / rejected H0\n"
     "                        TADs.\n"
@@ -120,7 +127,17 @@ const char* const kHelp =
     "                        gain the adjusted p-values. New in\n"
     "                        HiCExplorer 4 (Default: none).\n"
     "  --help, -h            show this help message and exit\n"
-    "  --version             show program's version number and exit\n";
+    "  --version             show program's version number and exit\n"
+    "\n"
+    "Output columns of the .diff_tad files: the six BED fields of the domain file\n"
+    "(chromosome, start, end, name, score, strand), the p-values of the left\n"
+    "inter-TAD, right inter-TAD and intra-TAD Wilcoxon rank-sum tests, then the\n"
+    "statistic W of the same three tests, and with --correctForMultipleTesting the\n"
+    "three adjusted p-values. Each test compares the contacts of a region in the\n"
+    "target matrix with those of the same region in the control matrix. W is the\n"
+    "standardised rank sum of the target sample: positive when the contacts are\n"
+    "higher in the target matrix, negative when they are lower. A test without a\n"
+    "neighbour region shows nan and never rejects.\n";
 
 struct Arguments {
     std::optional<std::string> target;
@@ -147,13 +164,17 @@ Arguments parse_arguments(int argc, char** argv) {
     cli::ArgumentGroup& required = parser.group("Required arguments");
     required.add({"--targetMatrix", "-tm"})
         .input({"cool", "h5"})
-        .help("The matrix which was used to compute the TADs");
+        .help("The target matrix: the first of the two compared matrices. The TAD domains "
+              "should be computed from it, or from the control matrix.");
     required.add({"--controlMatrix", "-cm"})
         .input({"cool", "h5"})
         .help("The control matrix to test the TADs for a differential interaction pattern.");
     required.add({"--tadDomains", "-td"})
         .input({"bed"})
-        .help("The TADs domain file computed by hicFindTADs.");
+        .help("The TADs domain file computed by hicFindTADs. Its domains define the regions "
+              "that are compared between the two matrices. Compute them with hicFindTADs from "
+              "the target matrix, or from the matrix of the condition whose domains should be "
+              "tested in the other (usually the control).");
     required.add({"--outFileNamePrefix", "-o"})
         .default_value("output_differential_tad")
         .output({"txt"}, "prefix")

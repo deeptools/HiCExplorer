@@ -37,6 +37,25 @@ const char* const kUsage =
     "                              RANGE [--resolution RESOLUTION] --outFileName\n"
     "                              OUTFILENAME [--help] [--version]\n";
 
+const char* const kHelp =
+    "\n"
+    "Writes the threshold file used by hicDetectLoops: one threshold value for all\n"
+    "relative distances within the given range around a reference point.\n"
+    "\n"
+    "Required arguments:\n"
+    "  --thresholdValue THRESHOLDVALUE, -tv THRESHOLDVALUE\n"
+    "                        Standard threshold value for all relative distances.\n"
+    "  --range RANGE RANGE   Defines the region upstream and downstream of a reference\n"
+    "                        point which should be included.\n"
+    "  --resolution RESOLUTION, -r RESOLUTION\n"
+    "                        Resolution of the bin in genomic units (Default: 1000).\n"
+    "  --outFileName OUTFILENAME, -o OUTFILENAME\n"
+    "                        The name and path of the created threshold file.\n"
+    "\n"
+    "Optional arguments:\n"
+    "  --help, -h            Show this help message and exit.\n"
+    "  --version             show program's version number and exit\n";
+
 struct Arguments {
     double threshold_value = 0.0;
     std::int64_t range_upstream = 0;
@@ -49,7 +68,7 @@ struct Arguments {
 Arguments parse_arguments(int argc, char** argv) {
     namespace cli = hicx::cli;
     cli::Parser parser("hicCreateThresholdFile", "");
-    parser.set_usage(kUsage).set_version_string(hicx::kVersion);
+    parser.set_usage(kUsage).set_help(kHelp).set_version_string(hicx::kVersion);
     cli::ArgumentGroup& required = parser.group("Required arguments");
     required.add({"--thresholdValue", "-tv"})
         .type("float")
