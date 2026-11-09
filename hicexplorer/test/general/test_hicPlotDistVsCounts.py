@@ -65,3 +65,27 @@ def test_trivial_run(matrices, labels, plotsize1, plotsize2, perchr, skipDiagona
     #     fo.write("\n")
     # hicPlotDistVsCounts.main(args)
     compute(hicPlotDistVsCounts.main, args, 5)
+
+
+def test_no_curve_to_draw_exits_1_with_a_message(tmp_path, capfd):
+    """Issue #836: with --maxdepth equal to the bin size (5000) only the diagonal
+    is left, no curve has more than one point, and 3.7.6 ended with
+    UnboundLocalError for 'lgd'. The tool stops with a message and status 1."""
+    plot = tmp_path / 'dv.png'
+    args = "--matrices {} --plotFile {} --maxdepth 5000".format(ROOT + 'small_test_matrix.cool', plot).split()
+    with pytest.raises(SystemExit) as exit_info:
+        hicPlotDistVsCounts.main(args)
+    assert exit_info.value.code == 1
+    captured = capfd.readouterr()
+    assert 'no curve with more than one point can be drawn' in captured.err
+    assert 'UnboundLocalError' not in captured.err
+    assert not plot.exists() or plot.stat().st_size == 0
+
+
+def test_plot_layer_without_series_does_not_fail(tmp_path):
+    """The plot code survives a data file without any series (lgd = None)."""
+    from hicexplorer_plot import hicPlotDistVsCounts as plot_layer
+    plot = tmp_path / 'empty.png'
+    plot_layer.draw({'plotFile': str(plot), 'perchr': False, 'num_chroms': 0, 'maxdepth': 5000,
+                     'plotsize': None, 'matrices': [{'label': 'a', 'series': []}]})
+    assert plot.exists()

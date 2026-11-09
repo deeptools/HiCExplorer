@@ -51,7 +51,6 @@ EXPECTED_FAILURES = {
     "test_hicInterIntraTAD.py::test_threads_small_chromosome_first_drops_last_tad": PYTHON_DEFECT,
     "test_hicMergeDomains.py::test_relation_tree_sources_are_pinned[two_files]": IN_PROCESS_CAPTURE,
     "test_hicMergeDomains.py::test_relation_tree_sources_are_pinned[three_files_protein]": IN_PROCESS_CAPTURE,
-    "test_hicMergeDomains.py::test_relation_tree_sources_are_pinned[reversed_order]": IN_PROCESS_CAPTURE,
     "test_hicMergeMatrixBins.py::test_correct_matrix": MERGE_LAYOUT,
     "test_hicMergeMatrixBins.py::test_running_window_rejects_an_even_number_of_bins": EVEN_WINDOW,
     "test_hicMergeMatrixBins.py::test_merge_bins_4_is_bit_exact": MERGE_LAYOUT,

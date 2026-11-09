@@ -80,6 +80,7 @@ def draw(data):
             axs[row, col] = ax
             idx += 1
 
+    lgd = None
     for ax in axs.reshape(-1):
         if ax is None:
             continue
@@ -89,5 +90,5 @@ def draw(data):
         lgd = ax.legend(handles, labels, loc='center left', bbox_to_anchor=(1, 0.5))
 
     plt.tight_layout()
-    plt.savefig(data["plotFile"], bbox_inches='tight', bbox_extra_artists=(lgd,))
+    plt.savefig(data["plotFile"], bbox_inches='tight', bbox_extra_artists=(lgd,) if lgd is not None else ())
     plt.close(fig)

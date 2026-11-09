@@ -708,34 +708,20 @@ void create_tree(const std::vector<Relation>& relations, const RowPool& pool,
     while (at(small, pos_s).first != chrom) {
         ++pos_s;
     }
-    for (std::size_t pos_r = 0; pos_r < relations.size(); ++pos_r) {
-        const Relation& relation = relations[pos_r];
-        if (chrom == relation.chrom) {
-            std::vector<std::string>& ids = small[pos_s].second;
-            while (py_int(slice_from(at(ids, 0), 3)) < py_int(slice_from(relation.parent, 3))) {
-                graph.node(ids[0]);
-                ids.erase(ids.begin());
-            }
-            if (contains(ids, relation.parent)) {
-                remove_first(ids, relation.parent);
-            }
-            for (const std::string& child : relation.children) {
-                graph.edge(relation.parent, child);
-                if (contains(ids, child)) {
-                    remove_first(ids, child);
-                }
-            }
-        } else {
-            // The IDs left over on the finished chromosome become lone nodes.
-            // The relation that opened the new chromosome is not added to any
-            // graph, because the loop moves past it (:301); and the IDs left
-            // over on the last chromosome are never flushed (:302-303). Both
-            // pinned.
-            std::vector<std::string>& ids = small[pos_s].second;
-            while (!ids.empty()) {
-                graph.node(ids[0]);
-                ids.erase(ids.begin());
-            }
+    // The IDs left over on a finished chromosome become lone nodes.
+    const auto flush = [&]() {
+        std::vector<std::string>& ids = small[pos_s].second;
+        for (const std::string& id : ids) {
+            graph.node(id);
+        }
+        ids.clear();
+    };
+    for (const Relation& relation : relations) {
+        if (chrom != relation.chrom) {
+            // 3.7.6 skipped the relation that opened a new chromosome (it
+            // advanced past it) and never flushed the IDs left over on the
+            // last chromosome. Both are repaired here.
+            flush();
             render(graph.graph(chrom));
             chrom = relation.chrom;
             name = prefix + "_" + chrom;
@@ -745,7 +731,25 @@ void create_tree(const std::vector<Relation>& relations, const RowPool& pool,
                 ++pos_s;
             }
         }
+        std::vector<std::string>& ids = small[pos_s].second;
+        // 3.7.6 read ids[0] without a check and failed with an IndexError
+        // when the parent had been consumed as the child of an earlier
+        // relation and no larger ID was left (#790, #803, #839).
+        while (!ids.empty() && py_int(slice_from(ids[0], 3)) < py_int(slice_from(relation.parent, 3))) {
+            graph.node(ids[0]);
+            ids.erase(ids.begin());
+        }
+        if (contains(ids, relation.parent)) {
+            remove_first(ids, relation.parent);
+        }
+        for (const std::string& child : relation.children) {
+            graph.edge(relation.parent, child);
+            if (contains(ids, child)) {
+                remove_first(ids, child);
+            }
+        }
     }
+    flush();
     render(graph.graph(chrom));
 }
 
@@ -756,6 +760,10 @@ MergedDomains merge_domain_files(const std::vector<std::string>& domain_files,
     // create_list_with_protein (:394-400). merge_protein rebinds only its
     // local name, so every domain file bins the original protein list with
     // its own bin size.
+    struct Loaded {
+        std::int64_t bin_size;
+        std::vector<std::size_t> rows;
+    };
     const auto load = [&](const std::string& path) {
         DomainList list = create_list_of_file(result.pool, path);
         if (proteins != nullptr) {
@@ -763,17 +771,22 @@ MergedDomains merge_domain_files(const std::vector<std::string>& domain_files,
                 merge_protein(*proteins, list.bin_size, minimum_number_of_peaks);
             compare_boundaries_protein(result.pool, list.rows, binned);
         }
-        return list.rows;
+        return Loaded{list.bin_size, std::move(list.rows)};
     };
-    result.merged = load(at(domain_files, 0));
-    if (domain_files.size() > 1) {
-        std::vector<std::vector<std::size_t>> others;
-        for (std::size_t i = 1; i < domain_files.size(); ++i) {
-            others.push_back(load(domain_files[i]));
-        }
-        for (const auto& other : others) {
-            result.merged = merge_list(result.pool, result.merged, other, value);
-        }
+    std::vector<Loaded> loaded;
+    for (const std::string& path : domain_files) {
+        loaded.push_back(load(path));
+    }
+    // The merge and the relation tree need the files from the finest to the
+    // coarsest bin size. 3.7.6 merged in command line order and failed with an
+    // IndexError for any other order (#790, #803, #839). A stable sort keeps
+    // the result of a command line that is already ordered.
+    (void)at(loaded, 0);
+    std::stable_sort(loaded.begin(), loaded.end(),
+                     [](const Loaded& a, const Loaded& b) { return a.bin_size < b.bin_size; });
+    result.merged = loaded[0].rows;
+    for (std::size_t i = 1; i < loaded.size(); ++i) {
+        result.merged = merge_list(result.pool, result.merged, loaded[i].rows, value);
     }
     add_id(result.pool, result.merged);
     return result;

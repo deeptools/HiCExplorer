@@ -14,6 +14,11 @@ Deviations from 3.7.6, kept on purpose (cpp/python/src/api/hicMergeDomains.cpp):
 * create_tree runs graphviz's dot with the command graphviz 0.20.3 runs, on
   the same DOT source, without the graphviz package; patching
   graphviz.Digraph does not reach it.
+* create_tree draws the relation that opens each further chromosome and the
+  IDs left over on the last chromosome, which 3.7.6 left out of its trees
+  (#790, #803, #839). The cases that draw trees carry a `deviation`
+  (see test_api_equivalence.py): everything but the tree files must equal
+  3.7.6, and every node and edge of a 3.7.6 tree must be in the new tree.
 * merge_protein raises ValueError for a bin size that is not positive, where
   3.7.6 loops forever (no case can pin an endless loop).
 * Row fields that are not str raise TypeError naming HiCExplorer 4.
@@ -207,3 +212,51 @@ CASES = [
                                           [r[0:3] for r in rows(PEAKS) if r[0] == '2']]),
          files={'a.bed': SHIFTED.encode()}),
 ]
+
+
+def _split_trees(value, found):
+    """`value` with the content of every tree_* file replaced by a constant."""
+    if isinstance(value, tuple) and len(value) == 2 and value[0] == 'dict':
+        entries = []
+        for key, item in value[1]:
+            if key[0] == 'str' and key[1].startswith('tree_') and item[0] == 'bytes':
+                found[key[1]] = item[1]
+                item = ('const', 'tree')
+            else:
+                item = _split_trees(item, found)
+            entries.append((key, item))
+        return ('dict', entries)
+    if isinstance(value, tuple):
+        return tuple(_split_trees(item, found) for item in value)
+    if isinstance(value, list):
+        return [_split_trees(item, found) for item in value]
+    return value
+
+
+def trees_complete(expected, actual):
+    """The deviation of the tree cases: see the module docstring."""
+    import re
+    import types
+    from apieq import compare_records
+    old, new = {}, {}
+    expected = dict(expected, **{'return': _split_trees(expected['return'], old)}) if 'return' in expected else expected
+    actual = dict(actual, **{'return': _split_trees(actual['return'], new)}) if 'return' in actual else actual
+    message = compare_records(expected, actual, types.SimpleNamespace(rtol=0.0, atol=0.0))
+    if message:
+        return message
+    if sorted(old) != sorted(new):
+        return 'tree files {} against {}'.format(sorted(new), sorted(old))
+    edge = re.compile(rb'(ID_\d+)(?: |&#45;&gt;|->)(ID_\d+)')
+    for name in sorted(old):
+        missing = set(re.findall(rb'ID_\d+', old[name])) - set(re.findall(rb'ID_\d+', new[name]))
+        missing |= set(edge.findall(old[name])) - set(edge.findall(new[name]))
+        if missing:
+            return '{} lacks {}'.format(name, sorted(missing)[:5])
+    return None
+
+
+for _case in CASES:
+    if _case.id in ('tree_plain', 'tree_dot_source', 'chain_two_files', 'chain_three_files_svg',
+                    'chain_two_files_protein'):
+        _case.deviation = trees_complete
+        _case.note = 'create_tree repairs two flaws of 3.7.6, see the module docstring'

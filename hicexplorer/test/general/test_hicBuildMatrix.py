@@ -1006,3 +1006,38 @@ def test_build_matrix_pairs_min_mapping_quality_needs_both_mates_at_zero_for_not
     assert "One mate not unique\t1\t" in body
     assert "Low mapping quality\t2\t" in body
     assert "Hi-C contacts\t1\t" in body
+
+
+@pytest.mark.parametrize('rename', [False, True], ids=['semicolon_in_name', 'plain_name'])
+def test_build_matrix_sa_tag_counts_entries_not_semicolons(tmp_path, rename):
+    """Issue #387: a reference name with ';' ("Sc1;HRSCAF=2") made the SA tag
+    count too many supplementary alignments, so the reader consumed the next
+    pairs and the run stopped with "Be sure that the sam files have the same
+    read order". The BAM pair is written by cpp/scripts/make_sa_semicolon_bams.py;
+    the first pair carries SA:Z:Sc1;HRSCAF=2,3000,+,50S50M,60,0; and its
+    supplementary record follows it. All five pairs are valid contacts, with
+    the ';' in the name and with the name written without it."""
+    data = ROOT + 'hicBuildMatrix/sa_semicolon/'
+    r1, r2, sites = data + 'R1.bam', data + 'R2.bam', data + 'sites.bed'
+    if rename:
+        import pysam
+        for name in ('R1.bam', 'R2.bam'):
+            with pysam.AlignmentFile(data + name, 'rb') as source:
+                header = source.header.to_dict()
+                for entry in header['SQ']:
+                    entry['SN'] = entry['SN'].replace(';', '_')
+                with pysam.AlignmentFile(str(tmp_path / name), 'wb', header=header) as target:
+                    for record in source:
+                        if record.has_tag('SA'):
+                            record.set_tag('SA', record.get_tag('SA').replace(';', '_', 1))
+                        target.write(record)
+        with open(sites) as handle:
+            (tmp_path / 'sites.bed').write_text(handle.read().replace(';', '_'))
+        r1, r2, sites = str(tmp_path / 'R1.bam'), str(tmp_path / 'R2.bam'), str(tmp_path / 'sites.bed')
+    qc_folder = str(tmp_path / 'qc')
+    args = ("--samFiles {} {} --binSize 10000 --outFileName {} --QCfolder {} --threads 2 "
+            "--restrictionSequence AAGCTT --danglingSequence AGCT --restrictionCutFile {} "
+            "--noPlot".format(r1, r2, tmp_path / 'm.cool', qc_folder, sites)).split()
+    compute(hicBuildMatrix.main, args, 5)
+    body = _qc_body(qc_folder)
+    assert "Hi-C contacts\t5\t" in body

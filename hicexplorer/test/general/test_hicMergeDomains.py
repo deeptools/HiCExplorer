@@ -211,11 +211,19 @@ def _file_bytes(path):
     (['-d', TEN, FIFTY, HUNDRED, '-p', CTCF_NOCHR],
      'aeca666a03587c3be6b96e272359d529914d4d7a05948573884ce13baa6f95d3', 13978,
      '7bb2c56e41846c42e09dfb5f47e58df27fb4f554ee9d0554326bc970f17bf001', 15635),
+    # The domain files are merged from the finest to the coarsest bin size,
+    # whatever the command line order. 3.7.6 merged in command line order and
+    # failed with an IndexError for 100, 50, 10 kb (#790, #803, #839); the
+    # result equals that of the two_files case.
     (['-d', FIFTY, TEN],
-     '63d3a8ebf81d2e2412031beb40d8e6d22bcf2e43171d54726d749afcc87ddb3f', 13330,
-     'bee8136c6bf7d1a914da26d66ba8ee4d5422bc945d5e6821d63015479fe2147f', 7173),
+     '75b51f0a9b7fade83bca39bd37e8415a17fb94f0440f64b8cfa6de74e3a4b6c4', 13329,
+     'b08b1b5c0b56ce365bf278dc7fa38b107af4d9e4af12678d2df3754d53143339', 7152),
+    (['-d', HUNDRED, FIFTY, TEN],
+     '14c0b781be5db8ffc88bc311cd675d82201324450b456fdcbc406934a3f1ffcb', 15402,
+     '92b002b8464cd310c4dabcd76bdbeb8581e2829be843ed1a3fa4295416d14204', 18108),
 ], ids=['one_file_protein', 'two_files', 'two_files_protein', 'minimumNumberOfPeaks_3',
-        'value_20000', 'percent_0.1', 'three_files', 'three_files_protein', 'reversed_order'])
+        'value_20000', 'percent_0.1', 'three_files', 'three_files_protein', 'reversed_order',
+        'three_files_reversed_order'])
 def test_merged_and_relation_lists_are_pinned(tmp_path, monkeypatch, args, merged_sha,
                                               merged_lines, relations_sha, relations_lines):
     _run(tmp_path, monkeypatch, args)
@@ -249,8 +257,7 @@ def test_protein_file_with_other_chromosome_names_changes_nothing(tmp_path, monk
 @pytest.mark.parametrize('args, recording', [
     (['-d', TEN, FIFTY], 'two_files.txt'),
     (['-d', TEN, FIFTY, HUNDRED, '-p', CTCF_NOCHR], 'three_files_protein.txt'),
-    (['-d', FIFTY, TEN], 'reversed_order.txt'),
-], ids=['two_files', 'three_files_protein', 'reversed_order'])
+], ids=['two_files', 'three_files_protein'])
 def test_relation_tree_sources_are_pinned(tmp_path, monkeypatch, args, recording):
     # The same recordings pin the C++ DOT writer (cpp/tests/test_merge_domains.cpp).
     graphs = _run(tmp_path, monkeypatch, args)
@@ -261,16 +268,6 @@ def test_relation_tree_sources_are_pinned(tmp_path, monkeypatch, args, recording
     # others without it.
     assert graphs[0][1].startswith('strict digraph {\n')
     assert all(source.startswith('digraph {\n') for _, source in graphs[1:])
-
-
-def test_reversed_order_writes_one_tad_twice_under_one_id(tmp_path, monkeypatch):
-    # merge_list appends the last TAD of X twice as the same list object and
-    # add_id numbers that object twice, so both lines carry the later ID.
-    _run(tmp_path, monkeypatch, ['-d', FIFTY, TEN])
-    with open(tmp_path / 'merged.bed') as handle:
-        lines = handle.readlines()
-    duplicated = sorted({line for line in lines if lines.count(line) > 1})
-    assert duplicated == ['X\t154100000\t154500000\tID_13237\t-0.397066580167\t.\t154100000\t154500000\t51,160,44\n']
 
 
 def test_one_domain_file_without_protein_file_exits_1(tmp_path, monkeypatch):

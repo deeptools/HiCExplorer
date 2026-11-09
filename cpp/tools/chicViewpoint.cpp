@@ -390,7 +390,11 @@ int main(int argc, char** argv) {
 
         std::string chromosome_group;
         for (const auto& [matrix_path, results] : collection) {
-            const std::string name = basename(matrix_path);
+            // An mcool URI "file.mcool::resolutions/10000" names its sample
+            // after the file: everything after "::" is the group inside it.
+            // 3.7.6 took the text before the first dot of the whole URI, so
+            // two mcool files collided on the group "10000" (#828).
+            const std::string name = basename(matrix_path.substr(0, matrix_path.find("::")));
             const std::string matrix_group = name.substr(0, name.find('.'));
             writer.create_group(matrix_group);
             writer.create_group(matrix_group + "/genes");

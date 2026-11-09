@@ -83,3 +83,16 @@ TEST_CASE("build_matrix_api: posixpath and Tester paths") {
     CHECK(env.root == "/data");
     CHECK(env.bam_file_1 == "/data/hic.bam");
 }
+
+TEST_CASE("build_matrix_api: SA tag entries are counted, not semicolons") {
+    namespace api = hicx::build_matrix_api;
+    CHECK(api::supplementary_count("") == 0);
+    CHECK(api::supplementary_count("chr1,100,+,50S50M,60,0;") == 1);
+    CHECK(api::supplementary_count("chr1,100,+,50S50M,60,0;chr2,5,-,10M90S,0,2;") == 2);
+    // A reference name with ';' stays one entry.
+    CHECK(api::supplementary_count("Sc1;HRSCAF=2,3000,+,50S50M,60,0;") == 1);
+    CHECK(api::supplementary_count("Sc1;HRSCAF=2,3000,+,50S50M,60,0;chr2,5,-,10M90S,0,2;") == 2);
+    CHECK(api::supplementary_count("a;b;c,1,+,5M,60,0;d;e,2,-,5M,60,1;") == 2);
+    // An unterminated last entry is not counted, as before.
+    CHECK(api::supplementary_count("chr1,100,+,50S50M,60,0;chr2,5,-,10M90S,0,2") == 1);
+}
