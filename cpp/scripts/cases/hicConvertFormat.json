@@ -186,8 +186,8 @@
              "--outFileName", "{out}/matrix.mcool",
              "--inputFormat", "h5", "--outputFormat", "mcool",
              "-r", "10000", "100000", "200000"],
-    "outputs": [{"path": "{out}/matrix.mcool", "format": "mcool", "class": "E1"}],
-    "notes": "The same path from an h5 source, where none of the three resolutions equals the 5 kb source bin size so merge_bins runs three times. fileWasH5 is set, so the nan bins merge_bins recomputes are also the ones the cool writer masks with."
+    "outputs": [{"path": "{out}/matrix.mcool", "format": "mcool", "class": "E1", "options": {"ignore_root_attributes": ["format", "format-url", "format-version"]}}],
+    "notes": "The same path from an h5 source, where none of the three resolutions equals the 5 kb source bin size so merge_bins runs three times. fileWasH5 is set, so the nan bins merge_bins recomputes are also the ones the cool writer masks with. Deliberate deviation (HiCExplorer 4 fix of issue 952): the root of the mcool carries format HDF5::MCOOL and format-version 2, as cooler's zoomify writes it, where 3.7.6 wrote the cooler attributes (format HDF5::Cooler) on the root, so that cooler listed / as a cooler. The root attributes format, format-url and format-version are therefore excluded from the comparison with the 3.7.6 output; everything else, including the resolution groups, is compared at the declared class."
   },
   {
     "id": "hicConvertFormat.cool_to_mcool.two_matrices_resolutions.exits_1",
@@ -210,8 +210,8 @@
              "{data}/hicConvertFormat/small_test_matrix.cool",
              "--outFileName", "{out}/matrix.mcool",
              "--inputFormat", "cool", "--outputFormat", "mcool"],
-    "outputs": [{"path": "{out}/matrix.mcool", "format": "mcool", "class": "E1"}],
-    "notes": "The other mcool branch (hicConvertFormat.py:331-344): no --resolutions, one group per input matrix named after its own bin size, the second matrix appended. Both inputs are at 5 kb, so the second replaces the first's group and the file ends with a single resolution. Also the only case where the output handler is built with neither pHiCInfo nor pEnforceInteger."
+    "outputs": [{"path": "{out}/matrix.mcool", "format": "mcool", "class": "E1", "options": {"ignore_root_attributes": ["format", "format-url", "format-version"]}}],
+    "notes": "The other mcool branch (hicConvertFormat.py:331-344): no --resolutions, one group per input matrix named after its own bin size, the second matrix appended. Both inputs are at 5 kb, so the second replaces the first's group and the file ends with a single resolution. Also the only case where the output handler is built with neither pHiCInfo nor pEnforceInteger. Deliberate deviation (HiCExplorer 4 fix of issue 952): the root of the mcool carries format HDF5::MCOOL and format-version 2, as cooler's zoomify writes it, where 3.7.6 wrote the cooler attributes (format HDF5::Cooler) on the root, so that cooler listed / as a cooler. The root attributes format, format-url and format-version are therefore excluded from the comparison with the 3.7.6 output; everything else, including the resolution groups, is compared at the declared class."
   },
   {
     "id": "hicConvertFormat.h5_to_cool.Li_et_al_2015",
