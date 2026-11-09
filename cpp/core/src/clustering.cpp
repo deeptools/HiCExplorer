@@ -3,10 +3,13 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <iterator>
 #include <limits>
 #include <numeric>
+#include <stdexcept>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "hicx/numpy_compat.hpp"
 #include "hicx/numpy_random.hpp"
@@ -44,15 +47,39 @@ struct Blas {
 const Blas& blas() {
     static const Blas loaded = [] {
         setenv("OPENBLAS_NUM_THREADS", "1", 0);
+        // The library found at build time, then the stable names of OpenBLAS
+        // and of the CBLAS library of a conda environment (which point to the
+        // BLAS implementation installed there), then the build-time path. The
+        // first one that provides the CBLAS interface is used; a dlsym on its
+        // handle also finds the Fortran symbols of the libraries it depends on.
         const std::string full = HICX_OPENBLAS_LIBRARY;
         const std::string base = full.substr(full.find_last_of('/') + 1);
-        void* handle = dlopen(base.c_str(), RTLD_NOW | RTLD_LOCAL);
-        if (handle == nullptr) {
-            handle = dlopen(full.c_str(), RTLD_NOW | RTLD_LOCAL);
+#ifdef __APPLE__
+        const char* const stable[] = {"libopenblas.0.dylib", "libcblas.3.dylib"};
+#else
+        const char* const stable[] = {"libopenblas.so.0", "libcblas.so.3"};
+#endif
+        std::vector<std::string> candidates{base};
+        candidates.insert(candidates.end(), std::begin(stable), std::end(stable));
+        candidates.push_back(full);
+        void* handle = nullptr;
+        std::string errors;
+        for (const std::string& name : candidates) {
+            void* candidate = dlopen(name.c_str(), RTLD_NOW | RTLD_LOCAL);
+            if (candidate == nullptr) {
+                errors += "\n  " + name + ": " + std::string(dlerror());
+                continue;
+            }
+            if (dlsym(candidate, "cblas_dgemm") != nullptr) {
+                handle = candidate;
+                break;
+            }
+            errors += "\n  " + name + ": no CBLAS interface";
+            dlclose(candidate);
         }
         if (handle == nullptr) {
-            throw std::runtime_error("cannot load the BLAS library " + full + ": " +
-                                     std::string(dlerror()));
+            throw std::runtime_error("cannot load a BLAS library with a CBLAS interface:" +
+                                     errors);
         }
         const auto symbol = [handle](const char* name) {
             void* address = dlsym(handle, name);

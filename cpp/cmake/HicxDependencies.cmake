@@ -104,20 +104,30 @@ target_include_directories(hicx_zlib SYSTEM INTERFACE "${HICX_ZLIB_INCLUDE_DIR}"
 target_link_libraries(hicx_zlib INTERFACE "${HICX_ZLIB_LIBRARY}")
 add_library(hicx::zlib ALIAS hicx_zlib)
 
-# BLAS and LAPACK. In this prefix libblas.so and liblapack.so are both symlinks
-# to libopenblasp-r0.3.28.so, the build scipy links against, so one library
-# provides dgeev, dsyevr, dsyrk and openblas_set_num_threads. There is no
+# BLAS and LAPACK (dgeev, dsyevr from LAPACK; dsyrk from BLAS). There is no
 # header: the Fortran symbols are declared in core/include/hicx/lapack_shim.hpp.
+# In a conda environment libblas.so and liblapack.so usually both point to
+# OpenBLAS, but conda-forge and bioconda build against the reference (netlib)
+# libraries, where BLAS and LAPACK are two separate libraries; both are linked,
+# so either layout works. openblas_set_num_threads is a weak symbol and is only
+# called when OpenBLAS provides it.
 find_library(HICX_LAPACK_LIBRARY
     NAMES openblas lapack
     HINTS "${HICX_DEPS_ROOT}/lib"
     NO_DEFAULT_PATH)
-if(NOT HICX_LAPACK_LIBRARY)
+find_library(HICX_BLAS_LIBRARY
+    NAMES openblas blas
+    HINTS "${HICX_DEPS_ROOT}/lib"
+    NO_DEFAULT_PATH)
+if(NOT HICX_LAPACK_LIBRARY OR NOT HICX_BLAS_LIBRARY)
     message(FATAL_ERROR "No BLAS/LAPACK found under ${HICX_DEPS_ROOT}/lib")
 endif()
 
 add_library(hicx_lapack INTERFACE)
 target_link_libraries(hicx_lapack INTERFACE "${HICX_LAPACK_LIBRARY}")
+if(NOT HICX_BLAS_LIBRARY STREQUAL HICX_LAPACK_LIBRARY)
+    target_link_libraries(hicx_lapack INTERFACE "${HICX_BLAS_LIBRARY}")
+endif()
 add_library(hicx::lapack ALIAS hicx_lapack)
 
 add_library(hicx_hts INTERFACE)
