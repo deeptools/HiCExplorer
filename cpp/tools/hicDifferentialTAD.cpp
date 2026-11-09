@@ -127,7 +127,17 @@ const char* const kHelp =
     "                        gain the adjusted p-values. New in\n"
     "                        HiCExplorer 4 (Default: none).\n"
     "  --help, -h            show this help message and exit\n"
-    "  --version             show program's version number and exit\n";
+    "  --version             show program's version number and exit\n"
+    "\n"
+    "Output columns of the .diff_tad files: the six BED fields of the domain file\n"
+    "(chromosome, start, end, name, score, strand), the p-values of the left\n"
+    "inter-TAD, right inter-TAD and intra-TAD Wilcoxon rank-sum tests, then the\n"
+    "statistic W of the same three tests, and with --correctForMultipleTesting the\n"
+    "three adjusted p-values. Each test compares the contacts of a region in the\n"
+    "target matrix with those of the same region in the control matrix. W is the\n"
+    "standardised rank sum of the target sample: positive when the contacts are\n"
+    "higher in the target matrix, negative when they are lower. A test without a\n"
+    "neighbour region shows nan and never rejects.\n";
 
 struct Arguments {
     std::optional<std::string> target;

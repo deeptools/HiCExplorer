@@ -62,8 +62,20 @@ In this example the untreated matrix is the target (`-tm`) and the domains were 
 In this example data from Nora et al. "Targeted Degradation of CTCF Decouples Local Insulation of Chromosome Domains from Genomic Compartmentalization", Cell 169.5 (2017): 930-944 is used [GEO: https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE98671]
 
 ![](../images/hicDifferentialTAD.png)
-The output are two BED-similar files: the '_accepted.diff_tad' and '_rejected.diff_tad' file. The difference to a real BED file is a) the usage of a header starting with '#', the first six columns are BED6 standard, however, there are additional columns with the p-values and statistics of each intra-TAD, left-inter-TAD and right-inter-TAD test.
-The score value and name is copied from the domains.bed file which is a output of hicFindTADs.
+The output are two BED-similar files: the '_accepted.diff_tad' and '_rejected.diff_tad' file. The difference to a real BED file is the header of lines starting with '#'. The columns are:
+
+| Column | Content |
+|---|---|
+| 1-6 | `Chromosome`, `start`, `end`, `name`, `score`, `strand`: BED6 fields copied from the domains file of hicFindTADs (the score is the TAD-separation score of that file). |
+| 7 | `p-value left-inter-TAD`: p-value of the Wilcoxon rank-sum test on the contacts between the TAD and its left neighbour domain. |
+| 8 | `p-value right-inter-TAD`: the same for the right neighbour domain. |
+| 9 | `p-value intra-TAD`: the same for the contacts inside the TAD. |
+| 10-12 | `W left-inter-TAD`, `W right-inter-TAD`, `W intra-TAD`: the test statistic of the three tests, in the same order. |
+| 13-15 | `adjusted p-value left-inter-TAD`, `adjusted p-value right-inter-TAD`, `adjusted p-value intra-TAD`: only with `--correctForMultipleTesting` (not `none`); the p-values adjusted across all TADs, separately for each test. `--pValue` is then applied to these values. |
+
+Each test compares the contacts of one region in the target matrix (first sample) with the contacts of the same region in the control matrix (second sample). All bin pairs of the region are ranked together, zeros included. The statistic W is the standardised rank sum of the target sample, that is its rank sum minus the expected value under H0, divided by the standard deviation, as in the normal approximation of the Wilcoxon rank-sum test; the p-value is two-sided. The sign gives the direction of the difference: W is positive when the contacts of the region are higher in the target matrix than in the control matrix, and negative when they are lower. W has no fold-change scale: its size depends on the number of bin pairs of the region, so it is not comparable between regions of different sizes. A region without a neighbour (the first or last domain of a chromosome for the left and right test) was not tested and shows `nan` in both its p-value and its W; such a test never rejects H0.
+
+The p-values decide if the region is written to the rejected file (differential) according to `--mode`, `--modeReject` and `--pValue`. The file does not say which of the tests led to the rejection. Use the p-value columns for it, and the sign of W for the direction.
 
 ```bash
 # Created with HiCExplorer's hicDifferentialTAD version 3.5-dev
