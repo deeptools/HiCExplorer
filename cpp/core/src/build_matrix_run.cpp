@@ -41,31 +41,6 @@ struct PairBuffer {
     [[nodiscard]] std::size_t size() const { return mate1.size(); }
 };
 
-// ReadPositionMatrix. The Python key is a string built from the two chromosome
-// names ordered by string comparison and the two positions ordered
-// numerically. The tuple below is equivalent for every reference name that
-// holds no '-', which is every name in the corpus, and costs 16 bytes against
-// the string's 80.
-struct DuplicateKey {
-    std::uint32_t chrom_low = 0;
-    std::uint32_t chrom_high = 0;
-    std::int32_t pos_low = 0;
-    std::int32_t pos_high = 0;
-
-    bool operator==(const DuplicateKey& other) const = default;
-};
-
-struct DuplicateKeyHash {
-    std::size_t operator()(const DuplicateKey& key) const noexcept {
-        std::uint64_t a = (static_cast<std::uint64_t>(key.chrom_low) << 32) |
-                          static_cast<std::uint32_t>(key.chrom_high);
-        std::uint64_t b = (static_cast<std::uint64_t>(static_cast<std::uint32_t>(key.pos_low)) << 32) |
-                          static_cast<std::uint32_t>(key.pos_high);
-        a ^= b + 0x9e3779b97f4a7c15ULL + (a << 6) + (a >> 2);
-        return static_cast<std::size_t>(a);
-    }
-};
-
 // --- classification of buffered htslib records -------------------------------
 
 struct Context {
@@ -768,11 +743,7 @@ void run(const Arguments& args, const Hooks& hooks) {
                     record1.tid() >= 0 ? name_rank[static_cast<std::size_t>(record1.tid())] : 0;
                 const std::uint32_t rank2 =
                     record2.tid() >= 0 ? name_rank[static_cast<std::size_t>(record2.tid())] : 0;
-                DuplicateKey key;
-                key.chrom_low = std::min(rank1, rank2);
-                key.chrom_high = std::max(rank1, rank2);
-                key.pos_low = std::min(record1.pos(), record2.pos());
-                key.pos_high = std::max(record1.pos(), record2.pos());
+                const DuplicateKey key = make_duplicate_key(rank1, record1.pos(), rank2, record2.pos());
                 if (!seen.insert(key).second) {
                     ++total.duplicated_pairs;
                     continue;

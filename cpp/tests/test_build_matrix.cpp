@@ -511,3 +511,13 @@ TEST_CASE("the bin lookup handles bins above 4,294,967,295 bases") {
     CHECK(index.bin_at(big, 5200000000LL) == 2);
     CHECK(!index.bin_at(big, 6000000000LL).has_value());
 }
+
+TEST_CASE("the duplicate key orders the mates together (issue 957)") {
+    using hicx::build_matrix::make_duplicate_key;
+    // chr1:100000 / chr2:200000 against chr1:200000 / chr2:100000.
+    CHECK_FALSE(make_duplicate_key(0, 100000, 1, 200000) == make_duplicate_key(0, 200000, 1, 100000));
+    // The same pair with its mates swapped is a genuine duplicate.
+    CHECK(make_duplicate_key(0, 100000, 1, 200000) == make_duplicate_key(1, 200000, 0, 100000));
+    CHECK(make_duplicate_key(0, 5, 0, 9) == make_duplicate_key(0, 9, 0, 5));
+    CHECK_FALSE(make_duplicate_key(0, 5, 0, 9) == make_duplicate_key(0, 5, 0, 10));
+}

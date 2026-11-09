@@ -427,12 +427,9 @@ const char* const kHelp =
 struct Arguments {
     std::string matrix;
     std::vector<std::string> output_file_names;
-    // The Python default is the *string* '1 2' rather than a list, and
-    // argparse with nargs='+' leaves it as that string. len() of it is 3, so
-    // the count check at hicPCA.py:242 compares 3 against the number of output
-    // files and iterating it yields the characters '1', ' ' and '2'. Kept as
-    // the three one-character tokens so that both behaviours follow.
-    std::vector<std::string> which_eigenvectors{"1", " ", "2"};
+    // The default is the list 1 2 (issues 867 and 883; 3.7.6 left the string
+    // '1 2' as the default, which split into '1', ' ' and '2').
+    std::vector<std::string> which_eigenvectors{"1", "2"};
     std::string format = "bigwig";
     std::vector<std::string> chromosomes;
     std::string method = "dist_norm";
@@ -470,7 +467,6 @@ Arguments parse_arguments(int argc, char** argv) {
               "number of computed eigenvectors.");
     cli::ArgumentGroup& optional = parser.group("Optional arguments");
     optional.add({"--whichEigenvectors", "-we"})
-        .default_value("1 2")
         .nargs("+")
         .required(false)
         .help("The list of eigenvectors that the PCA should compute e.g. 1 2 5 will return the "
@@ -535,12 +531,6 @@ Arguments parse_arguments(int argc, char** argv) {
     args.output_file_names = ns.strs("outputFileName");
     if (ns.given("whichEigenvectors")) {
         args.which_eigenvectors = ns.strs("whichEigenvectors");
-    } else {
-        // The default is the string '1 2'; see the comment on the member.
-        args.which_eigenvectors.clear();
-        for (const char character : ns.str("whichEigenvectors")) {
-            args.which_eigenvectors.emplace_back(1, character);
-        }
     }
     args.format = ns.str("format");
     args.chromosomes = ns.strs("chromosomes");
@@ -815,7 +805,7 @@ int main(int argc, char** argv) {
             }
             which.push_back(value);
         } catch (const std::exception&) {
-            // int(' ') in hicPCA.py:316 raises ValueError and the run ends.
+            // A token that is not an integer ends the run, as int() does in hicPCA.py:316.
             std::fprintf(stderr,
                          "hicPCA: --whichEigenvectors: invalid literal for int(): "
                          "'%s'\n",

@@ -42,6 +42,40 @@
 
 namespace hicx::build_matrix {
 
+// Key of the duplicate check. The two (chromosome rank, position) mates are
+// ordered together as tuples, so a pair equals another pair only when both
+// mates match, whichever mate comes first. (Ordering the chromosomes and the
+// positions separately made (chr1:100000, chr2:200000) equal to
+// (chr1:200000, chr2:100000); issue 957.)
+struct DuplicateKey {
+    std::uint32_t chrom_low = 0;
+    std::uint32_t chrom_high = 0;
+    std::int32_t pos_low = 0;
+    std::int32_t pos_high = 0;
+
+    bool operator==(const DuplicateKey& other) const = default;
+};
+
+[[nodiscard]] inline DuplicateKey make_duplicate_key(std::uint32_t chrom1, std::int32_t pos1,
+                                                     std::uint32_t chrom2, std::int32_t pos2) {
+    if (std::tie(chrom2, pos2) < std::tie(chrom1, pos1)) {
+        std::swap(chrom1, chrom2);
+        std::swap(pos1, pos2);
+    }
+    return DuplicateKey{chrom1, chrom2, pos1, pos2};
+}
+
+struct DuplicateKeyHash {
+    std::size_t operator()(const DuplicateKey& key) const noexcept {
+        std::uint64_t a = (static_cast<std::uint64_t>(key.chrom_low) << 32) |
+                          static_cast<std::uint32_t>(key.chrom_high);
+        std::uint64_t b = (static_cast<std::uint64_t>(static_cast<std::uint32_t>(key.pos_low)) << 32) |
+                          static_cast<std::uint32_t>(key.pos_high);
+        a ^= b + 0x9e3779b97f4a7c15ULL + (a << 6) + (a >> 2);
+        return static_cast<std::size_t>(a);
+    }
+};
+
 struct Arguments {
     std::vector<std::string> sam_files;
     std::string out_file_name;

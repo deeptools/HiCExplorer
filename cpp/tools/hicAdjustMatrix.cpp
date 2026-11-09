@@ -296,6 +296,12 @@ int main(int argc, char** argv) {
                 return order;
             };
 
+            if (bins_of(to_operate_on).empty()) {
+                std::fputs("ERROR:hicexplorer.hicAdjustMatrix:The chromosomes match no bin "
+                           "of the matrix, nothing to keep, remove or mask.\n",
+                           stderr);
+                return 1;
+            }
             if (args.action == Action::Keep) {
                 hicx::reorder_bins(hic->data(), bins_of(to_operate_on));
                 hic->refresh_boundaries();
@@ -389,8 +395,19 @@ int main(int argc, char** argv) {
 
             std::vector<std::int64_t> indices;
             for (const Region& region : genomic_regions) {
+                // Issue 934: a region that reaches the end of its chromosome
+                // (end equal to the chromosome length) lies one past the last
+                // bin, whose interval end is exclusive. Clamp it to the last
+                // base so that the last bin is included.
+                std::int64_t region_end = region.end;
+                if (const auto chrom_bins = bins.chrom_bin_range(region.chrom);
+                    chrom_bins.has_value() && chrom_bins->last > chrom_bins->first) {
+                    const std::int64_t last_base =
+                        hic->data().cut_intervals[static_cast<std::size_t>(chrom_bins->last) - 1].end - 1;
+                    region_end = std::min(region_end, last_base);
+                }
                 const std::optional<std::pair<std::int64_t, std::int64_t>> range =
-                    bins.region_bin_range(region.chrom, region.start, region.end);
+                    bins.region_bin_range(region.chrom, region.start, region_end);
                 if (!range.has_value()) {
                     continue;  // getRegionBinRange returned None and is skipped
                 }
@@ -416,6 +433,12 @@ int main(int argc, char** argv) {
                 }
             }
 
+            if (indices.empty()) {
+                std::fputs("ERROR:hicexplorer.hicAdjustMatrix:The regions match no bin "
+                           "of the matrix, nothing to keep, remove or mask.\n",
+                           stderr);
+                return 1;
+            }
             if (action == Action::Keep) {
                 hicx::reorder_bins(hic->data(), indices);
             } else if (action == Action::Mask) {

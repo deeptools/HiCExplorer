@@ -81,6 +81,11 @@ def compare(path_a, path_b, cls, opts=None):
     # hicBuildMatrixMicroC write into the metadata of their cool files in v4
     # (3.7.6 writes none); every other key of the object still has to agree.
     ignored_metadata = frozenset(opts.get("ignore_metadata_keys", []))
+    # "ignore_root_attributes": attributes of the root group of an mcool that a
+    # case declares out of scope. Used for the deliberate deviation of issue
+    # 952: the root of a v4 mcool is marked HDF5::MCOOL with format-version 2,
+    # as cooler's zoomify writes it, where 3.7.6 marked it HDF5::Cooler.
+    ignored_root = ignored | frozenset(opts.get("ignore_root_attributes", []))
     with h5py.File(path_a, "r") as file_a, h5py.File(path_b, "r") as file_b:
         groups_a = _coolers(file_a)
         groups_b = _coolers(file_b)
@@ -92,7 +97,7 @@ def compare(path_a, path_b, cls, opts=None):
             # An mcool: the coolers live in groups and the file root carries
             # the provenance hicmatrix writes there for the first resolution
             # only (hicmatrix/lib/cool.py:422-426). Nothing else compares it.
-            diffs += _compare_attrs(file_a, file_b, "/", ignored, cls, ignored_metadata)
+            diffs += _compare_attrs(file_a, file_b, "/", ignored_root, cls, ignored_metadata)
             if sorted(file_a.keys()) != sorted(file_b.keys()):
                 diffs.append(f"root children {sorted(file_a.keys())} vs "
                              f"{sorted(file_b.keys())}")

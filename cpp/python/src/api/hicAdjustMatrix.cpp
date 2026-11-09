@@ -234,8 +234,23 @@ py::object adjust_matrix(py::handle pArgs) {
         py::list matrix_indices_regions;
         for (const py::handle region : genomic_regions) {
             log(kLogger, "debug", "region " + str_of(region));
+            // Issue 934: an end equal to the chromosome length is clamped to
+            // the last base of the chromosome so that the last bin is included.
+            py::object region_end = lc::item(region, 2);
+            {
+                const py::object chrom_range = hic_matrix.attr("getChrBinRange")(lc::item(region, 0));
+                const std::int64_t chrom_first = to_int64(lc::item(chrom_range, 0));
+                const std::int64_t chrom_last = to_int64(lc::item(chrom_range, 1));
+                if (chrom_last > chrom_first) {
+                    const std::int64_t last_base =
+                        to_int64(lc::item(lc::item(hic_matrix.attr("cut_intervals"), chrom_last - 1), 2)) - 1;
+                    if (to_int64(region_end) > last_base) {
+                        region_end = py::int_(last_base);
+                    }
+                }
+            }
             const py::object range = hic_matrix.attr("getRegionBinRange")(
-                lc::item(region, 0), lc::item(region, 1), lc::item(region, 2));
+                lc::item(region, 0), lc::item(region, 1), region_end);
             if (!range.is_none()) {
                 const std::int64_t start = to_int64(lc::item(range, 0));
                 const std::int64_t end = to_int64(lc::item(range, 1));
@@ -257,6 +272,10 @@ py::object adjust_matrix(py::handle pArgs) {
                     }
                 }
             }
+        }
+        if (py::len(matrix_indices_regions) == 0) {
+            log(kLogger, "error", "The regions match no bin of the matrix, nothing to keep, remove or mask.");
+            lc::python_exit(1);
         }
         if (region_action_is("keep")) {
             std::vector<std::int64_t> order;
