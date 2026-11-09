@@ -398,3 +398,31 @@ def test_a_bad_reference_point_exits_non_zero():
     with pytest.raises(SystemExit) as exit_info:
         chicViewpoint.main(args)
     assert exit_info.value.code == 1
+
+
+def test_mcool_uris_name_the_samples_after_the_files(tmp_path):
+    """Issue #828: the group of a sample was the text before the first dot of
+    the whole URI, so two mcool files collided on the group "10000"."""
+    from hicexplorer import hicConvertFormat, chicSignificantInteractions
+    uris = []
+    for matrix in MATRICES:
+        name = os.path.basename(matrix).split('.')[0]
+        mcool = str(tmp_path / (name + '.mcool'))
+        hicConvertFormat.main("--matrices {} --inputFormat cool --outputFormat mcool "
+                              "--resolutions 10000 --outFileName {}".format(matrix, mcool).split())
+        uris.append(mcool + '::resolutions/10000')
+    outfile = run_viewpoint(uris, ROOT + 'referencePoints_chicViewpoint.bed')
+    with h5py.File(outfile, 'r') as handle:
+        assert sorted(handle.keys()) == ['FL-E13-5_chr1', 'MB-E10-5_chr1']
+        for sample in handle:
+            assert sorted(handle[sample].keys()) == ['chr1', 'genes']
+            assert sorted(handle[sample]['genes'].keys()) == ['Eya1', 'Sox17', 'Tfap2d']
+    # the downstream tool finds the samples by these names
+    significant = str(tmp_path / 'significant.hdf5')
+    target = str(tmp_path / 'target.hdf5')
+    chicSignificantInteractions.main(
+        "--interactionFile {} --backgroundModelFile {} --range 200000 200000 --outFileNameSignificant {} "
+        "--outFileNameTarget {} --xFoldBackground 1.5 --pValue 0.2 -t 1 --combinationMode dual".format(
+            outfile, ROOT + 'background.txt', significant, target).split())
+    with h5py.File(significant, 'r') as handle:
+        assert sorted(handle.keys()) == ['FL-E13-5_chr1', 'MB-E10-5_chr1']
