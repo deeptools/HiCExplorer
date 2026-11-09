@@ -28,7 +28,7 @@ We recommend to compute first the normalization (with hicNormalize) and correct 
 | Flag | Meaning |
 |---|---|
 | `--multiplicativeValue MULTIPLICATIVEVALUE, -mv MULTIPLICATIVEVALUE` | Value to multiply if --normalize is set to multiplicative. (Default: 1). |
-| `--setToZeroThreshold SETTOZEROTHRESHOLD, -sz SETTOZEROTHRESHOLD` | A threshold to set all values after normalization to 0 if smaller this threshold. Default value is 0 i.e. there is no effect.It is recommended to set it for the normalize mode "smallest" to 1.0. This parameter will influence the sparsity of the matrix by removing many values close to 0 in smallest normalization mode. |
+| `--setToZeroThreshold SETTOZEROTHRESHOLD, -sz SETTOZEROTHRESHOLD` | A threshold: after normalization every value smaller than the threshold is set to 0. The default is 0, which has no effect. In the mode "smallest" the counts of the larger matrices are scaled down, so many small values fall below a threshold such as 1.0 and are removed. This increases the sparsity of the matrix. A matrix with sparse inter-chromosomal contacts, which mostly consist of single counts, then loses most of these contacts, except in the smallest matrix, which is not scaled. Set a threshold only when this is intended, and compare the number of inter-chromosomal contacts of the matrices afterwards. |
 | `--help, -h` | show this help message and exit |
 | `--version` | show program's version number and exit |
 
