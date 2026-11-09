@@ -31,11 +31,11 @@ namespace hicx {
 // str() of one matrix value, in the dtype the matrix carries.
 [[nodiscard]] std::string value_repr(double value, const std::string& dtype);
 
-// triu(m, k=0).maximum(triu(m, k=0).T), which is how hicConvertFormat
-// symmetrises before writing homer and ginteractions
-// (hicConvertFormat.py:258-260). It is not the same as adding the transpose:
-// maximum leaves the diagonal alone where a sum would double it, and it
-// clamps a negative off diagonal value to zero rather than mirroring it.
+// The symmetric matrix built from the stored upper triangle triu(m, k=0),
+// which hicConvertFormat writes as homer and ginteractions. It is not the same
+// as adding the transpose: the diagonal is left alone where a sum would double
+// it. 3.7.6 took triu(m).maximum(triu(m).T) here, which clamped every negative
+// off diagonal value to zero (#584); the stored value is mirrored instead.
 [[nodiscard]] CsrMatrix maximum_with_transpose(const CsrMatrix& matrix);
 
 // triu(maximum_with_transpose(m), k=0), built without the mirror.
@@ -43,7 +43,7 @@ namespace hicx {
 // Ginteractions.save takes the upper triangle of the symmetric matrix
 // hicConvertFormat hands it, so the mirror is computed and thrown away again.
 // The triangle is derivable from the input directly: the cell (i, j) with
-// i < j is max(m[i][j], 0) and the diagonal is unchanged, so this returns the
+// i < j is m[i][j] and the diagonal is unchanged, so this returns the
 // same entries at half the peak memory. On Li_et_al_2015.h5, 1.66 M stored
 // pixels, that is the difference between a 157 MB and a 41 MB peak.
 [[nodiscard]] CsrMatrix upper_triangle_after_maximum(const CsrMatrix& matrix);

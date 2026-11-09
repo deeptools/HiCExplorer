@@ -139,6 +139,9 @@ Fixed (these results differ from 3.7.6, where 3.7.6 was wrong):
 - `hicConvertFormat --inputFormat 2D-text` writes one pixel per line, at the bins that contain the start
   coordinates of the two anchors (#808). 3.7.6 also looked up the bins of the exclusive end coordinates and
   assigned both, so every line whose end lies in the next bin made two pixels.
+- `hicConvertFormat --outputFormat ginteractions`, `homer` and `hicpro` write the negative values of a matrix,
+  for example after `hicTransform --method pearson` (#584). 3.7.6 took the maximum of the upper triangle and
+  its transpose, which set every negative off-diagonal value to 0.
 
 ### Release 3.7.6
 **27 November 2024**

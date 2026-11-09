@@ -288,11 +288,12 @@ CsrMatrix maximum_with_transpose(const CsrMatrix& matrix) {
                 out_values.push_back(value);
                 continue;
             }
-            // The mirror cell of the triangle is a structural zero, so the
-            // elementwise maximum of the two is max(value, 0).
-            const double mirrored = std::max(value, 0.0);
+            // The stored upper triangle is written as it is, negative values
+            // included (3.7.6 took the maximum with the structural zero of the
+            // mirror cell, which turned every negative value into 0, #584).
+            const double mirrored = value;
             if (mirrored == 0.0) {
-                continue;  // scipy prunes the result of maximum
+                continue;  // an explicit zero is not a contact
             }
             out_rows.push_back(static_cast<std::int32_t>(row));
             out_cols.push_back(static_cast<std::int32_t>(col));
@@ -324,7 +325,7 @@ CsrMatrix upper_triangle_after_maximum(const CsrMatrix& matrix) {
             if (col < row) {
                 continue;
             }
-            const double value = col == row ? values[k] : std::max(values[k], 0.0);
+            const double value = values[k];
             if (col != row && value == 0.0) {
                 continue;
             }

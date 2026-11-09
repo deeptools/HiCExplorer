@@ -95,9 +95,8 @@ TEST_CASE("maximum_with_transpose mirrors without doubling the diagonal") {
     CHECK(symmetric.stored_nnz() == 6);
 }
 
-TEST_CASE("maximum_with_transpose clamps a negative off diagonal value") {
-    // scipy's maximum against the structural zero of the mirror cell keeps the
-    // larger of the two, which for a negative value is the zero.
+TEST_CASE("maximum_with_transpose keeps a negative off diagonal value") {
+    // 3.7.6 clamped it to zero (#584); the stored value is mirrored.
     const std::vector<std::int32_t> row{0, 0, 1};
     const std::vector<std::int32_t> col{0, 1, 1};
     std::vector<double> values{-4.0, -3.0, 2.0};
@@ -105,9 +104,9 @@ TEST_CASE("maximum_with_transpose clamps a negative off diagonal value") {
         hicx::CsrMatrix::from_coo(2, 2, row, col, std::move(values), "float64");
     const hicx::CsrMatrix symmetric = hicx::maximum_with_transpose(matrix);
     CHECK(symmetric.at(0, 0) == -4.0);  // the diagonal keeps its sign
-    CHECK(symmetric.at(0, 1) == 0.0);
-    CHECK(symmetric.at(1, 0) == 0.0);
-    CHECK(symmetric.stored_nnz() == 2);
+    CHECK(symmetric.at(0, 1) == -3.0);
+    CHECK(symmetric.at(1, 0) == -3.0);
+    CHECK(symmetric.stored_nnz() == 4);
 }
 
 TEST_CASE("upper_triangle_after_maximum equals the triangle of the mirror") {

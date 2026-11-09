@@ -455,6 +455,56 @@ def test_h5_to_homer_symmetrises_with_maximum_not_with_a_sum():
     assert_csr_identical(symmetric, source.matrix)
 
 
+def _matrix_with_negative_values(tmp_path):
+    """The stored matrix of small_test_matrix.h5 with every second off diagonal
+    entry of the upper triangle negated, as a symmetric h5 file."""
+    source = hm.hiCMatrix(original_matrix_h5)
+    upper = triu_module(source.matrix, k=0, format='csr').astype(float)
+    coo = upper.tocoo()
+    data = coo.data.copy()
+    off_diagonal = np.flatnonzero(coo.row != coo.col)
+    data[off_diagonal[::2]] *= -1
+    from scipy.sparse import coo_matrix
+    upper = coo_matrix((data, (coo.row, coo.col)), shape=coo.shape).tocsr()
+    symmetric = upper + triu_module(upper, k=1).T
+    source.setMatrix(symmetric.tocsr(), source.cut_intervals)
+    path = str(tmp_path / 'negative.h5')
+    source.save(path)
+    return path, upper
+
+
+def test_ginteractions_writes_negative_values(tmp_path):
+    """The upper triangle is written as it is stored, negative values included.
+    3.7.6 took the maximum with the transpose, which turned every negative
+    value into 0 (#584)."""
+    path, upper = _matrix_with_negative_values(tmp_path)
+    out = str(tmp_path / 'gi.tsv')
+    hicConvertFormat.main(['--matrices', path, '--outFileName', out,
+                           '--inputFormat', 'h5', '--outputFormat', 'ginteractions'])
+    with open(out) as handle:
+        values = [float(line.split('\t')[6]) for line in handle]
+    coo = upper.tocoo()
+    assert sorted(values) == sorted(coo.data.tolist())
+    assert sum(1 for value in values if value < 0) == sum(1 for value in coo.data if value < 0) > 0
+
+
+def test_homer_writes_negative_values(tmp_path):
+    """The homer matrix is the stored upper triangle mirrored, negative values
+    included (#584)."""
+    path, upper = _matrix_with_negative_values(tmp_path)
+    out = str(tmp_path / 'matrix.homer')
+    hicConvertFormat.main(['--matrices', path, '--outFileName', out,
+                           '--inputFormat', 'h5', '--outputFormat', 'homer'])
+    opener = gzip.open if open(out, 'rb').read(2) == b'\x1f\x8b' else open
+    with opener(out, 'rt') as handle:
+        lines = handle.read().splitlines()
+    table = np.array([[float(x) for x in line.split('\t')[2:]] for line in lines[1:]])
+    expected = upper.toarray()
+    expected = expected + np.triu(expected, k=1).T
+    nt.assert_array_equal(table, expected)
+    assert (table < 0).sum() > 0
+
+
 def test_mcool_with_resolutions_and_several_matrices_exits_before_writing(tmp_path, capfd):
     """HiCExplorer 4 (fix 4): --resolutions describes how to resample one
     matrix, so several input matrices with it are an error. 3.7.6 only logged
