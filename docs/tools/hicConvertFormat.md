@@ -36,7 +36,7 @@ Conversion of Hi-C matrices of different file formats. We support the conversion
 | `--correction_name CORRECTION_NAME` | Name of the column which stores the correction factors. Option only for cool input files. (Default: weight). |
 | `--correction_division` | If set, division is applied for correction. |
 | `--store_applied_correction` | Store the applied correction and do not set correction factors. |
-| `--chromosome CHROMOSOME` | Load only one chromosome. Option only for cool input files; the other input formats ignore it. |
+| `--chromosome CHROMOSOME` | Load only one chromosome (a single name, not a list). Option only for cool input files; the other input formats ignore it. To select several chromosomes use `hicAdjustMatrix --chromosomes --action keep`. |
 | `--enforce_integer` | Enforce datatype of counts to integer. |
 | `--load_raw_values` | Load only 'count' data and do not apply a correction. |
 | `--resolutions RESOLUTIONS [RESOLUTIONS ...], -r RESOLUTIONS [RESOLUTIONS ...]` | List of resolutions that should be added. |
@@ -100,7 +100,7 @@ The cool data format allows to use the following options:
 - correction_name: In case correction factors are not stored in 'weight' the correct column name can be defined using this parameter and the resulting matrix will store the values in 'weight'.
 - correction_division: Correction factors can be applied by a multiplication or a division. The default behaviour is to use the multiplication, in case the correction factors are inverted, set this parameter.
 - store_applied_correction: Set this parameter if correction factors should be applied on the data and should be written back to colum 'counts' in the corrected form and not as raw. Default: not set.
-- chromosomes: Define a list of chromosomes which should be included in the output matrix. All chromosomes which are not defined are not part of the new matrix. This parameter can speed up the processing especially if only one chromosome is used.
+- chromosome (`--chromosome`): Name of one chromosome to load from a cool input file. The option takes a single value, not a list; all other chromosomes are not part of the new matrix. This can speed up the processing considerably. To keep several chromosomes, convert the matrix first and select them with `hicAdjustMatrix --chromosomes chr1 chr2 --action keep`.
 - enforce_integer: Raw interaction data is stored as integers, after the correction is applied the data is a float. Set a this parameter to enforce integer values in the new matrix.
 - load_raw_values: Set this parameter if the interaction data should not be loaded with the correction factors.
 
