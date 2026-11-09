@@ -145,6 +145,9 @@ Fixed (these results differ from 3.7.6, where 3.7.6 was wrong):
 - `hicCorrectMatrix --correctionMethod ICE` with a cool matrix writes the raw counts and the weights, as KR
   does (#586). 3.7.6 wrote the already corrected counts together with the weights, so cooler's balanced
   values applied the correction twice. An output name ending in `.h5` keeps the corrected values.
+- `hicSumMatrices` writes every pixel of every input, so the sum of the result equals the sum of the inputs
+  (#814). 3.7.6 masked the bins that are empty in either input after the addition and discarded the counts in
+  them (5,142 pixels for GSM2644945 plus GSM2644947), and wrote an integer matrix as float64.
 
 ### Release 3.7.6
 **27 November 2024**

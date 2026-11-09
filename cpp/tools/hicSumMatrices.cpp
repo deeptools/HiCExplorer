@@ -3,18 +3,16 @@
 // Adds two or more contact matrices of the same shape and writes the result
 // through the file handler of the first input.
 //
-// Two pieces of the Python behaviour are defects that are reproduced on
-// purpose, both pinned by hicexplorer/test/general/test_hicSumMatrices.py:
-//
-//  * hicSumMatrices.py:72 masks the union of the two inputs' NaN bins after
-//    the addition. Masking deletes rows and columns, so every summed count
-//    that lives in a NaN row or column of *either* input is discarded. On the
-//    GSM2644945 plus GSM2644947 pair the plain sparse sum holds 3,157,763
-//    entries and the file that is written holds 3,152,621, so 5,142 real
-//    counts are lost. See test_sum_drops_every_entry_that_lives_in_a_nan_bin.
-//  * the masking step also turns an integer matrix into a float64 one, because
-//    restoreMaskedBins pads with an empty float64 block. See
-//    test_sum_of_an_integer_matrix_is_written_as_float64.
+// 3.7.6 masked the union of the two inputs' NaN bins after the addition
+// (hicSumMatrices.py:72). Masking deletes rows and columns, so every summed
+// count that lives in a bin that is empty in *either* input was discarded: on
+// the GSM2644945 plus GSM2644947 pair the plain sparse sum holds 3,157,763
+// entries and the file written held 3,152,621, so 5,142 real counts were lost
+// (#814). The mask also turned an integer matrix into a float64 one, because
+// restoreMaskedBins pads with an empty float64 block. HiCExplorer 4 keeps
+// every pixel of every input: sum(result) == sum(inputs), and an integer
+// matrix stays integer. The sum carries no correction factors, so there is
+// nothing for a mask to protect.
 //
 // hicSumMatrices.py:60-67 wraps the addition in a try/except that reports a
 // shape mismatch. That branch cannot fire: the chrBinBoundaries comparison
@@ -28,7 +26,6 @@
 #include <cstdlib>
 #include <iostream>
 #include <optional>
-#include <set>
 #include <string>
 #include <vector>
 
@@ -125,7 +122,6 @@ int main(int argc, char** argv) {
     const Arguments args = parse_arguments(argc, argv);
     try {
         hicx::ToolMatrix hic = hicx::ToolMatrix::load(args.matrices[0]);
-        std::set<std::int64_t> nan_bins(hic.nan_bins().begin(), hic.nan_bins().end());
 
         for (std::size_t i = 1; i < args.matrices.size(); ++i) {
             const hicx::ToolMatrix other = hicx::ToolMatrix::load(args.matrices[i]);
@@ -143,15 +139,11 @@ int main(int argc, char** argv) {
                 return 1;
             }
             hic.matrix() = hicx::add(hic.matrix(), other.matrix());
-            if (!other.nan_bins().empty()) {
-                nan_bins.insert(other.nan_bins().begin(), other.nan_bins().end());
-            }
         }
 
-        // maskBins(sorted(nan_bins)) and the restoreMaskedBins that save()
-        // performs, as one step. This is where the counts are lost.
-        const std::vector<std::int64_t> mask(nan_bins.begin(), nan_bins.end());
-        hicx::mask_and_restore_bins(hic.data(), mask);
+        // No masking (see the note at the top): the saved matrix keeps every
+        // pixel, so no bin is reported as masked either.
+        hic.data().nan_bins.clear();
         // the sum has no correction factors (fixed in HiCExplorer 4; 3.7.6
         // kept the first matrix's)
         hicx::drop_correction_vectors(hic.data());
