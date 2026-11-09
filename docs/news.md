@@ -67,6 +67,8 @@ New options and features:
 
 Fixed (these results differ from 3.7.6, where 3.7.6 was wrong):
 
+- `hicPCA` computes the eigenvectors 1 and 2 without `--whichEigenvectors`. The default was the string '1 2',
+  which 3.7.6 split into the characters '1', ' ' and '2', so the run failed on a space (#867, #883).
 - `hicBuildMatrix`, `hicBuildMatrixMicroC` and `hicQuickQC` no longer count two different inter-chromosomal pairs as
   one contact plus a duplicated pair when the positions are exchanged between the chromosomes (#957). The duplicate
   key now orders the two (chromosome, position) mates together, so two pairs are duplicates only when both

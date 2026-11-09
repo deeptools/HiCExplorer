@@ -850,6 +850,23 @@ def test_pca_output_file_count_must_match_eigenvector_count():
         os.unlink(path)
 
 
+def test_pca_default_eigenvectors_are_one_and_two():
+    """Issues 867 and 883: without --whichEigenvectors the run computes
+    eigenvectors 1 and 2, and its two outputs equal an explicit '1 2'."""
+    matrix = ROOT + "small_test_matrix_50kb_res.h5"
+    default = _temporary_names(2, '.bedgraph')
+    explicit = _temporary_names(2, '.bedgraph')
+    base = "--matrix {} -f bedgraph --method lieberman --outputFileName {} {}"
+    _run_pca(base.format(matrix, *default).split())
+    _run_pca((base.format(matrix, *explicit)
+              + " --whichEigenvectors 1 2").split())
+    for first, second in zip(default, explicit):
+        with open(first) as one, open(second) as two:
+            assert one.read() == two.read()
+        os.unlink(first)
+        os.unlink(second)
+
+
 def are_files_equal(file1, file2, pCoordinatesOnly=()):
     """Line by line, up to sign and 0.01; both files must have the same lines.
 
