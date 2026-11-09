@@ -35,7 +35,7 @@ expect() {
 cd "$work" || exit 1
 # About 600 kB of GM_rep1.chinput: its comment line, the header and complete
 # rows only.
-head -c 600000 "$data/GM_rep1.chinput" | head -n -1 >small.chinput
+head -c 600000 "$data/GM_rep1.chinput" | sed '$d' >small.chinput
 design=(--baitmap "$data/h19_chr20and21.baitmap" --rmap "$data/h19_chr20and21.rmap")
 rows=$(($(wc -l <small.chinput) - 2))
 
