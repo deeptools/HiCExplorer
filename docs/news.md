@@ -67,6 +67,10 @@ New options and features:
 
 Fixed (these results differ from 3.7.6, where 3.7.6 was wrong):
 
+- `hicBuildMatrix`, `hicBuildMatrixMicroC` and `hicQuickQC` no longer count two different inter-chromosomal pairs as
+  one contact plus a duplicated pair when the positions are exchanged between the chromosomes (#957). The duplicate
+  key now orders the two (chromosome, position) mates together, so two pairs are duplicates only when both
+  mates agree, whichever mate comes first.
 - `hicDifferentialTAD` and `hicInterIntraTAD` cut the inter-TAD blocks of every TAD from the bins of the
   neighbouring TADs. In 3.7.6 the right block of a cool matrix lacked the last bin of the next TAD, the last
   TAD of a chromosome was compared with a wrong or empty block, and the second of two TADs on a
