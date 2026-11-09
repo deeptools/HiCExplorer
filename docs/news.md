@@ -67,6 +67,9 @@ New options and features:
 
 Fixed (these results differ from 3.7.6, where 3.7.6 was wrong):
 
+- `hicAdjustMatrix --regions` includes the last bin of a chromosome when the region end equals the chromosome length
+  (3.7.6 wrote an empty matrix with exit code 0), and `--action keep`, `remove` and `mask` stop with an error
+  when the selection matches no bin (#934).
 - `hicPCA` computes the eigenvectors 1 and 2 without `--whichEigenvectors`. The default was the string '1 2',
   which 3.7.6 split into the characters '1', ' ' and '2', so the run failed on a space (#867, #883).
 - `hicBuildMatrix`, `hicBuildMatrixMicroC` and `hicQuickQC` no longer count two different inter-chromosomal pairs as
