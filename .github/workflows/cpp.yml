@@ -2,7 +2,7 @@ name: C++ (HiCExplorer v4)
 
 on:
   push:
-    branches: [version4-cpp]
+    branches: [master, version4-cpp]
     paths: ['cpp/**', 'plot/**', 'pyproject.toml', 'hicexplorer/_cpp.py', 'hicexplorer/test/test_data/**', '.github/workflows/cpp.yml']
   pull_request:
     paths: ['cpp/**', 'plot/**', 'pyproject.toml', 'hicexplorer/_cpp.py', 'hicexplorer/test/test_data/**', '.github/workflows/cpp.yml']
