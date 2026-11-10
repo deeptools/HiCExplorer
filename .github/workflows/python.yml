@@ -8,7 +8,7 @@ name: Python (HiCExplorer)
 # source tree's package finds through HICX_BIN_DIR.
 on:
   push:
-    branches: [version4-cpp]
+    branches: [master, version4-cpp]
     paths-ignore: ['docs/**', '**.md']
   pull_request:
     paths-ignore: ['docs/**', '**.md']
