@@ -46,17 +46,21 @@ def test_build_matrix(capsys):
                                                                                        outfile.name, outfile_bam.name,
                                                                                        qc_folder).split()
     compute(hicBuildMatrixMicroC.main, args, 5)
-    test = hm.hiCMatrix(ROOT + "small_test_matrix_parallel_one_rc.h5")
+    test = hm.hiCMatrix(ROOT + "small_test_matrix_microc.h5")
     new = hm.hiCMatrix(outfile.name)
     nt.assert_equal(test.matrix.data, new.matrix.data)
     nt.assert_equal(test.cut_intervals, new.cut_intervals)
     # print("MATRIX NAME:", outfile.name)
     print(set(os.listdir(ROOT + "QC_no_restriction_site/")))
-    assert are_files_equal(ROOT + "QC_no_restriction_site/QC.log", qc_folder + "/QC.log")
+    assert are_files_equal(ROOT + "hicBuildMatrix/hicx4_qc/QC_no_restriction_site.log", qc_folder + "/QC.log", delta=0)
     assert set(os.listdir(ROOT + "QC_no_restriction_site/")) == set(os.listdir(qc_folder))
 
-    # accept delta of 80 kb, file size is around 4.5 MB
-    assert abs(os.path.getsize(ROOT + "small_test_matrix_result.bam") - os.path.getsize(outfile_bam.name)) < delta
+    # every pair that is kept is written as two records
+    import pysam
+    with open(qc_folder + "/QC.log") as handle:
+        contacts = [int(line.split('\t')[1]) for line in handle if line.startswith('Hi-C contacts')][0]
+    with pysam.Samfile(outfile_bam.name, 'rb') as handle:
+        assert len(list(handle)) == 2 * contacts
 
     os.unlink(outfile.name)
     shutil.rmtree(qc_folder)

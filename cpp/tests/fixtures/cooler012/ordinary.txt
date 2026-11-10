@@ -1,0 +1,152 @@
+case ordinary_table
+create main.cool mode=w input=table chroms=chrA:1000,chrB:500 binsize=100 chunks=1 pixels=0:0:5,0:2:3,1:1:4,2:5:1,3:3:2,4:9:7,10:12:1,13:14:6
+dump
+G / links=bins,chroms,indexes,pixels attrs=bin-size=i100|bin-type=sfixed|format=sHDF5::Cooler|format-url=shttps://github.com/open2c/cooler|format-version=i3|genome-assembly=sunknown|metadata=s{}|nbins=i15|nchroms=i2|nnz=i8|storage-mode=ssymmetric-upper|sum=i29
+G /bins links=chrom,end,start attrs=
+D /bins/chrom dtype=enum:i4{chrA=0,chrB=1} shape=15 chunks=15 maxshape=15 filters=2:4;1:6 values=0,0,0,0,0,0,0,0,0,0,1,1,1,1,1 sum=5
+D /bins/end dtype=i4 shape=15 chunks=15 maxshape=15 filters=2:4;1:6 values=100,200,300,400,500,600,700,800,900,1000,100,200,300,400,500 sum=7000
+D /bins/start dtype=i4 shape=15 chunks=15 maxshape=15 filters=2:4;1:6 values=0,100,200,300,400,500,600,700,800,900,0,100,200,300,400 sum=5500
+G /chroms links=length,name attrs=
+D /chroms/length dtype=i4 shape=2 chunks=2 maxshape=2 filters=2:4;1:6 values=1000,500 sum=1500
+D /chroms/name dtype=S4 shape=2 chunks=2 maxshape=2 filters=2:4;1:6 values=chrA,chrB
+G /indexes links=bin1_offset,chrom_offset attrs=
+D /indexes/bin1_offset dtype=i8 shape=16 chunks=16 maxshape=16 filters=2:8;1:6 values=0,2,3,4,5,6,6,6,6,6,6,7,7,7,8,8 sum=87
+D /indexes/chrom_offset dtype=i8 shape=3 chunks=3 maxshape=3 filters=2:8;1:6 values=0,10,15 sum=25
+G /pixels links=bin1_id,bin2_id,count attrs=
+D /pixels/bin1_id dtype=i8 shape=8 chunks=75 maxshape=120 filters=2:8;1:6 values=0,0,1,2,3,4,10,13 sum=33
+D /pixels/bin2_id dtype=i8 shape=8 chunks=75 maxshape=120 filters=2:8;1:6 values=0,2,1,5,3,9,12,14 sum=46
+D /pixels/count dtype=i4 shape=8 chunks=75 maxshape=120 filters=2:4;1:6 values=5,3,4,1,2,7,1,6 sum=29
+end
+case ordinary_ordered_chunks
+create main.cool mode=w input=ordered chroms=chrA:1000,chrB:500 binsize=100 chunks=3 pixels=0:0:5,0:2:3,1:1:4,2:5:1,3:3:2,4:9:7,10:12:1,13:14:6
+dump
+G / links=bins,chroms,indexes,pixels attrs=bin-size=i100|bin-type=sfixed|format=sHDF5::Cooler|format-url=shttps://github.com/open2c/cooler|format-version=i3|genome-assembly=sunknown|metadata=s{}|nbins=i15|nchroms=i2|nnz=i8|storage-mode=ssymmetric-upper|sum=i29
+G /bins links=chrom,end,start attrs=
+D /bins/chrom dtype=enum:i4{chrA=0,chrB=1} shape=15 chunks=15 maxshape=15 filters=2:4;1:6 values=0,0,0,0,0,0,0,0,0,0,1,1,1,1,1 sum=5
+D /bins/end dtype=i4 shape=15 chunks=15 maxshape=15 filters=2:4;1:6 values=100,200,300,400,500,600,700,800,900,1000,100,200,300,400,500 sum=7000
+D /bins/start dtype=i4 shape=15 chunks=15 maxshape=15 filters=2:4;1:6 values=0,100,200,300,400,500,600,700,800,900,0,100,200,300,400 sum=5500
+G /chroms links=length,name attrs=
+D /chroms/length dtype=i4 shape=2 chunks=2 maxshape=2 filters=2:4;1:6 values=1000,500 sum=1500
+D /chroms/name dtype=S4 shape=2 chunks=2 maxshape=2 filters=2:4;1:6 values=chrA,chrB
+G /indexes links=bin1_offset,chrom_offset attrs=
+D /indexes/bin1_offset dtype=i8 shape=16 chunks=16 maxshape=16 filters=2:8;1:6 values=0,2,3,4,5,6,6,6,6,6,6,7,7,7,8,8 sum=87
+D /indexes/chrom_offset dtype=i8 shape=3 chunks=3 maxshape=3 filters=2:8;1:6 values=0,10,15 sum=25
+G /pixels links=bin1_id,bin2_id,count attrs=
+D /pixels/bin1_id dtype=i8 shape=8 chunks=75 maxshape=120 filters=2:8;1:6 values=0,0,1,2,3,4,10,13 sum=33
+D /pixels/bin2_id dtype=i8 shape=8 chunks=75 maxshape=120 filters=2:8;1:6 values=0,2,1,5,3,9,12,14 sum=46
+D /pixels/count dtype=i4 shape=8 chunks=75 maxshape=120 filters=2:4;1:6 values=5,3,4,1,2,7,1,6 sum=29
+end
+case ordinary_unordered_chunks
+create main.cool mode=w input=unordered chroms=chrA:1000,chrB:500 binsize=100 chunks=3 pixels=13:14:6,4:9:7,0:0:5,10:12:1,2:5:1,0:2:3,3:3:2,1:1:4
+dump
+G / links=bins,chroms,indexes,pixels attrs=bin-size=i100|bin-type=sfixed|format=sHDF5::Cooler|format-url=shttps://github.com/open2c/cooler|format-version=i3|genome-assembly=sunknown|metadata=s{}|nbins=i15|nchroms=i2|nnz=i8|storage-mode=ssymmetric-upper|sum=i29
+G /bins links=chrom,end,start attrs=
+D /bins/chrom dtype=enum:i4{chrA=0,chrB=1} shape=15 chunks=15 maxshape=15 filters=2:4;1:6 values=0,0,0,0,0,0,0,0,0,0,1,1,1,1,1 sum=5
+D /bins/end dtype=i4 shape=15 chunks=15 maxshape=15 filters=2:4;1:6 values=100,200,300,400,500,600,700,800,900,1000,100,200,300,400,500 sum=7000
+D /bins/start dtype=i4 shape=15 chunks=15 maxshape=15 filters=2:4;1:6 values=0,100,200,300,400,500,600,700,800,900,0,100,200,300,400 sum=5500
+G /chroms links=length,name attrs=
+D /chroms/length dtype=i4 shape=2 chunks=2 maxshape=2 filters=2:4;1:6 values=1000,500 sum=1500
+D /chroms/name dtype=S4 shape=2 chunks=2 maxshape=2 filters=2:4;1:6 values=chrA,chrB
+G /indexes links=bin1_offset,chrom_offset attrs=
+D /indexes/bin1_offset dtype=i8 shape=16 chunks=16 maxshape=16 filters=2:8;1:6 values=0,2,3,4,5,6,6,6,6,6,6,7,7,7,8,8 sum=87
+D /indexes/chrom_offset dtype=i8 shape=3 chunks=3 maxshape=3 filters=2:8;1:6 values=0,10,15 sum=25
+G /pixels links=bin1_id,bin2_id,count attrs=
+D /pixels/bin1_id dtype=i8 shape=8 chunks=75 maxshape=120 filters=2:8;1:6 values=0,0,1,2,3,4,10,13 sum=33
+D /pixels/bin2_id dtype=i8 shape=8 chunks=75 maxshape=120 filters=2:8;1:6 values=0,2,1,5,3,9,12,14 sum=46
+D /pixels/count dtype=i4 shape=8 chunks=75 maxshape=120 filters=2:4;1:6 values=5,3,4,1,2,7,1,6 sum=29
+end
+case ordinary_group_w
+create main.cool::/x/y mode=w input=table chroms=chrA:1000,chrB:500 binsize=100 chunks=1 pixels=0:0:5,0:2:3,1:1:4,2:5:1,3:3:2,4:9:7,10:12:1,13:14:6
+dump
+G / links=x attrs=
+G /x links=y attrs=
+G /x/y links=bins,chroms,indexes,pixels attrs=bin-size=i100|bin-type=sfixed|format=sHDF5::Cooler|format-url=shttps://github.com/open2c/cooler|format-version=i3|genome-assembly=sunknown|metadata=s{}|nbins=i15|nchroms=i2|nnz=i8|storage-mode=ssymmetric-upper|sum=i29
+G /x/y/bins links=chrom,end,start attrs=
+D /x/y/bins/chrom dtype=enum:i4{chrA=0,chrB=1} shape=15 chunks=15 maxshape=15 filters=2:4;1:6 values=0,0,0,0,0,0,0,0,0,0,1,1,1,1,1 sum=5
+D /x/y/bins/end dtype=i4 shape=15 chunks=15 maxshape=15 filters=2:4;1:6 values=100,200,300,400,500,600,700,800,900,1000,100,200,300,400,500 sum=7000
+D /x/y/bins/start dtype=i4 shape=15 chunks=15 maxshape=15 filters=2:4;1:6 values=0,100,200,300,400,500,600,700,800,900,0,100,200,300,400 sum=5500
+G /x/y/chroms links=length,name attrs=
+D /x/y/chroms/length dtype=i4 shape=2 chunks=2 maxshape=2 filters=2:4;1:6 values=1000,500 sum=1500
+D /x/y/chroms/name dtype=S4 shape=2 chunks=2 maxshape=2 filters=2:4;1:6 values=chrA,chrB
+G /x/y/indexes links=bin1_offset,chrom_offset attrs=
+D /x/y/indexes/bin1_offset dtype=i8 shape=16 chunks=16 maxshape=16 filters=2:8;1:6 values=0,2,3,4,5,6,6,6,6,6,6,7,7,7,8,8 sum=87
+D /x/y/indexes/chrom_offset dtype=i8 shape=3 chunks=3 maxshape=3 filters=2:8;1:6 values=0,10,15 sum=25
+G /x/y/pixels links=bin1_id,bin2_id,count attrs=
+D /x/y/pixels/bin1_id dtype=i8 shape=8 chunks=75 maxshape=120 filters=2:8;1:6 values=0,0,1,2,3,4,10,13 sum=33
+D /x/y/pixels/bin2_id dtype=i8 shape=8 chunks=75 maxshape=120 filters=2:8;1:6 values=0,2,1,5,3,9,12,14 sum=46
+D /x/y/pixels/count dtype=i4 shape=8 chunks=75 maxshape=120 filters=2:4;1:6 values=5,3,4,1,2,7,1,6 sum=29
+end
+case mcool_ordinary
+create main.cool::/resolutions/100 mode=a input=ordered chroms=chrA:1000,chrB:500 binsize=100 chunks=2 pixels=0:0:5,0:2:3,1:1:4,2:5:1,3:3:2,4:9:7,10:12:1,13:14:6
+create main.cool::/resolutions/500 mode=a input=table chroms=chrA:1000,chrB:500 binsize=500 chunks=1 pixels=0:0:1,0:2:9,1:2:4
+create main.cool::/resolutions/100 mode=a input=table chroms=chrA:1000,chrB:500 binsize=100 chunks=1 pixels=0:1:2,3:4:5
+dump
+G / links=resolutions attrs=
+G /resolutions links=100,500 attrs=
+G /resolutions/100 links=bins,chroms,indexes,pixels attrs=bin-size=i100|bin-type=sfixed|format=sHDF5::Cooler|format-url=shttps://github.com/open2c/cooler|format-version=i3|genome-assembly=sunknown|metadata=s{}|nbins=i15|nchroms=i2|nnz=i2|storage-mode=ssymmetric-upper|sum=i7
+G /resolutions/100/bins links=chrom,end,start attrs=
+D /resolutions/100/bins/chrom dtype=enum:i4{chrA=0,chrB=1} shape=15 chunks=15 maxshape=15 filters=2:4;1:6 values=0,0,0,0,0,0,0,0,0,0,1,1,1,1,1 sum=5
+D /resolutions/100/bins/end dtype=i4 shape=15 chunks=15 maxshape=15 filters=2:4;1:6 values=100,200,300,400,500,600,700,800,900,1000,100,200,300,400,500 sum=7000
+D /resolutions/100/bins/start dtype=i4 shape=15 chunks=15 maxshape=15 filters=2:4;1:6 values=0,100,200,300,400,500,600,700,800,900,0,100,200,300,400 sum=5500
+G /resolutions/100/chroms links=length,name attrs=
+D /resolutions/100/chroms/length dtype=i4 shape=2 chunks=2 maxshape=2 filters=2:4;1:6 values=1000,500 sum=1500
+D /resolutions/100/chroms/name dtype=S4 shape=2 chunks=2 maxshape=2 filters=2:4;1:6 values=chrA,chrB
+G /resolutions/100/indexes links=bin1_offset,chrom_offset attrs=
+D /resolutions/100/indexes/bin1_offset dtype=i8 shape=16 chunks=16 maxshape=16 filters=2:8;1:6 values=0,1,1,1,2,2,2,2,2,2,2,2,2,2,2,2 sum=27
+D /resolutions/100/indexes/chrom_offset dtype=i8 shape=3 chunks=3 maxshape=3 filters=2:8;1:6 values=0,10,15 sum=25
+G /resolutions/100/pixels links=bin1_id,bin2_id,count attrs=
+D /resolutions/100/pixels/bin1_id dtype=i8 shape=2 chunks=75 maxshape=120 filters=2:8;1:6 values=0,3 sum=3
+D /resolutions/100/pixels/bin2_id dtype=i8 shape=2 chunks=75 maxshape=120 filters=2:8;1:6 values=1,4 sum=5
+D /resolutions/100/pixels/count dtype=i4 shape=2 chunks=75 maxshape=120 filters=2:4;1:6 values=2,5 sum=7
+G /resolutions/500 links=bins,chroms,indexes,pixels attrs=bin-size=i500|bin-type=sfixed|format=sHDF5::Cooler|format-url=shttps://github.com/open2c/cooler|format-version=i3|genome-assembly=sunknown|metadata=s{}|nbins=i3|nchroms=i2|nnz=i3|storage-mode=ssymmetric-upper|sum=i14
+G /resolutions/500/bins links=chrom,end,start attrs=
+D /resolutions/500/bins/chrom dtype=enum:i4{chrA=0,chrB=1} shape=3 chunks=3 maxshape=3 filters=2:4;1:6 values=0,0,1 sum=1
+D /resolutions/500/bins/end dtype=i4 shape=3 chunks=3 maxshape=3 filters=2:4;1:6 values=500,1000,500 sum=2000
+D /resolutions/500/bins/start dtype=i4 shape=3 chunks=3 maxshape=3 filters=2:4;1:6 values=0,500,0 sum=500
+G /resolutions/500/chroms links=length,name attrs=
+D /resolutions/500/chroms/length dtype=i4 shape=2 chunks=2 maxshape=2 filters=2:4;1:6 values=1000,500 sum=1500
+D /resolutions/500/chroms/name dtype=S4 shape=2 chunks=2 maxshape=2 filters=2:4;1:6 values=chrA,chrB
+G /resolutions/500/indexes links=bin1_offset,chrom_offset attrs=
+D /resolutions/500/indexes/bin1_offset dtype=i8 shape=4 chunks=4 maxshape=4 filters=2:8;1:6 values=0,2,3,3 sum=8
+D /resolutions/500/indexes/chrom_offset dtype=i8 shape=3 chunks=3 maxshape=3 filters=2:8;1:6 values=0,2,3 sum=5
+G /resolutions/500/pixels links=bin1_id,bin2_id,count attrs=
+D /resolutions/500/pixels/bin1_id dtype=i8 shape=3 chunks=6 maxshape=6 filters=2:8;1:6 values=0,0,1 sum=1
+D /resolutions/500/pixels/bin2_id dtype=i8 shape=3 chunks=6 maxshape=6 filters=2:8;1:6 values=0,2,2 sum=4
+D /resolutions/500/pixels/count dtype=i4 shape=3 chunks=6 maxshape=6 filters=2:4;1:6 values=1,9,4 sum=14
+end
+case root_append
+create main.cool mode=a input=table chroms=chrA:1000,chrB:500 binsize=100 chunks=1 pixels=0:0:5,0:2:3,1:1:4,2:5:1,3:3:2,4:9:7,10:12:1,13:14:6
+create main.cool mode=a input=table chroms=chrA:1000,chrB:500 binsize=250 chunks=1 pixels=0:0:1,1:3:2
+create main.cool::/other mode=a input=table chroms=chrA:1000,chrB:500 binsize=100 chunks=1 pixels=0:0:1
+dump
+G / links=bins,chroms,indexes,other,pixels attrs=bin-size=i250|bin-type=sfixed|format=sHDF5::Cooler|format-url=shttps://github.com/open2c/cooler|format-version=i3|genome-assembly=sunknown|metadata=s{}|nbins=i6|nchroms=i2|nnz=i2|storage-mode=ssymmetric-upper|sum=i3
+G /bins links=chrom,end,start attrs=
+D /bins/chrom dtype=enum:i4{chrA=0,chrB=1} shape=6 chunks=6 maxshape=6 filters=2:4;1:6 values=0,0,0,0,1,1 sum=2
+D /bins/end dtype=i4 shape=6 chunks=6 maxshape=6 filters=2:4;1:6 values=250,500,750,1000,250,500 sum=3250
+D /bins/start dtype=i4 shape=6 chunks=6 maxshape=6 filters=2:4;1:6 values=0,250,500,750,0,250 sum=1750
+G /chroms links=length,name attrs=
+D /chroms/length dtype=i4 shape=2 chunks=2 maxshape=2 filters=2:4;1:6 values=1000,500 sum=1500
+D /chroms/name dtype=S4 shape=2 chunks=2 maxshape=2 filters=2:4;1:6 values=chrA,chrB
+G /indexes links=bin1_offset,chrom_offset attrs=
+D /indexes/bin1_offset dtype=i8 shape=7 chunks=7 maxshape=7 filters=2:8;1:6 values=0,1,2,2,2,2,2 sum=11
+D /indexes/chrom_offset dtype=i8 shape=3 chunks=3 maxshape=3 filters=2:8;1:6 values=0,4,6 sum=10
+G /other links=bins,chroms,indexes,pixels attrs=bin-size=i100|bin-type=sfixed|format=sHDF5::Cooler|format-url=shttps://github.com/open2c/cooler|format-version=i3|genome-assembly=sunknown|metadata=s{}|nbins=i15|nchroms=i2|nnz=i1|storage-mode=ssymmetric-upper|sum=i1
+G /other/bins links=chrom,end,start attrs=
+D /other/bins/chrom dtype=enum:i4{chrA=0,chrB=1} shape=15 chunks=15 maxshape=15 filters=2:4;1:6 values=0,0,0,0,0,0,0,0,0,0,1,1,1,1,1 sum=5
+D /other/bins/end dtype=i4 shape=15 chunks=15 maxshape=15 filters=2:4;1:6 values=100,200,300,400,500,600,700,800,900,1000,100,200,300,400,500 sum=7000
+D /other/bins/start dtype=i4 shape=15 chunks=15 maxshape=15 filters=2:4;1:6 values=0,100,200,300,400,500,600,700,800,900,0,100,200,300,400 sum=5500
+G /other/chroms links=length,name attrs=
+D /other/chroms/length dtype=i4 shape=2 chunks=2 maxshape=2 filters=2:4;1:6 values=1000,500 sum=1500
+D /other/chroms/name dtype=S4 shape=2 chunks=2 maxshape=2 filters=2:4;1:6 values=chrA,chrB
+G /other/indexes links=bin1_offset,chrom_offset attrs=
+D /other/indexes/bin1_offset dtype=i8 shape=16 chunks=16 maxshape=16 filters=2:8;1:6 values=0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1 sum=15
+D /other/indexes/chrom_offset dtype=i8 shape=3 chunks=3 maxshape=3 filters=2:8;1:6 values=0,10,15 sum=25
+G /other/pixels links=bin1_id,bin2_id,count attrs=
+D /other/pixels/bin1_id dtype=i8 shape=1 chunks=75 maxshape=120 filters=2:8;1:6 values=0 sum=0
+D /other/pixels/bin2_id dtype=i8 shape=1 chunks=75 maxshape=120 filters=2:8;1:6 values=0 sum=0
+D /other/pixels/count dtype=i4 shape=1 chunks=75 maxshape=120 filters=2:4;1:6 values=1 sum=1
+G /pixels links=bin1_id,bin2_id,count attrs=
+D /pixels/bin1_id dtype=i8 shape=2 chunks=21 maxshape=21 filters=2:8;1:6 values=0,1 sum=1
+D /pixels/bin2_id dtype=i8 shape=2 chunks=21 maxshape=21 filters=2:8;1:6 values=0,3 sum=3
+D /pixels/count dtype=i4 shape=2 chunks=21 maxshape=21 filters=2:4;1:6 values=1,2 sum=3
+end

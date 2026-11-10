@@ -1,0 +1,85 @@
+[build-system]
+requires = ["scikit-build-core>=0.10"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "HiCExplorer"
+dynamic = ["version"]
+description = "Set of programs to process, analyze and visualize Hi-C data"
+readme = "README.rst"
+license = {file = "LICENSE"}
+requires-python = ">=3.10"
+authors = [{name = "Joachim Wolff, Leily Rabbani, Bjoern Gruening, Vivek Bhardwaj, Fidel Ramírez", email = "deeptools@googlegroups.com"}]
+classifiers = [
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+]
+dependencies = [
+    "numpy >= 1.19",
+    "scipy >= 1.10",
+    "matplotlib >= 3.8",
+    "intervaltree >= 3.1",
+    "pandas >= 2.0",
+    # hicPlotMatrix (plot/hicexplorer_plot, run by this Python) transliterates
+    # --title.
+    "unidecode >= 1.3",
+    "hicmatrix >= 17",
+    "hyperopt >= 0.2.7",
+    # hicMergeDomains raises graphviz.backend.execute.ExecutableNotFound when
+    # the dot executable is missing.
+    "graphviz >= 0.20",
+]
+
+[project.optional-dependencies]
+# Packages the test suite imports to read the inputs and outputs of the tools;
+# the installed package itself does not use them.
+test = [
+    "pytest",
+    "pytest-xdist",
+    "psutil >= 5.9",
+    "pysam >= 0.21",
+    "pybedtools >= 0.9",
+    "pybigwig >= 0.3",
+    "tables >= 3.8",
+    "cooler >= 0.9.3",
+    "h5py >= 3.8",
+]
+
+[project.urls]
+Homepage = "http://hicexplorer.readthedocs.io"
+
+[project.scripts]
+# Only the Python drivers are console scripts. The C++ tools, and the
+# `hicexplorer` command that lists them, are installed as executables into the
+# scripts directory themselves (cpp/cmake/HicxInstall.cmake), so a tool starts
+# with no Python in between. A driver added here must also be added to
+# HICX_PYTHON_DRIVERS in cpp/tools/CMakeLists.txt, which lists it in
+# `hicexplorer`.
+hicHyperoptDetectLoops = "hicexplorer.hicHyperoptDetectLoops:main"
+hicHyperoptDetectLoopsHiCCUPS = "hicexplorer.hicHyperoptDetectLoopsHiCCUPS:main"
+
+[tool.scikit-build]
+cmake.source-dir = "cpp"
+cmake.build-type = "Release"
+cmake.version = ">=3.24"
+wheel.packages = ["hicexplorer"]
+# The licences of the ported and included code must travel with the binaries.
+wheel.license-files = ["LICENSE", "cpp/THIRD_PARTY_NOTICES.md", "cpp/third_party/spectra/LICENSE"]
+wheel.exclude = ["hicexplorer/test/**", "**/__pycache__/**", "/include/**", "/lib/**"]
+sdist.include = ["cpp", "plot", "hicexplorer/_version.py"]
+sdist.exclude = ["cpp/build", "hicexplorer/test/test_data/**", "docs", "examples"]
+
+# hicexplorer/lib matches the "lib" line of .gitignore, which package
+# discovery honours, so it is named here or the wheel lacks it.
+[tool.scikit-build.wheel.force-include]
+"hicexplorer/lib" = "hicexplorer/lib"
+
+[tool.scikit-build.cmake.define]
+HICX_INSTALL_PYTHON_PACKAGE = "ON"
+HICX_BUILD_PYTHON = "ON"
+HICX_BUILD_TESTS = "OFF"
+
+[tool.scikit-build.metadata.version]
+provider = "scikit_build_core.metadata.regex"
+input = "hicexplorer/_version.py"
+regex = "__version__ = '(?P<value>[^']+)'"

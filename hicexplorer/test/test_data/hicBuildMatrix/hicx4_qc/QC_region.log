@@ -1,0 +1,30 @@
+
+File	matrix.h5		
+Sequenced reads	99983		
+Min rest. site distance	300		
+Max library insert size	1000		
+
+#	count	(percentage w.r.t. total sequenced reads)
+Pairs mappable, unique and high quality	52726	(52.73)
+Hi-C contacts	7882	(7.88)
+One mate unmapped	8777	(8.78)
+One mate not unique	23	(0.02)
+Low mapping quality	38457	(38.46)
+
+#	count	(percentage w.r.t. mappable, unique and high quality pairs)
+dangling end GATC (restriction sequence GATC)	11	(0.02)
+dangling end AGCT (restriction sequence AAGCTT)	59	(0.11)
+self ligation (removed)	3004	(5.70)
+One mate not close to rest site	40906	(77.58)
+same fragment	747	(1.42)
+self circle	105	(0.20)
+duplicated pairs	12	(0.02)
+
+#	count	(percentage w.r.t. total valid pairs used)
+inter chromosomal	0	(0.00)
+Intra short range (< 20kb)	2040	(25.88)
+Intra long range (>= 20kb)	5842	(74.12)
+Read pair type: inward pairs	1806	(22.91)
+Read pair type: outward pairs	2342	(29.71)
+Read pair type: left pairs	1865	(23.66)
+Read pair type: right pairs	1869	(23.71)

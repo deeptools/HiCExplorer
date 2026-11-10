@@ -1,0 +1,86 @@
+[
+  {
+    "id": "hicInterIntraTAD.cool.chr1_chr2.t4",
+    "tool": "hicInterIntraTAD",
+    "tier": 3,
+    "reference": "none",
+    "args": ["-m", "{data}/hicInterIntraTAD/GSM2644947_Auxin2days-R1.100000_chr1_chr2.cool",
+             "--tadDomains", "{data}/hicInterIntraTAD/untreated_R1_domains_chr1_chr2.bed",
+             "--threads", "4",
+             "-o", "{out}/interintra.txt",
+             "-op", "{out}/ratio.png"],
+    "outputs": [
+      {"path": "{out}/interintra.txt", "format": "text", "class": "EX"},
+      {"path": "{out}/ratio.png", "format": "png", "class": "EX"}
+    ],
+    "threads_arg": "--threads",
+    "notes": "Class EX, not E0/E3 (deliberate deviation, HiCExplorer 4 fix 2, project owner 2026-11-06): hicDifferentialTAD and hicInterIntraTAD cut one corrected TAD geometry for cool and h5, where 3.7.6 dropped the last bin of the next TAD from the cool right block, used a stale index for the left block of the last TAD (empty on h5, a wrong block on cool) and gave the second TAD of a two-TAD chromosome no left block. The right and last-TAD left columns, and with them the accepted/rejected split, therefore differ from 3.7.6 and there is no Python output to compare with; the intra-TAD columns are unchanged. The geometry is pinned by test_hicDifferentialTAD.py / test_hicInterIntraTAD.py (regenerated tables, p-values checked against scipy.stats.ranksums on the raw blocks) and cpp/tests/test_tad_contacts.cpp. The matrix and TAD file of test_main, whose text comparison was never asserted."
+  },
+  {
+    "id": "hicInterIntraTAD.cool.chr1_chr2.t1",
+    "tool": "hicInterIntraTAD",
+    "tier": 3,
+    "reference": "none",
+    "args": ["-m", "{data}/hicInterIntraTAD/GSM2644947_Auxin2days-R1.100000_chr1_chr2.cool",
+             "--tadDomains", "{data}/hicInterIntraTAD/untreated_R1_domains_chr1_chr2.bed",
+             "--threads", "1",
+             "-o", "{out}/interintra.txt",
+             "-op", "{out}/ratio.png"],
+    "outputs": [
+      {"path": "{out}/interintra.txt", "format": "text", "class": "EX"},
+      {"path": "{out}/ratio.png", "format": "png", "class": "EX"}
+    ],
+    "threads_arg": "--threads",
+    "notes": "Class EX, not E0/E3 (deliberate deviation, HiCExplorer 4 fix 2, project owner 2026-11-06): hicDifferentialTAD and hicInterIntraTAD cut one corrected TAD geometry for cool and h5, where 3.7.6 dropped the last bin of the next TAD from the cool right block, used a stale index for the left block of the last TAD (empty on h5, a wrong block on cool) and gave the second TAD of a two-TAD chromosome no left block. The right and last-TAD left columns, and with them the accepted/rejected split, therefore differ from 3.7.6 and there is no Python output to compare with; the intra-TAD columns are unchanged. The geometry is pinned by test_hicDifferentialTAD.py / test_hicInterIntraTAD.py (regenerated tables, p-values checked against scipy.stats.ranksums on the raw blocks) and cpp/tests/test_tad_contacts.cpp. The same input through the Python's single process branch, which skips no list element at all."
+  },
+  {
+    "id": "hicInterIntraTAD.cool.untreated_chr1",
+    "tool": "hicInterIntraTAD",
+    "tier": 3,
+    "reference": "none",
+    "args": ["-m", "{data}/hicDifferentialTAD/GSM2644945_Untreated-R1.100000_chr1.cool",
+             "--tadDomains", "{data}/hicDifferentialTAD/untreated_R1_domains.bed",
+             "--threads", "3",
+             "-o", "{out}/interintra.txt",
+             "-op", "{out}/ratio.png"],
+    "outputs": [
+      {"path": "{out}/interintra.txt", "format": "text", "class": "EX"},
+      {"path": "{out}/ratio.png", "format": "png", "class": "EX"}
+    ],
+    "threads_arg": "--threads",
+    "notes": "Class EX, not E0/E3 (deliberate deviation, HiCExplorer 4 fix 2, project owner 2026-11-06): hicDifferentialTAD and hicInterIntraTAD cut one corrected TAD geometry for cool and h5, where 3.7.6 dropped the last bin of the next TAD from the cool right block, used a stale index for the left block of the last TAD (empty on h5, a wrong block on cool) and gave the second TAD of a two-TAD chromosome no left block. The right and last-TAD left columns, and with them the accepted/rejected split, therefore differ from 3.7.6 and there is no Python output to compare with; the intra-TAD columns are unchanged. The geometry is pinned by test_hicDifferentialTAD.py / test_hicInterIntraTAD.py (regenerated tables, p-values checked against scipy.stats.ranksums on the raw blocks) and cpp/tests/test_tad_contacts.cpp. A second matrix, single chromosome, 140 TADs; 43 rows hold a density below 1."
+  },
+  {
+    "id": "hicInterIntraTAD.cool.small_chromosome_last",
+    "tool": "hicInterIntraTAD",
+    "tier": 3,
+    "reference": "none",
+    "args": ["-m", "{data}/hicInterIntraTAD/GSM2644947_Auxin2days-R1.100000_chr1_chr2.cool",
+             "--tadDomains", "{data}/hicDifferentialTAD/domains_chr1_10_chr2_3.bed",
+             "--threads", "1",
+             "-o", "{out}/interintra.txt",
+             "-op", "{out}/ratio.png"],
+    "outputs": [
+      {"path": "{out}/interintra.txt", "format": "text", "class": "EX"},
+      {"path": "{out}/ratio.png", "format": "png", "class": "EX"}
+    ],
+    "threads_arg": "--threads",
+    "notes": "Class EX, not E0/E3 (deliberate deviation, HiCExplorer 4 fix 2, project owner 2026-11-06): hicDifferentialTAD and hicInterIntraTAD cut one corrected TAD geometry for cool and h5, where 3.7.6 dropped the last bin of the next TAD from the cool right block, used a stale index for the left block of the last TAD (empty on h5, a wrong block on cool) and gave the second TAD of a two-TAD chromosome no left block. The right and last-TAD left columns, and with them the accepted/rejected split, therefore differ from 3.7.6 and there is no Python output to compare with; the intra-TAD columns are unchanged. The geometry is pinned by test_hicDifferentialTAD.py / test_hicInterIntraTAD.py (regenerated tables, p-values checked against scipy.stats.ranksums on the raw blocks) and cpp/tests/test_tad_contacts.cpp. Compared at --threads 1 on purpose: at --threads 4 the Python writes eight chr1 rows twice from stale result slots, the same partitioning defect as hicDifferentialTAD, pinned by test_hicInterIntraTAD.py::test_threads_small_chromosome_last_duplicates_rows."
+  },
+  {
+    "id": "hicInterIntraTAD.h5.chr1",
+    "tool": "hicInterIntraTAD",
+    "tier": 3,
+    "reference": "none",
+    "args": ["-m", "{data}/hicDifferentialTAD/GSM2644945_Untreated-R1.100000_chr1.h5",
+             "--tadDomains", "{data}/hicDifferentialTAD/untreated_R1_domains.bed",
+             "--threads", "1",
+             "-o", "{out}/interintra.txt",
+             "-op", "{out}/ratio.png"],
+    "outputs": [
+      {"path": "{out}/interintra.txt", "format": "text", "class": "EX"},
+      {"path": "{out}/ratio.png", "format": "png", "class": "EX"}
+    ],
+    "notes": "Class EX (deliberate deviation, HiCExplorer 4 fix 2, project owner 2026-11-06): hicInterIntraTAD now processes an h5 matrix. 3.7.6 divided by zero for the last TAD of every chromosome (its left block had no columns) and exited 1 before writing anything; the corrected geometry gives the last TAD a left block, identical bin ranges for cool and h5, and the run writes its table. test_hicInterIntraTAD.py::test_h5_input_matches_cool_input pins that the rows equal those of the cool run."
+  }
+]

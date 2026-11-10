@@ -1,0 +1,55 @@
+[
+  {
+    "id": "hicMergeLoops.three_files.r5000",
+    "tool": "hicMergeLoops",
+    "tier": 2,
+    "args": ["-i", "{data}/hicMergeLoops/gm12878_10kb.bedgraph",
+             "{data}/hicMergeLoops/gm12878_25kb.bedgraph",
+             "{data}/hicMergeLoops/gm12878_5kb.bedgraph",
+             "-o", "{out}/merged.bedgraph", "-r", "5000"],
+    "outputs": [{"path": "{out}/merged.bedgraph", "format": "interval", "class": "E0"}],
+    "notes": "The invocation the Python test uses. 21,524 loops in, 16,549 out, byte identical. Two of the 13,486 overlap groups have a tied maximum anchor width here and the port decides both the way the reference does, so this case really is E0 and not E0 by luck of the comparator."
+  },
+  {
+    "id": "hicMergeLoops.single_file.r10000",
+    "tool": "hicMergeLoops",
+    "tier": 2,
+    "args": ["-i", "{data}/hicMergeLoops/gm12878_10kb.bedgraph",
+             "-o", "{out}/merged.bedgraph", "-r", "10000"],
+    "outputs": [{"path": "{out}/merged.bedgraph", "format": "interval", "class": "E0"}],
+    "notes": "One input file, which the Python suite never ran: the concat branch is not taken and every anchor has the same width, so only a genuine double overlap can merge. 12,320 in, 12,317 out, byte identical. It also pins the score column, whose 0.0019430592210407135 comes back as 0.0019430592210407 because pandas' default float converter keeps 17 significant digits and then scales."
+  },
+  {
+    "id": "hicMergeLoops.same_file_twice.r25000",
+    "tool": "hicMergeLoops",
+    "tier": 2,
+    "reference": "none",
+    "args": ["-i", "{data}/hicMergeLoops/gm12878_25kb.bedgraph",
+             "{data}/hicMergeLoops/gm12878_25kb.bedgraph",
+             "-o", "{out}/merged.bedgraph", "-r", "25000"],
+    "outputs": [{"path": "{out}/merged.bedgraph", "format": "interval", "class": "EX"}],
+    "notes": "Class EX, not E0 (deliberate deviation, HiCExplorer 4 fix, project owner 2026-11-06): drop_duplicates(keep=False) of 3.7.6 drops every copy of a repeated row, so passing the same file twice empties the frame and the Python writes a zero byte file. HiCExplorer 4 keeps the first copy of a repeated row, so the output holds the loops of the file given once. Pinned by test_hicMergeLoops.py::test_duplicated_rows_are_kept_once."
+  },
+  {
+    "id": "hicMergeLoops.three_files.r25000",
+    "tool": "hicMergeLoops",
+    "tier": 2,
+    "args": ["-i", "{data}/hicMergeLoops/gm12878_10kb.bedgraph",
+             "{data}/hicMergeLoops/gm12878_25kb.bedgraph",
+             "{data}/hicMergeLoops/gm12878_5kb.bedgraph",
+             "-o", "{out}/merged.bedgraph", "-r", "25000"],
+    "outputs": [{"path": "{out}/merged.bedgraph", "format": "interval", "class": "E0"}],
+    "notes": "The resolution the tool's own help text recommends for these three files. At 25,000 eighteen overlap groups have a tied maximum anchor width, and the reference breaks those ties by CPython's set iteration order, which is deterministic for Interval keys (hash((begin, end)) of ints is not salted). The port reproduces intervaltree's node structure and CPython's set slot layout (see the file comment of cpp/tools/hicMergeLoops.cpp), so the output is byte identical. Until 2026-10-22 this case was E5: the earlier port ordered hits by (hash & mask, id) and moved two of the 15,908 rows."
+  },
+  {
+    "id": "hicMergeLoops.three_files.r50000",
+    "tool": "hicMergeLoops",
+    "tier": 2,
+    "args": ["-i", "{data}/hicMergeLoops/gm12878_10kb.bedgraph",
+             "{data}/hicMergeLoops/gm12878_25kb.bedgraph",
+             "{data}/hicMergeLoops/gm12878_5kb.bedgraph",
+             "-o", "{out}/merged.bedgraph", "-r", "50000"],
+    "outputs": [{"path": "{out}/merged.bedgraph", "format": "interval", "class": "E0"}],
+    "notes": "A --lowestResolution larger than every input resolution, so the neighbourhood factor is positive for all three and the search widens: 15,602 rows survive against 16,549 at 5000. Nineteen tied groups, all decided as the reference does since the exact set-order emulation (E5 until 2026-10-22)."
+  }
+]

@@ -1,57 +1,25 @@
+"""hicFindRestSite: a thin layer over the C++ executable hicFindRestSite.
+
+main() runs the executable and parse_arguments() is built from its --help-json
+(hicexplorer._cpp). find_pattern calls hicexplorer._hicx.hicFindRestSite
+(C++, cpp/python/src/api/hicFindRestSite.cpp), the same scan the executable
+runs.
+"""
 import warnings
 warnings.simplefilter(action="ignore", category=RuntimeWarning)
 warnings.simplefilter(action="ignore", category=PendingDeprecationWarning)
-import argparse
-import re
-from tempfile import NamedTemporaryFile
-import subprocess
 
-import gzip
-from mimetypes import guess_type
-from functools import partial
-from Bio import SeqIO
-from Bio.Seq import Seq
-from hicexplorer._version import __version__
 
 import logging
 log = logging.getLogger(__name__)
 
+from hicexplorer._hicx import hicFindRestSite as _impl
+
 
 def parse_arguments(args=None):
-    parser = argparse.ArgumentParser(description='Identifies the genomic locations of restriction sites. ',
-                                     add_help=False,
-                                     usage='%(prog)s --fasta mm10.fa '
-                                           '--searchPattern AAGCTT -o rest_site_positions.bed')
-
-    parserRequired = parser.add_argument_group('Required arguments')
-
-    # define the arguments
-    parserRequired.add_argument('--fasta', '-f',
-                                help='Path to fasta file for the organism genome.',
-                                type=argparse.FileType('r'),
-                                required=True)
-
-    # define the arguments
-    parserRequired.add_argument('--searchPattern', '-p',
-                                help='Search pattern. For example, for HindIII this pattern is "AAGCTT". '
-                                'Both, forward and reverse strand are searched for a match. The pattern '
-                                'is a regexp and can contain regexp specif syntax '
-                                '(see https://docs.python.org/2/library/re.html). For example the pattern'
-                                'CG..GC will find all occurrence of CG followed by any two bases and then GC.',
-                                required=True,
-                                nargs='+')
-
-    parserRequired.add_argument('--outFile', '-o',
-                                help='Name for the resulting bed file.',
-                                type=argparse.FileType('w'),
-                                required=True)
-
-    parserOpt = parser.add_argument_group('Optional arguments')
-
-    parserOpt.add_argument("--help", "-h", action="help", help="show this help message and exit")
-    parserOpt.add_argument('--version', action='version',
-                           version='%(prog)s {}'.format(__version__))
-    return parser
+    """The argparse parser of hicFindRestSite, built from the C++ executable's --help-json."""
+    from hicexplorer._cpp import build_parser
+    return build_parser('hicFindRestSite')
 
 
 def find_pattern(pPattern, fasta_file, out_file):
@@ -96,47 +64,10 @@ def find_pattern(pPattern, fasta_file, out_file):
 
     """
 
-    temp = NamedTemporaryFile(suffix=".bed", delete=False, mode='wt')
-
-    for pattern in pPattern:
-        rev_compl = str(Seq(pattern).reverse_complement())
-        try:
-            fasta_file_name = fasta_file.name
-        except AttributeError:
-            fasta_file_name = fasta_file
-
-        encoding = guess_type(fasta_file_name)[1]  # uses file extension
-        _open = partial(gzip.open, mode='rt') if encoding == 'gzip' else open
-
-        with _open(fasta_file_name) as f:
-            for record in SeqIO.parse(f, 'fasta'):
-                # find all the occurrences of pattern
-                for match in re.finditer(pattern, str(record.seq), re.IGNORECASE):
-                    _ = temp.write('{}\t{}\t{}\t.\t0\t+\n'.format(record.name,
-                                                                  match.start(),
-                                                                  match.end()))
-                if rev_compl != pattern:
-                    # search for the reverse complement only if the pattern is not palindromic
-                    for match in re.finditer(rev_compl, str(record.seq), re.IGNORECASE):
-                        _ = temp.write('{}\t{}\t{}\t.\t0\t-\n'.format(record.name, match.start(),
-                                                                      match.end()))
-
-    log.info("Sorting file ...")
-    tmpfile_name = temp.name
-    temp.close()
-    subprocess.check_output(["cat", tmpfile_name])
-    # sort bed file using system tools
-    cmd = 'sort -k1,1 -k2,2n -u {}'.format(tmpfile_name)
-    # LC_ALL=C is to set the appropriate collation order
-    proc = subprocess.Popen(cmd.split(" "), stdout=subprocess.PIPE, env={'LC_ALL': ' C'}, universal_newlines=True)
-    stdout, _ = proc.communicate()
-
-    out_file.write(stdout)
-    out_file.close()
-
-    temp.close()
+    return _impl.find_pattern(pPattern, fasta_file, out_file)
 
 
 def main(args=None):
-    args = parse_arguments().parse_args(args)
-    find_pattern(args.searchPattern, args.fasta, args.outFile)
+    """Run the C++ implementation of hicFindRestSite with `args` (default sys.argv[1:])."""
+    from hicexplorer._cpp import entry_point
+    return entry_point('hicFindRestSite')(args)

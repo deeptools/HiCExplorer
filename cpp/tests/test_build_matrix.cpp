@@ -1,0 +1,523 @@
+// Unit tests for the hicBuildMatrix machinery.
+//
+// The expected values of the binning tests are the ones the Python doctests in
+// hicexplorer/lib/buildMatrixMethods.py declare, so a divergence in either
+// direction is caught here rather than in a whole tool run.
+
+#include <doctest/doctest.h>
+
+#include <cmath>
+#include <cstdio>
+#include <fstream>
+#include <optional>
+#include <string>
+#include <vector>
+
+#include "hicx/bam_file.hpp"
+#include "hicx/build_matrix.hpp"
+#include "hicx/build_matrix_run.hpp"
+
+using hicx::BinSearchIndex;
+using hicx::ChromNames;
+using hicx::ChromSizes;
+using hicx::GenomeInterval;
+using hicx::RestrictionSiteIndex;
+
+namespace {
+
+std::vector<std::string> as_text(const std::vector<GenomeInterval>& intervals,
+                                 const ChromNames& names) {
+    std::vector<std::string> out;
+    out.reserve(intervals.size());
+    for (const auto& interval : intervals) {
+        out.push_back(names.name(interval.chrom) + ":" +
+                      std::to_string(interval.start) + "-" +
+                      std::to_string(interval.end));
+    }
+    return out;
+}
+
+std::vector<GenomeInterval> sites(ChromNames& names,
+                                  const std::vector<std::tuple<const char*, std::int64_t,
+                                                               std::int64_t>>& items) {
+    std::vector<GenomeInterval> out;
+    for (const auto& [chrom, start, end] : items) {
+        out.push_back({names.intern(chrom), start, end});
+    }
+    return out;
+}
+
+}  // namespace
+
+TEST_CASE("get_bins matches the buildMatrixMethods doctest") {
+    ChromNames names;
+    const ChromSizes chrom_sizes{{"contig-1", 7125}, {"contig-2", 3345}};
+    const auto bins = hicx::get_bins(50000, chrom_sizes, "", names);
+    CHECK(as_text(bins, names) ==
+          std::vector<std::string>{"contig-1:0-7125", "contig-2:0-3345"});
+
+    const auto one = hicx::get_bins(50000, chrom_sizes, "contig-1", names);
+    CHECK(as_text(one, names) == std::vector<std::string>{"contig-1:0-7125"});
+}
+
+TEST_CASE("get_bins cuts a chromosome that is not a multiple of the bin size") {
+    ChromNames names;
+    const ChromSizes chrom_sizes{{"chr1", 25}};
+    const auto bins = hicx::get_bins(10, chrom_sizes, "", names);
+    CHECK(as_text(bins, names) ==
+          std::vector<std::string>{"chr1:0-10", "chr1:10-20", "chr1:20-25"});
+}
+
+TEST_CASE("get_rf_bins matches the buildMatrixMethods doctest") {
+    ChromNames names;
+    const auto cut_sites = sites(names, {{"chr1", 10, 20},
+                                         {"chr1", 60, 70},
+                                         {"chr2", 20, 30},
+                                         {"chr2", 40, 50},
+                                         {"chr2", 70, 80}});
+    const auto bins = hicx::get_rf_bins(cut_sites, 10, 20);
+    CHECK(as_text(bins, names) == std::vector<std::string>{"chr1:0-40", "chr1:40-90",
+                                                           "chr2:0-60", "chr2:60-100"});
+}
+
+TEST_CASE("enlarge_bins matches the buildMatrixMethods doctest") {
+    ChromNames names;
+    auto bins = sites(names, {{"chr1", 10, 30},
+                              {"chr1", 50, 80},
+                              {"chr2", 10, 60},
+                              {"chr2", 60, 90}});
+    const ChromSizes chrom_sizes{{"chr1", 100}, {"chr2", 100}};
+    hicx::enlarge_bins(bins, chrom_sizes, names);
+    CHECK(as_text(bins, names) == std::vector<std::string>{"chr1:0-40", "chr1:40-100",
+                                                           "chr2:0-60", "chr2:60-100"});
+}
+
+TEST_CASE("getUserRegion accepts a bare chromosome and rejects an unknown one") {
+    const ChromSizes chrom_sizes{{"chr2", 1000}};
+    const auto region = hicx::user_region(chrom_sizes, "chr2:10:1001");
+    CHECK(region.start == 10);
+    CHECK(region.end == 1000);  // clipped to the chromosome length
+    CHECK(region.chrom_sizes.size() == 1);
+    CHECK(region.chrom_sizes[0].second == 1000);
+
+    // The failure mode that makes test_build_matrix_restrictionCutFile_two fail
+    // on master: a chromosome name that is not in the BAM header.
+    CHECK_THROWS_AS(hicx::user_region(chrom_sizes, "Chr2"), std::runtime_error);
+}
+
+TEST_CASE("genomicRegion strips punctuation and turns a dash into a colon") {
+    CHECK(hicx::normalise_region("chr1:1,000-2,000") == "chr1:1000:2000");
+    CHECK(hicx::normalise_region(" chr X ") == "chrX");
+    CHECK(hicx::normalise_region("") == "");
+}
+
+TEST_CASE("the bin lookup reproduces the shared array binary search") {
+    ChromNames names;
+    const auto bins = sites(names, {{"chr1", 0, 10}, {"chr1", 10, 20}, {"chr1", 20, 30},
+                                    {"chr2", 0, 5}});
+    const BinSearchIndex index(bins, names);
+    const std::uint32_t chr1 = *names.lookup("chr1");
+    const std::uint32_t chr2 = *names.lookup("chr2");
+
+    CHECK(index.bin_at(chr1, 0) == 0);
+    CHECK(index.bin_at(chr1, 5) == 0);
+    CHECK(index.bin_at(chr1, 15) == 1);
+    CHECK(index.bin_at(chr1, 25) == 2);
+    CHECK(index.bin_at(chr2, 3) == 3);
+    // Past the last bin of the chromosome.
+    CHECK(!index.bin_at(chr1, 100).has_value());
+    // A chromosome with no bins at all is the KeyError branch.
+    CHECK(!index.has_chrom(names.intern("chr3")));
+    CHECK(!index.bin_at(names.intern("chr3"), 0).has_value());
+}
+
+TEST_CASE("the bin lookup treats both interval ends as inclusive") {
+    // buildMatrixMethods.py:663 compares begin <= x <= end, so a position on a
+    // shared boundary can land in either neighbour depending on which one the
+    // binary search probes first. With three bins the search starts at the
+    // middle one, so position 10 and position 20 both resolve to bin 1.
+    ChromNames names;
+    const auto bins = sites(names, {{"chr1", 0, 10}, {"chr1", 10, 20}, {"chr1", 20, 30}});
+    const BinSearchIndex index(bins, names);
+    const std::uint32_t chr1 = *names.lookup("chr1");
+    CHECK(index.bin_at(chr1, 10) == 1);
+    CHECK(index.bin_at(chr1, 20) == 1);
+}
+
+TEST_CASE("the restriction site index answers the intervaltree slice query") {
+    ChromNames names;
+    const auto cut_sites = sites(names, {{"chr1", 100, 104}, {"chr1", 200, 204},
+                                         {"chr2", 50, 54}});
+    const RestrictionSiteIndex index(cut_sites, names.size());
+    const std::uint32_t chr1 = *names.lookup("chr1");
+    const std::uint32_t chr2 = *names.lookup("chr2");
+
+    CHECK(index.has_chrom(chr1));
+    CHECK(index.overlaps(chr1, 90, 110));
+    CHECK(index.overlaps(chr1, 103, 150));
+    // tree[a:b] needs begin < b and end > a.
+    CHECK(!index.overlaps(chr1, 104, 200));
+    CHECK(!index.overlaps(chr1, 0, 100));
+    // A null slice returns an empty set.
+    CHECK(!index.overlaps(chr1, 150, 150));
+    CHECK(!index.overlaps(chr1, 200, 150));
+    CHECK(!index.overlaps(chr2, 0, 40));
+    CHECK(index.overlaps(chr2, 0, 51));
+    CHECK(!index.has_chrom(names.intern("chr3")));
+}
+
+TEST_CASE("reverse_complement follows Bio.Seq over the IUPAC alphabet") {
+    CHECK(hicx::reverse_complement("GATC") == "GATC");
+    CHECK(hicx::reverse_complement("AGCT") == "AGCT");
+    CHECK(hicx::reverse_complement("AAGCTT") == "AAGCTT");
+    CHECK(hicx::reverse_complement("AACCGGTT") == "AACCGGTT");
+    CHECK(hicx::reverse_complement("ACGTN") == "NACGT");
+    CHECK(hicx::reverse_complement("ATTG") == "CAAT");
+}
+
+TEST_CASE("the QC counters combine as an order independent integer sum") {
+    hicx::QcCounters a;
+    a.dangling_end = {3, 0};
+    a.self_circle = 5;
+    a.pair_added = 11;
+    a.iter_num = 100;
+    hicx::QcCounters b;
+    b.dangling_end = {0, 7};
+    b.self_circle = 2;
+    b.pair_added = 4;
+    b.iter_num = 50;
+
+    hicx::QcCounters forwards;
+    forwards.add(a);
+    forwards.add(b);
+    hicx::QcCounters backwards;
+    backwards.add(b);
+    backwards.add(a);
+
+    CHECK(forwards.dangling_end == backwards.dangling_end);
+    CHECK(forwards.dangling_end == std::vector<std::int64_t>{3, 7});
+    CHECK(forwards.self_circle == backwards.self_circle);
+    CHECK(forwards.pair_added == 15);
+    CHECK(forwards.iter_num == 150);
+}
+
+TEST_CASE("the QC log reproduces the reference layout") {
+    hicx::QcLogInputs inputs;
+    inputs.out_file_name = "/tmp/example.h5";
+    inputs.min_distance = 300;
+    inputs.max_library_insert_size = 1000;
+    inputs.keep_self_ligation = false;
+    inputs.has_restriction_cut_file = true;
+    inputs.dangling_sequences = {{"GATC", "GATC"}};
+
+    hicx::QcCounters counters;
+    counters.iter_num = 99983;
+    counters.one_mate_unmapped = 8777;
+    counters.one_mate_not_unique = 3603;
+    counters.one_mate_low_quality = 34877;
+    counters.dangling_end = {54};
+    counters.self_ligation = 5056;
+    counters.mate_not_close_to_rf = 0;
+    counters.same_fragment = 10283;
+    counters.self_circle = 651;
+    counters.duplicated_pairs = 12;
+    counters.pair_added = 37321;
+    counters.inter_chromosomal = 5955;
+    counters.short_range = 8853;
+    counters.long_range = 22513;
+    counters.count_inward = 7145;
+    counters.count_outward = 9731;
+    counters.count_left = 7156;
+    counters.count_right = 7334;
+
+    const std::string log = hicx::format_qc_log(inputs, counters);
+    CHECK(log.rfind("\nFile\t/tmp/example.h5\t\t\n", 0) == 0);
+    CHECK(log.find("Sequenced reads\t99983\t\t\n") != std::string::npos);
+    CHECK(log.find("Min rest. site distance\t300\t\t\n") != std::string::npos);
+    CHECK(log.find("Pairs mappable, unique and high quality\t52726\t(52.73)\n") !=
+          std::string::npos);
+    CHECK(log.find("Hi-C contacts\t37321\t(37.33)\n") != std::string::npos);
+    CHECK(log.find("dangling end GATC (restriction sequence GATC)\t54\t(0.10)\n") !=
+          std::string::npos);
+    CHECK(log.find("self ligation (removed)\t5056\t(9.59)\n") != std::string::npos);
+    CHECK(log.find("self circle\t651\t(1.23)\n") != std::string::npos);
+    CHECK(log.find("Read pair type: right pairs\t7334\t(19.65)\n") !=
+          std::string::npos);
+    // Without a restriction cut file three lines disappear from the log.
+    inputs.has_restriction_cut_file = false;
+    const std::string without = hicx::format_qc_log(inputs, counters);
+    CHECK(without.find("self ligation") == std::string::npos);
+    CHECK(without.find("self circle") == std::string::npos);
+    CHECK(without.find("One mate not close to rest site") == std::string::npos);
+    CHECK(without.find("same fragment\t10283\t(19.50)\n") != std::string::npos);
+    // --keepSelfLigation only changes the label.
+    inputs.has_restriction_cut_file = true;
+    inputs.keep_self_ligation = true;
+    CHECK(hicx::format_qc_log(inputs, counters).find("self ligation (not removed)") !=
+          std::string::npos);
+}
+
+TEST_CASE("the BAM reader reports pysam's fields on a real file") {
+    const std::string path = std::string(HICX_TEST_DATA_DIR) + "/R1_1000.bam";
+    hicx::BamReader reader(path);
+    CHECK(reader.references().size() == 15);
+    CHECK(reader.references().front() == "chr2L");
+    CHECK(reader.lengths().front() == 23011544);
+
+    const auto sizes = hicx::chrom_sizes_of(reader);
+    CHECK(sizes.size() == 15);
+    CHECK(sizes.front().first == "chr2L");
+    CHECK(sizes.back().first == "chrYHet");
+
+    hicx::BamRecord record;
+    std::int64_t records = 0;
+    std::int64_t mapped = 0;
+    while (reader.read(record)) {
+        const hicx::ReadFields fields = record.fields();
+        CHECK(fields.seq_len == 50);
+        CHECK(fields.qlen <= fields.seq_len);
+        if (!fields.is_unmapped()) {
+            ++mapped;
+            CHECK(fields.tid >= 0);
+            CHECK(fields.pos >= 0);
+        }
+        ++records;
+    }
+    // Fixed by the file, so a change in the reader shows up immediately.
+    CHECK(records == 983);
+    CHECK(mapped == 542);
+}
+
+// --- the QC statistics stored in the cool metadata ("hicexplorer_qc") --------
+
+#include "hicx/json_lite.hpp"
+
+TEST_CASE("the QC distance bins are log spaced, ten per decade") {
+    CHECK(hicx::qc_distance_edge(0) == 1);
+    CHECK(hicx::qc_distance_edge(10) == 10);
+    CHECK(hicx::qc_distance_edge(20) == 100);
+    CHECK(hicx::qc_distance_edge(30) == 1000);
+    CHECK(hicx::qc_distance_edge(100) == 10000000000LL);
+    // 10^(1/10) = 1.2589..., 10^(15/10) = 31.62...
+    CHECK(hicx::qc_distance_edge(11) == 13);
+    CHECK(hicx::qc_distance_edge(15) == 32);
+    CHECK(hicx::qc_distance_bin(0) == 0);
+    CHECK(hicx::qc_distance_bin(1) == 0);
+    CHECK(hicx::qc_distance_bin(9) == hicx::qc_distance_bin(8));
+    CHECK(hicx::qc_distance_bin(10) == 10);
+    CHECK(hicx::qc_distance_bin(12) == 10);
+    CHECK(hicx::qc_distance_bin(13) == 11);
+    CHECK(hicx::qc_distance_bin(999) == 29);
+    CHECK(hicx::qc_distance_bin(1000) == 30);
+    CHECK(hicx::qc_distance_bin(20000) == 43);  // 19953 <= 20000 < 25119
+    // every distance falls into the bin whose edges enclose it
+    for (std::int64_t d : {1LL, 2LL, 7LL, 100LL, 4999LL, 123456LL, 99999999LL}) {
+        const int bin = hicx::qc_distance_bin(d);
+        CHECK(hicx::qc_distance_edge(bin) <= d);
+        CHECK(d < hicx::qc_distance_edge(bin + 1));
+    }
+}
+
+TEST_CASE("recording intra-chromosomal contacts fills both distance tables") {
+    hicx::QcCounters a;
+    a.record_intra(1000, 0);
+    a.record_intra(-1000, 1);   // the sign of the distance does not matter
+    a.record_intra(5, -1);      // a pair of unknown type enters the first table only
+    hicx::QcCounters b;
+    b.record_intra(1000, 0);
+    a.add(b);
+    const auto bin = static_cast<std::size_t>(hicx::qc_distance_bin(1000));
+    CHECK(a.distance_contacts[bin] == 3);
+    CHECK(a.distance_contacts[static_cast<std::size_t>(hicx::qc_distance_bin(5))] == 1);
+    CHECK(a.orientation_distance[0][bin] == 2);
+    CHECK(a.orientation_distance[1][bin] == 1);
+    CHECK(a.orientation_distance[2].empty());
+}
+
+TEST_CASE("the QC metadata JSON carries the log counts and the distance tables") {
+    hicx::QcLogInputs inputs;
+    inputs.min_distance = 300;
+    inputs.max_library_insert_size = 1000;
+    inputs.dangling_sequences = {{"GATC", "GATC"}};
+    inputs.max_chromosome_length = 1000000;
+    hicx::QcCounters counters;
+    counters.iter_num = 100;
+    counters.one_mate_unmapped = 10;
+    counters.one_mate_not_unique = 5;
+    counters.one_mate_low_quality = 15;
+    counters.dangling_end = {4};
+    counters.pair_added = 3;
+    counters.inter_chromosomal = 1;
+    counters.short_range = 1;
+    counters.long_range = 1;
+    counters.count_inward = 1;
+    counters.count_outward = 1;
+    counters.record_intra(500, 0);
+    counters.record_intra(300000, 1);
+
+    const std::string text = hicx::format_qc_metadata_json(inputs, counters, "hicBuildMatrix");
+    const std::optional<hicx::json::Value> parsed = hicx::json::parse(text);
+    REQUIRE(parsed.has_value());
+    CHECK(parsed->find("schema_version")->as_int() == 1);
+    CHECK(parsed->find("tool")->as_string() == "hicBuildMatrix");
+    const hicx::json::Value& counts = *parsed->find("counts");
+    CHECK(counts.find("sequenced_reads")->as_int() == 100);
+    CHECK(counts.find("pairs_mappable_unique_high_quality")->as_int() == 70);
+    CHECK(counts.find("dangling_end")->as_array()[0].find("count")->as_int() == 4);
+    const hicx::json::Value& parameters = *parsed->find("parameters");
+    CHECK(parameters.find("min_rest_site_distance")->as_int() == 300);
+    CHECK(parameters.find("short_range_cutoff")->as_int() == 20000);
+    const hicx::json::Value& distance = *parsed->find("distance");
+    const auto bins = static_cast<std::size_t>(hicx::qc_distance_bin(1000000)) + 1;
+    CHECK(distance.find("lower_edges_bp")->as_array().size() == bins);
+    CHECK(distance.find("contacts")->as_array().size() == bins);
+    std::int64_t total = 0;
+    for (const auto& value : distance.find("contacts")->as_array()) {
+        total += value.as_int();
+    }
+    CHECK(total == 2);
+    CHECK(distance.find("orientation")->find("outward")->as_array().size() == bins);
+}
+
+// --- defects of the Python that HiCExplorer 4 fixes (Q1 to Q6 of hicBuildMatrix.cpp)
+
+TEST_CASE("Q1: a pair is not unique only when both mates have quality 0") {
+    using hicx::build_matrix::PairVerdict;
+    using hicx::build_matrix::pair_verdict;
+    CHECK(pair_verdict(0, 0, 0, 0, 15) == PairVerdict::OneMateNotUnique);
+    // the first mate alone decided in 3.7.6
+    CHECK(pair_verdict(0, 0, 0, 30, 15) == PairVerdict::LowQuality);
+    CHECK(pair_verdict(0, 0, 30, 0, 15) == PairVerdict::LowQuality);
+    CHECK(pair_verdict(0, 0, 5, 5, 15) == PairVerdict::LowQuality);
+    CHECK(pair_verdict(0, 0, 30, 30, 15) == PairVerdict::Keep);
+    CHECK(pair_verdict(4, 0, 0, 0, 15) == PairVerdict::OneMateUnmapped);
+}
+
+TEST_CASE("Q6: --region keeps the restriction sites inside the region") {
+    const std::string path = "build_matrix_q6_cut_sites.bed";
+    {
+        std::ofstream file(path);
+        file << "chr1\t100\t104\nchr1\t500\t504\nchr1\t900\t904\nchr2\t100\t104\n";
+    }
+    const ChromSizes chrom_sizes{{"chr1", 1000}, {"chr2", 1000}};
+    ChromNames names;
+    std::vector<GenomeInterval> kept;
+    // a bare chromosome: its end is the chromosome length, 3.7.6 kept nothing
+    hicx::bed2interval_list(path, chrom_sizes, "chr1", names, kept);
+    CHECK(as_text(kept, names) == std::vector<std::string>{"chr1:100-104", "chr1:500-504",
+                                                           "chr1:900-904"});
+    kept.clear();
+    hicx::bed2interval_list(path, chrom_sizes, "chr1:200:600", names, kept);
+    CHECK(as_text(kept, names) == std::vector<std::string>{"chr1:500-504"});
+    std::remove(path.c_str());
+}
+
+namespace {
+
+// Two bins of 100 bases on one chromosome, a coverage cell every 10 bases.
+struct ClassifyPolicy {
+    std::vector<std::int64_t> position1, position2;
+    std::vector<bool> reverse1, reverse2;
+    bool site_between = false;  // a restriction site lies between the mates
+    std::vector<int> coverage = std::vector<int>(20, 0);
+    int added = 0;
+
+    std::int64_t tid(std::size_t, int) const { return 0; }
+    std::int64_t pos(std::size_t i, int w) const { return w == 0 ? position1[i] : position2[i]; }
+    std::int64_t qlen(std::size_t, int) const { return 20; }
+    std::int64_t seq_len(std::size_t, int) const { return 20; }
+    bool is_reverse(std::size_t i, int w) const { return w == 0 ? reverse1[i] : reverse2[i]; }
+    std::optional<hicx::SearchInterval> bin(std::size_t, int, std::int64_t middle) const {
+        const std::uint32_t id = middle < 100 ? 0 : 1;
+        return hicx::SearchInterval{id * 100, id * 100 + 99, id};
+    }
+    bool rf_enabled() const { return true; }
+    bool rf_overlaps(std::size_t, std::int64_t, std::int64_t) const { return site_between; }
+    bool dangling(std::size_t, int, std::size_t) const { return false; }
+    std::pair<std::int64_t, std::int64_t> coverage_range(std::uint32_t bin_id) const {
+        return {bin_id * 10, bin_id * 10 + 10};  // exclusive end, Q4
+    }
+    void coverage_add(std::int64_t cell) { ++coverage[static_cast<std::size_t>(cell)]; }
+    void set_isize(std::size_t) {}
+    void add_pair(std::size_t, std::uint32_t, std::uint32_t) { ++added; }
+};
+
+hicx::build_matrix::ClassifyOptions classify_options(bool keep_self_circles) {
+    hicx::build_matrix::ClassifyOptions options;
+    options.restriction_sequences = {"GATC", "AAGCTT"};
+    options.keep_self_circles = keep_self_circles;
+    return options;
+}
+
+}  // namespace
+
+TEST_CASE("Q2: a self circle is counted once and removed unless it is kept") {
+    // outward pair (first mate reverse, second forward), no restriction site
+    // between the mates, two restriction sequences
+    ClassifyPolicy removed;
+    removed.position1 = {20};
+    removed.position2 = {120};
+    removed.reverse1 = {true};
+    removed.reverse2 = {false};
+    hicx::QcCounters counters;
+    hicx::build_matrix::classify_pairs(classify_options(false), 0, 1, removed, counters);
+    CHECK(counters.self_circle == 1);  // 3.7.6 counted it once per sequence
+    CHECK(removed.added == 0);         // 3.7.6 kept it
+
+    ClassifyPolicy kept = removed;
+    hicx::QcCounters kept_counters;
+    hicx::build_matrix::classify_pairs(classify_options(true), 0, 1, kept, kept_counters);
+    CHECK(kept_counters.self_circle == 1);
+    CHECK(kept.added == 1);
+
+    // with a restriction site between the mates it is no self circle at all
+    ClassifyPolicy with_site = removed;
+    with_site.site_between = true;
+    hicx::QcCounters site_counters;
+    hicx::build_matrix::classify_pairs(classify_options(false), 0, 1, with_site, site_counters);
+    CHECK(site_counters.self_circle == 0);
+    CHECK(with_site.added == 1);
+}
+
+TEST_CASE("Q3 and Q4: each mate adds its coverage to its own bin, up to the last cell") {
+    ClassifyPolicy policy;
+    // mate 1 in bin 0 at its end, mate 2 in bin 1 at its end; 20 bases
+    // cover two cells of ten bases, the last two cells of each bin
+    policy.position1 = {80};
+    policy.position2 = {180};
+    policy.reverse1 = {true};
+    policy.reverse2 = {true};  // both reverse: no inward or outward filter applies
+    hicx::QcCounters counters;
+    hicx::build_matrix::classify_pairs(classify_options(false), 0, 1, policy, counters);
+    REQUIRE(policy.added == 1);
+    // cells 8 and 9 of bin 0 (3.7.6 put mate 1 into bin 1 and lost cell 9)
+    CHECK(policy.coverage[8] == 1);
+    CHECK(policy.coverage[9] == 1);
+    // cells 8 and 9 of bin 1 are indices 18 and 19
+    CHECK(policy.coverage[18] == 1);
+    CHECK(policy.coverage[19] == 1);
+}
+
+TEST_CASE("the bin lookup handles bins above 4,294,967,295 bases") {
+    // fixed in HiCExplorer 4: the Python's c_uint intervals wrapped here
+    ChromNames names;
+    const auto bins = sites(names, {{"big", 4000000000LL, 4500000000LL},
+                                    {"big", 4500000000LL, 5000000000LL},
+                                    {"big", 5000000000LL, 5500000000LL}});
+    const BinSearchIndex index(bins, names);
+    const std::uint32_t big = *names.lookup("big");
+    CHECK(index.bin_at(big, 4100000000LL) == 0);
+    CHECK(index.bin_at(big, 4600000000LL) == 1);
+    CHECK(index.bin_at(big, 5200000000LL) == 2);
+    CHECK(!index.bin_at(big, 6000000000LL).has_value());
+}
+
+TEST_CASE("the duplicate key orders the mates together (issue 957)") {
+    using hicx::build_matrix::make_duplicate_key;
+    // chr1:100000 / chr2:200000 against chr1:200000 / chr2:100000.
+    CHECK_FALSE(make_duplicate_key(0, 100000, 1, 200000) == make_duplicate_key(0, 200000, 1, 100000));
+    // The same pair with its mates swapped is a genuine duplicate.
+    CHECK(make_duplicate_key(0, 100000, 1, 200000) == make_duplicate_key(1, 200000, 0, 100000));
+    CHECK(make_duplicate_key(0, 5, 0, 9) == make_duplicate_key(0, 9, 0, 5));
+    CHECK_FALSE(make_duplicate_key(0, 5, 0, 9) == make_duplicate_key(0, 5, 0, 10));
+}

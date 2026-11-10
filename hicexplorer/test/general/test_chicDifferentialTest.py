@@ -72,6 +72,44 @@ def test_regular_mode_fisher():
     differentialFileH5Object.close()
 
 
+def _category_counts(path):
+    counts = {'accepted': 0, 'rejected': 0, 'all': 0}
+    with h5py.File(path, 'r') as handle:
+        def visit(name, obj):
+            if name.endswith('pvalue_list') and '/genes/' not in name:
+                counts[name.split('/')[-2]] += obj.shape[0]
+        handle.visititems(visit)
+    return counts
+
+
+def test_characterization_calls_and_failures(tmp_path):
+    # Characterization (cpp/AGENTS_CONTRACT.md rule 1), pinned before the C++
+    # port: the calls of both tests on the committed aggregate file, and the
+    # failures the tests above do not reach.
+    aggregate = ROOT + 'chicAggregateStatistic/aggregate.hdf5'
+    for test, counts, first in (('fisher', {'accepted': 7, 'rejected': 18, 'all': 25}, 0.00813445170440013),
+                                ('chi2', {'accepted': 6, 'rejected': 19, 'all': 25}, 0.00866090872217125)):
+        out = str(tmp_path / (test + '.hdf5'))
+        chicDifferentialTest.main(["--aggregatedFile", aggregate, "--alpha", "0.5", "--statisticTest", test,
+                                   "--outFileName", out, "-t", "1"])
+        assert _category_counts(out) == counts
+        with h5py.File(out, 'r') as handle:
+            pvalues = handle['FL-E13-5_chr1']['MB-E10-5_chr1']['chr1']['Eya1']['all']['pvalue_list'][:]
+            assert pvalues[0] == pytest.approx(first, rel=1e-12)
+    out = str(tmp_path / 'failures.hdf5')
+    with pytest.raises(ZeroDivisionError):
+        chicDifferentialTest.main(["--aggregatedFile", aggregate, "--alpha", "0.5", "--outFileName", out, "-t", "0"])
+    # A negative count starts no worker; writing the first reference point
+    # then raises IndexError after its groups have been created.
+    with pytest.raises(IndexError):
+        chicDifferentialTest.main(["--aggregatedFile", aggregate, "--alpha", "0.5", "--outFileName", out, "-t", "-1"])
+    with h5py.File(out, 'r') as handle:
+        assert list(handle['FL-E13-5_chr1']['MB-E10-5_chr1']['chr1']['Eya1'].keys()) == ['accepted', 'all', 'rejected']
+    with pytest.raises(SystemExit):
+        chicDifferentialTest.main(["--aggregatedFile", ROOT + 'chicViewpoint/two_matrices.hdf5', "--alpha", "0.5",
+                                   "--outFileName", str(tmp_path / 'wrong.hdf5'), "-t", "1"])
+
+
 def test_regular_mode_chi2():
 
     outfile_differential = NamedTemporaryFile(suffix='.hdf5', delete=False)

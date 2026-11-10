@@ -1,0 +1,86 @@
+[
+  {
+    "id": "chicViewpoint.two_matrices.referencePoints_chicViewpoint",
+    "tool": "chicViewpoint",
+    "tier": 6,
+    "args": ["--matrices", "{data}/cHi-C/FL-E13-5_chr1.cool", "{data}/cHi-C/MB-E10-5_chr1.cool",
+             "--referencePoints", "{data}/cHi-C/referencePoints_chicViewpoint.bed",
+             "--backgroundModelFile", "{data}/cHi-C/background.txt",
+             "--range", "200000", "200000", "-o", "{out}/viewpoints.hdf5", "-t", "1"],
+    "outputs": [
+      {"path": "{out}/viewpoints.hdf5", "format": "chic_hdf5", "class": "ED"}
+    ],
+    "threads_arg": "--threads",
+    "notes": "The case test_chicViewpoint.py::test_two_matrices runs: three reference points on both matrices, 401 bins each. The background model is the committed background.txt, so nothing here depends on a fit and the class is the acceptance gate ED. The p-values of every bin except the reference point come from the model at -500 kb or +500 kb, because Viewpoint.pvalues looks the genomic distance keyed model up by bin distance; reproduced."
+  },
+  {
+    "id": "chicViewpoint.one_matrix.referencePoints_chicViewpoint",
+    "tool": "chicViewpoint",
+    "tier": 6,
+    "args": ["--matrices", "{data}/cHi-C/FL-E13-5_chr1.cool",
+             "--referencePoints", "{data}/cHi-C/referencePoints_chicViewpoint.bed",
+             "--backgroundModel", "{data}/cHi-C/background.txt",
+             "--range", "200000", "200000", "-o", "{out}/viewpoints.hdf5", "-t", "1"],
+    "outputs": [
+      {"path": "{out}/viewpoints.hdf5", "format": "chic_hdf5", "class": "ED"}
+    ],
+    "threads_arg": "--threads",
+    "notes": "test_chicViewpoint.py::test_one_matrix, including its abbreviated option --backgroundModel for --backgroundModelFile, which argparse accepts as a unique prefix."
+  },
+  {
+    "id": "chicViewpoint.two_matrices.edge_cases",
+    "tool": "chicViewpoint",
+    "tier": 6,
+    "args": ["--matrices", "{data}/cHi-C/FL-E13-5_chr1.cool", "{data}/cHi-C/MB-E10-5_chr1.cool",
+             "--referencePoints", "{data}/cHi-C/referencePoints_edge_cases.bed",
+             "--backgroundModelFile", "{data}/cHi-C/background.txt",
+             "--range", "200000", "200000", "-o", "{out}/viewpoints.hdf5", "-t", "3"],
+    "outputs": [
+      {"path": "{out}/viewpoints.hdf5", "format": "chic_hdf5", "class": "ED"}
+    ],
+    "threads_arg": "--threads",
+    "notes": "A reference point over four bins, collapsed into one element that carries the first bin's coordinates. NearEnd, 50 kb before the end of chr1 at an offset of 200 bp in its bin, whose background is one element longer than its data, so adjustViewpointData runs, drops the last bin and turns the data into float32. NearStart, where the fixate range sum is 0 and every relative value and x-fold is NaN. A three column line, whose viewpoint is cut short by the chromosome end before it reaches position 0."
+  },
+  {
+    "id": "chicViewpoint.two_matrices.edge_cases.no_smoothing",
+    "tool": "chicViewpoint",
+    "tier": 6,
+    "args": ["--matrices", "{data}/cHi-C/FL-E13-5_chr1.cool", "{data}/cHi-C/MB-E10-5_chr1.cool",
+             "--referencePoints", "{data}/cHi-C/referencePoints_edge_cases.bed",
+             "--backgroundModelFile", "{data}/cHi-C/background.txt",
+             "--averageContactBin", "0",
+             "--range", "200000", "200000", "-o", "{out}/viewpoints.hdf5", "-t", "1"],
+    "outputs": [
+      {"path": "{out}/viewpoints.hdf5", "format": "chic_hdf5", "class": "ED"}
+    ],
+    "threads_arg": "--threads",
+    "notes": "Without smoothing the float32 data of the adjustViewpointData path reach Viewpoint.pvalues unchanged, where x + 1 is evaluated in single precision before betainc widens it."
+  },
+  {
+    "id": "chicViewpoint.two_matrices.range_beyond_the_model",
+    "tool": "chicViewpoint",
+    "tier": 6,
+    "args": ["--matrices", "{data}/cHi-C/FL-E13-5_chr1.cool", "{data}/cHi-C/MB-E10-5_chr1.cool",
+             "--referencePoints", "{data}/cHi-C/referencePoints_chicViewpoint.bed",
+             "--backgroundModelFile", "{data}/cHi-C/background.txt",
+             "--range", "600000", "700000", "--averageContactBin", "4",
+             "-o", "{out}/viewpoints.hdf5", "-t", "2"],
+    "outputs": [
+      {"path": "{out}/viewpoints.hdf5", "format": "chic_hdf5", "class": "ED"}
+    ],
+    "threads_arg": "--threads",
+    "notes": "A range wider than the background model, which ends at 500 kb. readBackgroundDataFile extends the model in 1 kb steps to -600 kb and +700 kb by repeating its values at the fixate range. An asymmetric range and an even smoothing window."
+  },
+  {
+    "id": "chicViewpoint.start_after_end.exit_1",
+    "tool": "chicViewpoint",
+    "tier": 6,
+    "args": ["--matrices", "{data}/cHi-C/FL-E13-5_chr1.cool",
+             "--referencePoints", "{data}/cHi-C/referencePoints_chicViewpoint_crash.bed",
+             "--backgroundModelFile", "{data}/cHi-C/background.txt",
+             "--range", "200000", "200000", "-o", "{out}/viewpoints.hdf5", "-t", "1"],
+    "expect_exit": 1,
+    "outputs": [],
+    "notes": "A reference point whose start lies after its end, and one on chr2. Either raises in the worker and the Python exits 1; this is test_chicViewpoint.py's new test_a_bad_reference_point_exits_non_zero."
+  }
+]

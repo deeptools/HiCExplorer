@@ -6,7 +6,7 @@ Size:	33,754
 Bin_length:	5000
 Chromosomes:length: chr2L: 23011544 bp; chr2LHet: 368872 bp; chr2R: 21146708 bp; chr2RHet: 3288761 bp; chr3L: 24543557 bp; chr3LHet: 2555491 bp; chr3R: 27905053 bp; chr3RHet: 2517507 bp; chr4: 1351857 bp; chrM: 19517 bp; chrUextra: 29004656 bp; chrU: 10049037 bp; chrX: 22422827 bp; chrXHet: 204112 bp; chrYHet: 347038 bp; 
 Number of chromosomes:	15
-Non-zero elements:	35,857
+Non-zero elements:	35,397
 The following columns are available: ['chrom' 'start' 'end']
 
 
@@ -26,13 +26,13 @@ Max library insert size	1000
 
 #	count	(percentage w.r.t. total sequenced reads)
 Pairs mappable, unique and high quality	52726	(52.73)
-Hi-C contacts	37321	(37.33)
+Hi-C contacts	36670	(36.68)
 One mate unmapped	8777	(8.78)
-One mate not unique	3603	(3.60)
-Low mapping quality	34877	(34.88)
+One mate not unique	23	(0.02)
+Low mapping quality	38457	(38.46)
 
 #	count	(percentage w.r.t. mappable, unique and high quality pairs)
-dangling end GATC	54	(0.10)
+dangling end GATC (restriction sequence GATC)	54	(0.10)
 self ligation (removed)	5056	(9.59)
 One mate not close to rest site	0	(0.00)
 same fragment	10283	(19.50)
@@ -40,11 +40,10 @@ self circle	651	(1.23)
 duplicated pairs	12	(0.02)
 
 #	count	(percentage w.r.t. total valid pairs used)
-inter chromosomal	5955	(15.96)
-Intra short range (< 20kb)	8853	(23.72)
-Intra long range (>= 20kb)	22513	(60.32)
-Read pair type: inward pairs	7145	(19.14)
-Read pair type: outward pairs	9731	(26.07)
-Read pair type: left pairs	7156	(19.17)
-Read pair type: right pairs	7334	(19.65)
-
+inter chromosomal	5955	(16.24)
+Intra short range (< 20kb)	8202	(22.37)
+Intra long range (>= 20kb)	22513	(61.39)
+Read pair type: inward pairs	7145	(19.48)
+Read pair type: outward pairs	9080	(24.76)
+Read pair type: left pairs	7156	(19.51)
+Read pair type: right pairs	7334	(20.00)

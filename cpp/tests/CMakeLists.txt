@@ -1,0 +1,307 @@
+# Unit tests. doctest is header only; the conda package doctest 2.4.11 (the
+# release the tests were written against) provides doctest/doctest.h, and only
+# the header is used through an interface target.
+
+find_path(HICX_DOCTEST_INCLUDE_DIR
+    NAMES doctest/doctest.h
+    HINTS "${HICX_DEPS_ROOT}/include"
+    NO_DEFAULT_PATH)
+if(NOT HICX_DOCTEST_INCLUDE_DIR)
+    message(FATAL_ERROR "doctest not found under ${HICX_DEPS_ROOT}/include (conda package doctest 2.4.11); "
+                        "configure with -DHICX_BUILD_TESTS=OFF to build without the tests")
+endif()
+
+add_library(doctest_header INTERFACE)
+target_include_directories(doctest_header SYSTEM INTERFACE "${HICX_DOCTEST_INCLUDE_DIR}")
+
+add_executable(hicx_tests
+    test_main.cpp
+    test_numpy_compat.cpp
+    test_numpy_oracle.cpp
+    test_bins.cpp
+    test_plot_tiles.cpp
+    test_sparse_matrix.cpp
+    test_matrix_ops.cpp
+    test_json_lite.cpp
+    test_readers.cpp
+    test_hic_adapter.cpp
+    test_reduce_matrix.cpp
+    test_adjust_ops.cpp
+    test_stats_ops.cpp
+    test_text_formats.cpp
+    test_tier2_support.cpp
+    test_transform_ops.cpp
+    test_dgeev_selected.cpp
+    test_sparse_pca.cpp
+    test_writers.cpp
+    test_build_matrix.cpp
+    test_pairs_file.cpp
+    test_correct_math.cpp
+    test_detect_loops.cpp
+    test_tad_contacts.cpp
+    test_find_tads.cpp
+    test_compartmentalization.cpp
+    test_quick_qc.cpp
+    test_chic.cpp
+    test_chicago.cpp
+    test_merge_domains.cpp
+    test_cool_chromosome_cut.cpp
+    test_cooler012.cpp
+    test_aggregate_support.cpp
+    test_sklearn_oracle.cpp
+    test_linkage_ties.cpp
+    test_diff_engine.cpp
+    test_detect_stripes.cpp
+    test_stripes_primitives.cpp
+    test_correlate1d.cpp
+    test_scc.cpp
+    test_genomedisco.cpp
+    test_hicspector.cpp
+    test_quasar.cpp
+    test_ent3c.cpp
+    test_arrowhead.cpp
+    test_python_api_core.cpp
+    test_api_aggregate.cpp
+    test_api_loops_correct.cpp
+    test_build_matrix_api.cpp
+    test_correlate_api.cpp
+    test_qc_report_api.cpp
+    test_matrix_qc.cpp
+    test_matrix_qc_report.cpp
+    test_tool_list.cpp
+    test_cpython_oracles.cpp
+    # The computational cores of hicDifferentialAnalysis, of hicDetectStripes
+    # and of hicArrowhead, so that the tests link against exactly the
+    # translation units the tools run.
+    ../tools/diff_engine_impl.cpp
+    ../tools/diff_contacts_impl.cpp
+    ../tools/stripes_impl.cpp
+    ../tools/stripes_numpy.cpp
+    ../tools/arrowhead_impl.cpp)
+
+target_link_libraries(hicx_tests PRIVATE hicx::core doctest_header hicx_compile_options)
+# hicDetectStripes' floating point order is part of its specification (see
+# tools/CMakeLists.txt); the fixtures are what Stripenn and its libraries wrote.
+set_source_files_properties(../tools/stripes_impl.cpp ../tools/stripes_numpy.cpp
+                            PROPERTIES COMPILE_OPTIONS "-ffp-contract=off")
+target_compile_definitions(hicx_tests PRIVATE
+    HICX_STRIPES_FIXTURE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/fixtures/stripenn"
+    HICX_NUMPY_ORACLE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/fixtures/numpy_oracle"
+    HICX_SKLEARN_FIXTURE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/fixtures/sklearn"
+    HICX_CPYTHON_FIXTURE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/fixtures/cpython")
+
+# Real matrices from the Python test suite, used by the reader tests.
+target_compile_definitions(hicx_tests PRIVATE
+    HICX_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/../../hicexplorer/test/test_data"
+    # Files the tests write go into the build tree, never into the source tree:
+    # an out-of-tree build from a fresh checkout has no cpp/build directory.
+    HICX_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}")
+
+add_test(NAME hicx_unit_tests COMMAND hicx_tests)
+# The k-means oracle fixtures of x86-64 were written with OpenBLAS's Haswell
+# kernel, which every x86-64 CPU with AVX2 runs; the test selects it so that
+# the comparison is bitwise on any such machine (test_sklearn_oracle.cpp).
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|amd64)$")
+    set_tests_properties(hicx_unit_tests PROPERTIES ENVIRONMENT "OPENBLAS_CORETYPE=Haswell")
+endif()
+
+# hicCompartmentalization's C++-only --noPlot writes the numeric outputs
+# without the figure; the equivalence harness cannot compare an option the
+# Python does not have, so this is checked here.
+add_test(NAME hicCompartmentalization_no_plot
+         COMMAND ${CMAKE_COMMAND}
+                 -DTOOL=$<TARGET_FILE:hicCompartmentalization>
+                 -DDATA=${CMAKE_CURRENT_SOURCE_DIR}/../../hicexplorer/test/test_data
+                 -DOUT=${CMAKE_CURRENT_BINARY_DIR}/hicCompartmentalization_no_plot
+                 -P ${CMAKE_CURRENT_SOURCE_DIR}/check_compartmentalization_no_plot.cmake)
+
+# Command line behaviour that only the finished executables can show: failures
+# that must leave no output behind, and hicMergeDomains' graphviz rendering.
+find_program(HICX_BASH bash REQUIRED)
+set(HICX_TEST_DATA "${CMAKE_CURRENT_SOURCE_DIR}/../../hicexplorer/test/test_data")
+add_test(NAME hicPlotSVL_cli
+         COMMAND ${HICX_BASH} "${CMAKE_CURRENT_SOURCE_DIR}/cli/hicPlotSVL_cli.sh"
+                 $<TARGET_FILE:hicPlotSVL> "${HICX_TEST_DATA}")
+add_test(NAME hicMergeMatrixBins_cli
+         COMMAND ${HICX_BASH} "${CMAKE_CURRENT_SOURCE_DIR}/cli/hicMergeMatrixBins_cli.sh"
+                 $<TARGET_FILE:hicMergeMatrixBins> "${HICX_TEST_DATA}"
+                 $<TARGET_FILE:hicInfo> $<TARGET_FILE:hicConvertFormat>)
+add_test(NAME hicAdjustMatrix_cli
+         COMMAND ${HICX_BASH} "${CMAKE_CURRENT_SOURCE_DIR}/cli/hicAdjustMatrix_cli.sh"
+                 $<TARGET_FILE:hicAdjustMatrix> $<TARGET_FILE:hicInfo> "${HICX_TEST_DATA}")
+add_test(NAME malformed_matrix_cli
+         COMMAND ${HICX_BASH} "${CMAKE_CURRENT_SOURCE_DIR}/cli/malformed_matrix_cli.sh"
+                 $<TARGET_FILE:hicTransform> "${HICX_TEST_DATA}")
+add_test(NAME hicMergeDomains_cli
+         COMMAND ${HICX_BASH} "${CMAKE_CURRENT_SOURCE_DIR}/cli/hicMergeDomains_cli.sh"
+                 $<TARGET_FILE:hicMergeDomains> "${HICX_TEST_DATA}" "${HICX_DEPS_ROOT}")
+
+# hicDetectStripes (cpp/PLAN.md 9.3): no Python counterpart, so its command
+# line behaviour is checked here rather than through cpp/scripts/equiv.py's
+# class EX mode, which is not available on this branch (see the script's
+# header comment).
+add_test(NAME hicDetectStripes_cli
+         COMMAND ${HICX_BASH} "${CMAKE_CURRENT_SOURCE_DIR}/cli/hicDetectStripes_cli.sh"
+                 $<TARGET_FILE:hicDetectStripes> "${HICX_TEST_DATA}")
+
+# hicMatrixQC (no Python counterpart): the report and the table on the shared
+# test matrices, and the round trip with hicBuildMatrix' QC statistics, checked
+# here rather than through cpp/scripts/equiv.py.
+add_test(NAME hicMatrixQC_cli
+         COMMAND ${HICX_BASH} "${CMAKE_CURRENT_SOURCE_DIR}/cli/hicMatrixQC_cli.sh"
+                 $<TARGET_FILE:hicMatrixQC> $<TARGET_FILE:hicBuildMatrix> "${HICX_TEST_DATA}")
+
+# hicDetectStripes against Stripenn's own output on a small synthetic cooler.
+add_test(NAME hicDetectStripes_oracle
+         COMMAND ${HICX_BASH} "${CMAKE_CURRENT_SOURCE_DIR}/cli/hicDetectStripes_oracle.sh"
+                 $<TARGET_FILE:hicDetectStripes> "${CMAKE_CURRENT_SOURCE_DIR}/fixtures/stripenn")
+
+# hicFindTADs --ctcfFile / --ctcfWindow (C++-only, cpp/PLAN.md tier 9): no
+# Python counterpart, checked here rather than through cpp/scripts/equiv.py.
+add_test(NAME hicFindTADs_ctcf_cli
+         COMMAND ${HICX_BASH} "${CMAKE_CURRENT_SOURCE_DIR}/cli/hicFindTADs_ctcf_cli.sh"
+                 $<TARGET_FILE:hicFindTADs> "${HICX_TEST_DATA}")
+
+# hicFindTADs --nestedMinDepth/--nestedMaxDepth/--nestedStep (C++-only,
+# optional sub-TAD detection): no Python counterpart, checked here rather
+# than through cpp/scripts/equiv.py.
+add_test(NAME hicFindTADs_nested_cli
+         COMMAND ${HICX_BASH} "${CMAKE_CURRENT_SOURCE_DIR}/cli/hicFindTADs_nested_cli.sh"
+                 $<TARGET_FILE:hicFindTADs> "${HICX_TEST_DATA}")
+
+# hicPrepareQCreport --prettyReport (C++-only, no Python counterpart): checked
+# here rather than through cpp/scripts/equiv.py.
+add_test(NAME hicPrepareQCreport_prettyReport_cli
+         COMMAND ${HICX_BASH} "${CMAKE_CURRENT_SOURCE_DIR}/cli/hicPrepareQCreport_prettyReport_cli.sh"
+                 $<TARGET_FILE:hicPrepareQCreport> "${HICX_TEST_DATA}")
+
+# hicPlotMatrix --matrix2 (cpp/PLAN.md tier 9): a v4-only upper/lower triangle
+# comparison heatmap with no Python counterpart, checked here element-wise
+# rather than through cpp/scripts/equiv.py.
+add_test(NAME hicPlotMatrix_triangle_cli
+         COMMAND ${HICX_BASH} "${CMAKE_CURRENT_SOURCE_DIR}/cli/hicPlotMatrix_triangle_cli.sh"
+                 $<TARGET_FILE:hicPlotMatrix> $<TARGET_FILE:hicSumMatrices> "${HICX_TEST_DATA}")
+
+# hicPlotMatrix's tiled, reduced handoff to the drawing layer: tiles put
+# together, element types, block sums, edges and colour limits.
+add_test(NAME hicPlotMatrix_tiles_cli
+         COMMAND ${HICX_BASH} "${CMAKE_CURRENT_SOURCE_DIR}/cli/hicPlotMatrix_tiles_cli.sh"
+                 $<TARGET_FILE:hicPlotMatrix> "${HICX_TEST_DATA}")
+
+# hicCorrelate --method scc (cpp/PLAN.md tier 7 extension): HiCRep's
+# stratum-adjusted correlation coefficient, C++-only, no Python counterpart;
+# checked here rather than through cpp/scripts/equiv.py. The algorithm's own
+# validation against the real hicrep 0.2.6 package is on real GM12878 data,
+# not reproducible from a small checked-in fixture; see the script's header.
+add_test(NAME hicCorrelate_scc_cli
+         COMMAND ${HICX_BASH} "${CMAKE_CURRENT_SOURCE_DIR}/cli/hicCorrelate_scc_cli.sh"
+                 $<TARGET_FILE:hicCorrelate> "${HICX_TEST_DATA}")
+
+# hicCorrelate --method genomedisco: GenomeDISCO's random-walk
+# reproducibility score, C++-only, no Python counterpart; checked here
+# rather than through cpp/scripts/equiv.py. There is no pip-installable
+# package to validate against (the real tool is Python 2 only); the
+# algorithm's own cross-check against a hand-transcribed reproduction of the
+# real source is on real GM12878/A549 data, not reproducible from a small
+# checked-in fixture; see the script's header.
+add_test(NAME hicCorrelate_genomedisco_cli
+         COMMAND ${HICX_BASH} "${CMAKE_CURRENT_SOURCE_DIR}/cli/hicCorrelate_genomedisco_cli.sh"
+                 $<TARGET_FILE:hicCorrelate> "${HICX_TEST_DATA}")
+
+# hicCorrelate --method hicspector: HiC-Spector's spectral reproducibility
+# score, C++-only, no Python counterpart; checked here rather than through
+# cpp/scripts/equiv.py. The real tool's own Python reference needs nothing
+# but numpy/scipy (unlike genomedisco's), so it is run directly as this
+# port's own validation oracle on real GM12878/A549 data, not reproducible
+# from a small checked-in fixture; see the script's header.
+add_test(NAME hicCorrelate_hicspector_cli
+         COMMAND ${HICX_BASH} "${CMAKE_CURRENT_SOURCE_DIR}/cli/hicCorrelate_hicspector_cli.sh"
+                 $<TARGET_FILE:hicCorrelate> "${HICX_TEST_DATA}")
+
+# hicCorrelate --method quasar: QuASAR-Rep's replicate reproducibility
+# score, C++-only, no Python counterpart; checked here rather than through
+# cpp/scripts/equiv.py. hifive is Python 2 only and cannot be built/run
+# here, so the algorithm's own cross-check against the real compiled
+# hifive.libraries._quasar extension is on real GM12878/A549 data under an
+# external Python 2 environment, not reproducible from a small checked-in
+# fixture; see the script's header.
+add_test(NAME hicCorrelate_quasar_cli
+         COMMAND ${HICX_BASH} "${CMAKE_CURRENT_SOURCE_DIR}/cli/hicCorrelate_quasar_cli.sh"
+                 $<TARGET_FILE:hicCorrelate> "${HICX_TEST_DATA}")
+
+# hicCorrelate --method ent3c: ENT3C's entropy-based similarity, checked
+# against the values ENT3C 2.2.2 gives on the 2.5 Mb GM12878 test matrices
+# (see the script's header).
+add_test(NAME hicCorrelate_ent3c_cli
+         COMMAND ${HICX_BASH} "${CMAKE_CURRENT_SOURCE_DIR}/cli/hicCorrelate_ent3c_cli.sh"
+                 $<TARGET_FILE:hicCorrelate> "${HICX_TEST_DATA}")
+
+# hicArrowhead (cpp/PLAN.md tier 9): Juicer/Juicebox's own Arrowhead
+# contact-domain caller, C++-only, no Python counterpart and no local Java
+# reference to validate exact values against; checked here end to end
+# instead. See the script's header and tools/arrowhead_impl.hpp.
+add_test(NAME hicArrowhead_cli
+         COMMAND ${HICX_BASH} "${CMAKE_CURRENT_SOURCE_DIR}/cli/hicArrowhead_cli.sh"
+                 $<TARGET_FILE:hicArrowhead> "${HICX_TEST_DATA}")
+
+# chicChicagoPlotViewpoint (no Python counterpart): the figure data from
+# --plotData, scores from the ported chicChicago tools on the fixture.
+add_test(NAME chicChicagoPlotViewpoint_cli
+         COMMAND ${HICX_BASH} "${CMAKE_CURRENT_SOURCE_DIR}/cli/chicChicagoPlotViewpoint_cli.sh"
+                 $<TARGET_FILE:chicChicagoPlotViewpoint> $<TARGET_FILE:chicChicagoBackgroundModel>
+                 $<TARGET_FILE:chicChicagoScores> "${HICX_TEST_DATA}")
+
+# The three chicChicago computation tools give the same output for every
+# --threads value on an input under 1 MiB (the chunked readers once read only
+# the first chunk of a small file when --threads was above 1).
+add_test(NAME chicChicago_threads_cli
+         COMMAND ${HICX_BASH} "${CMAKE_CURRENT_SOURCE_DIR}/cli/chicChicago_threads_cli.sh"
+                 $<TARGET_FILE_DIR:chicChicagoScores> "${HICX_TEST_DATA}")
+
+# The `hicexplorer` command: the help without arguments, --version, and a
+# tool list that names every executable of the tools directory.
+add_test(NAME hicexplorer_cli
+         COMMAND ${HICX_BASH} "${CMAKE_CURRENT_SOURCE_DIR}/cli/hicexplorer_cli.sh"
+                 $<TARGET_FILE:hicexplorer>)
+
+# The drawing environment check of the plotting tools: a wrong or missing
+# matplotlib or pyGenomeTracks is refused before anything is written, and the
+# pinned interpreter draws. HICX_PLOT_TEST_PYTHON names a Python with the
+# pinned versions; without it the pinned part is skipped (status 77).
+set(HICX_PLOT_TEST_PYTHON "" CACHE FILEPATH
+    "Python with matplotlib 3.8 or newer for plot_environment_cli")
+add_test(NAME plot_environment_cli
+         COMMAND ${HICX_BASH} "${CMAKE_CURRENT_SOURCE_DIR}/cli/plot_environment_cli.sh"
+                 "$<TARGET_FILE_DIR:hicInterIntraTAD>" "${HICX_TEST_DATA}"
+                 "${HICX_PLOT_TEST_PYTHON}"
+                 "${CMAKE_CURRENT_SOURCE_DIR}/../../plot/pyproject.toml")
+set_tests_properties(plot_environment_cli PROPERTIES SKIP_RETURN_CODE 77)
+
+# hicBuildMatrix --pairsFile (cpp/PLAN.md 9.2): refused options, the two
+# duplicate checks against each other, and the QC counts against awk. The runs
+# that draw the QC report need the pinned interpreter (status 77 without it).
+add_test(NAME hicBuildMatrix_pairs_cli
+         COMMAND ${HICX_BASH} "${CMAKE_CURRENT_SOURCE_DIR}/cli/hicBuildMatrix_pairs_cli.sh"
+                 $<TARGET_FILE:hicBuildMatrix> "${HICX_TEST_DATA}" "${HICX_PLOT_TEST_PYTHON}")
+set_tests_properties(hicBuildMatrix_pairs_cli PROPERTIES SKIP_RETURN_CODE 77)
+
+# hicAggregateContacts' C++-only --noPlot writes the numeric outputs without
+# any figure; the equivalence harness cannot compare an option the Python does
+# not have, so this is checked here.
+add_test(NAME hicAggregateContacts_no_plot
+         COMMAND ${CMAKE_COMMAND}
+                 -DTOOL=$<TARGET_FILE:hicAggregateContacts>
+                 -DDATA=${CMAKE_CURRENT_SOURCE_DIR}/../../hicexplorer/test/test_data
+                 -DOUT=${CMAKE_CURRENT_BINARY_DIR}/hicAggregateContacts_no_plot
+                 -P ${CMAKE_CURRENT_SOURCE_DIR}/check_aggregate_contacts_no_plot.cmake)
+
+# Not a HiCExplorer tool: the smallest driver that exercises the tier 0 file
+# layer end to end, used by cpp/scripts/equiv.py against its Python twin
+# cpp/scripts/py_roundtrip.py.
+add_executable(hicx_roundtrip hicx_roundtrip.cpp)
+target_link_libraries(hicx_roundtrip PRIVATE hicx::core hicx_compile_options)
+
+# Declares the parsers of cpp/scripts/test_argparse_layer.py with hicx::cli,
+# which compares its behaviour with Python's argparse.
+add_executable(hicx_argparse_driver argparse_driver.cpp)
+target_link_libraries(hicx_argparse_driver PRIVATE hicx::core hicx_compile_options)

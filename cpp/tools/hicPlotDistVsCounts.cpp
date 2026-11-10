@@ -1,0 +1,726 @@
+// Port of hicexplorer/hicPlotDistVsCounts.py (cpp/PLAN.md tier 7, option (a)).
+//
+// The distance versus counts reduction runs here: the mean contact per genomic
+// distance, per matrix and per chromosome or domain, the scale factors between
+// matrices and the --outFileData table. The figure is drawn by
+// plot/hicexplorer_plot/hicPlotDistVsCounts.py with the matplotlib calls of
+// the Python tool, from the curves this binary computes (hicx::plot::draw).
+//
+// What is reproduced, pinned by the harness cases:
+//
+//  1. compute_distance_mean (:117-271). With --maxdepth (any non-zero value)
+//     the upper triangle is cut at int(maxdepth * 1.5 / binsize) bins, the
+//     bins' starts are snapped by HiCMatrix.fit_cut_intervals when more than
+//     1 % of the bins deviate from the median bin size, and every stored
+//     value is added to its distance in scipy's row major order, which is the
+//     order np.bincount accumulates the float64 weights in. A distance's
+//     mean divides by max(the diagonal length from the unit sizes, the
+//     number of stored values). The scan stops after more than ten
+//     consecutive distances without contacts (:251-258); the distance that
+//     triggers the stop is kept.
+//  2. --domains (from_bed_to_cut_interval, :274-339). The BED handle is an
+//     argparse FileType and is read once, so with more than one matrix the
+//     second matrix finds it exhausted and the reference stops on its
+//     assertion "No region overlapped with bins."; that is reproduced.
+//  3. The labels and the sums are dicts keyed by the matrix path, so a path
+//     given twice has one entry, but the drawing loop iterates the command
+//     line and draws it twice. --labels shorter than --matrices raises
+//     KeyError once a curve of an unlabelled matrix is drawn.
+//  4. --outFileData: one DataFrame.to_csv(sep='\t') per curve, with header and
+//     index, appended to the same handle (:398-406).
+//  5. --skipDiagonal is accepted and has no effect, as in the reference.
+//  6. The FileType('w') arguments --plotFile and --outFileData are created as
+//     argparse opens them, with its error message, right after the command
+//     line is parsed, but only once the drawing environment check has passed:
+//     a refused environment (which has no Python counterpart) leaves no file
+//     behind and truncates none.
+//
+// Threading: none. The time goes into reading the matrix; the reduction is a
+// single pass over the stored upper triangle.
+
+#include <algorithm>
+#include <cerrno>
+#include <cmath>
+#include <cstdint>
+#include <cstdio>
+#include <cstring>
+#include <fstream>
+#include <map>
+#include <optional>
+#include <set>
+#include <sstream>
+#include <stdexcept>
+#include <string>
+#include <unordered_map>
+#include <utility>
+#include <vector>
+
+#include "hicx/argparse.hpp"
+#include "hicx/bins.hpp"
+#include "hicx/dist_vs_counts.hpp"
+#include "hicx/python_error.hpp"
+#include "hicx/numpy_compat.hpp"
+#include "hicx/plot_bridge.hpp"
+#include "hicx/resource_usage.hpp"
+#include "hicx/sparse_matrix.hpp"
+#include "hicx/tool_matrix.hpp"
+#include "hicx/version.hpp"
+
+namespace {
+
+namespace cli = hicx::cli;
+namespace plot = hicx::plot;
+
+const char* const kUsage =
+    "usage: hicPlotDistVsCounts --matrices MATRICES [MATRICES ...] --plotFile file\n"
+    "                           name [--labels LABELS [LABELS ...]]\n"
+    "                           [--skipDiagonal] [--maxdepth INT bp] [--perchr]\n"
+    "                           [--chromosomeExclude CHROMOSOMEEXCLUDE [CHROMOSOMEEXCLUDE ...]]\n"
+    "                           [--domains DOMAINS] [--outFileData OUTFILEDATA]\n"
+    "                           [--plotsize PLOTSIZE PLOTSIZE] [--help] [--version]\n";
+
+const char* const kHelp =
+    "\n"
+    "This program creates distance vs. Hi-C counts plots. It can use several matrix\n"
+    "files to compare them at once. If the `--perchr` option is given, each\n"
+    "chromosome is plotted independently. When plotting multiple matrices, denser\n"
+    "matrices are scaled down to match the sum of the smallest matrix.\n"
+    "\n"
+    "Required arguments:\n"
+    "  --matrices MATRICES [MATRICES ...], -m MATRICES [MATRICES ...]\n"
+    "                        Hi-C normalized (corrected) matrices. Each path should\n"
+    "                        be separated by a space.\n"
+    "  --plotFile file name, -o file name\n"
+    "                        File name to save the file. The given file ending will\n"
+    "                        be used to determine the image format. The available\n"
+    "                        options are: .png, .emf, .eps, .pdf and .svg.\n"
+    "\n"
+    "Optional arguments:\n"
+    "  --labels LABELS [LABELS ...]\n"
+    "                        Label to assign to each matrix file. Each label should\n"
+    "                        be separated by a space. Quote labels that contain\n"
+    "                        spaces: E.g. --labels label1 \"labels 2\". If no labels\n"
+    "                        are given then the file name is used.\n"
+    "  --skipDiagonal, -s    If set, diagonal counts are not included.\n"
+    "  --maxdepth INT bp     Maximum distance from diagonal to use. In other words,\n"
+    "                        distances up to maxDepth are computed. Default is 3\n"
+    "                        million bp.\n"
+    "  --perchr              If given, computes and display distance versus Hi-C\n"
+    "                        counts plots for each chromosome stored in the\n"
+    "                        matrices passed to --matrices.\n"
+    "  --chromosomeExclude CHROMOSOMEEXCLUDE [CHROMOSOMEEXCLUDE ...]\n"
+    "                        Exclude the given list of chromosomes. This is useful\n"
+    "                        for example to exclude the Y chromosome. The names of\n"
+    "                        the chromosomes should be separated by space.\n"
+    "  --domains DOMAINS     Bed file with domains coordinates: instead of\n"
+    "                        evaluating the distance vs. Hi-C counts for intra\n"
+    "                        chromosomal counts, compute it for intra-domains.\n"
+    "  --outFileData OUTFILEDATA\n"
+    "                        If given, the data underlying the plots is saved on\n"
+    "                        this file.\n"
+    "  --plotsize PLOTSIZE PLOTSIZE\n"
+    "                        Width and height of the plot (in inches). Default is\n"
+    "                        6*number of cols, 4 * number of rows. The maximum\n"
+    "                        number of rows is 4. Example: --plotsize 6 5\n"
+    "  --help, -h            show this help message and exit\n"
+    "  --version             show program's version number and exit\n"
+    "\n"
+    "The figure is drawn with matplotlib, which needs a Python interpreter with\n"
+    "matplotlib (HICX_PLOT_PYTHON selects it). The option --plotData FILE (new in\n"
+    "HiCExplorer 4) writes the data of the figure as JSON to FILE instead of\n"
+    "drawing it.\n";
+
+struct Arguments {
+    std::vector<std::string> matrices;
+    std::string plot_file;
+    std::optional<std::vector<std::string>> labels;
+    std::int64_t maxdepth = 3000000;
+    bool perchr = false;
+    std::vector<std::string> chromosome_exclude;
+    std::optional<std::string> domains;
+    std::optional<std::string> out_file_data;
+    std::optional<std::vector<double>> plotsize;
+    std::optional<std::string> plot_data;
+};
+
+// argparse's FileType('w') opens the file while parsing; a failure is an
+// argument error.
+void open_like_filetype_w(const std::string& path, const std::string& option) {
+    std::FILE* handle = std::fopen(path.c_str(), "w");
+    if (handle == nullptr) {
+        const int error = errno;
+        std::fputs(kUsage, stderr);
+        std::fprintf(stderr,
+                     "hicPlotDistVsCounts: error: argument %s: can't open '%s': [Errno %d] %s: "
+                     "'%s'\n",
+                     option.c_str(), path.c_str(), error, std::strerror(error), path.c_str());
+        std::exit(2);
+    }
+    std::fclose(handle);
+}
+
+Arguments parse_arguments(int argc, char** argv) {
+    cli::Parser parser(
+        "hicPlotDistVsCounts",
+        "This program creates distance vs. Hi-C counts plots. It can use several matrix files "
+        "to compare them at once. If the `--perchr` option is given, each chromosome is plotted "
+        "independently. When plotting multiple matrices, denser matrices are scaled down to "
+        "match the sum of the smallest matrix.");
+    parser.set_usage(kUsage).set_help(kHelp).set_version_string(hicx::kVersion);
+
+    cli::ArgumentGroup& required = parser.group("Required arguments");
+    required.add({"--matrices", "-m"})
+        .nargs("+")
+        .required()
+        .input({"h5", "cool"})
+        .help("Hi-C normalized (corrected) matrices. Each path should be separated by a space.");
+    required.add({"--plotFile", "-o"})
+        .file_type("w")
+        .metavar("file name")
+        .required()
+        .output({"png", "emf", "eps", "pdf", "svg"})
+        .help("File name to save the file. The given file ending will be used to determine the "
+              "image format. The available options are: .png, .emf, .eps, .pdf and .svg.");
+
+    cli::ArgumentGroup& optional = parser.group("Optional arguments");
+    optional.add({"--labels"})
+        .nargs("+")
+        .help("Label to assign to each matrix file. Each label should be separated by a space. "
+              "Quote labels that contain spaces: E.g. --labels label1 \"labels 2\". If no labels "
+              "are given then the file name is used.");
+    optional.add({"--skipDiagonal", "-s"})
+        .action(cli::Action::StoreTrue)
+        .help("If set, diagonal counts are not included.");
+    optional.add({"--maxdepth"})
+        .metavar("INT bp")
+        .type("int")
+        .default_value(std::int64_t{3000000})
+        .help("Maximum distance from diagonal to use. In other words, distances up to maxDepth "
+              "are computed. Default is 3 million bp.");
+    optional.add({"--perchr"})
+        .action(cli::Action::StoreTrue)
+        .help("If given, computes and display distance versus Hi-C counts plots for each "
+              "chromosome stored in the matrices passed to --matrices.");
+    optional.add({"--chromosomeExclude"})
+        .nargs("+")
+        .help("Exclude the given list of chromosomes. This is useful for example to exclude the "
+              "Y chromosome. The names of the chromosomes should be separated by space.");
+    optional.add({"--domains"})
+        .file_type("r")
+        .input({"bed"})
+        .help("Bed file with domains coordinates: instead of evaluating the distance vs. Hi-C "
+              "counts for intra chromosomal counts, compute it for intra-domains.");
+    optional.add({"--outFileData"})
+        .file_type("w")
+        .output({"txt"})
+        .help("If given, the data underlying the plots is saved on this file.");
+    optional.add({"--plotsize"})
+        .nargs(2)
+        .type("float")
+        .help("Width and height of the plot (in inches). Default is 6*number of cols, 4 * number "
+              "of rows. The maximum number of rows is 4. Example: --plotsize 6 5");
+    optional.add({"--help", "-h"}).action(cli::Action::Help).help("show this help message and exit");
+    optional.add({"--version"}).version(std::string("%(prog)s ") + hicx::kVersion);
+    optional.add({"--plotData"})
+        .metavar("FILE")
+        .output({"json"})
+        .cpp_only("The data of the figure as JSON, without drawing it.")
+        .help("Write the data the figure is drawn from as JSON to this file and do not draw "
+              "the figure.");
+
+    const cli::Namespace ns = parser.parse(argc, argv);
+    Arguments args;
+    args.matrices = ns.strs("matrices");
+    args.plot_file = ns.str("plotFile");
+    if (ns.given("labels")) {
+        args.labels = ns.strs("labels");
+    }
+    args.maxdepth = ns.integer("maxdepth");
+    args.perchr = ns.flag("perchr");
+    if (ns.given("chromosomeExclude")) {
+        args.chromosome_exclude = ns.strs("chromosomeExclude");
+    }
+    args.domains = ns.opt_str("domains");
+    args.out_file_data = ns.opt_str("outFileData");
+    if (ns.given("plotsize")) {
+        args.plotsize = ns.reals("plotsize");
+    }
+    args.plot_data = ns.opt_str("plotData");
+    return args;
+}
+
+// A Python exception the reference would end with (exit status 1).
+class PythonError : public std::runtime_error {
+  public:
+    using std::runtime_error::runtime_error;
+};
+
+using Entry = hicx::dist_counts::Entry;
+
+// One key of compute_distance_mean's result: the distances (k - 1) * binsize
+// with their means (NaN where the diagonal was empty) and bin counts.
+struct UnitMeans {
+    std::string name;
+    std::vector<std::int64_t> distance;
+    std::vector<double> mean;
+    std::vector<std::int64_t> nb;
+};
+
+bool starts_with(const std::string& text, const char* prefix) {
+    return text.rfind(prefix, 0) == 0;
+}
+
+// compute_distance_mean for one key: the stored upper triangle entries of the
+// unit in row major order, with rows and columns relative to the unit
+// (hicx::dist_counts, shared with the Python API).
+UnitMeans unit_means(const std::string& name, const std::vector<Entry>& entries, std::size_t begin,
+                     std::size_t end, std::int32_t offset, std::int64_t unit_bins,
+                     const std::vector<hicx::CutInterval>& intervals, std::int64_t binsize,
+                     std::int64_t maxdepth) {
+    std::vector<hicx::dist_counts::Distance> distances;
+    try {
+        distances = hicx::dist_counts::scan(entries, begin, end, offset, unit_bins, intervals, binsize,
+                                            maxdepth != 0);
+    } catch (const hicx::PythonError& error) {
+        if (error.type() == "ValueError" && std::string(error.what()) == "need at least one array to concatenate") {
+            throw PythonError("ValueError: need at least one array to concatenate "
+                              "(HiCMatrix.fit_cut_intervals: every unit holds a single bin)");
+        }
+        if (error.type() == "ZeroDivisionError") {
+            throw PythonError("ZeroDivisionError: integer modulo by zero (fit_cut_intervals)");
+        }
+        throw PythonError("ValueError: 'list' argument must have no negative elements "
+                          "(np.bincount over the bin distances)");
+    }
+    UnitMeans result;
+    result.name = name;
+    for (const hicx::dist_counts::Distance& d : distances) {
+        if (d.k == 0) {
+            continue;
+        }
+        const std::int64_t distance = static_cast<std::int64_t>(d.k - 1) * binsize;
+        if (distance > maxdepth) {
+            continue;
+        }
+        result.distance.push_back(distance);
+        result.mean.push_back(d.defined ? d.mean : std::nan(""));
+        result.nb.push_back(d.defined ? static_cast<std::int64_t>(d.diagonal_length) : 0);
+    }
+    return result;
+}
+
+std::string change_chrom_names(const std::string& chrom) {
+    return starts_with(chrom, "chr") ? chrom.substr(3) : "chr" + chrom;
+}
+
+// from_bed_to_cut_interval over the kept bins.
+std::vector<hicx::CutInterval> domain_intervals(const std::string& path,
+                                                const std::vector<hicx::CutInterval>& original,
+                                                const std::vector<std::string>& chrom_list) {
+    std::vector<std::pair<std::string, hicx::BinRange>> ranges;
+    {
+        hicx::BinTable table(original);
+        ranges = table.chrom_bin_boundaries();
+    }
+    auto range_of = [&](const std::string& chrom) -> std::optional<hicx::BinRange> {
+        for (const auto& entry : ranges) {
+            if (entry.first == chrom) {
+                return entry.second;
+            }
+        }
+        return std::nullopt;
+    };
+    auto known = [&](const std::string& chrom) {
+        return std::find(chrom_list.begin(), chrom_list.end(), chrom) != chrom_list.end();
+    };
+
+    std::vector<std::optional<hicx::CutInterval>> result(original.size());
+    std::ifstream in(path);
+    std::string line;
+    std::int64_t id = 0;
+    while (std::getline(in, line)) {
+        if (!line.empty() && line.back() == '\r') {
+            line.pop_back();
+        }
+        if (!line.empty() && line[0] == '#') {
+            continue;
+        }
+        std::istringstream fields_stream(line);
+        std::vector<std::string> fields;
+        for (std::string field; fields_stream >> field;) {
+            fields.push_back(field);
+        }
+        if (fields.empty()) {
+            throw PythonError("IndexError: list index out of range (an empty line in --domains)");
+        }
+        if (!known(fields[0])) {
+            if (known(change_chrom_names(fields[0]))) {
+                fields[0] = change_chrom_names(fields[0]);
+            } else {
+                continue;
+            }
+        }
+        if (fields.size() < 3) {
+            throw PythonError("ValueError: not enough values to unpack (a --domains line with "
+                              "fewer than three fields)");
+        }
+        std::int64_t start = 0;
+        std::int64_t end = 0;
+        if (!cli::python_int(fields[1], &start)) {
+            throw PythonError("ValueError: invalid literal for int() with base 10: '" + fields[1] +
+                              "'");
+        }
+        if (!cli::python_int(fields[2], &end)) {
+            throw PythonError("ValueError: invalid literal for int() with base 10: '" + fields[2] +
+                              "'");
+        }
+        std::vector<std::size_t> overlapping;
+        if (start < end) {
+            const std::optional<hicx::BinRange> range = range_of(fields[0]);
+            if (range.has_value()) {
+                for (std::int64_t i = range->first; i < range->last; ++i) {
+                    const hicx::CutInterval& bin = original[static_cast<std::size_t>(i)];
+                    if (bin.chrom == fields[0] && bin.start < end && bin.end > start) {
+                        overlapping.push_back(static_cast<std::size_t>(i));
+                    }
+                }
+            }
+        }
+        if (overlapping.empty()) {
+            throw PythonError("ValueError: min() arg is an empty sequence (a --domains region "
+                              "overlaps no bin)");
+        }
+        const std::int64_t start_pos = original[overlapping.front()].start;
+        for (const std::size_t i : overlapping) {
+            if (result[i].has_value()) {
+                throw PythonError("Exception: 2 features must not overlap the same bin.(" +
+                                  original[i].chrom + ", " + std::to_string(original[i].start) +
+                                  ", " + std::to_string(original[i].end) +
+                                  ") is overlapped twice");
+            }
+            hicx::CutInterval interval = original[i];
+            interval.chrom = std::to_string(id);
+            interval.start = original[i].start - start_pos;
+            interval.end = original[i].end - start_pos;
+            result[i] = interval;
+        }
+        ++id;
+    }
+    if (id == 0) {
+        throw PythonError("AssertionError: No region overlapped with bins.");
+    }
+    std::vector<hicx::CutInterval> intervals;
+    intervals.reserve(original.size());
+    for (std::size_t i = 0; i < original.size(); ++i) {
+        if (result[i].has_value()) {
+            intervals.push_back(*result[i]);
+        } else {
+            hicx::CutInterval interval = original[i];
+            interval.chrom = "_ignore_" + std::to_string(i);
+            interval.start = 0;
+            interval.end = original[i].end - original[i].start;
+            intervals.push_back(interval);
+        }
+    }
+    return intervals;
+}
+
+struct MatrixMeans {
+    hicx::Scalar sum;
+    std::vector<UnitMeans> units;
+};
+
+MatrixMeans matrix_means(const std::string& path, const Arguments& args, bool domains_readable) {
+    hicx::ToolMatrix matrix = hicx::ToolMatrix::load(path);
+    MatrixMeans out;
+    out.sum = matrix.matrix().sum();
+
+    // keepOnlyTheseChr([x for x in interval_trees if x not in exclude])
+    const std::vector<hicx::CutInterval>& all_intervals = matrix.cut_intervals();
+    std::vector<std::int32_t> new_index(all_intervals.size(), -1);
+    std::vector<char> selected(all_intervals.size(), 0);
+    for (const auto& entry : matrix.boundaries()) {
+        if (std::find(args.chromosome_exclude.begin(), args.chromosome_exclude.end(),
+                      entry.first) != args.chromosome_exclude.end()) {
+            continue;
+        }
+        for (std::int64_t i = entry.second.first; i < entry.second.last; ++i) {
+            selected[static_cast<std::size_t>(i)] = 1;
+        }
+    }
+    std::vector<hicx::CutInterval> kept;
+    for (std::size_t i = 0; i < all_intervals.size(); ++i) {
+        if (selected[i]) {
+            new_index[i] = static_cast<std::int32_t>(kept.size());
+            kept.push_back(all_intervals[i]);
+        }
+    }
+    if (kept.empty()) {
+        throw PythonError("ValueError: not enough values to unpack (no chromosome is left after "
+                          "--chromosomeExclude, HiCMatrix.getBinSize)");
+    }
+    const hicx::BinTable kept_table(kept);
+    std::vector<std::string> chrom_names;
+    for (const auto& entry : kept_table.chrom_bin_boundaries()) {
+        chrom_names.push_back(entry.first);
+    }
+
+    std::optional<std::vector<hicx::CutInterval>> custom;
+    if (args.domains.has_value()) {
+        if (!domains_readable) {
+            throw PythonError("AssertionError: No region overlapped with bins. (the --domains "
+                              "file handle was consumed by the first matrix)");
+        }
+        custom = domain_intervals(*args.domains, kept, chrom_names);
+    }
+
+    const std::int64_t binsize = kept_table.bin_size();
+    std::int64_t max_depth_in_bins = 0;
+    if (args.maxdepth != 0) {
+        if (args.maxdepth < binsize) {
+            std::fprintf(stderr, "Please specify a maxDepth larger than bin size (%lld)\n",
+                         static_cast<long long>(binsize));
+            std::exit(1);
+        }
+        max_depth_in_bins = static_cast<std::int64_t>(
+            static_cast<double>(args.maxdepth) * 1.5 / static_cast<double>(binsize));
+    }
+
+    // triu(k=0) minus triu(k=max_depth_in_bins), zeros eliminated, row major.
+    std::vector<Entry> entries;
+    {
+        const hicx::CsrMatrix& csr = matrix.matrix();
+        const auto& indptr = csr.indptr();
+        const auto& indices = csr.indices();
+        const auto& data = csr.data();
+        std::vector<Entry> row_entries;
+        for (std::int64_t row = 0; row < csr.rows(); ++row) {
+            const std::int32_t new_row = new_index[static_cast<std::size_t>(row)];
+            if (new_row < 0) {
+                continue;
+            }
+            row_entries.clear();
+            bool sorted = true;
+            for (auto k = static_cast<std::size_t>(indptr[static_cast<std::size_t>(row)]);
+                 k < static_cast<std::size_t>(indptr[static_cast<std::size_t>(row) + 1]); ++k) {
+                if (data[k] == 0.0 || indices[k] < row) {
+                    continue;
+                }
+                const std::int32_t new_col = new_index[static_cast<std::size_t>(indices[k])];
+                if (new_col < 0) {
+                    continue;
+                }
+                if (args.maxdepth != 0 && new_col - new_row >= max_depth_in_bins) {
+                    continue;
+                }
+                if (!row_entries.empty() && row_entries.back().col > new_col) {
+                    sorted = false;
+                }
+                row_entries.push_back({new_row, new_col, data[k]});
+            }
+            if (!sorted) {
+                std::sort(row_entries.begin(), row_entries.end(),
+                          [](const Entry& a, const Entry& b) { return a.col < b.col; });
+            }
+            entries.insert(entries.end(), row_entries.begin(), row_entries.end());
+        }
+    }
+    matrix = hicx::ToolMatrix();  // the per distance reduction needs only the entries
+
+    const std::vector<hicx::CutInterval>& unit_intervals = custom.has_value() ? *custom : kept;
+    if (args.perchr) {
+        for (const auto& entry : kept_table.chrom_bin_boundaries()) {
+            const auto first = static_cast<std::int32_t>(entry.second.first);
+            const auto last = static_cast<std::int32_t>(entry.second.last);
+            const auto lower = std::lower_bound(
+                entries.begin(), entries.end(), first,
+                [](const Entry& e, std::int32_t value) { return e.row < value; });
+            const auto upper = std::lower_bound(
+                entries.begin(), entries.end(), last,
+                [](const Entry& e, std::int32_t value) { return e.row < value; });
+            std::vector<Entry> block;
+            for (auto it = lower; it != upper; ++it) {
+                if (it->col < last) {
+                    block.push_back(*it);
+                }
+            }
+            const std::vector<hicx::CutInterval> slice(unit_intervals.begin() + first,
+                                                       unit_intervals.begin() + last);
+            out.units.push_back(unit_means(entry.first, block, 0, block.size(), first,
+                                           last - first, slice, binsize, args.maxdepth));
+        }
+    } else {
+        out.units.push_back(unit_means("all", entries, 0, entries.size(), 0,
+                                       static_cast<std::int64_t>(unit_intervals.size()),
+                                       unit_intervals, binsize, args.maxdepth));
+    }
+    return out;
+}
+
+std::string basename_of(const std::string& path) {
+    const std::string::size_type slash = path.rfind('/');
+    return slash == std::string::npos ? path : path.substr(slash + 1);
+}
+
+// A to_csv field: quoted when it holds the separator, a quote or a line break.
+std::string csv_field(const std::string& text) {
+    if (text.find_first_of("\t\"\n\r") == std::string::npos) {
+        return text;
+    }
+    std::string out = "\"";
+    for (const char c : text) {
+        out += c;
+        if (c == '"') {
+            out += '"';
+        }
+    }
+    return out + "\"";
+}
+
+}  // namespace
+
+int main(int argc, char** argv) {
+    const Arguments args = parse_arguments(argc, argv);
+    if (const int refused = hicx::plot::preflight("hicPlotDistVsCounts", !args.plot_data.has_value()); refused != 0) {
+        return refused;
+    }
+    // argparse.FileType('w') while parsing, after the check (point 6).
+    open_like_filetype_w(args.plot_file, "--plotFile/-o");
+    if (args.out_file_data.has_value()) {
+        open_like_filetype_w(*args.out_file_data, "--outFileData");
+    }
+
+    // labels = OrderedDict(...) keyed by matrix path.
+    std::map<std::string, std::string> labels;
+    if (!args.labels.has_value()) {
+        for (const std::string& path : args.matrices) {
+            labels[path] = basename_of(path);
+        }
+    } else {
+        for (std::size_t i = 0; i < args.matrices.size() && i < args.labels->size(); ++i) {
+            labels[args.matrices[i]] = (*args.labels)[i];
+        }
+    }
+
+    std::map<std::string, MatrixMeans> means;
+    std::set<std::string> chroms;
+    try {
+        bool domains_readable = true;
+        for (const std::string& path : args.matrices) {
+            MatrixMeans result = matrix_means(path, args, domains_readable);
+            domains_readable = false;
+            for (const UnitMeans& unit : result.units) {
+                if (unit.distance.size() > 1) {
+                    chroms.insert(unit.name);
+                }
+            }
+            means[path] = std::move(result);
+        }
+    } catch (const PythonError& error) {
+        std::fprintf(stderr, "hicPlotDistVsCounts: %s\n", error.what());
+        return 1;
+    } catch (const std::exception& error) {
+        std::fprintf(stderr, "hicPlotDistVsCounts: %s\n", error.what());
+        return 1;
+    }
+
+    // scale_factor = float(min_sum) / mat_sum; numpy scalars divide in float64.
+    double min_sum = 0.0;
+    bool first = true;
+    for (const auto& entry : means) {
+        const double value = entry.second.sum.as_double();
+        if (first || value < min_sum) {
+            min_sum = value;
+            first = false;
+        }
+    }
+
+    std::string table;
+    std::vector<std::string> matrices_json;
+    std::size_t drawable_series = 0;
+    for (const std::string& path : args.matrices) {
+        const MatrixMeans& result = means[path];
+        const double scale = min_sum / result.sum.as_double();
+        std::vector<std::string> series_json;
+        const auto label = labels.find(path);
+        for (const UnitMeans& unit : result.units) {
+            if (unit.distance.size() <= 1) {
+                continue;
+            }
+            std::vector<std::int64_t> x;
+            std::vector<double> y;
+            std::vector<std::int64_t> z;
+            for (std::size_t i = 0; i < unit.distance.size(); ++i) {
+                if (unit.mean[i] > 0.0) {
+                    x.push_back(unit.distance[i]);
+                    y.push_back(unit.mean[i] * scale);
+                    z.push_back(unit.nb[i]);
+                }
+            }
+            if (x.size() <= 1) {
+                continue;
+            }
+            const bool needs_label = !(args.perchr && args.matrices.size() == 1) ||
+                                     args.out_file_data.has_value();
+            if (needs_label && label == labels.end()) {
+                std::fprintf(stderr, "hicPlotDistVsCounts: KeyError: '%s' (--labels has fewer "
+                                     "entries than --matrices)\n",
+                             path.c_str());
+                return 1;
+            }
+            if (args.out_file_data.has_value()) {
+                table += "\tMatrix\tChromosome\tDistance\tContacts\tNumber_bins\tScale_factor\n";
+                const std::string prefix = csv_field(label->second) + "\t" + csv_field(unit.name);
+                const std::string scale_text = hicx::npy::float_repr(scale);
+                for (std::size_t i = 0; i < x.size(); ++i) {
+                    table += std::to_string(i) + "\t" + prefix + "\t" + std::to_string(x[i]) +
+                             "\t" + hicx::npy::float_repr(y[i]) + "\t" + std::to_string(z[i]) +
+                             "\t" + scale_text + "\n";
+                }
+            }
+            plot::JsonObject series;
+            series.add("chrom", plot::json_string(unit.name));
+            series.add("x", plot::json_ints(x));
+            series.add("y", plot::json_numbers(y));
+            series_json.push_back(series.str());
+        }
+        plot::JsonObject matrix;
+        matrix.add("label", label == labels.end() ? "null" : plot::json_string(label->second));
+        matrix.add("series", plot::json_list(series_json));
+        matrices_json.push_back(matrix.str());
+        drawable_series += series_json.size();
+    }
+
+    // 3.7.6 ended with an UnboundLocalError on 'lgd' when no curve had more
+    // than one point, for example with --maxdepth close to the bin size (#836).
+    if (drawable_series == 0) {
+        std::fprintf(stderr,
+                     "hicPlotDistVsCounts: no curve with more than one point can be drawn "
+                     "with --maxdepth %lld, which covers too few bins from the diagonal. "
+                     "Please specify a larger --maxdepth. No plot was drawn.\n",
+                     static_cast<long long>(args.maxdepth));
+        return 1;
+    }
+
+    if (args.out_file_data.has_value()) {
+        std::ofstream out(*args.out_file_data, std::ios::binary | std::ios::trunc);
+        out << table;
+        out.close();
+        if (!out) {
+            std::fprintf(stderr, "hicPlotDistVsCounts: cannot write %s\n",
+                         args.out_file_data->c_str());
+            return 1;
+        }
+    }
+
+    plot::JsonObject data;
+    data.add("plotFile", plot::json_string(args.plot_file));
+    data.add("perchr", plot::json_bool(args.perchr));
+    data.add("num_chroms", plot::json_int(static_cast<std::int64_t>(chroms.size())));
+    data.add("maxdepth", plot::json_int(args.maxdepth));
+    data.add("plotsize", args.plotsize.has_value() ? plot::json_numbers(*args.plotsize) : "null");
+    data.add("matrices", plot::json_list(matrices_json));
+
+    hicx::report_resource_usage("hicPlotDistVsCounts");
+    return plot::draw("hicPlotDistVsCounts", data.str(), args.plot_data);
+}

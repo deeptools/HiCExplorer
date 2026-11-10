@@ -1,9 +1,10 @@
 import os.path
-from tempfile import NamedTemporaryFile
+from tempfile import NamedTemporaryFile, mkdtemp
 from psutil import virtual_memory
 import pytest
 import logging
 log = logging.getLogger(__name__)
+import numpy as np
 import pandas as pd
 from pybedtools import BedTool
 
@@ -24,29 +25,64 @@ ROOT = os.path.join(os.path.dirname(
     os.path.dirname(os.path.abspath(__file__))), "test_data/hicDifferentialTAD/")
 
 
-def are_files_equal(file1, file2, delta=1, skip=0, eps=0.1):
+# Columns 5 onwards of a .diff_tad line hold the log fold change, the p-values
+# and the test statistics. They are compared with a relative tolerance: the
+# special functions underneath (Boost.Math's normal tail) round the last one
+# or two bits differently from the code that produced the expected files,
+# 3.7.6's scipy; the largest difference seen is 2e-15 relative. The chromosome,
+# the coordinates, the identifier and the placeholder column are compared
+# exactly, and so are the line counts of the accepted and the rejected file, so
+# a TAD that moves between the two files fails the comparison.
+PVALUE_RTOL = 1e-12
+FIRST_FLOAT_COLUMN = 4
 
+
+def lines_agree(x, y, rtol):
+    if x == y:
+        return True
+    fx, fy = x.rstrip('\n').split('\t'), y.rstrip('\n').split('\t')
+    if len(fx) != len(fy) or fx[:FIRST_FLOAT_COLUMN] != fy[:FIRST_FLOAT_COLUMN]:
+        return False
+    for a, b in zip(fx[FIRST_FLOAT_COLUMN:], fy[FIRST_FLOAT_COLUMN:]):
+        if a == b:
+            continue
+        try:
+            va, vb = float(a), float(b)
+        except ValueError:
+            return False
+        if np.isnan(va) and np.isnan(vb):
+            continue
+        if not abs(va - vb) <= rtol * abs(vb):
+            return False
+    return True
+
+
+def are_files_equal(file1, file2, delta=1, skip=0, eps=0.1, rtol=PVALUE_RTOL):
+    """Line by line comparison after `skip` header lines.
+
+    The earlier version iterated over zip(file1, file2), which stops at the
+    shorter file, so a produced file that lost or gained rows at its end still
+    compared equal. Both files must now have the same number of lines, and at
+    most `delta` of them may differ. Float columns agree within `rtol`
+    (relative), see PVALUE_RTOL.
+    """
+    with open(file1) as textfile1:
+        lines1 = textfile1.readlines()[skip:]
+    with open(file2) as textfile2:
+        lines2 = textfile2.readlines()[skip:]
+    if len(lines1) != len(lines2):
+        print('line count differs: {} vs {}'.format(len(lines1), len(lines2)))
+        return False
     mismatches = 0
-    # if delta:
-    #     mismatches = 0
-    with open(file1) as textfile1, open(file2) as textfile2:
-        for i, (x, y) in enumerate(zip(textfile1, textfile2)):
-            if i < skip:
-                continue
-            if x.startswith('File'):
-                continue
-            if x != y:
-                # if delta:
-                mismatches += 1
-                if mismatches > delta:
-                    break
-                # else:
-                #     break
+    for x, y in zip(lines1, lines2):
+        if x.startswith('File'):
+            continue
+        if not lines_agree(x, y, rtol):
+            mismatches += 1
     if mismatches <= delta:
         return True
-    else:
-        print('mismatches: {}'.format(mismatches))
-        return False
+    print('mismatches: {}'.format(mismatches))
+    return False
 
 
 def all_tads_present(pOriginTADs, pAccepted, pRejected):
@@ -489,8 +525,10 @@ def test_cool_all_multi_core_all_multichr_chromosome():
     # test on the intersection to exclude the case of duplicated lines
     assert number_of_tads == all_tads_present(ROOT + "untreated_R1_domains_chr1_chr2.bed", outfile_pref.name + '_accepted.diff_tad', outfile_pref.name + '_rejected.diff_tad')
 
-    assert are_files_equal(outfile_pref.name + '_accepted.diff_tad', ROOT + 'multichromosome_accepted.diff_tad', delta=2, skip=4)
-    assert are_files_equal(outfile_pref.name + '_rejected.diff_tad', ROOT + 'multichromosome_rejected.diff_tad', delta=2, skip=4)
+    # delta was 2. The output has been measured to match the master exactly at
+    # --threads 1, 4, 11 and 16 (2026-09-13), so the slack only hid changes.
+    assert are_files_equal(outfile_pref.name + '_accepted.diff_tad', ROOT + 'multichromosome_accepted.diff_tad', delta=0, skip=4)
+    assert are_files_equal(outfile_pref.name + '_rejected.diff_tad', ROOT + 'multichromosome_rejected.diff_tad', delta=0, skip=4)
 
     # mode_all_reject_all__t4_cool_multi_chromosomes_rejected.diff_tad
 
@@ -522,5 +560,192 @@ def test_cool_all_one_core_all_multichr_chromosome():
     assert number_of_tads == all_tads_present(ROOT + "untreated_R1_domains_chr1_chr2.bed", outfile_pref.name + '_accepted.diff_tad', outfile_pref.name + '_rejected.diff_tad')
     # assert number_of_tads == all_tads_present(ROOT + "untreated_R1_domains_chr1_chr2.bed", ROOT + 'mode_all_reject_all__t4_cool_multi_chromosomes_accepted.diff_tad', ROOT + 'mode_all_reject_all__t4_cool_multi_chromosomes_rejected.diff_tad')
 
-    assert are_files_equal(outfile_pref.name + '_accepted.diff_tad', ROOT + 'multichromosome_accepted.diff_tad', delta=2, skip=4)
-    assert are_files_equal(outfile_pref.name + '_rejected.diff_tad', ROOT + 'multichromosome_rejected.diff_tad', delta=2, skip=4)
+    assert are_files_equal(outfile_pref.name + '_accepted.diff_tad', ROOT + 'multichromosome_accepted.diff_tad', delta=0, skip=4)
+    assert are_files_equal(outfile_pref.name + '_rejected.diff_tad', ROOT + 'multichromosome_rejected.diff_tad', delta=0, skip=4)
+
+
+# --------------------------------------------------------------------------
+# Characterization tests added for the v4 C++ port (2026-09-13). They pin the
+# current Python behaviour, including the defects, on the real matrices and on
+# subsets of the real TAD calls. The stored mode_*, multichromosome and
+# pvalue_* tables are HiCExplorer 4 output (fix 2: corrected TAD geometry, see
+# test_h5_and_cool_cut_the_same_blocks): against 3.7.6 only the right columns of
+# the cool tables (all but the last TAD) and the left columns of the last TAD
+# changed, the intra-TAD columns are those of 3.7.6.
+
+
+def _run(pTarget, pControl, pDomains, pThreads, pMode, pModeReject, pPValue=None):
+    outdir = mkdtemp(prefix='differential_tad_')
+    prefix = os.path.join(outdir, 'out')
+    args = "--targetMatrix {} --controlMatrix {} --tadDomains {} -t {} -o {} -m {} -mr {}".format(
+        pTarget, pControl, pDomains, pThreads, prefix, pMode, pModeReject).split()
+    if pPValue is not None:
+        args += ['--pValue', str(pPValue)]
+    compute(hicDifferentialTAD.main, args, 5)
+    return prefix
+
+
+def _data_rows(pFile):
+    with open(pFile) as handle:
+        return [line.rstrip('\n').split('\t') for line in handle if not line.startswith('#')]
+
+
+def _assert_matches_master(pPrefix, pMaster):
+    for kind in ['accepted', 'rejected']:
+        assert are_files_equal(pPrefix + '_' + kind + '.diff_tad',
+                               ROOT + pMaster + '_' + kind + '.diff_tad', delta=0, skip=4)
+
+
+COOL_TARGET = ROOT + "GSM2644945_Untreated-R1.100000_chr1.cool"
+COOL_CONTROL = ROOT + "GSM2644947_Auxin2days-R1.100000_chr1.cool"
+H5_TARGET = ROOT + "GSM2644945_Untreated-R1.100000_chr1.h5"
+H5_CONTROL = ROOT + "GSM2644947_Auxin2days-R1.100000_chr1.h5"
+COOL2_TARGET = ROOT + "GSM2644945_Untreated-R1.100000_chr1_chr2.cool"
+COOL2_CONTROL = ROOT + "GSM2644947_Auxin2days-R1.100000_chr1_chr2.cool"
+
+
+def test_cool_pvalue_001_all_one():
+    # --pValue was never varied from its default.
+    prefix = _run(COOL_TARGET, COOL_CONTROL, ROOT + "untreated_R1_domains.bed", 2, 'all', 'one', 0.01)
+    _assert_matches_master(prefix, 'pvalue_0.01_mode_all_one')
+    with open(prefix + '_rejected.diff_tad') as handle:
+        header = handle.readlines()[:4]
+    assert header[2] == "# Rejected regions with Wilcoxon rank-sum test to p-value: 0.01  with used mode: all and modeReject: one \n"
+    assert header[3].startswith('# Chromosome\tstart\tend\tname\tscore\tstrand\tp-value left-inter-TAD')
+
+    # The split is a pure function of the printed p-values: rejected when any
+    # of the three is <= 0.01, a NaN never rejects.
+    for kind, expected in [('accepted', False), ('rejected', True)]:
+        for row in _data_rows(prefix + '_' + kind + '.diff_tad'):
+            p_values = np.array(row[6:9], dtype=float)
+            assert bool(np.any(p_values <= 0.01)) == expected
+
+
+def test_cool_left_inter_TAD_one():
+    # left-inter-TAD was only ever run with --modeReject all.
+    prefix = _run(COOL_TARGET, COOL_CONTROL, ROOT + "untreated_R1_domains.bed", 1, 'left-inter-TAD', 'one')
+    _assert_matches_master(prefix, 'mode_one_left_inter-TAD')
+
+
+def test_h5_intra_TAD_all():
+    # The h5 path was only ever run with --mode all.
+    prefix = _run(H5_TARGET, H5_CONTROL, ROOT + "untreated_R1_domains.bed", 1, 'intra-TAD', 'all')
+    _assert_matches_master(prefix, 'mode_intra-TAD_h5')
+
+
+def test_h5_left_inter_TAD_one():
+    prefix = _run(H5_TARGET, H5_CONTROL, ROOT + "untreated_R1_domains.bed", 3, 'left-inter-TAD', 'one')
+    _assert_matches_master(prefix, 'mode_one_left_inter-TAD_h5')
+
+
+def test_h5_last_tad_has_a_left_inter_tad_test():
+    # HiCExplorer 4 (fix 2): the left block of the last TAD is cut from the
+    # previous TAD and the last TAD on both paths. 3.7.6 used the right boundary
+    # left over from the previous TAD, which on h5 is an absolute bin index equal
+    # to the last TAD's own first bin: zero columns, so the test was NaN. The
+    # expected p-value is scipy.stats.ranksums of the two flattened 10 x 15
+    # blocks of the raw counts.
+    prefix = _run(H5_TARGET, H5_CONTROL, ROOT + "untreated_R1_domains.bed", 1, 'all', 'all')
+    rows = _data_rows(prefix + '_accepted.diff_tad') + _data_rows(prefix + '_rejected.diff_tad')
+    last = max(rows, key=lambda row: int(row[1]))
+    assert last[1:3] == ['193700000', '195200000']
+    assert last[6] == '0.7282747240054768'
+    assert last[9] == '0.34742144598393476'
+    assert last[7] == 'nan' and last[10] == 'nan'
+
+
+def test_cool_last_tad_has_a_left_inter_tad_test():
+    # HiCExplorer 4 (fix 2): same block as on h5, see the test above. In 3.7.6
+    # the cool path used an index relative to the previous TAD's region and so
+    # tested a block that was not the one the column names (0.9185395091955513).
+    prefix = _run(COOL_TARGET, COOL_CONTROL, ROOT + "untreated_R1_domains.bed", 1, 'all', 'all')
+    rows = _data_rows(prefix + '_accepted.diff_tad') + _data_rows(prefix + '_rejected.diff_tad')
+    last = max(rows, key=lambda row: int(row[1]))
+    assert last[1:3] == ['193700000', '195200000']
+    assert last[6] == '0.7282747240054768'
+    assert last[9] == '0.34742144598393476'
+    assert last[7] == 'nan'
+
+
+def test_h5_and_cool_cut_the_same_blocks():
+    # HiCExplorer 4 (fix 2): one TAD geometry for both formats. In 3.7.6 the
+    # cool right block dropped the last bin of the next TAD, so the two outputs
+    # differed in the right columns of all but the last TAD.
+    domains = ROOT + "untreated_R1_domains.bed"
+    cool = _run(COOL_TARGET, COOL_CONTROL, domains, 1, 'all', 'one')
+    h5 = _run(H5_TARGET, H5_CONTROL, domains, 1, 'all', 'one')
+    for kind in ['accepted', 'rejected']:
+        assert are_files_equal(cool + '_' + kind + '.diff_tad', h5 + '_' + kind + '.diff_tad', delta=0, skip=4)
+
+
+def test_two_tad_chromosome_second_tad_has_a_left_inter_tad_test():
+    # HiCExplorer 4 (fix 2): with two TADs the second one is the last and has
+    # a left block (first TAD x second TAD); 3.7.6 gave it none. The first TAD
+    # has a right block and no left block. The left test of the second TAD and
+    # the right test of the first TAD look at the same cells.
+    outdir = mkdtemp(prefix='differential_tad_')
+    domains = os.path.join(outdir, 'two.bed')
+    with open(ROOT + "untreated_R1_domains.bed") as handle:
+        lines = handle.readlines()[10:12]
+    with open(domains, 'w') as handle:
+        handle.writelines(lines)
+    for target, control in [(COOL_TARGET, COOL_CONTROL), (H5_TARGET, H5_CONTROL)]:
+        prefix = _run(target, control, domains, 1, 'all', 'one')
+        rows = sorted(_data_rows(prefix + '_accepted.diff_tad') + _data_rows(prefix + '_rejected.diff_tad'),
+                      key=lambda row: int(row[1]))
+        assert len(rows) == 2
+        first, second = rows
+        assert first[6] == 'nan' and first[9] == 'nan'
+        assert first[7] != 'nan'
+        assert second[7] == 'nan' and second[10] == 'nan'
+        assert second[6] != 'nan'
+        assert first[7] == second[6] and first[10] == second[9]
+
+
+def _row_count(pPrefix):
+    return len(_data_rows(pPrefix + '_accepted.diff_tad')) + len(_data_rows(pPrefix + '_rejected.diff_tad'))
+
+
+def test_threads_small_chromosome_first_drops_last_tad():
+    # Defect pinned, not endorsed. A chromosome with fewer TADs than --threads
+    # sets args.threads = 1 for good. The next chromosome then computes
+    # domainsPerThread with 1 thread but restores the thread count, so the
+    # first process gets the whole list and skips its last element, and no
+    # other process receives it: the last TAD of that chromosome is lost.
+    domains = ROOT + "domains_chr1_3_chr2_10.bed"
+    assert _row_count(_run(COOL2_TARGET, COOL2_CONTROL, domains, 1, 'all', 'one')) == 13
+    prefix = _run(COOL2_TARGET, COOL2_CONTROL, domains, 4, 'all', 'one')
+    assert _row_count(prefix) == 12
+    rows = _data_rows(prefix + '_accepted.diff_tad') + _data_rows(prefix + '_rejected.diff_tad')
+    assert ['chr2', '17100000', '18100000'] not in [row[0:3] for row in rows]
+
+
+def test_threads_small_chromosome_last_duplicates_rows():
+    # Defect pinned, not endorsed. The per process result slots are allocated
+    # once for the original thread count. A chromosome processed with a single
+    # process only overwrites slot 0, so slots 1..3 still hold the previous
+    # chromosome's results and they are written a second time.
+    domains = ROOT + "domains_chr1_10_chr2_3.bed"
+    assert _row_count(_run(COOL2_TARGET, COOL2_CONTROL, domains, 1, 'all', 'one')) == 13
+    prefix = _run(COOL2_TARGET, COOL2_CONTROL, domains, 4, 'all', 'one')
+    assert _row_count(prefix) == 21
+    rows = _data_rows(prefix + '_accepted.diff_tad') + _data_rows(prefix + '_rejected.diff_tad')
+    keys = [tuple(row[0:3]) for row in rows]
+    assert len(set(keys)) == 13
+
+
+def test_threads_one_tad_per_thread_keeps_the_last_left_test():
+    # HiCExplorer 4 (fix 2): with exactly one TAD per process the last process
+    # sees [TAD n-2, TAD n-1] and the last TAD sits at local index 1. 3.7.6's
+    # `i - 1 > 0` guard skipped its left inter-TAD test there (NaN); now the
+    # result does not depend on how the TADs are shared among the processes.
+    domains = ROOT + "domains_chr1_4.bed"
+    single = _run(COOL_TARGET, COOL_CONTROL, domains, 1, 'all', 'one')
+    multi = _run(COOL_TARGET, COOL_CONTROL, domains, 4, 'all', 'one')
+
+    def last_row(pPrefix):
+        rows = _data_rows(pPrefix + '_accepted.diff_tad') + _data_rows(pPrefix + '_rejected.diff_tad')
+        return max(rows, key=lambda row: int(row[1]))
+    assert last_row(single)[6] == '0.8706579826550646'
+    assert last_row(multi)[6] == '0.8706579826550646'
+    assert last_row(multi) == last_row(single)

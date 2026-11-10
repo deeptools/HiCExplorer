@@ -1,0 +1,624 @@
+[
+  {
+    "id": "hicFindTADs.h5.small_test_matrix.fdr",
+    "tool": "hicFindTADs",
+    "tier": 5,
+    "args": [
+      "-m",
+      "{data}/small_test_matrix.h5",
+      "--minDepth",
+      "60000",
+      "--maxDepth",
+      "180000",
+      "--step",
+      "20000",
+      "--minBoundaryDistance",
+      "20000",
+      "--correctForMultipleTesting",
+      "fdr",
+      "--thresholdComparisons",
+      "0.1",
+      "--outPrefix",
+      "{out}/t"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/t_tad_score.bm",
+        "format": "text",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/t_score.bedgraph",
+        "format": "text",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/t_boundaries.bed",
+        "format": "text",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/t_domains.bed",
+        "format": "text",
+        "class": "E0"
+      }
+    ],
+    "threads_arg": "--numberOfProcessors",
+    "memory": {
+      "budget_mb": 184
+    },
+    "notes": "The case the Python suite covers. Both text outputs and the z-score matrix are byte identical, which is far stronger than the ED gate; the reference calls only 2 boundaries and 0 domains here, so the .bm and the bedgraph are what actually constrain the run. The budget is not the alpha * W of PLAN.md 4.5: this tool's working set is not the input matrix but the z-score band, nbins * int(maxDepth * 3.75 / binsize) entries at 12 bytes each, which is 54.7 MB here against a 0.7 MB input. budget_mb is 2.2 * that + 64 MB. See the note in the report; PLAN.md risk 7 asks for exactly this revision. Class E0 only for the outputs the fixes below leave unchanged; t_boundaries.gff, t_zscore_matrix.h5 are checked by the case hicFindTADs.v4.h5.small_test_matrix.fdr. HiCExplorer 4 fixes four defects of 3.7.6 here (project owner, 2026-11-06): the delta of a minimum is the mean of the w scores left and the w scores right of it with the minimum excluded (3.7.6 averaged matrix_avg[i-w:i+3] with matrix_avg[i+4:i+w]), the chromosome start indices are kept apart from the end indices in the boundary list, the z-score matrix has no NaN entries beyond 2 * maxDepth, and the window lengths in bins use the bin size of the enlarged bins (3.7.6 used the input's)."
+  },
+  {
+    "id": "hicFindTADs.v4.h5.small_test_matrix.fdr",
+    "tool": "hicFindTADs",
+    "tier": 5,
+    "args": [
+      "-m",
+      "{data}/small_test_matrix.h5",
+      "--minDepth",
+      "60000",
+      "--maxDepth",
+      "180000",
+      "--step",
+      "20000",
+      "--minBoundaryDistance",
+      "20000",
+      "--correctForMultipleTesting",
+      "fdr",
+      "--thresholdComparisons",
+      "0.1",
+      "--outPrefix",
+      "{out}/t"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/t_boundaries.gff",
+        "format": "text",
+        "class": "EX"
+      },
+      {
+        "path": "{out}/t_zscore_matrix.h5",
+        "format": "h5",
+        "class": "EX"
+      }
+    ],
+    "threads_arg": "--numberOfProcessors",
+    "memory": {
+      "budget_mb": 184
+    },
+    "notes": "Class EX, not E0/E2 (deliberate deviation, HiCExplorer 4 fixes, project owner 2026-11-06): HiCExplorer 4 fixes four defects of 3.7.6 here (project owner, 2026-11-06): the delta of a minimum is the mean of the w scores left and the w scores right of it with the minimum excluded (3.7.6 averaged matrix_avg[i-w:i+3] with matrix_avg[i+4:i+w]), the chromosome start indices are kept apart from the end indices in the boundary list, the z-score matrix has no NaN entries beyond 2 * maxDepth, and the window lengths in bins use the bin size of the enlarged bins (3.7.6 used the input's). The outputs of this case differ from 3.7.6 for these reasons; the other outputs of the same run are compared with 3.7.6 in hicFindTADs.h5.small_test_matrix.fdr.",
+    "reference": "none"
+  },
+  {
+    "id": "hicFindTADs.cool.small_test_matrix.fdr",
+    "tool": "hicFindTADs",
+    "tier": 5,
+    "args": [
+      "-m",
+      "{data}/small_test_matrix.cool",
+      "--minDepth",
+      "60000",
+      "--maxDepth",
+      "180000",
+      "--step",
+      "20000",
+      "--minBoundaryDistance",
+      "20000",
+      "--correctForMultipleTesting",
+      "fdr",
+      "--thresholdComparisons",
+      "0.1",
+      "--outPrefix",
+      "{out}/t"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/t_tad_score.bm",
+        "format": "text",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/t_score.bedgraph",
+        "format": "text",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/t_zscore_matrix.cool",
+        "format": "cool",
+        "class": "E1"
+      }
+    ],
+    "threads_arg": "--numberOfProcessors",
+    "memory": {
+      "budget_mb": 184
+    },
+    "notes": "The same region through the cool reader and the cool writer. The cool loader derives 14,845 NaN bins where the h5 has none, so this is the only case that exercises maskBins, restoreMaskedBins and enlarge_bins, and it produces 554 boundaries and 549 domains rather than the 2 and 0 of the h5 case. Untested by the Python suite, which never runs this tool on a cool matrix. Class E0 only for the outputs the fixes below leave unchanged; t_boundaries.bed, t_boundaries.gff, t_domains.bed are checked by the case hicFindTADs.v4.cool.small_test_matrix.fdr. HiCExplorer 4 fixes four defects of 3.7.6 here (project owner, 2026-11-06): the delta of a minimum is the mean of the w scores left and the w scores right of it with the minimum excluded (3.7.6 averaged matrix_avg[i-w:i+3] with matrix_avg[i+4:i+w]), the chromosome start indices are kept apart from the end indices in the boundary list, the z-score matrix has no NaN entries beyond 2 * maxDepth, and the window lengths in bins use the bin size of the enlarged bins (3.7.6 used the input's)."
+  },
+  {
+    "id": "hicFindTADs.v4.cool.small_test_matrix.fdr",
+    "tool": "hicFindTADs",
+    "tier": 5,
+    "args": [
+      "-m",
+      "{data}/small_test_matrix.cool",
+      "--minDepth",
+      "60000",
+      "--maxDepth",
+      "180000",
+      "--step",
+      "20000",
+      "--minBoundaryDistance",
+      "20000",
+      "--correctForMultipleTesting",
+      "fdr",
+      "--thresholdComparisons",
+      "0.1",
+      "--outPrefix",
+      "{out}/t"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/t_boundaries.bed",
+        "format": "text",
+        "class": "EX"
+      },
+      {
+        "path": "{out}/t_boundaries.gff",
+        "format": "text",
+        "class": "EX"
+      },
+      {
+        "path": "{out}/t_domains.bed",
+        "format": "text",
+        "class": "EX"
+      }
+    ],
+    "threads_arg": "--numberOfProcessors",
+    "memory": {
+      "budget_mb": 184
+    },
+    "notes": "Class EX, not E0/E2 (deliberate deviation, HiCExplorer 4 fixes, project owner 2026-11-06): HiCExplorer 4 fixes four defects of 3.7.6 here (project owner, 2026-11-06): the delta of a minimum is the mean of the w scores left and the w scores right of it with the minimum excluded (3.7.6 averaged matrix_avg[i-w:i+3] with matrix_avg[i+4:i+w]), the chromosome start indices are kept apart from the end indices in the boundary list, the z-score matrix has no NaN entries beyond 2 * maxDepth, and the window lengths in bins use the bin size of the enlarged bins (3.7.6 used the input's). The outputs of this case differ from 3.7.6 for these reasons; the other outputs of the same run are compared with 3.7.6 in hicFindTADs.cool.small_test_matrix.fdr.",
+    "reference": "none"
+  },
+  {
+    "id": "hicFindTADs.h5.small_test_matrix.chromosomes",
+    "tool": "hicFindTADs",
+    "tier": 5,
+    "args": [
+      "-m",
+      "{data}/small_test_matrix.h5",
+      "--minDepth",
+      "60000",
+      "--maxDepth",
+      "180000",
+      "--step",
+      "20000",
+      "--minBoundaryDistance",
+      "20000",
+      "--correctForMultipleTesting",
+      "fdr",
+      "--thresholdComparisons",
+      "0.5",
+      "--chromosomes",
+      "chr2L",
+      "chr3R",
+      "--outPrefix",
+      "{out}/t"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/t_tad_score.bm",
+        "format": "text",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/t_score.bedgraph",
+        "format": "text",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/t_boundaries.bed",
+        "format": "text",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/t_domains.bed",
+        "format": "text",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/t_zscore_matrix.h5",
+        "format": "h5",
+        "class": "E2"
+      }
+    ],
+    "threads_arg": "--numberOfProcessors",
+    "memory": {
+      "budget_mb": 184
+    },
+    "notes": "reorderChromosomes restricts the matrix to two chromosomes in the given order before anything else runs, so the bin table, the chromosome boundaries and the per chromosome z-score all change. Class E0 only for the outputs the fixes below leave unchanged; t_boundaries.gff are checked by the case hicFindTADs.v4.h5.small_test_matrix.chromosomes. HiCExplorer 4 fixes four defects of 3.7.6 here (project owner, 2026-11-06): the delta of a minimum is the mean of the w scores left and the w scores right of it with the minimum excluded (3.7.6 averaged matrix_avg[i-w:i+3] with matrix_avg[i+4:i+w]), the chromosome start indices are kept apart from the end indices in the boundary list, the z-score matrix has no NaN entries beyond 2 * maxDepth, and the window lengths in bins use the bin size of the enlarged bins (3.7.6 used the input's)."
+  },
+  {
+    "id": "hicFindTADs.v4.h5.small_test_matrix.chromosomes",
+    "tool": "hicFindTADs",
+    "tier": 5,
+    "args": [
+      "-m",
+      "{data}/small_test_matrix.h5",
+      "--minDepth",
+      "60000",
+      "--maxDepth",
+      "180000",
+      "--step",
+      "20000",
+      "--minBoundaryDistance",
+      "20000",
+      "--correctForMultipleTesting",
+      "fdr",
+      "--thresholdComparisons",
+      "0.5",
+      "--chromosomes",
+      "chr2L",
+      "chr3R",
+      "--outPrefix",
+      "{out}/t"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/t_boundaries.gff",
+        "format": "text",
+        "class": "EX"
+      }
+    ],
+    "threads_arg": "--numberOfProcessors",
+    "memory": {
+      "budget_mb": 184
+    },
+    "notes": "Class EX, not E0/E2 (deliberate deviation, HiCExplorer 4 fixes, project owner 2026-11-06): HiCExplorer 4 fixes four defects of 3.7.6 here (project owner, 2026-11-06): the delta of a minimum is the mean of the w scores left and the w scores right of it with the minimum excluded (3.7.6 averaged matrix_avg[i-w:i+3] with matrix_avg[i+4:i+w]), the chromosome start indices are kept apart from the end indices in the boundary list, the z-score matrix has no NaN entries beyond 2 * maxDepth, and the window lengths in bins use the bin size of the enlarged bins (3.7.6 used the input's). The outputs of this case differ from 3.7.6 for these reasons; the other outputs of the same run are compared with 3.7.6 in hicFindTADs.h5.small_test_matrix.chromosomes.",
+    "reference": "none"
+  },
+  {
+    "id": "hicFindTADs.h5.small_test_matrix_50kb.default_depths",
+    "tool": "hicFindTADs",
+    "tier": 5,
+    "args": [
+      "-m",
+      "{data}/small_test_matrix_50kb_res.h5",
+      "--correctForMultipleTesting",
+      "fdr",
+      "--outPrefix",
+      "{out}/t"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/t_tad_score.bm",
+        "format": "text",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/t_score.bedgraph",
+        "format": "text",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/t_boundaries.bed",
+        "format": "text",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/t_domains.bed",
+        "format": "text",
+        "class": "E0"
+      }
+    ],
+    "threads_arg": "--numberOfProcessors",
+    "memory": {
+      "budget_mb": 67
+    },
+    "notes": "--minDepth, --maxDepth and --step left out, so set_variables picks 5x, 10x and 2x the 50 kb bin size. No Python test passes this tool without all three, so the default branch is exercised here for the first time. Band width 37 bins over 2,794 bins, hence the small budget. Class E0 only for the outputs the fixes below leave unchanged; t_boundaries.gff, t_zscore_matrix.h5 are checked by the case hicFindTADs.v4.h5.small_test_matrix_50kb.default_depths. HiCExplorer 4 fixes four defects of 3.7.6 here (project owner, 2026-11-06): the delta of a minimum is the mean of the w scores left and the w scores right of it with the minimum excluded (3.7.6 averaged matrix_avg[i-w:i+3] with matrix_avg[i+4:i+w]), the chromosome start indices are kept apart from the end indices in the boundary list, the z-score matrix has no NaN entries beyond 2 * maxDepth, and the window lengths in bins use the bin size of the enlarged bins (3.7.6 used the input's)."
+  },
+  {
+    "id": "hicFindTADs.v4.h5.small_test_matrix_50kb.default_depths",
+    "tool": "hicFindTADs",
+    "tier": 5,
+    "args": [
+      "-m",
+      "{data}/small_test_matrix_50kb_res.h5",
+      "--correctForMultipleTesting",
+      "fdr",
+      "--outPrefix",
+      "{out}/t"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/t_boundaries.gff",
+        "format": "text",
+        "class": "EX"
+      },
+      {
+        "path": "{out}/t_zscore_matrix.h5",
+        "format": "h5",
+        "class": "EX"
+      }
+    ],
+    "threads_arg": "--numberOfProcessors",
+    "memory": {
+      "budget_mb": 67
+    },
+    "notes": "Class EX, not E0/E2 (deliberate deviation, HiCExplorer 4 fixes, project owner 2026-11-06): HiCExplorer 4 fixes four defects of 3.7.6 here (project owner, 2026-11-06): the delta of a minimum is the mean of the w scores left and the w scores right of it with the minimum excluded (3.7.6 averaged matrix_avg[i-w:i+3] with matrix_avg[i+4:i+w]), the chromosome start indices are kept apart from the end indices in the boundary list, the z-score matrix has no NaN entries beyond 2 * maxDepth, and the window lengths in bins use the bin size of the enlarged bins (3.7.6 used the input's). The outputs of this case differ from 3.7.6 for these reasons; the other outputs of the same run are compared with 3.7.6 in hicFindTADs.h5.small_test_matrix_50kb.default_depths.",
+    "reference": "none"
+  },
+  {
+    "id": "hicFindTADs.h5.Li_et_al_2015.default_depths",
+    "tool": "hicFindTADs",
+    "tier": 5,
+    "args": [
+      "-m",
+      "{data}/Li_et_al_2015.h5",
+      "--correctForMultipleTesting",
+      "fdr",
+      "--outPrefix",
+      "{out}/t"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/t_tad_score.bm",
+        "format": "text",
+        "class": "EX"
+      },
+      {
+        "path": "{out}/t_score.bedgraph",
+        "format": "text",
+        "class": "EX"
+      },
+      {
+        "path": "{out}/t_boundaries.bed",
+        "format": "text",
+        "class": "EX"
+      },
+      {
+        "path": "{out}/t_boundaries.gff",
+        "format": "text",
+        "class": "EX"
+      },
+      {
+        "path": "{out}/t_domains.bed",
+        "format": "text",
+        "class": "EX"
+      },
+      {
+        "path": "{out}/t_zscore_matrix.h5",
+        "format": "h5",
+        "class": "EX"
+      }
+    ],
+    "threads_arg": "--numberOfProcessors",
+    "memory": {
+      "budget_mb": 108
+    },
+    "large": true,
+    "expect_exit": 0,
+    "notes": "Class EX, not E0/E2 (deliberate deviation, HiCExplorer 4 fixes, project owner 2026-11-06): HiCExplorer 4 fixes four defects of 3.7.6 here (project owner, 2026-11-06): the delta of a minimum is the mean of the w scores left and the w scores right of it with the minimum excluded (3.7.6 averaged matrix_avg[i-w:i+3] with matrix_avg[i+4:i+w]), the chromosome start indices are kept apart from the end indices in the boundary list, the z-score matrix has no NaN entries beyond 2 * maxDepth, and the window lengths in bins use the bin size of the enlarged bins (3.7.6 used the input's). This input has restriction fragment bins, so the enlarged bins have a median of 1,889 bp where the input has 1,843 bp: the .bm header records binsize 1889, the windows of the spectrum are 9 rather than 10 bins and the scores, the calls (378 boundaries before) and the z-score band all differ from 3.7.6. The designated validation input: 11,104 restriction fragment bins of chromosome X with float64 values from 0.170 to 1914.015, so the bins are inhomogeneous and fit_cut_intervals snaps every start to a multiple of the 1,843 bp median. It also calls 378 boundaries, the largest set in the corpus for this tool. It is the case that found the one real numeric difference in the port: hicmatrix materialises the z-score band by adding a sparse band of ones and subtracting one again, so every float64 value is round tripped through v + 1 - 1 and loses its lowest bits. Computing from v directly left the z-scores 5.4e-11 relative away from the reference, which passes ED but is not E2; reproducing the round trip makes them bit identical. Also (HiCExplorer 4 fix of the load time field swap, project owner 2026-11-06): Li_et_al_2015.h5 carries /correction_factors. 3.7.6 unpacked the loader tuple the wrong way round, so the factors were written back as /distance_counts (and, for a tool that resets the factors, survived the reset as stale /distance_counts). HiCExplorer 4 keeps them in /correction_factors, or drops them where the tool resets them; the matrix, the bin table and every other dataset are unchanged. Pinned by test_h5_correction_factors_stay_in_their_dataset (test_hicAdjustMatrix.py), test_merge_tad_bins_clears_correction_factors and cpp/tests/test_matrix_ops.cpp.",
+    "reference": "none"
+  },
+  {
+    "id": "hicFindTADs.score_prefix.none",
+    "tool": "hicFindTADs",
+    "tier": 5,
+    "args": [
+      "-m",
+      "{data}/small_test_matrix.h5",
+      "--minDepth",
+      "60000",
+      "--maxDepth",
+      "180000",
+      "--step",
+      "20000",
+      "--TAD_sep_score_prefix",
+      "{data}/find_TADs/None/multiNone",
+      "--minBoundaryDistance",
+      "20000",
+      "--correctForMultipleTesting",
+      "None",
+      "--thresholdComparisons",
+      "1.0",
+      "--outPrefix",
+      "{out}/t"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/t_score.bedgraph",
+        "format": "text",
+        "class": "E0"
+      }
+    ],
+    "memory": {
+      "budget_mb": 143
+    },
+    "notes": "--TAD_sep_score_prefix, which no Python test passes. The spectrum and the z-score matrix are read from the committed reference rather than recomputed, so this case exercises only the calling half: peakdetect, delta_wrt_window, the Wilcoxon rank sum p-values and the uncorrected threshold. It is also the richest call set in the corpus, 1,416 boundaries and 1,411 domains (1,407 and 1,402 in 3.7.6). Budget is 2.2 * W of the z-score matrix plus 64 MB, W being 36.0 MB. Class E0 only for the outputs the fixes below leave unchanged; t_boundaries.bed, t_boundaries.gff, t_domains.bed are checked by the case hicFindTADs.v4.score_prefix.none. HiCExplorer 4 fixes four defects of 3.7.6 here (project owner, 2026-11-06): the delta of a minimum is the mean of the w scores left and the w scores right of it with the minimum excluded (3.7.6 averaged matrix_avg[i-w:i+3] with matrix_avg[i+4:i+w]), the chromosome start indices are kept apart from the end indices in the boundary list, the z-score matrix has no NaN entries beyond 2 * maxDepth, and the window lengths in bins use the bin size of the enlarged bins (3.7.6 used the input's)."
+  },
+  {
+    "id": "hicFindTADs.v4.score_prefix.none",
+    "tool": "hicFindTADs",
+    "tier": 5,
+    "args": [
+      "-m",
+      "{data}/small_test_matrix.h5",
+      "--minDepth",
+      "60000",
+      "--maxDepth",
+      "180000",
+      "--step",
+      "20000",
+      "--TAD_sep_score_prefix",
+      "{data}/find_TADs/None/multiNone",
+      "--minBoundaryDistance",
+      "20000",
+      "--correctForMultipleTesting",
+      "None",
+      "--thresholdComparisons",
+      "1.0",
+      "--outPrefix",
+      "{out}/t"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/t_boundaries.bed",
+        "format": "text",
+        "class": "EX"
+      },
+      {
+        "path": "{out}/t_boundaries.gff",
+        "format": "text",
+        "class": "EX"
+      },
+      {
+        "path": "{out}/t_domains.bed",
+        "format": "text",
+        "class": "EX"
+      }
+    ],
+    "memory": {
+      "budget_mb": 143
+    },
+    "notes": "Class EX, not E0/E2 (deliberate deviation, HiCExplorer 4 fixes, project owner 2026-11-06): HiCExplorer 4 fixes four defects of 3.7.6 here (project owner, 2026-11-06): the delta of a minimum is the mean of the w scores left and the w scores right of it with the minimum excluded (3.7.6 averaged matrix_avg[i-w:i+3] with matrix_avg[i+4:i+w]), the chromosome start indices are kept apart from the end indices in the boundary list, the z-score matrix has no NaN entries beyond 2 * maxDepth, and the window lengths in bins use the bin size of the enlarged bins (3.7.6 used the input's). The outputs of this case differ from 3.7.6 for these reasons; the other outputs of the same run are compared with 3.7.6 in hicFindTADs.score_prefix.none.",
+    "reference": "none"
+  },
+  {
+    "id": "hicFindTADs.score_prefix.bonferroni",
+    "tool": "hicFindTADs",
+    "tier": 5,
+    "args": [
+      "-m",
+      "{data}/small_test_matrix.h5",
+      "--minDepth",
+      "60000",
+      "--maxDepth",
+      "180000",
+      "--step",
+      "20000",
+      "--TAD_sep_score_prefix",
+      "{data}/find_TADs/bonferroni/multiBonferroni",
+      "--minBoundaryDistance",
+      "20000",
+      "--correctForMultipleTesting",
+      "bonferroni",
+      "--thresholdComparisons",
+      "0.1",
+      "--outPrefix",
+      "{out}/t"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/t_score.bedgraph",
+        "format": "text",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/t_boundaries.bed",
+        "format": "text",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/t_domains.bed",
+        "format": "text",
+        "class": "E0"
+      }
+    ],
+    "memory": {
+      "budget_mb": 143
+    },
+    "notes": "The Bonferroni branch of the multiple testing correction, with the p-values scaled by the number of comparisons and clamped at one. Class E0 only for the outputs the fixes below leave unchanged; t_boundaries.gff are checked by the case hicFindTADs.v4.score_prefix.bonferroni. HiCExplorer 4 fixes four defects of 3.7.6 here (project owner, 2026-11-06): the delta of a minimum is the mean of the w scores left and the w scores right of it with the minimum excluded (3.7.6 averaged matrix_avg[i-w:i+3] with matrix_avg[i+4:i+w]), the chromosome start indices are kept apart from the end indices in the boundary list, the z-score matrix has no NaN entries beyond 2 * maxDepth, and the window lengths in bins use the bin size of the enlarged bins (3.7.6 used the input's)."
+  },
+  {
+    "id": "hicFindTADs.v4.score_prefix.bonferroni",
+    "tool": "hicFindTADs",
+    "tier": 5,
+    "args": [
+      "-m",
+      "{data}/small_test_matrix.h5",
+      "--minDepth",
+      "60000",
+      "--maxDepth",
+      "180000",
+      "--step",
+      "20000",
+      "--TAD_sep_score_prefix",
+      "{data}/find_TADs/bonferroni/multiBonferroni",
+      "--minBoundaryDistance",
+      "20000",
+      "--correctForMultipleTesting",
+      "bonferroni",
+      "--thresholdComparisons",
+      "0.1",
+      "--outPrefix",
+      "{out}/t"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/t_boundaries.gff",
+        "format": "text",
+        "class": "EX"
+      }
+    ],
+    "memory": {
+      "budget_mb": 143
+    },
+    "notes": "Class EX, not E0/E2 (deliberate deviation, HiCExplorer 4 fixes, project owner 2026-11-06): HiCExplorer 4 fixes four defects of 3.7.6 here (project owner, 2026-11-06): the delta of a minimum is the mean of the w scores left and the w scores right of it with the minimum excluded (3.7.6 averaged matrix_avg[i-w:i+3] with matrix_avg[i+4:i+w]), the chromosome start indices are kept apart from the end indices in the boundary list, the z-score matrix has no NaN entries beyond 2 * maxDepth, and the window lengths in bins use the bin size of the enlarged bins (3.7.6 used the input's). The outputs of this case differ from 3.7.6 for these reasons; the other outputs of the same run are compared with 3.7.6 in hicFindTADs.score_prefix.bonferroni.",
+    "reference": "none"
+  },
+  {
+    "id": "hicFindTADs.score_prefix.fdr_threshold",
+    "tool": "hicFindTADs",
+    "tier": 5,
+    "args": [
+      "-m",
+      "{data}/small_test_matrix.h5",
+      "--minDepth",
+      "60000",
+      "--maxDepth",
+      "180000",
+      "--step",
+      "20000",
+      "--TAD_sep_score_prefix",
+      "{data}/find_TADs/None/multiNone",
+      "--minBoundaryDistance",
+      "100000",
+      "--delta",
+      "0.06",
+      "--correctForMultipleTesting",
+      "fdr",
+      "--thresholdComparisons",
+      "0.5",
+      "--outPrefix",
+      "{out}/t"
+    ],
+    "outputs": [
+      {
+        "path": "{out}/t_score.bedgraph",
+        "format": "text",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/t_boundaries.bed",
+        "format": "text",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/t_boundaries.gff",
+        "format": "text",
+        "class": "E0"
+      },
+      {
+        "path": "{out}/t_domains.bed",
+        "format": "text",
+        "class": "E0"
+      }
+    ],
+    "memory": {
+      "budget_mb": 143
+    },
+    "notes": "The three options the Python suite never varies at once: the Benjamini-Hochberg cutoff at a q-value of 0.5, --delta above its default and --minBoundaryDistance at five bins of lookahead."
+  }
+]

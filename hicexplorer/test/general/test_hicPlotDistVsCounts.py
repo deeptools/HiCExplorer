@@ -65,3 +65,46 @@ def test_trivial_run(matrices, labels, plotsize1, plotsize2, perchr, skipDiagona
     #     fo.write("\n")
     # hicPlotDistVsCounts.main(args)
     compute(hicPlotDistVsCounts.main, args, 5)
+
+
+def test_no_curve_to_draw_exits_1_with_a_message(tmp_path, capfd):
+    """Issue #836: with --maxdepth equal to the bin size (5000) only the diagonal
+    is left, no curve has more than one point, and 3.7.6 ended with
+    UnboundLocalError for 'lgd'. The tool stops with a message and status 1."""
+    plot = tmp_path / 'dv.png'
+    args = "--matrices {} --plotFile {} --maxdepth 5000".format(ROOT + 'small_test_matrix.cool', plot).split()
+    with pytest.raises(SystemExit) as exit_info:
+        hicPlotDistVsCounts.main(args)
+    assert exit_info.value.code == 1
+    captured = capfd.readouterr()
+    assert 'no curve with more than one point can be drawn' in captured.err
+    assert 'UnboundLocalError' not in captured.err
+    assert not plot.exists() or plot.stat().st_size == 0
+
+
+def _plot_package_directory():
+    """The directory holding hicexplorer_plot, where the tools look for it.
+
+    The tools put <bin>/../plot (source and build tree) or
+    <bin>/../share/hicexplorer/plot (installed package) on PYTHONPATH; the
+    test looks in the source tree of this checkout and in the installed
+    share directory of the running Python.
+    """
+    import sys
+    here = os.path.dirname(os.path.abspath(__file__))
+    candidates = [os.path.join(here, "..", "..", "..", "plot"),
+                  os.path.join(sys.prefix, "share", "hicexplorer", "plot")]
+    for candidate in candidates:
+        if os.path.exists(os.path.join(candidate, "hicexplorer_plot", "__main__.py")):
+            return os.path.abspath(candidate)
+    pytest.skip("hicexplorer_plot is neither in the checkout nor installed")
+
+
+def test_plot_layer_without_series_does_not_fail(tmp_path, monkeypatch):
+    """The plot code survives a data file without any series (lgd = None)."""
+    monkeypatch.syspath_prepend(_plot_package_directory())
+    from hicexplorer_plot import hicPlotDistVsCounts as plot_layer
+    plot = tmp_path / 'empty.png'
+    plot_layer.draw({'plotFile': str(plot), 'perchr': False, 'num_chroms': 0, 'maxdepth': 5000,
+                     'plotsize': None, 'matrices': [{'label': 'a', 'series': []}]})
+    assert plot.exists()
